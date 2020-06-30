@@ -110,17 +110,14 @@ def mass_update(ctx, query, field):
         rule.validate(as_rule=True)
         rule.save()
 
-    ctx.invoke(search_rules, query=query, columns=[k[0].split('.')[-1] for k in field])
-
-    return
+    return ctx.invoke(search_rules, query=query, columns=[k[0].split('.')[-1] for k in field])
 
 
 @root.command('view-rule')
 @click.argument('rule-id', required=False)
 @click.option('--rule-file', '-f', type=click.Path(dir_okay=False), help='Optionally view a rule from a specified file')
 @click.option('--as-api/--as-rule', default=True, help='Print the rule in final api or rule format')
-@click.option('--optimize/--no-optimize', default=False, help='When viewing in api format, include optimizations')
-def view_rule(rule_id, rule_file, as_api, optimize):
+def view_rule(rule_id, rule_file, as_api):
     """View an internal rule or specified rule file."""
     if rule_id:
         rule = rule_loader.get_rule(rule_id, verbose=False)
@@ -133,9 +130,6 @@ def view_rule(rule_id, rule_file, as_api, optimize):
     if not rule:
         click.secho('Unknown format!', fg='red')
         return
-
-    if optimize and as_api:
-        rule.tune()
 
     click.echo(toml_write(rule.rule_format()) if not as_api else json.dumps(rule.contents, indent=2, sort_keys=True))
 
@@ -213,7 +207,7 @@ def validate_all(fail):
 @click.option('--columns', '-c', multiple=True, help='Specify columns to add the table')
 @click.option('--language', type=click.Choice(["eql", "kql"]), default="kql")
 def search_rules(query, columns, language, verbose=True):
-    """Use KQL to find matching rules."""
+    """Use KQL or EQL to find matching rules."""
     from kql import get_evaluator
     from eql.table import Table
     from eql.build import get_engine
@@ -235,6 +229,7 @@ def search_rules(query, columns, language, verbose=True):
 
     flattened_rules.sort(key=lambda dct: dct["name"])
 
+    filtered = []
     if language == "kql":
         evaluator = get_evaluator(query) if query else lambda x: True
         filtered = list(filter(evaluator, flattened_rules))

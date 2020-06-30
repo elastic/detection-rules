@@ -105,8 +105,8 @@ def manage_versions(rules, current_versions=None, exclude_version_update=False, 
 class Package(object):
     """Packaging object for siem rules and releases."""
 
-    def __init__(self, rules, name, tune=False, release=False, current_versions=None, min_version=None,
-                 max_version=None, update_version_lock=False):
+    def __init__(self, rules, name, release=False, current_versions=None, min_version=None, max_version=None,
+                 update_version_lock=False):
         """Initialize a package."""
         self.rules = [r.copy() for r in rules]  # type: list[Rule]
         self.name = name
@@ -117,10 +117,6 @@ class Package(object):
         if min_version or max_version:
             self.rules = [r for r in self.rules
                           if (min_version or 0) <= r.contents['version'] <= (max_version or r.contents['version'])]
-
-        if tune:
-            for rule in rules:
-                rule.tune()
 
     def _add_versions(self, current_versions, update_versions_lock=False):
         """Add versions to rules at load time."""
@@ -231,18 +227,6 @@ class Package(object):
         new_rules = 'New Rules: \n{}'.format('\n'.join(' - ' + s for s in sorted(new)) if new else 'N/A')
         modified_rules = 'Modified Rules: \n{}'.format('\n'.join(' - ' + s for s in sorted(changed)) if new else 'N/A')
         return '\n'.join([total, sha256, ecs_versions, indices, new_rules, modified_rules])
-
-    def generate_mitre(self):
-        """Create an excel file based on mitre coverage."""
-        # mapping with highlights of covered cells - links to pivot table with technique id selected
-
-    def reconcile_changes(self):
-        """Parse and generate changes since previous release based on changed.toml file."""
-        # at packaging, generate flat changes file to standard, based on consolidated and deduped interpretation of
-        #   changed.toml and clear out changes.toml
-        # - all based on api_format only
-        # see packages.yml - can update management.changed = True:
-        #   until released in package, then added with filter and changed to False
 
     def generate_change_notes(self):
         """Generate change release notes."""

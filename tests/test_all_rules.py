@@ -68,12 +68,6 @@ class TestValidRules(unittest.TestCase):
             rule = Rule(file_name, contents)
             rule.validate(as_rule=True)
 
-    def test_all_rules_tuned(self):
-        """Ensure that every rule file validates against the rule schema."""
-        for file_name, contents in rule_loader.load_rule_files().items():
-            rule = Rule(file_name, contents, tune=True)
-            rule.validate(as_rule=True)
-
     def test_all_rule_queries_optimized(self):
         """Ensure that every rule query is in optimized form."""
         for file_name, contents in rule_loader.load_rule_files().items():
@@ -85,32 +79,6 @@ class TestValidRules(unittest.TestCase):
                 err_message = '\nQuery not optimized for rule: {} - {}\nExpected: {}\nActual:   {}'.format(
                     rule.name, rule.id, optimized, rule.query)
                 self.assertEqual(tree, optimized, err_message)
-
-    def test_ecs_version_in_query(self):
-        """Ensure that all rule queries have ecs version."""
-        # rule_loader.reset()
-        # rules = list(rule_loader.load_rules().values())
-        #
-        # for rule in rules:
-        #     ecs_ver = rule.metadata.get('ecs_version')
-        #     if ecs_ver:
-        #         self.assertTrue('ecs.version:{}'.format(ecs_ver) in rule.query,
-        #                         'ecs_version specified but missing from query')
-
-    def test_rules_lint_integrity(self):
-        """Verify that linting is not compromising integrity of a rule."""
-        '''def validate(source, linted, *args):
-            self.assertEqual(kql.lint(source), linted, *args)
-
-        rules = rule_loader.load_rules().values()
-
-        for rule in rules:
-            try:
-                linted = eql2kql.convert(kql2eql.parse(rule.query).render())
-                validate(rule.query, linted, 'Linting improperly modified the query from: \n\t{} \nto \n\t{}'.format(
-                         rule.query, linted))
-            except Exception as e:
-                raise Exception('{} - {}:\n{}'.format(rule.name, rule.query, e))'''
 
     def test_no_unrequired_defaults(self):
         """Test that values that are not required in the schema are not set with default values."""

@@ -17,7 +17,7 @@ from . import common
 
 
 @common.requires_os(common.WINDOWS)
-def main(remote_host=None):
+def main(username="rta-tester", remote_host=None):
     if not remote_host:
         common.log('A remote host is required to detonate this RTA', '!')
         return common.MISSING_REMOTE_HOST
@@ -26,11 +26,11 @@ def main(remote_host=None):
 
     common.log('Brute forcing login with invalid password against {}'.format(remote_host))
     ps_command = '''
-    $PW = ConvertTo-SecureString "Lose-y0urse1f" -AsPlainText -Force
+    $PW = ConvertTo-SecureString "such-secure-passW0RD!" -AsPlainText -Force
     $CREDS = New-Object System.Management.Automation.PsCredential {username}, $PW
     Invoke-WmiMethod -ComputerName {host} -Class Win32_process -Name create -ArgumentList ipconfig -Credential $CREDS
     '''
-    command = ['powershell', '-c', ps_command.format(username='zeus', host=remote_host)]
+    command = ['powershell', '-c', ps_command.format(username=username, host=remote_host)]
 
     # fail 4 times - the first 3 concurrently and wait for the final to complete
     for i in range(4):

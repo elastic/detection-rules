@@ -61,11 +61,6 @@ def save_etc_dump(contents, *path):
     return eql.utils.save_dump(contents, get_etc_path(*path))
 
 
-def get_ecs_fields(endgame_field):
-    ecs_mapping = load_etc_dump('ecs_mappings.json')
-    return ecs_mapping.get(endgame_field)
-
-
 def save_gzip(contents):
     gz_file = io.BytesIO()
 

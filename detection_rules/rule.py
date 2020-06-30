@@ -26,7 +26,7 @@ _META_SCHEMA_REQ_DEFAULTS = {}
 class Rule(object):
     """Rule class containing all the information about a rule."""
 
-    def __init__(self, path, contents, tune=False):
+    def __init__(self, path, contents):
         """Create a Rule from a toml management format."""
         self.path = os.path.realpath(path)
         self.contents = contents.get('rule', contents)
@@ -36,19 +36,13 @@ class Rule(object):
 
         self.validate()
         self.unoptimized_query = self.contents.get('query')
-
-        if tune:
-            self.tune_rule = True
-            self.tune()
-
         self._original_hash = self.get_hash()
 
     def __str__(self):
         return 'name={}, path={}, query={}'.format(self.name, self.path, self.query)
 
     def __repr__(self):
-        return '{}(path={}, contents={}, tune={})'.format(type(self).__name__, repr(self.path), repr(self.contents),
-                                                          repr(self.tune_rule))
+        return '{}(path={}, contents={})'.format(type(self).__name__, repr(self.path), repr(self.contents))
 
     def __eq__(self, other):
         if type(self) == type(other):
@@ -122,48 +116,6 @@ class Rule(object):
         """Normalize the (api only) contents and return a serialized dump of it."""
         return json.dumps(nested_normalize(self.contents), sort_keys=True, indent=indent)
 
-    def tune(self):
-        """Tune query by including applicable fields derived from metadata."""
-        # if not self.query:
-        #     return
-        #
-        # self.unoptimized_query = self.contents.get('query')
-        #
-        # if not hasattr(self.parsed_query, 'terms'):
-        #     # can prepend here if we want
-        #     return
-        #
-        # # TODO: This is error prone and absolutely can/should be better done with a custom walker to:
-        # #  - find these fields
-        # #  - move them to the front/highest precedence
-        # #  - dedup+update them with these values from metadata
-        # #  I am going to leave it for now as a good mechanism for testing the theory and since it only impacts at
-        # #    "package" time and will open an issue in the meantime
-        #
-        # # add os version
-        # # many os ecs fields - will optimize later
-        # # if not any(str(term.left) == '' for term in parsed_query.terms) and self.metadata.get('os_type_list'):
-        # #     self.contents['query'] = ':({}) and '.format(' or '.join(self.metadata['_os_type_list'])) + self.query
-        #
-        # # add ecs version
-        # # handle these better with eql2kql
-        # compares = [str(term.left) == 'ecs.version' for term in self.parsed_query.terms
-        #             if isinstance(term, Comparison)]
-        # in_sets = [str(term.expression) == 'ecs.version' for term in self.parsed_query.terms
-        #            if isinstance(term, InSet)]
-        #
-        # if any(in_sets):
-        #     pass
-        # elif any(compares):
-        #     pass
-        # elif not (any(compares) or any(in_sets)):
-        #     ecs_query = ' or '.join(self.metadata['ecs_version'])
-        #     self.contents['query'] = 'ecs.version:({}) and '.format(ecs_query) + self.query
-
-    def untune(self):
-        """Restore query to pre-tuned state."""
-        # self.contents['query'] = self.unoptimized_query
-
     def get_path(self):
         """Wrapper around getting path."""
         if not self.path:
@@ -174,14 +126,6 @@ class Rule(object):
     def needs_save(self):
         """Determines if the rule was changed from original or was never saved."""
         return self._original_hash != self.get_hash()
-
-    @classmethod  # TODO
-    def from_eql_rule(cls, path, contents, validate=False):
-        """Create a rule from loaded rule (toml) contents."""
-        # if validate:
-        #     jsonschema.validate(contents, rule_schema)
-
-        return cls(path, contents)
 
     def bump_version(self):
         """Bump the version of the rule."""
