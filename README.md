@@ -2,7 +2,7 @@
 
 Detection Rules is the home for rules used by Elastic Security. This repository is used for the development, maintenance, testing, validation, and release of rules for Elastic Security’s Detection Engine.
 
-This repository was first announced on Elastic's blog post, [You know the rules, and so do I](https://www.elastic.co/blog/you-know-the-rules-and-so-do-I).
+This repository was first announced on Elastic's blog post, [Elastic Security opens public detection rules repo](https://elastic.co/blog/elastic-security-opens-public-detection-rules-repo).
 
 
 ## Table of Contents
