@@ -6,19 +6,20 @@ labels: new-rule
 assignees: ''
 
 ---
-
 ## Description
 <!-- Provide a detailed description of the activity to be detected -->
 
+
 ## Required Info
 
-- **Eventing Sources:** [*filebeat, sysmon, etc.]
+- **Eventing Sources:**
+<!-- filebeat, sysmon, etc. -->
 
 - **Target Operating Systems:**
-<-- windows, linux, macOS, etc -->
+<!-- windows, linux, macOS, etc -->
 
 - **Platforms**
-<-- okta, cloudtrail, etc -->
+<!-- okta, cloudtrail, etc -->
 
 - **Target ECS Version:** x.x.x
 - **New fields required in ECS for this? Associated issue/PR:**

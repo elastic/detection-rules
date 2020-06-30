@@ -7,19 +7,10 @@ assignees: ''
 
 ---
 
-<!--- Before submitting an issue to tune a rule, be sure you first understand the [information on rules](../../docs/rules-info.md) --->
-
+<!-- Before submitting an issue to tune a rule, be sure you first understand the [information on rules](../../docs/rules-info.md) --->
 
 ## Description
-Provide a detailed description of the suggested changes
+<!-- Provide a detailed description of the suggested changes -->
 
 ## Example Data
-If the query is to be changed, include data here.
-
-ex: elasticsearch documents, endpoint eql eventing or timelines, etc.
-
-```json
-{
-  "paste_dataz": "here"
-}
-```
+<!-- If the query is to be changed, include example JSON data or a screenshot -->
