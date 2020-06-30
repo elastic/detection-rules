@@ -5,7 +5,7 @@
 # coding=utf-8
 """Shell for detection-rules."""
 import os
-
+import click
 from .main import root
 
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +21,7 @@ BANNER = r"""
 
 def main():
     """CLI entry point."""
-    print(BANNER)
+    click.echo(BANNER)
     root(prog_name="detection_rules")
 
 
