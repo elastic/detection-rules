@@ -1,0 +1,60 @@
+[metadata]
+creation_date = "2020/04/29"
+ecs_version = ["1.4.0"]
+maturity = "production"
+updated_date = "2020/04/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Users can mark specific files as hidden simply by putting a "." as the first character in the file or folder name.
+Adversaries can use this to their advantage to hide files and folders on the system for persistence and defense evasion.
+This rule looks for hidden files or folders in common writable directories.
+"""
+false_positives = [
+    """
+    Certain tools may create hidden temporary files or directories upon installation or as part of their normal
+    behavior. These events can be filtered by the process arguments, username, or process name values.
+    """,
+]
+index = ["auditbeat-*"]
+language = "lucene"
+license = "Elastic License"
+max_signals = 33
+name = "Creation of Hidden Files and Directories"
+risk_score = 47
+rule_id = "b9666521-4742-49ce-9ddc-b8e84c35acae"
+severity = "medium"
+tags = ["Elastic", "Linux"]
+type = "query"
+
+query = '''
+event.action:executed AND process.working_directory:("/tmp" or "/var/tmp" or "/dev/shm") AND process.args:/\.[a-zA-Z0-9_\-][a-zA-Z0-9_\-\.]{1,254}/ AND NOT process.name:(cd or ls or find)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1158"
+name = "Hidden Files and Directories"
+reference = "https://attack.mitre.org/techniques/T1158/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1158"
+name = "Hidden Files and Directories"
+reference = "https://attack.mitre.org/techniques/T1158/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

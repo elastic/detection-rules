@@ -1,0 +1,53 @@
+[metadata]
+creation_date = "2020/02/18"
+ecs_version = ["1.4.0"]
+maturity = "production"
+updated_date = "2020/02/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Windows contains accessibility features that may be launched with a key combination before a user has logged in. An
+adversary can modify the way these programs are launched to get a command prompt or backdoor without logging in to the
+system.
+"""
+index = ["winlogbeat-*"]
+language = "kuery"
+license = "Elastic License"
+name = "Potential Modification of Accessibility Binaries"
+risk_score = 21
+rule_id = "7405ddf1-6c8e-41ce-818f-48bea6bcaed8"
+severity = "low"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.code:1 and process.parent.name:winlogon.exe and process.name:(atbroker.exe or displayswitch.exe or magnify.exe or narrator.exe or osk.exe or sethc.exe or utilman.exe)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1015"
+name = "Accessibility Features"
+reference = "https://attack.mitre.org/techniques/T1015/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1015"
+name = "Accessibility Features"
+reference = "https://attack.mitre.org/techniques/T1015/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

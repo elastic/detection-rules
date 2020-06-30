@@ -1,0 +1,40 @@
+[metadata]
+creation_date = "2020/02/18"
+ecs_version = ["1.4.0"]
+maturity = "production"
+updated_date = "2020/02/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies use of the fsutil.exe to delete the volume USNJRNL. This technique is used by attackers to eliminate evidence
+of files created during post-exploitation activities.
+"""
+index = ["winlogbeat-*"]
+language = "kuery"
+license = "Elastic License"
+name = "Delete Volume USN Journal with Fsutil"
+risk_score = 21
+rule_id = "f675872f-6d85-40a3-b502-c0d2ef101e92"
+severity = "low"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.action:"Process Create (rule: ProcessCreate)" and process.name:fsutil.exe and process.args:(deletejournal and usn)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1107"
+name = "File Deletion"
+reference = "https://attack.mitre.org/techniques/T1107/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

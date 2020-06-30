@@ -1,0 +1,38 @@
+[metadata]
+creation_date = "2020/02/18"
+ecs_version = ["1.4.0"]
+maturity = "production"
+updated_date = "2020/02/18"
+
+[rule]
+author = ["Elastic"]
+description = "A scheduled task can be used by an adversary to establish persistence, move laterally, and/or escalate privileges."
+false_positives = ["Legitimate scheduled tasks may be created during installation of new software."]
+index = ["winlogbeat-*"]
+language = "kuery"
+license = "Elastic License"
+name = "Local Scheduled Task Commands"
+risk_score = 21
+rule_id = "afcce5ad-65de-4ed2-8516-5e093d3ac99a"
+severity = "low"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.action:"Process Create (rule: ProcessCreate)" and process.name:schtasks.exe and process.args:(-change or -create or -run or -s or /S or /change or /create or /run)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

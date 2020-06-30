@@ -1,0 +1,46 @@
+[metadata]
+creation_date = "2020/02/18"
+ecs_version = ["1.4.0"]
+maturity = "production"
+updated_date = "2020/02/18"
+
+[rule]
+author = ["Elastic"]
+description = "A request to a web application server contained no identifying user agent string."
+false_positives = [
+    """
+    Some normal applications and scripts may contain no user agent. Most legitimate web requests from the Internet
+    contain a user agent string. Requests from web browsers almost always contain a user agent string. If the source is
+    unexpected, the user unauthorized, or the request unusual, these may indicate suspicious or malicious activity.
+    """,
+]
+index = ["apm-*-transaction*"]
+language = "kuery"
+license = "Elastic License"
+name = "Web Application Suspicious Activity: No User Agent"
+references = ["https://en.wikipedia.org/wiki/User_agent"]
+risk_score = 47
+rule_id = "43303fd4-4839-4e48-b2b2-803ab060758d"
+severity = "medium"
+tags = ["APM", "Elastic"]
+type = "query"
+
+query = '''
+url.path:*
+'''
+
+
+[[rule.filters]]
+
+[rule.filters."$state"]
+store = "appState"
+[rule.filters.exists]
+field = "user_agent.original"
+[rule.filters.meta]
+disabled = false
+indexRefName = "kibanaSavedObjectMeta.searchSourceJSON.filter[0].meta.index"
+key = "user_agent.original"
+negate = true
+type = "exists"
+value = "exists"
+

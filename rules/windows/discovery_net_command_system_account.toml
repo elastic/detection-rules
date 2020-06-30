@@ -1,0 +1,40 @@
+[metadata]
+creation_date = "2020/03/18"
+ecs_version = ["1.5.0"]
+maturity = "production"
+updated_date = "2020/03/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the SYSTEM account using the Net utility. The Net utility is a component of the Windows operating system. It
+is used in command line operations for control of users, groups, services, and network connections.
+"""
+index = ["winlogbeat-*"]
+language = "kuery"
+license = "Elastic License"
+name = "Net command via SYSTEM account"
+risk_score = 21
+rule_id = "2856446a-34e6-435b-9fb5-f8f040bfa7ed"
+severity = "low"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+(process.name:net.exe or process.name:net1.exe and not process.parent.name:net.exe) and user.name:SYSTEM and event.action:"Process Create (rule: ProcessCreate)"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+

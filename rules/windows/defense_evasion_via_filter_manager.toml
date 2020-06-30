@@ -1,0 +1,40 @@
+[metadata]
+creation_date = "2020/02/18"
+ecs_version = ["1.4.0"]
+maturity = "production"
+updated_date = "2020/02/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+The Filter Manager Control Program (fltMC.exe) binary may be abused by adversaries to unload a filter driver and evade
+defenses.
+"""
+index = ["winlogbeat-*"]
+language = "kuery"
+license = "Elastic License"
+name = "Potential Evasion via Filter Manager"
+risk_score = 21
+rule_id = "06dceabf-adca-48af-ac79-ffdf4c3b1e9a"
+severity = "low"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.code:1 and process.name:fltMC.exe
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1222"
+name = "File and Directory Permissions Modification"
+reference = "https://attack.mitre.org/techniques/T1222/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
