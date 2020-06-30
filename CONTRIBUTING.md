@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to Detection Rules. We've crafted this document to make it simple and easy for you to contribute. We recommend that you read these contribution guidelines carefully so that you spend less time working on GitHub issues and PRs and can be more productive contributing to this repository.
 
-These guidelines will also help you post meaningful issues that will be more easily understood, considered and resolved. These guidelines are here to help you whether you are creating a new rule, opening an issue to report a false positive or requesting a feature.
+These guidelines will also help you post meaningful issues that will be more easily understood, considered, and resolved. These guidelines are here to help you whether you are creating a new rule, opening an issue to report a false positive, or requesting a feature.
 
 ## Table of Contents
 
@@ -11,17 +11,17 @@ These guidelines will also help you post meaningful issues that will be more eas
   - [What a good issue looks like](#what-a-good-issue-looks-like)
   - ["My issue isn’t getting enough attention"](#my-issue-isnt-getting-enough-attention)
   - ["I want to help!"](#i-want-to-help)
-- [How We Use Git and GitHub](#how-we-use-git-and-github)
+- [How we use Git and GitHub](#how-we-use-git-and-github)
   - [Forking](#forking)
   - [Branching](#branching)
-  - [Commit Messages](#commit-messages)
-  - [What Goes Into a Pull Request](#what-goes-into-a-pull-request)
+  - [Commit messages](#commit-messages)
+  - [What goes into a Pull Request](#what-goes-into-a-pull-request)
 - [Our approach to detection engineering](#our-approach-to-detection-engineering)
   - [Rule metadata](#rule-metadata)
   - [Using Elastic Common Schema (ECS)](#using-elastic-common-schema-ecs)
   - [Creating a rule with the CLI](#creating-a-rule-with-the-cli)
   - [Testing a rule with the CLI](#testing-a-rule-with-the-cli)
-- [Writing Style](#writing-style)
+- [Writing style](#writing-style)
 - [Signing the contributor license agreement](#signing-the-contributor-license-agreement)
 - [Submitting a Pull Request](#submitting-a-pull-request)
   - [What to expect from a code review](#what-to-expect-from-a-code-review)
@@ -32,7 +32,7 @@ These guidelines will also help you post meaningful issues that will be more eas
 
 ### Why we create issues before contributing code or new rules
 
-We generally create issues in GitHub before contributing code or new rules. This helps front-load the conversation before the rules. There are many rules that will make sense in one or two environments, but don't work as well in general. Some rules are over-fitted to a particular indicator or tool. By creating an issue first, it creates an opportunity to bounce our ideas off each other to see what's feasible and what ways to approach detection.
+We generally create issues in GitHub before contributing code or new rules. This helps front-load the conversation before the rules. There are many rules that will make sense in one or two environments, but don't work as well in general. Some rules are overfitted to a particular indicator or tool. By creating an issue first, it creates an opportunity to bounce our ideas off each other to see what's feasible and what ways to approach detection.
 
 By contrast, starting with a pull request makes it more difficult to revisit the approach. Many PRs are treated as mostly done and shouldn't need much work to get merged. Nobody wants to receive PR feedback that says "start over" or "closing: won't merge." That's discouraging to everyone, and we can avoid those situations if we have the discussion together earlier in the development process. It might be a mental switch for you to start the discussion earlier, but it makes us all more productive and and our rules more effective.
 
@@ -52,7 +52,7 @@ When requesting a **New rule**, please create an issue of the **New rule** type.
 
 * What are the matching MITRE ATT&CK® technique and tactics?
 * What data sources are needed?
-* Does a detection need fields that aren't in ECS yet?
+* Does a detection need fields that aren't listed in Elastic Common Schema (ECS) yet?
 * Is the technique behavior-based, or is it based on indicators of compromise?
 
 ### "My issue isn't getting enough attention"
@@ -70,7 +70,7 @@ Of course, feel free to bump your issues if you think they've been neglected for
 We enjoy working with contributors to get their code accepted. There are many approaches to fixing a problem and it is important to find the best approach before writing too much code.
 
 
-## How We Use Git and GitHub
+## How we use Git and GitHub
 
 ### Forking
 
@@ -86,13 +86,13 @@ The basic branching workflow we follow for Detection Rules:
 * During feature freeze for a release, we will create a branch from `main` for the release version `{majorVersion.minorVersion}`. This means that we can continue contributing to `main`, even during feature freeze, and it will just target `{majorVersion.minorVersion+1}`
 * For bug fixes and other changes targeting the pending release during feature freeze, we will make those contributions to `{majorVersion.minorVersion}`. Periodically, we will then backport those changes from `{majorVersion.minorVersion}` to `main`
 
-### Commit Messages
+### Commit messages
 
 * Feel free to make as many commits as you want, while working on a branch.
 * Please use your commit messages to include helpful information on your changes. Commit messages that look like `update` are unhelpful to reviewers. Try to be clear and concise with the changes in a commit. For example: `Add Sysmon support to MsBuild network rule`. Here's a [good blog](https://chris.beams.io/posts/git-commit/) on general best practices for commit messages.
 
 
-### What Goes Into a Pull Request
+### What goes into a Pull Request
 
 * Please include an explanation of your changes in your PR description.
 * Links to relevant issues, external resources, or related PRs are very important and useful.
@@ -112,7 +112,7 @@ For more information on our approach to writing threat-based detection logic, pl
 
 ### Rule metadata
 
-Detection logic in itself is not enough to be useful to practitioners. Rules need to contain more information, like a name, description and severity levels within the metadata. Try to be thorough with the metadata you provide for a rule. Some of the information is required for a rule to run, other information is provided to the user enabling the rule, and some information is also invaluable context to users that triage the alerts generated by a rule.
+Detection logic in itself is not enough to be useful to practitioners. Rules need to contain more information, like a name, description, and severity levels within the metadata. Try to be thorough with the metadata you provide for a rule. Some of the information is required for a rule to run, other information is provided to the user enabling the rule, and some information is also invaluable context to users that triage the alerts generated by a rule.
 
 Some of the required metadata captured in a rule file:
 
@@ -132,8 +132,8 @@ Some of the required metadata captured in a rule file:
 | **query**            |     ✓    | The query language code for rules of type `query`                               |
 | **risk_score**       |          | Integer to rank the risk relative to other rules. Leave blank if unknown        |
 | **rule_id**          |     ✓    | Automatically generated UUID for the rule                                       |
-| **severity**         |     ✓    | Severity of the matching results (e.g. `low`, `medium`, `high`, `critical`)     |
-| **tags**             |          | Array of tags for grouping the rule (e.g. `APM`, `Linux`, `Packetbeat`, ...)    |
+| **severity**         |     ✓    | Severity of the matching results (e.g., `low`, `medium`, `high`, `critical`)     |
+| **tags**             |          | Array of tags for grouping the rule (e.g., `APM`, `Linux`, `Packetbeat`, ...)    |
 | **threat**           |     ✓    | Mapping to a threat framework, such as MITRE ATT&CK®                            |
 | **to**               |          | Relative end time of a rule (e.g. `now`)                                        |
 | **type**             |     ✓    | Execution type of the rule (`query` or `machine_learning`)                      |
@@ -143,13 +143,13 @@ Some of the required metadata captured in a rule file:
 
 Our rules should be written generically when possible. We use [Elastic Common Schema (ECS)](https://www.elastic.co/guide/en/ecs/current/ecs-reference.html) to standardize data before ingesting into Elasticsearch. ECS gives a set of field sets, field names and categories to standardize events across various tools. By writing rules using ECS fields and values, you can reuse the same logic regardless of data source. ECS is an ongoing effort, and we may encounter fields that aren't present yet. If you need to make any requests to ECS, see the [elastic/ecs](https://github.com/elastic/ecs) GitHub repository.
 
-Sometimes, it might not make sense for ECS to standardize a field, value or category. Occasionally, we may encounter fields that specific to a single use-case or vendor. When that happens, we add an exception in [etc/non-ecs-schema.json](etc/non-ecs-schema.json). We automatically detect beats by looking at the index patterns used in a rule. If we see `winlogbeat-*`, for example, then we can validate the rule against ECS + Winlogbeat. When using a particular beat, please use `event.module` and `event.dataset` to make the rule more precise and to better nudge the validation logic.
+Sometimes, it might not make sense for ECS to standardize a field, value, or category. Occasionally, we may encounter fields that specific to a single use-case or vendor. When that happens, we add an exception in [etc/non-ecs-schema.json](etc/non-ecs-schema.json). We automatically detect beats by looking at the index patterns used in a rule. If we see `winlogbeat-*`, for example, then we can validate the rule against ECS + Winlogbeat. When using a particular beat, please use `event.module` and `event.dataset` to make the rule more precise and to better nudge the validation logic.
 
 When a Pull Request is missing a necessary ECS change, please add an issue to [elastic/ecs](https://github.com/elastic/ecs) and link it from the pull request. We don't want to leave PRs blocked for too long, so if the ECS issue isn't progressing, then we can add a note and use the vendor- or beat-specific fields. We'll create another issue, reminding us to update the rule logic to switch to the ECS field when it becomes available. To maximize compatibility, we may add an `or` clause for a release or two to handle the different permutatations. After a few releases, we'll remove this and strictly require the ECS fields.
 
 ### Creating a rule with the CLI
 
-We manage our repository with a command line tool that automatically creates TOML files, validates rules and bundles all rules for the Detection Engine. There's a lot of metadata for each rule, and manually copying and pasting rule files is error prone and tedious. To create a new rule, run the command below, which iterates through the required metadata, and prompts for each field.
+We manage our repository with a command line tool that automatically creates TOML files, validates rules, and bundles all rules for the Detection Engine. There's a lot of metadata for each rule, and manually copying and pasting rule files is error prone and tedious. To create a new rule, run the command below, which iterates through the required metadata, and prompts for each field.
 
 
 For example, to create a new rule file for `rules/windows/defense_evasion_msbuild_child.toml`, run the command
@@ -224,9 +224,9 @@ tests/kuery/test_parser.py::ParserTests::test_number_wildcard_fail PASSED       
 ```
 
 
-## Writing Style
+## Writing style
 
-Our rules are much more than queries. We capture a lot of metadata within the rules, such as severity, indexes and noise level. We also have several fields that are user-readable text, such as `name`, `description`, `false_positives`, `investigation_notes` and `name`. Those fields, which are populated with English text[*](#i18n-note), should follow the [Elastic UI writing guidelines](https://elastic.github.io/eui/#/guidelines/writing). We want our text to be *clear* and *concise*, *consistent* and *conversational*.
+Our rules are much more than queries. We capture a lot of metadata within the rules, such as severity, index pattterns, and noise level. We also have several fields that are user-readable text, such as `name`, `description`, `false_positives`, `investigation_notes`, and `name`. Those fields, which are populated with English text[*](#i18n-note), should follow the [Elastic UI writing guidelines](https://elastic.github.io/eui/#/guidelines/writing). We want our text to be *clear* and *concise*, *consistent* and *conversational*.
 
 <a id="i18n-note">\* Note</a>: We currently don't have i18n support for Detection Rules.
 
