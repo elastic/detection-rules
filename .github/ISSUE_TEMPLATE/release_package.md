@@ -1,5 +1,5 @@
 ---
-name: Release Package
+name: Release package
 about: Meta Issue for a package release
 title: "[Release] package name or stack version"
 labels: release-package

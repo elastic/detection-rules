@@ -2,7 +2,7 @@
 name: Rule Deprecation
 about: Recommendation to deprecate a rule
 title: "[Deprecation] Name of the rule"
-labels: Rule: Deprecation
+labels: "Rule: Deprecation"
 assignees: ''
 
 ---

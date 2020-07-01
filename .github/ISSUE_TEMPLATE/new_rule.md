@@ -1,8 +1,8 @@
 ---
-name: New Rule
+name: New rule
 about: Suggestions and ideas for new rules
 title: "[New Rule] "
-labels: Rule: New
+labels: "Rule: New"
 assignees: ''
 
 ---
