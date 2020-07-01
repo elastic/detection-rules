@@ -1,5 +1,5 @@
 ---
-name: Tune Existing Rule
+name: Tune existing rule
 about: Suggestion for logic changes to an existing rule
 title: "[Rule Tuning] Name of rule"
 labels: "Rule: Tuning"

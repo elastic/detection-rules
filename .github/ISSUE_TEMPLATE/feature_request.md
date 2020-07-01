@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an idea for this project (Note: this does not include rule logic)
+about: "Suggest an idea for this project (Note: this does not include rule logic)"
 title: "[FR]"
 labels: enhancement
 assignees: ''
