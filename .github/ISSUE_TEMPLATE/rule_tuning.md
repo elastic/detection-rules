@@ -2,7 +2,7 @@
 name: Tune Existing Rule
 about: Suggestion for logic changes to an existing rule
 title: "[Rule Tuning] Name of rule"
-labels: rule-tuning
+labels: Rule: Tuning
 assignees: ''
 
 ---
