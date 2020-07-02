@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.4.0"]
+ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/02/18"
+updated_date = "2020/05/14"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,7 @@ false_positives = [
     be excluded.
     """,
 ]
-index = ["filebeat-*"]
+index = ["filebeat-*", "packetbeat-*"]
 language = "kuery"
 license = "Elastic License"
 name = "PPTP (Point to Point Tunneling Protocol) Activity"
@@ -30,7 +30,7 @@ tags = ["Elastic", "Network"]
 type = "query"
 
 query = '''
-network.transport:tcp and destination.port:1723
+event.category:(network or network_traffic) and network.transport:tcp and destination.port:1723
 '''
 
 
@@ -46,4 +46,3 @@ reference = "https://attack.mitre.org/techniques/T1043/"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
