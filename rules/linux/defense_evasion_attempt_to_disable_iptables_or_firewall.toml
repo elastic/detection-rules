@@ -21,7 +21,11 @@ tags = ["Elastic", "Linux"]
 type = "query"
 
 query = '''
-event.action:(executed or process_started) and (process.name:service and process.args:stop or process.name:chkconfig and process.args:off) and process.args:(ip6tables or iptables or firewalld) or process.name:systemctl and process.args:((firewalld or iptables or ip6tables) and (disable or stop or kill))
+event.action:(executed or process_started) and (
+  (process.name:service and process.args:stop) or
+  (process.name:chkconfig and process.args:off) or
+  (process.name:systemctl and process.args:(disable or stop or kill))
+) and process.args:(ip6tables or iptables or firewalld)
 '''
 
 
