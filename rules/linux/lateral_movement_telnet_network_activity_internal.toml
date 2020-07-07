@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/04/23"
-ecs_version = ["1.4.0"]
+ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/04/23"
+updated_date = "2020/06/25"
 
 [rule]
 author = ["Elastic"]
@@ -29,7 +29,10 @@ tags = ["Elastic", "Linux"]
 type = "query"
 
 query = '''
-event.action:("connected-to" or "network_flow") and process.name:telnet and destination.ip:((10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16 or "FE80::/10") and not (127.0.0.0/8 or "::1/128"))
+event.category:network and event.type:(connection or start) and
+  process.name:telnet and
+  destination.ip:((10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16 or "FE80::/10") and
+                    not (127.0.0.0/8 or "::1/128"))
 '''
 
 
