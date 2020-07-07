@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/03/25"
+updated_date = "2020/06/24"
 
 [rule]
 author = ["Elastic"]
@@ -22,9 +22,9 @@ tags = ["Elastic", "Windows"]
 type = "query"
 
 query = '''
-(pe.original_file_name:MSBuild.exe or winlog.event_data.OriginalFileName: MSBuild.exe) and
-  not process.name: MSBuild.exe and
-  event.action: "Process Create (rule: ProcessCreate)"
+event.category:process and event.type:(start or process_started) and
+  (pe.original_file_name:MSBuild.exe or winlog.event_data.OriginalFileName:MSBuild.exe) and
+  not process.name: MSBuild.exe
 '''
 
 
