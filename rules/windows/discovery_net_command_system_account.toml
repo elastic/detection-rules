@@ -2,7 +2,7 @@
 creation_date = "2020/03/18"
 ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/03/18"
+updated_date = "2020/06/24"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,9 @@ tags = ["Elastic", "Windows"]
 type = "query"
 
 query = '''
-(process.name:net.exe or process.name:net1.exe and not process.parent.name:net.exe) and user.name:SYSTEM and event.action:"Process Create (rule: ProcessCreate)"
+event.category:process and event.type:(start or process_started) and
+  (process.name:net.exe or process.name:net1.exe and not process.parent.name:net.exe) and
+  user.name:SYSTEM
 '''
 
 

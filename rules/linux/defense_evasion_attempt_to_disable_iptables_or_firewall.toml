@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2020/04/24"
-ecs_version = ["1.4.0"]
+ecs_version = ["1.5.0"]
 maturity = "production"
 updated_date = "2020/07/01"
 
@@ -21,11 +21,13 @@ tags = ["Elastic", "Linux"]
 type = "query"
 
 query = '''
-event.action:(executed or process_started) and (
-  (process.name:service and process.args:stop) or
-  (process.name:chkconfig and process.args:off) or
-  (process.name:systemctl and process.args:(disable or stop or kill))
-) and process.args:(ip6tables or iptables or firewalld)
+event.category:process and event.type:(start or process_started) and
+  process.name:ufw and process.args:(allow or disable or reset) or
+
+  (((process.name:service and process.args:stop) or
+     (process.name:chkconfig and process.args:off) or
+     (process.name:systemctl and process.args:(disable or stop or kill))) and
+   process.args:(firewalld or ip6tables or iptables))
 '''
 
 
@@ -41,4 +43,3 @@ reference = "https://attack.mitre.org/techniques/T1089/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
