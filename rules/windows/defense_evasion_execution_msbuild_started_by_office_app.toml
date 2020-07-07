@@ -2,7 +2,7 @@
 creation_date = "2020/03/25"
 ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/03/25"
+updated_date = "2020/06/24"
 
 [rule]
 author = ["Elastic"]
@@ -28,10 +28,10 @@ tags = ["Elastic", "Windows"]
 type = "query"
 
 query = '''
-process.name:MSBuild.exe and
+event.category:process and event.type:(start or process_started) and
+  process.name:MSBuild.exe and
   process.parent.name:(eqnedt32.exe or excel.exe or fltldr.exe or msaccess.exe or
-                       mspub.exe or outlook.exe or powerpnt.exe or winword.exe) and
-  event.action: "Process Create (rule: ProcessCreate)"
+                       mspub.exe or outlook.exe or powerpnt.exe or winword.exe)
 '''
 
 
