@@ -1,0 +1,42 @@
+[metadata]
+creation_date = "2020/07/07"
+ecs_version = ["1.5.0"]
+maturity = "production"
+updated_date = "2020/07/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+The hosts file on endpoints is used to control manual IP to hostname resolutions. The hosts file is the first point of
+lookup for DNS hostname resolution so if adversaries can modify the endpoint hosts file, they can route traffic to
+malicious infrastructure. This rule detects modifications to the hosts file on Microsoft Windows, Linux (Ubuntu or RHEL)
+and macOS systems. For Windows systems, this rule requires adding "C:/Windows/System32/drivers/etc" as an additional
+path in the "file_integrity" module of auditbeat.yml.
+"""
+index = ["auditbeat-*"]
+language = "kuery"
+license = "Elastic License"
+name = "Hosts File Modified"
+risk_score = 47
+rule_id = "9c260313-c811-4ec8-ab89-8f6530e0246c"
+severity = "medium"
+tags = ["Elastic", "Linux", "Windows", "macOS"]
+type = "query"
+
+query = '''
+event.category:file and event.type:change and file.path:(/private/etc/hosts or /etc/hosts or "C:\Windows\System32\drivers\etc\hosts")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1492"
+name = "Stored Data Manipulation"
+reference = "https://attack.mitre.org/techniques/T1492/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
