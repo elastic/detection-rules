@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/04/15"
-ecs_version = ["1.4.0"]
+ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/04/15"
+updated_date = "2020/06/25"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,10 @@ tags = ["Elastic", "Linux"]
 type = "query"
 
 query = '''
-event.action:executed and process.name:python and process.args:("import pty; pty.spawn(\"/bin/sh\")" or "import pty; pty.spawn(\"/bin/dash\")" or "import pty; pty.spawn(\"/bin/bash\")")
+event.category:process and event.type:(start or process_started) and process.name:python and
+  process.args:("import pty; pty.spawn(\"/bin/sh\")" or
+                "import pty; pty.spawn(\"/bin/dash\")" or
+                "import pty; pty.spawn(\"/bin/bash\")")
 '''
 
 
