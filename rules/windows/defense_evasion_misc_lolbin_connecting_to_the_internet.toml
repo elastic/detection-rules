@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.4.0"]
+ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/02/18"
+updated_date = "2020/06/24"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,9 @@ tags = ["Elastic", "Windows"]
 type = "query"
 
 query = '''
-process.name:(expand.exe or extrac.exe or ieexec.exe or makecab.exe) and event.action:"Network connection detected (rule: NetworkConnect)" and not destination.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
+event.category:network and event.type:connection and
+  process.name:(expand.exe or extrac.exe or ieexec.exe or makecab.exe) and
+  not destination.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
 '''
 
 
