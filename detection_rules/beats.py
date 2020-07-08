@@ -160,7 +160,8 @@ def get_schema_for_query(tree: kql.ast, beats: list) -> dict:
     beats_schema = read_beats_schema()
 
     # infer the module if only a dataset are defined
-    modules.update(ds.split(".")[0] for ds in datasets if "." in ds)
+    if not modules:
+        modules.update(ds.split(".")[0] for ds in datasets if "." in ds)
 
     for beat in beats:
         # if no modules are specified then grab them all
