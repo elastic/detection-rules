@@ -144,7 +144,6 @@ class Package(object):
             '// - scripts/regen_prepackage_rules_index.sh',
             '// - detection-rules repo using CLI command build-release',
             '// Do not hand edit. Run script/command to regenerate package information instead',
-            ''
         ]
         rule_imports = [f"import rule{i} from './{os.path.splitext(os.path.basename(r.path))[0] + '.json'}';"
                         for i, r in enumerate(sorted_rules, 1)]
@@ -153,7 +152,12 @@ class Package(object):
         const_exports.append("];")
         const_exports.append(" ")
 
-        index_ts = [JS_LICENSE + '\n'] + comments + rule_imports + const_exports
+        index_ts = [JS_LICENSE, ""]
+        index_ts.extend(comments)
+        index_ts.append("")
+        index_ts.extend(rule_imports)
+        index_ts.append("")
+        index_ts.extend(const_exports)
         with open(os.path.join(save_dir, 'index.ts'), 'wt') as f:
             f.write('\n'.join(index_ts))
 
