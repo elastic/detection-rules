@@ -1,0 +1,51 @@
+[metadata]
+creation_date = "2020/07/08"
+ecs_version = ["1.5.0"]
+maturity = "development"
+updated_date = "2020/07/08"
+
+[rule]
+author = ["Elastic"]
+description = "Identifies that a login attempt occurred at a forbidden time."
+index = ["auditbeat-*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License"
+name = "Auditd Login Attempt at Forbidden Time"
+references = ["https://github.com/linux-pam/linux-pam/blob/aac5a8fdc4aa3f7e56335a6343774cc1b63b408d/modules/pam_time/pam_time.c#L666"]
+risk_score = 47
+rule_id = "90e28af7-1d96-4582-bf11-9a1eff21d0e5"
+severity = "medium"
+tags = ["Elastic","Linux"]
+type = "query"
+
+query = '''
+auditd.message_type:anom_login_time and event.module:auditd
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
