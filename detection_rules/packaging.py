@@ -125,7 +125,7 @@ class Package(object):
 
     @staticmethod
     def _package_notice_file(save_dir):
-        """convert and save notice file with package."""
+        """Convert and save notice file with package."""
         with open(NOTICE_FILE, 'rt') as f:
             notice_txt = f.read()
 
