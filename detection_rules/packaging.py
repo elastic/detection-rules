@@ -126,7 +126,7 @@ class Package(object):
     @staticmethod
     def _package_notice_file(save_dir):
         """convert and save notice file with package."""
-        with open(NOTICE_FILE, 'r') as f:
+        with open(NOTICE_FILE, 'rt') as f:
             notice_txt = f.read()
 
         with open(os.path.join(save_dir, 'notice.ts'), 'w') as f:
@@ -164,9 +164,10 @@ class Package(object):
         for rule in self.rules:
             rule.save(new_path=os.path.join(rules_dir, os.path.basename(rule.path)))
 
+        self._package_notice_file(rules_dir)
+
         if self.release:
             self.save_release_files(extras_dir, self.changed_rules, self.new_rules)
-            self._package_notice_file(rules_dir)
 
             # zip all rules only and place in extras
             shutil.make_archive(os.path.join(extras_dir, self.name), 'zip', root_dir=os.path.dirname(rules_dir),
