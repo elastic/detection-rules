@@ -368,15 +368,16 @@ def kibana_push(ctx, local_repo, github_repo, ssh, kibana_directory, message):
     if not os.path.exists(release_dir):
         click.secho("Release directory doesn't exist.", fg="red", err=True)
         click.echo(f"Run {click.style('python -m detection_rules build-release', bold=True)} to populate", err=True)
-        return
+        ctx.exit(1)
 
     if not git_exe:
         click.secho("Unable to find git", err=True, fg="red")
-        return
+        ctx.exit(1)
+
     try:
         if not os.path.exists(local_repo):
             if not click.confirm(f"Kibana repository doesn't exist at {local_repo}. Clone?"):
-                return
+                ctx.exit(1)
 
             url = f"git@github.com:{github_repo}.git" if ssh else f"https://github.com/{github_repo}.git"
             subprocess.check_call([git_exe, "clone", url, local_repo, "--depth", 1])
