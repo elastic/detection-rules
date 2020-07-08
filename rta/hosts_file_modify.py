@@ -33,7 +33,7 @@ def main():
     entry = [
         '',
         '# RTA hosts_modify was here',
-        '8.8.8.8 https://www.google.com/{random}'.format(random=randomness)
+        # '8.8.8.8 https://www.{random}.google.com'.format(random=randomness)
     ]
     with open(hosts_file, 'a') as f:
         f.write('\n'.join(entry))
