@@ -13,7 +13,7 @@ import jsonschema
 import pytoml
 from eql import load_dump
 
-from .misc import LICENSE_HEADER, nested_set
+from .misc import PYTHON_LICENSE, nested_set
 from . import rule_loader
 from .packaging import PACKAGE_FILE, Package, manage_versions
 from .rule import RULE_TYPE_OPTIONS, Rule
@@ -177,7 +177,7 @@ def license_check(ctx):
             if contents.startswith("#!/"):
                 _, _, contents = contents.partition("\n")
 
-            if not contents.lstrip("\r\n").startswith(LICENSE_HEADER):
+            if not contents.lstrip("\r\n").startswith(PYTHON_LICENSE):
                 if not failed:
                     click.echo("Missing license headers for:", err=True)
 

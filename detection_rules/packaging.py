@@ -13,7 +13,7 @@ from collections import OrderedDict
 import click
 
 from . import rule_loader
-from .misc import LICENSE_HEADER
+from .misc import JS_LICENSE
 from .rule import Rule  # noqa: F401
 from .utils import get_path, get_etc_path
 
@@ -130,7 +130,7 @@ class Package(object):
         with open(NOTICE_FILE, 'rt') as f:
             notice_txt = f.read()
 
-        with open(os.path.join(save_dir, 'notice.ts'), 'w') as f:
+        with open(os.path.join(save_dir, 'notice.ts'), 'wt') as f:
             commented_notice = [' * ' + line for line in notice_txt.splitlines()]
             lines = ['/* eslint-disable @kbn/eslint/require-license-header */', '', '/* @notice']
             lines = lines + commented_notice + [' */', '']
@@ -138,18 +138,23 @@ class Package(object):
 
     def _package_index_file(self, save_dir):
         """Convert and save index file with package."""
-        e_license = ['/*', '\n'.join(' * ' + line.lstrip('# ') for line in LICENSE_HEADER.splitlines()), ' */', '']
+        sorted_rules = sorted(self.rules, key=lambda k: (k.metadata['creation_date'], os.path.basename(k.path)))
         comments = [
-            '// Auto generated file from scripts/regen_prepackage_rules_index.sh',
-            '// Do not hand edit. Run that script to regenerate package information instead',
+            '// Auto generated file from either:',
+            '// - scripts/regen_prepackage_rules_index.sh',
+            '// - detection-rules repo using CLI command build-release',
+            '// Do not hand edit. Run script/command to regenerate package information instead',
             ''
         ]
         rule_imports = [f"import rule{i} from './{os.path.splitext(os.path.basename(r.path))[0] + '.json'}';"
-                        for i, r in enumerate(self.rules, 1)]
-        const_exports = ['export const rawRules = ['] + [f"  rule{i}," for i in range(1, len(self.rules))] + ['];', '']
+                        for i, r in enumerate(sorted_rules, 1)]
+        const_exports = ['export const rawRules = [']
+        const_exports.extend(f"  rule{i}," for i, _ in enumerate(sorted_rules, 1))
+        const_exports.append("];")
+        const_exports.append(" ")
 
-        index_ts = e_license + comments + rule_imports + const_exports
-        with open(os.path.join(save_dir, 'index.ts'), 'w') as f:
+        index_ts = [JS_LICENSE + '\n'] + comments + rule_imports + const_exports
+        with open(os.path.join(save_dir, 'index.ts'), 'wt') as f:
             f.write('\n'.join(index_ts))
 
     def save_release_files(self, directory, changed_rules, new_rules):
