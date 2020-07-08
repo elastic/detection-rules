@@ -19,6 +19,7 @@ from .utils import get_path, get_etc_path
 RELEASE_DIR = get_path("releases")
 PACKAGE_FILE = get_etc_path('packages.yml')
 RULE_VERSIONS = get_etc_path('version.lock.json')
+NOTICE_FILE = get_path('NOTICE.txt')
 
 
 def filter_rule(rule, config_filter):  # type: (Rule,dict) -> bool  # rule.contents (not api), filter_dict -> match
@@ -122,12 +123,20 @@ class Package(object):
         """Add versions to rules at load time."""
         return manage_versions(self.rules, current_versions=current_versions, save_changes=update_versions_lock)
 
+    @staticmethod
+    def _package_notice_file(save_dir):
+        """Verify notices.txt is properly populated and save with package."""
+        with open(NOTICE_FILE, 'r') as f:
+            notice_txt = f.read()
+
+        with open(os.path.join(save_dir, 'notice.ts'), 'w') as f:
+            commented_notice = [' * ' + line for line in notice_txt.splitlines()]
+            lines = ['/* eslint-disable @kbn/eslint/require-license-header */', '', '/* @notice']
+            lines = lines + commented_notice + [' */', '']
+            f.write('\n'.join(lines))
+
     def save_release_files(self, directory, changed_rules, new_rules):
         """Release a package."""
-        # TODO:
-        # xslx of mitre coverage
-        # release notes
-
         with open(os.path.join(directory, '{}-summary.txt'.format(self.name)), 'w') as f:
             f.write(self.generate_summary(changed_rules, new_rules))
         with open(os.path.join(directory, '{}-consolidated.json'.format(self.name)), 'w') as f:
@@ -157,6 +166,7 @@ class Package(object):
 
         if self.release:
             self.save_release_files(extras_dir, self.changed_rules, self.new_rules)
+            self._package_notice_file(rules_dir)
 
             # zip all rules only and place in extras
             shutil.make_archive(os.path.join(extras_dir, self.name), 'zip', root_dir=os.path.dirname(rules_dir),
@@ -227,9 +237,6 @@ class Package(object):
         new_rules = 'New Rules: \n{}'.format('\n'.join(' - ' + s for s in sorted(new)) if new else 'N/A')
         modified_rules = 'Modified Rules: \n{}'.format('\n'.join(' - ' + s for s in sorted(changed)) if new else 'N/A')
         return '\n'.join([total, sha256, ecs_versions, indices, new_rules, modified_rules])
-
-    def generate_change_notes(self):
-        """Generate change release notes."""
 
     def bump_versions(self, save_changes=False, current_versions=None):
         """Bump the versions of all production rules included in a release and optionally save changes."""
