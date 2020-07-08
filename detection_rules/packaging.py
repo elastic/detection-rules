@@ -13,6 +13,7 @@ from collections import OrderedDict
 import click
 
 from . import rule_loader
+from .misc import LICENSE_HEADER
 from .rule import Rule  # noqa: F401
 from .utils import get_path, get_etc_path
 
@@ -135,6 +136,22 @@ class Package(object):
             lines = lines + commented_notice + [' */', '']
             f.write('\n'.join(lines))
 
+    def _package_index_file(self, save_dir):
+        """Convert and save index file with package."""
+        e_license = ['/*', '\n'.join(' * ' + line.lstrip('# ') for line in LICENSE_HEADER.splitlines()), ' */', '']
+        comments = [
+            '// Auto generated file from scripts/regen_prepackage_rules_index.sh',
+            '// Do not hand edit. Run that script to regenerate package information instead',
+            ''
+        ]
+        rule_imports = [f"import rule{i} from './{os.path.splitext(os.path.basename(r.path))[0] + '.json'}';"
+                        for i, r in enumerate(self.rules, 1)]
+        const_exports = ['export const rawRules = ['] + [f"  rule{i}," for i in range(1, len(self.rules))] + ['];', '']
+
+        index_ts = e_license + comments + rule_imports + const_exports
+        with open(os.path.join(save_dir, 'index.ts'), 'w') as f:
+            f.write('\n'.join(index_ts))
+
     def save_release_files(self, directory, changed_rules, new_rules):
         """Release a package."""
         with open(os.path.join(directory, '{}-summary.txt'.format(self.name)), 'w') as f:
@@ -165,6 +182,7 @@ class Package(object):
             rule.save(new_path=os.path.join(rules_dir, os.path.basename(rule.path)))
 
         self._package_notice_file(rules_dir)
+        self._package_index_file(rules_dir)
 
         if self.release:
             self.save_release_files(extras_dir, self.changed_rules, self.new_rules)

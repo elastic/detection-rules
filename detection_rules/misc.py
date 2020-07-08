@@ -16,6 +16,12 @@ from .utils import ROOT_DIR
 
 _CONFIG = {}
 
+LICENSE_HEADER = """
+# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
+# or more contributor license agreements. Licensed under the Elastic License;
+# you may not use this file except in compliance with the Elastic License.
+""".strip()
+
 
 def nested_get(_dict, dot_key, default=None):
     """Get a nested field from a nested dict with dot notation."""
