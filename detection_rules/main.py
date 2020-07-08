@@ -349,15 +349,16 @@ def test_rules(ctx):
     ctx.exit(pytest.main(["-v"]))
 
 
-@root.command("kibana-push")
+@root.command("kibana-commit")
 @click.pass_context
 @click.argument("local-repo", default=get_path("..", "kibana"))
 @click.option("--kibana-directory", "-d", help="Directory to overwrite in Kibana",
               default="x-pack/plugins/security_solution/server/lib/detection_engine/rules/prepackaged_rules")
+@click.option("--base-branch", "-b", help="Base branch in Kibana", default="master")
 @click.option("--ssh/--http", is_flag=True, help="Method to use for cloning")
 @click.option("--github-repo", "-r", help="Repository to use for the branch", default="elastic/kibana")
 @click.option("--message", "-m", help="Override default commit message")
-def kibana_push(ctx, local_repo, github_repo, ssh, kibana_directory, message):
+def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_branch, message):
     """Prep a commit and push to Kibana."""
     git_exe = shutil.which("git")
 
@@ -386,12 +387,22 @@ def kibana_push(ctx, local_repo, github_repo, ssh, kibana_directory, message):
             method = subprocess.call if show_output else subprocess.check_output
             return method([git_exe, "-C", local_repo] + list(args), encoding="utf-8")
 
-        git("checkout", "master")
+        git("checkout", base_branch)
         git("pull")
         git("checkout", "-b", f"rules/{package_name}", show_output=True)
         git("rm", "-r", kibana_directory)
 
-        shutil.copytree(os.path.join(release_dir, "rules"), os.path.join(local_repo, kibana_directory))
+        source_dir = os.path.join(release_dir, "rules")
+        target_dir = os.path.join(local_repo, kibana_directory)
+        os.makedirs(target_dir)
+
+        for name in os.listdir(source_dir):
+            _, ext = os.path.splitext(name)
+            path = os.path.join(source_dir, name)
+
+            if ext in (".ts", ".json"):
+                shutil.copyfile(path, os.path.join(target_dir, name))
+
         git("add", kibana_directory)
 
         git("commit", "-S", "-m", message)
