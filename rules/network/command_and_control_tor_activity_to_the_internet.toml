@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.4.0"]
+ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/03/09"
+updated_date = "2020/07/02"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,7 @@ false_positives = [
     this case, such servers can be excluded if desired.
     """,
 ]
-index = ["filebeat-*"]
+index = ["filebeat-*", "packetbeat-*"]
 language = "kuery"
 license = "Elastic License"
 name = "Tor Activity to the Internet"
@@ -30,7 +30,7 @@ tags = ["Elastic", "Network"]
 type = "query"
 
 query = '''
-network.transport:tcp and destination.port:(9001 or 9030) and
+event.category:(network or network_traffic) and network.transport:tcp and destination.port:(9001 or 9030) and
   source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16) and
   not destination.ip:(10.0.0.0/8 or 127.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16 or "::1")
 '''
@@ -60,4 +60,3 @@ reference = "https://attack.mitre.org/techniques/T1188/"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-

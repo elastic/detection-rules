@@ -72,8 +72,11 @@ def _flatten_schema(schema: list, prefix="") -> list:
             flattened.extend(_flatten_schema(s["fields"], prefix=prefix + s["name"] + "."))
         elif "fields" in s:
             flattened.extend(_flatten_schema(s["fields"], prefix=prefix))
-        elif "type" in s:
+        elif "name" in s and "description" in s:
             s = s.copy()
+            # type is implicitly keyword if not defined
+            # example: https://github.com/elastic/beats/blob/master/packetbeat/_meta/fields.common.yml#L7-L12
+            s.setdefault("type", "keyword")
             s["name"] = prefix + s["name"]
             flattened.append(s)
 
@@ -93,16 +96,23 @@ def get_field_schema(base_directory, prefix="", include_common=False):
     return flattened
 
 
-def get_beats_schema(schema: dict, beat: str, module: str, *datasets: str):
+def get_beat_root_schema(schema: dict, beat: str):
+    if beat not in schema:
+        raise KeyError(f"Unknown beats module {beat}")
+
+    beat_dir = schema[beat]
+    flattened = get_field_schema(beat_dir, include_common=True)
+
+    return {field["name"]: field for field in sorted(flattened, key=lambda f: f["name"])}
+
+
+def get_beats_sub_schema(schema: dict, beat: str, module: str, *datasets: str):
     if beat not in schema:
         raise KeyError(f"Unknown beats module {beat}")
 
     flattened = []
     beat_dir = schema[beat]
-    flattened.extend(get_field_schema(beat_dir, include_common=True))
-
     module_dir = beat_dir.get("folders", {}).get("module", {}).get("folders", {}).get(module, {})
-    flattened.extend(get_field_schema(module_dir, include_common=True))
 
     # if we only have a module then we'll work with what we got
     if not datasets:
@@ -149,12 +159,17 @@ def get_schema_for_query(tree: kql.ast, beats: list) -> dict:
 
     beats_schema = read_beats_schema()
 
+    # infer the module if only a dataset are defined
+    if not modules:
+        modules.update(ds.split(".")[0] for ds in datasets if "." in ds)
+
     for beat in beats:
         # if no modules are specified then grab them all
         # all_modules = list(beats_schema.get(beat, {}).get("folders", {}).get("module", {}).get("folders", {}))
         # beat_modules = modules or all_modules
+        filtered.update(get_beat_root_schema(beats_schema, beat))
 
         for module in modules:
-            filtered.update(get_beats_schema(beats_schema, beat, module, *datasets))
+            filtered.update(get_beats_sub_schema(beats_schema, beat, module, *datasets))
 
     return filtered
