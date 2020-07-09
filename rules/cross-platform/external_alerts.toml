@@ -1,0 +1,57 @@
+[metadata]
+creation_date = "2020/07/08"
+ecs_version = ["1.5.0"]
+maturity = "development"
+updated_date = "2020/07/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Generates a detection alert each time an external alert is received. Enabling this rule allows you to immediately being
+investigating external alerts in the app.
+"""
+language = "kuery"
+license = "Elastic License"
+name = "External Alerts"
+risk_score = 47
+rule_id = "eb079c62-4481-4d6e-9643-3ca499df7aaa"
+rule_name_override = "message"
+severity = "medium"
+tags = ["Elastic"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.kind:alert and not event.module:endpoint and not event.module:endgame
+'''
+
+
+[[rule.risk_score_mapping]]
+field = "event.risk_score"
+operator = "equals"
+value = ""
+
+[[rule.severity_mapping]]
+field = "event.severity"
+operator = "equals"
+value = "21"
+severity = "low"
+
+[[rule.severity_mapping]]
+field = "event.severity"
+operator = "equals"
+value = "47"
+severity = "medium"
+
+[[rule.severity_mapping]]
+field = "event.severity"
+operator = "equals"
+value = "73"
+severity = "high"
+
+[[rule.severity_mapping]]
+field = "event.severity"
+operator = "equals"
+value = "99"
+severity = "critical"
+

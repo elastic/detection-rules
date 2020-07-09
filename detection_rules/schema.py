@@ -16,6 +16,7 @@ DATE_PATTERN = r'\d{4}/\d{2}/\d{2}'
 VERSION_PATTERN = r'\d+\.\d+\.\d+'
 RULE_LEVELS = ['recommended', 'aggressive']
 MATURITY_LEVELS = ['development', 'testing', 'staged', 'production', 'deprecated']
+OPERATORS = ['equals']
 OS_OPTIONS = ['windows', 'linux', 'macos', 'solaris']  # need to verify with ecs
 INTERVAL_PATTERN = r'\d+[mshd]'
 MITRE_URL_PATTERN = r'https://attack.mitre.org/{type}/T[A-Z0-9]+/'
@@ -81,6 +82,23 @@ class Filters(jsl.Document):
     query = jsl.DocumentField(FilterQuery)
 
 
+class RiskScoreMapping(jsl.Document):
+    """Risk score mapping"""
+
+    field = jsl.StringField(required=True)
+    operator = jsl.StringField(required=True, enum=OPERATORS)
+    value = jsl.StringField(required=True, default="")
+
+
+class SeverityMapping(jsl.Document):
+    """Severity mapping"""
+
+    field = jsl.StringField(required=True)
+    operator = jsl.StringField(required=True, enum=OPERATORS)
+    value = jsl.StringField(required=True)
+    severity = jsl.StringField(required=True)
+
+
 class ThreatTactic(jsl.Document):
     """Threat tactics."""
 
@@ -110,6 +128,7 @@ class SiemRuleApiSchema(jsl.Document):
 
     actions = jsl.ArrayField(required=False)
     author = jsl.ArrayField(jsl.StringField(default="Elastic"), required=True, min_items=1)
+    building_block_type = jsl.StringField(required=False)
     description = jsl.StringField(required=True)
     # api defaults to false if blank
     enabled = jsl.BooleanField(default=False, required=False)
@@ -127,13 +146,17 @@ class SiemRuleApiSchema(jsl.Document):
     # output_index = jsl.StringField(required=False)  # this is NOT allowed!
     references = jsl.ArrayField(jsl.StringField(), required=False)
     risk_score = jsl.IntField(minimum=0, maximum=100, required=True, default=21)
+    risk_score_mapping = jsl.ArrayField(jsl.DocumentField(RiskScoreMapping), required=False, min_items=1)
     rule_id = jsl.StringField(pattern=UUID_PATTERN, required=True)
+    rule_name_override = jsl.StringField(required=False)
     severity = jsl.StringField(enum=['low', 'medium', 'high', 'critical'], default='low', required=True)
+    severity_mapping = jsl.ArrayField(jsl.DocumentField(SeverityMapping), required=False, min_items=1)
     # saved_id - type must be 'saved_query' to allow this or else it is forbidden
     tags = jsl.ArrayField(jsl.StringField(), required=False)
     throttle = jsl.StringField(required=False)
     timeline_id = jsl.StringField(required=False)
     timeline_title = jsl.StringField(required=False)
+    timestamp_override = jsl.StringField(required=False)
     to = jsl.StringField(required=False, default='now')
     # require this to be always validated with a role
     # type = jsl.StringField(enum=[MACHINE_LEARNING, QUERY, SAVED_QUERY], required=True)
