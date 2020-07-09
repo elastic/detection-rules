@@ -8,6 +8,7 @@ import os
 import re
 import sys
 import unittest
+from collections import defaultdict
 
 import jsonschema
 import kql
@@ -111,3 +112,14 @@ class TestValidRules(unittest.TestCase):
                 rta_name, ext = os.path.splitext(matching_rta)
                 if rta_name not in ttp_names:
                     self.fail("{} ({}) references unknown RTA: {}".format(rule.name, rule.id, rta_name))
+
+    def test_duplicate_file_names(self):
+        """Test that no file names are duplicated."""
+        name_map = defaultdict(list)
+        for file_path in rule_loader.load_rule_files():
+            base_name = os.path.basename(file_path)
+            name_map[base_name].append(file_path)
+
+        duplicates = {name: paths for name, paths in name_map.items() if len(paths) > 1}
+        if duplicates:
+            self.fail(f"Found duplicated file names {duplicates}")
