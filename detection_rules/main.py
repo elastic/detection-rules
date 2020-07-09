@@ -7,6 +7,8 @@ import glob
 import io
 import json
 import os
+import shutil
+import subprocess
 
 import click
 import jsonschema
@@ -15,7 +17,7 @@ from eql import load_dump
 
 from .misc import PYTHON_LICENSE, nested_set
 from . import rule_loader
-from .packaging import PACKAGE_FILE, Package, manage_versions
+from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
 from .rule import RULE_TYPE_OPTIONS, Rule
 from .rule_formatter import toml_write
 from .utils import get_path, clear_caches
@@ -338,3 +340,69 @@ def test_rules(ctx):
 
     clear_caches()
     ctx.exit(pytest.main(["-v"]))
+
+
+@root.command("kibana-commit")
+@click.pass_context
+@click.argument("local-repo", default=get_path("..", "kibana"))
+@click.option("--kibana-directory", "-d", help="Directory to overwrite in Kibana",
+              default="x-pack/plugins/security_solution/server/lib/detection_engine/rules/prepackaged_rules")
+@click.option("--base-branch", "-b", help="Base branch in Kibana", default="master")
+@click.option("--ssh/--http", is_flag=True, help="Method to use for cloning")
+@click.option("--github-repo", "-r", help="Repository to use for the branch", default="elastic/kibana")
+@click.option("--message", "-m", help="Override default commit message")
+def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_branch, message):
+    """Prep a commit and push to Kibana."""
+    git_exe = shutil.which("git")
+
+    package_name = load_dump(PACKAGE_FILE)['package']["name"]
+    release_dir = os.path.join(RELEASE_DIR, package_name)
+    message = message or f"[Detection Rules] Add {package_name} rules"
+
+    if not os.path.exists(release_dir):
+        click.secho("Release directory doesn't exist.", fg="red", err=True)
+        click.echo(f"Run {click.style('python -m detection_rules build-release', bold=True)} to populate", err=True)
+        ctx.exit(1)
+
+    if not git_exe:
+        click.secho("Unable to find git", err=True, fg="red")
+        ctx.exit(1)
+
+    try:
+        if not os.path.exists(local_repo):
+            if not click.confirm(f"Kibana repository doesn't exist at {local_repo}. Clone?"):
+                ctx.exit(1)
+
+            url = f"git@github.com:{github_repo}.git" if ssh else f"https://github.com/{github_repo}.git"
+            subprocess.check_call([git_exe, "clone", url, local_repo, "--depth", 1])
+
+        def git(*args, show_output=False):
+            method = subprocess.call if show_output else subprocess.check_output
+            return method([git_exe, "-C", local_repo] + list(args), encoding="utf-8")
+
+        git("checkout", base_branch)
+        git("pull")
+        git("checkout", "-b", f"rules/{package_name}", show_output=True)
+        git("rm", "-r", kibana_directory)
+
+        source_dir = os.path.join(release_dir, "rules")
+        target_dir = os.path.join(local_repo, kibana_directory)
+        os.makedirs(target_dir)
+
+        for name in os.listdir(source_dir):
+            _, ext = os.path.splitext(name)
+            path = os.path.join(source_dir, name)
+
+            if ext in (".ts", ".json"):
+                shutil.copyfile(path, os.path.join(target_dir, name))
+
+        git("add", kibana_directory)
+
+        git("commit", "-S", "-m", message)
+        git("status", show_output=True)
+
+        click.echo(f"Kibana repository {local_repo} prepped. Push changes when ready")
+        click.secho(f"cd {local_repo}", bold=True)
+
+    except subprocess.CalledProcessError as exc:
+        ctx.exit(exc.returncode)
