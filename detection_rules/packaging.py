@@ -131,7 +131,7 @@ class Package(object):
             notice_txt = f.read()
 
         with open(os.path.join(save_dir, 'notice.ts'), 'wt') as f:
-            commented_notice = [' * ' + line for line in notice_txt.splitlines()]
+            commented_notice = [(' * ' + line).rstrip() for line in notice_txt.splitlines()]
             lines = ['/* eslint-disable @kbn/eslint/require-license-header */', '', '/* @notice']
             lines = lines + commented_notice + [' */', '']
             f.write('\n'.join(lines))
@@ -150,7 +150,7 @@ class Package(object):
         const_exports = ['export const rawRules = [']
         const_exports.extend(f"  rule{i}," for i, _ in enumerate(sorted_rules, 1))
         const_exports.append("];")
-        const_exports.append(" ")
+        const_exports.append("")
 
         index_ts = [JS_LICENSE, ""]
         index_ts.extend(comments)
@@ -158,6 +158,7 @@ class Package(object):
         index_ts.extend(rule_imports)
         index_ts.append("")
         index_ts.extend(const_exports)
+
         with open(os.path.join(save_dir, 'index.ts'), 'wt') as f:
             f.write('\n'.join(index_ts))
 
