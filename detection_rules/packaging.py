@@ -131,7 +131,7 @@ class Package(object):
             notice_txt = f.read()
 
         with open(os.path.join(save_dir, 'notice.ts'), 'wt') as f:
-            commented_notice = [(' * ' + line).rstrip() for line in notice_txt.splitlines()]
+            commented_notice = [f' * {line}'.rstrip() for line in notice_txt.splitlines()]
             lines = ['/* eslint-disable @kbn/eslint/require-license-header */', '', '/* @notice']
             lines = lines + commented_notice + [' */', '']
             f.write('\n'.join(lines))
