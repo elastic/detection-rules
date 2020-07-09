@@ -15,7 +15,7 @@ import jsonschema
 import pytoml
 from eql import load_dump
 
-from .misc import nested_set
+from .misc import PYTHON_LICENSE, nested_set
 from . import rule_loader
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
 from .rule import RULE_TYPE_OPTIONS, Rule
@@ -159,13 +159,6 @@ def validate_rule(rule_id, rule_name, path):
     return rule
 
 
-license_header = """
-# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
-""".strip()
-
-
 @root.command('license-check')
 @click.pass_context
 def license_check(ctx):
@@ -186,7 +179,7 @@ def license_check(ctx):
             if contents.startswith("#!/"):
                 _, _, contents = contents.partition("\n")
 
-            if not contents.lstrip("\r\n").startswith(license_header):
+            if not contents.lstrip("\r\n").startswith(PYTHON_LICENSE):
                 if not failed:
                     click.echo("Missing license headers for:", err=True)
 
