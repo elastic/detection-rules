@@ -83,7 +83,7 @@ class Filters(jsl.Document):
 
 
 class RiskScoreMapping(jsl.Document):
-    """Risk score mapping"""
+    """Risk score mapping."""
 
     field = jsl.StringField(required=True)
     operator = jsl.StringField(required=True, enum=OPERATORS)
@@ -91,7 +91,7 @@ class RiskScoreMapping(jsl.Document):
 
 
 class SeverityMapping(jsl.Document):
-    """Severity mapping"""
+    """Severity mapping."""
 
     field = jsl.StringField(required=True)
     operator = jsl.StringField(required=True, enum=OPERATORS)
