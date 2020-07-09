@@ -86,17 +86,17 @@ class RiskScoreMapping(jsl.Document):
     """Risk score mapping."""
 
     field = jsl.StringField(required=True)
-    operator = jsl.StringField(required=True, enum=OPERATORS)
-    value = jsl.StringField(required=True, default="")
+    operator = jsl.StringField(required=False, enum=OPERATORS)
+    value = jsl.StringField(required=False)
 
 
 class SeverityMapping(jsl.Document):
     """Severity mapping."""
 
     field = jsl.StringField(required=True)
-    operator = jsl.StringField(required=True, enum=OPERATORS)
-    value = jsl.StringField(required=True)
-    severity = jsl.StringField(required=True)
+    operator = jsl.StringField(required=False, enum=OPERATORS)
+    value = jsl.StringField(required=False)
+    severity = jsl.StringField(required=False)
 
 
 class ThreatTactic(jsl.Document):
