@@ -52,3 +52,8 @@ release: deps
 	rm -rf dist
 	mkdir dist
 	cp -r releases/*/*.zip dist/
+
+.PHONY: kibana-commit
+kibana-commit: deps
+	@echo "PREP KIBANA-COMMIT: $(app_name)"
+	$(PYTHON) -m detection_rules kibana-commit

@@ -13,6 +13,7 @@ from collections import OrderedDict
 import click
 
 from . import rule_loader
+from .misc import JS_LICENSE
 from .rule import Rule  # noqa: F401
 from .utils import get_path, get_etc_path
 
@@ -129,11 +130,37 @@ class Package(object):
         with open(NOTICE_FILE, 'rt') as f:
             notice_txt = f.read()
 
-        with open(os.path.join(save_dir, 'notice.ts'), 'w') as f:
-            commented_notice = [' * ' + line for line in notice_txt.splitlines()]
+        with open(os.path.join(save_dir, 'notice.ts'), 'wt') as f:
+            commented_notice = [f' * {line}'.rstrip() for line in notice_txt.splitlines()]
             lines = ['/* eslint-disable @kbn/eslint/require-license-header */', '', '/* @notice']
             lines = lines + commented_notice + [' */', '']
             f.write('\n'.join(lines))
+
+    def _package_index_file(self, save_dir):
+        """Convert and save index file with package."""
+        sorted_rules = sorted(self.rules, key=lambda k: (k.metadata['creation_date'], os.path.basename(k.path)))
+        comments = [
+            '// Auto generated file from either:',
+            '// - scripts/regen_prepackage_rules_index.sh',
+            '// - detection-rules repo using CLI command build-release',
+            '// Do not hand edit. Run script/command to regenerate package information instead',
+        ]
+        rule_imports = [f"import rule{i} from './{os.path.splitext(os.path.basename(r.path))[0] + '.json'}';"
+                        for i, r in enumerate(sorted_rules, 1)]
+        const_exports = ['export const rawRules = [']
+        const_exports.extend(f"  rule{i}," for i, _ in enumerate(sorted_rules, 1))
+        const_exports.append("];")
+        const_exports.append("")
+
+        index_ts = [JS_LICENSE, ""]
+        index_ts.extend(comments)
+        index_ts.append("")
+        index_ts.extend(rule_imports)
+        index_ts.append("")
+        index_ts.extend(const_exports)
+
+        with open(os.path.join(save_dir, 'index.ts'), 'wt') as f:
+            f.write('\n'.join(index_ts))
 
     def save_release_files(self, directory, changed_rules, new_rules):
         """Release a package."""
@@ -165,6 +192,7 @@ class Package(object):
             rule.save(new_path=os.path.join(rules_dir, os.path.basename(rule.path)))
 
         self._package_notice_file(rules_dir)
+        self._package_index_file(rules_dir)
 
         if self.release:
             self.save_release_files(extras_dir, self.changed_rules, self.new_rules)
