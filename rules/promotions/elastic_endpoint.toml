@@ -11,7 +11,6 @@ Generates a detection alert each time an Elastic Endpoint alert is received. Ena
 immediately begin investigating your Elastic Endpoint alerts.
 """
 enabled = true
-exceptions_list = [{ id = 'endpoint_list', namespace_type = 'agnostic', type = 'endpoint' }]
 from = "now-10m"
 index = ["logs-endpoint.alerts-*"]
 language = "kuery"
@@ -30,6 +29,11 @@ query = '''
 event.kind:alert and event.module:(endpoint and not endgame)
 '''
 
+
+[[rule.exceptions_list]]
+id = "endpoint_list"
+namespace_type = "agnostic"
+type = "endpoint"
 
 [[rule.risk_score_mapping]]
 field = "event.risk_score"
@@ -59,3 +63,5 @@ field = "event.severity"
 operator = "equals"
 value = "99"
 severity = "critical"
+
+
