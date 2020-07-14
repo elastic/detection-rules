@@ -131,7 +131,7 @@ class Rule(object):
         """Bump the version of the rule."""
         self.contents['version'] += 1
 
-    def validate(self, as_rule=False, versioned=False):
+    def validate(self, as_rule=False, versioned=False, query=True):
         """Validate against a rule schema, query schema, and linting."""
         self.normalize()
 
@@ -140,7 +140,7 @@ class Rule(object):
         else:
             schema_validate(self.contents, versioned=versioned)
 
-        if self.query and self.contents['language'] == 'kuery':
+        if query and self.query and self.contents['language'] == 'kuery':
             # validate against all specified schemas or the latest if none specified
             ecs_versions = self.metadata.get('ecs_version')
 

@@ -204,7 +204,7 @@ def set_param_values(ctx, param, value):
         return value
     elif os.environ.get(env_key):
         return os.environ[env_key]
-    elif config.get(key):
+    elif config.get(key) is not None:
         return config[key]
     elif prompt:
         return click.prompt(key, default=param.default if not param.default else None, hide_input=param.hide_input,
