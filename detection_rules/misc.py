@@ -197,7 +197,7 @@ def set_param_values(ctx, param, value):
     """Get value for defined key."""
     key = param.name
     config = parse_config()
-    env_key = 'SR_' + key
+    env_key = 'DR_' + key
     prompt = True if param.hide_input is not False else False
 
     if value:
