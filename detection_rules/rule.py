@@ -307,6 +307,6 @@ class Rule(object):
             print(' - {}'.format('\n - '.join(skipped)))
 
         # rta_mappings.add_rule_to_mapping_file(rule)
-        click.echo('Placeholder added to rule-mapping.yml')
+        # click.echo('Placeholder added to rule-mapping.yml')
 
         return rule
