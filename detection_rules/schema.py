@@ -236,6 +236,7 @@ def get_schema(role, as_rule=False, versioned=False):
     return cls.get_schema(ordered=True, role=role)
 
 
+@cached
 def schema_validate(contents, as_rule=False, versioned=False):
     """Validate against all schemas until first hit."""
     assert isinstance(contents, dict)
