@@ -240,6 +240,9 @@ def kibana_upload(toml_files, url, cloud_id, user, password):
         file_lookup = load_rule_files(paths=toml_files)
         rules = list(load_rules(file_lookup=file_lookup).values())
 
+        # assign the versions from etc/versions.lock.json
+        # rules that have changed in hash get incremented, others stay as-is.
+        # rules that aren't in the lookup default to version 1
         manage_versions(rules, verbose=False)
 
         api_payloads = []
