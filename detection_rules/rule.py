@@ -149,11 +149,11 @@ class Rule(object):
         if self.query and self.contents['language'] == 'kuery':
             ecs_versions = self.metadata.get('ecs_version')
             indexes = self.contents.get("index", [])
-            self._validate_kql(ecs_versions, indexes, self.query)
+            self._validate_kql(ecs_versions, indexes, self.query, self.name)
 
     @staticmethod
     @cached
-    def _validate_kql(ecs_versions, indexes, query):
+    def _validate_kql(ecs_versions, indexes, query, name):
         # validate against all specified schemas or the latest if none specified
         parsed = kql.parse(query)
         beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
@@ -168,7 +168,7 @@ class Rule(object):
                 except KeyError:
                     raise KeyError(
                         'Unknown ecs schema version: {} in rule {}.\n'
-                        'Do you need to update schemas?'.format(version, self.name))
+                        'Do you need to update schemas?'.format(version, name))
 
                 try:
                     kql.parse(query, schema=schema)
