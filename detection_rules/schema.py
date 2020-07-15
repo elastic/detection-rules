@@ -10,6 +10,7 @@ import jsonschema
 
 from . import ecs
 from .attack import TACTICS, TACTICS_MAP, TECHNIQUES, technique_lookup
+from .utils import cached
 
 UUID_PATTERN = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 DATE_PATTERN = r'\d{4}/\d{2}/\d{2}'
@@ -224,22 +225,18 @@ class MappingCount(jsl.Document):
     sources = jsl.ArrayField(jsl.StringField(), min_items=1)
 
 
-cached_schemas = {}
-
-
+@cached
 def get_schema(role, as_rule=False, versioned=False):
     """Get applicable schema by role type and rule format."""
-    if (role, as_rule, versioned) not in cached_schemas:
-        if versioned:
-            cls = VersionedApiSchema
-        else:
-            cls = SiemRuleTomlSchema if as_rule else SiemRuleApiSchema
+    if versioned:
+        cls = VersionedApiSchema
+    else:
+        cls = SiemRuleTomlSchema if as_rule else SiemRuleApiSchema
 
-        cached_schemas[(role, as_rule, versioned)] = cls.get_schema(ordered=True, role=role)
-
-    return cached_schemas[(role, as_rule, versioned)]
+    return cls.get_schema(ordered=True, role=role)
 
 
+@cached
 def schema_validate(contents, as_rule=False, versioned=False):
     """Validate against all schemas until first hit."""
     assert isinstance(contents, dict)
