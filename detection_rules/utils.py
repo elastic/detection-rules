@@ -11,7 +11,7 @@ import json
 import os
 import time
 import zipfile
-from datetime import datetime
+from datetime import datetime, date
 
 import kql
 
@@ -21,6 +21,12 @@ from eql.utils import stream_json_lines
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(CURR_DIR)
 ETC_DIR = os.path.join(ROOT_DIR, "etc")
+
+
+class DateTimeEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (date, datetime)):
+            return obj.isoformat()
 
 
 def get_json_iter(f):
@@ -58,7 +64,14 @@ def load_etc_dump(*path):
 
 def save_etc_dump(contents, *path):
     """Load a json/yml/toml file from the etc/ folder."""
-    return eql.utils.save_dump(contents, get_etc_path(*path))
+    path = get_etc_path(*path)
+    _, ext = os.path.splitext(path)
+
+    if ext == ".json":
+        with open(path, "wt") as f:
+            json.dump(contents, f, cls=DateTimeEncoder, sort_keys=True, indent=2)
+    else:
+        return eql.utils.save_dump(contents, path)
 
 
 def save_gzip(contents):

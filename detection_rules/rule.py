@@ -28,7 +28,7 @@ class Rule(object):
 
     def __init__(self, path, contents):
         """Create a Rule from a toml management format."""
-        self.path = os.path.realpath(path)
+        self.path = os.path.abspath(path)
         self.contents = contents.get('rule', contents)
         self.metadata = self.set_metadata(contents.get('metadata', contents))
 
@@ -48,6 +48,12 @@ class Rule(object):
         if type(self) == type(other):
             return self.get_hash() == other.get_hash()
         return False
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __hash__(self):
+        return hash(self.get_hash())
 
     def copy(self):
         return Rule(path=self.path, contents={'rule': self.contents.copy(), 'metadata': self.metadata.copy()})
@@ -141,34 +147,39 @@ class Rule(object):
             schema_validate(self.contents, versioned=versioned)
 
         if self.query and self.contents['language'] == 'kuery':
-            # validate against all specified schemas or the latest if none specified
             ecs_versions = self.metadata.get('ecs_version')
-
             indexes = self.contents.get("index", [])
-            beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
-            beat_schema = beats.get_schema_for_query(self.parsed_kql, beat_types) if beat_types else None
+            self._validate_kql(ecs_versions, indexes, self.query, self.name)
 
-            if not ecs_versions:
-                kql.parse(self.query, schema=ecs.get_kql_schema(indexes=indexes, beat_schema=beat_schema))
-            else:
-                for version in ecs_versions:
-                    try:
-                        schema = ecs.get_kql_schema(version=version, indexes=indexes, beat_schema=beat_schema)
-                    except KeyError:
-                        raise KeyError(
-                            'Unknown ecs schema version: {} in rule {}.\n'
-                            'Do you need to update schemas?'.format(version, self.name))
+    @staticmethod
+    @cached
+    def _validate_kql(ecs_versions, indexes, query, name):
+        # validate against all specified schemas or the latest if none specified
+        parsed = kql.parse(query)
+        beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
+        beat_schema = beats.get_schema_for_query(parsed, beat_types) if beat_types else None
 
-                    try:
-                        kql.parse(self.query, schema=schema)
-                    except kql.KqlParseError as exc:
-                        message = exc.error_msg
-                        trailer = None
-                        if "Unknown field" in message and beat_types:
-                            trailer = "\nTry adding event.module and event.dataset to specify beats module"
+        if not ecs_versions:
+            kql.parse(query, schema=ecs.get_kql_schema(indexes=indexes, beat_schema=beat_schema))
+        else:
+            for version in ecs_versions:
+                try:
+                    schema = ecs.get_kql_schema(version=version, indexes=indexes, beat_schema=beat_schema)
+                except KeyError:
+                    raise KeyError(
+                        'Unknown ecs schema version: {} in rule {}.\n'
+                        'Do you need to update schemas?'.format(version, name))
 
-                        raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
-                                                len(exc.caret.lstrip()), trailer=trailer)
+                try:
+                    kql.parse(query, schema=schema)
+                except kql.KqlParseError as exc:
+                    message = exc.error_msg
+                    trailer = None
+                    if "Unknown field" in message and beat_types:
+                        trailer = "\nTry adding event.module and event.dataset to specify beats module"
+
+                    raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
+                                            len(exc.caret.lstrip()), trailer=trailer)
 
     def save(self, new_path=None, as_rule=False, verbose=False):
         """Save as pretty toml rule file as toml."""
@@ -296,6 +307,6 @@ class Rule(object):
             print(' - {}'.format('\n - '.join(skipped)))
 
         # rta_mappings.add_rule_to_mapping_file(rule)
-        click.echo('Placeholder added to rule-mapping.yml')
+        # click.echo('Placeholder added to rule-mapping.yml')
 
         return rule
