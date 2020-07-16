@@ -1,17 +1,17 @@
 [metadata]
 creation_date = "2020/07/16"
 ecs_version = ["1.5.0"]
-maturity = "development"
+maturity = "production"
 updated_date = "2020/07/16"
 
 [rule]
 author = ["Elastic"]
 description = """
 A specially crafted DNS SIG request can manipulate a known vulnerability in some Windows DNS servers which result in
-Remote Code Executin(RCE) or a Denial of Service (DoS) from crashing the service.
+Remote Code Execution (RCE) or a Denial of Service (DoS) from crashing the service.
 """
 false_positives = ["tbd"]
-index = ["packetbeat=*", "filebeat-*"]
+index = ["packetbeat-*", "filebeat-*"]
 language = "kuery"
 license = "Elastic License"
 name = "Malicious DNS SIG Request"
@@ -28,7 +28,7 @@ type = "query"
 
 query = '''
 event.category:(network or network_traffic) and destination.port:53 and
-  network.bytes>60000 and network.transport:tcp
+  (event.dataset:zeek.dns or type:dns or event.type:connection) and network.bytes>60000
 '''
 
 
