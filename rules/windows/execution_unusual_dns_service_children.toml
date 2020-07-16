@@ -1,0 +1,50 @@
+[metadata]
+creation_date = "2020/07/16"
+ecs_version = ["1.5.0"]
+maturity = "development"
+updated_date = "2020/07/16"
+
+[rule]
+author = ["Elastic"]
+description = "An unexpected process spawned from the dns.exe, which is responsible for DNS Server services."
+false_positives = [
+    """
+    Werfault.exe can spawn in a legitimate manner when dns.exe crashes but this is very unlikely, but it can also spawn
+    as a result Denial of Service (DoS) attempts to intentionally crash the service.
+    """,
+]
+index = ["winlogbeat-*"]
+language = "kuery"
+license = "Elastic License"
+name = "Unusual Child Process of dns.exe"
+references = [
+    "https://research.checkpoint.com/2020/resolving-your-way-into-domain-admin-exploiting-a-17-year-old-bug-in-windows-dns-servers/",
+    "https://msrc-blog.microsoft.com/2020/07/14/july-2020-security-update-cve-2020-1350-vulnerability-in-windows-domain-name-system-dns-server/",
+    "https://github.com/maxpl0it/CVE-2020-1350-DoS",
+]
+risk_score = 21
+rule_id = "8c37dc0e-e3ac-4c97-8aa0-cf6a9122de45"
+severity = "high"
+tags = ["CVE-2020-1350", "Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.category:process and event.type:start and
+  process.parent.name:dns.exe and
+  not process.name:conhost.exe
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1133"
+name = "External Remote Services"
+reference = "https://attack.mitre.org/techniques/T1133/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
