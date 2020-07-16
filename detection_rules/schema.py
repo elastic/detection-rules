@@ -33,9 +33,13 @@ NONFORMATTED_FIELDS = 'note',
 # enabled defaults to false instead of true
 # version is a required field that must exist
 
+# rule types
 MACHINE_LEARNING = 'machine_learning'
 SAVED_QUERY = 'saved_query'
 QUERY = 'query'
+THRESHOLD = 'threshold'
+
+RULE_TYPES = [MACHINE_LEARNING, SAVED_QUERY, QUERY, THRESHOLD]
 
 
 class FilterMetadata(jsl.Document):
@@ -98,6 +102,13 @@ class SeverityMapping(jsl.Document):
     operator = jsl.StringField(required=False, enum=OPERATORS)
     value = jsl.StringField(required=False)
     severity = jsl.StringField(required=False)
+
+
+class ThresholdMapping(jsl.Document):
+    """Threshold mapping."""
+
+    field = jsl.StringField(required=True)
+    value = jsl.IntField(minimum=1, required=True)
 
 
 class ThreatTactic(jsl.Document):
@@ -168,6 +179,11 @@ class SiemRuleApiSchema(jsl.Document):
         ml_scope.machine_learning_job_id = jsl.StringField(required=True)
         ml_scope.type = jsl.StringField(enum=[MACHINE_LEARNING], required=True, default=MACHINE_LEARNING)
 
+    with jsl.Scope(SAVED_QUERY) as saved_id_scope:
+        saved_id_scope.index = jsl.ArrayField(jsl.StringField(), required=False)
+        saved_id_scope.saved_id = jsl.StringField(required=True)
+        saved_id_scope.type = jsl.StringField(enum=[SAVED_QUERY], required=True, default=SAVED_QUERY)
+
     with jsl.Scope(QUERY) as query_scope:
         query_scope.index = jsl.ArrayField(jsl.StringField(), required=False)
         # this is not required per the API but we will enforce it here
@@ -175,10 +191,13 @@ class SiemRuleApiSchema(jsl.Document):
         query_scope.query = jsl.StringField(required=True)
         query_scope.type = jsl.StringField(enum=[QUERY], required=True, default=QUERY)
 
-    with jsl.Scope(SAVED_QUERY) as saved_id_scope:
-        saved_id_scope.index = jsl.ArrayField(jsl.StringField(), required=False)
-        saved_id_scope.saved_id = jsl.StringField(required=True)
-        saved_id_scope.type = jsl.StringField(enum=[SAVED_QUERY], required=True, default=SAVED_QUERY)
+    with jsl.Scope(THRESHOLD) as threshold_scope:
+        threshold_scope.index = jsl.ArrayField(jsl.StringField(), required=False)
+        # this is not required per the API but we will enforce it here
+        threshold_scope.language = jsl.StringField(enum=['kuery', 'lucene'], required=True, default='kuery')
+        threshold_scope.query = jsl.StringField(required=True)
+        threshold_scope.type = jsl.StringField(enum=[THRESHOLD], required=True, default=THRESHOLD)
+        threshold_scope.threshold = jsl.DocumentField(ThresholdMapping, required=True)
 
 
 class VersionedApiSchema(SiemRuleApiSchema):
