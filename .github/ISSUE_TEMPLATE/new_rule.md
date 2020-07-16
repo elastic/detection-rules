@@ -22,7 +22,8 @@ assignees: ''
 <!-- okta, cloudtrail, etc -->
 
 - **Target ECS Version:** x.x.x
-- **New fields required in ECS for this? Associated issue/PR:**
+- **New fields required in ECS for this?**
+- **Related issues or PRs**
 
 ## Optional Info
 - **References:**

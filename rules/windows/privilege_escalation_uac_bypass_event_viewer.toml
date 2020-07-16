@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/03/17"
-ecs_version = ["1.4.0"]
+ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/03/17"
+updated_date = "2020/06/24"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,9 @@ tags = ["Elastic", "Windows"]
 type = "query"
 
 query = '''
-process.parent.name:eventvwr.exe and event.action:"Process Create (rule: ProcessCreate)" and not process.executable:("C:\Windows\SysWOW64\mmc.exe" or "C:\Windows\System32\mmc.exe")
+event.category:process and event.type:(start or process_started) and
+  process.parent.name:eventvwr.exe and
+  not process.executable:("C:\Windows\SysWOW64\mmc.exe" or "C:\Windows\System32\mmc.exe")
 '''
 
 

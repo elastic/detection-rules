@@ -10,12 +10,14 @@ import jsonschema
 
 from . import ecs
 from .attack import TACTICS, TACTICS_MAP, TECHNIQUES, technique_lookup
+from .utils import cached
 
 UUID_PATTERN = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 DATE_PATTERN = r'\d{4}/\d{2}/\d{2}'
 VERSION_PATTERN = r'\d+\.\d+\.\d+'
 RULE_LEVELS = ['recommended', 'aggressive']
 MATURITY_LEVELS = ['development', 'testing', 'staged', 'production', 'deprecated']
+OPERATORS = ['equals']
 OS_OPTIONS = ['windows', 'linux', 'macos', 'solaris']  # need to verify with ecs
 INTERVAL_PATTERN = r'\d+[mshd]'
 MITRE_URL_PATTERN = r'https://attack.mitre.org/{type}/T[A-Z0-9]+/'
@@ -81,6 +83,23 @@ class Filters(jsl.Document):
     query = jsl.DocumentField(FilterQuery)
 
 
+class RiskScoreMapping(jsl.Document):
+    """Risk score mapping."""
+
+    field = jsl.StringField(required=True)
+    operator = jsl.StringField(required=False, enum=OPERATORS)
+    value = jsl.StringField(required=False)
+
+
+class SeverityMapping(jsl.Document):
+    """Severity mapping."""
+
+    field = jsl.StringField(required=True)
+    operator = jsl.StringField(required=False, enum=OPERATORS)
+    value = jsl.StringField(required=False)
+    severity = jsl.StringField(required=False)
+
+
 class ThreatTactic(jsl.Document):
     """Threat tactics."""
 
@@ -110,6 +129,7 @@ class SiemRuleApiSchema(jsl.Document):
 
     actions = jsl.ArrayField(required=False)
     author = jsl.ArrayField(jsl.StringField(default="Elastic"), required=True, min_items=1)
+    building_block_type = jsl.StringField(required=False)
     description = jsl.StringField(required=True)
     # api defaults to false if blank
     enabled = jsl.BooleanField(default=False, required=False)
@@ -127,13 +147,17 @@ class SiemRuleApiSchema(jsl.Document):
     # output_index = jsl.StringField(required=False)  # this is NOT allowed!
     references = jsl.ArrayField(jsl.StringField(), required=False)
     risk_score = jsl.IntField(minimum=0, maximum=100, required=True, default=21)
+    risk_score_mapping = jsl.ArrayField(jsl.DocumentField(RiskScoreMapping), required=False, min_items=1)
     rule_id = jsl.StringField(pattern=UUID_PATTERN, required=True)
+    rule_name_override = jsl.StringField(required=False)
     severity = jsl.StringField(enum=['low', 'medium', 'high', 'critical'], default='low', required=True)
+    severity_mapping = jsl.ArrayField(jsl.DocumentField(SeverityMapping), required=False, min_items=1)
     # saved_id - type must be 'saved_query' to allow this or else it is forbidden
     tags = jsl.ArrayField(jsl.StringField(), required=False)
     throttle = jsl.StringField(required=False)
     timeline_id = jsl.StringField(required=False)
     timeline_title = jsl.StringField(required=False)
+    timestamp_override = jsl.StringField(required=False)
     to = jsl.StringField(required=False, default='now')
     # require this to be always validated with a role
     # type = jsl.StringField(enum=[MACHINE_LEARNING, QUERY, SAVED_QUERY], required=True)
@@ -201,22 +225,18 @@ class MappingCount(jsl.Document):
     sources = jsl.ArrayField(jsl.StringField(), min_items=1)
 
 
-cached_schemas = {}
-
-
+@cached
 def get_schema(role, as_rule=False, versioned=False):
     """Get applicable schema by role type and rule format."""
-    if (role, as_rule, versioned) not in cached_schemas:
-        if versioned:
-            cls = VersionedApiSchema
-        else:
-            cls = SiemRuleTomlSchema if as_rule else SiemRuleApiSchema
+    if versioned:
+        cls = VersionedApiSchema
+    else:
+        cls = SiemRuleTomlSchema if as_rule else SiemRuleApiSchema
 
-        cached_schemas[(role, as_rule, versioned)] = cls.get_schema(ordered=True, role=role)
-
-    return cached_schemas[(role, as_rule, versioned)]
+    return cls.get_schema(ordered=True, role=role)
 
 
+@cached
 def schema_validate(contents, as_rule=False, versioned=False):
     """Validate against all schemas until first hit."""
     assert isinstance(contents, dict)
