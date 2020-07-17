@@ -9,14 +9,21 @@ author = ["Elastic"]
 description = "An unexpected process spawned from dns.exe, which is the process responsible for DNS server services."
 false_positives = [
     """
-    Werfault.exe can spawn in a legitimate manner when dns.exe crashes but this is very unlikely, but it can also spawn
-    as a result Denial of Service (DoS) attempts to intentionally crash the service.
+    Werfault.exe will legitimately spawn when dns.exe crashes, but the DNS service is very stable and so this is a low
+    occurring event. Denial of Service (DoS) attempts by intentionally crashing the service will also cause werfault.exe
+    to spawn.
     """,
 ]
 index = ["winlogbeat-*"]
 language = "kuery"
 license = "Elastic License"
 name = "Unusual Child Process of dns.exe"
+note = """### Investigating Unusual Child Process
+Detection alerts from this rule indicate potential suspicious child processes spawned after exploitation from CVE-2020-1350 (SigRed) has occurred. Here are some possible avenues of investigation:
+- Any suspicious or abnormal child process spawned from dns.exe should be reviewed and investigated with care. It's impossible to predict what an adversary may deploy as the follow-on process after the exploit, but built-in discovery/enumeration utilities should be top of mind (whoami.exe, netstat.exe, systeminfo.exe, tasklist.exe).
+- Built-in Windows programs that contain capabilities used to download and execute additional payloads should also be considered. This is not an exhaustive list, but ideal candidates to start out would be: mshta.exe, powershell.exe, regsvr32.exe, rundll32.exe, wscript.exe, wmic.exe.
+- If the DoS exploit is successful and DNS Server service crashes, be mindful of potential child processes related to werfault.exe occurring.
+- Any subsequent activity following the child process spawned related to execution/network activity should be thoroughly reviewed from the endpoint."""
 references = [
     "https://research.checkpoint.com/2020/resolving-your-way-into-domain-admin-exploiting-a-17-year-old-bug-in-windows-dns-servers/",
     "https://msrc-blog.microsoft.com/2020/07/14/july-2020-security-update-cve-2020-1350-vulnerability-in-windows-domain-name-system-dns-server/",
