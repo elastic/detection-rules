@@ -14,12 +14,11 @@ import kql
 from . import ecs, beats
 from .attack import TACTICS, build_threat_map_entry, technique_lookup
 from .rule_formatter import nested_normalize, toml_write
-from .schema import metadata_schema, schema_validate, get_schema
+from .schema import RULE_TYPES, metadata_schema, schema_validate, get_schema
 from .utils import get_path, clear_caches, cached
 
 
 RULES_DIR = get_path("rules")
-RULE_TYPE_OPTIONS = ['machine_learning', 'query', 'saved_id']
 _META_SCHEMA_REQ_DEFAULTS = {}
 
 
@@ -209,8 +208,8 @@ class Rule(object):
 
         kwargs = copy.deepcopy(kwargs)
 
-        while rule_type not in RULE_TYPE_OPTIONS:
-            rule_type = click.prompt('Rule type ({})'.format(', '.join(RULE_TYPE_OPTIONS)))
+        while rule_type not in RULE_TYPES:
+            rule_type = click.prompt('Rule type ({})'.format(', '.join(RULE_TYPES)))
 
         schema = get_schema(rule_type)
         props = schema['properties']
@@ -243,6 +242,11 @@ class Rule(object):
 
                 if len(threat_map) > 0:
                     contents[name] = threat_map
+                continue
+
+            if name == 'threshold':
+                contents[name] = {n: schema_prompt(f'threshold {n}', required=n in options['required'], **opts)
+                                  for n, opts in options['properties'].items()}
                 continue
 
             if kwargs.get(name):
