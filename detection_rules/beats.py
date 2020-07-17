@@ -57,8 +57,8 @@ def download_latest_beats_schema():
 
     # remove all non-beat directories
     fs = {k: v for k, v in fs.get("folders", {}).items() if k.endswith("beat")}
-    print(f"Saving etc/beats_schema/{latest_release['tag_name']}.yml")
-    save_etc_dump(fs, "beats_schemas", latest_release["tag_name"] + ".yml")
+    print(f"Saving etc/beats_schema/{latest_release['tag_name']}.json")
+    save_etc_dump(fs, "beats_schemas", latest_release["tag_name"] + ".json")
 
 
 def _flatten_schema(schema: list, prefix="") -> list:
