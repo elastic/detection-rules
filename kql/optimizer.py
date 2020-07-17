@@ -58,7 +58,7 @@ class Optimizer(DepthFirstWalker):
             if t_a == t_b:
                 return (a.value > b.value) - (a.value < b.value)
             else:
-                return (t_a.__name__ > b.__name__) - (a.__name__ < b.__name__)
+                return (t_a.__name__ > t_b.__name__) - (t_a.__name__ < t_b.__name__)
 
         else:
             # unable to compare
