@@ -9,11 +9,12 @@ import time
 
 import click
 from elasticsearch import AuthenticationException, Elasticsearch
+from kibana import Kibana, RuleResource
 
 from .main import root
 from .misc import set_param_values
 from .utils import normalize_timing_and_sort, unix_time_to_formatted, get_path
-from .rule_loader import get_rule, rta_mappings
+from .rule_loader import get_rule, rta_mappings, load_rule_files, load_rules
 
 COLLECTION_DIR = get_path('collections')
 ERRORS = {
@@ -220,3 +221,38 @@ def normalize_file(events_file):
     file_name = os.path.splitext(os.path.basename(events_file.name))[0]
     events = Events('_', {file_name: [json.loads(e) for e in events_file.readlines()]})
     events.save(dump_dir=os.path.dirname(events_file.name))
+
+
+@root.command("kibana-upload")
+@click.argument("toml-files", nargs=-1, required=True)
+@click.option('--url', callback=set_param_values, expose_value=True)
+@click.option('--cloud-id', callback=set_param_values, expose_value=True)
+@click.option('--user', '-u', callback=set_param_values, expose_value=True, hide_input=False)
+@click.option('--password', '-p', callback=set_param_values, expose_value=True, hide_input=True)
+def kibana_upload(toml_files, url, cloud_id, user, password):
+    """Upload a list of rule .toml files to Kibana."""
+    from uuid import uuid4
+    from .packaging import manage_versions
+
+    with Kibana(cloud_id=cloud_id, url=url) as kibana:
+        kibana.login(user, password)
+
+        file_lookup = load_rule_files(paths=toml_files)
+        rules = list(load_rules(file_lookup=file_lookup).values())
+
+        # assign the versions from etc/versions.lock.json
+        # rules that have changed in hash get incremented, others stay as-is.
+        # rules that aren't in the lookup default to version 1
+        manage_versions(rules, verbose=False)
+
+        api_payloads = []
+
+        for rule in rules:
+            payload = rule.contents.copy()
+            meta = payload.setdefault("meta", {})
+            meta["original"] = dict(id=rule.id, **rule.metadata)
+            payload["rule_id"] = str(uuid4())
+            api_payloads.append(RuleResource.from_dict(payload))
+
+        rules = RuleResource.bulk_create(api_payloads)
+        click.echo(f"Successfully uploaded {len(rules)} rules")

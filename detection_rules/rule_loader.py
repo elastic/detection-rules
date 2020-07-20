@@ -44,14 +44,17 @@ def reset():
 
 
 @cached
-def load_rule_files(verbose=True):
+def load_rule_files(verbose=True, paths=None):
     """Load the rule YAML files, but without parsing the EQL query portion."""
     file_lookup = {}  # type: dict[str, dict]
 
     if verbose:
         print("Loading rules from {}".format(RULES_DIR))
 
-    for rule_file in sorted(glob.glob(os.path.join(RULES_DIR, '**', '*.toml'), recursive=True)):
+    if paths is None:
+        paths = sorted(glob.glob(os.path.join(RULES_DIR, '**', '*.toml'), recursive=True))
+
+    for rule_file in paths:
         try:
             # use pytoml instead of toml because of annoying bugs
             # https://github.com/uiri/toml/issues/152

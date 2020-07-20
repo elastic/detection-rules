@@ -20,22 +20,26 @@ class Kibana(object):
 
     CACHED = False
 
-    def __init__(self, cloud_id, verify=True):
+    def __init__(self, cloud_id=None, url=None, verify=True, elasticsearch=None):
         """"Open a session to the platform."""
         self.authenticated = False
         self.session = requests.Session()
         self.session.verify = verify
 
         self.cloud_id = cloud_id
-        self.cluster_name, cloud_info = self.cloud_id.split(":")
-        self.domain, self.es_uuid, self.kibana_uuid = \
-            base64.b64decode(cloud_info.encode("utf-8")).decode("utf-8").split("$")
+        self.kibana_url = url
+        self.elastic_url = None
 
-        self.kibana_url = f"https://{self.kibana_uuid}.{self.domain}:9243"
-        self.elastic_url = f"https://{self.es_uuid}.{self.domain}:9243"
+        if self.cloud_id:
+            self.cluster_name, cloud_info = self.cloud_id.split(":")
+            self.domain, self.es_uuid, self.kibana_uuid = \
+                base64.b64decode(cloud_info.encode("utf-8")).decode("utf-8").split("$")
+
+            self.kibana_url = f"https://{self.kibana_uuid}.{self.domain}:9243"
+            self.elastic_url = f"https://{self.es_uuid}.{self.domain}:9243"
 
         self.session.headers.update({'Content-Type': "application/json", "kbn-xsrf": str(uuid.uuid4())})
-        self.elasticsearch = None
+        self.elasticsearch = elasticsearch
 
         if not verify:
             from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -43,6 +47,7 @@ class Kibana(object):
 
     def url(self, uri):
         """Get the full URL given a URI."""
+        assert self.kibana_url is not None
         return f"{self.kibana_url}/{uri.lstrip('/')}"
 
     def request(self, method, uri, params=None, data=None, error=True):
@@ -96,8 +101,9 @@ class Kibana(object):
         self.authenticated = True
 
         # create ES and force authentication
-        self.elasticsearch = Elasticsearch(hosts=[self.elastic_url], http_auth=(username, password))
-        self.elasticsearch.info()
+        if self.elasticsearch is None and self.elastic_url is not None:
+            self.elasticsearch = Elasticsearch(hosts=[self.elastic_url], http_auth=(username, password))
+            self.elasticsearch.info()
 
         # make chaining easier
         return self
@@ -118,6 +124,7 @@ class Kibana(object):
 
         # Backup the previous Kibana instance and bind the current one
         _context.stack.append(self)
+        return self
 
     def __exit__(self, exception_type, exception_value, traceback):
         """Use the current Kibana for ``with`` syntax."""
