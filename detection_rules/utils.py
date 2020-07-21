@@ -16,7 +16,7 @@ from datetime import datetime, date
 import kql
 
 import eql.utils
-from eql.utils import stream_json_lines
+from eql.utils import load_dump, stream_json_lines
 
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(CURR_DIR)
@@ -192,3 +192,15 @@ def cached(f):
 
 def clear_caches():
     _cache.clear()
+
+
+def load_rule_contents(rule_file):
+    """Load a rule file from multiple formats."""
+    try:
+        contents = load_dump(rule_file)
+    except ValueError:
+        # kibana exported rule object is ndjson with the rule on the first line
+        with open(rule_file, 'r') as f:
+            contents = json.loads(f.readline())
+
+    return contents

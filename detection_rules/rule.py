@@ -250,15 +250,15 @@ class Rule(object):
                 continue
 
             if name == 'threshold':
-                contents[name] = {n: schema_prompt(f'threshold {n}', required=n in options['required'], **opts)
+                contents[name] = {n: schema_prompt(f'threshold {n}', required=n in options['required'], **opts.copy())
                                   for n, opts in options['properties'].items()}
                 continue
 
             if kwargs.get(name):
-                contents[name] = schema_prompt(kwargs.pop(name))
+                contents[name] = schema_prompt(name, value=kwargs.pop(name))
                 continue
 
-            result = schema_prompt(name, required=name in opt_reqs, **options)
+            result = schema_prompt(name, required=name in opt_reqs, **options.copy())
 
             if result:
                 if name not in opt_reqs and result == options.get('default', ''):

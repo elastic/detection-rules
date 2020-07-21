@@ -21,7 +21,7 @@ from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
 from .rule import Rule
 from .rule_formatter import toml_write
 from .schema import RULE_TYPES
-from .utils import get_path, clear_caches
+from .utils import clear_caches, get_path, load_rule_contents
 
 
 RULES_DIR = get_path('rules')
@@ -39,9 +39,9 @@ def root():
 @click.option('--rule-type', '-t', type=click.Choice(RULE_TYPES), help='Type of rule to create')
 def create_rule(path, config, required_only, rule_type):
     """Create a detection rule."""
-    config = load_dump(config) if config else {}
+    contents = load_rule_contents(config) or {}
     try:
-        return Rule.build(path, rule_type=rule_type, required_only=required_only, save=True, **config)
+        return Rule.build(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
     finally:
         rule_loader.reset()
 
@@ -49,19 +49,41 @@ def create_rule(path, config, required_only, rule_type):
 @root.command('load-from-file')
 @click.argument('infile', type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
 @click.option('--directory', '-d', type=click.Path(file_okay=False, exists=True), help='Load files from a directory')
-def load_from_file(infile, directory):
+@click.option('--skip-failures', '-s', is_flag=True,
+              help='Continue looping through rules when files fail to load (-d required)')
+@click.pass_context
+def load_from_file(ctx, infile, directory, skip_failures):
     """Load rules from file(s)."""
     if infile:
         for rule_file in infile:
             rule_path = os.path.join(RULES_DIR, os.path.basename(rule_file))
-            rule = Rule(rule_path, load_dump(rule_file))
-            rule.save(as_rule=True, verbose=True)
+            contents = load_rule_contents(rule_file) or {}
+            contents = {k: v for k, v in contents.items()}
+
+            try:
+                rule: Rule = Rule(rule_path, contents)
+                rule.save(as_rule=True, verbose=True)
+            except jsonschema.ValidationError as e:
+                click.secho(e.args[0], fg='red')
+                ctx.exit(1)
+
     elif directory:
         for rule_file in glob.glob(os.path.join(directory, '**', '*.*'), recursive=True):
             try:
                 rule_path = os.path.join(RULES_DIR, os.path.basename(rule_file))
-                rule = Rule(rule_path, load_dump(rule_file))
-                rule.save(as_rule=True, verbose=True)
+                contents = load_rule_contents(rule_file) or {}
+                contents = {k: v for k, v in contents.items()}
+
+                try:
+                    rule = Rule(rule_path, contents)
+                    rule.save(as_rule=True, verbose=True)
+                except jsonschema.ValidationError as e:
+                    click.secho(f'{e.args[0]} in {rule_path}', fg='red')
+                    if skip_failures:
+                        continue
+                    else:
+                        ctx.exit(1)
+
             except ValueError:
                 click.echo('Unable to load file: {}'.format(rule_file))
     else:
@@ -120,19 +142,29 @@ def mass_update(ctx, query, field):
 @click.argument('rule-id', required=False)
 @click.option('--rule-file', '-f', type=click.Path(dir_okay=False), help='Optionally view a rule from a specified file')
 @click.option('--as-api/--as-rule', default=True, help='Print the rule in final api or rule format')
-def view_rule(rule_id, rule_file, as_api):
+@click.pass_context
+def view_rule(ctx, rule_id, rule_file, as_api):
     """View an internal rule or specified rule file."""
+    rule = None
+
     if rule_id:
         rule = rule_loader.get_rule(rule_id, verbose=False)
     elif rule_file:
-        rule = Rule(rule_file, load_dump(rule_file))
+        contents = load_rule_contents(rule_file) or {}
+        contents = {k: v for k, v in contents.items()}
+
+        try:
+            rule = Rule(rule_file, contents)
+        except jsonschema.ValidationError as e:
+            click.secho(e.args[0], fg='red')
+            ctx.exit(1)
     else:
         click.secho('Unknown rule!', fg='red')
-        return
+        ctx.exit(1)
 
     if not rule:
         click.secho('Unknown format!', fg='red')
-        return
+        ctx.exit(1)
 
     click.echo(toml_write(rule.rule_format()) if not as_api else json.dumps(rule.contents, indent=2, sort_keys=True))
 
