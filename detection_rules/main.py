@@ -376,7 +376,6 @@ def test_rules(ctx):
 
 
 @root.command("kibana-commit")
-@click.pass_context
 @click.argument("local-repo", default=get_path("..", "kibana"))
 @click.option("--kibana-directory", "-d", help="Directory to overwrite in Kibana",
               default="x-pack/plugins/security_solution/server/lib/detection_engine/rules/prepackaged_rules")
@@ -384,6 +383,7 @@ def test_rules(ctx):
 @click.option("--ssh/--http", is_flag=True, help="Method to use for cloning")
 @click.option("--github-repo", "-r", help="Repository to use for the branch", default="elastic/kibana")
 @click.option("--message", "-m", help="Override default commit message")
+@click.pass_context
 def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_branch, message):
     """Prep a commit and push to Kibana."""
     git_exe = shutil.which("git")
