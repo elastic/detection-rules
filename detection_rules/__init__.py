@@ -9,7 +9,7 @@ from . import mappings
 from . import misc
 from . import rule_formatter
 from . import rule_loader
-from . import schema
+from . import schemas
 from . import utils
 
 __all__ = (
@@ -19,6 +19,6 @@ __all__ = (
     'misc',
     'rule_formatter',
     'rule_loader',
-    'schema',
+    'schemas',
     'utils',
 )

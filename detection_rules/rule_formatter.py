@@ -10,7 +10,7 @@ from collections import OrderedDict
 
 import toml
 
-from .schema import NONFORMATTED_FIELDS
+from .schemas import CurrentSchema
 
 SQ = "'"
 DQ = '"'
@@ -34,7 +34,7 @@ def nested_normalize(d, skip_cleanup=False):
             if k == 'query':
                 # TODO: the linter still needs some work, but once up to par, uncomment to implement - kql.lint(v)
                 d.update({k: nested_normalize(v)})
-            elif k in NONFORMATTED_FIELDS:
+            elif k in CurrentSchema.markdown_fields():
                 # let these maintain newlines and whitespace for markdown support
                 d.update({k: nested_normalize(v, skip_cleanup=True)})
             else:
@@ -160,7 +160,7 @@ def toml_write(rule_contents, outfile=None):
                     bottom[k] = v
                 else:
                     top[k] = v
-            elif k in NONFORMATTED_FIELDS:
+            elif k in CurrentSchema.markdown_fields():
                 top[k] = NonformattedField(v)
             else:
                 top[k] = v
