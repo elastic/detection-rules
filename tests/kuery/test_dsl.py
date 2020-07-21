@@ -38,34 +38,20 @@ class TestKQLtoDSL(unittest.TestCase):
     def test_or_query(self):
         self.validate(
             "field:value or field2:value2",
-            {
-                "should": [
-                    {"match": {"field": "value"}},
-                    {"match": {"field2": "value2"}},
-                ],
-                "minimum_should_match": 1,
-            },
+            {"should": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}], "minimum_should_match": 1,},
         )
 
     def test_and_query(self):
         self.validate(
             "field:value and field2:value2",
-            {
-                "filter": [
-                    {"match": {"field": "value"}},
-                    {"match": {"field2": "value2"}},
-                ]
-            },
+            {"filter": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}]},
         )
 
     def test_optimizations(self):
         self.validate(
             "(field:value or field2:value2) and field3:value3",
             {
-                "should": [
-                    {"match": {"field": "value"}},
-                    {"match": {"field2": "value2"}},
-                ],
+                "should": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}],
                 "filter": [{"match": {"field3": "value3"}}],
                 "minimum_should_match": 1,
             },
@@ -75,14 +61,7 @@ class TestKQLtoDSL(unittest.TestCase):
             "(field:value and field2:value2) or field3:value3",
             {
                 "should": [
-                    {
-                        "bool": {
-                            "filter": [
-                                {"match": {"field": "value"}},
-                                {"match": {"field2": "value2"}},
-                            ]
-                        }
-                    },
+                    {"bool": {"filter": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}]}},
                     {"match": {"field3": "value3"}},
                 ],
                 "minimum_should_match": 1,
@@ -93,14 +72,7 @@ class TestKQLtoDSL(unittest.TestCase):
             "(field:value and field2:value2) or field3:value3",
             {
                 "should": [
-                    {
-                        "bool": {
-                            "filter": [
-                                {"match": {"field": "value"}},
-                                {"match": {"field2": "value2"}},
-                            ]
-                        }
-                    },
+                    {"bool": {"filter": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}]}},
                     {"match": {"field3": "value3"}},
                 ],
                 "minimum_should_match": 1,
@@ -109,17 +81,10 @@ class TestKQLtoDSL(unittest.TestCase):
 
     def test_not_query(self):
         self.validate("not field:value", {"must_not": [{"match": {"field": "value"}}]})
-        self.validate(
-            "field:(not value)", {"must_not": [{"match": {"field": "value"}}]}
-        )
+        self.validate("field:(not value)", {"must_not": [{"match": {"field": "value"}}]})
         self.validate(
             "not field:value and not field2:value2",
-            {
-                "must_not": [
-                    {"match": {"field": "value"}},
-                    {"match": {"field2": "value2"}},
-                ]
-            },
+            {"must_not": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}},]},
         )
         self.validate(
             "not (field:value or field2:value2)",
@@ -128,10 +93,7 @@ class TestKQLtoDSL(unittest.TestCase):
                     {
                         "bool": {
                             "minimum_should_match": 1,
-                            "should": [
-                                {"match": {"field": "value"}},
-                                {"match": {"field2": "value2"}},
-                            ],
+                            "should": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}],
                         }
                     }
                 ]
@@ -141,16 +103,5 @@ class TestKQLtoDSL(unittest.TestCase):
 
         self.validate(
             "not (field:value and field2:value2)",
-            {
-                "must_not": [
-                    {
-                        "bool": {
-                            "filter": [
-                                {"match": {"field": "value"}},
-                                {"match": {"field2": "value2"}},
-                            ]
-                        }
-                    }
-                ]
-            },
+            {"must_not": [{"bool": {"filter": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}]}}]},
         )
