@@ -38,13 +38,40 @@ class TestKQLtoDSL(unittest.TestCase):
     def test_or_query(self):
         self.validate(
             "field:value or field2:value2",
-            {"should": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}], "minimum_should_match": 1,},
+            {"should": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}], "minimum_should_match": 1},
         )
 
     def test_and_query(self):
         self.validate(
             "field:value and field2:value2",
             {"filter": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}]},
+        )
+
+    def test_not_query(self):
+        self.validate("not field:value", {"must_not": [{"match": {"field": "value"}}]})
+        self.validate("field:(not value)", {"must_not": [{"match": {"field": "value"}}]})
+        self.validate(
+            "not field:value and not field2:value2",
+            {"must_not": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}]},
+        )
+        self.validate(
+            "not (field:value or field2:value2)",
+            {
+                "must_not": [
+                    {
+                        "bool": {
+                            "minimum_should_match": 1,
+                            "should": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}],
+                        }
+                    }
+                ]
+            },
+            optimize=False,
+        )
+
+        self.validate(
+            "not (field:value and field2:value2)",
+            {"must_not": [{"bool": {"filter": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}]}}]},
         )
 
     def test_optimizations(self):
@@ -69,39 +96,54 @@ class TestKQLtoDSL(unittest.TestCase):
         )
 
         self.validate(
-            "(field:value and field2:value2) or field3:value3",
+            "a:(v1 or v2 or v3) or b:(v4 or v5)",
             {
                 "should": [
-                    {"bool": {"filter": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}]}},
-                    {"match": {"field3": "value3"}},
+                    {"match": {"a": "v1"}},
+                    {"match": {"a": "v2"}},
+                    {"match": {"a": "v3"}},
+                    {"match": {"b": "v4"}},
+                    {"match": {"b": "v5"}},
                 ],
                 "minimum_should_match": 1,
             },
         )
 
-    def test_not_query(self):
-        self.validate("not field:value", {"must_not": [{"match": {"field": "value"}}]})
-        self.validate("field:(not value)", {"must_not": [{"match": {"field": "value"}}]})
         self.validate(
-            "not field:value and not field2:value2",
-            {"must_not": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}},]},
-        )
-        self.validate(
-            "not (field:value or field2:value2)",
+            "a:(v1 or v2 or v3) and b:(v4 or v5)",
             {
-                "must_not": [
+                "should": [
+                    {"match": {"a": "v1"}},
+                    {"match": {"a": "v2"}},
+                    {"match": {"a": "v3"}}
+                ],
+                "filter": [
                     {
                         "bool": {
-                            "minimum_should_match": 1,
-                            "should": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}],
+                            "should": [
+                                {"match": {"b": "v4"}},
+                                {"match": {"b": "v5"}}
+                            ],
+                            "minimum_should_match": 1
                         }
                     }
-                ]
+                ],
+                "minimum_should_match": 1,
             },
-            optimize=False,
         )
 
         self.validate(
-            "not (field:value and field2:value2)",
-            {"must_not": [{"bool": {"filter": [{"match": {"field": "value"}}, {"match": {"field2": "value2"}}]}}]},
+            "(field:value and not field2:value2) or field3:value3",
+            {
+                "should": [
+                    {
+                        "bool": {
+                            "filter": [{"match": {"field": "value"}}],
+                            "must_not": [{"match": {"field2": "value2"}}],
+                        }
+                    },
+                    {"match": {"field3": "value3"}},
+                ],
+                "minimum_should_match": 1,
+            },
         )

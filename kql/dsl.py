@@ -39,10 +39,8 @@ def boolean(**kwargs):
     elif boolean_type == "should":
         # can flatten `should` of `should`
         for child in children:
-            if list(child) == "bool":
-                for k, v in children["bool"].items():
-                    if k != "minimum_should_match":
-                        dsl[k].extend(v)
+            if list(child) == ["bool"] and set(child["bool"]).issubset({"should", "minimum_should_match"}):
+                dsl["should"].extend(child["bool"]["should"])
             else:
                 dsl[boolean_type].append(child)
 
