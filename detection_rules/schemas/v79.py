@@ -9,7 +9,6 @@ from .v78 import ApiSchema78
 
 
 OPERATORS = ['equals']
-INTERVAL_PATTERN = r'\d+[mshd]'
 
 
 # kibana/.../siem/server/lib/detection_engine/routes/schemas/add_prepackaged_rules_schema.ts

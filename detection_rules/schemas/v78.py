@@ -9,16 +9,9 @@ import jsl
 from .base import BaseApiSchema, MarkdownField
 from ..attack import TACTICS, TACTICS_MAP, TECHNIQUES, technique_lookup
 
-UUID_PATTERN = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
-DATE_PATTERN = r'\d{4}/\d{2}/\d{2}'
-VERSION_PATTERN = r'\d+\.\d+\.\d+'
-RULE_LEVELS = ['recommended', 'aggressive']
-MATURITY_LEVELS = ['development', 'testing', 'staged', 'production', 'deprecated']
-OS_OPTIONS = ['windows', 'linux', 'macos', 'solaris']  # need to verify with ecs
+
 INTERVAL_PATTERN = r'\d+[mshd]'
 MITRE_URL_PATTERN = r'https://attack.mitre.org/{type}/T[A-Z0-9]+/'
-
-NONFORMATTED_FIELDS = 'note',
 
 
 # kibana/.../siem/server/lib/detection_engine/routes/schemas/add_prepackaged_rules_schema.ts
@@ -108,7 +101,6 @@ class ApiSchema78(BaseApiSchema):
     output_index = jsl.NotField(jsl.StringField(required=False))  # this is NOT allowed!
     references = jsl.ArrayField(jsl.StringField(), required=False)
     risk_score = jsl.IntField(minimum=0, maximum=100, required=True, default=21)
-    rule_id = jsl.StringField(pattern=UUID_PATTERN, required=True)
     severity = jsl.StringField(enum=['low', 'medium', 'high', 'critical'], default='low', required=True)
     tags = jsl.ArrayField(jsl.StringField(), required=False)
     throttle = jsl.StringField(required=False)
