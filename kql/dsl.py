@@ -47,8 +47,9 @@ def boolean(**kwargs):
     elif boolean_type == "must_not" and len(children) == 1:
         # must_not: [{bool: {must: x}}] -> {must_not: x}
         child = children[0]
-        if list(child) == ["bool"] and list(child["bool"]) in (["filter", "must"]):
-            dsl = {"must_not": children[0]["must"]}
+        if list(child) == ["bool"] and list(child["bool"]) in (["filter"], ["must"]):
+            negated, = child["bool"].values()
+            dsl = {"must_not": negated}
         else:
             dsl = {"must_not": children}
 
@@ -102,8 +103,8 @@ class ToDsl(Walker):
         return lambda field: boolean(should=[child(field) for child in children])
 
     def _walk_not_value(self, tree):
-        child = self.walk(tree.expr)
-        return lambda field: boolean(must_not=[child])
+        child = self.walk(tree.value)
+        return lambda field: boolean(must_not=[child(field)])
 
     def _walk_field_comparison(self, tree):
         field = self.walk(tree.field)
