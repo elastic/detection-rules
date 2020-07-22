@@ -32,16 +32,19 @@ class FilterGenerator(Walker):
     def get_terms(cls, document, path):
         if isinstance(document, (tuple, list)):
             for d in document:
-                yield from cls.get_terms(d, path)
+                for term in cls.get_terms(d, path):
+                    yield term
 
         elif isinstance(document, dict):
             document = document.get(path[0])
             path = path[1:]
 
             if len(path) > 0:
-                yield from cls.get_terms(document, path)
+                for term in cls.get_terms(document, path):
+                    yield term
             elif isinstance(document, (tuple, list)):
-                yield from iter(document)
+                for term in document:
+                    yield term
             elif document is not None:
                 yield document
 
