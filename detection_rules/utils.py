@@ -196,11 +196,19 @@ def clear_caches():
 
 def load_rule_contents(rule_file):
     """Load a rule file from multiple formats."""
-    try:
-        contents = load_dump(rule_file)
-    except ValueError:
-        # kibana exported rule object is ndjson with the rule on the first line
+    extension = rule_file.split('.').pop().lower()
+
+    if extension in ('ndjson', 'jsonl'):
+        # kibana exported rule object is ndjson with the export metadata on the last line
         with open(rule_file, 'r') as f:
-            contents = json.loads(f.readline())
+            lines = f.readlines()
+
+            if len(lines) > 1 and 'exported_count' in lines[-1]:
+                lines.pop(-1)
+
+            assert len(lines) == 1, 'File contains more than a single rule'
+            contents = json.loads(lines[0])
+    else:
+        contents = load_dump(rule_file)
 
     return contents

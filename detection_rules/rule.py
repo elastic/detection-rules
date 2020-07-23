@@ -214,8 +214,8 @@ class Rule(object):
 
         kwargs = copy.deepcopy(kwargs)
 
-        rule_type = click.prompt('Rule type ({})'.format(', '.join(CurrentSchema.RULE_TYPES)),
-                                 type=click.Choice(CurrentSchema.RULE_TYPES))
+        rule_type = rule_type or click.prompt('Rule type ({})'.format(', '.join(CurrentSchema.RULE_TYPES)),
+                                              type=click.Choice(CurrentSchema.RULE_TYPES))
 
         schema = CurrentSchema.get_schema(role=rule_type)
         props = schema['properties']
@@ -278,9 +278,6 @@ class Rule(object):
                                     **TomlMetadata.get_schema()['properties']['ecs_version'])
         if ecs_version:
             metadata['ecs_version'] = ecs_version
-
-        # validate before creating
-        CurrentSchema.toml_schema().validate(contents)
 
         suggested_path = os.path.join(RULES_DIR, contents['name'])  # TODO: UPDATE BASED ON RULE STRUCTURE
         path = os.path.realpath(path or input('File path for rule [{}]: '.format(suggested_path)) or suggested_path)
