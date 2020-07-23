@@ -5,6 +5,7 @@
 import eql
 
 from . import ast
+from .dsl import ToDsl
 from .eql2kql import Eql2Kql
 from .errors import KqlParseError, KqlCompileError
 from .evaluator import FilterGenerator
@@ -14,17 +15,29 @@ from .parser import lark_parse, KqlParser
 __version__ = '0.1.4'
 __all__ = (
     "ast",
-    "to_eql",
-    "lint",
-    "parse",
     "from_eql",
     "get_evaluator",
     "KqlParseError",
     "KqlCompileError",
+    "lint",
+    "parse",
+    "to_dsl",
+    "to_eql",
 )
 
 
+def to_dsl(parsed, optimize=True, schema=None):
+    """Convert KQL to Elasticsearch Query DSL."""
+    if not isinstance(parsed, ast.KqlNode):
+        parsed = parse(parsed, optimize, schema)
+
+    return ToDsl.convert(parsed)
+
+
 def to_eql(text, optimize=True, schema=None):
+    if isinstance(text, bytes):
+        text = text.decode("utf-8")
+
     lark_parsed = lark_parse(text)
 
     converted = KqlToEQL(text, schema=schema).visit(lark_parsed)
@@ -32,6 +45,9 @@ def to_eql(text, optimize=True, schema=None):
 
 
 def parse(text, optimize=True, schema=None):
+    if isinstance(text, bytes):
+        text = text.decode("utf-8")
+
     lark_parsed = lark_parse(text)
     converted = KqlParser(text, schema=schema).visit(lark_parsed)
 
@@ -39,6 +55,9 @@ def parse(text, optimize=True, schema=None):
 
 
 def lint(text):
+    if isinstance(text, bytes):
+        text = text.decode("utf-8")
+
     return parse(text, optimize=True).render()
 
 
