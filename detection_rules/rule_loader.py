@@ -15,7 +15,7 @@ import pytoml
 
 from .mappings import RtaMappings
 from .rule import RULES_DIR, Rule
-from .schema import get_schema
+from .schemas import CurrentSchema
 from .utils import get_path, cached
 
 
@@ -171,7 +171,7 @@ def get_production_rules():
 
 def find_unneeded_defaults(rule):
     """Remove values that are not required in the schema which are set with default values."""
-    schema = get_schema(rule.contents['type'])
+    schema = CurrentSchema.get_schema(rule.type)
     props = schema['properties']
     unrequired_defaults = [p for p in props if p not in schema['required'] and props[p].get('default')]
     default_matches = {p: rule.contents[p] for p in unrequired_defaults

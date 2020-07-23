@@ -20,8 +20,8 @@ from . import rule_loader
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
 from .rule import Rule
 from .rule_formatter import toml_write
-from .schema import RULE_TYPES
-from .utils import clear_caches, get_path, load_rule_contents
+from .schemas import CurrentSchema
+from .utils import get_path, clear_caches, load_rule_contents
 
 
 RULES_DIR = get_path('rules')
@@ -36,7 +36,7 @@ def root():
 @click.argument('path', type=click.Path(dir_okay=False))
 @click.option('--config', '-c', type=click.Path(exists=True, dir_okay=False), help='Rule or config file')
 @click.option('--required-only', is_flag=True, help='Only prompt for required fields')
-@click.option('--rule-type', '-t', type=click.Choice(RULE_TYPES), help='Type of rule to create')
+@click.option('--rule-type', '-t', type=click.Choice(CurrentSchema.RULE_TYPES), help='Type of rule to create')
 def create_rule(path, config, required_only, rule_type):
     """Create a detection rule."""
     contents = load_rule_contents(config) or {}
