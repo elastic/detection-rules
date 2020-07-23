@@ -44,6 +44,29 @@ class GenericSchema(jsl.Document):
         schema = cls.get_schema(role=role)
         return jsonschema.validate(document, schema)
 
+    @classmethod
+    def strip_additional_properties(cls, document, role=None):
+        """Strip properties that aren't defined in the schema."""
+        if role is None:
+            role = document.get("type", jsl.DEFAULT_ROLE)
+
+        if role not in cls.RULE_TYPES:
+            raise ValueError(f"Unsupported rule type {role}")
+
+        target_schema = cls.get_schema(role)["properties"]
+        stripped = {}
+
+        # simple version, can customize or walk structures deeper when we have a need and use case
+        for field in target_schema:
+            if field in document:
+                stripped[field] = document[field]
+            elif target_schema[field].get("required") and "default" in target_schema:
+                stripped[field] = target_schema[field]["required"]
+
+        # finally, validate against the json schema
+        cls.validate(stripped, role)
+        return stripped
+
 
 class TomlMetadata(GenericSchema):
     """Schema for siem rule toml metadata."""
@@ -106,24 +129,8 @@ class BaseApiSchema(GenericSchema):
 
     @classmethod
     def downgrade(cls, target_cls, document, role=None):
-        """Downgrade to the previous stack version."""
-        if role is None:
-            role = document.get("type", jsl.DEFAULT_ROLE)
-
-        if role not in target_cls.RULE_TYPES:
-            raise ValueError(f"Unsupported rule type {role}")
-
-        target_schema = target_cls.get_schema(role)["properties"]
-        downgraded = {}
-
-        # simple version, can customize or walk structures deeper later
-        # override this method for more complex mappings
-        for field in target_schema:
-            if field in document:
-                downgraded[field] = document[field]
-            elif target_schema[field].get("required") and "default" in target_schema:
-                downgraded[field] = target_schema[field]["required"]
-
-        # finally, validate against the json schema
-        target_cls.validate(downgraded, role)
-        return downgraded
+        """Downgrade from one schema to its predecessor."""
+        # by default, we'll just strip extra properties
+        # different schemas can override this to provide a more advanced migration path
+        # and deeper evaluation of the schema.
+        return target_cls.strip_additional_properties(document, role=role)
