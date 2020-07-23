@@ -78,7 +78,6 @@ class TomlMetadata(GenericSchema):
         jsl.StringField(pattern=VERSION_PATTERN, required=True, default=ecs.get_max_version()), required=True)
     maturity = jsl.StringField(enum=MATURITY_LEVELS, default='development', required=True)
 
-    # if present, add to query
     os_type_list = jsl.ArrayField(jsl.StringField(enum=OS_OPTIONS), required=False)
     related_endpoint_rules = jsl.ArrayField(jsl.ArrayField(jsl.StringField(), min_items=2, max_items=2),
                                             required=False)
