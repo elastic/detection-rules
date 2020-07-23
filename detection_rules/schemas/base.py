@@ -73,7 +73,6 @@ class TomlMetadata(GenericSchema):
 
     creation_date = jsl.StringField(required=True, pattern=DATE_PATTERN, default=time.strftime('%Y/%m/%d'))
 
-    # added to query with rule.optimize()
     # rule validated against each ecs schema contained
     ecs_version = jsl.ArrayField(
         jsl.StringField(pattern=VERSION_PATTERN, required=True, default=ecs.get_max_version()), required=True)
