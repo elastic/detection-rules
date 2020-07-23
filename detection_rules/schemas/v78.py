@@ -98,7 +98,7 @@ class ApiSchema78(BaseApiSchema):
     meta = jsl.DictField(required=False)
     name = jsl.StringField(required=True)
     note = MarkdownField(required=False)
-    output_index = jsl.NotField(jsl.StringField(required=False))  # this is NOT allowed!
+    # output_index =jsl.StringField(required=False)  # this is NOT allowed!
     references = jsl.ArrayField(jsl.StringField(), required=False)
     risk_score = jsl.IntField(minimum=0, maximum=100, required=True, default=21)
     severity = jsl.StringField(enum=['low', 'medium', 'high', 'critical'], default='low', required=True)
