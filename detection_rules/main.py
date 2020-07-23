@@ -18,8 +18,9 @@ from eql import load_dump
 from .misc import PYTHON_LICENSE, nested_set
 from . import rule_loader
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
-from .rule import RULE_TYPE_OPTIONS, Rule
+from .rule import Rule
 from .rule_formatter import toml_write
+from .schema import RULE_TYPES
 from .utils import get_path, clear_caches
 
 
@@ -35,7 +36,7 @@ def root():
 @click.argument('path', type=click.Path(dir_okay=False))
 @click.option('--config', '-c', type=click.Path(exists=True, dir_okay=False), help='Rule or config file')
 @click.option('--required-only', is_flag=True, help='Only prompt for required fields')
-@click.option('--rule-type', '-t', type=click.Choice(RULE_TYPE_OPTIONS), help='Type of rule to create')
+@click.option('--rule-type', '-t', type=click.Choice(RULE_TYPES), help='Type of rule to create')
 def create_rule(path, config, required_only, rule_type):
     """Create a detection rule."""
     config = load_dump(config) if config else {}
@@ -343,7 +344,6 @@ def test_rules(ctx):
 
 
 @root.command("kibana-commit")
-@click.pass_context
 @click.argument("local-repo", default=get_path("..", "kibana"))
 @click.option("--kibana-directory", "-d", help="Directory to overwrite in Kibana",
               default="x-pack/plugins/security_solution/server/lib/detection_engine/rules/prepackaged_rules")
@@ -351,6 +351,7 @@ def test_rules(ctx):
 @click.option("--ssh/--http", is_flag=True, help="Method to use for cloning")
 @click.option("--github-repo", "-r", help="Repository to use for the branch", default="elastic/kibana")
 @click.option("--message", "-m", help="Override default commit message")
+@click.pass_context
 def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_branch, message):
     """Prep a commit and push to Kibana."""
     git_exe = shutil.which("git")
