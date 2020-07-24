@@ -217,6 +217,10 @@ class Rule(object):
 
         kwargs = copy.deepcopy(kwargs)
 
+        if 'rule' in kwargs and 'metadata' in kwargs:
+            kwargs.update(kwargs.pop('metadata'))
+            kwargs.update(kwargs.pop('rule'))
+
         rule_type = rule_type or kwargs.get('type') or \
             click.prompt('Rule type ({})'.format(', '.join(CurrentSchema.RULE_TYPES)),
                          type=click.Choice(CurrentSchema.RULE_TYPES))
