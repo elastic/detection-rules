@@ -208,14 +208,18 @@ class Rule(object):
         return hashlib.sha256(contents).hexdigest()
 
     @classmethod
-    def build(cls, path=None, rule_type=None, required_only=True, save=True, **kwargs):
+    def build(cls, path=None, rule_type=None, required_only=True, save=True, verbose=False, **kwargs):
         """Build a rule from data and prompts."""
         from .misc import schema_prompt
 
+        if verbose and path:
+            click.echo(f'[+] Building rule for {path}')
+
         kwargs = copy.deepcopy(kwargs)
 
-        rule_type = rule_type or click.prompt('Rule type ({})'.format(', '.join(CurrentSchema.RULE_TYPES)),
-                                              type=click.Choice(CurrentSchema.RULE_TYPES))
+        rule_type = rule_type or kwargs.get('type') or \
+            click.prompt('Rule type ({})'.format(', '.join(CurrentSchema.RULE_TYPES)),
+                         type=click.Choice(CurrentSchema.RULE_TYPES))
 
         schema = CurrentSchema.get_schema(role=rule_type)
         props = schema['properties']
@@ -274,10 +278,12 @@ class Rule(object):
                 contents[name] = result
 
         metadata = {}
-        ecs_version = schema_prompt('ecs_version', required=False, value=None,
-                                    **TomlMetadata.get_schema()['properties']['ecs_version'])
-        if ecs_version:
-            metadata['ecs_version'] = ecs_version
+
+        if not required_only:
+            ecs_version = schema_prompt('ecs_version', required=False, value=None,
+                                        **TomlMetadata.get_schema()['properties']['ecs_version'])
+            if ecs_version:
+                metadata['ecs_version'] = ecs_version
 
         suggested_path = os.path.join(RULES_DIR, contents['name'])  # TODO: UPDATE BASED ON RULE STRUCTURE
         path = os.path.realpath(path or input('File path for rule [{}]: '.format(suggested_path)) or suggested_path)

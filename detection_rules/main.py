@@ -7,6 +7,7 @@ import glob
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 
@@ -21,7 +22,7 @@ from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
 from .rule import Rule
 from .rule_formatter import toml_write
 from .schemas import CurrentSchema
-from .utils import get_path, clear_caches, load_rule_contents
+from .utils import get_path, clear_caches, load_rule_contents, load_multi_rule_contents
 
 
 RULES_DIR = get_path('rules')
@@ -39,55 +40,38 @@ def root():
 @click.option('--rule-type', '-t', type=click.Choice(CurrentSchema.RULE_TYPES), help='Type of rule to create')
 def create_rule(path, config, required_only, rule_type):
     """Create a detection rule."""
-    contents = load_rule_contents(config) or {}
+    contents = load_rule_contents(config, {})
     try:
         return Rule.build(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
     finally:
         rule_loader.reset()
 
 
-@root.command('load-from-file')
+@root.command('import-rules')
 @click.argument('infile', type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
+@click.option('--multi-file', '-m', type=click.Path(dir_okay=False, exists=True),
+              help='File with multiple exported rules')
 @click.option('--directory', '-d', type=click.Path(file_okay=False, exists=True), help='Load files from a directory')
-@click.option('--skip-failures', '-s', is_flag=True,
-              help='Continue looping through rules when files fail to load (-d required)')
-@click.pass_context
-def load_from_file(ctx, infile, directory, skip_failures):
-    """Load rules from file(s)."""
-    if infile:
-        for rule_file in infile:
-            rule_path = os.path.join(RULES_DIR, os.path.basename(rule_file))
-            contents = load_rule_contents(rule_file) or {}
-            contents = {k: v for k, v in contents.items()}
+def import_rules(infile, multi_file, directory):
+    """Import rules from json, toml, or Kibana exported rule file(s)."""
+    rule_files = glob.glob(os.path.join(directory, '**', '*.*'), recursive=True) if directory else []
+    rule_files = sorted(list(set(rule_files + list(infile))))
+    rule_contents = [load_rule_contents(rf) for rf in rule_files]
 
-            try:
-                rule: Rule = Rule(rule_path, contents)
-                rule.save(as_rule=True, verbose=True)
-            except jsonschema.ValidationError as e:
-                click.secho(e.args[0], fg='red')
-                ctx.exit(1)
+    if multi_file:
+        rule_contents.extend(load_multi_rule_contents(multi_file))
 
-    elif directory:
-        for rule_file in glob.glob(os.path.join(directory, '**', '*.*'), recursive=True):
-            try:
-                rule_path = os.path.join(RULES_DIR, os.path.basename(rule_file))
-                contents = load_rule_contents(rule_file) or {}
-                contents = {k: v for k, v in contents.items()}
+    if not rule_contents:
+        click.echo('Must specify at least one file!')
 
-                try:
-                    rule = Rule(rule_path, contents)
-                    rule.save(as_rule=True, verbose=True)
-                except jsonschema.ValidationError as e:
-                    click.secho(f'{e.args[0]} in {rule_path}', fg='red')
-                    if skip_failures:
-                        continue
-                    else:
-                        ctx.exit(1)
+    def name_to_filename(name):
+        return re.sub(r'[^_a-z0-9]+', '_', name.strip().lower()).strip('_') + '.toml'
 
-            except ValueError:
-                click.echo('Unable to load file: {}'.format(rule_file))
-    else:
-        click.echo('No files specified!')
+    for contents in [c for c in rule_contents if c]:
+        base_path = contents.get('name') or contents.get('rule', {}).get('name')
+        base_path = name_to_filename(base_path) if base_path else base_path
+        rule_path = os.path.join(RULES_DIR, base_path) if base_path else None
+        Rule.build(rule_path, required_only=True, save=True, verbose=True, **contents)
 
 
 @root.command('toml-lint')
@@ -150,7 +134,7 @@ def view_rule(ctx, rule_id, rule_file, as_api):
     if rule_id:
         rule = rule_loader.get_rule(rule_id, verbose=False)
     elif rule_file:
-        contents = load_rule_contents(rule_file) or {}
+        contents = load_rule_contents(rule_file, {})
         contents = {k: v for k, v in contents.items()}
 
         try:
