@@ -134,8 +134,7 @@ def view_rule(ctx, rule_id, rule_file, as_api):
     if rule_id:
         rule = rule_loader.get_rule(rule_id, verbose=False)
     elif rule_file:
-        contents = load_rule_contents(rule_file)
-        contents = {k: v for k, v in contents.items()}
+        contents = {k: v for k, v in load_rule_contents(rule_file).items() if v}
 
         try:
             rule = Rule(rule_file, contents)
