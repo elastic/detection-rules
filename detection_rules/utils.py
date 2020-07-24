@@ -194,7 +194,7 @@ def clear_caches():
     _cache.clear()
 
 
-def load_rule_contents(rule_file, default=None):
+def load_rule_contents(rule_file):
     """Load a rule file from multiple formats."""
     _, extension = os.path.splitext(rule_file)
 
@@ -211,7 +211,7 @@ def load_rule_contents(rule_file, default=None):
     else:
         contents = load_dump(rule_file)
 
-    return contents or default
+    return contents
 
 
 def load_multi_rule_contents(multi_file):

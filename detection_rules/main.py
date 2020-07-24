@@ -40,7 +40,7 @@ def root():
 @click.option('--rule-type', '-t', type=click.Choice(CurrentSchema.RULE_TYPES), help='Type of rule to create')
 def create_rule(path, config, required_only, rule_type):
     """Create a detection rule."""
-    contents = load_rule_contents(config, {})
+    contents = load_rule_contents(config)
     try:
         return Rule.build(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
     finally:
@@ -67,7 +67,7 @@ def import_rules(infile, multi_file, directory):
     def name_to_filename(name):
         return re.sub(r'[^_a-z0-9]+', '_', name.strip().lower()).strip('_') + '.toml'
 
-    for contents in [c for c in rule_contents if c]:
+    for contents in rule_contents:
         base_path = contents.get('name') or contents.get('rule', {}).get('name')
         base_path = name_to_filename(base_path) if base_path else base_path
         rule_path = os.path.join(RULES_DIR, base_path) if base_path else None
@@ -134,7 +134,7 @@ def view_rule(ctx, rule_id, rule_file, as_api):
     if rule_id:
         rule = rule_loader.get_rule(rule_id, verbose=False)
     elif rule_file:
-        contents = load_rule_contents(rule_file, {})
+        contents = load_rule_contents(rule_file)
         contents = {k: v for k, v in contents.items()}
 
         try:
