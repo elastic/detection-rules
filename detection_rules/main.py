@@ -22,7 +22,7 @@ from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
 from .rule import Rule
 from .rule_formatter import toml_write
 from .schemas import CurrentSchema
-from .utils import get_path, clear_caches, load_rule_contents, load_multi_rule_contents
+from .utils import get_path, clear_caches, load_rule_contents
 
 
 RULES_DIR = get_path('rules')
@@ -40,7 +40,7 @@ def root():
 @click.option('--rule-type', '-t', type=click.Choice(CurrentSchema.RULE_TYPES), help='Type of rule to create')
 def create_rule(path, config, required_only, rule_type):
     """Create a detection rule."""
-    contents = load_rule_contents(config)
+    contents = load_rule_contents(config) if config else {}
     try:
         return Rule.build(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
     finally:
@@ -49,17 +49,15 @@ def create_rule(path, config, required_only, rule_type):
 
 @root.command('import-rules')
 @click.argument('infile', type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
-@click.option('--multi-file', '-m', type=click.Path(dir_okay=False, exists=True),
-              help='File with multiple exported rules')
 @click.option('--directory', '-d', type=click.Path(file_okay=False, exists=True), help='Load files from a directory')
-def import_rules(infile, multi_file, directory):
+def import_rules(infile, directory):
     """Import rules from json, toml, or Kibana exported rule file(s)."""
     rule_files = glob.glob(os.path.join(directory, '**', '*.*'), recursive=True) if directory else []
     rule_files = sorted(list(set(rule_files + list(infile))))
-    rule_contents = [load_rule_contents(rf) for rf in rule_files]
 
-    if multi_file:
-        rule_contents.extend(load_multi_rule_contents(multi_file))
+    rule_contents = []
+    for rule_file in rule_files:
+        rule_contents.extend(load_rule_contents(rule_file))
 
     if not rule_contents:
         click.echo('Must specify at least one file!')
