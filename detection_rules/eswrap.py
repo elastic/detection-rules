@@ -233,6 +233,7 @@ def kibana_upload(toml_files, url, cloud_id, user, password):
     """Upload a list of rule .toml files to Kibana."""
     from uuid import uuid4
     from .packaging import manage_versions
+    from .schemas import downgrade
 
     with Kibana(cloud_id=cloud_id, url=url) as kibana:
         kibana.login(user, password)
@@ -252,7 +253,9 @@ def kibana_upload(toml_files, url, cloud_id, user, password):
             meta = payload.setdefault("meta", {})
             meta["original"] = dict(id=rule.id, **rule.metadata)
             payload["rule_id"] = str(uuid4())
-            api_payloads.append(RuleResource.from_dict(payload))
+            payload = downgrade(payload, kibana.version)
+            rule = RuleResource.from_dict(payload)
+            api_payloads.append(rule)
 
         rules = RuleResource.bulk_create(api_payloads)
         click.echo(f"Successfully uploaded {len(rules)} rules")
