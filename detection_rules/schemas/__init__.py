@@ -26,9 +26,10 @@ all_schemas = [
 CurrentSchema = max(all_schemas, key=lambda cls: Version(cls.STACK_VERSION))
 
 
-def downgrade(api_contents, target_version):
+def downgrade(api_contents: dict, target_version: str):
     """Downgrade a rule to a target stack version."""
     # truncate to (major, minor)
+    target_version_str = target_version
     target_version = Version(target_version)[:2]
     versions = set(Version(schema_cls.STACK_VERSION) for schema_cls in all_schemas)
     role = api_contents.get("type")
@@ -36,7 +37,7 @@ def downgrade(api_contents, target_version):
     check_versioned = "version" in api_contents
 
     if target_version not in versions:
-        raise ValueError(f"Unable to downgrade from {CurrentSchema.STACK_VERSION} to {target_version}")
+        raise ValueError(f"Unable to downgrade from {CurrentSchema.STACK_VERSION} to {target_version_str}")
 
     current_schema = None
 
