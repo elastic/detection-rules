@@ -209,6 +209,6 @@ def load_rule_contents(rule_file: str, forbid_multi=False) -> list:
             if forbid_multi and len(contents) > 1:
                 raise ValueError('Multiple rules not allowed')
 
-            return contents
+            return contents or [{}]
     else:
         return [load_dump(rule_file)]
