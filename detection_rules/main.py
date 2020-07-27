@@ -40,7 +40,12 @@ def root():
 @click.option('--rule-type', '-t', type=click.Choice(CurrentSchema.RULE_TYPES), help='Type of rule to create')
 def create_rule(path, config, required_only, rule_type):
     """Create a detection rule."""
-    contents = load_rule_contents(config) if config else {}
+    if config:
+        contents = load_rule_contents(config, forbid_multi=True)
+        contents = contents[0] if contents else {}
+    else:
+        contents = {}
+
     try:
         return Rule.build(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
     finally:

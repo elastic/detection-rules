@@ -194,7 +194,7 @@ def clear_caches():
     _cache.clear()
 
 
-def load_rule_contents(rule_file: str) -> list:
+def load_rule_contents(rule_file: str, forbid_multi=False) -> list:
     """Load a rule file from multiple formats."""
     _, extension = os.path.splitext(rule_file)
 
@@ -205,6 +205,9 @@ def load_rule_contents(rule_file: str) -> list:
 
             if len(contents) > 1 and 'exported_count' in contents[-1]:
                 contents.pop(-1)
+
+            if forbid_multi and len(contents) > 1:
+                raise ValueError('Multiple rules not allowed')
 
             return contents
     else:
