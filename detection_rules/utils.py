@@ -211,4 +211,10 @@ def load_rule_contents(rule_file: str, forbid_multi=False) -> list:
 
             return contents or [{}]
     else:
-        return [load_dump(rule_file)]
+        rule = load_dump(rule_file)
+        if isinstance(rule, dict):
+            return [rule]
+        elif isinstance(rule, list):
+            return rule
+        else:
+            raise ValueError(f"Expected a list or dictionary in {rule_file}")

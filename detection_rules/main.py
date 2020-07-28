@@ -53,7 +53,7 @@ def create_rule(path, config, required_only, rule_type):
 def import_rules(infile, directory):
     """Import rules from json, toml, or Kibana exported rule file(s)."""
     rule_files = glob.glob(os.path.join(directory, '**', '*.*'), recursive=True) if directory else []
-    rule_files = sorted(list(set(rule_files + list(infile))))
+    rule_files = sorted(set(rule_files + list(infile)))
 
     rule_contents = []
     for rule_file in rule_files:
