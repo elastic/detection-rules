@@ -142,6 +142,7 @@ def toml_write(rule_contents, outfile=None):
             #     but will at least purge extraneous white space
             query = contents['rule'].pop('query', '').strip()
 
+            # - As tags are expanding, we may want to reconsider the need to have them in alphabetical order
             #tags = contents['rule'].get("tags", [])
 
             #if tags and isinstance(tags, list):
