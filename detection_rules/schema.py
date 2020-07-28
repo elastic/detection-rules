@@ -16,11 +16,9 @@ UUID_PATTERN = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 DATE_PATTERN = r'\d{4}/\d{2}/\d{2}'
 VERSION_PATTERN = r'\d+\.\d+\.\d+'
 RULE_LEVELS = ['recommended', 'aggressive']
-MATURITY_LEVELS = ['development', 'testing',
-                   'staged', 'production', 'deprecated']
+MATURITY_LEVELS = ['development', 'testing', 'staged', 'production', 'deprecated']
 OPERATORS = ['equals']
-OS_OPTIONS = ['windows', 'linux', 'macos',
-              'solaris']  # need to verify with ecs
+OS_OPTIONS = ['windows', 'linux', 'macos', 'solaris']  # need to verify with ecs
 INTERVAL_PATTERN = r'\d+[mshd]'
 MITRE_URL_PATTERN = r'https://attack.mitre.org/{type}/T[A-Z0-9]+/'
 
@@ -134,16 +132,14 @@ class Threat(jsl.Document):
 
     framework = jsl.StringField(default='MITRE ATT&CK', required=True)
     tactic = jsl.DocumentField(ThreatTactic, required=True)
-    technique = jsl.ArrayField(
-        jsl.DocumentField(ThreatTechnique), required=True)
+    technique = jsl.ArrayField(jsl.DocumentField(ThreatTechnique), required=True)
 
 
 class SiemRuleApiSchema(jsl.Document):
     """Schema for siem rule in API format."""
 
     actions = jsl.ArrayField(required=False)
-    author = jsl.ArrayField(jsl.StringField(
-        default="Elastic"), required=True, min_items=1)
+    author = jsl.ArrayField(jsl.StringField(default="Elastic"), required=True, min_items=1)
     building_block_type = jsl.StringField(required=False)
     description = jsl.StringField(required=True)
     # api defaults to false if blank
@@ -153,26 +149,20 @@ class SiemRuleApiSchema(jsl.Document):
     from_ = jsl.StringField(required=False, default='now-6m', name='from')
     false_positives = jsl.ArrayField(jsl.StringField(), required=False)
     filters = jsl.ArrayField(jsl.DocumentField(Filters))
-    interval = jsl.StringField(
-        pattern=INTERVAL_PATTERN, default='5m', required=False)
+    interval = jsl.StringField(pattern=INTERVAL_PATTERN, default='5m', required=False)
     license = jsl.StringField(required=True, default="Elastic License")
-    max_signals = jsl.IntField(
-        minimum=1, required=False, default=100)  # cap a max?
+    max_signals = jsl.IntField(minimum=1, required=False, default=100)  # cap a max?
     meta = jsl.DictField(required=False)
     name = jsl.StringField(required=True)
     note = jsl.StringField(required=False)
     # output_index = jsl.StringField(required=False)  # this is NOT allowed!
     references = jsl.ArrayField(jsl.StringField(), required=False)
-    risk_score = jsl.IntField(minimum=0, maximum=100,
-                              required=True, default=21)
-    risk_score_mapping = jsl.ArrayField(jsl.DocumentField(
-        RiskScoreMapping), required=False, min_items=1)
+    risk_score = jsl.IntField(minimum=0, maximum=100, required=True, default=21)
+    risk_score_mapping = jsl.ArrayField(jsl.DocumentField(RiskScoreMapping), required=False, min_items=1)
     rule_id = jsl.StringField(pattern=UUID_PATTERN, required=True)
     rule_name_override = jsl.StringField(required=False)
-    severity = jsl.StringField(
-        enum=['low', 'medium', 'high', 'critical'], default='low', required=True)
-    severity_mapping = jsl.ArrayField(jsl.DocumentField(
-        SeverityMapping), required=False, min_items=1)
+    severity = jsl.StringField(enum=['low', 'medium', 'high', 'critical'], default='low', required=True)
+    severity_mapping = jsl.ArrayField(jsl.DocumentField(SeverityMapping), required=False, min_items=1)
     # saved_id - type must be 'saved_query' to allow this or else it is forbidden
     tags = jsl.ArrayField(jsl.StringField(), required=False)
     throttle = jsl.StringField(required=False)
@@ -182,42 +172,32 @@ class SiemRuleApiSchema(jsl.Document):
     to = jsl.StringField(required=False, default='now')
     # require this to be always validated with a role
     # type = jsl.StringField(enum=[MACHINE_LEARNING, QUERY, SAVED_QUERY], required=True)
-    threat = jsl.ArrayField(jsl.DocumentField(
-        Threat), required=False, min_items=1)
+    threat = jsl.ArrayField(jsl.DocumentField(Threat), required=False, min_items=1)
 
     with jsl.Scope(MACHINE_LEARNING) as ml_scope:
         ml_scope.anomaly_threshold = jsl.IntField(required=True, minimum=0)
         ml_scope.machine_learning_job_id = jsl.StringField(required=True)
-        ml_scope.type = jsl.StringField(
-            enum=[MACHINE_LEARNING], required=True, default=MACHINE_LEARNING)
+        ml_scope.type = jsl.StringField(enum=[MACHINE_LEARNING], required=True, default=MACHINE_LEARNING)
 
     with jsl.Scope(SAVED_QUERY) as saved_id_scope:
-        saved_id_scope.index = jsl.ArrayField(
-            jsl.StringField(), required=False)
+        saved_id_scope.index = jsl.ArrayField(jsl.StringField(), required=False)
         saved_id_scope.saved_id = jsl.StringField(required=True)
-        saved_id_scope.type = jsl.StringField(
-            enum=[SAVED_QUERY], required=True, default=SAVED_QUERY)
+        saved_id_scope.type = jsl.StringField(enum=[SAVED_QUERY], required=True, default=SAVED_QUERY)
 
     with jsl.Scope(QUERY) as query_scope:
         query_scope.index = jsl.ArrayField(jsl.StringField(), required=False)
         # this is not required per the API but we will enforce it here
-        query_scope.language = jsl.StringField(
-            enum=['kuery', 'lucene'], required=True, default='kuery')
+        query_scope.language = jsl.StringField(enum=['kuery', 'lucene'], required=True, default='kuery')
         query_scope.query = jsl.StringField(required=True)
-        query_scope.type = jsl.StringField(
-            enum=[QUERY], required=True, default=QUERY)
+        query_scope.type = jsl.StringField(enum=[QUERY], required=True, default=QUERY)
 
     with jsl.Scope(THRESHOLD) as threshold_scope:
-        threshold_scope.index = jsl.ArrayField(
-            jsl.StringField(), required=False)
+        threshold_scope.index = jsl.ArrayField(jsl.StringField(), required=False)
         # this is not required per the API but we will enforce it here
-        threshold_scope.language = jsl.StringField(
-            enum=['kuery', 'lucene'], required=True, default='kuery')
+        threshold_scope.language = jsl.StringField(enum=['kuery', 'lucene'], required=True, default='kuery')
         threshold_scope.query = jsl.StringField(required=True)
-        threshold_scope.type = jsl.StringField(
-            enum=[THRESHOLD], required=True, default=THRESHOLD)
-        threshold_scope.threshold = jsl.DocumentField(
-            ThresholdMapping, required=True)
+        threshold_scope.type = jsl.StringField(enum=[THRESHOLD], required=True, default=THRESHOLD)
+        threshold_scope.threshold = jsl.DocumentField(ThresholdMapping, required=True)
 
 
 class VersionedApiSchema(SiemRuleApiSchema):
@@ -229,23 +209,19 @@ class VersionedApiSchema(SiemRuleApiSchema):
 class SiemRuleTomlMetadata(jsl.Document):
     """Schema for siem rule toml metadata."""
 
-    creation_date = jsl.StringField(
-        required=True, pattern=DATE_PATTERN, default=time.strftime('%Y/%m/%d'))
+    creation_date = jsl.StringField(required=True, pattern=DATE_PATTERN, default=time.strftime('%Y/%m/%d'))
 
     # added to query with rule.optimize()
     # rule validated against each ecs schema contained
     ecs_version = jsl.ArrayField(
         jsl.StringField(pattern=VERSION_PATTERN, required=True, default=ecs.get_max_version()), required=True)
-    maturity = jsl.StringField(
-        enum=MATURITY_LEVELS, default='development', required=True)
+    maturity = jsl.StringField(enum=MATURITY_LEVELS, default='development', required=True)
 
     # if present, add to query
-    os_type_list = jsl.ArrayField(
-        jsl.StringField(enum=OS_OPTIONS), required=False)
+    os_type_list = jsl.ArrayField(jsl.StringField(enum=OS_OPTIONS), required=False)
     related_endpoint_rules = jsl.ArrayField(jsl.ArrayField(jsl.StringField(), min_items=2, max_items=2),
                                             required=False)
-    updated_date = jsl.StringField(
-        required=True, pattern=DATE_PATTERN, default=time.strftime('%Y/%m/%d'))
+    updated_date = jsl.StringField(required=True, pattern=DATE_PATTERN, default=time.strftime('%Y/%m/%d'))
 
 
 class SiemRuleTomlSchema(jsl.Document):
@@ -283,8 +259,7 @@ def get_schema(role, as_rule=False, versioned=False):
 def schema_validate(contents, as_rule=False, versioned=False):
     """Validate against all schemas until first hit."""
     assert isinstance(contents, dict)
-    role = contents.get('rule', {}).get(
-        'type') if as_rule else contents.get('type')
+    role = contents.get('rule', {}).get('type') if as_rule else contents.get('type')
 
     if not role:
         raise ValueError('Missing rule type!')
