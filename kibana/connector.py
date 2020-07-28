@@ -29,6 +29,7 @@ class Kibana(object):
         self.cloud_id = cloud_id
         self.kibana_url = url
         self.elastic_url = None
+        self.status = None
 
         if self.cloud_id:
             self.cluster_name, cloud_info = self.cloud_id.split(":")
@@ -44,6 +45,12 @@ class Kibana(object):
         if not verify:
             from requests.packages.urllib3.exceptions import InsecureRequestWarning
             requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
+    @property
+    def version(self):
+        """Get the semantic version."""
+        if self.status:
+            return self.status.get("version", {}).get("number")
 
     def url(self, uri):
         """Get the full URL given a URI."""
@@ -99,6 +106,7 @@ class Kibana(object):
 
         self.post(path, data=payload, error=True)
         self.authenticated = True
+        self.status = self.get("/api/status")
 
         # create ES and force authentication
         if self.elasticsearch is None and self.elastic_url is not None:
