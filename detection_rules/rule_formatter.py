@@ -143,10 +143,10 @@ def toml_write(rule_contents, outfile=None):
             query = contents['rule'].pop('query', '').strip()
 
             # - As tags are expanding, we may want to reconsider the need to have them in alphabetical order
-            #tags = contents['rule'].get("tags", [])
+            # tags = contents['rule'].get("tags", [])
 
-            #if tags and isinstance(tags, list):
-                #contents['rule']["tags"] = list(sorted(set(tags)))
+            # if tags and isinstance(tags, list):
+            # contents['rule']["tags"] = list(sorted(set(tags)))
 
         top = OrderedDict()
         bottom = OrderedDict()
