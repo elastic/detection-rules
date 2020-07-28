@@ -16,7 +16,7 @@ from datetime import datetime, date
 import kql
 
 import eql.utils
-from eql.utils import stream_json_lines
+from eql.utils import load_dump, stream_json_lines
 
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(CURR_DIR)
@@ -192,3 +192,29 @@ def cached(f):
 
 def clear_caches():
     _cache.clear()
+
+
+def load_rule_contents(rule_file: str, single_only=False) -> list:
+    """Load a rule file from multiple formats."""
+    _, extension = os.path.splitext(rule_file)
+
+    if extension in ('.ndjson', '.jsonl'):
+        # kibana exported rule object is ndjson with the export metadata on the last line
+        with open(rule_file, 'r') as f:
+            contents = [json.loads(line) for line in f.readlines()]
+
+            if len(contents) > 1 and 'exported_count' in contents[-1]:
+                contents.pop(-1)
+
+            if single_only and len(contents) > 1:
+                raise ValueError('Multiple rules not allowed')
+
+            return contents or [{}]
+    else:
+        rule = load_dump(rule_file)
+        if isinstance(rule, dict):
+            return [rule]
+        elif isinstance(rule, list):
+            return rule
+        else:
+            raise ValueError(f"Expected a list or dictionary in {rule_file}")
