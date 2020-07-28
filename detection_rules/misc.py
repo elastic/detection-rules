@@ -182,7 +182,7 @@ def parse_config():
     global _CONFIG
 
     if not _CONFIG:
-        config_file = os.path.join(ROOT_DIR, '.siem-rules-cfg.json')
+        config_file = os.path.join(ROOT_DIR, '.detection-rules-cfg.json')
 
         if os.path.exists(config_file):
             with open(config_file) as f:
