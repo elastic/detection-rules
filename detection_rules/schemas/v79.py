@@ -37,7 +37,7 @@ class SeverityMapping(jsl.Document):
 
 
 class ThresholdMapping(jsl.Document):
-    field = jsl.StringField(required=False)
+    field = jsl.StringField(required=True, default="")
     value = jsl.IntField(minimum=1, required=True)
 
 
