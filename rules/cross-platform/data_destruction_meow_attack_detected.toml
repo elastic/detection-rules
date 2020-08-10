@@ -31,9 +31,7 @@ tags = ["Elastic", "Elasticsearch"]
 type = "query"
 
 query = '''
-event.category:database AND event.kind:event AND event.module:elasticsearch
-AND event.dataset:elasticsearch.server AND event.type:info AND
-elasticsearch.component:o.e.c.m.MetadataCreateIndexService AND elasticsearch.index.name:/.*meow.*/ AND log.file.path:"/var/log/elasticsearch/elasticsearch_server.json"
+event.category:database AND event.kind:event AND event.module:elasticsearch AND event.dataset:elasticsearch.server AND event.type:info AND elasticsearch.component:o.e.c.m.MetadataCreateIndexService AND elasticsearch.index.name:(/[a-zA-Z0-9]+-(meow)/ OR meow) AND _exists_:elasticsearch.node.id
 '''
 
 
@@ -49,4 +47,3 @@ reference = "https://attack.mitre.org/techniques/T1485/"
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
-
