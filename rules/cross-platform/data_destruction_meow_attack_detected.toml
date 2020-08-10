@@ -20,7 +20,7 @@ index = ["filebeat-*"]
 language = "lucene"
 license = "Elastic License"
 name = "Meow Database Attack Detected"
-note = "This detection rule requires the Elasticsearch Filebeat module. This rule will not prevent the Meow attack, it will notify the IR team that an attack has taken place and speed the mean-time-to-detection (MTTD)."
+note = "This detection rule requires the Elasticsearch Filebeat module. If your `elasticsearch_server.json` logs are not stored in the default location, you'll need to update the Elasticsearch Filebeat module configuration as well as `log.file.path` in the rule. This rule will not prevent the Meow attack, it will notify the IR team that an attack has taken place and speed the mean-time-to-detection (MTTD)."
 references = [
     "https://arstechnica.com/information-technology/2020/07/more-than-1000-databases-have-been-nuked-by-mystery-meow-attack",
 ]
@@ -33,7 +33,7 @@ type = "query"
 query = '''
 event.category:database AND event.kind:event AND event.module:elasticsearch
 AND event.dataset:elasticsearch.server AND event.type:info AND
-elasticsearch.component:o.e.c.m.MetadataCreateIndexService AND elasticsearch.index.name:/.*meow.*/
+elasticsearch.component:o.e.c.m.MetadataCreateIndexService AND elasticsearch.index.name:/.*meow.*/ AND log.file.path:"/var/log/elasticsearch/elasticsearch_server.json"
 '''
 
 
