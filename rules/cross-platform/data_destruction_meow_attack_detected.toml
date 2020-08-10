@@ -1,0 +1,51 @@
+[metadata]
+creation_date = "2020/08/10"
+ecs_version = ["1.5.0"]
+maturity = "production"
+updated_date = "2020/08/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+The Meow attack targets insecurely configured Elasticsearch, MongoDB, and Cassandra databases. The attack destroys the contents of
+the database and replaces (or appends) the word "meow" to the database name.
+"""
+false_positives = [
+    """
+    The word "meow" used in database names will trigger this detection rule. Incident Responders should validate
+    the database is expected and modify this rule as appropriate.
+    """,
+]
+index = ["filebeat-*"]
+language = "lucene"
+license = "Elastic License"
+name = "Meow Database Attack Detected"
+note = "This detection rule requires the Elasticsearch Filebeat module. This rule will not prevent the Meow attack, it will notify the IR team that an attack has taken place and speed the mean-time-to-detection (MTTD)."
+references = [
+    "https://arstechnica.com/information-technology/2020/07/more-than-1000-databases-have-been-nuked-by-mystery-meow-attack",
+]
+risk_score = 47
+rule_id = "985fc3ad-ce00-4227-945f-684ab76b0256"
+severity = "medium"
+tags = ["Elastic", "Elasticsearch"]
+type = "query"
+
+query = '''
+event.category:database AND event.kind:event AND event.module: elasticsearch
+AND event.dataset:elasticsearch.server AND event.type:info AND
+elasticsearch.component:o.e.c.m.MetadataCreateIndexService AND elasticsearch.index.name:/.*meow.*/
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
