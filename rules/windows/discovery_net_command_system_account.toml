@@ -7,8 +7,7 @@ updated_date = "2020/08/03"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the SYSTEM account using the Net utility. The Net utility is a component of the Windows operating system. It
-is used in command line operations for control of users, groups, services, and network connections.
+Identifies the SYSTEM account using an account discovery utility. This could be a sign of discovery post successful privileges elevation.
 """
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
@@ -22,7 +21,7 @@ type = "query"
 
 query = '''
 event.category:process and event.type:(start or process_started) and
-  (process.name:net.exe or process.name:net1.exe and not process.parent.name:net.exe) and
+  (process.name:whoami.exe or process.name:net.exe or process.name:net1.exe and not process.parent.name:net.exe) and
   user.name:SYSTEM
 '''
 

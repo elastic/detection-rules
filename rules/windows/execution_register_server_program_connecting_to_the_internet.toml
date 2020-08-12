@@ -7,7 +7,7 @@ updated_date = "2020/08/03"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the native Windows tools regsvr32.exe and regsvr64.exe making a network connection. This may be indicative of
+Identifies the native Windows tools regsvr32.exe regsvr64.exe or RegAsm.exe making a network connection. This may be indicative of
 an attacker bypassing allowlists or running arbitrary scripts via a signed Microsoft binary.
 """
 false_positives = [
@@ -28,7 +28,7 @@ type = "query"
 
 query = '''
 event.category:network and event.type:connection and
-  process.name:(regsvr32.exe or regsvr64.exe) and
+  process.name:(regsvr32.exe or regsvr64.exe or RegAsm.exe) and
   not destination.ip:(10.0.0.0/8 or 169.254.169.254 or 172.16.0.0/12 or 192.168.0.0/16)
 '''
 
