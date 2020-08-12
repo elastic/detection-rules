@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.4.0"]
+ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/03/09"
+updated_date = "2020/07/02"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,7 @@ false_positives = [
     server that has no known associated FTP workflow or business requirement is often suspicious.
     """,
 ]
-index = ["filebeat-*"]
+index = ["filebeat-*", "packetbeat-*"]
 language = "kuery"
 license = "Elastic License"
 name = "FTP (File Transfer Protocol) Activity to the Internet"
@@ -33,7 +33,7 @@ tags = ["Elastic", "Network"]
 type = "query"
 
 query = '''
-network.transport:tcp and destination.port:(20 or 21) and
+event.category:(network or network_traffic) and network.transport:tcp and (destination.port:(20 or 21) or event.dataset:zeek.ftp) and
    source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16) and
    not destination.ip:(10.0.0.0/8 or 127.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16 or "::1")
 '''
@@ -63,4 +63,3 @@ reference = "https://attack.mitre.org/techniques/T1048/"
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
-

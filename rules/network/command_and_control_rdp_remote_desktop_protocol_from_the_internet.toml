@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.4.0"]
+ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/03/09"
+updated_date = "2020/07/02"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,7 @@ false_positives = [
     not unexpected.
     """,
 ]
-index = ["filebeat-*"]
+index = ["filebeat-*", "packetbeat-*"]
 language = "kuery"
 license = "Elastic License"
 name = "RDP (Remote Desktop Protocol) from the Internet"
@@ -33,7 +33,7 @@ tags = ["Elastic", "Network"]
 type = "query"
 
 query = '''
-network.transport:tcp and destination.port:3389 and
+event.category:(network or network_traffic) and network.transport:tcp and (destination.port:3389 or event.dataset:zeek.rdp) and
   not source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16) and
   destination.ip:(10.0.0.0/8 or 127.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16 or "::1")
 '''
@@ -75,4 +75,3 @@ reference = "https://attack.mitre.org/techniques/T1190/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-

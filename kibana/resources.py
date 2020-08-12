@@ -47,6 +47,15 @@ class BaseResource(RestEndpoint):
 
         vars(self).update(vars(other))
 
+    @classmethod
+    def bulk_create(cls, resources: list):
+        for r in resources:
+            assert isinstance(r, cls)
+
+        payloads = [r.to_dict() for r in resources]
+        responses = Kibana.current().post(cls.BASE_URI + "/_bulk_create", data=payloads)
+        return [cls.from_dict(r) for r in responses]
+
     def create(self):
         response = Kibana.current().post(self.BASE_URI, data=self.to_dict())
         self._update_from(response)
@@ -117,24 +126,35 @@ class ResourceIterator(object):
 
 
 @resource
-class Rule(BaseResource):
+class RuleResource(BaseResource):
     BASE_URI = "/api/detection_engine/rules"
 
     description: str
-    from_: str = field(metadata=config(field_name="from"))
-    interval: str
     name: str
     risk_score: int
     severity: str
-    to_: str = field(metadata=config(field_name="to"))
     type_: str = field(metadata=config(field_name="type"))
 
+    actions: Optional[List] = None
+    author: Optional[List[str]] = None
+    building_block_type: Optional[str] = None
     enabled: Optional[bool] = None
+    exceptions_list: Optional[List] = None
+    false_positives: Optional[List[str]] = None
     filters: Optional[List[dict]] = None
-    id: str = None
+    from_: Optional[str] = field(metadata=config(field_name="from"), default=None)
+    id: Optional[str] = None
+    interval: Optional[str] = None
+    license: Optional[str] = None
     language: Optional[str] = None
+    meta: Optional[dict] = None
+    note: Optional[str] = None
+    references: Optional[List[str]] = None
     rule_id: Optional[str] = None
     tags: Optional[List[str]] = None
+    throttle:  Optional[str] = None
+    threat: Optional[List[dict]] = None
+    to_: Optional[str] = field(metadata=config(field_name="to"), default=None)
     query: Optional[str] = None
 
     @staticmethod
@@ -172,12 +192,11 @@ class Rule(BaseResource):
 
         try:
             # apparently Kibana doesn't like `rule_id` for existing documents
-            return super(Rule, self).update()
+            return super(RuleResource, self).update()
         except Exception:
             # if it fails, restore the id back
             self.rule_id = rule_id
             raise
-
 
 class Signal(RestEndpoint):
     BASE_URI = "/api/detection_engine/signals"

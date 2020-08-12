@@ -14,12 +14,11 @@ import kql
 from . import ecs, beats
 from .attack import TACTICS, build_threat_map_entry, technique_lookup
 from .rule_formatter import nested_normalize, toml_write
-from .schema import metadata_schema, schema_validate, get_schema
+from .schemas import CurrentSchema, TomlMetadata  # RULE_TYPES, metadata_schema, schema_validate, get_schema
 from .utils import get_path, clear_caches, cached
 
 
 RULES_DIR = get_path("rules")
-RULE_TYPE_OPTIONS = ['machine_learning', 'query', 'saved_id']
 _META_SCHEMA_REQ_DEFAULTS = {}
 
 
@@ -28,7 +27,7 @@ class Rule(object):
 
     def __init__(self, path, contents):
         """Create a Rule from a toml management format."""
-        self.path = os.path.realpath(path)
+        self.path = os.path.abspath(path)
         self.contents = contents.get('rule', contents)
         self.metadata = self.set_metadata(contents.get('metadata', contents))
 
@@ -48,6 +47,12 @@ class Rule(object):
         if type(self) == type(other):
             return self.get_hash() == other.get_hash()
         return False
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __hash__(self):
+        return hash(self.get_hash())
 
     def copy(self):
         return Rule(path=self.path, contents={'rule': self.contents.copy(), 'metadata': self.metadata.copy()})
@@ -93,13 +98,13 @@ class Rule(object):
     @cached
     def get_meta_schema_required_defaults():
         """Get the default values for required properties in the metadata schema."""
-        required = [v for v in metadata_schema['required']]
-        properties = {k: v for k, v in metadata_schema['properties'].items() if k in required}
+        required = [v for v in TomlMetadata.get_schema()['required']]
+        properties = {k: v for k, v in TomlMetadata.get_schema()['properties'].items() if k in required}
         return {k: v.get('default') or [v['items']['default']] for k, v in properties.items()}
 
     def set_metadata(self, contents):
         """Parse metadata fields and set missing required fields to the default values."""
-        metadata = {k: v for k, v in contents.items() if k in metadata_schema['properties']}
+        metadata = {k: v for k, v in contents.items() if k in TomlMetadata.get_schema()['properties']}
         defaults = self.get_meta_schema_required_defaults().copy()
         defaults.update(metadata)
         return defaults
@@ -131,44 +136,56 @@ class Rule(object):
         """Bump the version of the rule."""
         self.contents['version'] += 1
 
-    def validate(self, as_rule=False, versioned=False):
+    def validate(self, as_rule=False, versioned=False, query=True):
         """Validate against a rule schema, query schema, and linting."""
         self.normalize()
 
         if as_rule:
-            schema_validate(self.rule_format(), as_rule=True)
+            schema_cls = CurrentSchema.toml_schema()
+            contents = self.rule_format()
+        elif versioned:
+            schema_cls = CurrentSchema.versioned()
+            contents = self.contents
         else:
-            schema_validate(self.contents, versioned=versioned)
+            schema_cls = CurrentSchema
+            contents = self.contents
 
-        if self.query and self.contents['language'] == 'kuery':
-            # validate against all specified schemas or the latest if none specified
+        schema_cls.validate(contents, role=self.type)
+
+        if query and self.query and self.contents['language'] == 'kuery':
             ecs_versions = self.metadata.get('ecs_version')
-
             indexes = self.contents.get("index", [])
-            beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
-            beat_schema = beats.get_schema_for_query(self.parsed_kql, beat_types) if beat_types else None
+            self._validate_kql(ecs_versions, indexes, self.query, self.name)
 
-            if not ecs_versions:
-                kql.parse(self.query, schema=ecs.get_kql_schema(indexes=indexes, beat_schema=beat_schema))
-            else:
-                for version in ecs_versions:
-                    try:
-                        schema = ecs.get_kql_schema(version=version, indexes=indexes, beat_schema=beat_schema)
-                    except KeyError:
-                        raise KeyError(
-                            'Unknown ecs schema version: {} in rule {}.\n'
-                            'Do you need to update schemas?'.format(version, self.name))
+    @staticmethod
+    @cached
+    def _validate_kql(ecs_versions, indexes, query, name):
+        # validate against all specified schemas or the latest if none specified
+        parsed = kql.parse(query)
+        beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
+        beat_schema = beats.get_schema_for_query(parsed, beat_types) if beat_types else None
 
-                    try:
-                        kql.parse(self.query, schema=schema)
-                    except kql.KqlParseError as exc:
-                        message = exc.error_msg
-                        trailer = None
-                        if "Unknown field" in message and beat_types:
-                            trailer = "\nTry adding event.module and event.dataset to specify beats module"
+        if not ecs_versions:
+            kql.parse(query, schema=ecs.get_kql_schema(indexes=indexes, beat_schema=beat_schema))
+        else:
+            for version in ecs_versions:
+                try:
+                    schema = ecs.get_kql_schema(version=version, indexes=indexes, beat_schema=beat_schema)
+                except KeyError:
+                    raise KeyError(
+                        'Unknown ecs schema version: {} in rule {}.\n'
+                        'Do you need to update schemas?'.format(version, name))
 
-                        raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
-                                                len(exc.caret.lstrip()), trailer=trailer)
+                try:
+                    kql.parse(query, schema=schema)
+                except kql.KqlParseError as exc:
+                    message = exc.error_msg
+                    trailer = None
+                    if "Unknown field" in message and beat_types:
+                        trailer = "\nTry adding event.module and event.dataset to specify beats module"
+
+                    raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
+                                            len(exc.caret.lstrip()), trailer=trailer)
 
     def save(self, new_path=None, as_rule=False, verbose=False):
         """Save as pretty toml rule file as toml."""
@@ -191,17 +208,24 @@ class Rule(object):
         return hashlib.sha256(contents).hexdigest()
 
     @classmethod
-    def build(cls, path=None, rule_type=None, required_only=True, save=True, **kwargs):
+    def build(cls, path=None, rule_type=None, required_only=True, save=True, verbose=False, **kwargs):
         """Build a rule from data and prompts."""
         from .misc import schema_prompt
-        # from .rule_loader import rta_mappings
+
+        if verbose and path:
+            click.echo(f'[+] Building rule for {path}')
 
         kwargs = copy.deepcopy(kwargs)
 
-        while rule_type not in RULE_TYPE_OPTIONS:
-            rule_type = click.prompt('Rule type ({})'.format(', '.join(RULE_TYPE_OPTIONS)))
+        if 'rule' in kwargs and 'metadata' in kwargs:
+            kwargs.update(kwargs.pop('metadata'))
+            kwargs.update(kwargs.pop('rule'))
 
-        schema = get_schema(rule_type)
+        rule_type = rule_type or kwargs.get('type') or \
+            click.prompt('Rule type ({})'.format(', '.join(CurrentSchema.RULE_TYPES)),
+                         type=click.Choice(CurrentSchema.RULE_TYPES))
+
+        schema = CurrentSchema.get_schema(role=rule_type)
         props = schema['properties']
         opt_reqs = schema.get('required', [])
         contents = {}
@@ -228,17 +252,27 @@ class Rule(object):
                     tactic = schema_prompt('mitre tactic name', type='string', enum=TACTICS, required=True)
                     technique_ids = schema_prompt(f'technique IDs for {tactic}', type='array', required=True,
                                                   enum=list(technique_lookup))
-                    threat_map.append(build_threat_map_entry(tactic, *technique_ids))
+
+                    try:
+                        threat_map.append(build_threat_map_entry(tactic, *technique_ids))
+                    except KeyError as e:
+                        click.secho(f'Unknown ID: {e.args[0]}')
+                        continue
 
                 if len(threat_map) > 0:
                     contents[name] = threat_map
                 continue
 
-            if kwargs.get(name):
-                contents[name] = schema_prompt(kwargs.pop(name))
+            if name == 'threshold':
+                contents[name] = {n: schema_prompt(f'threshold {n}', required=n in options['required'], **opts.copy())
+                                  for n, opts in options['properties'].items()}
                 continue
 
-            result = schema_prompt(name, required=name in opt_reqs, **options)
+            if kwargs.get(name):
+                contents[name] = schema_prompt(name, value=kwargs.pop(name))
+                continue
+
+            result = schema_prompt(name, required=name in opt_reqs, **options.copy())
 
             if result:
                 if name not in opt_reqs and result == options.get('default', ''):
@@ -248,13 +282,12 @@ class Rule(object):
                 contents[name] = result
 
         metadata = {}
-        ecs_version = schema_prompt('ecs_version', required=False, value=None,
-                                    **metadata_schema['properties']['ecs_version'])
-        if ecs_version:
-            metadata['ecs_version'] = ecs_version
 
-        # validate before creating
-        schema_validate(contents)
+        if not required_only:
+            ecs_version = schema_prompt('ecs_version', required=False, value=None,
+                                        **TomlMetadata.get_schema()['properties']['ecs_version'])
+            if ecs_version:
+                metadata['ecs_version'] = ecs_version
 
         suggested_path = os.path.join(RULES_DIR, contents['name'])  # TODO: UPDATE BASED ON RULE STRUCTURE
         path = os.path.realpath(path or input('File path for rule [{}]: '.format(suggested_path)) or suggested_path)
@@ -296,6 +329,6 @@ class Rule(object):
             print(' - {}'.format('\n - '.join(skipped)))
 
         # rta_mappings.add_rule_to_mapping_file(rule)
-        click.echo('Placeholder added to rule-mapping.yml')
+        # click.echo('Placeholder added to rule-mapping.yml')
 
         return rule
