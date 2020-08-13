@@ -21,6 +21,11 @@ follows:
 
 In the root directory of this repo, create the file `.detection-rules-cfg.json` and add relevant values
 
+#### Using environment variables
+
+Environment variables using the key format: `DR_<UPPERCASED_KEY_NAME>` will be parsed in commands which expect it.
+EX: `DR_USER=joe`
+
 ## Importing rules into the repo
 
 You can import rules into the repo using the `create-rule` or `import-rules` commands. Both of these commands will 
