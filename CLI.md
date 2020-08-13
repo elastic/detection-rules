@@ -51,7 +51,7 @@ and will accept any valid rule in the following formats:
 #### `import-rules`
 
 The primary advantage of using this command is the ability to import multiple rules at once. Multiple rule paths can be
-specified explicitly with unlimited arguments, recursively within a directory using `-d/--directory`[*](#i18n-note), or 
+specified explicitly with unlimited arguments, recursively within a directory using `-d/--directory`[*](#i18n-note-3), or 
 a combination of both.
 
 In addition to the formats mentioned using `create-rule`, this will also accept an `.ndjson`/`jsonl` file 
@@ -59,7 +59,7 @@ containing multiple rules (as would be the case with a bulk export).
 
 This will also strip additional fields and prompt for missing required fields.
 
-<a id="i18n-note">\* Note</a>: This will attempt to parse ALL files recursively within a specified directory.
+<a id="i18n-note-3">\* Note</a>: This will attempt to parse ALL files recursively within a specified directory.
 
 
 ## Uploading rules to Kibana
