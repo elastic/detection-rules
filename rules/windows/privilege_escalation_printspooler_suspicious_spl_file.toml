@@ -1,0 +1,44 @@
+[metadata]
+creation_date = "2020/08/14"
+ecs_version = ["1.5.0"]
+maturity = "production"
+updated_date = "2020/08/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects exploitation attempt behavior including on a patched system of 2 Privilege Escalation vulnerabilities related to
+the Print Spooler service. For more information lookup the related VulnIDs CVE-2020-1048, CVE-2020-1337 and verify that
+the impacted system is patched.
+"""
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "lucene"
+license = "Elastic License"
+name = "Suspicious PrintSpooler SPL file created"
+risk_score = 74
+rule_id = "a7ccae7b-9d2c-44b2-a061-98e5946971fa"
+severity = "high"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.category:file and event.type:creation and
+ file.extension:(spl or SPL) and
+ file.path:/[cC]\:\\[wW]indows\\[sS]ystem32\\spool\\[pP][rR][iI][nN][tT][eE][rR][sS]\\.+/ and
+ not process.name:(spoolsv.exe or printfilterpipelinesvc.exe or PrintIsolationHost.exe or splwow64.exe or msiexec.exe or poqexec.exe)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
