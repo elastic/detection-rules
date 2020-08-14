@@ -123,9 +123,9 @@ def mass_update(ctx, query, field):
 @root.command('view-rule')
 @click.argument('rule-id', required=False)
 @click.option('--rule-file', '-f', type=click.Path(dir_okay=False), help='Optionally view a rule from a specified file')
-@click.option('--as-api/--as-rule', default=True, help='Print the rule in final api or rule format')
+@click.option('--api-format/--rule-format', default=True, help='Print the rule in final api or rule format')
 @click.pass_context
-def view_rule(ctx, rule_id, rule_file, as_api):
+def view_rule(ctx, rule_id, rule_file, api_format):
     """View an internal rule or specified rule file."""
     rule = None
 
@@ -147,7 +147,8 @@ def view_rule(ctx, rule_id, rule_file, as_api):
         click.secho('Unknown format!', fg='red')
         ctx.exit(1)
 
-    click.echo(toml_write(rule.rule_format()) if not as_api else json.dumps(rule.contents, indent=2, sort_keys=True))
+    click.echo(toml_write(rule.rule_format()) if not api_format else
+               json.dumps(rule.contents, indent=2, sort_keys=True))
 
     return rule
 
