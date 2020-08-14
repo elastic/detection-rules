@@ -1,0 +1,44 @@
+[metadata]
+creation_date = "2020/04/14"
+ecs_version = ["1.5.0"]
+maturity = "production"
+updated_date = "2020/08/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+An attacker with IIS server access via a webshell or alike can disable HttpLogging as an effective anti-forensics
+measure. Verify the legitimacy context of this change.
+"""
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "lucene"
+license = "Elastic License"
+max_signals = 33
+name = "Creation of Hidden Files and Directories"
+risk_score = 73
+rule_id = "b9666521-4742-49ce-9ddc-b8e84c35acae"
+severity = "high"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.category:process and event.type:(start or process_started) and
+  (process.name:appcmd.exe or process.pe.original_file_name:appcmd.exe) and
+  process.args:/\/[dD][oO][nN][tT][lL][oO][gG]\:.[tT][rR][uU][eE]./ and
+  not process.parent.name:iissetup.exe
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal on Host"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
