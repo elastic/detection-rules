@@ -112,7 +112,7 @@ the `Load prebuilt detection rules and timeline templates` button on the `detect
 command `view-rule` will also allow you to view a converted rule without importing it by specifying the `--rule-format` flag.
 
 To view a rule in JSON format, you can also use the `view-rule` command with the `--api-format` flag, which is the default.
-(See the [note](#a-note-on-versioning-and-the-generated-json-formatted-rules) on the JSON formatted rules)
+(See the [note](#a-note-on-version-handling) on the JSON formatted rules and versioning)
 
 
 ## A note on version handling
@@ -121,7 +121,7 @@ The rule toml files exist slightly different than they do in their final state a
 white space stripped, normalized, sorted, and indented, prior to their json conversion. Everything within the `metadata`
 table is also stripped out, as this is meant to be used only in the context of this repository and not in Kibana..
 
-Additionally, the version of the rule is added to the file prior to exporting it. This is done to restrict version bumps
+Additionally, the `version` of the rule is added to the file prior to exporting it. This is done to restrict version bumps
 to occur intentionally right before we create a release. Versions are auto-incremented based on detected changes in 
 rules. This is based on the hash of the rule in the following format:
 * sorted json
