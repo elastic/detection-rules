@@ -1,0 +1,44 @@
+[metadata]
+creation_date = "2020/08/17"
+ecs_version = ["1.5.0"]
+maturity = "production"
+updated_date = "2020/08/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects potential hijack of Microsoft Update Orchestrator Service to persist a rogue program with system Integrity
+Level.
+"""
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Persistence via Update Orchestrator Service Hijack"
+references = ["https://github.com/irsl/CVE-2020-1313"]
+risk_score = 73
+rule_id = "265db8f5-fc73-4d0d-b434-6483b56372e2"
+severity = "high"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.category:process and event.type:(start or process_started) and
+  process.parent.name:svchost.exe and
+  process.parent.args:(UsoSvc or usosvc) and
+  not process.name:(UsoClient.exe or usoclient.exe or MusNotification.exe or musnotification.exe or MusNotificationUx.exe or musnotificationux.exe)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1050"
+name = "New Service"
+reference = "https://attack.mitre.org/techniques/T1050/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
