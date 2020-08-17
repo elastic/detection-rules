@@ -7,7 +7,7 @@ updated_date = "2020/07/08"
 [rule]
 author = ["Elastic"]
 description = """
-Generates a detection alert each time an Elastic Endpoint alert is received. Enabling this rule allows you to
+Generates a detection alert each time an Elastic Endpoint Security alert is received. Enabling this rule allows you to
 immediately begin investigating your Elastic Endpoint alerts.
 """
 enabled = true
@@ -16,7 +16,7 @@ index = ["logs-endpoint.alerts-*"]
 language = "kuery"
 license = "Elastic License"
 max_signals = 10000
-name = "Elastic Endpoint"
+name = "Elastic Endpoint Security"
 risk_score = 47
 rule_id = "9a1a2dae-0b5f-4c3d-8305-a268d404c306"
 rule_name_override = "message"
@@ -29,6 +29,12 @@ query = '''
 event.kind:alert and event.module:(endpoint and not endgame)
 '''
 
+
+[[rule.exceptions_list]]
+id = "endpoint_list"
+list_id = "endpoint_list"
+namespace_type = "agnostic"
+type = "endpoint"
 
 [[rule.risk_score_mapping]]
 field = "event.risk_score"
@@ -58,3 +64,5 @@ field = "event.severity"
 operator = "equals"
 value = "99"
 severity = "critical"
+
+

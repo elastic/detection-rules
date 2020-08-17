@@ -46,7 +46,7 @@ def filter_rule(rule, config_filter):  # type: (Rule,dict) -> bool  # rule.conte
 
 def manage_versions(rules, current_versions=None, exclude_version_update=False, add_new=True, save_changes=False,
                     verbose=True):
-    # type: (list, dict, bool, bool, bool, bool) -> [list, list]
+    # type: (list[Rule], dict, bool, bool, bool, bool) -> [list, list]
     """Update the contents of the version.lock file and optionally save changes."""
     new_rules = {}
     changed_rules = []
@@ -207,9 +207,6 @@ class Package(object):
 
         if verbose:
             click.echo('Package saved to: {}'.format(save_dir))
-
-    def from_github(self):
-        """Retrieve previously released and staged packages."""
 
     def get_package_hash(self, as_api=True, verbose=True):
         """Get hash of package contents."""
