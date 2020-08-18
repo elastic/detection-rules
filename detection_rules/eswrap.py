@@ -28,10 +28,12 @@ def es_group():
     """Helper commands for integrating with Elasticsearch."""
 
 
-def get_es_client(user, password, host=None, cloud_id=None, **kwargs):
+def get_es_client(user, password, elasticsearch_url=None, cloud_id=None, **kwargs):
     """Get an auth-validated elsticsearch client."""
-    assert host or cloud_id, 'You must specify a host or cloud-id to authenticate to elasticsearch instance'
-    hosts = [host] if host else host
+    assert elasticsearch_url or cloud_id, \
+        'You must specify a host or cloud_id to authenticate to an elasticsearch instance'
+
+    hosts = [elasticsearch_url] if elasticsearch_url else elasticsearch_url
 
     client = Elasticsearch(hosts=hosts, cloud_id=cloud_id, http_auth=(user, password), **kwargs)
     # force login to test auth
@@ -177,7 +179,7 @@ class CollectEvents(object):
 
 @es_group.command('collect-events')
 @click.argument('agent-hostname')
-@click.option('--host', callback=set_param_values, expose_value=True)
+@click.option('--elasticsearch-url', '-u', callback=set_param_values, expose_value=True)
 @click.option('--cloud-id', callback=set_param_values, expose_value=True)
 @click.option('--user', '-u', callback=set_param_values, expose_value=True, hide_input=False)
 @click.option('--password', '-p', callback=set_param_values, expose_value=True, hide_input=True)
@@ -186,14 +188,16 @@ class CollectEvents(object):
 @click.option('--rta-name', '-r', help='Name of RTA in order to save events directly to unit tests data directory')
 @click.option('--rule-id', help='Updates rule mapping in rule-mapping.yml file (requires --rta-name)')
 @click.option('--view-events', is_flag=True, help='Print events after saving')
-def collect_events(agent_hostname, host, cloud_id, user, password, index, agent_type, rta_name, rule_id, view_events):
+def collect_events(agent_hostname, elasticsearch_url, cloud_id, user, password, index, agent_type, rta_name, rule_id,
+                   view_events):
     """Collect events from Elasticsearch."""
     match = {'agent.type': agent_type} if agent_type else {}
 
     try:
-        client = get_es_client(host=host, use_ssl=True, cloud_id=cloud_id, user=user, password=password)
+        client = get_es_client(elasticsearch_url=elasticsearch_url, use_ssl=True, cloud_id=cloud_id, user=user,
+                               password=password)
     except AuthenticationException:
-        click.secho('Failed authentication for {}'.format(host or cloud_id), fg='red', err=True)
+        click.secho('Failed authentication for {}'.format(elasticsearch_url or cloud_id), fg='red', err=True)
         return ERRORS['FAILED_ES_AUTH']
 
     try:
@@ -225,17 +229,17 @@ def normalize_file(events_file):
 
 @root.command("kibana-upload")
 @click.argument("toml-files", nargs=-1, required=True)
-@click.option('--url', callback=set_param_values, expose_value=True)
+@click.option('--kibana-url', '-u', callback=set_param_values, expose_value=True)
 @click.option('--cloud-id', callback=set_param_values, expose_value=True)
 @click.option('--user', '-u', callback=set_param_values, expose_value=True, hide_input=False)
 @click.option('--password', '-p', callback=set_param_values, expose_value=True, hide_input=True)
-def kibana_upload(toml_files, url, cloud_id, user, password):
+def kibana_upload(toml_files, kibana_url, cloud_id, user, password):
     """Upload a list of rule .toml files to Kibana."""
     from uuid import uuid4
     from .packaging import manage_versions
     from .schemas import downgrade
 
-    with Kibana(cloud_id=cloud_id, url=url) as kibana:
+    with Kibana(cloud_id=cloud_id, url=kibana_url) as kibana:
         kibana.login(user, password)
 
         file_lookup = load_rule_files(paths=toml_files)
