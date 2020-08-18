@@ -22,7 +22,7 @@ follows:
 In the root directory of this repo, create the file `.detection-rules-cfg.json` and add relevant values
 
 Currently supported arguments:
-* es_url
+* elasticsearch_url
 * kibana_url
 * cloud_id
 * username
