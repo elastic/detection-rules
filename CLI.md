@@ -1,7 +1,7 @@
-# Command Line Interface
+# Command Line Interface (CLI)
 
 This covers more advanced CLI use cases and workflows. To [get started](README.md#getting-started) with the CLI, reference 
-the [readme](README.md). Basic use of the CLI such as [creating a rule](CONTRIBUTING.md#creating-a-rule-with-the-cli) or 
+the [README](README.md). Basic use of the CLI such as [creating a rule](CONTRIBUTING.md#creating-a-rule-with-the-cli) or 
 [testing](CONTRIBUTING.md#testing-a-rule-with-the-cli) are referenced in the [contribution guide](CONTRIBUTING.md).
 
 
@@ -102,7 +102,7 @@ rules and is not intended for production use in its current state.
 python -m detection_rules kibana-upload my-rules/example_custom_rule.toml
 ```
 
-_*Note that in order to load a custom rule, the proper index must be setup first. The simplest way to do this is to click 
+_*To load a custom rule, the proper index must be setup first. The simplest way to do this is to click 
 the `Load prebuilt detection rules and timeline templates` button on the `detections` page in the Kibana security app._
 
 
