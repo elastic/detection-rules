@@ -1,0 +1,43 @@
+[metadata]
+creation_date = "2020/08/18"
+ecs_version = ["1.5.0"]
+maturity = "production"
+updated_date = "2020/08/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects file name patterns as caused by the use of Sysinternals Sdelete utility to securely delete a file via multiple
+file overwrite and rename operations. Verify process details such as command line and hash to confirm this activity
+legitimacy.
+"""
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "lucene"
+license = "Elastic License"
+name = "Potential Secure File Deletion using SDelete utility"
+risk_score = 21
+rule_id = "5aee924b-6ceb-4633-980e-1bde8cdb40c5"
+severity = "low"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.category:file and not event.type:deletion and
+ file.extension:AAA and
+ file.name:/.+AAAA/
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1107"
+name = "File Deletion"
+reference = "https://attack.mitre.org/techniques/T1107/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
