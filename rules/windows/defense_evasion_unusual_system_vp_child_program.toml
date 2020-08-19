@@ -1,0 +1,38 @@
+[metadata]
+creation_date = "2020/08/19"
+ecs_version = ["1.5.0"]
+maturity = "production"
+updated_date = "2020/08/19"
+
+[rule]
+author = ["Elastic"]
+description = "Identifies Suspicious child program of the Windows virtual System process. This could indicate code injection a system."
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Unusual System Virtual Process Child Program"
+risk_score = 73
+rule_id = "de9bd7e0-49e9-4e92-a64d-53ade2e66af1"
+severity = "high"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.category:process and event.type:(start or process_started) and
+  process.ppid:4 and not process.name:smss.exe
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1093"
+name = "Process Injection"
+reference = "https://attack.mitre.org/techniques/T1055/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
