@@ -12,7 +12,7 @@ the Print Spooler service. For more information lookup the related VulnIDs CVE-2
 the impacted system is patched.
 """
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
-language = "lucene"
+language = "kuery"
 license = "Elastic License"
 name = "Suspicious PrintSpooler SPL file created"
 risk_score = 74
@@ -22,9 +22,9 @@ tags = ["Elastic", "Windows"]
 type = "query"
 
 query = '''
-event.category:file and event.type:creation and
- file.extension:(spl or SPL) and
- file.path:/[cC]\:\\[wW]indows\\[sS]ystem32\\spool\\[pP][rR][iI][nN][tT][eE][rR][sS]\\.+/ and
+event.category:file and not event.type:deletion and
+ file.name:(*.spl or *.SPL) and
+ file.path:C\:\\Windows\\System32\\spool\\PRINTERS\\* and
  not process.name:(spoolsv.exe or printfilterpipelinesvc.exe or PrintIsolationHost.exe or splwow64.exe or msiexec.exe or poqexec.exe)
 '''
 
