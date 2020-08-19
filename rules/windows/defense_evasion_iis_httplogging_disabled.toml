@@ -11,7 +11,7 @@ An attacker with IIS server access via a webshell or alike can disable HttpLoggi
 measure. Verify the legitimacy context of this change.
 """
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
-language = "lucene"
+language = "kuery"
 license = "Elastic License"
 max_signals = 33
 name = "IIS HttpLogging Disabled"
@@ -22,9 +22,9 @@ tags = ["Elastic", "Windows"]
 type = "query"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
+event.category:process and not event.type:end and
   (process.name:appcmd.exe or process.pe.original_file_name:appcmd.exe) and
-  process.args:/\/[dD][oO][nN][tT][lL][oO][gG]\:.[tT][rR][uU][eE]./ and
+  process.args:/dontLog*True* and
   not process.parent.name:iissetup.exe
 '''
 
