@@ -12,7 +12,7 @@ information lookup the related VulnIDs CVE-2020-1048, CVE-2020-1337 and CVE-2020
 system is patched.
 """
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
-language = "lucene"
+language = "kuery"
 license = "Elastic License"
 name = "Suspicious PrintSpooler service executable file creation"
 risk_score = 74
@@ -22,12 +22,10 @@ tags = ["Elastic", "Windows"]
 type = "query"
 
 query = '''
-event.category:file and event.type:creation and
+event.category:file and not event.type:deletion and
   process.name:spoolsv.exe and
-  file.extension:(exe or dll) and
-  not file.path:(/[cC]\:\\[wW]indows\\[sS]ystem32\\spool\\.+/ or
-             /[cC]\:\\[wW]indows\\[tT]emp\\.+/ or
-			 /[cC]\:\\[uU]sers\\.+/)
+  file.name:(*.exe or *.dll) and
+  not file.path:(C\:\\Windows\\System32\\spool\\* or C\:\\Windows\\Temp\\* or C\:\\Users\\*)
 '''
 
 
