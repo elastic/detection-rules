@@ -9,7 +9,7 @@ author = ["Elastic"]
 description = """
 Detects creation of new Group Policy based Scheduled Task or Service. Both methods are used for legit system
 administration but can be abused by an attacker with domain admin level to execute a malicious payload remotely on all
-or a subset of the domain joined machines.
+or a subset of the domain joined machines. Verify this change context such as username, process and GPO XML content itself.
 """
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
@@ -23,8 +23,8 @@ type = "query"
 
 query = '''
 event.category:file and not event.type:deletion and
-  file.path:(C\:\\Windows\\SYSVOL\\domain\\Policies\\*\\Machine\\Preferences\\ScheduledTasks\\ScheduledTasks.xml or
-             C\:\\Windows\\SYSVOL\\domain\\Policies\\*\\Machine\\Preferences\\Services\\Services.xml) and
+  file.path:(C\:\\Windows\\SYSVOL\\domain\\Policies\\*\\MACHINE\\Preferences\\ScheduledTasks\\ScheduledTasks.xml or
+             C\:\\Windows\\SYSVOL\\domain\\Policies\\*\\MACHINE\\Preferences\\Preferences\\Services\\Services.xml) and
   not process.name:dfsrs.exe
 '''
 
