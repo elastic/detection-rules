@@ -12,7 +12,7 @@ class Version(tuple):
         if not isinstance(version, (int, list, tuple)):
             version = tuple(int(a) if a.isdigit() else a for a in re.split(r'[.-]', version))
 
-        return tuple.__new__(cls, version)
+        return tuple.__new__(cls, (version,) if isinstance(version, int) else version)
 
     def bump(self):
         """Increment the version."""

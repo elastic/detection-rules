@@ -148,19 +148,26 @@ def schema_prompt(name, value=None, required=False, **options):
 
 def get_kibana_rules_map(branch='master'):
     """Get list of available rules from the Kibana repo and return a list of URLs."""
-    r = requests.get('https://api.github.com/repos/elastic/kibana/branches?per_page=1000')
-    branch_names = [b['name'] for b in r.json()]
-    if branch not in branch_names:
-        raise ValueError('branch "{}" does not exist in kibana'.format(branch))
+    # ensure branch exists
+    r = requests.get(f'https://api.github.com/repos/elastic/kibana/branches/{branch}')
+    if not r.ok:
+        raise ValueError(f'Kibana branch: {branch} does not exist')
 
-    url = ('https://api.github.com/repos/elastic/kibana/contents/x-pack/{legacy}plugins/siem/server/lib/'
+    url = ('https://api.github.com/repos/elastic/kibana/contents/x-pack/{legacy}plugins/{app}/server/lib/'
            'detection_engine/rules/prepackaged_rules?ref={branch}')
 
-    gh_rules = requests.get(url.format(legacy='', branch=branch)).json()
+    gh_rules = requests.get(url.format(legacy='', app='security_solution', branch=branch)).json()
+
+    # pre-7.9 app was siem
+    if isinstance(gh_rules, dict) and gh_rules.get('message', '') == 'Not Found':
+        gh_rules = requests.get(url.format(legacy='', app='siem', branch=branch)).json()
 
     # pre-7.8 the siem was under the legacy directory
     if isinstance(gh_rules, dict) and gh_rules.get('message', '') == 'Not Found':
-        gh_rules = requests.get(url.format(legacy='legacy/', branch=branch)).json()
+        gh_rules = requests.get(url.format(legacy='legacy/', app='siem', branch=branch)).json()
+
+    if isinstance(gh_rules, dict) and gh_rules.get('message', '') == 'Not Found':
+        raise ValueError(f'rules directory does not exist for branch: {branch}')
 
     return {os.path.splitext(r['name'])[0]: r['download_url'] for r in gh_rules if r['name'].endswith('.json')}
 

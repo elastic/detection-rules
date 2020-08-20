@@ -308,12 +308,13 @@ def kibana_diff(rule_id, branch):
     else:
         rules = [r for r in rule_loader.load_rules(verbose=False).values() if r.metadata['maturity'] == 'production']
 
+    rule_ids = [r.id for r in rules]
+
     # add versions to the rules
     manage_versions(rules, verbose=False)
 
-    rule_paths = [os.path.basename(r.path) for r in rules]
     try:
-        original_gh_rules = get_kibana_rules(*rule_paths, branch=branch).values()
+        original_gh_rules = [r for r in get_kibana_rules(branch=branch).values() if r['rule_id'] in rule_ids]
     except ValueError as e:
         click.secho(e.args[0], fg='red', err=True)
         return
@@ -321,28 +322,39 @@ def kibana_diff(rule_id, branch):
     gh_rule_versions = {r['rule_id']: r.pop('version') for r in original_gh_rules}
     rule_versions = {r.id: r.contents.pop('version') for r in rules}
 
-    gh_rules = {r['rule_id']: Rule('_', r) for r in original_gh_rules}
-
-    rule_ids = [r.id for r in rules]
-    gh_rule_ids = [r.id for r in gh_rules.values()]
+    invalid_rules = []
+    gh_rules = {}
+    gh_rule_ids = []
+    for ghr in original_gh_rules:
+        try:
+            gh_rule_ids.append(ghr['rule_id'])
+            gh_rules[ghr['rule_id']] = Rule('_', ghr)
+        except jsonschema.ValidationError:
+            invalid_rules.append(f'{ghr["rule_id"]} - {ghr["name"]}')
+            continue
 
     missing_rules = [r for r in gh_rules.values() if r.id in list(set(gh_rule_ids).difference(set(rule_ids)))]
 
     diff = {
         'missing_from_kibana': [],
         'diff': [],
-        'missing_from_rules': ['{} - {}'.format(r.id, r.name) for r in missing_rules]
+        'missing_from_rules': [f'{r.id} - {r.name}' for r in missing_rules],
+        'non_comparable_schemas': invalid_rules
     }
     for rule in rules:
         if rule.id not in gh_rule_ids:
             diff['missing_from_kibana'].append('{} - {}'.format(rule.id, rule.name))
             continue
 
-        gh_rule = gh_rules[rule.id]
+        gh_rule = gh_rules.get(rule.id)
 
-        if rule.get_hash() != gh_rule.get_hash():
+        if gh_rule and rule.get_hash() != gh_rule.get_hash():
             diff['diff'].append('versions - repo: {}, kibana: {} -> {} - {}'.format(
                 rule_versions[rule.id], gh_rule_versions[rule.id], rule.id, rule.name))
+
+    diff['stats'] = {k: len(v) for k, v in diff.items()}
+    diff['stats']['total_repo_prod_rules'] = len(rules)
+    diff['stats']['total_gh_prod_rules'] = len(original_gh_rules)
 
     click.echo(json.dumps(diff, indent=2, sort_keys=True))
 
