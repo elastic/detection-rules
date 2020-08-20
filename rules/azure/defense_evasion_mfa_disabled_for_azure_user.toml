@@ -1,0 +1,42 @@
+[metadata]
+creation_date = "2020/08/20"
+ecs_version = ["1.5.0"]
+maturity = "production"
+updated_date = "2020/08/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when multi-factor authentication (MFA) is disabled for an Azure user account. An adversary may disable MFA
+for a user account in order to weaken the authentication requirements for the account.
+"""
+from = "now-25m"
+index = ["filebeat-*"]
+language = "kuery"
+license = "Elastic License"
+name = "Multi-Factor Authentication Disabled for an Azure User"
+note = "The Azure Filebeat module must be enabled to use this rule."
+risk_score = 47
+rule_id = "dafa3235-76dc-40e2-9f71-1773b96d24cf"
+severity = "medium"
+tags = ["Elastic", "Azure", "Continuous Monitoring", "SecOps", "Identity and Access"]
+type = "query"
+
+query = '''
+event.module:azure and event.dataset:azure.auditlogs and event.category:AuditLogs and azure.auditlogs.operation_name:"Disable Strong Authentication" and event.outcome: "Success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
