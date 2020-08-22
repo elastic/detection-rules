@@ -1,0 +1,42 @@
+[metadata]
+creation_date = "2020/08/21"
+ecs_version = ["1.5.0"]
+maturity = "production"
+updated_date = "2020/08/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Suspicious dotNet Code execution. Verify process details such as commandline, parent process and network
+connections.
+"""
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Suspicious dotNet code execution"
+risk_score = 47
+rule_id = "201200f1-a99b-43fb-88ed-f65a45c4972c"
+severity = "medium"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.category:process and not event.type:end and
+  process.name:(csc.exe or vbc.exe) and
+  process.parent.name:(wscript.exe or mshta.exe or wscript.exe or wmic.exe or svchost.exe or rundll32.exe or cmstp.exe or regsvr32.exe)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1093"
+name = "Process Injection"
+reference = "https://attack.mitre.org/techniques/T1055/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
