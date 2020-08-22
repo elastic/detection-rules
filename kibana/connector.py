@@ -20,7 +20,7 @@ class Kibana(object):
 
     CACHED = False
 
-    def __init__(self, cloud_id=None, url=None, verify=True, elasticsearch=None):
+    def __init__(self, cloud_id=None, url=None, verify=False, elasticsearch=None):
         """"Open a session to the platform."""
         self.authenticated = False
         self.session = requests.Session()
