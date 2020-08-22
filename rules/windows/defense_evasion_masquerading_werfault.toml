@@ -10,7 +10,7 @@ description = """
 A suspicious WerFault instance commandline was detected. This behavior may indicate an attempt to run unnoticed. Verify
 process details such as commandline, network connections, file writes and parent process details as well.
 """
-false_positives = ["Legit Application Crash with Unknown Werfault commandline Value"]
+false_positives = ["Legit Application Crash with rare Werfault commandline value"]
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License"
@@ -30,12 +30,7 @@ event.category :"process" and not event.type:"end" and
  process.name:"WerFault.exe"  and
  not process.args:("-u" and "-p" and "-s") and
  not process.args:("/h" and "/shared") and
- not process.args:("-k" and ("-lcq" or "-lc" or "-q" or "-rq" or "-l")) and
- not process.args:("-pss" and "-s" and "-p" and "-ip") and
- not process.args:("-p" and "-h") and
- not process.args:("-e" and "-p" and "-r" and "-a" and "-f" and "-t") and
- not process.args:("/hc" or "-pss" or "-pr" or "-nonelevated") and
- not process.args:("-s" and "-t" and "-i" and "-e" and "-c")
+ not process.args:("-k" and ("-lcq" or "-lc" or "-q" or "-rq" or "-l"))
 '''
 
 
