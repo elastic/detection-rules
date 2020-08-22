@@ -1,0 +1,47 @@
+[metadata]
+creation_date = "2020/08/24"
+ecs_version = ["1.5.0"]
+maturity = "production"
+updated_date = "2020/08/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+A suspicious WerFault child process was detected. This behavior may indicate an attempt to run unnoticed. Verify process
+details such as commandline, network connections, file writes and parent process details as well.
+"""
+false_positives = ["Legit Application Crash with rare Werfault commandline value"]
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Suspicious WerFault Child Process"
+references = [
+    "https://github.com/sbousseaden/EVTX-ATTACK-SAMPLES/blob/master/Persistence/persistence_SilentProcessExit_ImageHijack_sysmon_13_1.evtx",
+    "https://www.hexacorn.com/blog/2019/09/20/werfault-command-line-switches-v0-1/",
+]
+risk_score = 47
+rule_id = "ac5012b8-8da8-440b-aaaf-aedafdea2dff"
+severity = "medium"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.category :"process" and not event.type:"end" and
+ process.parent.name:"WerFault.exe"  and
+ not process.name:(cofire.exe or psr.exe or vsjitdebugger.exe or TTTracer.exe)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
