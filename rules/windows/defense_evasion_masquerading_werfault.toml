@@ -1,0 +1,54 @@
+[metadata]
+creation_date = "2020/08/24"
+ecs_version = ["1.5.0"]
+maturity = "production"
+updated_date = "2020/08/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+A suspicious WerFault instance commandline was detected. This behavior may indicate an attempt to run unnoticed. Verify
+process details such as commandline, network connections, file writes and parent process details as well.
+"""
+false_positives = ["Unknown Werfault commandline due to legit application crash."]
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Potential Process Masquerading as WerFault"
+references = [
+    "https://twitter.com/SBousseaden/status/1235533224337641473",
+    "https://www.hexacorn.com/blog/2019/09/20/werfault-command-line-switches-v0-1/",
+]
+risk_score = 47
+rule_id = "6ea41894-66c3-4df7-ad6b-2c5074eb3df8"
+severity = "medium"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.category :"process" and not event.type:"end" and
+ process.name:"WerFault.exe"  and
+ not process.args:("-u" and "-p" and "-s") and
+ not process.args:("/h" and "/shared") and
+ not process.args:("-k" and ("-lcq" or "-lc" or "-q" or "-rq" or "-l")) and
+ not process.args:("-pss" and "-s" and "-p" and "-ip") and
+ not process.args:("-p" and "-h") and
+ not process.args:("-e" and "-p" and "-r" and "-a" and "-f" and "-t") and
+ not process.args:("/hc" or "-pss" or "-pr" or "-nonelevated") and
+ not process.args:("-s" and "-t" and "-i" and "-e" and "-c")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
