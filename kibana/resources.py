@@ -12,53 +12,25 @@ from typing import List, Optional, Type, TypeVar
 DEFAULT_PAGE_SIZE = 10
 
 
-class DataClassJsonPatch(abc.ABC):
-    """Temporary class to hold DataClassJsonMixin that we want to overwrite."""
-
-    def to_dict(self, *args, **kwargs) -> dict:
-        return {k: v for k, v in DataClassJsonMixin.to_dict(self, *args, **kwargs).items() if v is not None}
-
-
-ResourceDataClass = TypeVar('T')
-
-
-def resource(cls: ResourceDataClass) -> ResourceDataClass:
-    cls = dataclass(cls)
-    cls = dataclass_json(cls)
-    # apparently dataclass_json/DataClassJsonMixin completely overwrites this method upon class construction
-    # which is a little weird, because it means you can't define your own to override it.
-    # but we want a custom implementation that skips nulls. so we need to overwrite it DataClassJsonPatch.to_dict 
-    # overwrite this method, to drop keys set to None
-    cls.to_dict = DataClassJsonPatch.to_dict
-    return cls
-
-
-class RestEndpoint:
+class BaseResource(dict):
     BASE_URI = ""
+    ID_FIELD = "id"
 
-
-@resource
-class BaseResource(RestEndpoint):
-
-    def _update_from(self, other):
-        # copy over the attributes from the new one
-        if not isinstance(other, BaseResource) and isinstance(other, dict):
-            other = self.from_dict(other)
-
-        vars(self).update(vars(other))
+    @property
+    def id(self):
+        return self.get(self.ID_FIELD)
 
     @classmethod
     def bulk_create(cls, resources: list):
         for r in resources:
             assert isinstance(r, cls)
 
-        payloads = [r.to_dict() for r in resources]
-        responses = Kibana.current().post(cls.BASE_URI + "/_bulk_create", data=payloads)
-        return [cls.from_dict(r) for r in responses]
+        responses = Kibana.current().post(cls.BASE_URI + "/_bulk_create", data=resources)
+        return [cls(r) for r in responses]
 
     def create(self):
-        response = Kibana.current().post(self.BASE_URI, data=self.to_dict())
-        self._update_from(response)
+        response = Kibana.current().post(self.BASE_URI, data=self)
+        self.update(response)
         return self
 
     @classmethod
@@ -72,10 +44,10 @@ class BaseResource(RestEndpoint):
         return ResourceIterator(cls, cls.BASE_URI + "/_find", per_page=per_page, **params)
 
     @classmethod
-    def from_id(cls, resource_id, id_field="id") -> 'BaseResource':
-        return Kibana.current().get(cls.BASE_URI, params={id_field: resource_id})
+    def from_id(cls, resource_id) -> 'BaseResource':
+        return Kibana.current().get(cls.BASE_URI, params={self.ID_FIELD: resource_id})
 
-    def update(self):
+    def put(self):
         response = Kibana.current().put(self.BASE_URI, data=self.to_dict())
         self._update_from(response)
         return self
@@ -118,44 +90,15 @@ class ResourceIterator(object):
             self._batch()
 
         if self.batch_pos < len(self.batch):
-            result = self.cls.from_dict(self.batch[self.batch_pos])
+            result = self.cls(self.batch[self.batch_pos])
             self.batch_pos += 1
             return result
 
         raise StopIteration()
 
 
-@resource
 class RuleResource(BaseResource):
     BASE_URI = "/api/detection_engine/rules"
-
-    description: str
-    name: str
-    risk_score: int
-    severity: str
-    type_: str = field(metadata=config(field_name="type"))
-
-    actions: Optional[List] = None
-    author: Optional[List[str]] = None
-    building_block_type: Optional[str] = None
-    enabled: Optional[bool] = None
-    exceptions_list: Optional[List] = None
-    false_positives: Optional[List[str]] = None
-    filters: Optional[List[dict]] = None
-    from_: Optional[str] = field(metadata=config(field_name="from"), default=None)
-    id: Optional[str] = None
-    interval: Optional[str] = None
-    license: Optional[str] = None
-    language: Optional[str] = None
-    meta: Optional[dict] = None
-    note: Optional[str] = None
-    references: Optional[List[str]] = None
-    rule_id: Optional[str] = None
-    tags: Optional[List[str]] = None
-    throttle:  Optional[str] = None
-    threat: Optional[List[dict]] = None
-    to_: Optional[str] = field(metadata=config(field_name="to"), default=None)
-    query: Optional[str] = None
 
     @staticmethod
     def _add_internal_filter(is_internal: bool, params: dict) -> dict:
@@ -185,20 +128,23 @@ class RuleResource(BaseResource):
         params = cls._add_internal_filter(True, params)
         return cls.find(**params)
 
-    def update(self):
+    def put(self):
         # id and rule_id are mutually exclusive
-        rule_id = self.rule_id
-        self.rule_id = None
+        rule_id = self.get("rule_id")
+        self.pop("rule_id", None)
 
         try:
             # apparently Kibana doesn't like `rule_id` for existing documents
             return super(RuleResource, self).update()
         except Exception:
             # if it fails, restore the id back
-            self.rule_id = rule_id
+            if rule_id:
+                self["rule_id"] = rule_id
+
             raise
 
-class Signal(RestEndpoint):
+
+class Signal(BaseResource):
     BASE_URI = "/api/detection_engine/signals"
 
     def __init__(self):

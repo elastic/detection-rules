@@ -258,8 +258,9 @@ def kibana_upload(toml_files, kibana_url, cloud_id, user, password):
             meta["original"] = dict(id=rule.id, **rule.metadata)
             payload["rule_id"] = str(uuid4())
             payload = downgrade(payload, kibana.version)
-            rule = RuleResource.from_dict(payload)
+            rule = RuleResource(payload)
             api_payloads.append(rule)
+            print(api_payloads)
 
         rules = RuleResource.bulk_create(api_payloads)
         click.echo(f"Successfully uploaded {len(rules)} rules")
