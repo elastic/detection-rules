@@ -1,0 +1,48 @@
+[metadata]
+creation_date = "2020/04/24"
+ecs_version = ["1.5.0"]
+maturity = "production"
+updated_date = "2020/08/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Adversaries may attempt to disable the iptables or firewall service in an attempt to affect how a host is allowed to
+receive or send network traffic.
+"""
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Attempt to Disable IPTables or Firewall"
+note = "For macOS systems, Auditbeat must be run with an account that has access to the binaries in the /usr/sbin, /sbin, /usr/bin, and /bin directories. For Linux systems, to avoid conflicts with auditd, you will need to stop and disable auditd with 'sudo service stop auditd && sudo systemctl disable auditd'."
+risk_score = 47
+rule_id = "125417b8-d3df-479f-8418-12d7e034fee3"
+severity = "medium"
+tags = ["Elastic", "Linux", "macOS"]
+type = "query"
+
+query = '''
+event.category:process and event.type:start and
+  process.name:systemctl and process.args:((allow or disable or reset or stop) and ufw) or
+  (((process.name:service and process.args:stop) or
+  (process.name:chkconfig and process.args:off) or
+  (process.name:systemctl and process.args:(disable or stop or kill)))
+  and process.args:(firewalld or ip6tables or iptables)) or
+  (event.category:process and event.type:start and process.name:socketfilterfw)
+  or (event.category:process and event.type:start and process.args:(defaults
+  and write and "/Library/Preferences/com.apple.alf" and globalstate and "-int" and 0))
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1089"
+name = "Disabling Security Tools"
+reference = "https://attack.mitre.org/techniques/T1089/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

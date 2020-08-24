@@ -7,7 +7,7 @@ Rules within this folder are organized by solution or platform. The structure is
 | `.`                                 | Root directory where rules are stored                                |
 | [`apm/`](apm)                       | Rules that use Application Performance Monitoring (APM) data sources |
 | [`aws/`](aws)                       | Rules written for the Amazon Web Services (AWS) module of filebeat   |
-| `cross-platform/`                   | Rules that apply to multiple platforms, such as Windows and Linux    |
+| [`cross-platform/`](cross-platform) | Rules that apply to multiple platforms, such as Windows and Linux    |
 | [`linux/`](linux)                   | Rules for Linux or other Unix based operating systems                |
 | `macos/`                            | Rules for macOS                                                      |
 | [`ml/`](ml)                         | Rules that use machine learning jobs (ML)                            |

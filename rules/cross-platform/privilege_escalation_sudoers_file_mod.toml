@@ -2,7 +2,7 @@
 creation_date = "2020/04/13"
 ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/08/03"
+updated_date = "2020/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -13,15 +13,17 @@ advantage of these configurations to execute commands as other users or spawn pr
 index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License"
-name = "Sudoers File Modification"
+name = "Sudoers File Accessed"
+note = "For macOS systems, Auditbeat must be run with an account that has access to the binaries in the /usr/sbin, /sbin, /usr/bin, and /bin directories. For Linux systems, to avoid conflicts with auditd, you will need to stop and disable auditd with 'sudo service stop auditd && sudo systemctl disable auditd'."
 risk_score = 21
 rule_id = "931e25a5-0f5e-4ae0-ba0d-9e94eff7e3a4"
 severity = "low"
-tags = ["Elastic", "Linux"]
+tags = ["Elastic", "Linux", "macOS"]
 type = "query"
 
 query = '''
-event.category:file and event.type:change and file.path:/etc/sudoers
+event.category:(file or process) and event.type:(start or change) and
+(file.path:(/etc/.sudoers.tmp.swp or /etc/sudoers.tmp) or (process.args:visudo and host.os.name:"Mac OS X"))
 '''
 
 
@@ -37,4 +39,3 @@ reference = "https://attack.mitre.org/techniques/T1169/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
