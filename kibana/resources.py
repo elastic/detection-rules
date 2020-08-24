@@ -2,12 +2,10 @@
 # or more contributor license agreements. Licensed under the Elastic License;
 # you may not use this file except in compliance with the Elastic License.
 
-from .connector import Kibana
-import abc
 import datetime
-from dataclasses import dataclass, field, fields
-from dataclasses_json import dataclass_json, config, DataClassJsonMixin
-from typing import List, Optional, Type, TypeVar
+from typing import List, Type
+
+from .connector import Kibana
 
 DEFAULT_PAGE_SIZE = 10
 

@@ -260,7 +260,6 @@ def kibana_upload(toml_files, kibana_url, cloud_id, user, password):
             payload = downgrade(payload, kibana.version)
             rule = RuleResource(payload)
             api_payloads.append(rule)
-            print(api_payloads)
 
         rules = RuleResource.bulk_create(api_payloads)
         click.echo(f"Successfully uploaded {len(rules)} rules")
