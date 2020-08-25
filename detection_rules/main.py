@@ -307,8 +307,7 @@ def kibana_diff(rule_id, branch, threads):
     if rule_id:
         rules = {r.id: r for r in rule_loader.load_rules(verbose=False).values() if r.id in rule_id}
     else:
-        rules = {r.id: r for r in rule_loader.load_rules(verbose=False).values()
-                 if r.metadata['maturity'] == 'production'}
+        rules = {r.id: r for r in rule_loader.get_production_rules()}
 
     # add versions to the rules
     manage_versions(list(rules.values()), verbose=False)
