@@ -172,16 +172,46 @@ def get_kibana_rules_map(branch='master'):
     return {os.path.splitext(r['name'])[0]: r['download_url'] for r in gh_rules if r['name'].endswith('.json')}
 
 
-def get_kibana_rules(*rule_paths, branch='master', verbose=True):
+def get_kibana_rules(*rule_paths, branch='master', verbose=True, threads=50):
     """Retrieve prepackaged rules from kibana repo."""
+    from threading import Thread
+    from queue import Queue
+
+    kibana_rules = {}
+
+    def download_rule(rule_info):
+        n, u = rule_info
+        kibana_rules[n] = requests.get(u).json()
+
+    def worker():
+        while True:
+            rule_info = q.get()
+            download_rule(rule_info)
+            q.task_done()
+
+    q = Queue()
+    # thread to speed up but limit to 5 concurrent to not blow up BI
+    for i in range(threads):
+        t = Thread(target=worker)
+        t.daemon = True
+        t.start()
+
     if verbose:
-        click.echo('Downloading rules from {} branch in kibana repo...'.format(branch))
+        thread_use = f'using {threads} threads' if threads > 1 else ''
+        click.echo(f'Downloading rules from {branch} branch in kibana repo {thread_use} ...')
 
     if rule_paths:
         rule_paths = [os.path.splitext(os.path.basename(p))[0] for p in rule_paths]
-        return {n: requests.get(r).json() for n, r in get_kibana_rules_map(branch).items() if n in rule_paths}
+        for name, url in get_kibana_rules_map(branch).items():
+            if name in rule_paths:
+                q.put((name, url))
     else:
-        return {n: requests.get(r).json() for n, r in get_kibana_rules_map(branch).items()}
+        for name, url in get_kibana_rules_map(branch).items():
+            q.put((name, url))
+
+    q.join()
+
+    return kibana_rules
 
 
 def parse_config():

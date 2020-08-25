@@ -299,7 +299,8 @@ def update_lock_versions(rule_ids):
 @root.command('kibana-diff')
 @click.option('--rule-id', '-r', multiple=True, help='Optionally specify rule ID')
 @click.option('--branch', '-b', default='master', help='Specify the kibana branch to diff against')
-def kibana_diff(rule_id, branch):
+@click.option('--threads', '-t', type=click.IntRange(1), default=50, help='Number of threads to use to download rules')
+def kibana_diff(rule_id, branch, threads):
     """Diff rules against their version represented in kibana if exists."""
     from .misc import get_kibana_rules
 
@@ -313,7 +314,7 @@ def kibana_diff(rule_id, branch):
     manage_versions(list(rules.values()), verbose=False)
     repo_hashes = {r.id: r.get_hash() for r in rules.values()}
 
-    kibana_rules = {r['rule_id']: r for r in get_kibana_rules(branch=branch).values()}
+    kibana_rules = {r['rule_id']: r for r in get_kibana_rules(branch=branch, threads=threads).values()}
     kibana_hashes = {r['rule_id']: Rule.dict_hash(r) for r in kibana_rules.values()}
 
     missing_from_repo = list(set(kibana_hashes).difference(set(repo_hashes)))
