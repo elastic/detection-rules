@@ -190,7 +190,6 @@ def get_kibana_rules(*rule_paths, branch='master', verbose=True, threads=50):
             q.task_done()
 
     q = Queue()
-    # thread to speed up but limit to 5 concurrent to not blow up BI
     for i in range(threads):
         t = Thread(target=worker)
         t.daemon = True
