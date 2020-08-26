@@ -150,8 +150,7 @@ def get_kibana_rules_map(branch='master'):
     """Get list of available rules from the Kibana repo and return a list of URLs."""
     # ensure branch exists
     r = requests.get(f'https://api.github.com/repos/elastic/kibana/branches/{branch}')
-    if not r.ok:
-        raise ValueError(f'Kibana branch: {branch} does not exist')
+    r.raise_for_status()
 
     url = ('https://api.github.com/repos/elastic/kibana/contents/x-pack/{legacy}plugins/{app}/server/lib/'
            'detection_engine/rules/prepackaged_rules?ref={branch}')
