@@ -67,7 +67,7 @@ Of course, feel free to bump your issues if you think they've been neglected for
 
 **Now we're talking**. If you have a bug fix or new rule that you would like to contribute to Detection Rules, please **find or open an issue about it before you start working on it.** Talk about what you would like to do. It may be that somebody is already working on it, or that there are particular issues that you should know about before implementing the change.
 
-We get asked from time-to-time if there are any rules that the community can help with, absolutely! Check out the rules with the ["help wanted" label](https://github.com/elastic/detection-rules/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22+). Don't feel like these are your only options, any Issue is up for grabs by the community, but these are rules that are good ideas and we would love to have some additional hands on.
+We get asked from time-to-time if there are any rules that the community can help with, absolutely! Check out the rules with the ["help wanted" label](https://github.com/elastic/detection-rules/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22+). Don't feel like these are your only options, any issue is up for grabs by the community, but these are rules that are good ideas and we would love to have some additional hands on.
 
 We enjoy working with contributors to get their code accepted. There are many approaches to fixing a problem and it is important to find the best approach before writing too much code.
 
