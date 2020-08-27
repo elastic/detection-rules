@@ -9,11 +9,12 @@ import time
 
 import click
 from elasticsearch import AuthenticationException, Elasticsearch
+from kibana import Kibana, RuleResource
 
 from .main import root
 from .misc import set_param_values
 from .utils import normalize_timing_and_sort, unix_time_to_formatted, get_path
-from .rule_loader import get_rule, rta_mappings
+from .rule_loader import get_rule, rta_mappings, load_rule_files, load_rules
 
 COLLECTION_DIR = get_path('collections')
 ERRORS = {
@@ -27,10 +28,12 @@ def es_group():
     """Helper commands for integrating with Elasticsearch."""
 
 
-def get_es_client(user, password, host=None, cloud_id=None, **kwargs):
+def get_es_client(user, password, elasticsearch_url=None, cloud_id=None, **kwargs):
     """Get an auth-validated elsticsearch client."""
-    assert host or cloud_id, 'You must specify a host or cloud-id to authenticate to elasticsearch instance'
-    hosts = [host] if host else host
+    assert elasticsearch_url or cloud_id, \
+        'You must specify a host or cloud_id to authenticate to an elasticsearch instance'
+
+    hosts = [elasticsearch_url] if elasticsearch_url else elasticsearch_url
 
     client = Elasticsearch(hosts=hosts, cloud_id=cloud_id, http_auth=(user, password), **kwargs)
     # force login to test auth
@@ -176,7 +179,7 @@ class CollectEvents(object):
 
 @es_group.command('collect-events')
 @click.argument('agent-hostname')
-@click.option('--host', callback=set_param_values, expose_value=True)
+@click.option('--elasticsearch-url', '-u', callback=set_param_values, expose_value=True)
 @click.option('--cloud-id', callback=set_param_values, expose_value=True)
 @click.option('--user', '-u', callback=set_param_values, expose_value=True, hide_input=False)
 @click.option('--password', '-p', callback=set_param_values, expose_value=True, hide_input=True)
@@ -185,14 +188,16 @@ class CollectEvents(object):
 @click.option('--rta-name', '-r', help='Name of RTA in order to save events directly to unit tests data directory')
 @click.option('--rule-id', help='Updates rule mapping in rule-mapping.yml file (requires --rta-name)')
 @click.option('--view-events', is_flag=True, help='Print events after saving')
-def collect_events(agent_hostname, host, cloud_id, user, password, index, agent_type, rta_name, rule_id, view_events):
+def collect_events(agent_hostname, elasticsearch_url, cloud_id, user, password, index, agent_type, rta_name, rule_id,
+                   view_events):
     """Collect events from Elasticsearch."""
     match = {'agent.type': agent_type} if agent_type else {}
 
     try:
-        client = get_es_client(host=host, use_ssl=True, cloud_id=cloud_id, user=user, password=password)
+        client = get_es_client(elasticsearch_url=elasticsearch_url, use_ssl=True, cloud_id=cloud_id, user=user,
+                               password=password)
     except AuthenticationException:
-        click.secho('Failed authentication for {}'.format(host or cloud_id), fg='red', err=True)
+        click.secho('Failed authentication for {}'.format(elasticsearch_url or cloud_id), fg='red', err=True)
         return ERRORS['FAILED_ES_AUTH']
 
     try:
@@ -220,3 +225,41 @@ def normalize_file(events_file):
     file_name = os.path.splitext(os.path.basename(events_file.name))[0]
     events = Events('_', {file_name: [json.loads(e) for e in events_file.readlines()]})
     events.save(dump_dir=os.path.dirname(events_file.name))
+
+
+@root.command("kibana-upload")
+@click.argument("toml-files", nargs=-1, required=True)
+@click.option('--kibana-url', '-u', callback=set_param_values, expose_value=True)
+@click.option('--cloud-id', callback=set_param_values, expose_value=True)
+@click.option('--user', '-u', callback=set_param_values, expose_value=True, hide_input=False)
+@click.option('--password', '-p', callback=set_param_values, expose_value=True, hide_input=True)
+def kibana_upload(toml_files, kibana_url, cloud_id, user, password):
+    """Upload a list of rule .toml files to Kibana."""
+    from uuid import uuid4
+    from .packaging import manage_versions
+    from .schemas import downgrade
+
+    with Kibana(cloud_id=cloud_id, url=kibana_url) as kibana:
+        kibana.login(user, password)
+
+        file_lookup = load_rule_files(paths=toml_files)
+        rules = list(load_rules(file_lookup=file_lookup).values())
+
+        # assign the versions from etc/versions.lock.json
+        # rules that have changed in hash get incremented, others stay as-is.
+        # rules that aren't in the lookup default to version 1
+        manage_versions(rules, verbose=False)
+
+        api_payloads = []
+
+        for rule in rules:
+            payload = rule.contents.copy()
+            meta = payload.setdefault("meta", {})
+            meta["original"] = dict(id=rule.id, **rule.metadata)
+            payload["rule_id"] = str(uuid4())
+            payload = downgrade(payload, kibana.version)
+            rule = RuleResource.from_dict(payload)
+            api_payloads.append(rule)
+
+        rules = RuleResource.bulk_create(api_payloads)
+        click.echo(f"Successfully uploaded {len(rules)} rules")
