@@ -173,41 +173,26 @@ def get_kibana_rules_map(branch='master'):
 
 def get_kibana_rules(*rule_paths, branch='master', verbose=True, threads=50):
     """Retrieve prepackaged rules from kibana repo."""
-    from threading import Thread
-    from queue import Queue
+    from multiprocessing.pool import ThreadPool
 
     kibana_rules = {}
 
-    def download_rule(rule_info):
+    if verbose:
+        thread_use = f' using {threads} threads' if threads > 1 else ''
+        click.echo(f'Downloading rules from {branch} branch in kibana repo{thread_use} ...')
+
+    rule_paths = [os.path.splitext(os.path.basename(p))[0] for p in rule_paths]
+    rules_mapping = [(n, u) for n, u in get_kibana_rules_map(branch).items() if n in rule_paths] if rule_paths else \
+        get_kibana_rules_map(branch).items()
+
+    def download_worker(rule_info):
         n, u = rule_info
         kibana_rules[n] = requests.get(u).json()
 
-    def worker():
-        while True:
-            rule_info = q.get()
-            download_rule(rule_info)
-            q.task_done()
-
-    q = Queue()
-    for i in range(threads):
-        t = Thread(target=worker)
-        t.daemon = True
-        t.start()
-
-    if verbose:
-        thread_use = f'using {threads} threads' if threads > 1 else ''
-        click.echo(f'Downloading rules from {branch} branch in kibana repo {thread_use} ...')
-
-    if rule_paths:
-        rule_paths = [os.path.splitext(os.path.basename(p))[0] for p in rule_paths]
-        for name, url in get_kibana_rules_map(branch).items():
-            if name in rule_paths:
-                q.put((name, url))
-    else:
-        for name, url in get_kibana_rules_map(branch).items():
-            q.put((name, url))
-
-    q.join()
+    pool = ThreadPool(processes=threads)
+    pool.map(download_worker, rules_mapping)
+    pool.close()
+    pool.join()
 
     return kibana_rules
 
