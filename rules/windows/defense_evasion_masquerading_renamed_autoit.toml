@@ -1,0 +1,43 @@
+[metadata]
+creation_date = "2020/09/01"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/09/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+A suspicious AutoIt process execution was detected. Malwares written as AutoIt scripts tend to rename AutoIt main
+executable to avoid attention. Verify process details such as command line, network connections, file writes and parent
+process details as well.
+"""
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Renamed AutoIt Scripts Interpreter"
+risk_score = 47
+rule_id = "2e1e835d-01e5-48ca-b9fc-7a61f7f11902"
+severity = "medium"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.category:process and not event.type:end and
+  process.pe.original_file_name:AutoIt*.exe and
+  not process.name:(AutoIt*.exe or autoit*.exe)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
