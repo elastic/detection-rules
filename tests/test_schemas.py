@@ -18,6 +18,7 @@ class TestSchemas(unittest.TestCase):
         cls.compatible_rule = Rule("test.toml", {
             "author": ["Elastic"],
             "description": "test description",
+            "index": ["filebeat-*"],
             "language": "kuery",
             "license": "Elastic License",
             "name": "test rule",
@@ -55,6 +56,7 @@ class TestSchemas(unittest.TestCase):
         self.assertDictEqual(downgrade(api_contents, "7.8"), {
             # "author": ["Elastic"],
             "description": "test description",
+            "index": ["filebeat-*"],
             "language": "kuery",
             # "license": "Elastic License",
             "name": "test rule",
@@ -77,6 +79,7 @@ class TestSchemas(unittest.TestCase):
         self.assertDictEqual(downgrade(api_contents, "7.8"), {
             # "author": ["Elastic"],
             "description": "test description",
+            "index": ["filebeat-*"],
             "language": "kuery",
             # "license": "Elastic License",
             "name": "test rule",
