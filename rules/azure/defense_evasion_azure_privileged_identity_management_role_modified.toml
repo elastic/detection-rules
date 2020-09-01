@@ -1,0 +1,34 @@
+[metadata]
+creation_date = "2020/09/01"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/09/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+Azure Active Directory (AD) Privileged Identity Management (PIM) is a service that enables you to manage, control, and
+monitor access to important resources in an organization. PIM can be used to manage the built-in Azure resource roles
+such as Global Administrator and Application Administrator. An adversary may add a user to a PIM role in order to
+maintain persistence in their target's environment or modify a PIM role to weaken their target's security controls.
+"""
+from = "now-25m"
+index = ["filebeat-*"]
+language = "kuery"
+license = "Elastic License"
+name = "Azure Privilege Identity Management Role Modified"
+note = "The Azure Filebeat module must be enabled to use this rule."
+references = [
+    "https://docs.microsoft.com/en-us/azure/active-directory/privileged-identity-management/pim-resource-roles-assign-roles",
+    "https://docs.microsoft.com/en-us/azure/active-directory/privileged-identity-management/pim-configure",
+]
+risk_score = 47
+rule_id = "7882cebf-6cf1-4de3-9662-213aa13e8b80"
+severity = "medium"
+tags = ["Elastic", "Azure", "Continuous Monitoring", "SecOps", "Identity and Access"]
+type = "query"
+
+query = '''
+event.module:azure and event.dataset:azure.auditlogs and event.category:AuditLogs and azure.auditlogs.operation_name:"Update role setting in PIM"
+'''
+
