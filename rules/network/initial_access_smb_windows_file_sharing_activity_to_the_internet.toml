@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.4.0"]
+ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/03/09"
+updated_date = "2020/07/02"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ the Internet. SMB is commonly used within networks to share files, printers, and
 systems. It should almost never be directly exposed to the Internet, as it is frequently targeted and exploited by
 threat actors as an initial access or back-door vector or for data exfiltration.
 """
-index = ["filebeat-*"]
+index = ["filebeat-*", "packetbeat-*"]
 language = "kuery"
 license = "Elastic License"
 name = "SMB (Windows File Sharing) Activity to the Internet"
@@ -23,7 +23,7 @@ tags = ["Elastic", "Network"]
 type = "query"
 
 query = '''
-network.transport:tcp and destination.port:(139 or 445) and
+event.category:(network or network_traffic) and network.transport:tcp and (destination.port:(139 or 445) or event.dataset:zeek.smb) and
   source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16) and
   not destination.ip:(10.0.0.0/8 or 127.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16 or "::1")
 '''

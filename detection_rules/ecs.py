@@ -7,14 +7,16 @@ import copy
 import glob
 import os
 import shutil
+import json
 
 import requests
 import yaml
 
 from .semver import Version
-from .utils import unzip, load_etc_dump, get_etc_path, cached
+from .utils import unzip, load_etc_dump, get_etc_path, cached, save_etc_dump
 
-ECS_SCHEMAS_DIR = get_etc_path("ecs_schemas")
+ETC_NAME = "ecs_schemas"
+ECS_SCHEMAS_DIR = get_etc_path(ETC_NAME)
 
 
 def add_field(schema, name, info):
@@ -61,7 +63,7 @@ def _recursive_merge(existing, new, depth=0):
 
 def get_schema_files():
     """Get schema files from ecs directory."""
-    return glob.glob(os.path.join(ECS_SCHEMAS_DIR, '*', '*.yml'), recursive=True)
+    return glob.glob(os.path.join(ECS_SCHEMAS_DIR, '*', '*.json'), recursive=True)
 
 
 def get_schema_map():
@@ -85,7 +87,7 @@ def get_schemas():
     for version, values in schema_map.items():
         for name, file_name in values.items():
             with open(file_name, 'r') as f:
-                schema_map[version][name] = yaml.safe_load(f)
+                schema_map[version][name] = json.load(f)
 
     return schema_map
 
@@ -198,16 +200,20 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
 
             # members = [m for m in name_list if m.startswith('{}{}/'.format(base, 'use-cases')) and m.endswith('.yml')]
             members = ['{}generated/ecs/ecs_flat.yml'.format(base), '{}generated/ecs/ecs_nested.yml'.format(base)]
+            saved = []
 
             for member in members:
                 file_name = os.path.basename(member)
                 os.makedirs(schema_dir, exist_ok=True)
 
-                with open(os.path.join(schema_dir, file_name), 'wb') as f:
-                    f.write(archive.read(member))
+                # load as yaml, save as json
+                contents = yaml.safe_load(archive.read(member))
+                out_file = file_name.replace(".yml", ".json")
+                save_etc_dump(contents, "ecs_schemas", str(version), out_file)
+                saved.append(out_file)
 
             if verbose:
-                print('Saved files to {}: \n\t- {}'.format(schema_dir, '\n\t- '.join(members)))
+                print('Saved files to {}: \n\t- {}'.format(schema_dir, '\n\t- '.join(saved)))
 
     # handle working master separately
     if refresh_master:
@@ -222,12 +228,10 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
         for m in existing_master:
             shutil.rmtree(m, ignore_errors=True)
 
-        master_dir = os.path.join(ECS_SCHEMAS_DIR, 'master_{}'.format(master_ver))
-        master_file = os.path.join(master_dir, 'ecs_flat.yml')
-        os.makedirs(master_dir, exist_ok=True)
+        master_dir = "master_{}".format(master_ver)
+        os.makedirs(get_etc_path(ETC_NAME, master_dir), exist_ok=True)
 
-        with open(master_file, 'w') as f:
-            yaml.safe_dump(master_schema, f)
+        save_etc_dump(master_schema, ETC_NAME, master_dir, "ecs_flat.json")
 
         if verbose:
-            print('Saved files to {}: \n\t- {}'.format(master_dir, 'ecs_flat.yml'))
+            print('Saved files to {}: \n\t- {}'.format(master_dir, 'ecs_flat.json'))

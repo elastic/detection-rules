@@ -7,18 +7,22 @@ import glob
 import io
 import json
 import os
+import re
+import shutil
+import subprocess
 
 import click
 import jsonschema
 import pytoml
 from eql import load_dump
 
-from .misc import nested_set
+from .misc import PYTHON_LICENSE, nested_set
 from . import rule_loader
-from .packaging import PACKAGE_FILE, Package, manage_versions
-from .rule import RULE_TYPE_OPTIONS, Rule
+from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
+from .rule import Rule
 from .rule_formatter import toml_write
-from .utils import get_path, clear_caches
+from .schemas import CurrentSchema
+from .utils import get_path, clear_caches, load_rule_contents
 
 
 RULES_DIR = get_path('rules')
@@ -33,36 +37,39 @@ def root():
 @click.argument('path', type=click.Path(dir_okay=False))
 @click.option('--config', '-c', type=click.Path(exists=True, dir_okay=False), help='Rule or config file')
 @click.option('--required-only', is_flag=True, help='Only prompt for required fields')
-@click.option('--rule-type', '-t', type=click.Choice(RULE_TYPE_OPTIONS), help='Type of rule to create')
+@click.option('--rule-type', '-t', type=click.Choice(CurrentSchema.RULE_TYPES), help='Type of rule to create')
 def create_rule(path, config, required_only, rule_type):
     """Create a detection rule."""
-    config = load_dump(config) if config else {}
+    contents = load_rule_contents(config, single_only=True)[0] if config else {}
     try:
-        return Rule.build(path, rule_type=rule_type, required_only=required_only, save=True, **config)
+        return Rule.build(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
     finally:
         rule_loader.reset()
 
 
-@root.command('load-from-file')
+@root.command('import-rules')
 @click.argument('infile', type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
 @click.option('--directory', '-d', type=click.Path(file_okay=False, exists=True), help='Load files from a directory')
-def load_from_file(infile, directory):
-    """Load rules from file(s)."""
-    if infile:
-        for rule_file in infile:
-            rule_path = os.path.join(RULES_DIR, os.path.basename(rule_file))
-            rule = Rule(rule_path, load_dump(rule_file))
-            rule.save(as_rule=True, verbose=True)
-    elif directory:
-        for rule_file in glob.glob(os.path.join(directory, '**', '*.*'), recursive=True):
-            try:
-                rule_path = os.path.join(RULES_DIR, os.path.basename(rule_file))
-                rule = Rule(rule_path, load_dump(rule_file))
-                rule.save(as_rule=True, verbose=True)
-            except ValueError:
-                click.echo('Unable to load file: {}'.format(rule_file))
-    else:
-        click.echo('No files specified!')
+def import_rules(infile, directory):
+    """Import rules from json, toml, or Kibana exported rule file(s)."""
+    rule_files = glob.glob(os.path.join(directory, '**', '*.*'), recursive=True) if directory else []
+    rule_files = sorted(set(rule_files + list(infile)))
+
+    rule_contents = []
+    for rule_file in rule_files:
+        rule_contents.extend(load_rule_contents(rule_file))
+
+    if not rule_contents:
+        click.echo('Must specify at least one file!')
+
+    def name_to_filename(name):
+        return re.sub(r'[^_a-z0-9]+', '_', name.strip().lower()).strip('_') + '.toml'
+
+    for contents in rule_contents:
+        base_path = contents.get('name') or contents.get('rule', {}).get('name')
+        base_path = name_to_filename(base_path) if base_path else base_path
+        rule_path = os.path.join(RULES_DIR, base_path) if base_path else None
+        Rule.build(rule_path, required_only=True, save=True, verbose=True, **contents)
 
 
 @root.command('toml-lint')
@@ -116,22 +123,32 @@ def mass_update(ctx, query, field):
 @root.command('view-rule')
 @click.argument('rule-id', required=False)
 @click.option('--rule-file', '-f', type=click.Path(dir_okay=False), help='Optionally view a rule from a specified file')
-@click.option('--as-api/--as-rule', default=True, help='Print the rule in final api or rule format')
-def view_rule(rule_id, rule_file, as_api):
+@click.option('--api-format/--rule-format', default=True, help='Print the rule in final api or rule format')
+@click.pass_context
+def view_rule(ctx, rule_id, rule_file, api_format):
     """View an internal rule or specified rule file."""
+    rule = None
+
     if rule_id:
         rule = rule_loader.get_rule(rule_id, verbose=False)
     elif rule_file:
-        rule = Rule(rule_file, load_dump(rule_file))
+        contents = {k: v for k, v in load_rule_contents(rule_file, single_only=True)[0].items() if v}
+
+        try:
+            rule = Rule(rule_file, contents)
+        except jsonschema.ValidationError as e:
+            click.secho(e.args[0], fg='red')
+            ctx.exit(1)
     else:
         click.secho('Unknown rule!', fg='red')
-        return
+        ctx.exit(1)
 
     if not rule:
         click.secho('Unknown format!', fg='red')
-        return
+        ctx.exit(1)
 
-    click.echo(toml_write(rule.rule_format()) if not as_api else json.dumps(rule.contents, indent=2, sort_keys=True))
+    click.echo(toml_write(rule.rule_format()) if not api_format else
+               json.dumps(rule.contents, indent=2, sort_keys=True))
 
     return rule
 
@@ -157,13 +174,6 @@ def validate_rule(rule_id, rule_name, path):
     return rule
 
 
-license_header = """
-# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
-""".strip()
-
-
 @root.command('license-check')
 @click.pass_context
 def license_check(ctx):
@@ -184,7 +194,7 @@ def license_check(ctx):
             if contents.startswith("#!/"):
                 _, _, contents = contents.partition("\n")
 
-            if not contents.lstrip("\r\n").startswith(license_header):
+            if not contents.lstrip("\r\n").startswith(PYTHON_LICENSE):
                 if not failed:
                     click.echo("Missing license headers for:", err=True)
 
@@ -345,3 +355,69 @@ def test_rules(ctx):
 
     clear_caches()
     ctx.exit(pytest.main(["-v"]))
+
+
+@root.command("kibana-commit")
+@click.argument("local-repo", default=get_path("..", "kibana"))
+@click.option("--kibana-directory", "-d", help="Directory to overwrite in Kibana",
+              default="x-pack/plugins/security_solution/server/lib/detection_engine/rules/prepackaged_rules")
+@click.option("--base-branch", "-b", help="Base branch in Kibana", default="master")
+@click.option("--ssh/--http", is_flag=True, help="Method to use for cloning")
+@click.option("--github-repo", "-r", help="Repository to use for the branch", default="elastic/kibana")
+@click.option("--message", "-m", help="Override default commit message")
+@click.pass_context
+def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_branch, message):
+    """Prep a commit and push to Kibana."""
+    git_exe = shutil.which("git")
+
+    package_name = load_dump(PACKAGE_FILE)['package']["name"]
+    release_dir = os.path.join(RELEASE_DIR, package_name)
+    message = message or f"[Detection Rules] Add {package_name} rules"
+
+    if not os.path.exists(release_dir):
+        click.secho("Release directory doesn't exist.", fg="red", err=True)
+        click.echo(f"Run {click.style('python -m detection_rules build-release', bold=True)} to populate", err=True)
+        ctx.exit(1)
+
+    if not git_exe:
+        click.secho("Unable to find git", err=True, fg="red")
+        ctx.exit(1)
+
+    try:
+        if not os.path.exists(local_repo):
+            if not click.confirm(f"Kibana repository doesn't exist at {local_repo}. Clone?"):
+                ctx.exit(1)
+
+            url = f"git@github.com:{github_repo}.git" if ssh else f"https://github.com/{github_repo}.git"
+            subprocess.check_call([git_exe, "clone", url, local_repo, "--depth", 1])
+
+        def git(*args, show_output=False):
+            method = subprocess.call if show_output else subprocess.check_output
+            return method([git_exe, "-C", local_repo] + list(args), encoding="utf-8")
+
+        git("checkout", base_branch)
+        git("pull")
+        git("checkout", "-b", f"rules/{package_name}", show_output=True)
+        git("rm", "-r", kibana_directory)
+
+        source_dir = os.path.join(release_dir, "rules")
+        target_dir = os.path.join(local_repo, kibana_directory)
+        os.makedirs(target_dir)
+
+        for name in os.listdir(source_dir):
+            _, ext = os.path.splitext(name)
+            path = os.path.join(source_dir, name)
+
+            if ext in (".ts", ".json"):
+                shutil.copyfile(path, os.path.join(target_dir, name))
+
+        git("add", kibana_directory)
+
+        git("commit", "-S", "-m", message)
+        git("status", show_output=True)
+
+        click.echo(f"Kibana repository {local_repo} prepped. Push changes when ready")
+        click.secho(f"cd {local_repo}", bold=True)
+
+    except subprocess.CalledProcessError as exc:
+        ctx.exit(exc.returncode)
