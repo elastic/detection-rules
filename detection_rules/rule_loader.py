@@ -161,12 +161,12 @@ def get_rule_contents(rule_id, verbose=True):
 @cached
 def filter_rules(rules, metadata_field, value):
     """Filter rules based on the metadata."""
-    return [rule for rule in rules if rule.metadata.get(metadata_field, {}) == value]
+    return [rule for rule in rules if rule.metadata.get(metadata_field, '') == value]
 
 
-def get_production_rules():
+def get_production_rules(verbose=False):
     """Get rules with a maturity of production."""
-    return filter_rules(load_rules().values(), 'maturity', 'production')
+    return filter_rules(load_rules(verbose=verbose).values(), 'maturity', 'production')
 
 
 def find_unneeded_defaults(rule):
