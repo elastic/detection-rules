@@ -202,10 +202,18 @@ class Rule(object):
         if verbose:
             print('Rule {} saved to {}'.format(self.name, path))
 
+    @classmethod
+    def dict_hash(cls, contents, versioned=True):
+        """Get hash from rule contents."""
+        if not versioned:
+            contents.pop('version', None)
+
+        contents = base64.b64encode(json.dumps(contents, sort_keys=True).encode('utf-8'))
+        return hashlib.sha256(contents).hexdigest()
+
     def get_hash(self):
         """Get a standardized hash of a rule to consistently check for changes."""
-        contents = base64.b64encode(json.dumps(self.contents, sort_keys=True).encode('utf-8'))
-        return hashlib.sha256(contents).hexdigest()
+        return self.dict_hash(self.contents)
 
     @classmethod
     def build(cls, path=None, rule_type=None, required_only=True, save=True, verbose=False, **kwargs):
