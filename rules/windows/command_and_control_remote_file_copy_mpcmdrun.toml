@@ -1,0 +1,44 @@
+[metadata]
+creation_date = "2020/09/03"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/09/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies MpCmdRun.exe Windows Defender configuration utility being used to download a remote file. Verify details such
+as parent process, url reputation and downloaded file details, in addition to that in case of download errors MpCmdRun
+logs this information automatically in the Appdata Temp folder in MpCmdRun.log where the download url is recorded.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Remote File Download via MpCmdRun"
+risk_score = 47
+rule_id = "c6453e73-90eb-4fe7-a98c-cde7bbfc504a"
+severity = "medium"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.category:process and not event.type:end and
+ (process.name:MpCmdRun.exe or process.pe.original_file_name:MpCmdRun.exe) and
+   process.args:(("-DownloadFile" or "-downloadfile") and "-url" and "-path")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Remote File Copy"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
