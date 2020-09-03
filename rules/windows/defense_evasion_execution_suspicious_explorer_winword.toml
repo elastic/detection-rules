@@ -1,0 +1,45 @@
+[metadata]
+creation_date = "2020/09/03"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/09/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+An instance of Explorer or Winword was started after being renamed or from unusual standard path. This is uncommon
+behavior and may indicate an attempt to run unnoticed or undetected via side loading a malicious DLL within the memory
+space of one of those processes. Verify any related child process, network connections and image loads events.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Potential DLL SideLoading via Trusted Microsoft Programs"
+risk_score = 73
+rule_id = "1160dcdb-0a0a-4a79-91d8-9b84616edebd"
+severity = "high"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.category:process and not event.type:end and
+ process.pe.original_file_name:(WinWord.exe or EXPLORER.EXE) and
+ not (process.name:(winword.exe or WINWORD.EXE or explorer.exe) or
+             process.executable:("C:\Windows\explorer.exe" or C\:\\Program*Files*\\Microsoft*Office\\root\\Office*\\WINWORD.EXE))
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
