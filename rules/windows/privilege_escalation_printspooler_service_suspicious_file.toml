@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2020/08/14"
-ecs_version = ["1.6.0"]
+ecs_version = ["1.5.0"]
 maturity = "production"
 updated_date = "2020/08/14"
 
@@ -15,6 +15,10 @@ index = ["winlogbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License"
 name = "Suspicious PrintSpooler Service Executable File Creation"
+references = [
+    "https://voidsec.com/cve-2020-1337-printdemon-is-dead-long-live-printdemon/",
+    "https://www.thezdi.com/blog/2020/7/8/cve-2020-1300-remote-code-execution-through-microsoft-windows-cab-files",
+]
 risk_score = 74
 rule_id = "5bb4a95d-5a08-48eb-80db-4c3a63ec78a8"
 severity = "high"
@@ -24,7 +28,7 @@ type = "query"
 query = '''
 event.category:file and not event.type:deletion and
   process.name:spoolsv.exe and
-  file.name:(*.exe or *.dll) and
+  file.extension:(exe or dll) and
   not file.path:(C\:\\Windows\\System32\\spool\\* or C\:\\Windows\\Temp\\* or C\:\\Users\\*)
 '''
 
@@ -41,3 +45,4 @@ reference = "https://attack.mitre.org/techniques/T1068/"
 id = "TA0003"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
