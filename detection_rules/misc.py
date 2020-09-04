@@ -148,33 +148,53 @@ def schema_prompt(name, value=None, required=False, **options):
 
 def get_kibana_rules_map(branch='master'):
     """Get list of available rules from the Kibana repo and return a list of URLs."""
-    r = requests.get('https://api.github.com/repos/elastic/kibana/branches?per_page=1000')
-    branch_names = [b['name'] for b in r.json()]
-    if branch not in branch_names:
-        raise ValueError('branch "{}" does not exist in kibana'.format(branch))
+    # ensure branch exists
+    r = requests.get(f'https://api.github.com/repos/elastic/kibana/branches/{branch}')
+    r.raise_for_status()
 
-    url = ('https://api.github.com/repos/elastic/kibana/contents/x-pack/{legacy}plugins/siem/server/lib/'
+    url = ('https://api.github.com/repos/elastic/kibana/contents/x-pack/{legacy}plugins/{app}/server/lib/'
            'detection_engine/rules/prepackaged_rules?ref={branch}')
 
-    gh_rules = requests.get(url.format(legacy='', branch=branch)).json()
+    gh_rules = requests.get(url.format(legacy='', app='security_solution', branch=branch)).json()
+
+    # pre-7.9 app was siem
+    if isinstance(gh_rules, dict) and gh_rules.get('message', '') == 'Not Found':
+        gh_rules = requests.get(url.format(legacy='', app='siem', branch=branch)).json()
 
     # pre-7.8 the siem was under the legacy directory
     if isinstance(gh_rules, dict) and gh_rules.get('message', '') == 'Not Found':
-        gh_rules = requests.get(url.format(legacy='legacy/', branch=branch)).json()
+        gh_rules = requests.get(url.format(legacy='legacy/', app='siem', branch=branch)).json()
+
+    if isinstance(gh_rules, dict) and gh_rules.get('message', '') == 'Not Found':
+        raise ValueError(f'rules directory does not exist for branch: {branch}')
 
     return {os.path.splitext(r['name'])[0]: r['download_url'] for r in gh_rules if r['name'].endswith('.json')}
 
 
-def get_kibana_rules(*rule_paths, branch='master', verbose=True):
+def get_kibana_rules(*rule_paths, branch='master', verbose=True, threads=50):
     """Retrieve prepackaged rules from kibana repo."""
-    if verbose:
-        click.echo('Downloading rules from {} branch in kibana repo...'.format(branch))
+    from multiprocessing.pool import ThreadPool
 
-    if rule_paths:
-        rule_paths = [os.path.splitext(os.path.basename(p))[0] for p in rule_paths]
-        return {n: requests.get(r).json() for n, r in get_kibana_rules_map(branch).items() if n in rule_paths}
-    else:
-        return {n: requests.get(r).json() for n, r in get_kibana_rules_map(branch).items()}
+    kibana_rules = {}
+
+    if verbose:
+        thread_use = f' using {threads} threads' if threads > 1 else ''
+        click.echo(f'Downloading rules from {branch} branch in kibana repo{thread_use} ...')
+
+    rule_paths = [os.path.splitext(os.path.basename(p))[0] for p in rule_paths]
+    rules_mapping = [(n, u) for n, u in get_kibana_rules_map(branch).items() if n in rule_paths] if rule_paths else \
+        get_kibana_rules_map(branch).items()
+
+    def download_worker(rule_info):
+        n, u = rule_info
+        kibana_rules[n] = requests.get(u).json()
+
+    pool = ThreadPool(processes=threads)
+    pool.map(download_worker, rules_mapping)
+    pool.close()
+    pool.join()
+
+    return kibana_rules
 
 
 def parse_config():

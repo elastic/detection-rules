@@ -1,0 +1,43 @@
+[metadata]
+creation_date = "2020/08/20"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/08/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a user is added as an owner for an Azure application. An adversary may add a user account as an owner
+for an Azure application in order to grant additional permissions and modify the application's configuration using
+another account.
+"""
+from = "now-25m"
+index = ["filebeat-*"]
+language = "kuery"
+license = "Elastic License"
+name = "User Added as Owner for Azure Application"
+note = "The Azure Filebeat module must be enabled to use this rule."
+risk_score = 21
+rule_id = "774f5e28-7b75-4a58-b94e-41bf060fdd86"
+severity = "low"
+tags = ["Elastic", "Azure", "Continuous Monitoring", "SecOps", "Configuration Audit"]
+type = "query"
+
+query = '''
+event.module:azure and event.dataset:azure.auditlogs and event.category:AuditLogs and azure.auditlogs.operation_name:"Add owner to application" and event.outcome:Success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
