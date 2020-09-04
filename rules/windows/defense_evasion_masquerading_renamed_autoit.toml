@@ -12,7 +12,7 @@ executable to avoid attention. Verify process details such as command line, netw
 process details as well.
 """
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "lucene"
 license = "Elastic License"
 name = "Renamed AutoIt Scripts Interpreter"
 risk_score = 47
@@ -22,9 +22,9 @@ tags = ["Elastic", "Windows"]
 type = "query"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
-  process.pe.original_file_name:AutoIt*.exe and
-  not process.name:(AutoIt*.exe or autoit*.exe)
+event.category:process and event.type:(start or process_started) AND
+  process.pe.original_file_name:/[aA][uU][tT][oO][iI][tT]\d\.[eE][xX][eE]/ AND
+  NOT process.name:/[aA][uU][tT][oO][iI][tT]\d\.[eE][xX][eE]/
 '''
 
 
