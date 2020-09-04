@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2020/04/24"
-ecs_version = ["1.5.0"]
+ecs_version = ["1.6.0"]
 maturity = "production"
 updated_date = "2020/08/21"
 
@@ -22,14 +22,14 @@ tags = ["Elastic", "Linux", "macOS"]
 type = "query"
 
 query = '''
-event.category:process and event.type:start and
+event.category:process and event.type:(start or change) and
   process.name:systemctl and process.args:((allow or disable or reset or stop) and ufw) or
   (((process.name:service and process.args:stop) or
   (process.name:chkconfig and process.args:off) or
   (process.name:systemctl and process.args:(disable or stop or kill)))
   and process.args:(firewalld or ip6tables or iptables)) or
-  (event.category:process and event.type:start and process.name:socketfilterfw)
-  or (event.category:process and event.type:start and process.args:(defaults
+  (event.category:process and event.type:(start or change) and process.name:socketfilterfw)
+  or (event.category:process and event.type:(start or change) and process.args:(defaults
   and write and "/Library/Preferences/com.apple.alf" and globalstate and "-int" and 0))
 '''
 

@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2020/04/27"
-ecs_version = ["1.5.0"]
+ecs_version = ["1.6.0"]
 maturity = "production"
 updated_date = "2020/08/24"
 
@@ -23,10 +23,10 @@ type = "query"
 
 query = '''
 event.category:process and event.type:start and
-(process.args:(launchctl and unload and /System/Library/LaunchDaemons/com.apple.syslogd.plist))
-or (((process.name:service and process.args:stop) or (process.name:chkconfig and process.args:off)
-or (process.name:systemctl and process.args:(disable or stop or kill))) and process.args:(syslog or
-rsyslog or "syslog-ng"))
+process.args:(unload and /System/Library/LaunchDaemons/com.apple.syslogd.plist) or
+((process.name:service and process.args:stop) or (process.name:chkconfig and process.args:off) or
+(process.name:systemctl and process.args:(disable or stop or kill))) and
+process.args:(syslog or syslogd or rsyslog or "syslog-ng")
 '''
 
 
