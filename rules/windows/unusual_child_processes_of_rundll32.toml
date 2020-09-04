@@ -1,0 +1,34 @@
+[metadata]
+creation_date = "2020/09/02"
+ecs_version = ["1.6.0"]
+maturity = "development"
+updated_date = "2020/09/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies child processes of unusual instances of RunDLL32 where the command line parameters were suspicious. Misuse of
+RunDLL32 could indicate malicious activity.
+"""
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Unusual Child Processes of RunDLL32"
+risk_score = 21
+rule_id = "f036953a-4615-4707-a1ca-dc53bf69dcd5"
+severity = "high"
+tags = ["from-eql-rules"]
+type = "query"
+
+query = '''
+sequence with maxspan=1h
+  [process where event.type in ("start", "process_started") and
+     (process.name == "rundll32.exe" or process.pe.original_file_name == "rundll32.exe") and
+
+     // zero arguments excluding the binary itself (and accounting for when the binary may not be logged in args)
+     ((process.args == "rundll32.exe" and process.args_count == 1) or
+      (process.args != "rundll32.exe" and process.args_count == 0))
+   ] by process.entity_id
+  [process where event.type in ("start", "process_started")] by process.parent.entity_id
+'''
+

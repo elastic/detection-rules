@@ -1,0 +1,39 @@
+[metadata]
+creation_date = "2020/09/02"
+ecs_version = ["1.6.0"]
+maturity = "development"
+updated_date = "2020/09/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an executable created by a Microsoft Office application and subsequently executed. These processes are often
+launched via scripts inside documents or during exploitation of MS Office applications.
+"""
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Execution of File Written or Modified by Microsoft Office"
+risk_score = 21
+rule_id = "0d8ad79f-9025-45d8-80c1-4f0cd3c5e8e5"
+severity = "high"
+tags = ["from-eql-rules"]
+type = "query"
+
+query = '''
+sequence with maxspan=2h
+  [file where event.type != "delete" and file.extension == "exe" and
+
+     // need to verify capitalization or make case insensitive
+     process.name in ("winword.exe",
+                      "excel.exe",
+                      "outlook.exe",
+                      "powerpnt.exe",
+                      "eqnedt32.exe",
+                      "fltldr.exe",
+                      "mspub.exe",
+                      "msaccess.exe")
+  ] by host.id, file.path
+  [process where event.type in ("start" or "process_started")] by host.id, process.executable
+'''
+

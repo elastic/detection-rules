@@ -1,0 +1,32 @@
+[metadata]
+creation_date = "2020/09/02"
+ecs_version = ["1.6.0"]
+maturity = "development"
+updated_date = "2020/09/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Mshta.exe making outbound network connections. This may indicate adversarial activity as Mshta is often
+leveraged by adversaries to execute malicious scripts and evade detection.
+"""
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Mshta Making Network Connections"
+risk_score = 21
+rule_id = "c2d90150-0133-451c-a783-533e736c12d7"
+severity = "medium"
+tags = ["from-eql-rules"]
+type = "query"
+
+query = '''
+sequence by process.entity_id with maxspan=2h
+  [process where event.type in ("start", "process_started") and process_name == "mshta.exe" and
+     not process.parent.name == "Microsoft.ConfigurationManagement.exe" and
+     not process.parent.executable in ("C:\\Amazon\\Amazon Assistant\\amazonAssistantService.exe",
+                                       "C:\\TeamViewer\\TeamViewer.exe") and
+     not process.args == "ADSelfService_Enroll.hta"]
+  [network where process.name == "mshta.exe"]
+'''
+

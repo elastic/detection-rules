@@ -1,0 +1,30 @@
+[metadata]
+creation_date = "2020/09/02"
+ecs_version = ["1.6.0"]
+maturity = "development"
+updated_date = "2020/09/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies MsBuild.exe making outbound network connections. This may indicate adversarial activity as MsBuild is often
+leveraged by adversaries to execute code and evade detection.
+"""
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "MsBuild Making Network Connections"
+risk_score = 21
+rule_id = "9dc6ed5d-62a9-4feb-a903-fafa1d33b8e9"
+severity = "medium"
+tags = ["from-eql-rules"]
+type = "query"
+
+query = '''
+// needs too many wildcards
+
+sequence by process.entity_id
+  [process where event.type in ("start", "process_started") and process.name == "msbuild.exe"]
+  [network where not (destination.address == "127.0.0.1" and source.address == "127.0.0.1")]
+'''
+

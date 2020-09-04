@@ -1,0 +1,31 @@
+[metadata]
+creation_date = "2020/09/02"
+ecs_version = ["1.6.0"]
+maturity = "development"
+updated_date = "2020/09/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies registration utilities making outbound network connections. This includes regsvcs, regasm, and regsvr32. This
+may indicate adversarial activity as these tools are often leveraged by adversaries to execute code and evade detection.
+"""
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Registration Tool Making Network Connections"
+risk_score = 21
+rule_id = "6d3456a5-4a42-49d1-aaf2-7b1fd475b2c6"
+severity = "medium"
+tags = ["from-eql-rules"]
+type = "query"
+
+query = '''
+sequence by process.entity_id
+  [process where event.type in ("start", "process_started") and
+     process.name in ("regasm.exe", "regsvcs.exe", "regsvr32.exe")]
+  [network where process.name in ("regasm.exe", "regsvcs.exe", "regsvr32.exe")]
+until
+  [process where event.type == "end" and process.name in ("regasm.exe", "regsvcs.exe", "regsvr32.exe")]
+'''
+

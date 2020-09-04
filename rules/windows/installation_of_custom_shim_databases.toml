@@ -1,0 +1,34 @@
+[metadata]
+creation_date = "2020/09/02"
+ecs_version = ["1.6.0"]
+maturity = "development"
+updated_date = "2020/09/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the installation of custom Application Compatibility Shim databases. This Windows functionality has been
+abused by attackers to stealthily gain persistence and arbitrary code execution in legitimate Windows processes.
+"""
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Installation of Custom Shim Databases"
+risk_score = 21
+rule_id = "c5ce48a6-7f57-4ee8-9313-3d0024caee10"
+severity = "medium"
+tags = ["from-eql-rules"]
+type = "query"
+
+query = '''
+// dependent on wildcard for registry.value
+// need to verify event.type creation for reg
+
+sequence by process.entity_id with maxspan=5m
+  [process where event.type in ("start", "process_started") and
+    not (process.name == "sdbinst.exe" and process.parent.name == "msiexec.exe")]
+  [registry where event.type in ("creation", "change") and
+     registry.key == "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom" and
+     registry.value == "*.sdb"]
+'''
+

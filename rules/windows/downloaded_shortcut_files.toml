@@ -1,0 +1,32 @@
+[metadata]
+creation_date = "2020/09/02"
+ecs_version = ["1.6.0"]
+maturity = "development"
+updated_date = "2020/09/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies .lnk shortcut file downloaded from outside the local network. These shortcut files are commonly used in
+phishing campaigns.
+"""
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Downloaded Shortcut Files"
+risk_score = 21
+rule_id = "6b1fd8e8-cefe-444c-bc4d-feaa2c497347"
+severity = "low"
+tags = ["from-eql-rules"]
+type = "query"
+
+query = '''
+sequence by process.entity_id with maxspan=2s
+                                           // file.extension added to endpoint fields for 7.10
+  [file where event.type == "creation" and file.extension == "lnk"]
+                                           // not sure yet how the update will capture ADS
+  [file where event.type == "creation" and file.extension == "lnk:Zone.Identifier" and
+     // non-ECS field - may disqualify conversion
+     file.Ext.windows.zone_identifier > 1]
+'''
+

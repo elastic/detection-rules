@@ -1,0 +1,32 @@
+[metadata]
+creation_date = "2020/09/02"
+ecs_version = ["1.6.0"]
+maturity = "development"
+updated_date = "2020/09/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a suspicious file that was written by a PDF reader application and subsequently executed. These processes are
+often launched via exploitation of PDF applications.
+"""
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Execution of File Written or Modified by PDF Reader"
+risk_score = 21
+rule_id = "1defdd62-cd8d-426e-a246-81a37751bb2b"
+severity = "high"
+tags = ["from-eql-rules"]
+type = "query"
+
+query = '''
+sequence with maxspan=2h
+  [file where event.type != "delete" and file.extension == "exe" and
+     process.name in ("acrord32.exe", "rdrcef.exe", "foxitphantomPDF.exe", "foxitreader.exe") and
+     not file.name in ("FoxitReaderUpdater.exe", "FoxitPhantomPDFUpdater.exe", "acrord32.exe",
+                       "rdrcef.exe", "foxitphantomPDF.exe", "foxitreader.exe")
+  ] by host.id, file.path
+  [process where event.type in ("start", "process_started")] by host.id, process.executable
+'''
+

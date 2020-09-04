@@ -1,0 +1,34 @@
+[metadata]
+creation_date = "2020/09/02"
+ecs_version = ["1.6.0"]
+maturity = "development"
+updated_date = "2020/09/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies WMIC whitelisting bypass techniques by alerting on suspicious execution of scripts. When WMIC loads scripting
+libraries it may be indicative of a whitelist bypass.
+"""
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Suspicious WMIC XSL Script Execution"
+risk_score = 21
+rule_id = "7f370d54-c0eb-4270-ac5a-9a6020585dc6"
+severity = "medium"
+tags = ["from-eql-rules"]
+type = "query"
+
+query = '''
+// lots of wildcards in the args
+// need to verify args cleanup is accurate
+
+sequence by process.entity_id with maxspan=2m
+[process where event.type in ("start", "process_started") and
+   (process.name == "wmic.exe" or process.pe.original_file_name == "wmic.exe") and
+   process.args in ("format*:*", "/format*:*", "*-format*:*") and
+   not process.args in ("/format:table", "/format:table", "format*:*")]
+[library where event.type == "start" and file.name in ("jscript.dll", "vbscript.dll")]
+'''
+
