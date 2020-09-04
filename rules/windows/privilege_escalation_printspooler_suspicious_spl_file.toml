@@ -7,14 +7,15 @@ updated_date = "2020/08/14"
 [rule]
 author = ["Elastic"]
 description = """
-Detects exploitation attempt behavior including on a patched system of 2 Privilege Escalation vulnerabilities related to
-the Print Spooler service. For more information lookup the related VulnIDs CVE-2020-1048, CVE-2020-1337 and verify that
-the impacted system is patched.
+Detects attempts to exploit privilege escalation vulnerabilities related to the Print Spooler service. For more
+information refer to the following CVE's - CVE-2020-1048, CVE-2020-1337 and verify that the impacted system is patched.
+.
 """
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License"
 name = "Suspicious PrintSpooler SPL file created"
+references = ["https://safebreach.com/Post/How-we-bypassed-CVE-2020-1048-Patch-and-got-CVE-2020-1337"]
 risk_score = 74
 rule_id = "a7ccae7b-9d2c-44b2-a061-98e5946971fa"
 severity = "high"
@@ -23,7 +24,7 @@ type = "query"
 
 query = '''
 event.category:file and not event.type:deletion and
- file.name:(*.spl or *.SPL) and
+ file.extension:(spl or SPL) and
  file.path:C\:\\Windows\\System32\\spool\\PRINTERS\\* and
  not process.name:(spoolsv.exe or printfilterpipelinesvc.exe or PrintIsolationHost.exe or splwow64.exe or msiexec.exe or poqexec.exe)
 '''
