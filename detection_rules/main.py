@@ -123,9 +123,9 @@ def mass_update(ctx, query, field):
 @root.command('view-rule')
 @click.argument('rule-id', required=False)
 @click.option('--rule-file', '-f', type=click.Path(dir_okay=False), help='Optionally view a rule from a specified file')
-@click.option('--as-api/--as-rule', default=True, help='Print the rule in final api or rule format')
+@click.option('--api-format/--rule-format', default=True, help='Print the rule in final api or rule format')
 @click.pass_context
-def view_rule(ctx, rule_id, rule_file, as_api):
+def view_rule(ctx, rule_id, rule_file, api_format):
     """View an internal rule or specified rule file."""
     rule = None
 
@@ -147,7 +147,8 @@ def view_rule(ctx, rule_id, rule_file, as_api):
         click.secho('Unknown format!', fg='red')
         ctx.exit(1)
 
-    click.echo(toml_write(rule.rule_format()) if not as_api else json.dumps(rule.contents, indent=2, sort_keys=True))
+    click.echo(toml_write(rule.rule_format()) if not api_format else
+               json.dumps(rule.contents, indent=2, sort_keys=True))
 
     return rule
 
@@ -298,52 +299,47 @@ def update_lock_versions(rule_ids):
 @root.command('kibana-diff')
 @click.option('--rule-id', '-r', multiple=True, help='Optionally specify rule ID')
 @click.option('--branch', '-b', default='master', help='Specify the kibana branch to diff against')
-def kibana_diff(rule_id, branch):
+@click.option('--threads', '-t', type=click.IntRange(1), default=50, help='Number of threads to use to download rules')
+def kibana_diff(rule_id, branch, threads):
     """Diff rules against their version represented in kibana if exists."""
     from .misc import get_kibana_rules
 
     if rule_id:
-        rules = [r for r in rule_loader.load_rules(verbose=False).values() if r.id in rule_id]
+        rules = {r.id: r for r in rule_loader.load_rules(verbose=False).values() if r.id in rule_id}
     else:
-        rules = [r for r in rule_loader.load_rules(verbose=False).values() if r.metadata['maturity'] == 'production']
+        rules = {r.id: r for r in rule_loader.get_production_rules()}
 
     # add versions to the rules
-    manage_versions(rules, verbose=False)
+    manage_versions(list(rules.values()), verbose=False)
+    repo_hashes = {r.id: r.get_hash() for r in rules.values()}
 
-    rule_paths = [os.path.basename(r.path) for r in rules]
-    try:
-        original_gh_rules = get_kibana_rules(*rule_paths, branch=branch).values()
-    except ValueError as e:
-        click.secho(e.args[0], fg='red', err=True)
-        return
+    kibana_rules = {r['rule_id']: r for r in get_kibana_rules(branch=branch, threads=threads).values()}
+    kibana_hashes = {r['rule_id']: Rule.dict_hash(r) for r in kibana_rules.values()}
 
-    gh_rule_versions = {r['rule_id']: r.pop('version') for r in original_gh_rules}
-    rule_versions = {r.id: r.contents.pop('version') for r in rules}
+    missing_from_repo = list(set(kibana_hashes).difference(set(repo_hashes)))
+    missing_from_kibana = list(set(repo_hashes).difference(set(kibana_hashes)))
 
-    gh_rules = {r['rule_id']: Rule('_', r) for r in original_gh_rules}
-
-    rule_ids = [r.id for r in rules]
-    gh_rule_ids = [r.id for r in gh_rules.values()]
-
-    missing_rules = [r for r in gh_rules.values() if r.id in list(set(gh_rule_ids).difference(set(rule_ids)))]
+    rule_diff = []
+    for rid, rhash in repo_hashes.items():
+        if rid in missing_from_kibana:
+            continue
+        if rhash != kibana_hashes[rid]:
+            rule_diff.append(
+                f'versions - repo: {rules[rid].contents["version"]}, kibana: {kibana_rules[rid]["version"]} -> '
+                f'{rid} - {rules[rid].name}'
+            )
 
     diff = {
-        'missing_from_kibana': [],
-        'diff': [],
-        'missing_from_rules': ['{} - {}'.format(r.id, r.name) for r in missing_rules]
+        'missing_from_kibana': [f'{r} - {rules[r].name}' for r in missing_from_kibana],
+        'diff': rule_diff,
+        'missing_from_repo': [f'{r} - {kibana_rules[r]["name"]}' for r in missing_from_repo]
     }
-    for rule in rules:
-        if rule.id not in gh_rule_ids:
-            diff['missing_from_kibana'].append('{} - {}'.format(rule.id, rule.name))
-            continue
 
-        gh_rule = gh_rules[rule.id]
-
-        if rule.get_hash() != gh_rule.get_hash():
-            diff['diff'].append('versions - repo: {}, kibana: {} -> {} - {}'.format(
-                rule_versions[rule.id], gh_rule_versions[rule.id], rule.id, rule.name))
+    diff['stats'] = {k: len(v) for k, v in diff.items()}
+    diff['stats'].update(total_repo_prod_rules=len(rules), total_gh_prod_rules=len(kibana_rules))
 
     click.echo(json.dumps(diff, indent=2, sort_keys=True))
+    return diff
 
 
 @root.command("test")

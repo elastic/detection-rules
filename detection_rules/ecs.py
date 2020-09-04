@@ -209,7 +209,7 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
                 # load as yaml, save as json
                 contents = yaml.safe_load(archive.read(member))
                 out_file = file_name.replace(".yml", ".json")
-                save_etc_dump(contents, "schemas", out_file)
+                save_etc_dump(contents, "ecs_schemas", str(version), out_file)
                 saved.append(out_file)
 
             if verbose:
