@@ -13,19 +13,15 @@ from kibana import Kibana, RuleResource
 
 from .main import root
 from .misc import set_param_values
-from .utils import normalize_timing_and_sort, unix_time_to_formatted, get_path
+from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
 from .rule_loader import get_rule, rta_mappings, load_rule_files, load_rules
 
 COLLECTION_DIR = get_path('collections')
 ERRORS = {
     'NO_EVENTS': 1,
-    'FAILED_ES_AUTH': 2
+    'FAILED_ES_AUTH': 2,
+    'MISSING_REQUIRED_ARGUMENT': 3
 }
-
-
-@root.group('es')
-def es_group():
-    """Helper commands for integrating with Elasticsearch."""
 
 
 def get_es_client(user, password, elasticsearch_url=None, cloud_id=None, **kwargs):
@@ -177,28 +173,52 @@ class CollectEvents(object):
         return Events(agent_hostname, events)
 
 
-@es_group.command('collect-events')
-@click.argument('agent-hostname')
-@click.option('--elasticsearch-url', '-u', callback=set_param_values, expose_value=True)
+@root.command('normalize-data')
+@click.argument('events-file', type=click.File('r'))
+def normalize_file(events_file):
+    """Normalize Elasticsearch data timestamps and sort."""
+    file_name = os.path.splitext(os.path.basename(events_file.name))[0]
+    events = Events('_', {file_name: [json.loads(e) for e in events_file.readlines()]})
+    events.save(dump_dir=os.path.dirname(events_file.name))
+
+
+@root.group('es')
+@click.option('--elasticsearch-url', '-e', callback=set_param_values, expose_value=True)
 @click.option('--cloud-id', callback=set_param_values, expose_value=True)
 @click.option('--user', '-u', callback=set_param_values, expose_value=True, hide_input=False)
 @click.option('--password', '-p', callback=set_param_values, expose_value=True, hide_input=True)
+@click.pass_context
+def es_group(ctx: click.Context, **es_auth):
+    """Helper commands for integrating with Elasticsearch."""
+    ctx.ensure_object(dict)
+
+    # only initialize an es client if the subcommand is invoked without help (hacky)
+    if click.get_os_args()[-1] in ctx.help_option_names:
+        click.echo('Elasticsearch client:')
+        click.echo(format_command_options(ctx))
+
+    else:
+        try:
+            client = get_es_client(use_ssl=True, **es_auth)
+            ctx.obj['es'] = client
+        except AuthenticationException:
+            click.secho(f'Failed authentication for {es_auth.get("elasticsearch_url") or es_auth.get("cloud_id")}',
+                        fg='red', err=True)
+            ctx.exit(ERRORS['FAILED_ES_AUTH'])
+
+
+@es_group.command('collect-events')
+@click.argument('agent-hostname')
 @click.option('--index', '-i', multiple=True, help='Index(es) to search against (default: all indexes)')
 @click.option('--agent-type', '-a', help='Restrict results to a source type (agent.type) ex: auditbeat')
 @click.option('--rta-name', '-r', help='Name of RTA in order to save events directly to unit tests data directory')
 @click.option('--rule-id', help='Updates rule mapping in rule-mapping.yml file (requires --rta-name)')
 @click.option('--view-events', is_flag=True, help='Print events after saving')
-def collect_events(agent_hostname, elasticsearch_url, cloud_id, user, password, index, agent_type, rta_name, rule_id,
-                   view_events):
+@click.pass_context
+def collect_events(ctx, agent_hostname, index, agent_type, rta_name, rule_id, view_events):
     """Collect events from Elasticsearch."""
     match = {'agent.type': agent_type} if agent_type else {}
-
-    try:
-        client = get_es_client(elasticsearch_url=elasticsearch_url, use_ssl=True, cloud_id=cloud_id, user=user,
-                               password=password)
-    except AuthenticationException:
-        click.secho('Failed authentication for {}'.format(elasticsearch_url or cloud_id), fg='red', err=True)
-        return ERRORS['FAILED_ES_AUTH']
+    client = ctx.obj['es']
 
     try:
         collector = CollectEvents(client)
@@ -216,15 +236,6 @@ def collect_events(agent_hostname, elasticsearch_url, cloud_id, user, password, 
         events.echo_events(pager=True)
 
     return events
-
-
-@es_group.command('normalize-data')
-@click.argument('events-file', type=click.File('r'))
-def normalize_file(events_file):
-    """Normalize Elasticsearch data timestamps and sort."""
-    file_name = os.path.splitext(os.path.basename(events_file.name))[0]
-    events = Events('_', {file_name: [json.loads(e) for e in events_file.readlines()]})
-    events.save(dump_dir=os.path.dirname(events_file.name))
 
 
 @root.command("kibana-upload")
@@ -263,3 +274,62 @@ def kibana_upload(toml_files, kibana_url, cloud_id, user, password):
 
         rules = RuleResource.bulk_create(api_payloads)
         click.echo(f"Successfully uploaded {len(rules)} rules")
+
+
+@es_group.command('setup-dga')
+@click.option('--model-tag', '-t',
+              help='Release tag for model files staged in detection-rules (required to download files)')
+@click.option('--model-dir', '-d', type=click.Path(exists=True, file_okay=False),
+              help='Directory containing local model files')
+@click.pass_context
+def setup_dga(ctx, model_tag, model_dir, verbose=True):
+    """Upload DGA model and enrich DNS data."""
+    import io
+    import requests
+    import shutil
+    import zipfile
+    # from elasticsearch.client import IngestClient, MlClient
+
+    es_client = ctx.obj['es']  # type: Elasticsearch
+    client_info = es_client.info()
+
+    # download files if necessary
+    if not model_dir:
+        if not model_tag:
+            click.secho('model-tag is required to download model files')
+            ctx.exit(ERRORS['MISSING_REQUIRED_ARGUMENT'])
+
+        if verbose:
+            click.echo(f'Downloading artifact: {model_tag}')
+
+        release_url = f'https://api.github.com/repos/elastic/detection-rules/releases/tags/{model_tag}'
+        release = requests.get(release_url)
+        release.raise_for_status()
+
+        zipped_url = release.json()['assets'][0]['browser_download_url']
+        zipped = requests.get(zipped_url)
+        z = zipfile.ZipFile(io.BytesIO(zipped.content))
+
+        dga_dir = get_path('ML-models', 'DGA', model_tag)
+        os.makedirs(dga_dir, exist_ok=True)
+        shutil.rmtree(dga_dir, ignore_errors=True)
+        z.extractall(dga_dir)
+        click.echo(f'{len(z.filelist)} files saved to {dga_dir}')
+
+        # read files as needed
+        z.close()
+        model_dir = click.Path(dga_dir)
+
+    model_id = model_tag or os.path.basename(model_dir)
+    click.echo(f'Setting up {model_id} DGA model on {client_info["name"]} ({client_info["version"]["number"]}) ...')
+
+    # upload model
+    # ml_client = MlClient(es_client)
+    # ml_client.put_trained_model(model_id=model_id, body=model_file.read())
+
+    # install scripts
+    # es_client.put_script(id=model_id, body=script_file.read())
+
+    # Install ingest pipeline
+    # ingest_client = IngestClient(es_client)
+    # ingest_client.put_pipeline(id=model_id, body=pipeline_file.read())

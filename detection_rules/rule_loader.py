@@ -184,6 +184,7 @@ rta_mappings = RtaMappings()
 
 __all__ = (
     "load_rules",
+    "load_rule_files",
     "get_file_name",
     "get_production_rules",
     "get_rule",
