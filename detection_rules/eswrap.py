@@ -233,16 +233,11 @@ def normalize_file(events_file):
 @click.option('--cloud-id', callback=set_param_values, expose_value=True)
 @click.option('--user', '-u', callback=set_param_values, expose_value=True, hide_input=False)
 @click.option('--password', '-p', callback=set_param_values, expose_value=True, hide_input=True)
-@click.option('--space', callback=set_param_values, expose_value=True, hide_input=False)
-def kibana_upload(toml_files, kibana_url, cloud_id, user, password, space):
+def kibana_upload(toml_files, kibana_url, cloud_id, user, password):
     """Upload a list of rule .toml files to Kibana."""
     from uuid import uuid4
     from .packaging import manage_versions
     from .schemas import downgrade
-
-    # Update kibana url if a space is defined
-    if space:
-        kibana_url = "{}/s/{}".format(kibana_url, space)
 
     with Kibana(cloud_id=cloud_id, url=kibana_url) as kibana:
         kibana.login(user, password)
