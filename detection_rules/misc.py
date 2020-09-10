@@ -213,19 +213,6 @@ def parse_config():
     return _CONFIG
 
 
-def set_param_values(ctx, param, value):
-    """Get value for defined key."""
-    key = param.name
-    config = parse_config()
-    env_key = 'DR_' + key.upper()
-    prompt = True if param.hide_input is not False else False
-
-    if value:
-        return value
-    elif os.environ.get(env_key):
-        return os.environ[env_key]
-    elif config.get(key) is not None:
-        return config[key]
-    elif prompt:
-        return click.prompt(key, default=param.default if not param.default else None, hide_input=param.hide_input,
-                            show_default=True if param.default else False)
+def environ(name):
+    """Callback function for `default` to get an environment variable."""
+    return lambda: os.environ.get(name)

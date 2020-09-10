@@ -12,7 +12,7 @@ from elasticsearch import AuthenticationException, Elasticsearch
 from kibana import Kibana, RuleResource
 
 from .main import root
-from .misc import set_param_values
+from .misc import environ
 from .utils import normalize_timing_and_sort, unix_time_to_formatted, get_path
 from .rule_loader import get_rule, rta_mappings, load_rule_files, load_rules
 
@@ -179,10 +179,10 @@ class CollectEvents(object):
 
 @es_group.command('collect-events')
 @click.argument('agent-hostname')
-@click.option('--elasticsearch-url', '-u', callback=set_param_values, expose_value=True)
-@click.option('--cloud-id', callback=set_param_values, expose_value=True)
-@click.option('--user', '-u', callback=set_param_values, expose_value=True, hide_input=False)
-@click.option('--password', '-p', callback=set_param_values, expose_value=True, hide_input=True)
+@click.option('--elasticsearch-url', '-u', default=environ("DR_ELASTICSEARCH_URL"))
+@click.option('--cloud-id', default=environ("DR_ELASTICSEARCH_URL"))
+@click.option('--user', '-u', default=environ("DR_USER"))
+@click.option('--password', '-p', default=environ("DR_PASSWORD"), hide_input=True)
 @click.option('--index', '-i', multiple=True, help='Index(es) to search against (default: all indexes)')
 @click.option('--agent-type', '-a', help='Restrict results to a source type (agent.type) ex: auditbeat')
 @click.option('--rta-name', '-r', help='Name of RTA in order to save events directly to unit tests data directory')
@@ -229,15 +229,22 @@ def normalize_file(events_file):
 
 @root.command("kibana-upload")
 @click.argument("toml-files", nargs=-1, required=True)
-@click.option('--kibana-url', '-u', callback=set_param_values, expose_value=True)
-@click.option('--cloud-id', callback=set_param_values, expose_value=True)
-@click.option('--user', '-u', callback=set_param_values, expose_value=True, hide_input=False)
-@click.option('--password', '-p', callback=set_param_values, expose_value=True, hide_input=True)
+@click.option('--kibana-url', '-u', default=environ("DR_KIBANA_URL"))
+@click.option('--cloud-id', default=environ("DR_CLOUD_ID"))
+@click.option('--user', '-u', default=environ("DR_USER"))
+@click.option('--password', '-p', default=environ("DR_PASSWORD"))
 def kibana_upload(toml_files, kibana_url, cloud_id, user, password):
     """Upload a list of rule .toml files to Kibana."""
     from uuid import uuid4
     from .packaging import manage_versions
     from .schemas import downgrade
+
+    if not cloud_id or kibana_url:
+        raise click.ClickException("Missing required --cloud-id or --kibana-url")
+
+    # don't prompt for these until there's a cloud id or kibana URL
+    user = user or click.prompt("user")
+    password = password or click.prompt("password", hide_input=True)
 
     with Kibana(cloud_id=cloud_id, url=kibana_url) as kibana:
         kibana.login(user, password)
