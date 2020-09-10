@@ -213,6 +213,6 @@ def parse_config():
     return _CONFIG
 
 
-def environ(name):
+def getenv(name):
     """Callback function for `default` to get an environment variable."""
     return lambda: os.environ.get(name)
