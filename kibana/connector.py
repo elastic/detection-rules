@@ -20,7 +20,7 @@ class Kibana(object):
 
     CACHED = False
 
-    def __init__(self, cloud_id=None, url=None, verify=True, elasticsearch=None):
+    def __init__(self, cloud_id=None, url=None, verify=True, elasticsearch=None, space=None):
         """"Open a session to the platform."""
         self.authenticated = False
         self.session = requests.Session()
@@ -29,6 +29,7 @@ class Kibana(object):
         self.cloud_id = cloud_id
         self.kibana_url = url
         self.elastic_url = None
+        self.space = space
         self.status = None
 
         if self.cloud_id:
@@ -41,6 +42,9 @@ class Kibana(object):
 
         self.session.headers.update({'Content-Type': "application/json", "kbn-xsrf": str(uuid.uuid4())})
         self.elasticsearch = elasticsearch
+
+        if self.space:
+            self.kibana_url = "{}/s/{}".format(self.url, self.space)
 
         if not verify:
             from requests.packages.urllib3.exceptions import InsecureRequestWarning
