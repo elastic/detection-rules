@@ -240,7 +240,7 @@ def kibana_upload(toml_files, kibana_url, cloud_id, user, password, space):
     from .packaging import manage_versions
     from .schemas import downgrade
 
-    with Kibana(cloud_id=cloud_id, url=kibana_url) as kibana:
+    with Kibana(cloud_id=cloud_id, url=kibana_url, space=space) as kibana:
         kibana.login(user, password)
 
         file_lookup = load_rule_files(paths=toml_files)
