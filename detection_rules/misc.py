@@ -12,7 +12,7 @@ import uuid
 import click
 import requests
 
-from .utils import ROOT_DIR, cached
+from .utils import ROOT_DIR, cached, get_path
 
 _CONFIG = {}
 
@@ -200,7 +200,7 @@ def get_kibana_rules(*rule_paths, branch='master', verbose=True, threads=50):
 @cached
 def parse_config():
     """Parse a default config file."""
-    config_file = os.path.join(ROOT_DIR, '.detection-rules-cfg.json')
+    config_file = get_path('.detection-rules-cfg.json')
     config = {}
 
     if os.path.exists(config_file):
