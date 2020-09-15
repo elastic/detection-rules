@@ -29,7 +29,7 @@ class ApiSchema710(ApiSchema79):
     with jsl.Scope(EQL) as eql_scope:
         eql_scope.index = jsl.ArrayField(jsl.StringField(), required=False)
         eql_scope.query = jsl.StringField(required=True)
-        eql_scope.language = jsl.StringField(enum=[EQL], required=True)
+        eql_scope.language = jsl.StringField(enum=[EQL], required=True, default=EQL)
         eql_scope.type = jsl.StringField(enum=[EQL], required=True)
 
     with jsl.Scope(jsl.DEFAULT_ROLE) as default_scope:
