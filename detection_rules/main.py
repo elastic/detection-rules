@@ -16,7 +16,7 @@ import jsonschema
 import pytoml
 from eql import load_dump
 
-from .misc import PYTHON_LICENSE, nested_set
+from .misc import PYTHON_LICENSE, get_unique_query_fields, nested_set
 from . import rule_loader
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
 from .rule import Rule
@@ -234,7 +234,7 @@ def search_rules(query, columns, language, verbose=True):
         attacks = [threat for threat in rule_doc["rule"].get("threat", []) if threat["framework"] == "MITRE ATT&CK"]
         techniques = [t["id"] for threat in attacks for t in threat.get("technique", [])]
         tactics = [threat["tactic"]["name"] for threat in attacks]
-        flat.update(techniques=techniques, tactics=tactics)
+        flat.update(techniques=techniques, tactics=tactics, unique_fields=get_unique_query_fields(rule_doc['rule']))
         flattened_rules.append(flat)
 
     flattened_rules.sort(key=lambda dct: dct["name"])

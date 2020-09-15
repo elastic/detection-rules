@@ -93,12 +93,12 @@ def load_rules(file_lookup=None, verbose=True, error=True):
                 raise KeyError("Rule has duplicate name to {}".format(
                     next(r for r in rules if r.name == rule.name).path))
 
-            if rule.parsed_kql:
-                if rule.parsed_kql in queries:
+            if rule.parsed_query:
+                if rule.parsed_query in queries:
                     raise KeyError("Rule has duplicate query with {}".format(
-                        next(r for r in rules if r.parsed_kql == rule.parsed_kql).path))
+                        next(r for r in rules if r.parsed_query == rule.parsed_query).path))
 
-                queries.append(rule.parsed_kql)
+                queries.append(rule.parsed_query)
 
             if not re.match(FILE_PATTERN, os.path.basename(rule.path)):
                 raise ValueError(f"Rule {rule.path} does not meet rule name standard of {FILE_PATTERN}")

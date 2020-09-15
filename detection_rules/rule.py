@@ -10,6 +10,7 @@ import os
 
 import click
 import kql
+import eql
 
 from . import ecs, beats
 from .attack import TACTICS, build_threat_map_entry, technique_lookup
@@ -70,9 +71,10 @@ class Rule(object):
         return self.contents.get('query')
 
     @property
-    def parsed_kql(self):
-        if self.query and self.contents['language'] == 'kuery':
-            return kql.parse(self.query)
+    def parsed_query(self):
+        language = self.contents.get('language')
+        if self.query and language in ('kuery', 'eql'):
+            return kql.parse(self.query) if language == 'kuery' else eql.parse_query(self.query)
 
     @property
     def filters(self):
@@ -89,6 +91,13 @@ class Rule(object):
     @property
     def type(self):
         return self.contents.get('type')
+
+    @property
+    def unique_fields(self):
+        if self.query and self.contents['language'] == 'kuery':
+            return list(set(f.name for f in self.parsed_query if isinstance(f, kql.ast.Field)))
+        elif self.query and self.contents['language'] == 'eql':
+            return list(set(f.render() for f in self.parsed_query if isinstance(f, eql.ast.Field)))
 
     def to_eql(self):
         if self.query and self.contents['language'] == 'kuery':
