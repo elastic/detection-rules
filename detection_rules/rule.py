@@ -71,9 +71,12 @@ class Rule(object):
         return self.contents.get('query')
 
     @property
-    def parsed_kql(self):
-        if self.query and self.contents['language'] == 'kuery':
-            return kql.parse(self.query)
+    def parsed_query(self):
+        if self.query:
+            if self.contents['language'] == 'kuery':
+                return kql.parse(self.query)
+            elif self.contents['language'] == 'eql':
+                return eql.parse_query(self.query)
 
     @property
     def filters(self):
