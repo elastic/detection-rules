@@ -101,14 +101,15 @@ def toml_lint(rule_file):
 @root.command('mass-update')
 @click.argument('query')
 @click.option('--metadata', '-m', is_flag=True, help='Make an update to the rule metadata rather than contents.')
+@click.option('--language', type=click.Choice(["eql", "kql"]), default="kql")
 @click.option('--field', type=(str, str), multiple=True,
               help='Use rule-search to retrieve a subset of rules and modify values '
                    '(ex: --field management.ecs_version 1.1.1).\n'
                    'Note this is limited to string fields only. Nested fields should use dot notation.')
 @click.pass_context
-def mass_update(ctx, query, metadata, field):
+def mass_update(ctx, query, metadata, language, field):
     """Update multiple rules based on eql results."""
-    results = ctx.invoke(search_rules, query=query, verbose=False)
+    results = ctx.invoke(search_rules, query=query, language=language, verbose=False)
     rules = [rule_loader.get_rule(r['rule_id'], verbose=False) for r in results]
 
     for rule in rules:
@@ -118,7 +119,8 @@ def mass_update(ctx, query, metadata, field):
         rule.validate(as_rule=True)
         rule.save(as_rule=True)
 
-    return ctx.invoke(search_rules, query=query, columns=['rule_id', 'name'] + [k[0].split('.')[-1] for k in field])
+    return ctx.invoke(search_rules, query=query, language=language,
+                      columns=['rule_id', 'name'] + [k[0].split('.')[-1] for k in field])
 
 
 @root.command('view-rule')
