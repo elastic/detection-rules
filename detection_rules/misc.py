@@ -12,7 +12,7 @@ import uuid
 import click
 import requests
 
-from .utils import ROOT_DIR, cached, get_path
+from .utils import cached, get_path
 
 _CONFIG = {}
 
