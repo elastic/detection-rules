@@ -10,6 +10,7 @@ import os
 
 import click
 import kql
+import eql
 
 from . import ecs, beats
 from .attack import TACTICS, build_threat_map_entry, technique_lookup
@@ -152,10 +153,50 @@ class Rule(object):
 
         schema_cls.validate(contents, role=self.type)
 
-        if query and self.query and self.contents['language'] == 'kuery':
+        if query and self.query is not None:
             ecs_versions = self.metadata.get('ecs_version')
             indexes = self.contents.get("index", [])
-            self._validate_kql(ecs_versions, indexes, self.query, self.name)
+
+            if self.contents['language'] == 'kuery':
+                self._validate_kql(ecs_versions, indexes, self.query, self.name)
+
+            if self.contents['language'] == 'eql':
+                self._validate_eql(ecs_versions, indexes, self.query, self.name)
+
+    @staticmethod
+    @cached
+    def _validate_eql(ecs_versions, indexes, query, name):
+        # validate against all specified schemas or the latest if none specified
+        parsed = eql.parse_query(query)
+        beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
+        beat_schema = beats.get_schema_from_kql(parsed, beat_types) if beat_types else None
+
+        ecs_versions = ecs_versions or [ecs_versions]
+        schemas = []
+
+        for version in ecs_versions:
+            try:
+                schemas.append(ecs.get_kql_schema(indexes=indexes, beat_schema=beat_schema, version=version))
+            except KeyError:
+                raise KeyError('Unknown ecs schema version: {} in rule {}.\n'
+                               'Do you need to update schemas?'.format(version, name)) from None
+
+        for schema in schemas:
+            try:
+                with ecs.KqlSchema2Eql(schema):
+                    eql.parse_query(query)
+
+            except eql.EqlTypeMismatchError:
+                raise
+
+            except eql.EqlParseError as exc:
+                message = exc.error_msg
+                trailer = None
+                if "Unknown field" in message and beat_types:
+                    trailer = "\nTry adding event.module and event.dataset to specify beats module"
+
+                raise type(exc)(exc.error_msg, exc.line, exc.column, exc.source,
+                                len(exc.caret.lstrip()), trailer=trailer) from None
 
     @staticmethod
     @cached
@@ -163,7 +204,7 @@ class Rule(object):
         # validate against all specified schemas or the latest if none specified
         parsed = kql.parse(query)
         beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
-        beat_schema = beats.get_schema_for_query(parsed, beat_types) if beat_types else None
+        beat_schema = beats.get_schema_from_kql(parsed, beat_types) if beat_types else None
 
         if not ecs_versions:
             kql.parse(query, schema=ecs.get_kql_schema(indexes=indexes, beat_schema=beat_schema))
