@@ -94,9 +94,9 @@ class Rule(object):
 
     @property
     def unique_fields(self):
-        if self.query and self.contents['language'] == 'kuery':
+        if self.query and self.contents.get('language') == 'kuery':
             return list(set(f.name for f in self.parsed_query if isinstance(f, kql.ast.Field)))
-        elif self.query and self.contents['language'] == 'eql':
+        elif self.query and self.contents.get('language') == 'eql':
             return list(set(f.render() for f in self.parsed_query if isinstance(f, eql.ast.Field)))
 
     def to_eql(self):
