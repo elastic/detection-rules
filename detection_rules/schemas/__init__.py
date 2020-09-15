@@ -22,7 +22,7 @@ __all__ = (
 all_schemas = [
     ApiSchema78,
     ApiSchema79,
-    ApiSchema710
+    ApiSchema710,
 ]
 
 CurrentSchema = all_schemas[-1]
