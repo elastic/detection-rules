@@ -169,7 +169,7 @@ class Rule(object):
         # validate against all specified schemas or the latest if none specified
         parsed = eql.parse_query(query)
         beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
-        beat_schema = beats.get_schema_from_kql(parsed, beat_types) if beat_types else None
+        beat_schema = beats.get_schema_from_eql(parsed, beat_types) if beat_types else None
 
         ecs_versions = ecs_versions or [ecs_versions]
         schemas = []
