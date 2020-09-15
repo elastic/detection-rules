@@ -12,7 +12,7 @@ import uuid
 import click
 import requests
 
-from .utils import ROOT_DIR
+from .utils import ROOT_DIR, cached
 
 _CONFIG = {}
 
@@ -197,22 +197,23 @@ def get_kibana_rules(*rule_paths, branch='master', verbose=True, threads=50):
     return kibana_rules
 
 
+@cached
 def parse_config():
     """Parse a default config file."""
-    global _CONFIG
+    config_file = os.path.join(ROOT_DIR, '.detection-rules-cfg.json')
+    config = {}
 
-    if not _CONFIG:
-        config_file = os.path.join(ROOT_DIR, '.detection-rules-cfg.json')
+    if os.path.exists(config_file):
+        with open(config_file) as f:
+            config = json.load(f)
 
-        if os.path.exists(config_file):
-            with open(config_file) as f:
-                _CONFIG = json.load(f)
+        click.secho('Loaded config file: {}'.format(config_file), fg='yellow')
 
-            click.secho('Loaded config file: {}'.format(config_file), fg='yellow')
-
-    return _CONFIG
+    return config
 
 
-def getenv(name):
+def getdefault(name):
     """Callback function for `default` to get an environment variable."""
-    return lambda: os.environ.get(name)
+    envvar = f"DR_{name.upper()}"
+    config = parse_config()
+    return lambda: os.environ.get(envvar, config.get(name))
