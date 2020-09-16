@@ -196,7 +196,7 @@ def collect_events(agent_hostname, elasticsearch_url, cloud_id, user, password, 
     if not cloud_id or elasticsearch_url:
         raise click.ClickException("Missing required --cloud-id or --elasticsearch-url")
 
-    # don't prompt for these until there's a cloud id or kibana URL
+    # don't prompt for these until there's a cloud id or elasticsearch URL
     user = user or click.prompt("user")
     password = password or click.prompt("password", hide_input=True)
 
