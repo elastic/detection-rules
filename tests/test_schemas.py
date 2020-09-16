@@ -5,6 +5,7 @@
 """Test stack versioned schemas."""
 import unittest
 import uuid
+import eql
 
 from detection_rules.rule import Rule
 from detection_rules.schemas import downgrade, CurrentSchema
@@ -106,3 +107,36 @@ class TestSchemas(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "Unsupported rule type"):
             downgrade(api_contents, "7.8")
+
+    def test_eql_validation(self):
+        base_fields = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["filebeat-*"],
+            "language": "eql",
+            "license": "Elastic License",
+            "name": "test rule",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "eql"
+        }
+
+        Rule("test.toml", dict(base_fields, query="""
+            process where process.name == "cmd.exe"
+        """))
+
+        with self.assertRaises(eql.EqlSyntaxError):
+            Rule("test.toml", dict(base_fields, query="""
+                    process where process.name == this!is$not#v@lid
+            """))
+
+        with self.assertRaises(eql.EqlSemanticError):
+            Rule("test.toml", dict(base_fields, query="""
+                    process where process.invalid_field == "hello world"
+            """))
+
+        with self.assertRaises(eql.EqlTypeMismatchError):
+            Rule("test.toml", dict(base_fields, query="""
+                    process where process.pid == "some string field"
+            """))
