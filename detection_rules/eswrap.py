@@ -182,7 +182,7 @@ class CollectEvents(object):
 @click.option('--elasticsearch-url', '-u', default=getdefault("elasticsearch_url"))
 @click.option('--cloud-id', default=getdefault("cloud_id"))
 @click.option('--user', '-u', default=getdefault("user"))
-@click.option('--password', '-p', default=getdefault("password"), hide_input=True)
+@click.option('--password', '-p', default=getdefault("password"))
 @click.option('--index', '-i', multiple=True, help='Index(es) to search against (default: all indexes)')
 @click.option('--agent-type', '-a', help='Restrict results to a source type (agent.type) ex: auditbeat')
 @click.option('--rta-name', '-r', help='Name of RTA in order to save events directly to unit tests data directory')
@@ -192,6 +192,13 @@ def collect_events(agent_hostname, elasticsearch_url, cloud_id, user, password, 
                    view_events):
     """Collect events from Elasticsearch."""
     match = {'agent.type': agent_type} if agent_type else {}
+
+    if not cloud_id or elasticsearch_url:
+        raise click.ClickException("Missing required --cloud-id or --elasticsearch-url")
+
+    # don't prompt for these until there's a cloud id or kibana URL
+    user = user or click.prompt("user")
+    password = password or click.prompt("password", hide_input=True)
 
     try:
         client = get_es_client(elasticsearch_url=elasticsearch_url, use_ssl=True, cloud_id=cloud_id, user=user,
