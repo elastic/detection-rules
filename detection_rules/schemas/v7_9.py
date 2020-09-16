@@ -5,7 +5,7 @@
 """Definitions for rule metadata and schemas."""
 
 import jsl
-from .v78 import ApiSchema78
+from .v7_8 import ApiSchema78
 
 
 OPERATORS = ['equals']
