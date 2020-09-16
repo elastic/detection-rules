@@ -276,7 +276,7 @@ def build_release(config_file, update_version_lock):
     """Assemble all the rules into Kibana-ready release files."""
     config = load_dump(config_file)['package']
     click.echo('[+] Building package {}'.format(config.get('name')))
-    package = Package.from_config(config, update_version_lock=update_version_lock)
+    package = Package.from_config(config, update_version_lock=update_version_lock, verbose=True)
     package.save()
     package.get_package_hash(verbose=True)
     click.echo('- {} rules included'.format(len(package.rules)))

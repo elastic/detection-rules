@@ -224,7 +224,7 @@ class Package(object):
         return sha256
 
     @classmethod
-    def from_config(cls, config=None, update_version_lock=False):  # type: (dict, bool) -> Package
+    def from_config(cls, config=None, update_version_lock=False, verbose=False):  # type: (dict, bool) -> Package
         """Load a rules package given a config."""
         all_rules = rule_loader.load_rules(verbose=False).values()
         config = config or {}
@@ -233,7 +233,11 @@ class Package(object):
         min_version = config.pop('min_version', None)
         max_version = config.pop('max_version', None)
 
-        rules = filter(lambda rule: filter_rule(rule, rule_filter, exclude_fields), all_rules)
+        rules = list(filter(lambda rule: filter_rule(rule, rule_filter, exclude_fields), all_rules))
+
+        if verbose:
+            click.echo(f' - {len(all_rules) - len(rules)} rules excluded from package')
+
         update = config.pop('update', {})
         package = cls(rules, min_version=min_version, max_version=max_version, update_version_lock=update_version_lock,
                       **config)
