@@ -75,6 +75,9 @@ def schema_prompt(name, value=None, required=False, **options):
     if name == 'rule_id':
         default = str(uuid.uuid4())
 
+    if len(enum) == 1 and required and field_type != "array":
+        return enum[0]
+
     def _check_type(_val):
         if field_type in ('number', 'integer') and not str(_val).isdigit():
             print('Number expected but got: {}'.format(_val))
