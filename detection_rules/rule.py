@@ -111,9 +111,7 @@ class Rule(object):
         language = rule_contents.get('language')
         if language in ('kuery', 'eql'):
             parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
-
-            if parsed is not None:
-                return list(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
+            return list(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
 
     @staticmethod
     @cached
