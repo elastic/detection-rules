@@ -96,14 +96,24 @@ class Rule(object):
 
     @property
     def unique_fields(self):
-        if self.query and self.contents.get('language') == 'kuery':
-            return list(set(f.name for f in self.parsed_query if isinstance(f, kql.ast.Field)))
-        elif self.query and self.contents.get('language') == 'eql':
-            return list(set(f.render() for f in self.parsed_query if isinstance(f, eql.ast.Field)))
+        parsed = self.parsed_query
+        if parsed is not None:
+            return list(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
 
     def to_eql(self):
         if self.query and self.contents['language'] == 'kuery':
             return kql.to_eql(self.query)
+
+    @classmethod
+    def get_unique_query_fields(cls, rule_contents):
+        """Get a list of unique fields used in a rule query from rule contents."""
+        query = rule_contents.get('query')
+        language = rule_contents.get('language')
+        if language in ('kuery', 'eql'):
+            parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
+
+            if parsed is not None:
+                return list(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
 
     @staticmethod
     @cached

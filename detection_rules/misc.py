@@ -233,17 +233,3 @@ def set_param_values(ctx, param, value):
     elif prompt:
         return click.prompt(key, default=param.default if not param.default else None, hide_input=param.hide_input,
                             show_default=True if param.default else False)
-
-
-def get_unique_query_fields(rule_contents=None):
-    """Get a list of unique fields used in a rule query from rule contents."""
-    import eql
-    import kql
-
-    query = rule_contents.get('query')
-    language = rule_contents.get('language')
-
-    if query and language == 'kuery':
-        return list(set(f.name for f in kql.parse(query) if isinstance(f, kql.ast.Field)))
-    elif query and language == 'eql':
-        return list(set(f.render() for f in eql.parse_query(query) if isinstance(f, eql.ast.Field)))
