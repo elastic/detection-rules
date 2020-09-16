@@ -224,7 +224,7 @@ class Package(object):
         return sha256
 
     @classmethod
-    def from_config(cls, config=None, update_version_lock=False, verbose=False):  # type: (dict, bool) -> Package
+    def from_config(cls, config: dict = None, update_version_lock: bool = False, verbose: bool = False) -> 'Package':
         """Load a rules package given a config."""
         all_rules = rule_loader.load_rules(verbose=False).values()
         config = config or {}
