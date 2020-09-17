@@ -28,8 +28,7 @@ sequence by process.entity_id, process.pid, process.name with maxspan=5m
   [process where event.type in ("start", "process_started") and
      not (process.name == "sdbinst.exe" and process.parent.name == "msiexec.exe")]
   [registry where event.type in ("creation", "change") and
-     registry.key == "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom" and
-     registry.value == "*.sdb"]
+     registry.path == "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb"]
 '''
 
 
@@ -45,16 +44,3 @@ reference = "https://attack.mitre.org/techniques/T1138/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1138"
-name = "Application Shimming"
-reference = "https://attack.mitre.org/techniques/T1138/"
-
-
-[rule.threat.tactic]
-id = "TA0004"
-name = "Privilege Escalation"
-reference = "https://attack.mitre.org/tactics/TA0004/"
-

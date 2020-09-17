@@ -14,7 +14,7 @@ from = "now-9m"
 index = ["logs-endpoint.events.*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License"
-name = "Unusual Process Network Connection: Sequence"
+name = "Unusual Network Activity from a LOLBIN"
 risk_score = 21
 rule_id = "1fe3b299-fbb5-4657-a937-1d746f2c711a"
 severity = "medium"
@@ -46,7 +46,27 @@ sequence by process.entity_id, process.pid, process.name with maxspan=5m
                       "rcsi.exe",
                       "regsvr32.exe",
                       "xwizard.exe")]
-  [network where event.type == "connection"]
+  [network where event.type == "connection" and
+     process.name in ("bginfo.exe",
+                      "cdb.exe",
+                      "control.exe",
+                      "cmstp.exe",
+                      "csi.exe",
+                      "dnx.exe",
+                      "fsi.exe",
+                      "ieexec.exe",
+                      "iexpress.exe",
+                      "installutil.exe",
+                      "Microsoft.Workflow.Compiler.exe",
+                      "msbuild.exe",
+                      "msdt.exe",
+                      "mshta.exe",
+                      "msiexec.exe",
+                      "msxsl.exe",
+                      "odbcconf.exe",
+                      "rcsi.exe",
+                      "regsvr32.exe",
+                      "xwizard.exe")]
 '''
 
 
@@ -62,28 +82,3 @@ reference = "https://attack.mitre.org/techniques/T1127/"
 id = "TA0010"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0010/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1127"
-name = "Trusted Developer Utilities"
-reference = "https://attack.mitre.org/techniques/T1127/"
-
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1127"
-name = "Trusted Developer Utilities"
-reference = "https://attack.mitre.org/techniques/T1127/"
-
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-

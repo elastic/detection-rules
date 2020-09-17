@@ -24,7 +24,8 @@ type = "eql"
 query = '''
 sequence by process.entity_id, process.pid, process.name
   [process where event.type in ("start", "process_started") and process.name == "msbuild.exe"]
-  [network where not (destination.address == "127.0.0.1" and source.address == "127.0.0.1")]
+  [network where process.name == "msbuild.exe" and
+     not (destination.address == "127.0.0.1" and source.address == "127.0.0.1")]
 '''
 
 
@@ -40,28 +41,3 @@ reference = "https://attack.mitre.org/techniques/T1127/"
 id = "TA0010"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0010/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1127"
-name = "Trusted Developer Utilities"
-reference = "https://attack.mitre.org/techniques/T1127/"
-
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1127"
-name = "Trusted Developer Utilities"
-reference = "https://attack.mitre.org/techniques/T1127/"
-
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-

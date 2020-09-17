@@ -26,7 +26,8 @@ sequence with maxspan=1m
   [process where event.type in ("start", "process_started") and process.name == "sdclt.exe" and
      // process.code_signature.* fields need to be populated for 7.10
      process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true and
-     process.args == "/kickoffelev"] by process.entity_id, process.pid, process.name
+     process.args == "/kickoffelev"
+  ] by process.entity_id, process.pid, process.name
   [process where event.type in ("start", "process_started") and process.parent.name == "sdclt.exe" and
      process.executable not in ("C:\\Windows\\System32\\sdclt.exe",
                                 "C:\\Windows\\System32\\control.exe",
@@ -48,16 +49,3 @@ reference = "https://attack.mitre.org/techniques/T1088/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1088"
-name = "Bypass User Account Control"
-reference = "https://attack.mitre.org/techniques/T1088/"
-
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-

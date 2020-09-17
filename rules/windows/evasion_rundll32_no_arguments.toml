@@ -30,8 +30,10 @@ sequence with maxspan=1h
      ((process.args == "rundll32.exe" and process.args_count == 1) or
       (process.args != "rundll32.exe" and process.args_count == 0))
 
-   ] by process.entity_id, process.pid, process.name
-  [process where event.type in ("start", "process_started")] by process.parent.entity_id, process.ppid, process.parent.name
+  ] by process.entity_id, process.pid, process.name
+  [process where event.type in ("start", "process_started") and
+     (process.name == "rundll32.exe" or process.pe.original_file_name == "rundll32.exe")
+  ] by process.parent.entity_id, process.ppid, process.parent.name
 '''
 
 
@@ -47,16 +49,3 @@ reference = "https://attack.mitre.org/techniques/T1085/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1085"
-name = "Rundll32"
-reference = "https://attack.mitre.org/techniques/T1085/"
-
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
