@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/02"
 ecs_version = ["1.6.0"]
-maturity = "development"
+maturity = "production"
 updated_date = "2020/09/02"
 
 [rule]
@@ -13,7 +13,7 @@ leveraged by adversaries to execute code and evade detection.
 index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License"
-name = "MsBuild Making Network Connections"
+name = "MsBuild Making Network Connections: Sequence"
 risk_score = 21
 rule_id = "9dc6ed5d-62a9-4feb-a903-fafa1d33b8e9"
 severity = "medium"
@@ -21,9 +21,7 @@ tags = ["from-eql-rules"]
 type = "eql"
 
 query = '''
-// needs too many wildcards
-
-sequence by process.entity_id
+sequence by process.entity_id, process.pid, process.name
   [process where event.type in ("start", "process_started") and process.name == "msbuild.exe"]
   [network where not (destination.address == "127.0.0.1" and source.address == "127.0.0.1")]
 '''

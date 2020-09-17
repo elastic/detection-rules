@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/02"
 ecs_version = ["1.6.0"]
-maturity = "development"
+maturity = "production"
 updated_date = "2020/09/02"
 
 [rule]
@@ -21,9 +21,7 @@ tags = ["from-eql-rules"]
 type = "eql"
 
 query = '''
-// verify casing
-
-sequence by process.entity_id
+sequence by process.entity_id, process.pid, process.name
   [process where event.type in ("start", "process_started") and process.name == "msxsl.exe"]
   [network where event.type == "connection" and network.direction == "outgoing"]
 '''

@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/02"
 ecs_version = ["1.6.0"]
-maturity = "development"
+maturity = "production"
 updated_date = "2020/09/02"
 
 [rule]
@@ -28,7 +28,8 @@ sequence with maxspan=1h
      // zero arguments excluding the binary itself (and accounting for when the binary may not be logged in args)
      ((process.args == "rundll32.exe" and process.args_count == 1) or
       (process.args != "rundll32.exe" and process.args_count == 0))
-   ] by process.entity_id
-  [process where event.type in ("start", "process_started")] by process.parent.entity_id
+
+   ] by process.entity_id, process.pid, process.name
+  [process where event.type in ("start", "process_started")] by process.parent.entity_id, process.ppid, process.parent.name
 '''
 

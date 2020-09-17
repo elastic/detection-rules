@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/02"
 ecs_version = ["1.6.0"]
-maturity = "development"
+maturity = "production"
 updated_date = "2020/09/02"
 
 [rule]
@@ -24,8 +24,12 @@ query = '''
 sequence with maxspan=2h
   [file where event.type != "delete" and file.extension == "exe" and
      process.name in ("acrord32.exe", "rdrcef.exe", "foxitphantomPDF.exe", "foxitreader.exe") and
-     not file.name in ("FoxitReaderUpdater.exe", "FoxitPhantomPDFUpdater.exe", "acrord32.exe",
-                       "rdrcef.exe", "foxitphantomPDF.exe", "foxitreader.exe")
+     not file.name in ("foxitphantomPDF.exe",
+                       "FoxitPhantomPDFUpdater.exe",
+                       "foxitreader.exe",
+                       "FoxitReaderUpdater.exe",
+                       "acrord32.exe",
+                       "rdrcef.exe")
   ] by host.id, file.path
   [process where event.type in ("start", "process_started")] by host.id, process.executable
 '''

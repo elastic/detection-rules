@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/02"
 ecs_version = ["1.6.0"]
-maturity = "development"
+maturity = "production"
 updated_date = "2020/09/02"
 
 [rule]
@@ -23,8 +23,6 @@ type = "eql"
 query = '''
 sequence with maxspan=2h
   [file where event.type != "delete" and file.extension == "exe" and
-
-     // need to verify capitalization or make case insensitive
      process.name in ("winword.exe",
                       "excel.exe",
                       "outlook.exe",
@@ -34,6 +32,6 @@ sequence with maxspan=2h
                       "mspub.exe",
                       "msaccess.exe")
   ] by host.id, file.path
-  [process where event.type in ("start" or "process_started")] by host.id, process.executable
+  [process where event.type in ("start", "process_started")] by host.id, process.executable
 '''
 
