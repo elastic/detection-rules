@@ -12,7 +12,7 @@ from elasticsearch import AuthenticationException, Elasticsearch
 from kibana import Kibana, RuleResource
 
 from .main import root
-from .misc import set_param_values
+from .misc import getdefault, set_param_values
 from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
 from .rule_loader import get_rule, rta_mappings, load_rule_files, load_rules
 
@@ -183,10 +183,10 @@ def normalize_file(events_file):
 
 
 @root.group('es')
-@click.option('--elasticsearch-url', '-e', callback=set_param_values, expose_value=True)
-@click.option('--cloud-id', callback=set_param_values, expose_value=True)
-@click.option('--user', '-u', callback=set_param_values, expose_value=True, hide_input=False)
-@click.option('--password', '-p', callback=set_param_values, expose_value=True, hide_input=True)
+@click.option('--elasticsearch-url', '-u', default=getdefault("elasticsearch_url"))
+@click.option('--cloud-id', default=getdefault("cloud_id"))
+@click.option('--user', '-u', default=getdefault("user"))
+@click.option('--password', '-p', default=getdefault("password"))
 @click.pass_context
 def es_group(ctx: click.Context, **es_auth):
     """Helper commands for integrating with Elasticsearch."""
@@ -198,6 +198,13 @@ def es_group(ctx: click.Context, **es_auth):
         click.echo(format_command_options(ctx))
 
     else:
+        if not es_auth['cloud_id'] or es_auth['elasticsearch_url']:
+            raise click.ClickException("Missing required --cloud-id or --elasticsearch-url")
+
+        # don't prompt for these until there's a cloud id or elasticsearch URL
+        es_auth['user'] = es_auth['user'] or click.prompt("user")
+        es_auth['password'] = es_auth['password'] or click.prompt("password", hide_input=True)
+
         try:
             client = get_es_client(use_ssl=True, **es_auth)
             ctx.obj['es'] = client
@@ -240,15 +247,22 @@ def collect_events(ctx, agent_hostname, index, agent_type, rta_name, rule_id, vi
 
 @root.command("kibana-upload")
 @click.argument("toml-files", nargs=-1, required=True)
-@click.option('--kibana-url', '-u', callback=set_param_values, expose_value=True)
-@click.option('--cloud-id', callback=set_param_values, expose_value=True)
-@click.option('--user', '-u', callback=set_param_values, expose_value=True, hide_input=False)
-@click.option('--password', '-p', callback=set_param_values, expose_value=True, hide_input=True)
+@click.option('--kibana-url', '-u', default=getdefault("kibana_url"))
+@click.option('--cloud-id', default=getdefault("cloud_id"))
+@click.option('--user', '-u', default=getdefault("user"))
+@click.option('--password', '-p', default=getdefault("password"))
 def kibana_upload(toml_files, kibana_url, cloud_id, user, password):
     """Upload a list of rule .toml files to Kibana."""
     from uuid import uuid4
     from .packaging import manage_versions
     from .schemas import downgrade
+
+    if not cloud_id or kibana_url:
+        raise click.ClickException("Missing required --cloud-id or --kibana-url")
+
+    # don't prompt for these until there's a cloud id or kibana URL
+    user = user or click.prompt("user")
+    password = password or click.prompt("password", hide_input=True)
 
     with Kibana(cloud_id=cloud_id, url=kibana_url) as kibana:
         kibana.login(user, password)
