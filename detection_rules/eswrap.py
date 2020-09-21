@@ -6,13 +6,15 @@
 import json
 import os
 import time
+from contextlib import contextmanager
 
 import click
+import elasticsearch
 from elasticsearch import AuthenticationException, Elasticsearch
 from kibana import Kibana, RuleResource
 
 from .main import root
-from .misc import getdefault, set_param_values
+from .misc import getdefault
 from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
 from .rule_loader import get_rule, rta_mappings, load_rule_files, load_rules
 
@@ -20,18 +22,23 @@ COLLECTION_DIR = get_path('collections')
 ERRORS = {
     'NO_EVENTS': 1,
     'FAILED_ES_AUTH': 2,
-    'MISSING_REQUIRED_ARGUMENT': 3
+    'MISSING_REQUIRED_ARGUMENT': 3,
+    'MISSING_FILE': 4,
+    'TOO_MANY_FILES': 5,
+    'REMOTE_FILE_EXISTS': 6,
+    'CONNECTION_TIMEOUT': 7
 }
 
 
-def get_es_client(user, password, elasticsearch_url=None, cloud_id=None, **kwargs):
-    """Get an auth-validated elsticsearch client."""
+def get_es_client(user, es_password, elasticsearch_url=None, cloud_id=None, **kwargs):
+    """Get an auth-validated elasticsearch client."""
     assert elasticsearch_url or cloud_id, \
         'You must specify a host or cloud_id to authenticate to an elasticsearch instance'
 
     hosts = [elasticsearch_url] if elasticsearch_url else elasticsearch_url
 
-    client = Elasticsearch(hosts=hosts, cloud_id=cloud_id, http_auth=(user, password), **kwargs)
+    timeout = kwargs.pop('timeout', 60)
+    client = Elasticsearch(hosts=hosts, cloud_id=cloud_id, http_auth=(user, es_password), timeout=timeout, **kwargs)
     # force login to test auth
     client.info()
     return client
@@ -186,9 +193,10 @@ def normalize_file(events_file):
 @click.option('--elasticsearch-url', '-u', default=getdefault("elasticsearch_url"))
 @click.option('--cloud-id', default=getdefault("cloud_id"))
 @click.option('--user', '-u', default=getdefault("user"))
-@click.option('--password', '-p', default=getdefault("password"))
+@click.option('--es-password', '-p', default=getdefault("es_password"))
+@click.option('--timeout', '-t', default=60, help='Elasticsearch client kwargs')
 @click.pass_context
-def es_group(ctx: click.Context, **es_auth):
+def es_group(ctx: click.Context, **es_kwargs):
     """Helper commands for integrating with Elasticsearch."""
     ctx.ensure_object(dict)
 
@@ -198,18 +206,18 @@ def es_group(ctx: click.Context, **es_auth):
         click.echo(format_command_options(ctx))
 
     else:
-        if not es_auth['cloud_id'] or es_auth['elasticsearch_url']:
+        if not es_kwargs['cloud_id'] or es_kwargs['elasticsearch_url']:
             raise click.ClickException("Missing required --cloud-id or --elasticsearch-url")
 
         # don't prompt for these until there's a cloud id or elasticsearch URL
-        es_auth['user'] = es_auth['user'] or click.prompt("user")
-        es_auth['password'] = es_auth['password'] or click.prompt("password", hide_input=True)
+        es_kwargs['user'] = es_kwargs['user'] or click.prompt("user")
+        es_kwargs['es_password'] = es_kwargs['es_password'] or click.prompt("es_password", hide_input=True)
 
         try:
-            client = get_es_client(use_ssl=True, **es_auth)
+            client = get_es_client(use_ssl=True, **es_kwargs)
             ctx.obj['es'] = client
         except AuthenticationException:
-            click.secho(f'Failed authentication for {es_auth.get("elasticsearch_url") or es_auth.get("cloud_id")}',
+            click.secho(f'Failed authentication for {es_kwargs.get("elasticsearch_url") or es_kwargs.get("cloud_id")}',
                         fg='red', err=True)
             ctx.exit(ERRORS['FAILED_ES_AUTH'])
 
@@ -250,8 +258,8 @@ def collect_events(ctx, agent_hostname, index, agent_type, rta_name, rule_id, vi
 @click.option('--kibana-url', '-u', default=getdefault("kibana_url"))
 @click.option('--cloud-id', default=getdefault("cloud_id"))
 @click.option('--user', '-u', default=getdefault("user"))
-@click.option('--password', '-p', default=getdefault("password"))
-def kibana_upload(toml_files, kibana_url, cloud_id, user, password):
+@click.option('--kibana-password', '-p', default=getdefault("password"))
+def kibana_upload(toml_files, kibana_url, cloud_id, user, kibana_password):
     """Upload a list of rule .toml files to Kibana."""
     from uuid import uuid4
     from .packaging import manage_versions
@@ -262,10 +270,10 @@ def kibana_upload(toml_files, kibana_url, cloud_id, user, password):
 
     # don't prompt for these until there's a cloud id or kibana URL
     user = user or click.prompt("user")
-    password = password or click.prompt("password", hide_input=True)
+    kibana_password = kibana_password or click.prompt("password", hide_input=True)
 
     with Kibana(cloud_id=cloud_id, url=kibana_url) as kibana:
-        kibana.login(user, password)
+        kibana.login(user, kibana_password)
 
         file_lookup = load_rule_files(paths=toml_files)
         rules = list(load_rules(file_lookup=file_lookup).values())
@@ -295,14 +303,16 @@ def kibana_upload(toml_files, kibana_url, cloud_id, user, password):
               help='Release tag for model files staged in detection-rules (required to download files)')
 @click.option('--model-dir', '-d', type=click.Path(exists=True, file_okay=False),
               help='Directory containing local model files')
+@click.option('--overwrite', is_flag=True, help='Overwrite all files if already in the stack')
 @click.pass_context
-def setup_dga(ctx, model_tag, model_dir, verbose=True):
+def setup_dga(ctx, model_tag, model_dir, overwrite):
     """Upload DGA model and enrich DNS data."""
+    import glob
     import io
     import requests
     import shutil
     import zipfile
-    # from elasticsearch.client import IngestClient, MlClient
+    from elasticsearch.client import IngestClient, MlClient
 
     es_client = ctx.obj['es']  # type: Elasticsearch
     client_info = es_client.info()
@@ -313,8 +323,7 @@ def setup_dga(ctx, model_tag, model_dir, verbose=True):
             click.secho('model-tag is required to download model files')
             ctx.exit(ERRORS['MISSING_REQUIRED_ARGUMENT'])
 
-        if verbose:
-            click.echo(f'Downloading artifact: {model_tag}')
+        click.echo(f'Downloading artifact: {model_tag}')
 
         release_url = f'https://api.github.com/repos/elastic/detection-rules/releases/tags/{model_tag}'
         release = requests.get(release_url)
@@ -334,16 +343,79 @@ def setup_dga(ctx, model_tag, model_dir, verbose=True):
         z.close()
         model_dir = click.Path(dga_dir)
 
-    model_id = model_tag or os.path.basename(model_dir)
-    click.echo(f'Setting up {model_id} DGA model on {client_info["name"]} ({client_info["version"]["number"]}) ...')
+    @contextmanager
+    def open_model_file(pattern, name_only=False):
+        paths = glob.glob(os.path.join(model_dir, pattern))
+        if not paths:
+            click.secho(f'{model_dir} missing files matching the pattern {pattern}', err=True, fg='red')
+            ctx.exit(ERRORS['MISSING_FILE'])
+        if len(paths) > 1:
+            click.secho(f'{model_dir} contains multiple files matching the pattern {pattern}', err=True, fg='red')
+            ctx.exit(ERRORS['TOO_MANY_FILES'])
+
+        if name_only:
+            yield paths[0]
+        else:
+            with open(paths[0], 'r') as f:
+                yield json.load(f)
+
+    with open_model_file('dga_*_model.json', name_only=True) as model_file:
+        model_id, _ = os.path.basename(model_file).rsplit('_', maxsplit=1)
+
+    click.echo(f'Setting up DGA model: "{model_id}" on {client_info["name"]} ({client_info["version"]["number"]})')
 
     # upload model
-    # ml_client = MlClient(es_client)
-    # ml_client.put_trained_model(model_id=model_id, body=model_file.read())
+    ml_client = MlClient(es_client)
+    ingest_client = IngestClient(es_client)
+
+    existing_models = ml_client.get_trained_models()
+    if model_id in [m['model_id'] for m in existing_models.get('trained_model_configs', [])]:
+        if overwrite:
+            def safe_delete(func, fid):
+                try:
+                    func(fid)
+                except elasticsearch.NotFoundError:
+                    pass
+
+            click.secho('[-] Existing model detected - deleting files', fg='yellow')
+            safe_delete(ingest_client.delete_pipeline, 'dga_ngram_expansion_inference')
+            safe_delete(ingest_client.delete_pipeline, 'dns_classification_pipeline')
+            safe_delete(es_client.delete_script, 'ngram-extractor-packetbeat')
+            safe_delete(es_client.delete_script, 'ngram-remover-packetbeat')
+            safe_delete(ml_client.delete_trained_model, model_id)
+        else:
+            click.secho(f'Model: {model_id} already exists on stack! Try --overwrite to force the upload',
+                        err=True, fg='red')
+            ctx.exit(ERRORS['REMOTE_FILE_EXISTS'])
+
+    click.secho('[+] Uploading model (may take a while)')
+
+    with open_model_file('dga_*_model.json') as model_file:
+        try:
+            ml_client.put_trained_model(model_id=model_id, body=model_file)
+        except elasticsearch.ConnectionTimeout:
+            click.secho('Connection timeout, try increasing timeout using `es --timeout <secs> setup-dga <args>`.')
+            ctx.exit(ERRORS['CONNECTION_TIMEOUT'])
 
     # install scripts
-    # es_client.put_script(id=model_id, body=script_file.read())
+    click.secho('[+] Uploading painless scripts')
 
-    # Install ingest pipeline
-    # ingest_client = IngestClient(es_client)
-    # ingest_client.put_pipeline(id=model_id, body=pipeline_file.read())
+    with open_model_file('dga_*_ngrams_create.json') as painless_install:
+        es_client.put_script(id='ngram-extractor-packetbeat', body=painless_install)
+
+    with open_model_file('dga_*_ngrams_delete.json') as painless_delete:
+        es_client.put_script(id='ngram-remover-packetbeat', body=painless_delete)
+
+    # Install ingest pipelines
+    click.secho('[+] Uploading pipelines')
+
+    with open_model_file('dga_*_ingest_pipeline1.json') as ingest_pipeline1:
+        processors = ingest_pipeline1['processors']
+        inference_processor = next(p for p in processors if 'inference' in p)
+        inference_processor['inference']['model_id'] = model_id
+        ingest_client.put_pipeline(id='dga_ngram_expansion_inference', body=ingest_pipeline1)
+
+    with open_model_file('dga_*_ingest_pipeline2.json') as ingest_pipeline2:
+        ingest_client.put_pipeline(id='dns_classification_pipeline', body=ingest_pipeline2)
+
+    return
