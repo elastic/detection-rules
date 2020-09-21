@@ -1,0 +1,30 @@
+[metadata]
+creation_date = "2020/09/21"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/09/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a firewall rule is created in Google Cloud Platform (GCP). Virtual Private Cloud (VPC) firewall rules
+can be configured to allow or deny connections to or from virtual machine (VM) instances. An adversary may create a new
+firewall rule in order to weaken their target's security controls and allow more permissive ingress or egress traffic
+flows for their benefit.
+"""
+index = ["filebeat-*"]
+language = "kuery"
+license = "Elastic License"
+name = "GCP Firewall Rule Created"
+note = "The GCP Filebeat module must be enabled to use this rule."
+references = ["https://cloud.google.com/vpc/docs/firewalls"]
+risk_score = 21
+rule_id = "30562697-9859-4ae0-a8c5-dab45d664170"
+severity = "low"
+tags = ["Elastic", "GCP", "Continuous Monitoring", "SecOps", "Configuration Audit"]
+type = "query"
+
+query = '''
+event.module:googlecloud and event.dataset:googlecloud.audit and event.action:v*.compute.firewalls.insert
+'''
+
