@@ -1,0 +1,29 @@
+[metadata]
+creation_date = "2020/09/21"
+ecs_version = ["1.6.0"]
+maturity = "development"
+updated_date = "2020/09/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a firewall rule is modified in Google Cloud Platform (GCP). Virtual Private Cloud (VPC) firewall rules
+can be configured to allow or deny connections to or from virtual machine (VM) instances. An adversary may modify a
+firewall rule in order to weaken their target's security controls.
+"""
+index = ["filebeat-*"]
+language = "kuery"
+license = "Elastic License"
+name = "GCP Firewall Rule Modified"
+note = "The GCP Filebeat module must be enabled to use this rule."
+references = ["https://cloud.google.com/vpc/docs/firewalls"]
+risk_score = 47
+rule_id = "2783d84f-5091-4d7d-9319-9fceda8fa71b"
+severity = "medium"
+tags = ["Elastic", "GCP", "Continuous Monitoring", "SecOps", "Configuration Audit"]
+type = "query"
+
+query = '''
+event.module:googlecloud and event.dataset:googlecloud.audit and event.action:v*.compute.firewalls.patch
+'''
+
