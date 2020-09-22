@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/21"
 ecs_version = ["1.6.0"]
-maturity = "production"
+maturity = "development"
 updated_date = "2020/09/21"
 
 [rule]
@@ -11,6 +11,12 @@ Identifies when a firewall rule is deleted in Google Cloud Platform (GCP). Virtu
 can be configured to allow or deny connections to or from virtual machine (VM) instances. An adversary may delete a
 firewall rule in order to weaken their target's security controls.
 """
+false_positives = [
+    """
+    Firewall rules may be deleted by system administrators. Verify that the firewall configuration change was expected.
+    Exceptions can be added to this rule to filter expected behavior.
+    """,
+]
 index = ["filebeat-*"]
 language = "kuery"
 license = "Elastic License"
@@ -26,3 +32,4 @@ type = "query"
 query = '''
 event.module:googlecloud and event.dataset:googlecloud.audit and event.action:v*.compute.firewalls.delete
 '''
+
