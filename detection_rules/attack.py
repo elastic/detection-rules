@@ -3,9 +3,14 @@
 # you may not use this file except in compliance with the Elastic License.
 
 """Mitre attack info."""
-# from: https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json
 
-from .utils import load_etc_dump
+import json
+import os
+import requests
+from collections import OrderedDict
+
+from .semver import Version
+from .utils import get_etc_path, get_etc_glob_path, open_gzip, gzip_compress
 
 TACTICS_MAP = {
     'Initial Access': 'TA0001',
@@ -17,43 +22,99 @@ TACTICS_MAP = {
     'Lateral Movement': 'TA0008',
     'Execution': 'TA0002',
     'Collection': 'TA0009',
-    'Exfiltration': 'TA0011',
-    'Command and Control': 'TA0010',
+    'Exfiltration': 'TA0010',
+    'Command and Control': 'TA0011',
     'Impact': 'TA0040'
 }
 TACTICS = list(TACTICS_MAP)
 PLATFORMS = ['Windows', 'macOS', 'Linux']
 
-attack = load_etc_dump('attack.json')
+
+def get_attack_file_path():
+    pattern = 'att&ck-v*.json.gz'
+    attack_file = get_etc_glob_path(pattern)
+    if len(attack_file) != 1:
+        raise FileNotFoundError(f'Missing required {pattern} file')
+    return attack_file[0]
+
+
+def load_attack_gz():
+    return json.loads(open_gzip(get_attack_file_path()))
+
+
+attack = load_attack_gz()
 
 technique_lookup = {}
+revoked = {}
 
 for item in attack["objects"]:
     if item["type"] == "attack-pattern" and item["external_references"][0]['source_name'] == 'mitre-attack':
         technique_id = item['external_references'][0]['external_id']
         technique_lookup[technique_id] = item
 
+        if item.get('revoked'):
+            revoked[technique_id] = item
+
 matrix = {tactic: [] for tactic in TACTICS}
+matrix.update(NO_TACTIC=[])
 attack_tm = 'ATT&CK\u2122'
 
 
 # Enumerate over the techniques and build the matrix back up
 for technique_id, technique in sorted(technique_lookup.items(), key=lambda kv: kv[1]['name'].lower()):
-    for platform in technique['x_mitre_platforms']:
-        if any(platform.startswith(p) for p in PLATFORMS):
-            break
-    else:
-        continue
-
-    for tactic in technique['kill_chain_phases']:
-        tactic_name = next(t for t in TACTICS if tactic['kill_chain_name'] == 'mitre-attack' and t.lower() == tactic['phase_name'].replace("-", " "))  # noqa: E501
-        matrix[tactic_name].append(technique_id)
+    kill_chain = technique.get('kill_chain_phases')
+    if kill_chain:
+        for tactic in kill_chain:
+            tactic_name = next(t for t in TACTICS if tactic['kill_chain_name'] == 'mitre-attack' and t.lower() == tactic['phase_name'].replace("-", " "))  # noqa: E501
+            matrix[tactic_name].append(technique_id)
+        else:
+            matrix['NO_TACTIC'].append(technique_id)
 
 for tactic in matrix:
     matrix[tactic].sort(key=lambda tid: technique_lookup[tid]['name'].lower())
 
 
-TECHNIQUES = {v['name'] for k, v in technique_lookup.items()}
+technique_lookup = OrderedDict(sorted(technique_lookup.items()))
+TECHNIQUES = sorted({v['name'] for k, v in technique_lookup.items()})
+
+
+def refresh_attack_data(save=True):
+    """Refresh ATT&CK data from Mitre."""
+    attack_path = get_attack_file_path()
+    filename, _, _ = os.path.basename(attack_path).rsplit('.', 2)
+
+    def get_version_from_tag(name):
+        _, version = name.lower().split('att&ck-v', 1)
+        return version
+
+    current_version = get_version_from_tag(filename)
+
+    r = requests.get('https://api.github.com/repos/mitre/cti/tags')
+    r.raise_for_status()
+    releases = [t for t in r.json() if t['name'].startswith('ATT&CK-v')]
+    latest_release = max(releases, key=lambda release: Version(get_version_from_tag(release['name'])))
+    release_name = latest_release['name']
+    latest_version = get_version_from_tag(release_name)
+
+    if current_version >= latest_version:
+        print(f'No versions newer than the current detected: {current_version}')
+        return
+
+    download = f'https://raw.githubusercontent.com/mitre/cti/{release_name}/enterprise-attack/enterprise-attack.json'
+    r = requests.get(download)
+    r.raise_for_status()
+    attack_data = r.json()
+    compressed = gzip_compress(json.dumps(attack_data, sort_keys=True))
+
+    if save:
+        new_path = get_etc_path(f'att&ck-v{latest_version}.json.gz')
+        with open(new_path, 'wb') as f:
+            f.write(compressed)
+
+        os.remove(attack_path)
+        print(f'Replaced file: {attack_path} with {new_path}')
+
+    return attack_data, compressed
 
 
 def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict:
@@ -77,3 +138,10 @@ def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict:
     }
 
     return entry
+
+
+def update_threat_map(rule_threat_map):
+    """Update rule map to reflect changes from ATT&CK."""
+    for entry in rule_threat_map:
+        for tech in entry['technique']:
+            tech['name'] = technique_lookup[tech['id']]['name']

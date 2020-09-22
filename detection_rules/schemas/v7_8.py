@@ -70,7 +70,7 @@ class Threat(jsl.Document):
         reference = jsl.StringField(MITRE_URL_PATTERN.format(type='tactics'))
 
     class ThreatTechnique(jsl.Document):
-        id = jsl.StringField(enum=list(technique_lookup))
+        id = jsl.StringField(enum=sorted(list(technique_lookup)))
         name = jsl.StringField(enum=TECHNIQUES)
         reference = jsl.StringField(MITRE_URL_PATTERN.format(type='techniques'))
 
