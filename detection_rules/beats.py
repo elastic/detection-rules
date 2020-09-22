@@ -6,11 +6,12 @@
 import os
 
 import kql
+import eql
 import requests
 import yaml
 
 from .semver import Version
-from .utils import unzip, load_etc_dump, save_etc_dump, get_etc_path
+from .utils import unzip, load_etc_dump, save_etc_dump, get_etc_path, cached
 
 
 def download_latest_beats_schema():
@@ -129,34 +130,16 @@ def get_beats_sub_schema(schema: dict, beat: str, module: str, *datasets: str):
     return {field["name"]: field for field in sorted(flattened, key=lambda f: f["name"])}
 
 
-SCHEMA = None
-
-
+@cached
 def read_beats_schema():
-    global SCHEMA
+    beats_schemas = os.listdir(get_etc_path("beats_schemas"))
+    latest = max(beats_schemas, key=lambda b: Version(b.lstrip("v")))
 
-    if SCHEMA is None:
-        beats_schemas = os.listdir(get_etc_path("beats_schemas"))
-        latest = max(beats_schemas, key=lambda b: Version(b.lstrip("v")))
-
-        SCHEMA = load_etc_dump("beats_schemas", latest)
-
-    return SCHEMA
+    return load_etc_dump("beats_schemas", latest)
 
 
-def get_schema_for_query(tree: kql.ast, beats: list) -> dict:
+def get_schema_from_datasets(beats, modules, datasets):
     filtered = {}
-    modules = set()
-    datasets = set()
-
-    # extract out event.module and event.dataset from the query's AST
-    for node in tree:
-        if isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.module"):
-            modules.update(child.value for child in node.value if isinstance(child, kql.ast.String))
-
-        if isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.dataset"):
-            datasets.update(child.value for child in node.value if isinstance(child, kql.ast.String))
-
     beats_schema = read_beats_schema()
 
     # infer the module if only a dataset are defined
@@ -173,3 +156,39 @@ def get_schema_for_query(tree: kql.ast, beats: list) -> dict:
             filtered.update(get_beats_sub_schema(beats_schema, beat, module, *datasets))
 
     return filtered
+
+
+def get_schema_from_eql(tree: eql.ast.BaseNode, beats: list) -> dict:
+    modules = set()
+    datasets = set()
+
+    # extract out event.module and event.dataset from the query's AST
+    for node in tree:
+        if isinstance(node, eql.ast.Comparison) and node.comparator == node.EQ and \
+                isinstance(node.right, eql.ast.String):
+            if node.left == eql.ast.Field("event", ["module"]):
+                modules.add(node.right.render())
+            elif node.left == eql.ast.Field("event", ["dataset"]):
+                datasets.add(node.right.render())
+        elif isinstance(node, eql.ast.InSet):
+            if node.expression == eql.ast.Field("event", ["module"]):
+                modules.add(node.get_literals())
+            elif node.expression == eql.ast.Field("event", ["dataset"]):
+                datasets.add(node.get_literals())
+
+    return get_schema_from_datasets(beats, modules, datasets)
+
+
+def get_schema_from_kql(tree: kql.ast.BaseNode, beats: list) -> dict:
+    modules = set()
+    datasets = set()
+
+    # extract out event.module and event.dataset from the query's AST
+    for node in tree:
+        if isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.module"):
+            modules.update(child.value for child in node.value if isinstance(child, kql.ast.String))
+
+        if isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.dataset"):
+            datasets.update(child.value for child in node.value if isinstance(child, kql.ast.String))
+
+    return get_schema_from_datasets(beats, modules, datasets)
