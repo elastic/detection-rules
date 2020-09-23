@@ -145,12 +145,24 @@ class TestThreatMappings(unittest.TestCase):
                                      f'expected:  {expected_tactic} for {tactic["name"]}\n'
                                      f'actual: {tactic["id"]}')
 
+                    tactic_reference_id = tactic['reference'].rstrip('/').split('/')[-1]
+                    self.assertEqual(tactic['id'], tactic_reference_id,
+                                     f'ATT&CK tactic mapping error for rule: {rule.id} - {rule.name} ->\n'
+                                     f'tactic ID {tactic["id"]} does not match the reference URL ID '
+                                     f'{tactic["reference"]}')
+
                     for technique in techniques:
                         expected_technique = attack.technique_lookup[technique['id']]['name']
                         self.assertEqual(expected_technique, technique['name'],
                                          f'ATT&CK technique mapping error for rule: {rule.id} - {rule.name} ->\n'
                                          f'expected: {expected_technique} for {technique["id"]}\n'
                                          f'actual: {technique["name"]}')
+
+                        technique_reference_id = technique['reference'].rstrip('/').split('/')[-1]
+                        self.assertEqual(technique['id'], technique_reference_id,
+                                         f'ATT&CK technique mapping error for rule: {rule.id} - {rule.name} ->\n'
+                                         f'technique ID {technique["id"]} does not match the reference URL ID '
+                                         f'{technique["reference"]}')
 
     def test_technique_deprecations(self):
         """Check and warn for use of any ATT&CK techniques that have been deprecated."""
