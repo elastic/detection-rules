@@ -92,7 +92,7 @@ def gzip_compress(contents):
     return gz_file.getvalue()
 
 
-def open_gzip(path):
+def read_gzip(path):
     with gzip.GzipFile(path, mode='r') as gz:
         return gz.read().decode("utf8")
 

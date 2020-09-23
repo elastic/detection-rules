@@ -10,7 +10,7 @@ import requests
 from collections import OrderedDict
 
 from .semver import Version
-from .utils import get_etc_path, get_etc_glob_path, open_gzip, gzip_compress
+from .utils import get_etc_path, get_etc_glob_path, read_gzip, gzip_compress
 
 PLATFORMS = ['Windows', 'macOS', 'Linux']
 tactics_map = {}
@@ -25,7 +25,7 @@ def get_attack_file_path():
 
 
 def load_attack_gz():
-    return json.loads(open_gzip(get_attack_file_path()))
+    return json.loads(read_gzip(get_attack_file_path()))
 
 
 attack = load_attack_gz()
