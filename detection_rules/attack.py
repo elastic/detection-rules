@@ -12,26 +12,12 @@ from collections import OrderedDict
 from .semver import Version
 from .utils import get_etc_path, get_etc_glob_path, open_gzip, gzip_compress
 
-TACTICS_MAP = {
-    'Initial Access': 'TA0001',
-    'Persistence': 'TA0003',
-    'Privilege Escalation': 'TA0004',
-    'Defense Evasion': 'TA0005',
-    'Credential Access': 'TA0006',
-    'Discovery': 'TA0007',
-    'Lateral Movement': 'TA0008',
-    'Execution': 'TA0002',
-    'Collection': 'TA0009',
-    'Exfiltration': 'TA0010',
-    'Command and Control': 'TA0011',
-    'Impact': 'TA0040'
-}
-TACTICS = list(TACTICS_MAP)
 PLATFORMS = ['Windows', 'macOS', 'Linux']
+tactics_map = {}
 
 
 def get_attack_file_path():
-    pattern = 'att&ck-v*.json.gz'
+    pattern = 'attack-v*.json.gz'
     attack_file = get_etc_glob_path(pattern)
     if len(attack_file) != 1:
         raise FileNotFoundError(f'Missing required {pattern} file')
@@ -48,6 +34,9 @@ technique_lookup = {}
 revoked = {}
 
 for item in attack["objects"]:
+    if item["type"] == "x-mitre-tactic":
+        tactics_map[item['name']] = item['external_references'][0]['external_id']
+
     if item["type"] == "attack-pattern" and item["external_references"][0]['source_name'] == 'mitre-attack':
         technique_id = item['external_references'][0]['external_id']
         technique_lookup[technique_id] = item
@@ -55,8 +44,9 @@ for item in attack["objects"]:
         if item.get('revoked'):
             revoked[technique_id] = item
 
-matrix = {tactic: [] for tactic in TACTICS}
-matrix.update(NO_TACTIC=[])
+tactics = list(tactics_map)
+matrix = {tactic: [] for tactic in tactics}
+no_tactic = []
 attack_tm = 'ATT&CK\u2122'
 
 
@@ -65,10 +55,10 @@ for technique_id, technique in sorted(technique_lookup.items(), key=lambda kv: k
     kill_chain = technique.get('kill_chain_phases')
     if kill_chain:
         for tactic in kill_chain:
-            tactic_name = next(t for t in TACTICS if tactic['kill_chain_name'] == 'mitre-attack' and t.lower() == tactic['phase_name'].replace("-", " "))  # noqa: E501
+            tactic_name = next(t for t in tactics if tactic['kill_chain_name'] == 'mitre-attack' and t.lower() == tactic['phase_name'].replace("-", " "))  # noqa: E501
             matrix[tactic_name].append(technique_id)
         else:
-            matrix['NO_TACTIC'].append(technique_id)
+            no_tactic.append(technique_id)
 
 for tactic in matrix:
     matrix[tactic].sort(key=lambda tid: technique_lookup[tid]['name'].lower())
@@ -83,11 +73,11 @@ def refresh_attack_data(save=True):
     attack_path = get_attack_file_path()
     filename, _, _ = os.path.basename(attack_path).rsplit('.', 2)
 
-    def get_version_from_tag(name):
-        _, version = name.lower().split('att&ck-v', 1)
+    def get_version_from_tag(name, pattern='att&ck-v'):
+        _, version = name.lower().split(pattern, 1)
         return version
 
-    current_version = get_version_from_tag(filename)
+    current_version = get_version_from_tag(filename, 'attack-v')
 
     r = requests.get('https://api.github.com/repos/mitre/cti/tags')
     r.raise_for_status()
@@ -107,7 +97,7 @@ def refresh_attack_data(save=True):
     compressed = gzip_compress(json.dumps(attack_data, sort_keys=True))
 
     if save:
-        new_path = get_etc_path(f'att&ck-v{latest_version}.json.gz')
+        new_path = get_etc_path(f'attack-v{latest_version}.json.gz')
         with open(new_path, 'wb') as f:
             f.write(compressed)
 
@@ -120,7 +110,7 @@ def refresh_attack_data(save=True):
 def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict:
     """Build rule threat map from technique IDs."""
     url_base = 'https://attack.mitre.org/{type}/{id}/'
-    tactic_id = TACTICS_MAP[tactic]
+    tactic_id = tactics_map[tactic]
     entry = {
         'framework': 'MITRE ATT&CK',
         'technique': [

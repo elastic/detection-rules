@@ -13,7 +13,7 @@ import kql
 import eql
 
 from . import ecs, beats
-from .attack import TACTICS, build_threat_map_entry, technique_lookup
+from .attack import tactics, build_threat_map_entry, technique_lookup
 from .rule_formatter import nested_normalize, toml_write
 from .schemas import CurrentSchema, TomlMetadata  # RULE_TYPES, metadata_schema, schema_validate, get_schema
 from .utils import get_path, clear_caches, cached
@@ -301,7 +301,7 @@ class Rule(object):
                 threat_map = []
 
                 while click.confirm('add mitre tactic?'):
-                    tactic = schema_prompt('mitre tactic name', type='string', enum=TACTICS, required=True)
+                    tactic = schema_prompt('mitre tactic name', type='string', enum=tactics, required=True)
                     technique_ids = schema_prompt(f'technique IDs for {tactic}', type='array', required=True,
                                                   enum=list(technique_lookup))
 

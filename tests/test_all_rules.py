@@ -139,7 +139,7 @@ class TestThreatMappings(unittest.TestCase):
                 for entry in threat_mapping:
                     tactic = entry.get('tactic')
                     techniques = entry.get('technique', [])
-                    expected_tactic = attack.TACTICS_MAP[tactic['name']]
+                    expected_tactic = attack.tactics_map[tactic['name']]
                     self.assertEqual(expected_tactic, tactic['id'],
                                      f'ATT&CK tactic mapping error for rule: {rule.id} - {rule.name} ->\n'
                                      f'expected:  {expected_tactic} for {tactic["name"]}\n'
