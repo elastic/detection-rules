@@ -1,0 +1,43 @@
+[metadata]
+creation_date = "2020/09/03"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/09/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the desktopimgdownldr utility being used to download a remote file. An adversary may use desktopimgdownldr to
+download arbitrary files as an alternative to certutil.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Remote File Download via Desktopimgdownldr Utility"
+references = ["https://labs.sentinelone.com/living-off-windows-land-a-new-native-file-downldr/"]
+risk_score = 47
+rule_id = "15c0b7a7-9c34-4869-b25b-fa6518414899"
+severity = "medium"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.category:process and event.type:(start or process_started) and
+ (process.name:desktopimgdownldr.exe or process.pe.original_file_name:desktopimgdownldr.exe) and process.args:/lockscreenurl\:http*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Remote File Copy"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
