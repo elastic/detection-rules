@@ -65,7 +65,7 @@ for tactic in matrix:
 
 
 technique_lookup = OrderedDict(sorted(technique_lookup.items()))
-TECHNIQUES = sorted({v['name'] for k, v in technique_lookup.items()})
+techniques = sorted({v['name'] for k, v in technique_lookup.items()})
 
 
 def refresh_attack_data(save=True):
