@@ -131,7 +131,7 @@ def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict:
 
 
 def update_threat_map(rule_threat_map):
-    """Update rule map to reflect changes from ATT&CK."""
+    """Update rule map techniques to reflect changes from ATT&CK."""
     for entry in rule_threat_map:
         for tech in entry['technique']:
             tech['name'] = technique_lookup[tech['id']]['name']
