@@ -1,0 +1,67 @@
+[metadata]
+creation_date = "2020/09/01"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/09/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a user grants permissions to an Azure-registered application or when an administrator grants tenant-wide
+permissions to an application. An adversary may create an Azure-registered application that requests access to data such
+as contact information, email, or documents.
+"""
+from = "now-25m"
+index = ["filebeat-*"]
+language = "kuery"
+license = "Elastic License"
+name = "Possible Consent Grant Attack via Azure-Registered Application"
+note = """- The Azure Filebeat module must be enabled to use this rule.
+- In a consent grant attack, an attacker tricks an end user into granting a malicious application consent to access their data, usually via a phishing attack. After the malicious application has been granted consent, it has account-level access to data without the need for an organizational account.
+- Normal remediation steps, like resetting passwords for breached accounts or requiring Multi-Factor Authentication (MFA) on accounts, are not effective against this type of attack, since these are third-party applications and are external to the organization.
+- Security analysts should review the list of trusted applications for any suspicious items.
+"""
+references = [
+    "https://docs.microsoft.com/en-us/microsoft-365/security/office-365-security/detect-and-remediate-illicit-consent-grants?view=o365-worldwide",
+]
+risk_score = 47
+rule_id = "1c6a8c7a-5cb6-4a82-ba27-d5a5b8a40a38"
+severity = "medium"
+tags = ["Elastic", "Azure", "Continuous Monitoring", "SecOps", "Identity and Access"]
+type = "query"
+
+query = '''
+event.module:azure and event.dataset:(azure.activitylogs or azure.auditlogs) and
+  (
+    azure.activitylogs.operation_name:"Consent to application" or 
+    azure.auditlogs.operation_name:"Consent to application"
+  ) and
+  event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1192"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1192/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
