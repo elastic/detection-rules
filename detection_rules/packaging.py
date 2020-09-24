@@ -4,11 +4,12 @@
 
 """Packaging and preparation for releases."""
 import base64
+import datetime
 import hashlib
 import json
 import os
 import shutil
-from collections import OrderedDict
+from collections import defaultdict, OrderedDict
 
 import click
 
@@ -20,6 +21,7 @@ from .utils import get_path, get_etc_path
 RELEASE_DIR = get_path("releases")
 PACKAGE_FILE = get_etc_path('packages.yml')
 RULE_VERSIONS = get_etc_path('version.lock.json')
+RULE_DEPRECATIONS = get_etc_path('deprecated_rules.json')
 NOTICE_FILE = get_path('NOTICE.txt')
 
 
@@ -109,17 +111,47 @@ def manage_versions(rules, current_versions=None, exclude_version_update=False, 
     return changed_rules, new_rules.keys()
 
 
+def log_newly_deprecated_rules(rules, save_changes=False, verbose=True):
+    """Save newly deprecated rules to log."""
+    with open(RULE_DEPRECATIONS, 'r') as f:
+        rule_deprecations = json.load(f)
+
+    newly_deprecated = []
+    deprecation_date = str(datetime.date.today())
+
+    for rule in rules:
+        if rule.id not in rule_deprecations:
+            rule_deprecations[rule.id] = {
+                'rule_name': rule.name,
+                'deprecation_date': deprecation_date
+            }
+            newly_deprecated.append(rule.id)
+
+        if save_changes:
+            with open(RULE_DEPRECATIONS, 'w') as f:
+                json.dump(sorted(OrderedDict(rule_deprecations)), f, indent=2, sort_keys=True)
+
+    if verbose:
+        if newly_deprecated:
+            click.echo(f' - {len(newly_deprecated)} newly deprecated rules')
+
+    return newly_deprecated
+
+
 class Package(object):
     """Packaging object for siem rules and releases."""
 
-    def __init__(self, rules, name, release=False, current_versions=None, min_version=None, max_version=None,
-                 update_version_lock=False):
+    def __init__(self, rules, name, deprecated_rules=None, release=False, current_versions=None, min_version=None,
+                 max_version=None, update_version_lock=False):
         """Initialize a package."""
         self.rules = [r.copy() for r in rules]  # type: list[Rule]
         self.name = name
+        self.deprecated_rules = [r.copy() for r in deprecated_rules or []]  # type: list[Rule]
         self.release = release
 
         self.changed_rules, self.new_rules = self._add_versions(current_versions, update_version_lock)
+        # always save deprecation log when versions are locked
+        self.removed_rules = self._log_newly_deprecated_rules(save_changes=update_version_lock)
 
         if min_version or max_version:
             self.rules = [r for r in self.rules
@@ -128,6 +160,10 @@ class Package(object):
     def _add_versions(self, current_versions, update_versions_lock=False):
         """Add versions to rules at load time."""
         return manage_versions(self.rules, current_versions=current_versions, save_changes=update_versions_lock)
+
+    def _log_newly_deprecated_rules(self, save_changes=False, verbose=True):
+        """Save newly deprecated rules to log."""
+        return log_newly_deprecated_rules(self.deprecated_rules, save_changes=save_changes, verbose=verbose)
 
     @staticmethod
     def _package_notice_file(save_dir):
@@ -167,10 +203,10 @@ class Package(object):
         with open(os.path.join(save_dir, 'index.ts'), 'wt') as f:
             f.write('\n'.join(index_ts))
 
-    def save_release_files(self, directory, changed_rules, new_rules):
+    def save_release_files(self, directory, changed_rules, new_rules, removed_rules):
         """Release a package."""
         with open(os.path.join(directory, '{}-summary.txt'.format(self.name)), 'w') as f:
-            f.write(self.generate_summary(changed_rules, new_rules))
+            f.write(self.generate_summary(changed_rules, new_rules, removed_rules))
         with open(os.path.join(directory, '{}-consolidated.json'.format(self.name)), 'w') as f:
             json.dump(json.loads(self.get_consolidated()), f, sort_keys=True, indent=2)
 
@@ -200,7 +236,7 @@ class Package(object):
         self._package_index_file(rules_dir)
 
         if self.release:
-            self.save_release_files(extras_dir, self.changed_rules, self.new_rules)
+            self.save_release_files(extras_dir, self.changed_rules, self.new_rules, self.removed_rules)
 
             # zip all rules only and place in extras
             shutil.make_archive(os.path.join(extras_dir, self.name), 'zip', root_dir=os.path.dirname(rules_dir),
@@ -229,18 +265,17 @@ class Package(object):
         all_rules = rule_loader.load_rules(verbose=False).values()
         config = config or {}
         exclude_fields = config.pop('exclude_fields', {})
+        log_deprecated = config.pop('log_deprecated', False)
         rule_filter = config.pop('filter', {})
-        min_version = config.pop('min_version', None)
-        max_version = config.pop('max_version', None)
 
+        deprecated_rules = [r for r in all_rules if r.metadata['maturity'] == 'deprecated'] if log_deprecated else []
         rules = list(filter(lambda rule: filter_rule(rule, rule_filter, exclude_fields), all_rules))
 
         if verbose:
             click.echo(f' - {len(all_rules) - len(rules)} rules excluded from package')
 
         update = config.pop('update', {})
-        package = cls(rules, min_version=min_version, max_version=max_version, update_version_lock=update_version_lock,
-                      **config)
+        package = cls(rules, deprecated_rules=deprecated_rules, update_version_lock=update_version_lock, **config)
 
         # Allow for some fields to be overwritten
         if update.get('data', {}):
@@ -250,29 +285,78 @@ class Package(object):
 
         return package
 
-    def generate_summary(self, changed_rules, new_rules):
+    def generate_summary(self, changed_rules, new_rules, removed_rules):
         """Generate stats on package."""
-        ecs_versions = set()
-        indices = set()
-        changed = []
-        new = []
+        from string import ascii_lowercase, ascii_uppercase
+
+        changed = defaultdict(list)
+        new = defaultdict(list)
+        removed = defaultdict(list)
+        unchanged = defaultdict(list)
+
+        # build an index map first
+        indexes = set()
+        for rule in self.rules:
+            index_list = rule.contents.get('index')
+            if index_list:
+                indexes.update(index_list)
+
+        letters = ascii_uppercase + ascii_lowercase
+        index_map = {index: letters[i] for i, index in enumerate(sorted(indexes))}
+
+        def get_rule_info(r):
+            rule_str = f'{r.name} -> (v:{r.contents.get("version")} t:{r.type}'
+            rule_str += f'-{r.contents["language"]})' if r.contents.get('language') else ')'
+            rule_str += f'(indexes:{"".join(index_map[i] for i in r.contents.get("index"))})' \
+                if r.contents.get('index') else ''
+            return rule_str
 
         for rule in self.rules:
-            ecs_versions.update(rule.ecs_version)
-            indices.update(rule.contents.get('index', ''))
+            sub_dir = os.path.basename(os.path.dirname(rule.path))
 
             if rule.id in changed_rules:
-                changed.append('{} (v{})'.format(rule.name, rule.contents.get('version')))
+                changed[sub_dir].append(get_rule_info(rule))
             elif rule.id in new_rules:
-                new.append('{} (v{})'.format(rule.name, rule.contents.get('version')))
+                new[sub_dir].append(get_rule_info(rule))
+            else:
+                unchanged[sub_dir].append(get_rule_info(rule))
 
-        total = 'Total Rules: {}'.format(len(self.rules))
-        sha256 = 'Package Hash: {}'.format(self.get_package_hash(verbose=False))
-        ecs_versions = 'ECS Versions: {}'.format(', '.join(ecs_versions))
-        indices = 'Included Indexes: {}'.format(', '.join(indices))
-        new_rules = 'New Rules: \n{}'.format('\n'.join(' - ' + s for s in sorted(new)) if new else 'N/A')
-        modified_rules = 'Modified Rules: \n{}'.format('\n'.join(' - ' + s for s in sorted(changed)) if new else 'N/A')
-        return '\n'.join([total, sha256, ecs_versions, indices, new_rules, modified_rules])
+        for rule in self.deprecated_rules:
+            sub_dir = os.path.basename(os.path.dirname(rule.path))
+
+            if rule.id in removed_rules:
+                removed[sub_dir].append(rule.name)
+
+        date = f'Generated: {datetime.date.today()}'
+        total = f'Total Rules: {len(self.rules)}'
+        sha256 = f'Package Hash: {self.get_package_hash(verbose=False)}'
+        indexes = 'Index Map:\n{}'.format("\n".join(f"  {v}: {k}" for k, v in index_map.items()))
+
+        def format_rule_str(rule_dict):
+            str_fmt = ''
+            for sd, rules in sorted(rule_dict.items(), key=lambda x: x[0]):
+                str_fmt += f'\n{sd.upper()}\n'
+                str_fmt += '\n'.join(' - ' + s for s in sorted(rules))
+            return str_fmt or '\nNone'
+
+        new_rules = f'Rules Added: \n{format_rule_str(new)}\n'
+        modified_rules = f'Rules Changed: \n{format_rule_str(changed)}\n'
+        deleted_rules = f'Rules Removed: \n{format_rule_str(removed)}\n'
+        unchanged_rules = f'Unchanged Rules: \n{format_rule_str(unchanged)}\n'
+
+        return '\n'.join([
+            date,
+            total,
+            sha256,
+            '---',
+            '(v: version, t: rule_type-language)',
+            indexes,
+            '',
+            new_rules,
+            modified_rules,
+            deleted_rules,
+            unchanged_rules
+        ])
 
     def bump_versions(self, save_changes=False, current_versions=None):
         """Bump the versions of all production rules included in a release and optionally save changes."""
