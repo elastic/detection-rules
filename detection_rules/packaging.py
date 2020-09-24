@@ -51,9 +51,8 @@ def filter_rule(rule, config_filter, exclude_fields):  # type: (Rule,dict,dict) 
     return True
 
 
-def manage_versions(rules, current_versions=None, exclude_version_update=False, add_new=True, save_changes=False,
-                    verbose=True):
-    # type: (list[Rule], dict, bool, bool, bool, bool) -> [list, list]
+def manage_versions(rules: list, deprecated_rules: list = None, current_versions: dict = None,
+                    exclude_version_update=False, add_new=True, save_changes=False, verbose=True) -> (list, list, list):
     """Update the contents of the version.lock file and optionally save changes."""
     new_rules = {}
     changed_rules = []
@@ -84,8 +83,25 @@ def manage_versions(rules, current_versions=None, exclude_version_update=False, 
             else:
                 rule.contents['version'] = version
 
+    # manage deprecated rules
+    newly_deprecated = []
+
+    if deprecated_rules:
+        with open(RULE_DEPRECATIONS, 'r') as f:
+            rule_deprecations = json.load(f)
+
+        deprecation_date = str(datetime.date.today())
+
+        for rule in deprecated_rules:
+            if rule.id not in rule_deprecations:
+                rule_deprecations[rule.id] = {
+                    'rule_name': rule.name,
+                    'deprecation_date': deprecation_date
+                }
+                newly_deprecated.append(rule.id)
+
     # update the document with the new rules
-    if new_rules or changed_rules:
+    if new_rules or changed_rules or newly_deprecated:
         if verbose:
             click.echo('Rule hash changes detected!')
 
@@ -96,19 +112,29 @@ def manage_versions(rules, current_versions=None, exclude_version_update=False, 
             with open(RULE_VERSIONS, 'w') as f:
                 json.dump(current_versions, f, indent=2, sort_keys=True)
 
+            if verbose:
+                click.echo('Updated version.lock.json file')
+
+            if newly_deprecated:
+                with open(RULE_DEPRECATIONS, 'w') as f:
+                    json.dump(sorted(OrderedDict(rule_deprecations)), f, indent=2, sort_keys=True)
+
                 if verbose:
-                    click.echo('Updated version.lock.json file with:')
+                    click.echo('Updated deprecated_rules.json file')
         else:
             if verbose:
-                click.echo('run `build-release --update-version-lock` to update the version.lock.json file')
+                click.echo('run `build-release --update-version-lock` to update the version.lock.json and '
+                           'deprecated_rules.json files')
 
         if verbose:
             if changed_rules:
                 click.echo(' - {} changed rule version(s)'.format(len(changed_rules)))
             if new_rules:
                 click.echo(' - {} new rule version addition(s)'.format(len(new_rules)))
+            if newly_deprecated:
+                click.echo(f' - {len(newly_deprecated)} newly deprecated rules')
 
-    return changed_rules, new_rules.keys()
+    return changed_rules, new_rules.keys(), newly_deprecated
 
 
 def log_newly_deprecated_rules(rules, save_changes=False, verbose=True):
@@ -149,9 +175,8 @@ class Package(object):
         self.deprecated_rules = [r.copy() for r in deprecated_rules or []]  # type: list[Rule]
         self.release = release
 
-        self.changed_rules, self.new_rules = self._add_versions(current_versions, update_version_lock)
-        # always save deprecation log when versions are locked
-        self.removed_rules = self._log_newly_deprecated_rules(save_changes=update_version_lock)
+        self.changed_rules, self.new_rules, self.removed_rules = self._add_versions(current_versions,
+                                                                                    update_version_lock)
 
         if min_version or max_version:
             self.rules = [r for r in self.rules
@@ -159,11 +184,8 @@ class Package(object):
 
     def _add_versions(self, current_versions, update_versions_lock=False):
         """Add versions to rules at load time."""
-        return manage_versions(self.rules, current_versions=current_versions, save_changes=update_versions_lock)
-
-    def _log_newly_deprecated_rules(self, save_changes=False, verbose=True):
-        """Save newly deprecated rules to log."""
-        return log_newly_deprecated_rules(self.deprecated_rules, save_changes=save_changes, verbose=verbose)
+        return manage_versions(self.rules, deprecated_rules=self.deprecated_rules, current_versions=current_versions,
+                               save_changes=update_versions_lock)
 
     @staticmethod
     def _package_notice_file(save_dir):
@@ -305,7 +327,7 @@ class Package(object):
         index_map = {index: letters[i] for i, index in enumerate(sorted(indexes))}
 
         def get_rule_info(r):
-            rule_str = f'{r.name} -> (v:{r.contents.get("version")} t:{r.type}'
+            rule_str = f'{r.name} | (v:{r.contents.get("version")} t:{r.type}'
             rule_str += f'-{r.contents["language"]})' if r.contents.get('language') else ')'
             rule_str += f'(indexes:{"".join(index_map[i] for i in r.contents.get("index"))})' \
                 if r.contents.get('index') else ''
@@ -335,14 +357,20 @@ class Package(object):
         def format_rule_str(rule_dict):
             str_fmt = ''
             for sd, rules in sorted(rule_dict.items(), key=lambda x: x[0]):
-                str_fmt += f'\n{sd.upper()}\n'
+                str_fmt += f'\n{sd.upper()} ({len(rules)})\n'
                 str_fmt += '\n'.join(' - ' + s for s in sorted(rules))
             return str_fmt or '\nNone'
 
-        new_rules = f'Rules Added: \n{format_rule_str(new)}\n'
-        modified_rules = f'Rules Changed: \n{format_rule_str(changed)}\n'
-        deleted_rules = f'Rules Removed: \n{format_rule_str(removed)}\n'
-        unchanged_rules = f'Unchanged Rules: \n{format_rule_str(unchanged)}\n'
+        def rule_count(rule_dict):
+            count = 0
+            for _, rules in rule_dict.items():
+                count += len(rules)
+            return count
+
+        new_rules = f'Rules Added ({rule_count(new)}): \n{format_rule_str(new)}\n'
+        modified_rules = f'Rules Changed ({rule_count(changed)}): \n{format_rule_str(changed)}\n'
+        deleted_rules = f'Rules Removed ({rule_count(removed)}): \n{format_rule_str(removed)}\n'
+        unchanged_rules = f'Unchanged Rules ({rule_count(unchanged)}): \n{format_rule_str(unchanged)}\n'
 
         return '\n'.join([
             date,
@@ -360,4 +388,5 @@ class Package(object):
 
     def bump_versions(self, save_changes=False, current_versions=None):
         """Bump the versions of all production rules included in a release and optionally save changes."""
-        return manage_versions(self.rules, current_versions=current_versions, save_changes=save_changes)
+        changed, new, _ = manage_versions(self.rules, current_versions=current_versions, save_changes=save_changes)
+        return changed, new
