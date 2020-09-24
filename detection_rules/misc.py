@@ -45,11 +45,12 @@ def nested_get(_dict, dot_key, default=None):
 
 def nested_set(_dict, dot_key, value):
     """Set a nested field from a a key in dot notation."""
-    for key in dot_key.split('.')[:-1]:
+    keys = dot_key.split('.')
+    for key in keys[:-1]:
         _dict = _dict.setdefault(key, {})
 
     if isinstance(_dict, dict):
-        _dict[dot_key[-1]] = value
+        _dict[keys[-1]] = value
     else:
         raise ValueError('dict cannot set a value to a non-dict for {}'.format(dot_key))
 
