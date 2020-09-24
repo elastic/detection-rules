@@ -23,7 +23,7 @@ RULE_VERSIONS = get_etc_path('version.lock.json')
 NOTICE_FILE = get_path('NOTICE.txt')
 
 
-def filter_rule(rule, config_filter):  # type: (Rule,dict) -> bool  # rule.contents (not api), filter_dict -> match
+def filter_rule(rule, config_filter, exclude_fields):  # type: (Rule,dict,dict) -> bool
     """Filter a rule based off metadata and a package configuration."""
     flat_rule = rule.flattened_contents
     for key, values in config_filter.items():
@@ -40,6 +40,11 @@ def filter_rule(rule, config_filter):  # type: (Rule,dict) -> bool  # rule.conte
 
         if len(rule_values & values) == 0:
             return False
+
+    for index, fields in exclude_fields.items():
+        if rule.unique_fields and (rule.contents['index'] == index or index == 'any'):
+            if set(rule.unique_fields) & set(fields):
+                return False
 
     return True
 
@@ -219,15 +224,20 @@ class Package(object):
         return sha256
 
     @classmethod
-    def from_config(cls, config=None, update_version_lock=False):  # type: (dict, bool) -> Package
+    def from_config(cls, config: dict = None, update_version_lock: bool = False, verbose: bool = False) -> 'Package':
         """Load a rules package given a config."""
         all_rules = rule_loader.load_rules(verbose=False).values()
         config = config or {}
+        exclude_fields = config.pop('exclude_fields', {})
         rule_filter = config.pop('filter', {})
         min_version = config.pop('min_version', None)
         max_version = config.pop('max_version', None)
 
-        rules = filter(lambda rule: filter_rule(rule, rule_filter), all_rules)
+        rules = list(filter(lambda rule: filter_rule(rule, rule_filter, exclude_fields), all_rules))
+
+        if verbose:
+            click.echo(f' - {len(all_rules) - len(rules)} rules excluded from package')
+
         update = config.pop('update', {})
         package = cls(rules, min_version=min_version, max_version=max_version, update_version_lock=update_version_lock,
                       **config)
