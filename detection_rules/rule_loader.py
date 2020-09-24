@@ -15,7 +15,7 @@ import pytoml
 
 from .mappings import RtaMappings
 from .rule import RULES_DIR, Rule
-from .schema import get_schema
+from .schemas import CurrentSchema
 from .utils import get_path, cached
 
 
@@ -93,12 +93,13 @@ def load_rules(file_lookup=None, verbose=True, error=True):
                 raise KeyError("Rule has duplicate name to {}".format(
                     next(r for r in rules if r.name == rule.name).path))
 
-            if rule.parsed_kql:
-                if rule.parsed_kql in queries:
+            parsed_query = rule.parsed_query
+            if parsed_query is not None:
+                if parsed_query in queries:
                     raise KeyError("Rule has duplicate query with {}".format(
-                        next(r for r in rules if r.parsed_kql == rule.parsed_kql).path))
+                        next(r for r in rules if r.parsed_query == parsed_query).path))
 
-                queries.append(rule.parsed_kql)
+                queries.append(parsed_query)
 
             if not re.match(FILE_PATTERN, os.path.basename(rule.path)):
                 raise ValueError(f"Rule {rule.path} does not meet rule name standard of {FILE_PATTERN}")
@@ -161,17 +162,17 @@ def get_rule_contents(rule_id, verbose=True):
 @cached
 def filter_rules(rules, metadata_field, value):
     """Filter rules based on the metadata."""
-    return [rule for rule in rules if rule.metadata.get(metadata_field, {}) == value]
+    return [rule for rule in rules if rule.metadata.get(metadata_field, '') == value]
 
 
-def get_production_rules():
+def get_production_rules(verbose=False):
     """Get rules with a maturity of production."""
-    return filter_rules(load_rules().values(), 'maturity', 'production')
+    return filter_rules(load_rules(verbose=verbose).values(), 'maturity', 'production')
 
 
 def find_unneeded_defaults(rule):
     """Remove values that are not required in the schema which are set with default values."""
-    schema = get_schema(rule.contents['type'])
+    schema = CurrentSchema.get_schema(rule.type)
     props = schema['properties']
     unrequired_defaults = [p for p in props if p not in schema['required'] and props[p].get('default')]
     default_matches = {p: rule.contents[p] for p in unrequired_defaults

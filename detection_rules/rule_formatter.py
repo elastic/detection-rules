@@ -10,7 +10,7 @@ from collections import OrderedDict
 
 import toml
 
-from .schema import NONFORMATTED_FIELDS
+from .schemas import CurrentSchema
 
 SQ = "'"
 DQ = '"'
@@ -34,7 +34,7 @@ def nested_normalize(d, skip_cleanup=False):
             if k == 'query':
                 # TODO: the linter still needs some work, but once up to par, uncomment to implement - kql.lint(v)
                 d.update({k: nested_normalize(v)})
-            elif k in NONFORMATTED_FIELDS:
+            elif k in CurrentSchema.markdown_fields():
                 # let these maintain newlines and whitespace for markdown support
                 d.update({k: nested_normalize(v, skip_cleanup=True)})
             else:
@@ -142,10 +142,11 @@ def toml_write(rule_contents, outfile=None):
             #     but will at least purge extraneous white space
             query = contents['rule'].pop('query', '').strip()
 
-            tags = contents['rule'].get("tags", [])
-
-            if tags and isinstance(tags, list):
-                contents['rule']["tags"] = list(sorted(set(tags)))
+            # - As tags are expanding, we may want to reconsider the need to have them in alphabetical order
+            # tags = contents['rule'].get("tags", [])
+            #
+            # if tags and isinstance(tags, list):
+            #     contents['rule']["tags"] = list(sorted(set(tags)))
 
         top = OrderedDict()
         bottom = OrderedDict()
@@ -160,7 +161,7 @@ def toml_write(rule_contents, outfile=None):
                     bottom[k] = v
                 else:
                     top[k] = v
-            elif k in NONFORMATTED_FIELDS:
+            elif k in CurrentSchema.markdown_fields():
                 top[k] = NonformattedField(v)
             else:
                 top[k] = v

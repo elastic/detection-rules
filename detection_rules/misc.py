@@ -12,7 +12,7 @@ import uuid
 import click
 import requests
 
-from .utils import ROOT_DIR
+from .utils import cached, get_path
 
 _CONFIG = {}
 
@@ -45,11 +45,12 @@ def nested_get(_dict, dot_key, default=None):
 
 def nested_set(_dict, dot_key, value):
     """Set a nested field from a a key in dot notation."""
-    for key in dot_key.split('.')[:-1]:
+    keys = dot_key.split('.')
+    for key in keys[:-1]:
         _dict = _dict.setdefault(key, {})
 
     if isinstance(_dict, dict):
-        _dict[dot_key[-1]] = value
+        _dict[keys[-1]] = value
     else:
         raise ValueError('dict cannot set a value to a non-dict for {}'.format(dot_key))
 
@@ -74,6 +75,9 @@ def schema_prompt(name, value=None, required=False, **options):
 
     if name == 'rule_id':
         default = str(uuid.uuid4())
+
+    if len(enum) == 1 and required and field_type != "array":
+        return enum[0]
 
     def _check_type(_val):
         if field_type in ('number', 'integer') and not str(_val).isdigit():
@@ -148,64 +152,72 @@ def schema_prompt(name, value=None, required=False, **options):
 
 def get_kibana_rules_map(branch='master'):
     """Get list of available rules from the Kibana repo and return a list of URLs."""
-    r = requests.get('https://api.github.com/repos/elastic/kibana/branches?per_page=1000')
-    branch_names = [b['name'] for b in r.json()]
-    if branch not in branch_names:
-        raise ValueError('branch "{}" does not exist in kibana'.format(branch))
+    # ensure branch exists
+    r = requests.get(f'https://api.github.com/repos/elastic/kibana/branches/{branch}')
+    r.raise_for_status()
 
-    url = ('https://api.github.com/repos/elastic/kibana/contents/x-pack/{legacy}plugins/siem/server/lib/'
+    url = ('https://api.github.com/repos/elastic/kibana/contents/x-pack/{legacy}plugins/{app}/server/lib/'
            'detection_engine/rules/prepackaged_rules?ref={branch}')
 
-    gh_rules = requests.get(url.format(legacy='', branch=branch)).json()
+    gh_rules = requests.get(url.format(legacy='', app='security_solution', branch=branch)).json()
+
+    # pre-7.9 app was siem
+    if isinstance(gh_rules, dict) and gh_rules.get('message', '') == 'Not Found':
+        gh_rules = requests.get(url.format(legacy='', app='siem', branch=branch)).json()
 
     # pre-7.8 the siem was under the legacy directory
     if isinstance(gh_rules, dict) and gh_rules.get('message', '') == 'Not Found':
-        gh_rules = requests.get(url.format(legacy='legacy/', branch=branch)).json()
+        gh_rules = requests.get(url.format(legacy='legacy/', app='siem', branch=branch)).json()
+
+    if isinstance(gh_rules, dict) and gh_rules.get('message', '') == 'Not Found':
+        raise ValueError(f'rules directory does not exist for branch: {branch}')
 
     return {os.path.splitext(r['name'])[0]: r['download_url'] for r in gh_rules if r['name'].endswith('.json')}
 
 
-def get_kibana_rules(*rule_paths, branch='master', verbose=True):
+def get_kibana_rules(*rule_paths, branch='master', verbose=True, threads=50):
     """Retrieve prepackaged rules from kibana repo."""
+    from multiprocessing.pool import ThreadPool
+
+    kibana_rules = {}
+
     if verbose:
-        click.echo('Downloading rules from {} branch in kibana repo...'.format(branch))
+        thread_use = f' using {threads} threads' if threads > 1 else ''
+        click.echo(f'Downloading rules from {branch} branch in kibana repo{thread_use} ...')
 
-    if rule_paths:
-        rule_paths = [os.path.splitext(os.path.basename(p))[0] for p in rule_paths]
-        return {n: requests.get(r).json() for n, r in get_kibana_rules_map(branch).items() if n in rule_paths}
-    else:
-        return {n: requests.get(r).json() for n, r in get_kibana_rules_map(branch).items()}
+    rule_paths = [os.path.splitext(os.path.basename(p))[0] for p in rule_paths]
+    rules_mapping = [(n, u) for n, u in get_kibana_rules_map(branch).items() if n in rule_paths] if rule_paths else \
+        get_kibana_rules_map(branch).items()
+
+    def download_worker(rule_info):
+        n, u = rule_info
+        kibana_rules[n] = requests.get(u).json()
+
+    pool = ThreadPool(processes=threads)
+    pool.map(download_worker, rules_mapping)
+    pool.close()
+    pool.join()
+
+    return kibana_rules
 
 
+@cached
 def parse_config():
     """Parse a default config file."""
-    global _CONFIG
+    config_file = get_path('.detection-rules-cfg.json')
+    config = {}
 
-    if not _CONFIG:
-        config_file = os.path.join(ROOT_DIR, '.siem-rules-cfg.json')
+    if os.path.exists(config_file):
+        with open(config_file) as f:
+            config = json.load(f)
 
-        if os.path.exists(config_file):
-            with open(config_file) as f:
-                _CONFIG = json.load(f)
+        click.secho('Loaded config file: {}'.format(config_file), fg='yellow')
 
-            click.secho('Loaded config file: {}'.format(config_file), fg='yellow')
-
-    return _CONFIG
+    return config
 
 
-def set_param_values(ctx, param, value):
-    """Get value for defined key."""
-    key = param.name
+def getdefault(name):
+    """Callback function for `default` to get an environment variable."""
+    envvar = f"DR_{name.upper()}"
     config = parse_config()
-    env_key = 'DR_' + key
-    prompt = True if param.hide_input is not False else False
-
-    if value:
-        return value
-    elif os.environ.get(env_key):
-        return os.environ[env_key]
-    elif config.get(key) is not None:
-        return config[key]
-    elif prompt:
-        return click.prompt(key, default=param.default if not param.default else None, hide_input=param.hide_input,
-                            show_default=True if param.default else False)
+    return lambda: os.environ.get(envvar, config.get(name))
