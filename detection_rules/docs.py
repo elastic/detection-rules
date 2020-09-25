@@ -24,6 +24,7 @@ class PackageDocument(xlsxwriter.Workbook):
         self.percent = self.add_format({'num_format': '0%'})
 
         self.bold = self.add_format({'bold': True})
+        self.default_header_format = self.add_format({'bold': True, 'bg_color': '#FFBE33'})
         self.center = self.add_format({'align': 'center', 'valign': 'center'})
         self.bold_center = self.add_format({'bold': True, 'align': 'center', 'valign': 'center'})
         self.right_align = self.add_format({'align': 'right'})
@@ -127,7 +128,7 @@ class PackageDocument(xlsxwriter.Workbook):
                    f'{attack_tm} Tactics', f'{attack_tm} Techniques', 'Description')
 
         for column, header in enumerate(headers):
-            worksheet.write(0, column, header, self.bold)
+            worksheet.write(0, column, header, self.default_header_format)
 
         metadata_fields = ('name', 'rule_id', 'version', 'type', 'language', 'index', 'tags')
 
@@ -169,7 +170,7 @@ class PackageDocument(xlsxwriter.Workbook):
         for index, width in enumerate(column_max_widths):
             worksheet.set_column(index, index, width)
 
-        worksheet.autofilter(0, 0, len(rules) + 1, len(headers))
+        worksheet.autofilter(0, 0, len(rules) + 1, len(headers) - 1)
 
     def add_rta_mapping(self):
         """Add a worksheet for the RTA/Rule RTA mapping."""
@@ -179,7 +180,7 @@ class PackageDocument(xlsxwriter.Workbook):
         worksheet.freeze_panes(1, 0)
         headers = ('Rule ID', 'Rule Name', 'RTA')
         for column, header in enumerate(headers):
-            worksheet.write(0, column, header, self.bold)
+            worksheet.write(0, column, header, self.default_header_format)
 
         row = 1
         for rule_id, mapping in rta_mappings.get_rta_mapping().items():
@@ -217,4 +218,4 @@ class PackageDocument(xlsxwriter.Workbook):
                 worksheet.write_url(row, column, technique_url + technique_id.replace('.', '/'), cell_format=fmt,
                                     string=technique['name'], tip=f'{technique_id}{coverage_str}')
 
-        worksheet.autofilter(0, 0, max([len(v) for k, v in matrix.items()]) + 1, len(tactics))
+        worksheet.autofilter(0, 0, max([len(v) for k, v in matrix.items()]) + 1, len(tactics) - 1)
