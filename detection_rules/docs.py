@@ -4,6 +4,7 @@
 
 """Create summary documents for a rule package."""
 from collections import defaultdict
+from pathlib import Path
 
 import xlsxwriter
 
@@ -42,10 +43,11 @@ class PackageDocument(xlsxwriter.Workbook):
         return super(PackageDocument, self).add_format(properties)
 
     def _get_attack_coverage(self):
-        coverage = defaultdict(lambda: defaultdict(int))
+        coverage = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
 
         for rule in self.package.rules:
             threat = rule.contents.get('threat')
+            sub_dir = Path(rule.path).parent.name
 
             if threat:
                 for entry in threat:
@@ -53,7 +55,7 @@ class PackageDocument(xlsxwriter.Workbook):
                     techniques = entry['technique']
                     for technique in techniques:
                         if technique['id'] in matrix[tactic['name']]:
-                            coverage[tactic['name']][technique['id']] += 1
+                            coverage[tactic['name']][technique['id']][sub_dir] += 1
 
         return coverage
 
@@ -206,8 +208,12 @@ class PackageDocument(xlsxwriter.Workbook):
             for row, technique_id in enumerate(matrix[tactic], 1):
                 technique = technique_lookup[technique_id]
                 fmt = bold if technique_id in self._coverage[tactic] else default
-                coverage_count = self._coverage[tactic].get(technique_id)
-                coverage_str = f' ({coverage_count} rules)' if coverage_count else ''
+
+                coverage = self._coverage[tactic].get(technique_id)
+                coverage_str = ''
+                if coverage:
+                    coverage_str = '\n\n' + '\n'.join(f'{sub_dir}: {count}' for sub_dir, count in coverage.items())
+
                 worksheet.write_url(row, column, technique_url + technique_id.replace('.', '/'), cell_format=fmt,
                                     string=technique['name'], tip=f'{technique_id}{coverage_str}')
 
