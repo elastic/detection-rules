@@ -61,7 +61,7 @@ class TestPackages(unittest.TestCase):
         rules = rule_loader.get_production_rules()
         package = Package(rules, 'test-package')
         changed_rule_ids, new_rule_ids, deprecated_rule_ids = package.bump_versions(save_changes=False)
-        package.generate_summary(changed_rule_ids, new_rule_ids, deprecated_rule_ids)
+        package.generate_summary_and_changelog(changed_rule_ids, new_rule_ids, deprecated_rule_ids)
 
     def test_versioning_diffs(self):
         """Test that versioning is detecting diffs as expected."""

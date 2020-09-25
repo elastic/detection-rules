@@ -200,8 +200,12 @@ class Package(object):
 
     def save_release_files(self, directory, changed_rules, new_rules, removed_rules):
         """Release a package."""
+        summary, changelog = self.generate_summary_and_changelog(changed_rules, new_rules, removed_rules)
+
         with open(os.path.join(directory, f'{self.name}-summary.txt'), 'w') as f:
-            f.write(self.generate_summary(changed_rules, new_rules, removed_rules))
+            f.write(summary)
+        with open(os.path.join(directory, f'{self.name}-changelog-entry.txt'), 'w') as f:
+            f.write(changelog)
         with open(os.path.join(directory, f'{self.name}-consolidated.json'), 'w') as f:
             json.dump(json.loads(self.get_consolidated()), f, sort_keys=True, indent=2)
         self.generate_xslx(os.path.join(directory, f'{self.name}-summary.xlsx'))
@@ -281,14 +285,22 @@ class Package(object):
 
         return package
 
-    def generate_summary(self, changed_rules, new_rules, removed_rules):
+    def generate_summary_and_changelog(self, changed_rule_ids, new_rule_ids, removed_rules):
         """Generate stats on package."""
         from string import ascii_lowercase, ascii_uppercase
 
-        changed = defaultdict(list)
-        new = defaultdict(list)
-        removed = defaultdict(list)
-        unchanged = defaultdict(list)
+        summary = {
+            'changed': defaultdict(list),
+            'added': defaultdict(list),
+            'removed': defaultdict(list),
+            'unchanged': defaultdict(list)
+        }
+        changelog = {
+            'changed': defaultdict(list),
+            'added': defaultdict(list),
+            'removed': defaultdict(list),
+            'unchanged': defaultdict(list)
+        }
 
         # build an index map first
         indexes = set()
@@ -300,39 +312,54 @@ class Package(object):
         letters = ascii_uppercase + ascii_lowercase
         index_map = {index: letters[i] for i, index in enumerate(sorted(indexes))}
 
-        def get_rule_info(r):
+        def get_summary_rule_info(r: Rule):
             rule_str = f'{r.name} | (v:{r.contents.get("version")} t:{r.type}'
             rule_str += f'-{r.contents["language"]})' if r.contents.get('language') else ')'
             rule_str += f'(indexes:{"".join(index_map[i] for i in r.contents.get("index"))})' \
                 if r.contents.get('index') else ''
             return rule_str
 
+        def get_markdown_rule_info(r: Rule, sd):
+            rules_dir_link = f'https://github.com/elastic/detection-rules/tree/v{self.name}/rules/{sd}/'
+            return f'`{r.id}` **[{r.name}]({rules_dir_link + os.path.basename(r.path)})** (_{r.type}_)'
+
         for rule in self.rules:
             sub_dir = os.path.basename(os.path.dirname(rule.path))
 
-            if rule.id in changed_rules:
-                changed[sub_dir].append(get_rule_info(rule))
-            elif rule.id in new_rules:
-                new[sub_dir].append(get_rule_info(rule))
+            if rule.id in changed_rule_ids:
+                summary['changed'][sub_dir].append(get_summary_rule_info(rule))
+                changelog['changed'][sub_dir].append(get_markdown_rule_info(rule, sub_dir))
+            elif rule.id in new_rule_ids:
+                summary['added'][sub_dir].append(get_summary_rule_info(rule))
+                changelog['added'][sub_dir].append(get_markdown_rule_info(rule, sub_dir))
             else:
-                unchanged[sub_dir].append(get_rule_info(rule))
+                summary['unchanged'][sub_dir].append(get_summary_rule_info(rule))
+                changelog['unchanged'][sub_dir].append(get_markdown_rule_info(rule, sub_dir))
 
         for rule in self.deprecated_rules:
             sub_dir = os.path.basename(os.path.dirname(rule.path))
 
             if rule.id in removed_rules:
-                removed[sub_dir].append(rule.name)
+                summary['removed'][sub_dir].append(rule.name)
+                changelog['removed'][sub_dir].append(rule.name)
 
         date = f'Generated: {datetime.date.today()}'
         total = f'Total Rules: {len(self.rules)}'
         sha256 = f'Package Hash: {self.get_package_hash(verbose=False)}'
         indexes = 'Index Map:\n{}'.format("\n".join(f"  {v}: {k}" for k, v in index_map.items()))
 
-        def format_rule_str(rule_dict):
+        def format_summary_rule_str(rule_dict):
             str_fmt = ''
             for sd, rules in sorted(rule_dict.items(), key=lambda x: x[0]):
-                str_fmt += f'\n{sd.upper()} ({len(rules)})\n'
+                str_fmt += f'\n{sd} ({len(rules)})\n'
                 str_fmt += '\n'.join(' - ' + s for s in sorted(rules))
+            return str_fmt or '\nNone'
+
+        def format_changelog_rule_str(rule_dict):
+            str_fmt = ''
+            for sd, rules in sorted(rule_dict.items(), key=lambda x: x[0]):
+                str_fmt += f'\n- **{sd}** ({len(rules)})\n'
+                str_fmt += '\n'.join('   - ' + s for s in sorted(rules))
             return str_fmt or '\nNone'
 
         def rule_count(rule_dict):
@@ -341,12 +368,13 @@ class Package(object):
                 count += len(rules)
             return count
 
-        new_rules = f'Rules Added ({rule_count(new)}): \n{format_rule_str(new)}\n'
-        modified_rules = f'Rules Changed ({rule_count(changed)}): \n{format_rule_str(changed)}\n'
-        deleted_rules = f'Rules Removed ({rule_count(removed)}): \n{format_rule_str(removed)}\n'
-        unchanged_rules = f'Unchanged Rules ({rule_count(unchanged)}): \n{format_rule_str(unchanged)}\n'
+        summary_fmt = [f'{sf.capitalize()} ({rule_count(summary[sf])}): \n{format_summary_rule_str(summary[sf])}\n'
+                       for sf in ('added', 'changed', 'removed', 'unchanged') if summary[sf]]
 
-        return '\n'.join([
+        change_fmt = [f'{sf.capitalize()} ({rule_count(changelog[sf])}): \n{format_changelog_rule_str(changelog[sf])}\n'
+                      for sf in ('added', 'changed', 'removed') if changelog[sf]]
+
+        summary_str = '\n'.join([
             date,
             total,
             sha256,
@@ -354,11 +382,21 @@ class Package(object):
             '(v: version, t: rule_type-language)',
             indexes,
             '',
-            new_rules,
-            modified_rules,
-            deleted_rules,
-            unchanged_rules
+            'Rules',
+            *summary_fmt
         ])
+
+        changelog_str = '\n'.join([
+            f'# Version {self.name}',
+            f'_Released {str(datetime.date.today())}_',
+            '',
+            '### Rules',
+            *change_fmt,
+            '',
+            '### CLI'
+        ])
+
+        return summary_str, changelog_str
 
     def generate_xslx(self, path):
         """Generate a detailed breakdown of a package in an excel file."""
@@ -367,9 +405,6 @@ class Package(object):
         doc = PackageDocument(path, self)
         doc.populate()
         doc.close()
-
-    def generate_changelog_entry(self):
-        """Generate a changelog entry."""
 
     def generate_json_visualization(self):
         """Maybe."""
