@@ -204,7 +204,7 @@ class Package(object):
 
         with open(os.path.join(directory, f'{self.name}-summary.txt'), 'w') as f:
             f.write(summary)
-        with open(os.path.join(directory, f'{self.name}-changelog-entry.txt'), 'w') as f:
+        with open(os.path.join(directory, f'{self.name}-changelog-entry.md'), 'w') as f:
             f.write(changelog)
         with open(os.path.join(directory, f'{self.name}-consolidated.json'), 'w') as f:
             json.dump(json.loads(self.get_consolidated()), f, sort_keys=True, indent=2)
@@ -321,7 +321,8 @@ class Package(object):
 
         def get_markdown_rule_info(r: Rule, sd):
             rules_dir_link = f'https://github.com/elastic/detection-rules/tree/v{self.name}/rules/{sd}/'
-            return f'`{r.id}` **[{r.name}]({rules_dir_link + os.path.basename(r.path)})** (_{r.type}_)'
+            rule_type = r.contents['language'] if r.type in ('query', 'eql') else r.type
+            return f'`{r.id}` **[{r.name}]({rules_dir_link + os.path.basename(r.path)})** (_{rule_type}_)'
 
         for rule in self.rules:
             sub_dir = os.path.basename(os.path.dirname(rule.path))
