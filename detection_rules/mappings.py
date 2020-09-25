@@ -50,7 +50,7 @@ class RtaMappings(object):
     def get_rta_mapping(self):
         """Build the rule<-->rta mapping based off the mapping file."""
         if not self._rta_mapping:
-            self._rta_mapping = {rule_id: data['rta'] for rule_id, data in self.mapping.items()}
+            self._rta_mapping = self.mapping.copy()
 
         return self._rta_mapping
 

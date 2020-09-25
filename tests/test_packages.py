@@ -8,7 +8,7 @@ import uuid
 import yaml
 
 from detection_rules import rule_loader
-from detection_rules.packaging import PACKAGE_FILE, Package, log_newly_deprecated_rules
+from detection_rules.packaging import PACKAGE_FILE, Package
 
 
 class TestPackages(unittest.TestCase):
@@ -59,11 +59,8 @@ class TestPackages(unittest.TestCase):
     def test_package_summary(self):
         """Test the generation of the package summary."""
         rules = rule_loader.get_production_rules()
-        deprecated_rules = [r for r in rule_loader.load_rules().values() if r.metadata['maturity'] == 'deprecated']
-
         package = Package(rules, 'test-package')
-        changed_rule_ids, new_rule_ids = package.bump_versions(save_changes=False)
-        deprecated_rule_ids = log_newly_deprecated_rules(deprecated_rules)
+        changed_rule_ids, new_rule_ids, deprecated_rule_ids = package.bump_versions(save_changes=False)
         package.generate_summary(changed_rule_ids, new_rule_ids, deprecated_rule_ids)
 
     def test_versioning_diffs(self):
@@ -80,7 +77,7 @@ class TestPackages(unittest.TestCase):
 
         # test versioning detects a new rule
         package.rules[0].contents.pop('version')
-        changed_rules, new_rules = package.bump_versions(current_versions={})
+        changed_rules, new_rules, _ = package.bump_versions(current_versions={})
 
         self.assertEqual(0, len(changed_rules), 'Package version bumping is improperly detecting changed rules')
         self.assertEqual(1, len(new_rules), 'Package version bumping is not detecting new rules')
@@ -90,7 +87,7 @@ class TestPackages(unittest.TestCase):
         # test versioning detects a hash changes
         package.rules[0].contents.pop('version')
         package.rules[0].contents['query'] = 'process.name:changed.test.query'
-        changed_rules, new_rules = package.bump_versions(current_versions=version_info)
+        changed_rules, new_rules, _ = package.bump_versions(current_versions=version_info)
 
         self.assertEqual(1, len(changed_rules), 'Package version bumping is not detecting changed rules')
         self.assertEqual(0, len(new_rules), 'Package version bumping is improperly detecting new rules')

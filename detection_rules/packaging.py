@@ -25,7 +25,7 @@ RULE_DEPRECATIONS = get_etc_path('deprecated_rules.json')
 NOTICE_FILE = get_path('NOTICE.txt')
 
 
-def filter_rule(rule, config_filter, exclude_fields):  # type: (Rule,dict,dict) -> bool
+def filter_rule(rule: Rule, config_filter: dict, exclude_fields: dict) -> bool:
     """Filter a rule based off metadata and a package configuration."""
     flat_rule = rule.flattened_contents
     for key, values in config_filter.items():
@@ -137,33 +137,6 @@ def manage_versions(rules: list, deprecated_rules: list = None, current_versions
     return changed_rules, new_rules.keys(), newly_deprecated
 
 
-def log_newly_deprecated_rules(rules, save_changes=False, verbose=True):
-    """Save newly deprecated rules to log."""
-    with open(RULE_DEPRECATIONS, 'r') as f:
-        rule_deprecations = json.load(f)
-
-    newly_deprecated = []
-    deprecation_date = str(datetime.date.today())
-
-    for rule in rules:
-        if rule.id not in rule_deprecations:
-            rule_deprecations[rule.id] = {
-                'rule_name': rule.name,
-                'deprecation_date': deprecation_date
-            }
-            newly_deprecated.append(rule.id)
-
-        if save_changes:
-            with open(RULE_DEPRECATIONS, 'w') as f:
-                json.dump(sorted(OrderedDict(rule_deprecations)), f, indent=2, sort_keys=True)
-
-    if verbose:
-        if newly_deprecated:
-            click.echo(f' - {len(newly_deprecated)} newly deprecated rules')
-
-    return newly_deprecated
-
-
 class Package(object):
     """Packaging object for siem rules and releases."""
 
@@ -227,10 +200,11 @@ class Package(object):
 
     def save_release_files(self, directory, changed_rules, new_rules, removed_rules):
         """Release a package."""
-        with open(os.path.join(directory, '{}-summary.txt'.format(self.name)), 'w') as f:
+        with open(os.path.join(directory, f'{self.name}-summary.txt'), 'w') as f:
             f.write(self.generate_summary(changed_rules, new_rules, removed_rules))
-        with open(os.path.join(directory, '{}-consolidated.json'.format(self.name)), 'w') as f:
+        with open(os.path.join(directory, f'{self.name}-consolidated.json'), 'w') as f:
             json.dump(json.loads(self.get_consolidated()), f, sort_keys=True, indent=2)
+        self.generate_xslx(os.path.join(directory, f'{self.name}-summary.xlsx'))
 
     def get_consolidated(self, as_api=True):
         """Get a consolidated package of the rules in a single file."""
@@ -386,7 +360,21 @@ class Package(object):
             unchanged_rules
         ])
 
+    def generate_xslx(self, path):
+        """Generate a detailed breakdown of a package in an excel file."""
+        from .docs import PackageDocument
+
+        doc = PackageDocument(path, self)
+        doc.populate()
+        doc.close()
+
+    def generate_changelog_entry(self):
+        """Generate a changelog entry."""
+
+    def generate_json_visualization(self):
+        """Maybe."""
+        # TODO: maybe
+
     def bump_versions(self, save_changes=False, current_versions=None):
         """Bump the versions of all production rules included in a release and optionally save changes."""
-        changed, new, _ = manage_versions(self.rules, current_versions=current_versions, save_changes=save_changes)
-        return changed, new
+        return manage_versions(self.rules, current_versions=current_versions, save_changes=save_changes)

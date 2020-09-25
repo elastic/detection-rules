@@ -3,6 +3,7 @@
 # you may not use this file except in compliance with the Elastic License.
 
 """Detection rules."""
+from . import docs
 from . import eswrap
 from . import main
 from . import mappings
@@ -13,6 +14,7 @@ from . import schemas
 from . import utils
 
 __all__ = (
+    'docs',
     'eswrap',
     'mappings',
     "main",
