@@ -42,7 +42,7 @@ class PackageDocument(xlsxwriter.Workbook):
         return super(PackageDocument, self).add_format(properties)
 
     def _get_attack_coverage(self):
-        coverage = defaultdict(set)
+        coverage = defaultdict(lambda: defaultdict(int))
 
         for rule in self.package.rules:
             threat = rule.contents.get('threat')
@@ -53,7 +53,7 @@ class PackageDocument(xlsxwriter.Workbook):
                     techniques = entry['technique']
                     for technique in techniques:
                         if technique['id'] in matrix[tactic['name']]:
-                            coverage[tactic['name']].add(technique['id'])
+                            coverage[tactic['name']][technique['id']] += 1
 
         return coverage
 
@@ -120,14 +120,14 @@ class PackageDocument(xlsxwriter.Workbook):
         if rules is None:
             rules = self.production_rules
         worksheet = self.add_worksheet(name)
-        worksheet.freeze_panes(1, 0)
-        headers = ('ID', 'Name', 'Version', 'Type', 'Language', 'Index', 'Tags',
+        worksheet.freeze_panes(1, 1)
+        headers = ('Name', 'ID', 'Version', 'Type', 'Language', 'Index', 'Tags',
                    f'{attack_tm} Tactics', f'{attack_tm} Techniques', 'Description')
 
         for column, header in enumerate(headers):
             worksheet.write(0, column, header, self.bold)
 
-        metadata_fields = ('rule_id', 'name', 'version', 'type', 'language', 'index', 'tags')
+        metadata_fields = ('name', 'rule_id', 'version', 'type', 'language', 'index', 'tags')
 
         column_max_widths = [0 for i in range(len(headers))]
         column = 0
@@ -197,6 +197,7 @@ class PackageDocument(xlsxwriter.Workbook):
         header = self.add_format({'font_size': 12, 'bold': True, 'bg_color': '#005B94', 'font_color': 'white'})
         default = self.add_format({'font_size': 10, 'text_wrap': True})
         bold = self.add_format({'font_size': 10, 'bold': True, 'text_wrap': True})
+        technique_url = 'https://attack.mitre.org/techniques/'
 
         for column, tactic in enumerate(tactics):
             worksheet.write(0, column, tactic, header)
@@ -205,6 +206,9 @@ class PackageDocument(xlsxwriter.Workbook):
             for row, technique_id in enumerate(matrix[tactic], 1):
                 technique = technique_lookup[technique_id]
                 fmt = bold if technique_id in self._coverage[tactic] else default
-                worksheet.write(row, column, technique['name'], fmt)
+                coverage_count = self._coverage[tactic].get(technique_id)
+                coverage_str = f' ({coverage_count} rules)' if coverage_count else ''
+                worksheet.write_url(row, column, technique_url + technique_id.replace('.', '/'), cell_format=fmt,
+                                    string=technique['name'], tip=f'{technique_id}{coverage_str}')
 
         worksheet.autofilter(0, 0, max([len(v) for k, v in matrix.items()]) + 1, len(tactics))
