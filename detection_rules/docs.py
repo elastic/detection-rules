@@ -128,13 +128,14 @@ class PackageDocument(xlsxwriter.Workbook):
             worksheet.write(0, column, header, self.default_header_format)
 
         column_max_widths = [0 for i in range(len(headers))]
-        metadata_fields = ('name', 'rule_id', 'version', 'type', 'language', 'index', 'tags', 'tactics', 'techniques',
-                           'description')
+        metadata_fields = (
+            'name', 'rule_id', 'version', 'type', 'language', 'index', 'tags', 'tactics', 'techniques', 'description'
+        )
 
         for row, rule in enumerate(rules, 1):
             tactic_names, _, _, technique_ids = rule.get_flat_mitre()
             rule_contents = {'tactics': tactic_names, 'techniques': technique_ids}
-            rule_contents.update(rule.contents)
+            rule_contents.update(rule.contents.copy())
 
             for column, field in enumerate(metadata_fields):
                 value = rule_contents.get(field)
