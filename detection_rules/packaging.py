@@ -106,14 +106,15 @@ def manage_versions(rules: list, deprecated_rules: list = None, current_versions
             click.echo('Rule hash changes detected!')
 
         if save_changes:
-            current_versions.update(new_rules if add_new else {})
-            current_versions = OrderedDict(sorted(current_versions.items(), key=lambda x: x[1]['rule_name']))
+            if changed_rules or (new_rules and add_new):
+                current_versions.update(new_rules if add_new else {})
+                current_versions = OrderedDict(sorted(current_versions.items(), key=lambda x: x[1]['rule_name']))
 
-            with open(RULE_VERSIONS, 'w') as f:
-                json.dump(current_versions, f, indent=2, sort_keys=True)
+                with open(RULE_VERSIONS, 'w') as f:
+                    json.dump(current_versions, f, indent=2, sort_keys=True)
 
-            if verbose:
-                click.echo('Updated version.lock.json file')
+                if verbose:
+                    click.echo('Updated version.lock.json file')
 
             if newly_deprecated:
                 with open(RULE_DEPRECATIONS, 'w') as f:
@@ -128,13 +129,13 @@ def manage_versions(rules: list, deprecated_rules: list = None, current_versions
 
         if verbose:
             if changed_rules:
-                click.echo(' - {} changed rule version(s)'.format(len(changed_rules)))
+                click.echo(f' - {len(changed_rules)} changed rule version(s)')
             if new_rules:
-                click.echo(' - {} new rule version addition(s)'.format(len(new_rules)))
+                click.echo(f' - {len(new_rules)} new rule version addition(s)')
             if newly_deprecated:
-                click.echo(f' - {len(newly_deprecated)} newly deprecated rules')
+                click.echo(f' - {len(newly_deprecated)} newly deprecated rule(s)')
 
-    return changed_rules, new_rules.keys(), newly_deprecated
+    return changed_rules, list(new_rules), newly_deprecated
 
 
 class Package(object):
@@ -148,8 +149,8 @@ class Package(object):
         self.deprecated_rules = [r.copy() for r in deprecated_rules or []]  # type: list[Rule]
         self.release = release
 
-        self.changed_rules, self.new_rules, self.removed_rules = self._add_versions(current_versions,
-                                                                                    update_version_lock)
+        self.changed_rule_ids, self.new_rules_ids, self.removed_rule_ids = self._add_versions(current_versions,
+                                                                                              update_version_lock)
 
         if min_version or max_version:
             self.rules = [r for r in self.rules
@@ -236,7 +237,7 @@ class Package(object):
         self._package_index_file(rules_dir)
 
         if self.release:
-            self.save_release_files(extras_dir, self.changed_rules, self.new_rules, self.removed_rules)
+            self.save_release_files(extras_dir, self.changed_rule_ids, self.new_rules_ids, self.removed_rule_ids)
 
             # zip all rules only and place in extras
             shutil.make_archive(os.path.join(extras_dir, self.name), 'zip', root_dir=os.path.dirname(rules_dir),
@@ -303,8 +304,10 @@ class Package(object):
         }
 
         # build an index map first
+        longest_name = 0
         indexes = set()
         for rule in self.rules:
+            longest_name = max(longest_name, len(rule.name))
             index_list = rule.contents.get('index')
             if index_list:
                 indexes.update(index_list)
@@ -313,7 +316,7 @@ class Package(object):
         index_map = {index: letters[i] for i, index in enumerate(sorted(indexes))}
 
         def get_summary_rule_info(r: Rule):
-            rule_str = f'{r.name} | (v:{r.contents.get("version")} t:{r.type}'
+            rule_str = f'{r.name:<{longest_name}} (v:{r.contents.get("version")} t:{r.type}'
             rule_str += f'-{r.contents["language"]})' if r.contents.get('language') else ')'
             rule_str += f'(indexes:{"".join(index_map[i] for i in r.contents.get("index"))})' \
                 if r.contents.get('index') else ''
@@ -344,11 +347,6 @@ class Package(object):
                 summary['removed'][sub_dir].append(rule.name)
                 changelog['removed'][sub_dir].append(rule.name)
 
-        date = f'Generated: {datetime.date.today()}'
-        total = f'Total Rules: {len(self.rules)}'
-        sha256 = f'Package Hash: {self.get_package_hash(verbose=False)}'
-        indexes = 'Index Map:\n{}'.format("\n".join(f"  {v}: {k}" for k, v in index_map.items()))
-
         def format_summary_rule_str(rule_dict):
             str_fmt = ''
             for sd, rules in sorted(rule_dict.items(), key=lambda x: x[0]):
@@ -369,6 +367,7 @@ class Package(object):
                 count += len(rules)
             return count
 
+        today = str(datetime.date.today())
         summary_fmt = [f'{sf.capitalize()} ({rule_count(summary[sf])}): \n{format_summary_rule_str(summary[sf])}\n'
                        for sf in ('added', 'changed', 'removed', 'unchanged') if summary[sf]]
 
@@ -376,12 +375,12 @@ class Package(object):
                       for sf in ('added', 'changed', 'removed') if changelog[sf]]
 
         summary_str = '\n'.join([
-            date,
-            total,
-            sha256,
+            f'Generated: {today}',
+            f'Total Rules: {len(self.rules)}',
+            f'Package Hash: {self.get_package_hash(verbose=False)}',
             '---',
             '(v: version, t: rule_type-language)',
-            indexes,
+            'Index Map:\n{}'.format("\n".join(f"  {v}: {k}" for k, v in index_map.items())),
             '',
             'Rules',
             *summary_fmt
@@ -389,7 +388,7 @@ class Package(object):
 
         changelog_str = '\n'.join([
             f'# Version {self.name}',
-            f'_Released {str(datetime.date.today())}_',
+            f'_Released {today}_',
             '',
             '### Rules',
             *change_fmt,
@@ -406,10 +405,6 @@ class Package(object):
         doc = PackageDocument(path, self)
         doc.populate()
         doc.close()
-
-    def generate_json_visualization(self):
-        """Maybe."""
-        # TODO: maybe
 
     def bump_versions(self, save_changes=False, current_versions=None):
         """Bump the versions of all production rules included in a release and optionally save changes."""

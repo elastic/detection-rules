@@ -69,7 +69,7 @@ class TestPackages(unittest.TestCase):
         package = Package(rules, 'test', current_versions=version_info)
 
         # test versioning doesn't falsely detect changes
-        changed_rules, new_rules = package.changed_rules, package.new_rules
+        changed_rules, new_rules = package.changed_rule_ids, package.new_rules_ids
 
         self.assertEqual(0, len(changed_rules), 'Package version bumping is improperly detecting changed rules')
         self.assertEqual(0, len(new_rules), 'Package version bumping is improperly detecting new rules')

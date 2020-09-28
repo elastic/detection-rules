@@ -21,16 +21,15 @@ class PackageDocument(xlsxwriter.Workbook):
         super(PackageDocument, self).__init__(path)
 
         self.package: Package = package
-        self.percent = self.add_format({'num_format': '0%'})
+        self.deprecated_rules = package.deprecated_rules
+        self.production_rules = package.rules
 
+        self.percent = self.add_format({'num_format': '0%'})
         self.bold = self.add_format({'bold': True})
         self.default_header_format = self.add_format({'bold': True, 'bg_color': '#FFBE33'})
         self.center = self.add_format({'align': 'center', 'valign': 'center'})
         self.bold_center = self.add_format({'bold': True, 'align': 'center', 'valign': 'center'})
         self.right_align = self.add_format({'align': 'right'})
-
-        self.deprecated_rules = package.deprecated_rules
-        self.production_rules = package.rules
 
         self._coverage = self._get_attack_coverage()
 
@@ -92,8 +91,7 @@ class PackageDocument(xlsxwriter.Workbook):
 
         worksheet.write(row, 0, "Total Production Rules")
         worksheet.write(row, 1, len(self.production_rules))
-        row += 1
-        row += 1
+        row += 2
 
         worksheet.write(row, 0, "Total Deprecated Rules")
         worksheet.write(row, 1, len(self.deprecated_rules))
@@ -101,9 +99,7 @@ class PackageDocument(xlsxwriter.Workbook):
 
         worksheet.write(row, 0, "Total Rules")
         worksheet.write(row, 1, len(self.package.rules))
-        row += 1
-
-        row += 1
+        row += 2
 
         worksheet.merge_range(row, 0, row, 3, f"MITRE {attack_tm} TACTICS", self.bold_center)
         row += 1
@@ -115,13 +111,14 @@ class PackageDocument(xlsxwriter.Workbook):
             total_techniques = len(matrix[tactic])
             percent = float(num_techniques) / float(total_techniques)
             worksheet.write(row, 2, percent, self.percent)
-            worksheet.write(row, 3, "%d/%d" % (num_techniques, total_techniques), self.right_align)
+            worksheet.write(row, 3, f'{num_techniques}/{total_techniques}', self.right_align)
             row += 1
 
     def add_rule_details(self, rules=None, name='Rule Details'):
         """Add a worksheet for detailed metadata of rules."""
         if rules is None:
             rules = self.production_rules
+
         worksheet = self.add_worksheet(name)
         worksheet.freeze_panes(1, 1)
         headers = ('Name', 'ID', 'Version', 'Type', 'Language', 'Index', 'Tags',
@@ -130,13 +127,17 @@ class PackageDocument(xlsxwriter.Workbook):
         for column, header in enumerate(headers):
             worksheet.write(0, column, header, self.default_header_format)
 
-        metadata_fields = ('name', 'rule_id', 'version', 'type', 'language', 'index', 'tags')
-
         column_max_widths = [0 for i in range(len(headers))]
-        column = 0
+        metadata_fields = ('name', 'rule_id', 'version', 'type', 'language', 'index', 'tags', 'tactics', 'techniques',
+                           'description')
+
         for row, rule in enumerate(rules, 1):
+            tactic_names, _, _, technique_ids = rule.get_flat_mitre()
+            rule_contents = {'tactics': tactic_names, 'techniques': technique_ids}
+            rule_contents.update(rule.contents)
+
             for column, field in enumerate(metadata_fields):
-                value = rule.contents.get(field)
+                value = rule_contents.get(field)
                 if value is None:
                     continue
                 elif isinstance(value, list):
@@ -144,29 +145,10 @@ class PackageDocument(xlsxwriter.Workbook):
                 worksheet.write(row, column, value)
                 column_max_widths[column] = max(column_max_widths[column], len(str(value)))
 
-            tactics_names, _, _, techniques_ids = rule.get_flat_mitre()
-
-            # tactics
-            column += 1
-            if tactics_names:
-                value = ', '.join(tactics_names)
-                worksheet.write(row, column, value)
-                column_max_widths[column] = max(column_max_widths[column], len(value))
-
-            # techniques
-            column += 1
-            if techniques_ids:
-                value = ', '.join(techniques_ids)
-                worksheet.write(row, column, value)
-                column_max_widths[column] = max(column_max_widths[column], len(value))
-
-            # description
-            column += 1
-            worksheet.write(row, column, rule.contents.get('description'))
-
         # cap description width at 80
         column_max_widths[-1] = 80
 
+        # this is still not perfect because the font used is not monospaced, but it gets it close
         for index, width in enumerate(column_max_widths):
             worksheet.set_column(index, index, width)
 
@@ -213,7 +195,8 @@ class PackageDocument(xlsxwriter.Workbook):
                 coverage = self._coverage[tactic].get(technique_id)
                 coverage_str = ''
                 if coverage:
-                    coverage_str = '\n\n' + '\n'.join(f'{sub_dir}: {count}' for sub_dir, count in coverage.items())
+                    coverage_str = '\n\n'
+                    coverage_str += '\n'.join(f'{sub_dir}: {count}' for sub_dir, count in coverage.items())
 
                 worksheet.write_url(row, column, technique_url + technique_id.replace('.', '/'), cell_format=fmt,
                                     string=technique['name'], tip=f'{technique_id}{coverage_str}')
