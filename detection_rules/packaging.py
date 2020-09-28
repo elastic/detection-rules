@@ -375,6 +375,7 @@ class Package(object):
                       for sf in ('added', 'changed', 'removed') if changelog[sf]]
 
         summary_str = '\n'.join([
+            f'Version {self.name}',
             f'Generated: {today}',
             f'Total Rules: {len(self.rules)}',
             f'Package Hash: {self.get_package_hash(verbose=False)}',
