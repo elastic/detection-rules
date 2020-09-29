@@ -177,36 +177,6 @@ def validate_rule(rule_id, rule_name, path):
     return rule
 
 
-@root.command('license-check')
-@click.pass_context
-def license_check(ctx):
-    """Check that all code files contain a valid license."""
-
-    failed = False
-
-    for path in glob.glob(get_path("**", "*.py"), recursive=True):
-        if path.startswith(get_path("env", "")):
-            continue
-
-        relative_path = os.path.relpath(path)
-
-        with io.open(path, "rt", encoding="utf-8") as f:
-            contents = f.read()
-
-            # skip over shebang lines
-            if contents.startswith("#!/"):
-                _, _, contents = contents.partition("\n")
-
-            if not contents.lstrip("\r\n").startswith(PYTHON_LICENSE):
-                if not failed:
-                    click.echo("Missing license headers for:", err=True)
-
-                failed = True
-                click.echo(relative_path, err=True)
-
-    ctx.exit(int(failed))
-
-
 @root.command('validate-all')
 @click.option('--fail/--no-fail', default=True, help='Fail on first failure or process through all printing errors.')
 def validate_all(fail):
@@ -268,7 +238,52 @@ def search_rules(query, columns, language, verbose=True):
     return filtered
 
 
-@root.command('build-release')
+@root.command("test")
+@click.pass_context
+def test_rules(ctx):
+    """Run unit tests over all of the rules."""
+    import pytest
+
+    clear_caches()
+    ctx.exit(pytest.main(["-v"]))
+
+
+@root.group('dev')
+def dev():
+    """Commands for development and management by internal Elastic team."""
+
+
+@dev.command('license-check')
+@click.pass_context
+def license_check(ctx):
+    """Check that all code files contain a valid license."""
+
+    failed = False
+
+    for path in glob.glob(get_path("**", "*.py"), recursive=True):
+        if path.startswith(get_path("env", "")):
+            continue
+
+        relative_path = os.path.relpath(path)
+
+        with io.open(path, "rt", encoding="utf-8") as f:
+            contents = f.read()
+
+            # skip over shebang lines
+            if contents.startswith("#!/"):
+                _, _, contents = contents.partition("\n")
+
+            if not contents.lstrip("\r\n").startswith(PYTHON_LICENSE):
+                if not failed:
+                    click.echo("Missing license headers for:", err=True)
+
+                failed = True
+                click.echo(relative_path, err=True)
+
+    ctx.exit(int(failed))
+
+
+@dev.command('build-release')
 @click.argument('config-file', type=click.Path(exists=True, dir_okay=False), required=False, default=PACKAGE_FILE)
 @click.option('--update-version-lock', '-u', is_flag=True,
               help='Save version.lock.json file with updated rule versions in the package')
@@ -282,7 +297,7 @@ def build_release(config_file, update_version_lock):
     click.echo('- {} rules included'.format(len(package.rules)))
 
 
-@root.command('update-lock-versions')
+@dev.command('update-lock-versions')
 @click.argument('rule-ids', nargs=-1, required=True)
 def update_lock_versions(rule_ids):
     """Update rule hashes in version.lock.json file without bumping version."""
@@ -300,7 +315,7 @@ def update_lock_versions(rule_ids):
     return changed
 
 
-@root.command('kibana-diff')
+@dev.command('kibana-diff')
 @click.option('--rule-id', '-r', multiple=True, help='Optionally specify rule ID')
 @click.option('--branch', '-b', default='master', help='Specify the kibana branch to diff against')
 @click.option('--threads', '-t', type=click.IntRange(1), default=50, help='Number of threads to use to download rules')
@@ -346,17 +361,7 @@ def kibana_diff(rule_id, branch, threads):
     return diff
 
 
-@root.command("test")
-@click.pass_context
-def test_rules(ctx):
-    """Run unit tests over all of the rules."""
-    import pytest
-
-    clear_caches()
-    ctx.exit(pytest.main(["-v"]))
-
-
-@root.command("kibana-commit")
+@dev.command("kibana-commit")
 @click.argument("local-repo", default=get_path("..", "kibana"))
 @click.option("--kibana-directory", "-d", help="Directory to overwrite in Kibana",
               default="x-pack/plugins/security_solution/server/lib/detection_engine/rules/prepackaged_rules")

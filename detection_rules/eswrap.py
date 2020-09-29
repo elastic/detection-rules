@@ -11,6 +11,7 @@ from contextlib import contextmanager
 import click
 import elasticsearch
 from elasticsearch import AuthenticationException, Elasticsearch
+from elasticsearch.client import IngestClient, MlClient
 from kibana import Kibana, RuleResource
 
 from .main import root
@@ -24,9 +25,10 @@ ERRORS = {
     'FAILED_ES_AUTH': 2,
     'MISSING_REQUIRED_ARGUMENT': 3,
     'MISSING_FILE': 4,
-    'TOO_MANY_FILES': 5,
-    'REMOTE_FILE_EXISTS': 6,
-    'CONNECTION_TIMEOUT': 7
+    'REMOTE_FILE_EXISTS': 5,
+    'ES_CONNECTION_TIMEOUT': 6,
+    'ES_SCRIPT_ERROR': 8,
+    'OTHER': 99
 }
 
 
@@ -298,23 +300,72 @@ def kibana_upload(toml_files, kibana_url, cloud_id, user, kibana_password):
         click.echo(f"Successfully uploaded {len(rules)} rules")
 
 
-@es_group.command('setup-dga')
+@es_group.group('beta')
+def es_beta():
+    """BETA helper commands for integrating with Elasticsearch."""
+
+
+@es_beta.command('remove-ml-dga')
+@click.argument('model-id')
+@click.option('--force', '-f', is_flag=True, help='Force the attempted delete without checking if model exists')
+@click.pass_context
+def remove_ml_dga(ctx, model_id, force, es_client: Elasticsearch = None, ml_client: MlClient = None,
+                  ingest_client: IngestClient = None):
+    """Remove ML DGA files."""
+    from elasticsearch.client import IngestClient, MlClient
+
+    es_client = es_client or ctx.obj['es']
+    ml_client = ml_client or MlClient(es_client)
+    ingest_client = ingest_client or IngestClient(es_client)
+
+    def safe_delete(func, fid, verbose=True):
+        try:
+            func(fid)
+        except elasticsearch.NotFoundError:
+            return False
+        if verbose:
+            click.echo(f' - {fid} deleted')
+        return True
+
+    model_exists = False
+    if not force:
+        existing_models = ml_client.get_trained_models()
+        model_exists = model_id in [m['model_id'] for m in existing_models.get('trained_model_configs', [])]
+
+    if model_exists or force:
+        if model_exists:
+            click.secho('[-] Existing model detected - deleting files', fg='yellow')
+
+        deleted = [
+            safe_delete(ingest_client.delete_pipeline, 'dga_ngram_expansion_inference'),
+            safe_delete(ingest_client.delete_pipeline, 'dns_classification_pipeline'),
+            safe_delete(es_client.delete_script, 'ngram-extractor-packetbeat'),
+            safe_delete(es_client.delete_script, 'ngram-remover-packetbeat'),
+            safe_delete(ml_client.delete_trained_model, model_id)
+        ]
+
+        if not any(deleted):
+            click.echo('No files deleted')
+    else:
+        click.echo(f'Model: {model_id} not found')
+
+
+@es_beta.command('setup-ml-dga')
 @click.option('--model-tag', '-t',
               help='Release tag for model files staged in detection-rules (required to download files)')
 @click.option('--model-dir', '-d', type=click.Path(exists=True, file_okay=False),
               help='Directory containing local model files')
 @click.option('--overwrite', is_flag=True, help='Overwrite all files if already in the stack')
 @click.pass_context
-def setup_dga(ctx, model_tag, model_dir, overwrite):
-    """Upload DGA model and enrich DNS data."""
+def setup_ml_dga(ctx, model_tag, model_dir, overwrite):
+    """Upload ML DGA model and dependencies and enrich DNS data."""
     import glob
     import io
     import requests
     import shutil
     import zipfile
-    from elasticsearch.client import IngestClient, MlClient
 
-    es_client = ctx.obj['es']  # type: Elasticsearch
+    es_client: Elasticsearch = ctx.obj['es']
     client_info = es_client.info()
 
     # download files if necessary
@@ -351,7 +402,7 @@ def setup_dga(ctx, model_tag, model_dir, overwrite):
             ctx.exit(ERRORS['MISSING_FILE'])
         if len(paths) > 1:
             click.secho(f'{model_dir} contains multiple files matching the pattern {pattern}', err=True, fg='red')
-            ctx.exit(ERRORS['TOO_MANY_FILES'])
+            ctx.exit(ERRORS['OTHER'])
 
         if name_only:
             yield paths[0]
@@ -371,18 +422,8 @@ def setup_dga(ctx, model_tag, model_dir, overwrite):
     existing_models = ml_client.get_trained_models()
     if model_id in [m['model_id'] for m in existing_models.get('trained_model_configs', [])]:
         if overwrite:
-            def safe_delete(func, fid):
-                try:
-                    func(fid)
-                except elasticsearch.NotFoundError:
-                    pass
-
-            click.secho('[-] Existing model detected - deleting files', fg='yellow')
-            safe_delete(ingest_client.delete_pipeline, 'dga_ngram_expansion_inference')
-            safe_delete(ingest_client.delete_pipeline, 'dns_classification_pipeline')
-            safe_delete(es_client.delete_script, 'ngram-extractor-packetbeat')
-            safe_delete(es_client.delete_script, 'ngram-remover-packetbeat')
-            safe_delete(ml_client.delete_trained_model, model_id)
+            ctx.invoke(remove_ml_dga, model_id=model_id, es_client=es_client, ml_client=ml_client,
+                       ingest_client=ingest_client, force=True)
         else:
             click.secho(f'Model: {model_id} already exists on stack! Try --overwrite to force the upload',
                         err=True, fg='red')
@@ -394,8 +435,8 @@ def setup_dga(ctx, model_tag, model_dir, overwrite):
         try:
             ml_client.put_trained_model(model_id=model_id, body=model_file)
         except elasticsearch.ConnectionTimeout:
-            click.secho('Connection timeout, try increasing timeout using `es --timeout <secs> setup-dga <args>`.')
-            ctx.exit(ERRORS['CONNECTION_TIMEOUT'])
+            click.secho('Connection timeout, try increasing timeout using `es --timeout <secs> beta setup-ml-dga`.')
+            ctx.exit(ERRORS['ES_CONNECTION_TIMEOUT'])
 
     # install scripts
     click.secho('[+] Uploading painless scripts')
@@ -409,13 +450,37 @@ def setup_dga(ctx, model_tag, model_dir, overwrite):
     # Install ingest pipelines
     click.secho('[+] Uploading pipelines')
 
+    def _build_es_script_error(err, pipeline_file):
+        error = err.info['error']
+        cause = error['caused_by']
+
+        error_msg = [
+            f'Script error while uploading {pipeline_file}: {cause["type"]} - {cause["reason"]}',
+            ' '.join(f'{k}: {v}' for k, v in error['position'].items()),
+            '\n'.join(error['script_stack'])
+        ]
+
+        return click.style('\n'.join(error_msg), fg='red')
+
     with open_model_file('dga_*_ingest_pipeline1.json') as ingest_pipeline1:
         processors = ingest_pipeline1['processors']
         inference_processor = next(p for p in processors if 'inference' in p)
         inference_processor['inference']['model_id'] = model_id
-        ingest_client.put_pipeline(id='dga_ngram_expansion_inference', body=ingest_pipeline1)
+        try:
+            ingest_client.put_pipeline(id='dga_ngram_expansion_inference', body=ingest_pipeline1)
+        except elasticsearch.RequestError as e:
+            if e.error == 'script_exception':
+                click.echo(_build_es_script_error(e, 'ingest_pipeline1'), err=True)
+                ctx.exit(ERRORS['ES_SCRIPT_ERROR'])
+            else:
+                raise
 
     with open_model_file('dga_*_ingest_pipeline2.json') as ingest_pipeline2:
-        ingest_client.put_pipeline(id='dns_classification_pipeline', body=ingest_pipeline2)
-
-    return
+        try:
+            ingest_client.put_pipeline(id='dns_classification_pipeline', body=ingest_pipeline2)
+        except elasticsearch.RequestError as e:
+            if e.error == 'script_exception':
+                click.echo(_build_es_script_error(e, 'ingest_pipeline2'), err=True)
+                ctx.exit(ERRORS['ES_SCRIPT_ERROR'])
+            else:
+                raise
