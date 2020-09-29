@@ -13,7 +13,7 @@ import kql
 import eql
 
 from . import ecs, beats
-from .attack import TACTICS, build_threat_map_entry, technique_lookup
+from .attack import tactics, build_threat_map_entry, technique_lookup
 from .rule_formatter import nested_normalize, toml_write
 from .schemas import CurrentSchema, TomlMetadata  # RULE_TYPES, metadata_schema, schema_validate, get_schema
 from .utils import get_path, clear_caches, cached
@@ -94,9 +94,24 @@ class Rule(object):
     def type(self):
         return self.contents.get('type')
 
+    @property
+    def unique_fields(self):
+        parsed = self.parsed_query
+        if parsed is not None:
+            return list(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
+
     def to_eql(self):
         if self.query and self.contents['language'] == 'kuery':
             return kql.to_eql(self.query)
+
+    @classmethod
+    def get_unique_query_fields(cls, rule_contents):
+        """Get a list of unique fields used in a rule query from rule contents."""
+        query = rule_contents.get('query')
+        language = rule_contents.get('language')
+        if language in ('kuery', 'eql'):
+            parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
+            return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
 
     @staticmethod
     @cached
@@ -304,7 +319,7 @@ class Rule(object):
                 threat_map = []
 
                 while click.confirm('add mitre tactic?'):
-                    tactic = schema_prompt('mitre tactic name', type='string', enum=TACTICS, required=True)
+                    tactic = schema_prompt('mitre tactic name', type='string', enum=tactics, required=True)
                     technique_ids = schema_prompt(f'technique IDs for {tactic}', type='array', required=True,
                                                   enum=list(technique_lookup))
 
