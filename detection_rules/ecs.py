@@ -10,6 +10,8 @@ import shutil
 import json
 
 import requests
+import eql
+import eql.types
 import yaml
 
 from .semver import Version
@@ -164,6 +166,34 @@ def flatten_multi_fields(schema):
     return converted
 
 
+class KqlSchema2Eql(eql.Schema):
+    type_mapping = {
+        "keyword": eql.types.TypeHint.String,
+        "ip": eql.types.TypeHint.String,
+        "float": eql.types.TypeHint.Numeric,
+        "double": eql.types.TypeHint.Numeric,
+        "long": eql.types.TypeHint.Numeric,
+        "short": eql.types.TypeHint.Numeric,
+    }
+
+    def __init__(self, kql_schema):
+        self.kql_schema = kql_schema
+        eql.Schema.__init__(self, {}, allow_any=True, allow_generic=False, allow_missing=False)
+
+    def validate_event_type(self, event_type):
+        # allow all event types to fill in X:
+        #   `X` where ....
+        return True
+
+    def get_event_type_hint(self, event_type, path):
+        dotted = ".".join(path)
+        elasticsearch_type = self.kql_schema.get(dotted)
+        eql_hint = self.type_mapping.get(elasticsearch_type)
+
+        if eql_hint is not None:
+            return eql_hint, None
+
+
 @cached
 def get_kql_schema(version=None, indexes=None, beat_schema=None):
     """Get schema for KQL."""
@@ -209,7 +239,7 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
                 # load as yaml, save as json
                 contents = yaml.safe_load(archive.read(member))
                 out_file = file_name.replace(".yml", ".json")
-                save_etc_dump(contents, "schemas", out_file)
+                save_etc_dump(contents, "ecs_schemas", str(version), out_file)
                 saved.append(out_file)
 
             if verbose:

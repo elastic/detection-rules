@@ -7,8 +7,9 @@ from .rta_schema import validate_rta_mapping
 from ..semver import Version
 
 # import all of the schema versions
-from .v78 import ApiSchema78
-from .v79 import ApiSchema79
+from .v7_8 import ApiSchema78
+from .v7_9 import ApiSchema79
+from .v7_10 import ApiSchema710
 
 __all__ = (
     "all_schemas",
@@ -21,9 +22,10 @@ __all__ = (
 all_schemas = [
     ApiSchema78,
     ApiSchema79,
+    ApiSchema710,
 ]
 
-CurrentSchema = max(all_schemas, key=lambda cls: Version(cls.STACK_VERSION))
+CurrentSchema = all_schemas[-1]
 
 
 def downgrade(api_contents: dict, target_version: str):
