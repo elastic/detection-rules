@@ -10,9 +10,10 @@ import os
 
 import click
 import kql
+import eql
 
 from . import ecs, beats
-from .attack import TACTICS, build_threat_map_entry, technique_lookup
+from .attack import tactics, build_threat_map_entry, technique_lookup
 from .rule_formatter import nested_normalize, toml_write
 from .schemas import CurrentSchema, TomlMetadata  # RULE_TYPES, metadata_schema, schema_validate, get_schema
 from .utils import get_path, clear_caches, cached
@@ -70,9 +71,12 @@ class Rule(object):
         return self.contents.get('query')
 
     @property
-    def parsed_kql(self):
-        if self.query and self.contents['language'] == 'kuery':
-            return kql.parse(self.query)
+    def parsed_query(self):
+        if self.query:
+            if self.contents['language'] == 'kuery':
+                return kql.parse(self.query)
+            elif self.contents['language'] == 'eql':
+                return eql.parse_query(self.query)
 
     @property
     def filters(self):
@@ -90,9 +94,24 @@ class Rule(object):
     def type(self):
         return self.contents.get('type')
 
+    @property
+    def unique_fields(self):
+        parsed = self.parsed_query
+        if parsed is not None:
+            return list(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
+
     def to_eql(self):
         if self.query and self.contents['language'] == 'kuery':
             return kql.to_eql(self.query)
+
+    @classmethod
+    def get_unique_query_fields(cls, rule_contents):
+        """Get a list of unique fields used in a rule query from rule contents."""
+        query = rule_contents.get('query')
+        language = rule_contents.get('language')
+        if language in ('kuery', 'eql'):
+            parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
+            return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
 
     @staticmethod
     @cached
@@ -152,10 +171,50 @@ class Rule(object):
 
         schema_cls.validate(contents, role=self.type)
 
-        if query and self.query and self.contents['language'] == 'kuery':
+        if query and self.query is not None:
             ecs_versions = self.metadata.get('ecs_version')
             indexes = self.contents.get("index", [])
-            self._validate_kql(ecs_versions, indexes, self.query, self.name)
+
+            if self.contents['language'] == 'kuery':
+                self._validate_kql(ecs_versions, indexes, self.query, self.name)
+
+            if self.contents['language'] == 'eql':
+                self._validate_eql(ecs_versions, indexes, self.query, self.name)
+
+    @staticmethod
+    @cached
+    def _validate_eql(ecs_versions, indexes, query, name):
+        # validate against all specified schemas or the latest if none specified
+        parsed = eql.parse_query(query)
+        beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
+        beat_schema = beats.get_schema_from_eql(parsed, beat_types) if beat_types else None
+
+        ecs_versions = ecs_versions or [ecs_versions]
+        schemas = []
+
+        for version in ecs_versions:
+            try:
+                schemas.append(ecs.get_kql_schema(indexes=indexes, beat_schema=beat_schema, version=version))
+            except KeyError:
+                raise KeyError('Unknown ecs schema version: {} in rule {}.\n'
+                               'Do you need to update schemas?'.format(version, name)) from None
+
+        for schema in schemas:
+            try:
+                with ecs.KqlSchema2Eql(schema):
+                    eql.parse_query(query)
+
+            except eql.EqlTypeMismatchError:
+                raise
+
+            except eql.EqlParseError as exc:
+                message = exc.error_msg
+                trailer = None
+                if "Unknown field" in message and beat_types:
+                    trailer = "\nTry adding event.module and event.dataset to specify beats module"
+
+                raise type(exc)(exc.error_msg, exc.line, exc.column, exc.source,
+                                len(exc.caret.lstrip()), trailer=trailer) from None
 
     @staticmethod
     @cached
@@ -163,7 +222,7 @@ class Rule(object):
         # validate against all specified schemas or the latest if none specified
         parsed = kql.parse(query)
         beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
-        beat_schema = beats.get_schema_for_query(parsed, beat_types) if beat_types else None
+        beat_schema = beats.get_schema_from_kql(parsed, beat_types) if beat_types else None
 
         if not ecs_versions:
             kql.parse(query, schema=ecs.get_kql_schema(indexes=indexes, beat_schema=beat_schema))
@@ -202,10 +261,18 @@ class Rule(object):
         if verbose:
             print('Rule {} saved to {}'.format(self.name, path))
 
+    @classmethod
+    def dict_hash(cls, contents, versioned=True):
+        """Get hash from rule contents."""
+        if not versioned:
+            contents.pop('version', None)
+
+        contents = base64.b64encode(json.dumps(contents, sort_keys=True).encode('utf-8'))
+        return hashlib.sha256(contents).hexdigest()
+
     def get_hash(self):
         """Get a standardized hash of a rule to consistently check for changes."""
-        contents = base64.b64encode(json.dumps(self.contents, sort_keys=True).encode('utf-8'))
-        return hashlib.sha256(contents).hexdigest()
+        return self.dict_hash(self.contents)
 
     @classmethod
     def build(cls, path=None, rule_type=None, required_only=True, save=True, verbose=False, **kwargs):
@@ -249,7 +316,7 @@ class Rule(object):
                 threat_map = []
 
                 while click.confirm('add mitre tactic?'):
-                    tactic = schema_prompt('mitre tactic name', type='string', enum=TACTICS, required=True)
+                    tactic = schema_prompt('mitre tactic name', type='string', enum=tactics, required=True)
                     technique_ids = schema_prompt(f'technique IDs for {tactic}', type='array', required=True,
                                                   enum=list(technique_lookup))
 
