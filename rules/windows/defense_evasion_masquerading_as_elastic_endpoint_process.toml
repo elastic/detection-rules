@@ -1,0 +1,42 @@
+[metadata]
+creation_date = "2020/08/24"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/08/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+A suspicious Elastic endpoint agent parent process was detected. This may indicate a process hollowing or other form of
+code injection.
+"""
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Suspicious Elastic Endpoint Parent Process"
+risk_score = 47
+rule_id = "b41a13c6-ba45-4bab-a534-df53d0cfed6a"
+severity = "medium"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.category:process and event.type:(start or process_started) and
+ process.name:(esensor.exe or "elastic-endpoint.exe" or "elastic-agent.exe") and
+ not process.parent.executable:"C:\Windows\System32\services.exe"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
