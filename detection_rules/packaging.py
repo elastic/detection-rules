@@ -16,12 +16,10 @@ import click
 from . import rule_loader
 from .misc import JS_LICENSE
 from .rule import Rule  # noqa: F401
-from .utils import get_path, get_etc_path
+from .utils import get_path, get_etc_path, load_etc_dump, save_etc_dump
 
 RELEASE_DIR = get_path("releases")
 PACKAGE_FILE = get_etc_path('packages.yml')
-RULE_VERSIONS = get_etc_path('version.lock.json')
-RULE_DEPRECATIONS = get_etc_path('deprecated_rules.json')
 NOTICE_FILE = get_path('NOTICE.txt')
 
 
@@ -58,8 +56,7 @@ def manage_versions(rules: list, deprecated_rules: list = None, current_versions
     changed_rules = []
 
     if current_versions is None:
-        with open(RULE_VERSIONS, 'r') as f:
-            current_versions = json.load(f)
+        current_versions = load_etc_dump('version.lock.json')
 
     for rule in rules:
         # it is a new rule, so add it if specified, and add an initial version to the rule
@@ -85,10 +82,10 @@ def manage_versions(rules: list, deprecated_rules: list = None, current_versions
 
     # manage deprecated rules
     newly_deprecated = []
+    rule_deprecations = {}
 
     if deprecated_rules:
-        with open(RULE_DEPRECATIONS, 'r') as f:
-            rule_deprecations = json.load(f)
+        rule_deprecations = load_etc_dump('deprecated_rules.json')
 
         deprecation_date = str(datetime.date.today())
 
@@ -110,15 +107,13 @@ def manage_versions(rules: list, deprecated_rules: list = None, current_versions
                 current_versions.update(new_rules if add_new else {})
                 current_versions = OrderedDict(sorted(current_versions.items(), key=lambda x: x[1]['rule_name']))
 
-                with open(RULE_VERSIONS, 'w') as f:
-                    json.dump(current_versions, f, indent=2, sort_keys=True)
+                save_etc_dump(current_versions, 'version.lock.json')
 
                 if verbose:
                     click.echo('Updated version.lock.json file')
 
             if newly_deprecated:
-                with open(RULE_DEPRECATIONS, 'w') as f:
-                    json.dump(sorted(OrderedDict(rule_deprecations)), f, indent=2, sort_keys=True)
+                save_etc_dump(sorted(OrderedDict(rule_deprecations)), 'deprecated_rules.json')
 
                 if verbose:
                     click.echo('Updated deprecated_rules.json file')
