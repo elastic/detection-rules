@@ -8,7 +8,7 @@ import uuid
 import yaml
 
 from detection_rules import rule_loader
-from detection_rules.packaging import Package, PACKAGE_FILE
+from detection_rules.packaging import PACKAGE_FILE, Package
 
 
 class TestPackages(unittest.TestCase):
@@ -58,10 +58,10 @@ class TestPackages(unittest.TestCase):
     @rule_loader.mock_loader
     def test_package_summary(self):
         """Test the generation of the package summary."""
-        rules = list(rule_loader.load_rules().values())
+        rules = rule_loader.get_production_rules()
         package = Package(rules, 'test-package')
-        changed_rules, new_rules = package.bump_versions(save_changes=False)
-        package.generate_summary(changed_rules, new_rules)
+        changed_rule_ids, new_rule_ids, deprecated_rule_ids = package.bump_versions(save_changes=False)
+        package.generate_summary_and_changelog(changed_rule_ids, new_rule_ids, deprecated_rule_ids)
 
     def test_versioning_diffs(self):
         """Test that versioning is detecting diffs as expected."""
@@ -69,7 +69,7 @@ class TestPackages(unittest.TestCase):
         package = Package(rules, 'test', current_versions=version_info)
 
         # test versioning doesn't falsely detect changes
-        changed_rules, new_rules = package.changed_rules, package.new_rules
+        changed_rules, new_rules = package.changed_rule_ids, package.new_rules_ids
 
         self.assertEqual(0, len(changed_rules), 'Package version bumping is improperly detecting changed rules')
         self.assertEqual(0, len(new_rules), 'Package version bumping is improperly detecting new rules')
@@ -77,7 +77,7 @@ class TestPackages(unittest.TestCase):
 
         # test versioning detects a new rule
         package.rules[0].contents.pop('version')
-        changed_rules, new_rules = package.bump_versions(current_versions={})
+        changed_rules, new_rules, _ = package.bump_versions(current_versions={})
 
         self.assertEqual(0, len(changed_rules), 'Package version bumping is improperly detecting changed rules')
         self.assertEqual(1, len(new_rules), 'Package version bumping is not detecting new rules')
@@ -87,7 +87,7 @@ class TestPackages(unittest.TestCase):
         # test versioning detects a hash changes
         package.rules[0].contents.pop('version')
         package.rules[0].contents['query'] = 'process.name:changed.test.query'
-        changed_rules, new_rules = package.bump_versions(current_versions=version_info)
+        changed_rules, new_rules, _ = package.bump_versions(current_versions=version_info)
 
         self.assertEqual(1, len(changed_rules), 'Package version bumping is not detecting changed rules')
         self.assertEqual(0, len(new_rules), 'Package version bumping is improperly detecting new rules')
