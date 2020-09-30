@@ -104,6 +104,20 @@ class Rule(object):
         if self.query and self.contents['language'] == 'kuery':
             return kql.to_eql(self.query)
 
+    def get_flat_mitre(self):
+        """Get flat lists of tactic and technique info."""
+        tactic_names = []
+        tactic_ids = []
+        technique_ids = set()
+        technique_names = set()
+        for entry in self.contents.get('threat', []):
+            tactic_names.append(entry['tactic']['name'])
+            tactic_ids.append(entry['tactic']['id'])
+            technique_names.update([t['name'] for t in entry['technique']])
+            technique_ids.update([t['id'] for t in entry['technique']])
+
+        return sorted(tactic_names), sorted(tactic_ids), sorted(technique_names), sorted(technique_ids)
+
     @classmethod
     def get_unique_query_fields(cls, rule_contents):
         """Get a list of unique fields used in a rule query from rule contents."""
