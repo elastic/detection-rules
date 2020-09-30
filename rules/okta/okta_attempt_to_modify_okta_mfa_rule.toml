@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/05/21"
-ecs_version = ["1.5.0"]
+ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/05/21"
+updated_date = "2020/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -16,10 +16,11 @@ false_positives = [
     organization.
     """,
 ]
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License"
 name = "Attempt to Modify Okta MFA Rule"
+note = "The Okta Filebeat module must be enabled to use this rule."
 references = [
     "https://developer.okta.com/docs/reference/api/system-log/",
     "https://developer.okta.com/docs/reference/api/event-types/",
@@ -27,9 +28,10 @@ references = [
 risk_score = 21
 rule_id = "000047bb-b27a-47ec-8b62-ef1a5d2c9e19"
 severity = "low"
-tags = ["Elastic", "Okta"]
+tags = ["Elastic", "Okta", "SecOps", "Identity and Access", "Continuous Monitoring"]
 type = "query"
 
 query = '''
 event.module:okta and event.dataset:okta.system and event.action:(policy.rule.update or policy.rule.delete)
 '''
+

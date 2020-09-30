@@ -8,6 +8,8 @@ import os
 import re
 import sys
 import unittest
+import warnings
+from collections import defaultdict
 
 import jsonschema
 import kql
@@ -15,7 +17,7 @@ import toml
 import pytoml
 from rta import get_ttp_names
 
-from detection_rules import rule_loader
+from detection_rules import attack, rule_loader
 from detection_rules.utils import load_etc_dump
 from detection_rules.rule import Rule
 
@@ -111,3 +113,76 @@ class TestValidRules(unittest.TestCase):
                 rta_name, ext = os.path.splitext(matching_rta)
                 if rta_name not in ttp_names:
                     self.fail("{} ({}) references unknown RTA: {}".format(rule.name, rule.id, rta_name))
+
+    def test_duplicate_file_names(self):
+        """Test that no file names are duplicated."""
+        name_map = defaultdict(list)
+        for file_path in rule_loader.load_rule_files():
+            base_name = os.path.basename(file_path)
+            name_map[base_name].append(file_path)
+
+        duplicates = {name: paths for name, paths in name_map.items() if len(paths) > 1}
+        if duplicates:
+            self.fail(f"Found duplicated file names {duplicates}")
+
+
+class TestThreatMappings(unittest.TestCase):
+    """Test threat mapping data for rules."""
+
+    def test_tactic_to_technique_correlations(self):
+        """Ensure rule threat info is properly related to a single tactic and technique."""
+        rules = rule_loader.load_rules().values()
+
+        for rule in rules:
+            threat_mapping = rule.contents.get('threat')
+            if threat_mapping:
+                for entry in threat_mapping:
+                    tactic = entry.get('tactic')
+                    techniques = entry.get('technique', [])
+                    expected_tactic = attack.tactics_map[tactic['name']]
+                    self.assertEqual(expected_tactic, tactic['id'],
+                                     f'ATT&CK tactic mapping error for rule: {rule.id} - {rule.name} ->\n'
+                                     f'expected:  {expected_tactic} for {tactic["name"]}\n'
+                                     f'actual: {tactic["id"]}')
+
+                    tactic_reference_id = tactic['reference'].rstrip('/').split('/')[-1]
+                    self.assertEqual(tactic['id'], tactic_reference_id,
+                                     f'ATT&CK tactic mapping error for rule: {rule.id} - {rule.name} ->\n'
+                                     f'tactic ID {tactic["id"]} does not match the reference URL ID '
+                                     f'{tactic["reference"]}')
+
+                    for technique in techniques:
+                        expected_technique = attack.technique_lookup[technique['id']]['name']
+                        self.assertEqual(expected_technique, technique['name'],
+                                         f'ATT&CK technique mapping error for rule: {rule.id} - {rule.name} ->\n'
+                                         f'expected: {expected_technique} for {technique["id"]}\n'
+                                         f'actual: {technique["name"]}')
+
+                        technique_reference_id = technique['reference'].rstrip('/').split('/')[-1]
+                        self.assertEqual(technique['id'], technique_reference_id,
+                                         f'ATT&CK technique mapping error for rule: {rule.id} - {rule.name} ->\n'
+                                         f'technique ID {technique["id"]} does not match the reference URL ID '
+                                         f'{technique["reference"]}')
+
+    def test_technique_deprecations(self):
+        """Check and warn for use of any ATT&CK techniques that have been deprecated."""
+        deprecated = {}  # {technique: rules_using_them
+        rules = rule_loader.load_rules().values()
+
+        for rule in rules:
+            rule_info = f'{rule.id} - {rule.name}'
+            threat_mapping = rule.contents.get('threat')
+
+            if threat_mapping:
+                for entry in threat_mapping:
+                    techniques = entry.get('technique', [])
+                    for technique in techniques:
+                        if technique['id'] in attack.revoked:
+                            deprecated.setdefault(technique['id'], [])
+                            deprecated[technique['id']].append(rule_info)
+
+        if deprecated:
+            deprecated_str = json.dumps(deprecated, indent=2, sort_keys=True)
+            mitre_url = 'https://attack.mitre.org/resources/updates/'
+            warning_str = f'The following rules are using deprecated ATT&CK techniques ({mitre_url}):\n{deprecated_str}'
+            warnings.warn(warning_str)

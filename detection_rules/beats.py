@@ -6,11 +6,12 @@
 import os
 
 import kql
+import eql
 import requests
 import yaml
 
 from .semver import Version
-from .utils import unzip, load_etc_dump, save_etc_dump, get_etc_path
+from .utils import unzip, load_etc_dump, save_etc_dump, get_etc_path, cached
 
 
 def download_latest_beats_schema():
@@ -57,8 +58,8 @@ def download_latest_beats_schema():
 
     # remove all non-beat directories
     fs = {k: v for k, v in fs.get("folders", {}).items() if k.endswith("beat")}
-    print(f"Saving etc/beats_schema/{latest_release['tag_name']}.yml")
-    save_etc_dump(fs, "beats_schemas", latest_release["tag_name"] + ".yml")
+    print(f"Saving etc/beats_schema/{latest_release['tag_name']}.json")
+    save_etc_dump(fs, "beats_schemas", latest_release["tag_name"] + ".json")
 
 
 def _flatten_schema(schema: list, prefix="") -> list:
@@ -72,8 +73,11 @@ def _flatten_schema(schema: list, prefix="") -> list:
             flattened.extend(_flatten_schema(s["fields"], prefix=prefix + s["name"] + "."))
         elif "fields" in s:
             flattened.extend(_flatten_schema(s["fields"], prefix=prefix))
-        elif "type" in s:
+        elif "name" in s and "description" in s:
             s = s.copy()
+            # type is implicitly keyword if not defined
+            # example: https://github.com/elastic/beats/blob/master/packetbeat/_meta/fields.common.yml#L7-L12
+            s.setdefault("type", "keyword")
             s["name"] = prefix + s["name"]
             flattened.append(s)
 
@@ -93,16 +97,23 @@ def get_field_schema(base_directory, prefix="", include_common=False):
     return flattened
 
 
-def get_beats_schema(schema: dict, beat: str, module: str, *datasets: str):
+def get_beat_root_schema(schema: dict, beat: str):
+    if beat not in schema:
+        raise KeyError(f"Unknown beats module {beat}")
+
+    beat_dir = schema[beat]
+    flattened = get_field_schema(beat_dir, include_common=True)
+
+    return {field["name"]: field for field in sorted(flattened, key=lambda f: f["name"])}
+
+
+def get_beats_sub_schema(schema: dict, beat: str, module: str, *datasets: str):
     if beat not in schema:
         raise KeyError(f"Unknown beats module {beat}")
 
     flattened = []
     beat_dir = schema[beat]
-    flattened.extend(get_field_schema(beat_dir, include_common=True))
-
     module_dir = beat_dir.get("folders", {}).get("module", {}).get("folders", {}).get(module, {})
-    flattened.extend(get_field_schema(module_dir, include_common=True))
 
     # if we only have a module then we'll work with what we got
     if not datasets:
@@ -119,23 +130,56 @@ def get_beats_schema(schema: dict, beat: str, module: str, *datasets: str):
     return {field["name"]: field for field in sorted(flattened, key=lambda f: f["name"])}
 
 
-SCHEMA = None
-
-
+@cached
 def read_beats_schema():
-    global SCHEMA
+    beats_schemas = os.listdir(get_etc_path("beats_schemas"))
+    latest = max(beats_schemas, key=lambda b: Version(b.lstrip("v")))
 
-    if SCHEMA is None:
-        beats_schemas = os.listdir(get_etc_path("beats_schemas"))
-        latest = max(beats_schemas, key=lambda b: Version(b.lstrip("v")))
-
-        SCHEMA = load_etc_dump("beats_schemas", latest)
-
-    return SCHEMA
+    return load_etc_dump("beats_schemas", latest)
 
 
-def get_schema_for_query(tree: kql.ast, beats: list) -> dict:
+def get_schema_from_datasets(beats, modules, datasets):
     filtered = {}
+    beats_schema = read_beats_schema()
+
+    # infer the module if only a dataset are defined
+    if not modules:
+        modules.update(ds.split(".")[0] for ds in datasets if "." in ds)
+
+    for beat in beats:
+        # if no modules are specified then grab them all
+        # all_modules = list(beats_schema.get(beat, {}).get("folders", {}).get("module", {}).get("folders", {}))
+        # beat_modules = modules or all_modules
+        filtered.update(get_beat_root_schema(beats_schema, beat))
+
+        for module in modules:
+            filtered.update(get_beats_sub_schema(beats_schema, beat, module, *datasets))
+
+    return filtered
+
+
+def get_schema_from_eql(tree: eql.ast.BaseNode, beats: list) -> dict:
+    modules = set()
+    datasets = set()
+
+    # extract out event.module and event.dataset from the query's AST
+    for node in tree:
+        if isinstance(node, eql.ast.Comparison) and node.comparator == node.EQ and \
+                isinstance(node.right, eql.ast.String):
+            if node.left == eql.ast.Field("event", ["module"]):
+                modules.add(node.right.render())
+            elif node.left == eql.ast.Field("event", ["dataset"]):
+                datasets.add(node.right.render())
+        elif isinstance(node, eql.ast.InSet):
+            if node.expression == eql.ast.Field("event", ["module"]):
+                modules.add(node.get_literals())
+            elif node.expression == eql.ast.Field("event", ["dataset"]):
+                datasets.add(node.get_literals())
+
+    return get_schema_from_datasets(beats, modules, datasets)
+
+
+def get_schema_from_kql(tree: kql.ast.BaseNode, beats: list) -> dict:
     modules = set()
     datasets = set()
 
@@ -147,14 +191,4 @@ def get_schema_for_query(tree: kql.ast, beats: list) -> dict:
         if isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.dataset"):
             datasets.update(child.value for child in node.value if isinstance(child, kql.ast.String))
 
-    beats_schema = read_beats_schema()
-
-    for beat in beats:
-        # if no modules are specified then grab them all
-        # all_modules = list(beats_schema.get(beat, {}).get("folders", {}).get("module", {}).get("folders", {}))
-        # beat_modules = modules or all_modules
-
-        for module in modules:
-            filtered.update(get_beats_schema(beats_schema, beat, module, *datasets))
-
-    return filtered
+    return get_schema_from_datasets(beats, modules, datasets)

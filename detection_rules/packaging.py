@@ -13,15 +13,17 @@ from collections import OrderedDict
 import click
 
 from . import rule_loader
+from .misc import JS_LICENSE
 from .rule import Rule  # noqa: F401
 from .utils import get_path, get_etc_path
 
 RELEASE_DIR = get_path("releases")
 PACKAGE_FILE = get_etc_path('packages.yml')
 RULE_VERSIONS = get_etc_path('version.lock.json')
+NOTICE_FILE = get_path('NOTICE.txt')
 
 
-def filter_rule(rule, config_filter):  # type: (Rule,dict) -> bool  # rule.contents (not api), filter_dict -> match
+def filter_rule(rule, config_filter, exclude_fields):  # type: (Rule,dict,dict) -> bool
     """Filter a rule based off metadata and a package configuration."""
     flat_rule = rule.flattened_contents
     for key, values in config_filter.items():
@@ -39,12 +41,17 @@ def filter_rule(rule, config_filter):  # type: (Rule,dict) -> bool  # rule.conte
         if len(rule_values & values) == 0:
             return False
 
+    for index, fields in exclude_fields.items():
+        if rule.unique_fields and (rule.contents['index'] == index or index == 'any'):
+            if set(rule.unique_fields) & set(fields):
+                return False
+
     return True
 
 
 def manage_versions(rules, current_versions=None, exclude_version_update=False, add_new=True, save_changes=False,
                     verbose=True):
-    # type: (list, dict, bool, bool, bool, bool) -> [list, list]
+    # type: (list[Rule], dict, bool, bool, bool, bool) -> [list, list]
     """Update the contents of the version.lock file and optionally save changes."""
     new_rules = {}
     changed_rules = []
@@ -122,12 +129,46 @@ class Package(object):
         """Add versions to rules at load time."""
         return manage_versions(self.rules, current_versions=current_versions, save_changes=update_versions_lock)
 
+    @staticmethod
+    def _package_notice_file(save_dir):
+        """Convert and save notice file with package."""
+        with open(NOTICE_FILE, 'rt') as f:
+            notice_txt = f.read()
+
+        with open(os.path.join(save_dir, 'notice.ts'), 'wt') as f:
+            commented_notice = [f' * {line}'.rstrip() for line in notice_txt.splitlines()]
+            lines = ['/* eslint-disable @kbn/eslint/require-license-header */', '', '/* @notice']
+            lines = lines + commented_notice + [' */', '']
+            f.write('\n'.join(lines))
+
+    def _package_index_file(self, save_dir):
+        """Convert and save index file with package."""
+        sorted_rules = sorted(self.rules, key=lambda k: (k.metadata['creation_date'], os.path.basename(k.path)))
+        comments = [
+            '// Auto generated file from either:',
+            '// - scripts/regen_prepackage_rules_index.sh',
+            '// - detection-rules repo using CLI command build-release',
+            '// Do not hand edit. Run script/command to regenerate package information instead',
+        ]
+        rule_imports = [f"import rule{i} from './{os.path.splitext(os.path.basename(r.path))[0] + '.json'}';"
+                        for i, r in enumerate(sorted_rules, 1)]
+        const_exports = ['export const rawRules = [']
+        const_exports.extend(f"  rule{i}," for i, _ in enumerate(sorted_rules, 1))
+        const_exports.append("];")
+        const_exports.append("")
+
+        index_ts = [JS_LICENSE, ""]
+        index_ts.extend(comments)
+        index_ts.append("")
+        index_ts.extend(rule_imports)
+        index_ts.append("")
+        index_ts.extend(const_exports)
+
+        with open(os.path.join(save_dir, 'index.ts'), 'wt') as f:
+            f.write('\n'.join(index_ts))
+
     def save_release_files(self, directory, changed_rules, new_rules):
         """Release a package."""
-        # TODO:
-        # xslx of mitre coverage
-        # release notes
-
         with open(os.path.join(directory, '{}-summary.txt'.format(self.name)), 'w') as f:
             f.write(self.generate_summary(changed_rules, new_rules))
         with open(os.path.join(directory, '{}-consolidated.json'.format(self.name)), 'w') as f:
@@ -155,6 +196,9 @@ class Package(object):
         for rule in self.rules:
             rule.save(new_path=os.path.join(rules_dir, os.path.basename(rule.path)))
 
+        self._package_notice_file(rules_dir)
+        self._package_index_file(rules_dir)
+
         if self.release:
             self.save_release_files(extras_dir, self.changed_rules, self.new_rules)
 
@@ -169,9 +213,6 @@ class Package(object):
         if verbose:
             click.echo('Package saved to: {}'.format(save_dir))
 
-    def from_github(self):
-        """Retrieve previously released and staged packages."""
-
     def get_package_hash(self, as_api=True, verbose=True):
         """Get hash of package contents."""
         contents = base64.b64encode(self.get_consolidated(as_api=as_api).encode('utf-8'))
@@ -183,15 +224,20 @@ class Package(object):
         return sha256
 
     @classmethod
-    def from_config(cls, config=None, update_version_lock=False):  # type: (dict, bool) -> Package
+    def from_config(cls, config: dict = None, update_version_lock: bool = False, verbose: bool = False) -> 'Package':
         """Load a rules package given a config."""
         all_rules = rule_loader.load_rules(verbose=False).values()
         config = config or {}
+        exclude_fields = config.pop('exclude_fields', {})
         rule_filter = config.pop('filter', {})
         min_version = config.pop('min_version', None)
         max_version = config.pop('max_version', None)
 
-        rules = filter(lambda rule: filter_rule(rule, rule_filter), all_rules)
+        rules = list(filter(lambda rule: filter_rule(rule, rule_filter, exclude_fields), all_rules))
+
+        if verbose:
+            click.echo(f' - {len(all_rules) - len(rules)} rules excluded from package')
+
         update = config.pop('update', {})
         package = cls(rules, min_version=min_version, max_version=max_version, update_version_lock=update_version_lock,
                       **config)
@@ -227,9 +273,6 @@ class Package(object):
         new_rules = 'New Rules: \n{}'.format('\n'.join(' - ' + s for s in sorted(new)) if new else 'N/A')
         modified_rules = 'Modified Rules: \n{}'.format('\n'.join(' - ' + s for s in sorted(changed)) if new else 'N/A')
         return '\n'.join([total, sha256, ecs_versions, indices, new_rules, modified_rules])
-
-    def generate_change_notes(self):
-        """Generate change release notes."""
 
     def bump_versions(self, save_changes=False, current_versions=None):
         """Bump the versions of all production rules included in a release and optionally save changes."""
