@@ -23,14 +23,14 @@ tags = ["Elastic", "Windows"]
 type = "eql"
 
 query = '''
-// leaving in development pending `file.Ext.windows.zone_identifier` landing in ECS then endpoint
+/* leaving in development pending `file.Ext.windows.zone_identifier` landing in ECS then endpoint */
 
 sequence by process.entity_id, process.pid, process.name with maxspan=2s
-                                           // file.extension added to endpoint fields for 7.10
+                                           /* file.extension added to endpoint fields for 7.10 */
   [file where event.type == "creation" and file.extension == "lnk"]
-                                           // not sure yet how the update will capture ADS
+                                           /* not sure yet how the update will capture ADS */
   [file where event.type == "creation" and file.extension == "lnk:Zone.Identifier" and
-     // non-ECS field - may disqualify conversion
+     /* non-ECS field - may disqualify conversion */
      file.Ext.windows.zone_identifier > 1]
 '''
 
