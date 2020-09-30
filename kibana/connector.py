@@ -43,9 +43,6 @@ class Kibana(object):
         self.session.headers.update({'Content-Type': "application/json", "kbn-xsrf": str(uuid.uuid4())})
         self.elasticsearch = elasticsearch
 
-        if self.space:
-            self.kibana_url = "{}/s/{}".format(self.url, self.space)
-
         if not verify:
             from requests.packages.urllib3.exceptions import InsecureRequestWarning
             requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -59,6 +56,9 @@ class Kibana(object):
     def url(self, uri):
         """Get the full URL given a URI."""
         assert self.kibana_url is not None
+        # If a space is defined update the URL accordingly
+        if self.space:
+            uri = "s/{}{}".format(self.space, uri)
         return f"{self.kibana_url}/{uri.lstrip('/')}"
 
     def request(self, method, uri, params=None, data=None, error=True):
