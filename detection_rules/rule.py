@@ -211,7 +211,7 @@ class Rule(object):
                 message = exc.error_msg
                 trailer = None
                 if "Unknown field" in message and beat_types:
-                    trailer = "\nTry adding event.module and event.dataset to specify beats module"
+                    trailer = "\nTry adding event.module or event.dataset to specify beats module"
 
                 raise type(exc)(exc.error_msg, exc.line, exc.column, exc.source,
                                 len(exc.caret.lstrip()), trailer=trailer) from None
@@ -241,7 +241,7 @@ class Rule(object):
                     message = exc.error_msg
                     trailer = None
                     if "Unknown field" in message and beat_types:
-                        trailer = "\nTry adding event.module and event.dataset to specify beats module"
+                        trailer = "\nTry adding event.module or event.dataset to specify beats module"
 
                     raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
                                             len(exc.caret.lstrip()), trailer=trailer)
