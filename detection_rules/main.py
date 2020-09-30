@@ -100,24 +100,27 @@ def toml_lint(rule_file):
 
 @root.command('mass-update')
 @click.argument('query')
+@click.option('--metadata', '-m', is_flag=True, help='Make an update to the rule metadata rather than contents.')
+@click.option('--language', type=click.Choice(["eql", "kql"]), default="kql")
 @click.option('--field', type=(str, str), multiple=True,
               help='Use rule-search to retrieve a subset of rules and modify values '
                    '(ex: --field management.ecs_version 1.1.1).\n'
                    'Note this is limited to string fields only. Nested fields should use dot notation.')
 @click.pass_context
-def mass_update(ctx, query, field):
+def mass_update(ctx, query, metadata, language, field):
     """Update multiple rules based on eql results."""
-    results = ctx.invoke(search_rules, query=query, verbose=False)
-    rules = [rule_loader.get_rule(r['rule_id']) for r in results]
+    results = ctx.invoke(search_rules, query=query, language=language, verbose=False)
+    rules = [rule_loader.get_rule(r['rule_id'], verbose=False) for r in results]
 
     for rule in rules:
         for key, value in field:
-            nested_set(rule.contents, key, value)
+            nested_set(rule.metadata if metadata else rule.contents, key, value)
 
         rule.validate(as_rule=True)
-        rule.save()
+        rule.save(as_rule=True)
 
-    return ctx.invoke(search_rules, query=query, columns=[k[0].split('.')[-1] for k in field])
+    return ctx.invoke(search_rules, query=query, language=language,
+                      columns=['rule_id', 'name'] + [k[0].split('.')[-1] for k in field])
 
 
 @root.command('view-rule')
@@ -226,7 +229,7 @@ def search_rules(query, columns, language, verbose=True):
 
     flattened_rules = []
 
-    for file_name, rule_doc in rule_loader.load_rule_files().items():
+    for file_name, rule_doc in rule_loader.load_rule_files(verbose=verbose).items():
         flat = {"file": os.path.relpath(file_name)}
         flat.update(rule_doc)
         flat.update(rule_doc["metadata"])
@@ -234,7 +237,8 @@ def search_rules(query, columns, language, verbose=True):
         attacks = [threat for threat in rule_doc["rule"].get("threat", []) if threat["framework"] == "MITRE ATT&CK"]
         techniques = [t["id"] for threat in attacks for t in threat.get("technique", [])]
         tactics = [threat["tactic"]["name"] for threat in attacks]
-        flat.update(techniques=techniques, tactics=tactics)
+        flat.update(techniques=techniques, tactics=tactics,
+                    unique_fields=Rule.get_unique_query_fields(rule_doc['rule']))
         flattened_rules.append(flat)
 
     flattened_rules.sort(key=lambda dct: dct["name"])
@@ -272,7 +276,7 @@ def build_release(config_file, update_version_lock):
     """Assemble all the rules into Kibana-ready release files."""
     config = load_dump(config_file)['package']
     click.echo('[+] Building package {}'.format(config.get('name')))
-    package = Package.from_config(config, update_version_lock=update_version_lock)
+    package = Package.from_config(config, update_version_lock=update_version_lock, verbose=True)
     package.save()
     package.get_package_hash(verbose=True)
     click.echo('- {} rules included'.format(len(package.rules)))
