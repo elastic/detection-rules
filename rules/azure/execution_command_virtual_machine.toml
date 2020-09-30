@@ -2,15 +2,15 @@
 creation_date = "2020/08/17"
 ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/08/17"
+updated_date = "2020/09/23"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies command execution on a virtual machine (VM) in Azure. A Virtual Machine Contributor role lets you manage
-virtual machines, but not access them, nor access the virtual network or storage account they’re connected to.
-However, commands can be run via PowerShell on the VM, which execute as System. Other roles, such as certain
-Administrator roles may be able to execute commands on a VM as well.
+virtual machines, but not access them, nor access the virtual network or storage account they’re connected to. However,
+commands can be run via PowerShell on the VM, which execute as System. Other roles, such as certain Administrator roles
+may be able to execute commands on a VM as well.
 """
 false_positives = [
     """
@@ -38,7 +38,7 @@ tags = ["Azure", "Elastic", "SecOps", "Continuous Monitoring", "Logging"]
 type = "query"
 
 query = '''
-event.module:azure and event.dataset:azure.activitylogs and event.category:Administrative and azure.activitylogs.operation_name:MICROSOFT.COMPUTE/VIRTUALMACHINES/RUNCOMMAND/ACTION and event.outcome:Success
+event.dataset:azure.activitylogs and azure.activitylogs.operation_name:MICROSOFT.COMPUTE/VIRTUALMACHINES/RUNCOMMAND/ACTION and event.outcome:Success
 '''
 
 
@@ -46,7 +46,7 @@ event.module:azure and event.dataset:azure.activitylogs and event.category:Admin
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1059"
-name = "Command-Line Interface"
+name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
 

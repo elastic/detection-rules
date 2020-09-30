@@ -12,7 +12,7 @@ import uuid
 import click
 import requests
 
-from .utils import ROOT_DIR
+from .utils import cached, get_path
 
 _CONFIG = {}
 
@@ -45,11 +45,12 @@ def nested_get(_dict, dot_key, default=None):
 
 def nested_set(_dict, dot_key, value):
     """Set a nested field from a a key in dot notation."""
-    for key in dot_key.split('.')[:-1]:
+    keys = dot_key.split('.')
+    for key in keys[:-1]:
         _dict = _dict.setdefault(key, {})
 
     if isinstance(_dict, dict):
-        _dict[dot_key[-1]] = value
+        _dict[keys[-1]] = value
     else:
         raise ValueError('dict cannot set a value to a non-dict for {}'.format(dot_key))
 
@@ -74,6 +75,9 @@ def schema_prompt(name, value=None, required=False, **options):
 
     if name == 'rule_id':
         default = str(uuid.uuid4())
+
+    if len(enum) == 1 and required and field_type != "array":
+        return enum[0]
 
     def _check_type(_val):
         if field_type in ('number', 'integer') and not str(_val).isdigit():
@@ -197,35 +201,23 @@ def get_kibana_rules(*rule_paths, branch='master', verbose=True, threads=50):
     return kibana_rules
 
 
+@cached
 def parse_config():
     """Parse a default config file."""
-    global _CONFIG
+    config_file = get_path('.detection-rules-cfg.json')
+    config = {}
 
-    if not _CONFIG:
-        config_file = os.path.join(ROOT_DIR, '.detection-rules-cfg.json')
+    if os.path.exists(config_file):
+        with open(config_file) as f:
+            config = json.load(f)
 
-        if os.path.exists(config_file):
-            with open(config_file) as f:
-                _CONFIG = json.load(f)
+        click.secho('Loaded config file: {}'.format(config_file), fg='yellow')
 
-            click.secho('Loaded config file: {}'.format(config_file), fg='yellow')
-
-    return _CONFIG
+    return config
 
 
-def set_param_values(ctx, param, value):
-    """Get value for defined key."""
-    key = param.name
+def getdefault(name):
+    """Callback function for `default` to get an environment variable."""
+    envvar = f"DR_{name.upper()}"
     config = parse_config()
-    env_key = 'DR_' + key.upper()
-    prompt = True if param.hide_input is not False else False
-
-    if value:
-        return value
-    elif os.environ.get(env_key):
-        return os.environ[env_key]
-    elif config.get(key) is not None:
-        return config[key]
-    elif prompt:
-        return click.prompt(key, default=param.default if not param.default else None, hide_input=param.hide_input,
-                            show_default=True if param.default else False)
+    return lambda: os.environ.get(envvar, config.get(name))
