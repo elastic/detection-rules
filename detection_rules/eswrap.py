@@ -15,21 +15,11 @@ from elasticsearch.client import IngestClient, MlClient
 from kibana import Kibana, RuleResource
 
 from .main import root
-from .misc import getdefault
+from .misc import Errors, getdefault
 from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
 from .rule_loader import get_rule, rta_mappings, load_rule_files, load_rules
 
 COLLECTION_DIR = get_path('collections')
-ERRORS = {
-    'NO_EVENTS': 1,
-    'FAILED_ES_AUTH': 2,
-    'MISSING_REQUIRED_ARGUMENT': 3,
-    'MISSING_FILE': 4,
-    'REMOTE_FILE_EXISTS': 5,
-    'ES_CONNECTION_TIMEOUT': 6,
-    'ES_SCRIPT_ERROR': 8,
-    'OTHER': 99
-}
 
 
 def get_es_client(user, es_password, elasticsearch_url=None, cloud_id=None, **kwargs):
@@ -221,7 +211,7 @@ def es_group(ctx: click.Context, **es_kwargs):
         except AuthenticationException:
             click.secho(f'Failed authentication for {es_kwargs.get("elasticsearch_url") or es_kwargs.get("cloud_id")}',
                         fg='red', err=True)
-            ctx.exit(ERRORS['FAILED_ES_AUTH'])
+            ctx.exit(Errors.FAILED_ES_AUTH)
 
 
 @es_group.command('collect-events')
@@ -241,18 +231,18 @@ def collect_events(ctx, agent_hostname, index, agent_type, rta_name, rule_id, vi
         collector = CollectEvents(client)
         events = collector.run(agent_hostname, index, **match)
         events.save(rta_name)
+
+        if rta_name and rule_id:
+            events.evaluate_against_rule_and_update_mapping(rule_id, rta_name)
+
+        if view_events and events.events:
+            events.echo_events(pager=True)
+
+        return events
     except AssertionError:
         click.secho('No events collected! Verify events are streaming and that the agent-hostname is correct',
                     err=True, fg='red')
-        return ERRORS['NO_EVENTS']
-
-    if rta_name and rule_id:
-        events.evaluate_against_rule_and_update_mapping(rule_id, rta_name)
-
-    if view_events and events.events:
-        events.echo_events(pager=True)
-
-    return events
+        ctx.exit(Errors.NO_EVENTS_COLLECTED)
 
 
 @root.command("kibana-upload")
@@ -372,7 +362,7 @@ def setup_ml_dga(ctx, model_tag, model_dir, overwrite):
     if not model_dir:
         if not model_tag:
             click.secho('model-tag is required to download model files')
-            ctx.exit(ERRORS['MISSING_REQUIRED_ARGUMENT'])
+            ctx.exit(Errors.MISSING_REQUIRED_ARGUMENT)
 
         click.echo(f'Downloading artifact: {model_tag}')
 
@@ -399,10 +389,10 @@ def setup_ml_dga(ctx, model_tag, model_dir, overwrite):
         paths = glob.glob(os.path.join(model_dir, pattern))
         if not paths:
             click.secho(f'{model_dir} missing files matching the pattern {pattern}', err=True, fg='red')
-            ctx.exit(ERRORS['MISSING_FILE'])
+            ctx.exit(Errors.MISSING_FILE)
         if len(paths) > 1:
             click.secho(f'{model_dir} contains multiple files matching the pattern {pattern}', err=True, fg='red')
-            ctx.exit(ERRORS['OTHER'])
+            ctx.exit(Errors.AMBIGUOUS_FILE)
 
         if name_only:
             yield paths[0]
@@ -427,7 +417,7 @@ def setup_ml_dga(ctx, model_tag, model_dir, overwrite):
         else:
             click.secho(f'Model: {model_id} already exists on stack! Try --overwrite to force the upload',
                         err=True, fg='red')
-            ctx.exit(ERRORS['REMOTE_FILE_EXISTS'])
+            ctx.exit(Errors.REMOTE_ES_FILE_EXISTS)
 
     click.secho('[+] Uploading model (may take a while)')
 
@@ -436,7 +426,7 @@ def setup_ml_dga(ctx, model_tag, model_dir, overwrite):
             ml_client.put_trained_model(model_id=model_id, body=model_file)
         except elasticsearch.ConnectionTimeout:
             click.secho('Connection timeout, try increasing timeout using `es --timeout <secs> beta setup-ml-dga`.')
-            ctx.exit(ERRORS['ES_CONNECTION_TIMEOUT'])
+            ctx.exit(Errors.ES_CONNECTION_TIMEOUT)
 
     # install scripts
     click.secho('[+] Uploading painless scripts')
@@ -471,7 +461,7 @@ def setup_ml_dga(ctx, model_tag, model_dir, overwrite):
         except elasticsearch.RequestError as e:
             if e.error == 'script_exception':
                 click.echo(_build_es_script_error(e, 'ingest_pipeline1'), err=True)
-                ctx.exit(ERRORS['ES_SCRIPT_ERROR'])
+                ctx.exit(Errors.ES_SCRIPT_ERROR)
             else:
                 raise
 
@@ -481,6 +471,6 @@ def setup_ml_dga(ctx, model_tag, model_dir, overwrite):
         except elasticsearch.RequestError as e:
             if e.error == 'script_exception':
                 click.echo(_build_es_script_error(e, 'ingest_pipeline2'), err=True)
-                ctx.exit(ERRORS['ES_SCRIPT_ERROR'])
+                ctx.exit(Errors.ES_SCRIPT_ERROR)
             else:
                 raise

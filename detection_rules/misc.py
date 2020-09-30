@@ -11,6 +11,7 @@ import uuid
 
 import click
 import requests
+from enum import Enum
 
 from .utils import cached, get_path
 
@@ -221,3 +222,26 @@ def getdefault(name):
     envvar = f"DR_{name.upper()}"
     config = parse_config()
     return lambda: os.environ.get(envvar, config.get(name))
+
+
+class Errors(Enum):
+    """Custom detection-rules errors."""
+    # general 0-99
+    OTHER = 99
+
+    # Generic CLI 100-199
+    MISSING_REQUIRED_ARGUMENT = 100
+    MISSING_FILE = 101
+    AMBIGUOUS_FILE = 102
+    CLI_OTHER = 199
+
+    # elasticsearch 200-299
+    NO_EVENTS_COLLECTED = 200
+    FAILED_ES_AUTH = 201
+    REMOTE_ES_FILE_EXISTS = 202
+    ES_CONNECTION_TIMEOUT = 203
+    ES_SCRIPT_ERROR = 204
+    ES_OTHER = 299
+
+    # kibana 300-399
+    KIBANA_OTHER = 399
