@@ -57,9 +57,10 @@ class Kibana(object):
         """Get the full URL given a URI."""
         assert self.kibana_url is not None
         # If a space is defined update the URL accordingly
+        uri = uri.lstrip('/')
         if self.space:
-            uri = "s/{}{}".format(self.space, uri)
-        return f"{self.kibana_url}/{uri.lstrip('/')}"
+            uri = "s/{}/{}".format(self.space, uri)
+        return f"{self.kibana_url}/{uri}"
 
     def request(self, method, uri, params=None, data=None, error=True):
         """Perform a RESTful HTTP request with JSON responses."""
