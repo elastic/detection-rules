@@ -14,7 +14,7 @@ from = "now-9m"
 index = ["logs-endpoint.events.*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License"
-name = "MsBuild Making Network Connections: Sequence"
+name = "MsBuild Network Connection Sequence"
 risk_score = 21
 rule_id = "9dc6ed5d-62a9-4feb-a903-fafa1d33b8e9"
 severity = "medium"
@@ -22,7 +22,7 @@ tags = ["Elastic", "Windows"]
 type = "eql"
 
 query = '''
-sequence by process.entity_id, process.pid, process.name
+sequence by process.entity_id
   [process where event.type in ("start", "process_started") and process.name == "msbuild.exe"]
   [network where process.name == "msbuild.exe" and
      not (destination.address == "127.0.0.1" and source.address == "127.0.0.1")]

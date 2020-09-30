@@ -14,7 +14,7 @@ from = "now-9m"
 index = ["logs-endpoint.events.*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License"
-name = "InstallUtil Making Network Connections"
+name = "InstallUtil Process Making Network Connections"
 risk_score = 21
 rule_id = "a13167f1-eec2-4015-9631-1fee60406dcf"
 severity = "medium"
@@ -24,7 +24,7 @@ type = "eql"
 query = '''
 /* this can be done without a sequence however, this does include more info on the process */
 
-sequence by process.entity_id, process.pid, process.name
+sequence by process.entity_id
   [process where event.type in ("start", "process_started") and process.name == "installutil.exe"]
   [network where event.type == "connection" and process.name == "installutil.exe" and network.direction == "outgoing"]
 '''

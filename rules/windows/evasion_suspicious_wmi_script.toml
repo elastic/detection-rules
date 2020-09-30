@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/02"
 ecs_version = ["1.6.0"]
-maturity = "development"
+maturity = "production"
 updated_date = "2020/09/02"
 
 [rule]
@@ -26,11 +26,11 @@ query = '''
    need to verify args cleanup is accurate
 */
 
-sequence by process.entity_id, process.pid, process.name with maxspan=2m
+sequence by process.entity_id with maxspan=2m
 [process where event.type in ("start", "process_started") and
    (process.name == "wmic.exe" or process.pe.original_file_name == "wmic.exe") and
-   process.args in ("format*:*", "/format*:*", "*-format*:*") and
-   not process.args in ("/format:table", "/format:table", "format*:*")]
+   wilcard(process.args, "format*:*", "/format*:*", "*-format*:*") and
+   not process.args in ("/format:table", "/format:table") or wildcard(process.args, "format*:*")]
 [library where event.type == "start" and file.name in ("jscript.dll", "vbscript.dll")]
 '''
 
@@ -46,4 +46,3 @@ reference = "https://attack.mitre.org/techniques/T1220/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

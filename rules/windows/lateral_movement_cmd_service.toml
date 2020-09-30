@@ -24,10 +24,10 @@ type = "eql"
 query = '''
 /* dependent on a wildcard for remote path */
 
-sequence by process.entity_id, process.pid, process.name with maxspan=1m
+sequence by process.entity_id with maxspan=1m
   [process where event.type in ("start", "process_started") and
      (process.name == "sc.exe" or process.pe.original_file_name == "sc.exe") and
-     process.args == "\\\\*" and process.args == "binPath*" and
+     wildcard(process.args, "\\\\*") and wildcard(process.args, "binPath*", binpath*") and
      process.args in ("create", "config", "failure", "start")]
   [network where event.type == "connection" and process.name == "sc.exe" and destination.address != "127.0.0.1"]
 '''
@@ -55,4 +55,3 @@ reference = "https://attack.mitre.org/techniques/T1035/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-
