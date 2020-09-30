@@ -246,7 +246,7 @@ def kibana_upload(toml_files, kibana_url, cloud_id, user, password):
     from .packaging import manage_versions
     from .schemas import downgrade
 
-    if not cloud_id or kibana_url:
+    if not (cloud_id or kibana_url):
         raise click.ClickException("Missing required --cloud-id or --kibana-url")
 
     # don't prompt for these until there's a cloud id or kibana URL
