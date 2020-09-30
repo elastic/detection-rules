@@ -241,7 +241,7 @@ def normalize_file(events_file):
 @click.option('--user', '-u', default=getdefault("user"))
 @click.option('--password', '-p', default=getdefault("password"))
 @click.option('--space', default=None)
-def kibana_upload(toml_files, kibana_url, cloud_id, user, password):
+def kibana_upload(toml_files, kibana_url, cloud_id, user, password, space):
     """Upload a list of rule .toml files to Kibana."""
     from uuid import uuid4
     from .packaging import manage_versions
