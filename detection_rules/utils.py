@@ -5,22 +5,29 @@
 """Util functions."""
 import contextlib
 import functools
+import glob
 import gzip
 import io
 import json
 import os
 import time
 import zipfile
-from datetime import datetime
+from datetime import datetime, date
 
 import kql
 
 import eql.utils
-from eql.utils import stream_json_lines
+from eql.utils import load_dump, stream_json_lines
 
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(CURR_DIR)
 ETC_DIR = os.path.join(ROOT_DIR, "etc")
+
+
+class DateTimeEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (date, datetime)):
+            return obj.isoformat()
 
 
 def get_json_iter(f):
@@ -45,6 +52,12 @@ def get_etc_path(*paths):
     return os.path.join(ETC_DIR, *paths)
 
 
+def get_etc_glob_path(*patterns):
+    """Load a file from the etc/ folder."""
+    pattern = os.path.join(*patterns)
+    return glob.glob(os.path.join(ETC_DIR, pattern))
+
+
 def get_etc_file(name, mode="r"):
     """Load a file from the etc/ folder."""
     with open(get_etc_path(name), mode) as f:
@@ -56,12 +69,21 @@ def load_etc_dump(*path):
     return eql.utils.load_dump(get_etc_path(*path))
 
 
-def save_etc_dump(contents, *path):
+def save_etc_dump(contents, *path, **kwargs):
     """Load a json/yml/toml file from the etc/ folder."""
-    return eql.utils.save_dump(contents, get_etc_path(*path))
+    path = get_etc_path(*path)
+    _, ext = os.path.splitext(path)
+    sort_keys = kwargs.pop('sort_keys', True)
+    indent = kwargs.pop('indent', 2)
+
+    if ext == ".json":
+        with open(path, "wt") as f:
+            json.dump(contents, f, cls=DateTimeEncoder, sort_keys=sort_keys, indent=indent, **kwargs)
+    else:
+        return eql.utils.save_dump(contents, path)
 
 
-def save_gzip(contents):
+def gzip_compress(contents):
     gz_file = io.BytesIO()
 
     with gzip.GzipFile(mode="w", fileobj=gz_file) as f:
@@ -70,6 +92,11 @@ def save_gzip(contents):
         f.write(contents)
 
     return gz_file.getvalue()
+
+
+def read_gzip(path):
+    with gzip.GzipFile(path, mode='r') as gz:
+        return gz.read().decode("utf8")
 
 
 @contextlib.contextmanager
@@ -179,3 +206,29 @@ def cached(f):
 
 def clear_caches():
     _cache.clear()
+
+
+def load_rule_contents(rule_file: str, single_only=False) -> list:
+    """Load a rule file from multiple formats."""
+    _, extension = os.path.splitext(rule_file)
+
+    if extension in ('.ndjson', '.jsonl'):
+        # kibana exported rule object is ndjson with the export metadata on the last line
+        with open(rule_file, 'r') as f:
+            contents = [json.loads(line) for line in f.readlines()]
+
+            if len(contents) > 1 and 'exported_count' in contents[-1]:
+                contents.pop(-1)
+
+            if single_only and len(contents) > 1:
+                raise ValueError('Multiple rules not allowed')
+
+            return contents or [{}]
+    else:
+        rule = load_dump(rule_file)
+        if isinstance(rule, dict):
+            return [rule]
+        elif isinstance(rule, list):
+            return rule
+        else:
+            raise ValueError(f"Expected a list or dictionary in {rule_file}")

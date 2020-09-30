@@ -7,14 +7,18 @@ import copy
 import glob
 import os
 import shutil
+import json
 
 import requests
+import eql
+import eql.types
 import yaml
 
 from .semver import Version
-from .utils import unzip, load_etc_dump, get_etc_path, cached
+from .utils import unzip, load_etc_dump, get_etc_path, cached, save_etc_dump
 
-ECS_SCHEMAS_DIR = get_etc_path("ecs_schemas")
+ETC_NAME = "ecs_schemas"
+ECS_SCHEMAS_DIR = get_etc_path(ETC_NAME)
 
 
 def add_field(schema, name, info):
@@ -61,7 +65,7 @@ def _recursive_merge(existing, new, depth=0):
 
 def get_schema_files():
     """Get schema files from ecs directory."""
-    return glob.glob(os.path.join(ECS_SCHEMAS_DIR, '*', '*.yml'), recursive=True)
+    return glob.glob(os.path.join(ECS_SCHEMAS_DIR, '*', '*.json'), recursive=True)
 
 
 def get_schema_map():
@@ -85,7 +89,7 @@ def get_schemas():
     for version, values in schema_map.items():
         for name, file_name in values.items():
             with open(file_name, 'r') as f:
-                schema_map[version][name] = yaml.safe_load(f)
+                schema_map[version][name] = json.load(f)
 
     return schema_map
 
@@ -162,6 +166,34 @@ def flatten_multi_fields(schema):
     return converted
 
 
+class KqlSchema2Eql(eql.Schema):
+    type_mapping = {
+        "keyword": eql.types.TypeHint.String,
+        "ip": eql.types.TypeHint.String,
+        "float": eql.types.TypeHint.Numeric,
+        "double": eql.types.TypeHint.Numeric,
+        "long": eql.types.TypeHint.Numeric,
+        "short": eql.types.TypeHint.Numeric,
+    }
+
+    def __init__(self, kql_schema):
+        self.kql_schema = kql_schema
+        eql.Schema.__init__(self, {}, allow_any=True, allow_generic=False, allow_missing=False)
+
+    def validate_event_type(self, event_type):
+        # allow all event types to fill in X:
+        #   `X` where ....
+        return True
+
+    def get_event_type_hint(self, event_type, path):
+        dotted = ".".join(path)
+        elasticsearch_type = self.kql_schema.get(dotted)
+        eql_hint = self.type_mapping.get(elasticsearch_type)
+
+        if eql_hint is not None:
+            return eql_hint, None
+
+
 @cached
 def get_kql_schema(version=None, indexes=None, beat_schema=None):
     """Get schema for KQL."""
@@ -198,16 +230,20 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
 
             # members = [m for m in name_list if m.startswith('{}{}/'.format(base, 'use-cases')) and m.endswith('.yml')]
             members = ['{}generated/ecs/ecs_flat.yml'.format(base), '{}generated/ecs/ecs_nested.yml'.format(base)]
+            saved = []
 
             for member in members:
                 file_name = os.path.basename(member)
                 os.makedirs(schema_dir, exist_ok=True)
 
-                with open(os.path.join(schema_dir, file_name), 'wb') as f:
-                    f.write(archive.read(member))
+                # load as yaml, save as json
+                contents = yaml.safe_load(archive.read(member))
+                out_file = file_name.replace(".yml", ".json")
+                save_etc_dump(contents, "ecs_schemas", str(version), out_file)
+                saved.append(out_file)
 
             if verbose:
-                print('Saved files to {}: \n\t- {}'.format(schema_dir, '\n\t- '.join(members)))
+                print('Saved files to {}: \n\t- {}'.format(schema_dir, '\n\t- '.join(saved)))
 
     # handle working master separately
     if refresh_master:
@@ -222,12 +258,10 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
         for m in existing_master:
             shutil.rmtree(m, ignore_errors=True)
 
-        master_dir = os.path.join(ECS_SCHEMAS_DIR, 'master_{}'.format(master_ver))
-        master_file = os.path.join(master_dir, 'ecs_flat.yml')
-        os.makedirs(master_dir, exist_ok=True)
+        master_dir = "master_{}".format(master_ver)
+        os.makedirs(get_etc_path(ETC_NAME, master_dir), exist_ok=True)
 
-        with open(master_file, 'w') as f:
-            yaml.safe_dump(master_schema, f)
+        save_etc_dump(master_schema, ETC_NAME, master_dir, "ecs_flat.json")
 
         if verbose:
-            print('Saved files to {}: \n\t- {}'.format(master_dir, 'ecs_flat.yml'))
+            print('Saved files to {}: \n\t- {}'.format(master_dir, 'ecs_flat.json'))

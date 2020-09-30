@@ -2,7 +2,7 @@ name: Unit Tests
 
 on:
   push:
-    branches: [ main, feature/* ]
+    branches: [ "*" ]
   pull_request:
     branches: [ "*" ]
 
@@ -31,6 +31,17 @@ jobs:
     - name: Python License Check
       run: |
         python -m detection_rules license-check
+        
+    - name: Build release package
+      run: |
+        python -m detection_rules build-release
+
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: release-files
+        path: |
+          releases
 
     - name: Unit tests
       run: |
