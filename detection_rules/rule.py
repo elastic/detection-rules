@@ -152,7 +152,7 @@ class Rule(object):
 
     def normalize(self, indent=2):
         """Normalize the (api only) contents and return a serialized dump of it."""
-        return json.dumps(nested_normalize(self.contents), sort_keys=True, indent=indent)
+        return json.dumps(nested_normalize(self.contents, eql_rule=self.type == 'eql'), sort_keys=True, indent=indent)
 
     def get_path(self):
         """Wrapper around getting path."""
@@ -185,7 +185,10 @@ class Rule(object):
 
         schema_cls.validate(contents, role=self.type)
 
-        if query and self.query is not None:
+        skip_query_validation = self.metadata['maturity'] == 'development' and \
+            self.metadata.get('query_schema_validation') is False
+
+        if query and self.query is not None and not skip_query_validation:
             ecs_versions = self.metadata.get('ecs_version')
             indexes = self.contents.get("index", [])
 
