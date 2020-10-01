@@ -1,0 +1,51 @@
+[metadata]
+creation_date = "2020/09/02"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/09/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies User Account Control (UAC) bypass via sdclt.exe. Attackers bypass UAC to stealthily execute code with
+elevated permissions.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*"]
+language = "eql"
+license = "Elastic License"
+name = "Bypass UAC via Sdclt"
+risk_score = 21
+rule_id = "9b54e002-034a-47ac-9307-ad12c03fa900"
+severity = "high"
+tags = ["Elastic", "Windows"]
+type = "eql"
+
+query = '''
+sequence with maxspan=1m
+  [process where event.type in ("start", "process_started") and process.name == "sdclt.exe" and
+     /* process.code_signature.* fields need to be populated for 7.10 */
+     process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true and
+     process.args == "/kickoffelev"
+  ] by process.entity_id
+  [process where event.type in ("start", "process_started") and process.parent.name == "sdclt.exe" and
+     process.executable not in ("C:\\Windows\\System32\\sdclt.exe",
+                                "C:\\Windows\\System32\\control.exe",
+                                "C:\\Windows\\SysWOW64\\sdclt.exe",
+                                "C:\\Windows\\SysWOW64\\control.exe")
+  ] by process.parent.entity_id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1088"
+name = "Bypass User Account Control"
+reference = "https://attack.mitre.org/techniques/T1088/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
