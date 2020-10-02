@@ -1,0 +1,44 @@
+[metadata]
+creation_date = "2020/02/10"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/02/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies unusual parent process of a DCOM like process commandline value. This may indicate code injection or an
+equivalent form of masquerading as a normal system process.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+max_signals = 33
+name = "Suspicious DCOM Process"
+note = "Verify process details such as network connections, file writes and parent process details as well."
+risk_score = 47
+rule_id = "97bdf26a-54e3-4a90-bb86-6ff61a55ece0"
+severity = "medium"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.category:process and event.type:(start or process_started) and
+ process.args:-Embedding and not process.parent.name:svchost.exe
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
