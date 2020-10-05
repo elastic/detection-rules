@@ -2,7 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License;
 # you may not use this file except in compliance with the Elastic License.
 
-"""Elasticsearch cli and tmp."""
+"""Elasticsearch cli commands."""
 import json
 import os
 import time
@@ -194,7 +194,7 @@ def es_group(ctx: click.Context, **es_kwargs):
 
     else:
         if not es_kwargs['cloud_id'] or es_kwargs['elasticsearch_url']:
-            raise client_error("Missing required --cloud-id or --elasticsearch-url")
+            client_error("Missing required --cloud-id or --elasticsearch-url")
 
         # don't prompt for these until there's a cloud id or elasticsearch URL
         es_kwargs['es_user'] = es_kwargs['es_user'] or click.prompt("es_user")
@@ -205,7 +205,7 @@ def es_group(ctx: click.Context, **es_kwargs):
             ctx.obj['es'] = client
         except AuthenticationException as e:
             error_msg = f'Failed authentication for {es_kwargs.get("elasticsearch_url") or es_kwargs.get("cloud_id")}'
-            raise client_error(error_msg, e, ctx=ctx, err=True)
+            client_error(error_msg, e, ctx=ctx, err=True)
 
 
 @es_group.command('collect-events')
@@ -235,4 +235,4 @@ def collect_events(ctx, agent_hostname, index, agent_type, rta_name, rule_id, vi
         return events
     except AssertionError as e:
         error_msg = 'No events collected! Verify events are streaming and that the agent-hostname is correct'
-        raise client_error(error_msg, e, ctx=ctx)
+        client_error(error_msg, e, ctx=ctx)

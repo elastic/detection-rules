@@ -51,7 +51,7 @@ def client_error(message, exc: Exception = None, debug=None, ctx: click.Context 
 
     if debug:
         click.echo(click.style('DEBUG: ', fg='yellow') + message, err=err, file=file)
-        raise exc
+        raise
     else:
         raise ClientError(message, original_error=type(exc).__name__)
 

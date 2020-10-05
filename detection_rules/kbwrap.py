@@ -2,7 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License;
 # you may not use this file except in compliance with the Elastic License.
 
-"""Kibana cli and tmp."""
+"""Kibana cli commands."""
 import click
 from kibana import Kibana, RuleResource
 
@@ -29,7 +29,7 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
 
     else:
         if not kibana_kwargs['cloud_id'] or kibana_kwargs['kibana_url']:
-            raise client_error("Missing required --cloud-id or --kibana-url")
+            client_error("Missing required --cloud-id or --kibana-url")
 
         # don't prompt for these until there's a cloud id or Kibana URL
         kibana_user = kibana_kwargs.pop('kibana_user', None) or click.prompt("kibana_user")

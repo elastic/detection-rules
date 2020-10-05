@@ -170,7 +170,7 @@ def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_bran
         click.secho(f"cd {local_repo}", bold=True)
 
     except subprocess.CalledProcessError as e:
-        raise client_error(e.returncode, e, ctx=ctx)
+        client_error(e.returncode, e, ctx=ctx)
 
 
 @dev_group.command('license-check')

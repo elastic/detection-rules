@@ -29,7 +29,10 @@ RULES_DIR = get_path('rules')
 @click.pass_context
 def root(ctx, debug):
     """Commands for detection-rules repository."""
-    ctx.obj = {'debug': debug if debug is not None else parse_config().get('debug')}
+    debug = debug if debug is not None else parse_config().get('debug')
+    ctx.obj = {'debug': debug}
+    if debug:
+        click.secho('DEBUG MODE ENABLED', fg='yellow')
 
 
 @root.command('create-rule')
@@ -139,12 +142,12 @@ def view_rule(ctx, rule_id, rule_file, api_format):
         try:
             rule = Rule(rule_file, contents)
         except jsonschema.ValidationError as e:
-            raise client_error(f'Rule: {rule_id or os.path.basename(rule_file)} failed validation', e, ctx=ctx)
+            client_error(f'Rule: {rule_id or os.path.basename(rule_file)} failed validation', e, ctx=ctx)
     else:
-        raise client_error('Unknown rule!')
+        client_error('Unknown rule!')
 
     if not rule:
-        raise client_error('Unknown format!')
+        client_error('Unknown format!')
 
     click.echo(toml_write(rule.rule_format()) if not api_format else
                json.dumps(rule.contents, indent=2, sort_keys=True))
@@ -162,15 +165,13 @@ def validate_rule(ctx, rule_id, rule_name, path):
     try:
         rule = rule_loader.get_rule(rule_id, rule_name, path, verbose=False)
         if not rule:
-            raise client_error('Rule not found!')
+            client_error('Rule not found!')
 
         rule.validate(as_rule=True)
+        click.echo('Rule validation successful')
+        return rule
     except jsonschema.ValidationError as e:
-        raise client_error(e.args[0], e, ctx=ctx)
-
-    click.echo('Rule validation successful')
-
-    return rule
+        client_error(e.args[0], e, ctx=ctx)
 
 
 @root.command('validate-all')
