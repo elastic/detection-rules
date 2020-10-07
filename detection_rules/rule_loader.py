@@ -113,7 +113,8 @@ def load_rules(file_lookup=None, verbose=True, error=True):
             err_msg = "Invalid rule file in {}\n{}".format(rule_file, click.style(e.args[0], fg='red'))
             errors.append(err_msg)
             if error:
-                print(err_msg)
+                if verbose:
+                    print(err_msg)
                 raise e
 
     if failed:
@@ -184,6 +185,7 @@ rta_mappings = RtaMappings()
 
 
 __all__ = (
+    "load_rule_files",
     "load_rules",
     "get_file_name",
     "get_production_rules",
