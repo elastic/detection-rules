@@ -26,7 +26,7 @@ RULES_DIR = get_path('rules')
 
 @root.group('dev')
 def dev_group():
-    """Commands for development and management by internal Elastic team."""
+    """Commands related to the Elastic Stack rules release lifecycle."""
 
 
 @dev_group.command('build-release')

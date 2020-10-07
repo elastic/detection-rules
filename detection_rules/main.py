@@ -24,7 +24,7 @@ RULES_DIR = get_path('rules')
 
 
 @click.group('detection-rules', context_settings={'help_option_names': ['-h', '--help']})
-@click.option('--debug/--no-debug', '-d/-n', is_flag=True, default=None,
+@click.option('--debug/--no-debug', '-D/-N', is_flag=True, default=None,
               help='Print full exception stacktrace on errors')
 @click.pass_context
 def root(ctx, debug):
