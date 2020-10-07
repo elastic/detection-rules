@@ -195,21 +195,21 @@ class TestRuleTags(unittest.TestCase):
         """Ensure consistent and expected casing for controlled tags."""
         rules = rule_loader.load_rules().values()
 
-        def strip_and_lower(s):
+        def normalize(s):
             return ''.join(s.lower().split())
 
         expected_tags = [
             'APM', 'AWS', 'Asset Visibility', 'Azure', 'Configuration Audit', 'Continuous Monitoring',
-            'Data Protection', 'Elastic', 'Endpoint', 'GCP', 'Identity and Access', 'Linux', 'Logging', 'ML', 'MacOS',
+            'Data Protection', 'Elastic', 'Endpoint', 'GCP', 'Identity and Access', 'Linux', 'Logging', 'ML', 'macOS',
             'Monitoring', 'Network', 'Okta', 'Packetbeat', 'Post-Execution', 'SecOps', 'Windows'
         ]
-        expected_case = {strip_and_lower(t): t for t in expected_tags}
+        expected_case = {normalize(t): t for t in expected_tags}
 
         for rule in rules:
             rule_tags = rule.contents.get('tags')
             if rule_tags:
-                invalid_tags = {t: expected_case[strip_and_lower(t)] for t in rule_tags
-                                if strip_and_lower(t) in list(expected_case) and t != expected_case[strip_and_lower(t)]}
+                invalid_tags = {t: expected_case[normalize(t)] for t in rule_tags
+                                if normalize(t) in list(expected_case) and t != expected_case[normalize(t)]}
 
                 if invalid_tags:
                     error_msg = f'{rule.id} - {rule.name} -> Invalid casing for expected tags\n'
@@ -227,11 +227,11 @@ class TestRuleTags(unittest.TestCase):
 
         required_tags_map = {
             'apm-*-transaction*': {'all': ['APM']},
-            'auditbeat-*': {'any': ['Windows', 'MacOS', 'Linux']},
+            'auditbeat-*': {'any': ['Windows', 'macOS', 'Linux']},
             'endgame-*': {'all': ['Endpoint']},
             'logs-aws*': {'all': ['AWS']},
             'logs-endpoint.alerts-*': {'all': ['Endpoint']},
-            'logs-endpoint.events.*': {'any': ['Windows', 'MacOS', 'Linux']},
+            'logs-endpoint.events.*': {'any': ['Windows', 'macOS', 'Linux']},
             'logs-okta*': {'all': ['Okta']},
             'packetbeat-*': {'all': ['Network']},
             'winlogbeat-*': {'all': ['Windows']}
