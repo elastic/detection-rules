@@ -5,11 +5,10 @@
 """Util functions."""
 import contextlib
 import functools
-import glob
 import gzip
 import io
 import json
-import os
+from pathlib import Path
 import time
 import zipfile
 from datetime import datetime, date
@@ -19,9 +18,9 @@ import kql
 import eql.utils
 from eql.utils import load_dump, stream_json_lines
 
-CURR_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(CURR_DIR)
-ETC_DIR = os.path.join(ROOT_DIR, "etc")
+CURR_DIR = Path(__file__).parent
+ROOT_DIR = CURR_DIR.parent
+ETC_DIR = ROOT_DIR / "etc"
 
 
 class DateTimeEncoder(json.JSONEncoder):
@@ -44,18 +43,17 @@ def get_json_iter(f):
 
 def get_path(*paths):
     """Get a file by relative path."""
-    return os.path.join(ROOT_DIR, *paths)
+    return ROOT_DIR.joinpath(*paths)
 
 
 def get_etc_path(*paths):
     """Load a file from the etc/ folder."""
-    return os.path.join(ETC_DIR, *paths)
+    return ETC_DIR.joinpath(*paths)
 
 
 def get_etc_glob_path(*patterns):
     """Load a file from the etc/ folder."""
-    pattern = os.path.join(*patterns)
-    return glob.glob(os.path.join(ETC_DIR, pattern))
+    return list(ETC_DIR.glob(*patterns))
 
 
 def get_etc_file(name, mode="r"):
@@ -66,13 +64,13 @@ def get_etc_file(name, mode="r"):
 
 def load_etc_dump(*path):
     """Load a json/yml/toml file from the etc/ folder."""
-    return eql.utils.load_dump(get_etc_path(*path))
+    return load_dump(str(get_etc_path(*path)))
 
 
 def save_etc_dump(contents, *path, **kwargs):
     """Load a json/yml/toml file from the etc/ folder."""
     path = get_etc_path(*path)
-    _, ext = os.path.splitext(path)
+    _, ext = path.parent, path.suffix
     sort_keys = kwargs.pop('sort_keys', True)
     indent = kwargs.pop('indent', 2)
 
@@ -210,7 +208,7 @@ def clear_caches():
 
 def load_rule_contents(rule_file: str, single_only=False) -> list:
     """Load a rule file from multiple formats."""
-    _, extension = os.path.splitext(rule_file)
+    _, extension = Path(rule_file).parent, Path(rule_file).suffix
 
     if extension in ('.ndjson', '.jsonl'):
         # kibana exported rule object is ndjson with the export metadata on the last line
@@ -225,7 +223,7 @@ def load_rule_contents(rule_file: str, single_only=False) -> list:
 
             return contents or [{}]
     else:
-        rule = load_dump(rule_file)
+        rule = load_dump(str(rule_file))
         if isinstance(rule, dict):
             return [rule]
         elif isinstance(rule, list):
