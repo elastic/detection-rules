@@ -1,0 +1,57 @@
+[metadata]
+creation_date = "2020/09/02"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/09/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies use of sc.exe to create, modify, or start services on remote hosts. This could be indicative of adversary
+lateral movement but will be noisy if commonly done by admins.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*"]
+language = "eql"
+license = "Elastic License"
+name = "Service Command Lateral Movement"
+risk_score = 21
+rule_id = "d61cbcf8-1bc1-4cff-85ba-e7b21c5beedc"
+severity = "low"
+tags = ["Elastic", "Windows"]
+type = "eql"
+
+query = '''
+/* dependent on a wildcard for remote path */
+
+sequence by process.entity_id with maxspan=1m
+  [process where event.type in ("start", "process_started") and
+     (process.name == "sc.exe" or process.pe.original_file_name == "sc.exe") and
+     wildcard(process.args, "\\\\*") and wildcard(process.args, "binPath*", "binpath*") and
+     process.args in ("create", "config", "failure", "start")]
+  [network where event.type == "connection" and process.name == "sc.exe" and destination.address != "127.0.0.1"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+[[rule.threat.technique]]
+id = "T1050"
+name = "New Service"
+reference = "https://attack.mitre.org/techniques/T1050/"
+
+[[rule.threat.technique]]
+id = "T1035"
+name = "Service Execution"
+reference = "https://attack.mitre.org/techniques/T1035/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"

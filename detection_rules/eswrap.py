@@ -2,30 +2,20 @@
 # or more contributor license agreements. Licensed under the Elastic License;
 # you may not use this file except in compliance with the Elastic License.
 
-"""Elasticsearch cli and tmp."""
+"""Elasticsearch cli commands."""
 import json
 import os
 import time
 
 import click
 from elasticsearch import AuthenticationException, Elasticsearch
-from kibana import Kibana, RuleResource
 
 from .main import root
-from .misc import getdefault
-from .utils import normalize_timing_and_sort, unix_time_to_formatted, get_path
-from .rule_loader import get_rule, rta_mappings, load_rule_files, load_rules
+from .misc import client_error, getdefault
+from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
+from .rule_loader import get_rule, rta_mappings
 
 COLLECTION_DIR = get_path('collections')
-ERRORS = {
-    'NO_EVENTS': 1,
-    'FAILED_ES_AUTH': 2
-}
-
-
-@root.group('es')
-def es_group():
-    """Helper commands for integrating with Elasticsearch."""
 
 
 def get_es_client(user, password, elasticsearch_url=None, cloud_id=None, **kwargs):
@@ -177,50 +167,70 @@ class CollectEvents(object):
         return Events(agent_hostname, events)
 
 
+@root.command('normalize-data')
+@click.argument('events-file', type=click.File('r'))
+def normalize_data(events_file):
+    """Normalize Elasticsearch data timestamps and sort."""
+    file_name = os.path.splitext(os.path.basename(events_file.name))[0]
+    events = Events('_', {file_name: [json.loads(e) for e in events_file.readlines()]})
+    events.save(dump_dir=os.path.dirname(events_file.name))
+
+
+@root.group('es')
+@click.option('--elasticsearch-url', '-e', default=getdefault("elasticsearch_url"))
+@click.option('--cloud-id', default=getdefault("cloud_id"))
+@click.option('--es-user', '-u', default=getdefault("es_user"))
+@click.option('--es-password', '-p', default=getdefault("es_password"))
+@click.option('--timeout', '-t', default=60, help='Timeout for elasticsearch client')
+@click.pass_context
+def es_group(ctx: click.Context, **es_kwargs):
+    """Commands for integrating with Elasticsearch."""
+    ctx.ensure_object(dict)
+
+    # only initialize an es client if the subcommand is invoked without help (hacky)
+    if click.get_os_args()[-1] in ctx.help_option_names:
+        click.echo('Elasticsearch client:')
+        click.echo(format_command_options(ctx))
+
+    else:
+        if not es_kwargs['cloud_id'] or es_kwargs['elasticsearch_url']:
+            client_error("Missing required --cloud-id or --elasticsearch-url")
+
+        # don't prompt for these until there's a cloud id or elasticsearch URL
+        es_kwargs['es_user'] = es_kwargs['es_user'] or click.prompt("es_user")
+        es_kwargs['es_password'] = es_kwargs['es_password'] or click.prompt("es_password", hide_input=True)
+
+        try:
+            client = get_es_client(use_ssl=True, **es_kwargs)
+            ctx.obj['es'] = client
+        except AuthenticationException as e:
+            error_msg = f'Failed authentication for {es_kwargs.get("elasticsearch_url") or es_kwargs.get("cloud_id")}'
+            client_error(error_msg, e, ctx=ctx, err=True)
+
+
 @es_group.command('collect-events')
 @click.argument('agent-hostname')
-@click.option('--elasticsearch-url', '-u', default=getdefault("elasticsearch_url"))
-@click.option('--cloud-id', default=getdefault("cloud_id"))
-@click.option('--user', '-u', default=getdefault("user"))
-@click.option('--password', '-p', default=getdefault("password"))
 @click.option('--index', '-i', multiple=True, help='Index(es) to search against (default: all indexes)')
 @click.option('--agent-type', '-a', help='Restrict results to a source type (agent.type) ex: auditbeat')
 @click.option('--rta-name', '-r', help='Name of RTA in order to save events directly to unit tests data directory')
 @click.option('--rule-id', help='Updates rule mapping in rule-mapping.yml file (requires --rta-name)')
 @click.option('--view-events', is_flag=True, help='Print events after saving')
-def collect_events(agent_hostname, elasticsearch_url, cloud_id, user, password, index, agent_type, rta_name, rule_id,
-                   view_events):
+@click.pass_context
+def collect_events(ctx, agent_hostname, index, agent_type, rta_name, rule_id, view_events):
     """Collect events from Elasticsearch."""
     match = {'agent.type': agent_type} if agent_type else {}
-
-    if not cloud_id or elasticsearch_url:
-        raise click.ClickException("Missing required --cloud-id or --elasticsearch-url")
-
-    # don't prompt for these until there's a cloud id or elasticsearch URL
-    user = user or click.prompt("user")
-    password = password or click.prompt("password", hide_input=True)
-
-    try:
-        client = get_es_client(elasticsearch_url=elasticsearch_url, use_ssl=True, cloud_id=cloud_id, user=user,
-                               password=password)
-    except AuthenticationException:
-        click.secho('Failed authentication for {}'.format(elasticsearch_url or cloud_id), fg='red', err=True)
-        return ERRORS['FAILED_ES_AUTH']
+    client = ctx.obj['es']
 
     try:
         collector = CollectEvents(client)
         events = collector.run(agent_hostname, index, **match)
         events.save(rta_name)
-    except AssertionError:
-        click.secho('No events collected! Verify events are streaming and that the agent-hostname is correct',
-                    err=True, fg='red')
-        return ERRORS['NO_EVENTS']
 
-    if rta_name and rule_id:
-        events.evaluate_against_rule_and_update_mapping(rule_id, rta_name)
+        if rta_name and rule_id:
+            events.evaluate_against_rule_and_update_mapping(rule_id, rta_name)
 
-    if view_events and events.events:
-        events.echo_events(pager=True)
+        if view_events and events.events:
+            events.echo_events(pager=True)
 
     return events
 
@@ -254,7 +264,7 @@ def kibana_upload(toml_files, kibana_url, cloud_id, user, password, space):
     user = user or click.prompt("user")
     password = password or click.prompt("password", hide_input=True)
 
-    with Kibana(cloud_id=cloud_id, url=kibana_url, kibana_space=space) as kibana:
+    with Kibana(cloud_id=cloud_id, url=kibana_url, space=space) as kibana:
         kibana.login(user, password)
 
         file_lookup = load_rule_files(paths=toml_files)
@@ -278,3 +288,7 @@ def kibana_upload(toml_files, kibana_url, cloud_id, user, password, space):
 
         rules = RuleResource.bulk_create(api_payloads)
         click.echo(f"Successfully uploaded {len(rules)} rules")
+        return events
+    except AssertionError as e:
+        error_msg = 'No events collected! Verify events are streaming and that the agent-hostname is correct'
+        client_error(error_msg, e, ctx=ctx)
