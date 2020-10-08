@@ -13,11 +13,12 @@ from .utils import format_command_options
 
 
 @root.group('kibana')
-@click.option('--kibana-url', '-k', default=getdefault('kibana_url'))
-@click.option('--cloud-id', default=getdefault('cloud_id'))
-@click.option('--kibana-user', '-u', default=getdefault('kibana_user'))
-@click.option('--kibana-password', '-p', default=getdefault("kibana_password"))
-@click.pass_context
+@click.argument("toml-files", nargs=-1, required=True)
+@click.option('--kibana-url', '-u', default=getdefault("kibana_url"))
+@click.option('--cloud-id', default=getdefault("cloud_id"))
+@click.option('--user', '-u', default=getdefault("user"))
+@click.option('--password', '-p', default=getdefault("password"))
+@click.option('--space', default=None)
 def kibana_group(ctx: click.Context, **kibana_kwargs):
     """Commands for integrating with Kibana."""
     ctx.ensure_object(dict)

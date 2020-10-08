@@ -232,62 +232,6 @@ def collect_events(ctx, agent_hostname, index, agent_type, rta_name, rule_id, vi
         if view_events and events.events:
             events.echo_events(pager=True)
 
-    return events
-
-
-@es_group.command('normalize-data')
-@click.argument('events-file', type=click.File('r'))
-def normalize_file(events_file):
-    """Normalize Elasticsearch data timestamps and sort."""
-    file_name = os.path.splitext(os.path.basename(events_file.name))[0]
-    events = Events('_', {file_name: [json.loads(e) for e in events_file.readlines()]})
-    events.save(dump_dir=os.path.dirname(events_file.name))
-
-
-@root.command("kibana-upload")
-@click.argument("toml-files", nargs=-1, required=True)
-@click.option('--kibana-url', '-u', default=getdefault("kibana_url"))
-@click.option('--cloud-id', default=getdefault("cloud_id"))
-@click.option('--user', '-u', default=getdefault("user"))
-@click.option('--password', '-p', default=getdefault("password"))
-@click.option('--space', default=None)
-def kibana_upload(toml_files, kibana_url, cloud_id, user, password, space):
-    """Upload a list of rule .toml files to Kibana."""
-    from uuid import uuid4
-    from .packaging import manage_versions
-    from .schemas import downgrade
-
-    if not (cloud_id or kibana_url):
-        raise click.ClickException("Missing required --cloud-id or --kibana-url")
-
-    # don't prompt for these until there's a cloud id or kibana URL
-    user = user or click.prompt("user")
-    password = password or click.prompt("password", hide_input=True)
-
-    with Kibana(cloud_id=cloud_id, url=kibana_url, space=space) as kibana:
-        kibana.login(user, password)
-
-        file_lookup = load_rule_files(paths=toml_files)
-        rules = list(load_rules(file_lookup=file_lookup).values())
-
-        # assign the versions from etc/versions.lock.json
-        # rules that have changed in hash get incremented, others stay as-is.
-        # rules that aren't in the lookup default to version 1
-        manage_versions(rules, verbose=False)
-
-        api_payloads = []
-
-        for rule in rules:
-            payload = rule.contents.copy()
-            meta = payload.setdefault("meta", {})
-            meta["original"] = dict(id=rule.id, **rule.metadata)
-            payload["rule_id"] = str(uuid4())
-            payload = downgrade(payload, kibana.version)
-            rule = RuleResource(payload)
-            api_payloads.append(rule)
-
-        rules = RuleResource.bulk_create(api_payloads)
-        click.echo(f"Successfully uploaded {len(rules)} rules")
         return events
     except AssertionError as e:
         error_msg = 'No events collected! Verify events are streaming and that the agent-hostname is correct'
