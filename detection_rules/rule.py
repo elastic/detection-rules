@@ -104,6 +104,20 @@ class Rule(object):
         if self.query and self.contents['language'] == 'kuery':
             return kql.to_eql(self.query)
 
+    def get_flat_mitre(self):
+        """Get flat lists of tactic and technique info."""
+        tactic_names = []
+        tactic_ids = []
+        technique_ids = set()
+        technique_names = set()
+        for entry in self.contents.get('threat', []):
+            tactic_names.append(entry['tactic']['name'])
+            tactic_ids.append(entry['tactic']['id'])
+            technique_names.update([t['name'] for t in entry['technique']])
+            technique_ids.update([t['id'] for t in entry['technique']])
+
+        return sorted(tactic_names), sorted(tactic_ids), sorted(technique_names), sorted(technique_ids)
+
     @classmethod
     def get_unique_query_fields(cls, rule_contents):
         """Get a list of unique fields used in a rule query from rule contents."""
@@ -138,7 +152,7 @@ class Rule(object):
 
     def normalize(self, indent=2):
         """Normalize the (api only) contents and return a serialized dump of it."""
-        return json.dumps(nested_normalize(self.contents), sort_keys=True, indent=indent)
+        return json.dumps(nested_normalize(self.contents, eql_rule=self.type == 'eql'), sort_keys=True, indent=indent)
 
     def get_path(self):
         """Wrapper around getting path."""
@@ -171,7 +185,10 @@ class Rule(object):
 
         schema_cls.validate(contents, role=self.type)
 
-        if query and self.query is not None:
+        skip_query_validation = self.metadata['maturity'] == 'development' and \
+            self.metadata.get('query_schema_validation') is False
+
+        if query and self.query is not None and not skip_query_validation:
             ecs_versions = self.metadata.get('ecs_version')
             indexes = self.contents.get("index", [])
 
@@ -211,7 +228,7 @@ class Rule(object):
                 message = exc.error_msg
                 trailer = None
                 if "Unknown field" in message and beat_types:
-                    trailer = "\nTry adding event.module and event.dataset to specify beats module"
+                    trailer = "\nTry adding event.module or event.dataset to specify beats module"
 
                 raise type(exc)(exc.error_msg, exc.line, exc.column, exc.source,
                                 len(exc.caret.lstrip()), trailer=trailer) from None
@@ -241,7 +258,7 @@ class Rule(object):
                     message = exc.error_msg
                     trailer = None
                     if "Unknown field" in message and beat_types:
-                        trailer = "\nTry adding event.module and event.dataset to specify beats module"
+                        trailer = "\nTry adding event.module or event.dataset to specify beats module"
 
                     raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
                                             len(exc.caret.lstrip()), trailer=trailer)

@@ -2,7 +2,7 @@
 # or more contributor license agreements. Licensed under the Elastic License;
 # you may not use this file except in compliance with the Elastic License.
 
-"""Elasticsearch cli and tmp."""
+"""Elasticsearch cli commands."""
 import json
 import os
 import time
@@ -12,12 +12,11 @@ import click
 import elasticsearch
 from elasticsearch import AuthenticationException, Elasticsearch
 from elasticsearch.client import IngestClient, MlClient
-from kibana import Kibana, RuleResource
 
 from .main import root
-from .misc import Errors, getdefault
+from .misc import client_error, getdefault
 from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
-from .rule_loader import get_rule, rta_mappings, load_rule_files, load_rules
+from .rule_loader import get_rule, rta_mappings
 
 COLLECTION_DIR = get_path('collections')
 
@@ -174,7 +173,7 @@ class CollectEvents(object):
 
 @root.command('normalize-data')
 @click.argument('events-file', type=click.File('r'))
-def normalize_file(events_file):
+def normalize_data(events_file):
     """Normalize Elasticsearch data timestamps and sort."""
     file_name = os.path.splitext(os.path.basename(events_file.name))[0]
     events = Events('_', {file_name: [json.loads(e) for e in events_file.readlines()]})
@@ -182,14 +181,14 @@ def normalize_file(events_file):
 
 
 @root.group('es')
-@click.option('--elasticsearch-url', '-u', default=getdefault("elasticsearch_url"))
+@click.option('--elasticsearch-url', '-e', default=getdefault("elasticsearch_url"))
 @click.option('--cloud-id', default=getdefault("cloud_id"))
-@click.option('--user', '-u', default=getdefault("user"))
+@click.option('--es-user', '-u', default=getdefault("es_user"))
 @click.option('--es-password', '-p', default=getdefault("es_password"))
-@click.option('--timeout', '-t', default=60, help='Elasticsearch client kwargs')
+@click.option('--timeout', '-t', default=60, help='Timeout for elasticsearch client')
 @click.pass_context
 def es_group(ctx: click.Context, **es_kwargs):
-    """Helper commands for integrating with Elasticsearch."""
+    """Commands for integrating with Elasticsearch."""
     ctx.ensure_object(dict)
 
     # only initialize an es client if the subcommand is invoked without help (hacky)
@@ -199,19 +198,18 @@ def es_group(ctx: click.Context, **es_kwargs):
 
     else:
         if not es_kwargs['cloud_id'] or es_kwargs['elasticsearch_url']:
-            raise click.ClickException("Missing required --cloud-id or --elasticsearch-url")
+            client_error("Missing required --cloud-id or --elasticsearch-url")
 
         # don't prompt for these until there's a cloud id or elasticsearch URL
-        es_kwargs['user'] = es_kwargs['user'] or click.prompt("user")
+        es_kwargs['es_user'] = es_kwargs['es_user'] or click.prompt("es_user")
         es_kwargs['es_password'] = es_kwargs['es_password'] or click.prompt("es_password", hide_input=True)
 
         try:
             client = get_es_client(use_ssl=True, **es_kwargs)
             ctx.obj['es'] = client
-        except AuthenticationException:
-            click.secho(f'Failed authentication for {es_kwargs.get("elasticsearch_url") or es_kwargs.get("cloud_id")}',
-                        fg='red', err=True)
-            ctx.exit(Errors.FAILED_ES_AUTH)
+        except AuthenticationException as e:
+            error_msg = f'Failed authentication for {es_kwargs.get("elasticsearch_url") or es_kwargs.get("cloud_id")}'
+            client_error(error_msg, e, ctx=ctx, err=True)
 
 
 @es_group.command('collect-events')
@@ -239,55 +237,9 @@ def collect_events(ctx, agent_hostname, index, agent_type, rta_name, rule_id, vi
             events.echo_events(pager=True)
 
         return events
-    except AssertionError:
-        click.secho('No events collected! Verify events are streaming and that the agent-hostname is correct',
-                    err=True, fg='red')
-        ctx.exit(Errors.NO_EVENTS_COLLECTED)
-
-
-@root.command("kibana-upload")
-@click.argument("toml-files", nargs=-1, required=True)
-@click.option('--kibana-url', '-u', default=getdefault("kibana_url"))
-@click.option('--cloud-id', default=getdefault("cloud_id"))
-@click.option('--user', '-u', default=getdefault("user"))
-@click.option('--kibana-password', '-p', default=getdefault("password"))
-def kibana_upload(toml_files, kibana_url, cloud_id, user, kibana_password):
-    """Upload a list of rule .toml files to Kibana."""
-    from uuid import uuid4
-    from .packaging import manage_versions
-    from .schemas import downgrade
-
-    if not cloud_id or kibana_url:
-        raise click.ClickException("Missing required --cloud-id or --kibana-url")
-
-    # don't prompt for these until there's a cloud id or kibana URL
-    user = user or click.prompt("user")
-    kibana_password = kibana_password or click.prompt("password", hide_input=True)
-
-    with Kibana(cloud_id=cloud_id, url=kibana_url) as kibana:
-        kibana.login(user, kibana_password)
-
-        file_lookup = load_rule_files(paths=toml_files)
-        rules = list(load_rules(file_lookup=file_lookup).values())
-
-        # assign the versions from etc/versions.lock.json
-        # rules that have changed in hash get incremented, others stay as-is.
-        # rules that aren't in the lookup default to version 1
-        manage_versions(rules, verbose=False)
-
-        api_payloads = []
-
-        for rule in rules:
-            payload = rule.contents.copy()
-            meta = payload.setdefault("meta", {})
-            meta["original"] = dict(id=rule.id, **rule.metadata)
-            payload["rule_id"] = str(uuid4())
-            payload = downgrade(payload, kibana.version)
-            rule = RuleResource(payload)
-            api_payloads.append(rule)
-
-        rules = RuleResource.bulk_create(api_payloads)
-        click.echo(f"Successfully uploaded {len(rules)} rules")
+    except AssertionError as e:
+        error_msg = 'No events collected! Verify events are streaming and that the agent-hostname is correct'
+        client_error(error_msg, e, ctx=ctx)
 
 
 @es_group.group('beta')

@@ -82,6 +82,7 @@ class TomlMetadata(GenericSchema):
     related_endpoint_rules = jsl.ArrayField(jsl.ArrayField(jsl.StringField(), min_items=2, max_items=2),
                                             required=False)
     updated_date = jsl.StringField(required=True, pattern=DATE_PATTERN, default=time.strftime('%Y/%m/%d'))
+    query_schema_validation = jsl.BooleanField(required=False)
 
 
 class BaseApiSchema(GenericSchema):

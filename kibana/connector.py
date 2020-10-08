@@ -20,14 +20,14 @@ class Kibana(object):
 
     CACHED = False
 
-    def __init__(self, cloud_id=None, url=None, verify=True, elasticsearch=None):
+    def __init__(self, cloud_id=None, kibana_url=None, verify=True, elasticsearch=None):
         """"Open a session to the platform."""
         self.authenticated = False
         self.session = requests.Session()
         self.session.verify = verify
 
         self.cloud_id = cloud_id
-        self.kibana_url = url
+        self.kibana_url = kibana_url
         self.elastic_url = None
         self.status = None
 
@@ -99,9 +99,9 @@ class Kibana(object):
         """Perform an HTTP DELETE."""
         return self.request('DELETE', uri, params=params, error=error)
 
-    def login(self, username, password):
+    def login(self, kibana_username, kibana_password):
         """Authenticate to Kibana using the API to update our cookies."""
-        payload = {'username': username,  'password': password}
+        payload = {'username': kibana_username, 'password': kibana_password}
         path = '/internal/security/login'
 
         self.post(path, data=payload, error=True)
@@ -110,7 +110,7 @@ class Kibana(object):
 
         # create ES and force authentication
         if self.elasticsearch is None and self.elastic_url is not None:
-            self.elasticsearch = Elasticsearch(hosts=[self.elastic_url], http_auth=(username, password))
+            self.elasticsearch = Elasticsearch(hosts=[self.elastic_url], http_auth=(kibana_username, kibana_password))
             self.elasticsearch.info()
 
         # make chaining easier

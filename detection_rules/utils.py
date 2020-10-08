@@ -69,14 +69,16 @@ def load_etc_dump(*path):
     return eql.utils.load_dump(get_etc_path(*path))
 
 
-def save_etc_dump(contents, *path):
+def save_etc_dump(contents, *path, **kwargs):
     """Load a json/yml/toml file from the etc/ folder."""
     path = get_etc_path(*path)
     _, ext = os.path.splitext(path)
+    sort_keys = kwargs.pop('sort_keys', True)
+    indent = kwargs.pop('indent', 2)
 
     if ext == ".json":
         with open(path, "wt") as f:
-            json.dump(contents, f, cls=DateTimeEncoder, sort_keys=True, indent=2)
+            json.dump(contents, f, cls=DateTimeEncoder, sort_keys=sort_keys, indent=indent, **kwargs)
     else:
         return eql.utils.save_dump(contents, path)
 
