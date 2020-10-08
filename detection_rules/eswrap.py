@@ -313,8 +313,7 @@ def setup_ml_dga(ctx, model_tag, model_dir, overwrite):
     # download files if necessary
     if not model_dir:
         if not model_tag:
-            click.secho('model-tag is required to download model files')
-            ctx.exit(Errors.MISSING_REQUIRED_ARGUMENT)
+            client_error('model-tag is required to download model files')
 
         click.echo(f'Downloading artifact: {model_tag}')
 
@@ -340,11 +339,9 @@ def setup_ml_dga(ctx, model_tag, model_dir, overwrite):
     def open_model_file(pattern, name_only=False):
         paths = glob.glob(os.path.join(model_dir, pattern))
         if not paths:
-            click.secho(f'{model_dir} missing files matching the pattern {pattern}', err=True, fg='red')
-            ctx.exit(Errors.MISSING_FILE)
+            client_error(f'{model_dir} missing files matching the pattern {pattern}')
         if len(paths) > 1:
-            click.secho(f'{model_dir} contains multiple files matching the pattern {pattern}', err=True, fg='red')
-            ctx.exit(Errors.AMBIGUOUS_FILE)
+            client_error(f'{model_dir} contains multiple files matching the pattern {pattern}')
 
         if name_only:
             yield paths[0]
@@ -367,9 +364,7 @@ def setup_ml_dga(ctx, model_tag, model_dir, overwrite):
             ctx.invoke(remove_ml_dga, model_id=model_id, es_client=es_client, ml_client=ml_client,
                        ingest_client=ingest_client, force=True)
         else:
-            click.secho(f'Model: {model_id} already exists on stack! Try --overwrite to force the upload',
-                        err=True, fg='red')
-            ctx.exit(Errors.REMOTE_ES_FILE_EXISTS)
+            client_error(f'Model: {model_id} already exists on stack! Try --overwrite to force the upload')
 
     click.secho('[+] Uploading model (may take a while)')
 
@@ -377,8 +372,7 @@ def setup_ml_dga(ctx, model_tag, model_dir, overwrite):
         try:
             ml_client.put_trained_model(model_id=model_id, body=model_file)
         except elasticsearch.ConnectionTimeout:
-            click.secho('Connection timeout, try increasing timeout using `es --timeout <secs> beta setup-ml-dga`.')
-            ctx.exit(Errors.ES_CONNECTION_TIMEOUT)
+            client_error('Connection timeout, try increasing timeout using `es --timeout <secs> beta setup-ml-dga`.')
 
     # install scripts
     click.secho('[+] Uploading painless scripts')
@@ -412,8 +406,7 @@ def setup_ml_dga(ctx, model_tag, model_dir, overwrite):
             ingest_client.put_pipeline(id='dga_ngram_expansion_inference', body=ingest_pipeline1)
         except elasticsearch.RequestError as e:
             if e.error == 'script_exception':
-                click.echo(_build_es_script_error(e, 'ingest_pipeline1'), err=True)
-                ctx.exit(Errors.ES_SCRIPT_ERROR)
+                client_error(_build_es_script_error(e, 'ingest_pipeline1'), e, ctx=ctx)
             else:
                 raise
 
@@ -422,7 +415,6 @@ def setup_ml_dga(ctx, model_tag, model_dir, overwrite):
             ingest_client.put_pipeline(id='dns_classification_pipeline', body=ingest_pipeline2)
         except elasticsearch.RequestError as e:
             if e.error == 'script_exception':
-                click.echo(_build_es_script_error(e, 'ingest_pipeline2'), err=True)
-                ctx.exit(Errors.ES_SCRIPT_ERROR)
+                client_error(_build_es_script_error(e, 'ingest_pipeline2'), e, ctx=ctx)
             else:
                 raise
