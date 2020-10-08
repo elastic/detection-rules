@@ -18,6 +18,7 @@ from .utils import format_command_options
 @click.option('--user', '-u', default=getdefault("user"))
 @click.option('--password', '-p', default=getdefault("password"))
 @click.option('--space', default=None)
+@click.pass_context
 def kibana_group(ctx: click.Context, **kibana_kwargs):
     """Commands for integrating with Kibana."""
     ctx.ensure_object(dict)
