@@ -6,8 +6,10 @@ Several blogs were put out on how you can create and leverage supervised DGA ML 
 
 You can also find some supplementary and examples [here](https://github.com/elastic/examples/tree/master/Machine%20Learning/DGA%20Detection)
 
-For questions please reach out to the ML team in the #machine-learning channel of the 
+For questions, please reach out to the ML team in the #machine-learning channel of the 
 [Elastic public slack channel](https://www.elastic.co/blog/join-our-elastic-stack-workspace-on-slack)
+
+They can also be reached by using the `stack-machine-learning` tag in the [discuss forums](https://discuss.elastic.co/tags/c/elastic-stack/stack-machine-learning)
 
 ## Releases
 
@@ -17,14 +19,14 @@ Models and dependencies will be [released](https://github.com/elastic/detection-
 
 ### Simple Usage
 
-Run `python -m detection_rules es <args_or_config> beta setup-ml-dga -t <release-tag>`
+Run `python -m detection_rules es <args_or_config> experimental setup-dga-model -t <release-tag>`
 
 Any packetbeat documents with the field `dns.question.registered_domain` should now have the enriched data
 
 
 ### Details
 ```console
-python -m detection_rules es beta setup-ml-dga -h
+python -m detection_rules es experimental setup-dga-model -h
 
 Elasticsearch client:
 Options:
@@ -34,7 +36,7 @@ Options:
   -p, --es-password TEXT
   -t, --timeout INTEGER         Elasticsearch client kwargs
 
-Usage: detection_rules es beta setup-dga [OPTIONS]
+Usage: detection_rules es experimental setup-dga-model [OPTIONS]
 
   Upload DGA model and enrich DNS data.
 
@@ -46,7 +48,7 @@ Options:
   -h, --help                 Show this message and exit.
 ```
 
-If updating a new model, you should first uninstall any existing models using `remove-ml-dga`
+If updating a new model, you should first uninstall any existing models using `remove-dga-model`
 
 #### Local Files
 

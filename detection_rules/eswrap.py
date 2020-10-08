@@ -243,17 +243,17 @@ def collect_events(ctx, agent_hostname, index, agent_type, rta_name, rule_id, vi
         client_error(error_msg, e, ctx=ctx)
 
 
-@es_group.group('beta')
-def es_beta():
-    """BETA helper commands for integrating with Elasticsearch."""
+@es_group.group('experimental')
+def es_experimental():
+    """[Experimental] helper commands for integrating with Elasticsearch."""
 
 
-@es_beta.command('remove-ml-dga')
+@es_experimental.command('remove-dga-model')
 @click.argument('model-id')
 @click.option('--force', '-f', is_flag=True, help='Force the attempted delete without checking if model exists')
 @click.pass_context
-def remove_ml_dga(ctx, model_id, force, es_client: Elasticsearch = None, ml_client: MlClient = None,
-                  ingest_client: IngestClient = None):
+def remove_dga_model(ctx, model_id, force, es_client: Elasticsearch = None, ml_client: MlClient = None,
+                     ingest_client: IngestClient = None):
     """Remove ML DGA files."""
     from elasticsearch.client import IngestClient, MlClient
 
@@ -293,16 +293,16 @@ def remove_ml_dga(ctx, model_id, force, es_client: Elasticsearch = None, ml_clie
         click.echo(f'Model: {model_id} not found')
 
 
-@es_beta.command('setup-ml-dga')
+@es_experimental.command('setup-dga-model')
 @click.option('--model-tag', '-t',
               help='Release tag for model files staged in detection-rules (required to download files)')
 @click.option('--repo', '-r', default='elastic/detection-rules',
-              help='Repo hosting the model file releases (owner/repo)')
+              help='GitHub repository hosting the model file releases (owner/repo)')
 @click.option('--model-dir', '-d', type=click.Path(exists=True, file_okay=False),
               help='Directory containing local model files')
 @click.option('--overwrite', is_flag=True, help='Overwrite all files if already in the stack')
 @click.pass_context
-def setup_ml_dga(ctx, model_tag, repo, model_dir, overwrite):
+def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
     """Upload ML DGA model and dependencies and enrich DNS data."""
     import io
     import requests
@@ -337,22 +337,21 @@ def setup_ml_dga(ctx, model_tag, repo, model_dir, overwrite):
         # read files as needed
         z.close()
 
-    @contextmanager
-    def open_model_file(pattern, name_only=False):
+    def get_model_filename(pattern):
         paths = list(Path(model_dir).glob(pattern))
         if not paths:
             client_error(f'{model_dir} missing files matching the pattern: {pattern}')
         if len(paths) > 1:
             client_error(f'{model_dir} contains multiple files matching the pattern: {pattern}')
 
-        if name_only:
-            yield paths[0]
-        else:
-            with open(paths[0], 'r') as f:
-                yield json.load(f)
+        return paths[0]
 
-    with open_model_file('dga_*_model.json', name_only=True) as model_file:
-        model_id, _ = os.path.basename(model_file).rsplit('_', maxsplit=1)
+    @contextmanager
+    def open_model_file(pattern):
+        with open(get_model_filename(pattern), 'r') as f:
+            yield json.load(f)
+
+    model_id, _ = os.path.basename(get_model_filename('dga_*_model.json')).rsplit('_', maxsplit=1)
 
     click.echo(f'Setting up DGA model: "{model_id}" on {client_info["name"]} ({client_info["version"]["number"]})')
 
@@ -363,7 +362,7 @@ def setup_ml_dga(ctx, model_tag, repo, model_dir, overwrite):
     existing_models = ml_client.get_trained_models()
     if model_id in [m['model_id'] for m in existing_models.get('trained_model_configs', [])]:
         if overwrite:
-            ctx.invoke(remove_ml_dga, model_id=model_id, es_client=es_client, ml_client=ml_client,
+            ctx.invoke(remove_dga_model, model_id=model_id, es_client=es_client, ml_client=ml_client,
                        ingest_client=ingest_client, force=True)
         else:
             client_error(f'Model: {model_id} already exists on stack! Try --overwrite to force the upload')
@@ -374,7 +373,8 @@ def setup_ml_dga(ctx, model_tag, repo, model_dir, overwrite):
         try:
             ml_client.put_trained_model(model_id=model_id, body=model_file)
         except elasticsearch.ConnectionTimeout:
-            client_error('Connection timeout, try increasing timeout using `es --timeout <secs> beta setup-ml-dga`.')
+            msg = 'Connection timeout, try increasing timeout using `es --timeout <secs> experimental setup_dga_model`.'
+            client_error(msg)
 
     # install scripts
     click.secho('[+] Uploading painless scripts')
