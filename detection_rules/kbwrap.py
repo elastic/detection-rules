@@ -16,7 +16,8 @@ from .utils import format_command_options
 @click.option('--kibana-url', '-k', default=getdefault('kibana_url'))
 @click.option('--cloud-id', default=getdefault('cloud_id'))
 @click.option('--kibana-user', '-u', default=getdefault('kibana_user'))
-@click.option('--kibana-password', '-p', default=getdefault("kibana_password"))
+@click.option('--kibana-password', '-p', default=getdefault('kibana_password'))
+@click.option('--space', default=None)
 @click.pass_context
 def kibana_group(ctx: click.Context, **kibana_kwargs):
     """Commands for integrating with Kibana."""
