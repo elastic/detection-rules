@@ -13,7 +13,6 @@ from .utils import format_command_options
 
 
 @root.group('kibana')
-@click.argument("toml-files", nargs=-1, required=True)
 @click.option('--kibana-url', '-u', default=getdefault("kibana_url"))
 @click.option('--cloud-id', default=getdefault("cloud_id"))
 @click.option('--user', '-u', default=getdefault("user"))
