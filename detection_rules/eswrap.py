@@ -7,6 +7,7 @@ import json
 import os
 import time
 from contextlib import contextmanager
+from pathlib import Path
 
 import click
 import elasticsearch
@@ -21,7 +22,7 @@ from .rule_loader import get_rule, rta_mappings
 COLLECTION_DIR = get_path('collections')
 
 
-def get_es_client(user, es_password, elasticsearch_url=None, cloud_id=None, **kwargs):
+def get_es_client(es_user, es_password, elasticsearch_url=None, cloud_id=None, **kwargs):
     """Get an auth-validated elasticsearch client."""
     assert elasticsearch_url or cloud_id, \
         'You must specify a host or cloud_id to authenticate to an elasticsearch instance'
@@ -29,7 +30,7 @@ def get_es_client(user, es_password, elasticsearch_url=None, cloud_id=None, **kw
     hosts = [elasticsearch_url] if elasticsearch_url else elasticsearch_url
 
     timeout = kwargs.pop('timeout', 60)
-    client = Elasticsearch(hosts=hosts, cloud_id=cloud_id, http_auth=(user, es_password), timeout=timeout, **kwargs)
+    client = Elasticsearch(hosts=hosts, cloud_id=cloud_id, http_auth=(es_user, es_password), timeout=timeout, **kwargs)
     # force login to test auth
     client.info()
     return client
@@ -301,7 +302,6 @@ def remove_ml_dga(ctx, model_id, force, es_client: Elasticsearch = None, ml_clie
 @click.pass_context
 def setup_ml_dga(ctx, model_tag, model_dir, overwrite):
     """Upload ML DGA model and dependencies and enrich DNS data."""
-    import glob
     import io
     import requests
     import shutil
@@ -313,7 +313,7 @@ def setup_ml_dga(ctx, model_tag, model_dir, overwrite):
     # download files if necessary
     if not model_dir:
         if not model_tag:
-            client_error('model-tag is required to download model files')
+            client_error('model-tag or model-dir required to download model files')
 
         click.echo(f'Downloading artifact: {model_tag}')
 
@@ -337,7 +337,7 @@ def setup_ml_dga(ctx, model_tag, model_dir, overwrite):
 
     @contextmanager
     def open_model_file(pattern, name_only=False):
-        paths = glob.glob(os.path.join(model_dir, pattern))
+        paths = list(Path(model_dir).glob(pattern))
         if not paths:
             client_error(f'{model_dir} missing files matching the pattern {pattern}')
         if len(paths) > 1:
