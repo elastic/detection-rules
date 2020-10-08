@@ -13,7 +13,7 @@ from .utils import format_command_options
 
 
 @root.group('kibana')
-@click.option('--kibana-url', '-u', default=getdefault("kibana_url"))
+@click.option('--kibana-url', '-k', default=getdefault("kibana_url"))
 @click.option('--cloud-id', default=getdefault("cloud_id"))
 @click.option('--user', '-u', default=getdefault("user"))
 @click.option('--password', '-p', default=getdefault("password"))
