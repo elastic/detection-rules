@@ -57,3 +57,5 @@ for the filenames.
 
 There are several rules within the repo which leverage this enriched data. The easiest way to see these rules is to run
 `python -m detection_rules rule-search "tags:ML-DGA"`
+
+You can then individually upload these rules using the [kibana upload-rule](../CLI.md#uploading-rules-to-kibana) command
