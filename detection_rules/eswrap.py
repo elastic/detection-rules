@@ -296,11 +296,13 @@ def remove_ml_dga(ctx, model_id, force, es_client: Elasticsearch = None, ml_clie
 @es_beta.command('setup-ml-dga')
 @click.option('--model-tag', '-t',
               help='Release tag for model files staged in detection-rules (required to download files)')
+@click.option('--repo', '-r', default='elastic/detection-rules',
+              help='Repo hosting the model file releases (owner/repo)')
 @click.option('--model-dir', '-d', type=click.Path(exists=True, file_okay=False),
               help='Directory containing local model files')
 @click.option('--overwrite', is_flag=True, help='Overwrite all files if already in the stack')
 @click.pass_context
-def setup_ml_dga(ctx, model_tag, model_dir, overwrite):
+def setup_ml_dga(ctx, model_tag, repo, model_dir, overwrite):
     """Upload ML DGA model and dependencies and enrich DNS data."""
     import io
     import requests
@@ -317,7 +319,7 @@ def setup_ml_dga(ctx, model_tag, model_dir, overwrite):
 
         click.echo(f'Downloading artifact: {model_tag}')
 
-        release_url = f'https://api.github.com/repos/elastic/detection-rules/releases/tags/{model_tag}'
+        release_url = f'https://api.github.com/repos/{repo}/releases/tags/{model_tag}'
         release = requests.get(release_url)
         release.raise_for_status()
 
@@ -325,23 +327,23 @@ def setup_ml_dga(ctx, model_tag, model_dir, overwrite):
         zipped = requests.get(zipped_url)
         z = zipfile.ZipFile(io.BytesIO(zipped.content))
 
-        dga_dir = get_path('ML-models', 'DGA', model_tag)
+        dga_dir = get_path('ML-models', 'DGA')
+        model_dir = os.path.join(dga_dir, model_tag)
         os.makedirs(dga_dir, exist_ok=True)
-        shutil.rmtree(dga_dir, ignore_errors=True)
+        shutil.rmtree(model_dir, ignore_errors=True)
         z.extractall(dga_dir)
-        click.echo(f'{len(z.filelist)} files saved to {dga_dir}')
+        click.echo(f'files saved to {model_dir}')
 
         # read files as needed
         z.close()
-        model_dir = click.Path(dga_dir)
 
     @contextmanager
     def open_model_file(pattern, name_only=False):
         paths = list(Path(model_dir).glob(pattern))
         if not paths:
-            client_error(f'{model_dir} missing files matching the pattern {pattern}')
+            client_error(f'{model_dir} missing files matching the pattern: {pattern}')
         if len(paths) > 1:
-            client_error(f'{model_dir} contains multiple files matching the pattern {pattern}')
+            client_error(f'{model_dir} contains multiple files matching the pattern: {pattern}')
 
         if name_only:
             yield paths[0]
