@@ -20,7 +20,7 @@ class TestRuleTomlFormatter(unittest.TestCase):
     with open(get_etc_path('test_toml.json'), 'r') as f:
         test_data = json.load(f)
 
-    def compare_formatted(self, data, callback=None):
+    def compare_formatted(self, data, callback=None, kwargs=None):
         """Compare formatted vs expected."""
         try:
             toml_write(copy.deepcopy(data), tmp_file)
@@ -36,7 +36,8 @@ class TestRuleTomlFormatter(unittest.TestCase):
             original = json.dumps(copy.deepcopy(data), sort_keys=True)
 
             if callback:
-                formatted_contents = callback(formatted_contents)
+                kwargs = kwargs or {}
+                formatted_contents = callback(formatted_contents, **kwargs)
 
             # callbacks such as nested normalize leave in line breaks, so this must be manually done
             query = formatted_contents.get('rule', {}).get('query')
@@ -71,4 +72,6 @@ class TestRuleTomlFormatter(unittest.TestCase):
         rules = rule_loader.load_rules().values()
 
         for rule in rules:
-            self.compare_formatted(rule.rule_format(formatted_query=False), callback=nested_normalize)
+            is_eql_rule = rule.type == 'eql'
+            self.compare_formatted(
+                rule.rule_format(formatted_query=False), callback=nested_normalize, kwargs={'eql_rule': is_eql_rule})

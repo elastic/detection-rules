@@ -174,6 +174,7 @@ class KqlSchema2Eql(eql.Schema):
         "double": eql.types.TypeHint.Numeric,
         "long": eql.types.TypeHint.Numeric,
         "short": eql.types.TypeHint.Numeric,
+        "boolean": eql.types.TypeHint.Boolean,
     }
 
     def __init__(self, kql_schema):
