@@ -9,7 +9,11 @@ import warnings
 
 from . import get_data_files, get_fp_data_files
 from detection_rules import rule_loader
-from detection_rules.utils import combine_sources, evaluate, load_etc_dump
+from detection_rules.utils import combine_sources, evaluate, load_dump
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).parent.parent
+ETC_DIR = ROOT_DIR.joinpath("etc")
 
 
 class TestMappings(unittest.TestCase):
@@ -27,7 +31,7 @@ class TestMappings(unittest.TestCase):
     def test_true_positives(self):
         """Test that expected results return against true positives."""
         mismatched_ecs = []
-        mappings = load_etc_dump('rule-mapping.yml')
+        mappings = load_dump(ETC_DIR.joinpath('rule-mapping.yml'))
 
         for rule in rule_loader.get_production_rules():
             if rule.type == 'query' and rule.contents['language'] == 'kuery':

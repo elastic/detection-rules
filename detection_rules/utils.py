@@ -41,30 +41,9 @@ def get_json_iter(f):
     return data
 
 
-def get_path(*paths):
-    """Get a file by relative path."""
-    return ROOT_DIR.joinpath(*paths)
-
-
 def get_etc_path(*paths):
     """Load a file from the etc/ folder."""
     return ETC_DIR.joinpath(*paths)
-
-
-def get_etc_glob_path(*patterns):
-    """Load a file from the etc/ folder."""
-    return list(ETC_DIR.glob(*patterns))
-
-
-def get_etc_file(name, mode="r"):
-    """Load a file from the etc/ folder."""
-    with open(get_etc_path(name), mode) as f:
-        return f.read()
-
-
-def load_etc_dump(*path):
-    """Load a json/yml/toml file from the etc/ folder."""
-    return load_dump(str(get_etc_path(*path)))
 
 
 def save_etc_dump(contents, *path, **kwargs):

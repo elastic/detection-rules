@@ -5,19 +5,21 @@
 import copy
 import json
 import os
+from pathlib import Path
 import pytoml
 import unittest
-from detection_rules.utils import get_etc_path
 from detection_rules import rule_loader
 from detection_rules.rule_formatter import nested_normalize, toml_write
 
+ROOT_DIR = Path(__file__).parent.parent
+ETC_DIR = ROOT_DIR.joinpath('etc')
 
 tmp_file = 'tmp_file.toml'
 
 
 class TestRuleTomlFormatter(unittest.TestCase):
     """Test that the cutom toml formatting is not compromising the integrity of the data."""
-    with open(get_etc_path('test_toml.json'), 'r') as f:
+    with open(ETC_DIR.joinpath('test_toml.json'), 'r') as f:
         test_data = json.load(f)
 
     def compare_formatted(self, data, callback=None, kwargs=None):

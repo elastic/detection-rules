@@ -6,6 +6,8 @@
 import copy
 import glob
 import os
+from pathlib import Path
+
 import shutil
 import json
 
@@ -15,10 +17,12 @@ import eql.types
 import yaml
 
 from .semver import Version
-from .utils import unzip, load_etc_dump, get_etc_path, cached, save_etc_dump
+from .utils import unzip, load_dump, cached, save_etc_dump
 
-ETC_NAME = "ecs_schemas"
-ECS_SCHEMAS_DIR = get_etc_path(ETC_NAME)
+ROOT_DIR = Path(__file__).parent.parent
+ETC_DIR = ROOT_DIR.joinpath('etc')
+ETC_NAME = 'ecs_schemas'
+ECS_SCHEMAS_DIR = ETC_DIR.joinpath(ETC_NAME)
 
 
 def add_field(schema, name, info):
@@ -65,7 +69,7 @@ def _recursive_merge(existing, new, depth=0):
 
 def get_schema_files():
     """Get schema files from ecs directory."""
-    return glob.glob(os.path.join(ECS_SCHEMAS_DIR, '*', '*.json'), recursive=True)
+    return ECS_SCHEMAS_DIR.rglob('*.json')
 
 
 def get_schema_map():
@@ -73,9 +77,8 @@ def get_schema_map():
     schema_map = {}
 
     for file_name in get_schema_files():
-        path, name = os.path.split(file_name)
-        name = os.path.splitext(name)[0]
-        version = os.path.basename(path)
+        path, name = file_name.parent, file_name.name
+        version = path.name
         schema_map.setdefault(version, {})[name] = file_name
 
     return schema_map
@@ -148,7 +151,7 @@ def flatten(schema):
 @cached
 def get_non_ecs_schema():
     """Load non-ecs schema."""
-    return load_etc_dump('non-ecs-schema.json')
+    return load_dump(ETC_DIR.joinpath('non-ecs-schema.json'))
 
 
 @cached
@@ -260,7 +263,7 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
             shutil.rmtree(m, ignore_errors=True)
 
         master_dir = "master_{}".format(master_ver)
-        os.makedirs(get_etc_path(ETC_NAME, master_dir), exist_ok=True)
+        ETC_DIR.joinpath(ETC_NAME, master_dir).mkdir(exist_ok=True)
 
         save_etc_dump(master_schema, ETC_NAME, master_dir, "ecs_flat.json")
 

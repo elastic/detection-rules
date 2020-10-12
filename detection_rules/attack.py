@@ -5,12 +5,15 @@
 """Mitre attack info."""
 
 import json
-import os
+from pathlib import Path
 import requests
 from collections import OrderedDict
 
 from .semver import Version
-from .utils import get_etc_path, get_etc_glob_path, read_gzip, gzip_compress
+from .utils import read_gzip, gzip_compress
+
+ROOT_DIR = Path(__file__).parent.parent
+ETC_DIR = ROOT_DIR.joinpath('etc')
 
 PLATFORMS = ['Windows', 'macOS', 'Linux']
 tactics_map = {}
@@ -18,7 +21,7 @@ tactics_map = {}
 
 def get_attack_file_path():
     pattern = 'attack-v*.json.gz'
-    attack_file = get_etc_glob_path(pattern)
+    attack_file = list(ETC_DIR.glob(pattern))
     if len(attack_file) != 1:
         raise FileNotFoundError(f'Missing required {pattern} file')
     return attack_file[0]
@@ -71,7 +74,7 @@ techniques = sorted({v['name'] for k, v in technique_lookup.items()})
 def refresh_attack_data(save=True):
     """Refresh ATT&CK data from Mitre."""
     attack_path = get_attack_file_path()
-    filename, _, _ = os.path.basename(attack_path).rsplit('.', 2)
+    filename, _, _ = attack_path.name.rsplit('.', 2)
 
     def get_version_from_tag(name, pattern='att&ck-v'):
         _, version = name.lower().split(pattern, 1)
@@ -97,11 +100,11 @@ def refresh_attack_data(save=True):
     compressed = gzip_compress(json.dumps(attack_data, sort_keys=True))
 
     if save:
-        new_path = get_etc_path(f'attack-v{latest_version}.json.gz')
+        new_path = ETC_DIR.joinpath(f'attack-v{latest_version}.json.gz')
         with open(new_path, 'wb') as f:
             f.write(compressed)
 
-        os.remove(attack_path)
+        attack_path.unlink()
         print(f'Replaced file: {attack_path} with {new_path}')
 
     return attack_data, compressed

@@ -5,6 +5,7 @@
 """Test that all rules have valid metadata and syntax."""
 import json
 import os
+from pathlib import Path
 import re
 import sys
 import unittest
@@ -18,8 +19,11 @@ import pytoml
 from rta import get_ttp_names
 
 from detection_rules import attack, rule_loader
-from detection_rules.utils import load_etc_dump
+from detection_rules.utils import load_dump
 from detection_rules.rule import Rule
+
+ROOT_DIR = Path(__file__).parent.parent
+ETC_DIR = ROOT_DIR.joinpath("etc")
 
 
 class TestValidRules(unittest.TestCase):
@@ -100,7 +104,7 @@ class TestValidRules(unittest.TestCase):
     @rule_loader.mock_loader
     def test_production_rules_have_rta(self):
         """Ensure that all production rules have RTAs."""
-        mappings = load_etc_dump('rule-mapping.yml')
+        mappings = load_dump(ETC_DIR.joinpath('rule-mapping.yml'))
 
         ttp_names = get_ttp_names()
 
