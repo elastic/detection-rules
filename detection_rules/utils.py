@@ -41,14 +41,9 @@ def get_json_iter(f):
     return data
 
 
-def get_etc_path(*paths):
-    """Load a file from the etc/ folder."""
-    return ETC_DIR.joinpath(*paths)
-
-
 def save_etc_dump(contents, *path, **kwargs):
     """Load a json/yml/toml file from the etc/ folder."""
-    path = get_etc_path(*path)
+    path = ETC_DIR.joinpath(path)
     _, ext = path.parent, path.suffix
     sort_keys = kwargs.pop('sort_keys', True)
     indent = kwargs.pop('indent', 2)
