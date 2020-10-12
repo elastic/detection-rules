@@ -20,7 +20,7 @@ class Kibana(object):
 
     CACHED = False
 
-    def __init__(self, cloud_id=None, kibana_url=None, verify=True, elasticsearch=None):
+    def __init__(self, cloud_id=None, kibana_url=None, verify=True, elasticsearch=None, space=None):
         """"Open a session to the platform."""
         self.authenticated = False
         self.session = requests.Session()
@@ -29,6 +29,7 @@ class Kibana(object):
         self.cloud_id = cloud_id
         self.kibana_url = kibana_url
         self.elastic_url = None
+        self.space = space
         self.status = None
 
         if self.cloud_id:
@@ -55,7 +56,11 @@ class Kibana(object):
     def url(self, uri):
         """Get the full URL given a URI."""
         assert self.kibana_url is not None
-        return f"{self.kibana_url}/{uri.lstrip('/')}"
+        # If a space is defined update the URL accordingly
+        uri = uri.lstrip('/')
+        if self.space:
+            uri = "s/{}/{}".format(self.space, uri)
+        return f"{self.kibana_url}/{uri}"
 
     def request(self, method, uri, params=None, data=None, error=True):
         """Perform a RESTful HTTP request with JSON responses."""
