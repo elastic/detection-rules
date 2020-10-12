@@ -4,13 +4,14 @@
 
 """RTA to rule mappings."""
 import os
+from pathlib import Path
 from collections import defaultdict
 
 from .schemas import validate_rta_mapping
-from .utils import load_etc_dump, save_etc_dump, get_path
+from .utils import load_etc_dump, save_etc_dump
 
-
-RTA_DIR = get_path("rta")
+ROOT_DIR = Path(__file__).parent.parent
+RTA_DIR = ROOT_DIR.joinpath("rta")
 
 
 class RtaMappings(object):

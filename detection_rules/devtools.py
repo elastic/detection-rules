@@ -3,11 +3,11 @@
 # you may not use this file except in compliance with the Elastic License.
 
 """CLI commands for internal detection_rules dev team."""
-import glob
 import io
 import json
 import os
 import shutil
+from pathlib import Path
 import subprocess
 
 import click
@@ -18,10 +18,9 @@ from .main import root
 from .misc import PYTHON_LICENSE, client_error
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
 from .rule import Rule
-from .utils import get_path
 
-
-RULES_DIR = get_path('rules')
+ROOT_DIR = Path(__file__).parent.parent
+RULES_DIR = ROOT_DIR.joinpath('rules')
 
 
 @root.group('dev')
@@ -108,7 +107,7 @@ def kibana_diff(rule_id, branch, threads):
 
 
 @dev_group.command("kibana-commit")
-@click.argument("local-repo", default=get_path("..", "kibana"))
+@click.argument("local-repo", default=ROOT_DIR.joinpath("kibana"))
 @click.option("--kibana-directory", "-d", help="Directory to overwrite in Kibana",
               default="x-pack/plugins/security_solution/server/lib/detection_engine/rules/prepackaged_rules")
 @click.option("--base-branch", "-b", help="Base branch in Kibana", default="master")
@@ -121,10 +120,10 @@ def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_bran
     git_exe = shutil.which("git")
 
     package_name = load_dump(PACKAGE_FILE)['package']["name"]
-    release_dir = os.path.join(RELEASE_DIR, package_name)
+    release_dir = RELEASE_DIR.joinpath(package_name)
     message = message or f"[Detection Rules] Add {package_name} rules"
 
-    if not os.path.exists(release_dir):
+    if not release_dir.exists():
         click.secho("Release directory doesn't exist.", fg="red", err=True)
         click.echo(f"Run {click.style('python -m detection_rules build-release', bold=True)} to populate", err=True)
         ctx.exit(1)
@@ -134,7 +133,7 @@ def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_bran
         ctx.exit(1)
 
     try:
-        if not os.path.exists(local_repo):
+        if not local_repo.exists():
             if not click.confirm(f"Kibana repository doesn't exist at {local_repo}. Clone?"):
                 ctx.exit(1)
 
@@ -150,16 +149,16 @@ def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_bran
         git("checkout", "-b", f"rules/{package_name}", show_output=True)
         git("rm", "-r", kibana_directory)
 
-        source_dir = os.path.join(release_dir, "rules")
-        target_dir = os.path.join(local_repo, kibana_directory)
-        os.makedirs(target_dir)
+        source_dir = release_dir.joinpath("rules")
+        target_dir = local_repo.joinpath(kibana_directory)
+        target_dir.mkdir(parents=True)
 
-        for name in os.listdir(source_dir):
-            _, ext = os.path.splitext(name)
-            path = os.path.join(source_dir, name)
+        for name in source_dir.iterdir():
+            _, ext = name.stem, name.suffix
+            path = source_dir.joinpath(name)
 
             if ext in (".ts", ".json"):
-                shutil.copyfile(path, os.path.join(target_dir, name))
+                shutil.copyfile(path, target_dir.joinpath(name))
 
         git("add", kibana_directory)
 
@@ -180,8 +179,8 @@ def license_check(ctx):
 
     failed = False
 
-    for path in glob.glob(get_path("**", "*.py"), recursive=True):
-        if path.startswith(get_path("env", "")):
+    for path in ROOT_DIR.rglob("*.py"):
+        if str(path).startswith('{}"/env/"'):
             continue
 
         relative_path = os.path.relpath(path)

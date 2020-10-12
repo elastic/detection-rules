@@ -5,6 +5,7 @@
 """Elasticsearch cli commands."""
 import json
 import os
+from pathlib import Path
 import time
 
 import click
@@ -12,10 +13,11 @@ from elasticsearch import AuthenticationException, Elasticsearch
 
 from .main import root
 from .misc import client_error, getdefault
-from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
+from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted
 from .rule_loader import get_rule, rta_mappings
 
-COLLECTION_DIR = get_path('collections')
+ROOT_DIR = Path(__file__).parent.parent
+COLLECTION_DIR = ROOT_DIR .joinpath('collections')
 
 
 def get_es_client(user, password, elasticsearch_url=None, cloud_id=None, **kwargs):
@@ -49,13 +51,13 @@ class Events(object):
     def _get_dump_dir(self, rta_name=None):
         """Prepare and get the dump path."""
         if rta_name:
-            dump_dir = get_path('unit_tests', 'data', 'true_positives', rta_name)
-            os.makedirs(dump_dir, exist_ok=True)
+            dump_dir = ROOT_DIR.joinpath('unit_tests/data/true_positives', rta_name)
+            dump_dir.mkdir(exist_ok=True)
             return dump_dir
         else:
             time_str = time.strftime('%Y%m%dT%H%M%SL')
-            dump_dir = os.path.join(COLLECTION_DIR, self.agent_hostname, time_str)
-            os.makedirs(dump_dir, exist_ok=True)
+            dump_dir = COLLECTION_DIR.joinpath(self.agent_hostname, time_str)
+            dump_dir.mkdir(exist_ok=True)
             return dump_dir
 
     def evaluate_against_rule_and_update_mapping(self, rule_id, rta_name, verbose=True):

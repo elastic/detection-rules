@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import shutil
+from pathlib import Path
 from collections import defaultdict, OrderedDict
 
 import click
@@ -16,11 +17,12 @@ import click
 from . import rule_loader
 from .misc import JS_LICENSE
 from .rule import Rule  # noqa: F401
-from .utils import get_path, get_etc_path, load_etc_dump, save_etc_dump
+from .utils import load_etc_dump, save_etc_dump
 
-RELEASE_DIR = get_path("releases")
-PACKAGE_FILE = get_etc_path('packages.yml')
-NOTICE_FILE = get_path('NOTICE.txt')
+ROOT_DIR = Path(__file__).parent.parent
+RELEASE_DIR = ROOT_DIR / "releases"
+PACKAGE_FILE = ROOT_DIR / "etc/packages.yml"
+NOTICE_FILE = ROOT_DIR / 'NOTICE.txt'
 
 
 def filter_rule(rule: Rule, config_filter: dict, exclude_fields: dict) -> bool:

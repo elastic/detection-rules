@@ -7,6 +7,7 @@ import functools
 import glob
 import io
 import os
+from pathlib import Path
 import re
 from collections import OrderedDict
 
@@ -16,10 +17,10 @@ import pytoml
 from .mappings import RtaMappings
 from .rule import RULES_DIR, Rule
 from .schemas import CurrentSchema
-from .utils import get_path, cached
+from .utils import cached
 
-
-RTA_DIR = get_path("rta")
+ROOT_DIR = Path(__file__).parent.parent
+RTA_DIR = ROOT_DIR / "rta"
 FILE_PATTERN = r'^([a-z0-9_])+\.(json|toml)$'
 
 

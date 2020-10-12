@@ -6,6 +6,7 @@
 import glob
 import json
 import os
+from pathlib import Path
 import re
 
 import click
@@ -17,10 +18,11 @@ from .misc import client_error, nested_set, parse_config
 from .rule import Rule
 from .rule_formatter import toml_write
 from .schemas import CurrentSchema
-from .utils import get_path, clear_caches, load_rule_contents
+from .utils import clear_caches, load_rule_contents
 
 
-RULES_DIR = get_path('rules')
+ROOT_DIR = Path(__file__).parent.parent
+RULES_DIR = ROOT_DIR.joinpath('rules')
 
 
 @click.group('detection-rules', context_settings={'help_option_names': ['-h', '--help']})

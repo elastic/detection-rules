@@ -5,6 +5,7 @@
 """Misc support."""
 import json
 import os
+from pathlib import Path
 import re
 import time
 import uuid
@@ -12,8 +13,9 @@ import uuid
 import click
 import requests
 
-from .utils import cached, get_path
+from .utils import cached
 
+ROOT_DIR = Path(__file__).parent.parent
 _CONFIG = {}
 
 LICENSE_HEADER = """
@@ -229,10 +231,10 @@ def get_kibana_rules(*rule_paths, branch='master', verbose=True, threads=50):
 @cached
 def parse_config():
     """Parse a default config file."""
-    config_file = get_path('.detection-rules-cfg.json')
+    config_file = ROOT_DIR.joinpath('.detection-rules-cfg.json')
     config = {}
 
-    if os.path.exists(config_file):
+    if config_file.exists():
         with open(config_file) as f:
             config = json.load(f)
 
