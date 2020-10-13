@@ -5,8 +5,6 @@
 """CLI commands for internal detection_rules dev team."""
 import io
 import json
-import os
-from pathlib import Path
 import shutil
 import subprocess
 
@@ -181,8 +179,6 @@ def license_check(ctx):
         if 'env' in path.parts:
             continue
 
-        relative_path = Path(os.path.relpath(path))
-
         with io.open(path, "rt", encoding="utf-8") as f:
             contents = f.read()
 
@@ -195,6 +191,6 @@ def license_check(ctx):
                     click.echo("Missing license headers for:", err=True)
 
                 failed = True
-                click.echo(relative_path, err=True)
+                click.echo(path, err=True)
 
     ctx.exit(int(failed))
