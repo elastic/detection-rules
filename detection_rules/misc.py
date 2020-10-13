@@ -5,7 +5,6 @@
 """Misc support."""
 import json
 import os
-from pathlib import Path
 import re
 import time
 import uuid
@@ -13,9 +12,8 @@ import uuid
 import click
 import requests
 
-from .utils import cached
+from .utils import ROOT_DIR, cached
 
-ROOT_DIR = Path(__file__).parent.parent
 _CONFIG = {}
 
 LICENSE_HEADER = """

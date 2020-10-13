@@ -9,7 +9,6 @@ import hashlib
 import json
 import os
 import shutil
-from pathlib import Path
 from collections import defaultdict, OrderedDict
 
 import click
@@ -17,11 +16,8 @@ import click
 from . import rule_loader
 from .misc import JS_LICENSE
 from .rule import Rule  # noqa: F401
-from .utils import load_dump, save_etc_dump
+from .utils import ROOT_DIR, ETC_DIR, RELEASE_DIR, load_dump, save_etc_dump
 
-ROOT_DIR = Path(__file__).parent.parent
-ETC_DIR = ROOT_DIR / "etc"
-RELEASE_DIR = ROOT_DIR / "releases"
 PACKAGE_FILE = ROOT_DIR / "etc/packages.yml"
 NOTICE_FILE = ROOT_DIR / 'NOTICE.txt'
 

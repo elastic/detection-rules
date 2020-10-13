@@ -6,7 +6,6 @@
 import glob
 import json
 import os
-from pathlib import Path
 import re
 
 import click
@@ -18,11 +17,7 @@ from .misc import client_error, nested_set, parse_config
 from .rule import Rule
 from .rule_formatter import toml_write
 from .schemas import CurrentSchema
-from .utils import clear_caches, load_rule_contents
-
-
-ROOT_DIR = Path(__file__).parent.parent
-RULES_DIR = ROOT_DIR / 'rules'
+from .utils import RULES_DIR, clear_caches, load_rule_contents
 
 
 @click.group('detection-rules', context_settings={'help_option_names': ['-h', '--help']})
@@ -72,7 +67,7 @@ def import_rules(infile, directory):
     for contents in rule_contents:
         base_path = contents.get('name') or contents.get('rule', {}).get('name')
         base_path = name_to_filename(base_path) if base_path else base_path
-        rule_path = os.path.join(RULES_DIR, base_path) if base_path else None
+        rule_path = RULES_DIR / base_path if base_path else None
         Rule.build(rule_path, required_only=True, save=True, verbose=True, **contents)
 
 

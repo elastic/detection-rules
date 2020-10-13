@@ -5,15 +5,11 @@
 """Mitre attack info."""
 
 import json
-from pathlib import Path
 import requests
 from collections import OrderedDict
 
 from .semver import Version
-from .utils import read_gzip, gzip_compress
-
-ROOT_DIR = Path(__file__).parent.parent
-ETC_DIR = ROOT_DIR / 'etc'
+from .utils import ETC_DIR, read_gzip, gzip_compress
 
 PLATFORMS = ['Windows', 'macOS', 'Linux']
 tactics_map = {}
@@ -100,7 +96,7 @@ def refresh_attack_data(save=True):
     compressed = gzip_compress(json.dumps(attack_data, sort_keys=True))
 
     if save:
-        new_path = ETC_DIR.joinpath(f'attack-v{latest_version}.json.gz')
+        new_path = ETC_DIR / f'attack-v{latest_version}.json.gz'
         with open(new_path, 'wb') as f:
             f.write(compressed)
 

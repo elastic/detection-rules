@@ -4,13 +4,13 @@
 
 # coding=utf-8
 """Shell for detection-rules."""
-import os
+from pathlib import Path
 import click
 from .main import root
 
-CURR_DIR = os.path.dirname(os.path.abspath(__file__))
-CLI_DIR = os.path.dirname(CURR_DIR)
-ROOT_DIR = os.path.dirname(CLI_DIR)
+CURR_DIR = Path(__file__).parent
+CLI_DIR = CURR_DIR.parent
+ROOT_DIR = CLI_DIR.parent
 
 BANNER = r"""
 █▀▀▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄▄▄ ▄   ▄      █▀▀▄ ▄  ▄ ▄   ▄▄▄ ▄▄▄

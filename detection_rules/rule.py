@@ -7,7 +7,6 @@ import copy
 import hashlib
 import json
 import os
-from pathlib import Path
 
 import click
 import kql
@@ -17,10 +16,8 @@ from . import ecs, beats
 from .attack import tactics, build_threat_map_entry, technique_lookup
 from .rule_formatter import nested_normalize, toml_write
 from .schemas import CurrentSchema, TomlMetadata  # RULE_TYPES, metadata_schema, schema_validate, get_schema
-from .utils import clear_caches, cached
+from .utils import ROOT_DIR, clear_caches, cached
 
-
-ROOT_DIR = Path(__file__).parent.parent
 RULES_DIR = ROOT_DIR / "rules"
 _META_SCHEMA_REQ_DEFAULTS = {}
 
@@ -375,7 +372,7 @@ class Rule(object):
             if ecs_version:
                 metadata['ecs_version'] = ecs_version
 
-        suggested_path = os.path.join(RULES_DIR, contents['name'])  # TODO: UPDATE BASED ON RULE STRUCTURE
+        suggested_path = RULES_DIR / contents['name']  # TODO: UPDATE BASED ON RULE STRUCTURE
         path = os.path.realpath(path or input('File path for rule [{}]: '.format(suggested_path)) or suggested_path)
 
         rule = None

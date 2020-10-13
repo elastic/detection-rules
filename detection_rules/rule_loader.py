@@ -7,7 +7,6 @@ import functools
 import glob
 import io
 import os
-from pathlib import Path
 import re
 from collections import OrderedDict
 
@@ -19,8 +18,6 @@ from .rule import RULES_DIR, Rule
 from .schemas import CurrentSchema
 from .utils import cached
 
-ROOT_DIR = Path(__file__).parent.parent
-RTA_DIR = ROOT_DIR / "rta"
 FILE_PATTERN = r'^([a-z0-9_])+\.(json|toml)$'
 
 

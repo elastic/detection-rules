@@ -5,7 +5,6 @@
 """Elasticsearch cli commands."""
 import json
 import os
-from pathlib import Path
 import time
 
 import click
@@ -13,10 +12,9 @@ from elasticsearch import AuthenticationException, Elasticsearch
 
 from .main import root
 from .misc import client_error, getdefault
-from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted
+from .utils import ROOT_DIR, format_command_options, normalize_timing_and_sort, unix_time_to_formatted
 from .rule_loader import get_rule, rta_mappings
 
-ROOT_DIR = Path(__file__).parent.parent
 COLLECTION_DIR = ROOT_DIR / 'collections'
 
 
@@ -56,7 +54,7 @@ class Events(object):
             return dump_dir
         else:
             time_str = time.strftime('%Y%m%dT%H%M%SL')
-            dump_dir = COLLECTION_DIR.joinpath(self.agent_hostname, time_str)
+            dump_dir = COLLECTION_DIR / self.agent_hostname / time_str
             dump_dir.mkdir(exist_ok=True)
             return dump_dir
 

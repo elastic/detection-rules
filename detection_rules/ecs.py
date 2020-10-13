@@ -6,7 +6,6 @@
 import copy
 import glob
 import os
-from pathlib import Path
 
 import shutil
 import json
@@ -17,10 +16,8 @@ import eql.types
 import yaml
 
 from .semver import Version
-from .utils import unzip, load_dump, cached, save_etc_dump
+from .utils import ETC_DIR, unzip, load_dump, cached, save_etc_dump
 
-ROOT_DIR = Path(__file__).parent.parent
-ETC_DIR = ROOT_DIR / 'etc'
 ETC_NAME = 'ecs_schemas'
 ECS_SCHEMAS_DIR = ETC_DIR / ETC_NAME
 
@@ -263,7 +260,7 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
             shutil.rmtree(m, ignore_errors=True)
 
         master_dir = "master_{}".format(master_ver)
-        ETC_DIR.joinpath(ETC_NAME, master_dir).mkdir(exist_ok=True)
+        ECS_SCHEMAS_DIR.joinpath(master_dir).mkdir(exist_ok=True)
 
         save_etc_dump(master_schema, ETC_NAME, master_dir, "ecs_flat.json")
 

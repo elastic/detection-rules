@@ -4,15 +4,10 @@
 
 """RTA to rule mappings."""
 import os
-from pathlib import Path
 from collections import defaultdict
 
 from .schemas import validate_rta_mapping
-from .utils import load_dump, save_etc_dump
-
-ROOT_DIR = Path(__file__).parent.parent
-RTA_DIR = ROOT_DIR / "rta"
-ETC_DIR = ROOT_DIR / "etc"
+from .utils import RTA_DIR, ETC_DIR, load_dump, save_etc_dump
 
 
 class RtaMappings(object):
@@ -20,7 +15,7 @@ class RtaMappings(object):
 
     def __init__(self):
         """Rta-mapping validation and prep."""
-        self.mapping = load_dump(ETC_DIR.joinpath('rule-mapping.yml'))  # type: dict
+        self.mapping = load_dump(ETC_DIR / 'rule-mapping.yml')  # type: dict
         self.validate()
 
         self._rta_mapping = defaultdict(list)

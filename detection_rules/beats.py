@@ -4,7 +4,6 @@
 
 """ECS Schemas management."""
 import os
-from pathlib import Path
 
 import kql
 import eql
@@ -12,10 +11,7 @@ import requests
 import yaml
 
 from .semver import Version
-from .utils import unzip, load_dump, save_etc_dump, cached
-
-ROOT_DIR = Path(__file__).parent.parent
-ETC_DIR = ROOT_DIR / 'etc'
+from .utils import ETC_DIR, unzip, load_dump, save_etc_dump, cached
 
 
 def download_latest_beats_schema():
@@ -139,7 +135,7 @@ def read_beats_schema():
     beats_schemas = list(ETC_DIR.joinpath("beats_schemas").iterdir())
     latest = max(beats_schemas, key=lambda b: Version(str(b).lstrip("v")))
 
-    return load_dump(ETC_DIR.joinpath("beats_schemas", latest))
+    return load_dump(ETC_DIR / "beats_schemas" / latest)
 
 
 def get_schema_from_datasets(beats, modules, datasets):

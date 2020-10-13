@@ -20,7 +20,10 @@ from eql.utils import load_dump, stream_json_lines
 
 CURR_DIR = Path(__file__).parent
 ROOT_DIR = CURR_DIR.parent
-ETC_DIR = ROOT_DIR / "etc"
+ETC_DIR = ROOT_DIR / 'etc'
+RULES_DIR = ROOT_DIR / 'rules'
+RTA_DIR = ROOT_DIR / 'rta'
+RELEASE_DIR = ROOT_DIR / "releases"
 
 
 class DateTimeEncoder(json.JSONEncoder):

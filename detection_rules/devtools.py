@@ -7,7 +7,6 @@ import io
 import json
 import os
 import shutil
-from pathlib import Path
 import subprocess
 
 import click
@@ -18,9 +17,7 @@ from .main import root
 from .misc import PYTHON_LICENSE, client_error
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
 from .rule import Rule
-
-ROOT_DIR = Path(__file__).parent.parent
-RULES_DIR = ROOT_DIR / 'rules'
+from .utils import ROOT_DIR
 
 
 @root.group('dev')
@@ -107,7 +104,7 @@ def kibana_diff(rule_id, branch, threads):
 
 
 @dev_group.command("kibana-commit")
-@click.argument("local-repo", default=ROOT_DIR.joinpath("kibana"))
+@click.argument("local-repo", default=ROOT_DIR / "kibana")
 @click.option("--kibana-directory", "-d", help="Directory to overwrite in Kibana",
               default="x-pack/plugins/security_solution/server/lib/detection_engine/rules/prepackaged_rules")
 @click.option("--base-branch", "-b", help="Base branch in Kibana", default="master")
