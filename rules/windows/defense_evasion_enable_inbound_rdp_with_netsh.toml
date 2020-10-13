@@ -1,0 +1,40 @@
+[metadata]
+creation_date = "2020/10/13"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/10/13"
+
+[rule]
+author = ["Elastic"]
+description = "Identifies use of the netsh.exe to enable inbound RDP in the Windows Local Firewall."
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Inbound RDP Enabled via Netsh"
+risk_score = 47
+rule_id = "074464f9-f30d-4029-8c03-0ed237fffec7"
+severity = "medium"
+tags = ["Elastic", "Windows"]
+type = "query"
+
+query = '''
+event.category:process and event.type:(start or process_started) and
+  (process.name:netsh.exe or process.pe.original_file_name:netsh.exe) and
+  process.args:("localport=3389" and add and advfirewall and "dir=in")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1089"
+name = "Disabling Security Tools"
+reference = "https://attack.mitre.org/techniques/T1089/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
