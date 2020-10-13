@@ -30,7 +30,7 @@ def dev_group():
               help='Save version.lock.json file with updated rule versions in the package')
 def build_release(config_file, update_version_lock):
     """Assemble all the rules into Kibana-ready release files."""
-    config = load_dump(config_file)['package']
+    config = load_dump(str(config_file))['package']
     click.echo('[+] Building package {}'.format(config.get('name')))
     package = Package.from_config(config, update_version_lock=update_version_lock, verbose=True)
     package.save()
