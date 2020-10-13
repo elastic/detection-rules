@@ -4,8 +4,7 @@
 
 """ECS Schemas management."""
 import copy
-import glob
-import os
+from pathlib import Path
 
 import shutil
 import json
@@ -99,7 +98,7 @@ def get_max_version(include_master=False):
     versions = get_schema_map().keys()
 
     if include_master and any([v.startswith('master') for v in versions]):
-        return glob.glob(os.path.join(ECS_SCHEMAS_DIR, 'master*'))[0]
+        return list(ECS_SCHEMAS_DIR.glob('master*'))[0]
 
     return str(max([Version(v) for v in versions if not v.startswith('master')]))
 
@@ -223,7 +222,7 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
         if not version or version < (1, 0, 1) or version in existing:
             continue
 
-        schema_dir = os.path.join(ECS_SCHEMAS_DIR, str(version))
+        schema_dir = ECS_SCHEMAS_DIR / str(version)
 
         with unzip(requests.get(release['zipball_url']).content) as archive:
             name_list = archive.namelist()
@@ -234,8 +233,8 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
             saved = []
 
             for member in members:
-                file_name = os.path.basename(member)
-                os.makedirs(schema_dir, exist_ok=True)
+                file_name = Path(member).name
+                schema_dir.mkdir(parents=True, exist_ok=True)
 
                 # load as yaml, save as json
                 contents = yaml.safe_load(archive.read(member))
@@ -255,7 +254,7 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
 
         # prepend with underscore so that we can differentiate the fact that this is a working master version
         #   but first clear out any existing masters, since we only ever want 1 at a time
-        existing_master = glob.glob(os.path.join(ECS_SCHEMAS_DIR, 'master_*'))
+        existing_master = list(ECS_SCHEMAS_DIR.glob('master_*'))
         for m in existing_master:
             shutil.rmtree(m, ignore_errors=True)
 
