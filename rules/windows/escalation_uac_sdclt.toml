@@ -11,7 +11,7 @@ Identifies User Account Control (UAC) bypass via sdclt.exe. Attackers bypass UAC
 elevated permissions.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License"
 name = "Bypass UAC via Sdclt"
@@ -22,9 +22,10 @@ tags = ["Elastic", "Windows"]
 type = "eql"
 
 query = '''
+/* add winlogbeat-* when process.code_signature.* fields are populated */
+
 sequence with maxspan=1m
   [process where event.type in ("start", "process_started") and process.name == "sdclt.exe" and
-     /* process.code_signature.* fields need to be populated for 7.10 */
      process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true and
      process.args == "/kickoffelev"
   ] by process.entity_id
