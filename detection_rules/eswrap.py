@@ -17,7 +17,7 @@ from .utils import format_command_options, normalize_timing_and_sort, unix_time_
 from .rule_loader import get_rule, rta_mappings
 
 ROOT_DIR = Path(__file__).parent.parent
-COLLECTION_DIR = ROOT_DIR .joinpath('collections')
+COLLECTION_DIR = ROOT_DIR / 'collections'
 
 
 def get_es_client(user, password, elasticsearch_url=None, cloud_id=None, **kwargs):
@@ -51,7 +51,7 @@ class Events(object):
     def _get_dump_dir(self, rta_name=None):
         """Prepare and get the dump path."""
         if rta_name:
-            dump_dir = ROOT_DIR.joinpath('unit_tests/data/true_positives', rta_name)
+            dump_dir = ROOT_DIR / 'unit_tests/data/true_positives' / rta_name
             dump_dir.mkdir(exist_ok=True)
             return dump_dir
         else:

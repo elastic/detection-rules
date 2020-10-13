@@ -15,7 +15,7 @@ from .semver import Version
 from .utils import unzip, load_dump, save_etc_dump, cached
 
 ROOT_DIR = Path(__file__).parent.parent
-ETC_DIR = ROOT_DIR.joinpath('etc')
+ETC_DIR = ROOT_DIR / 'etc'
 
 
 def download_latest_beats_schema():

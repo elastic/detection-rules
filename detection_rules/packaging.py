@@ -20,7 +20,7 @@ from .rule import Rule  # noqa: F401
 from .utils import load_dump, save_etc_dump
 
 ROOT_DIR = Path(__file__).parent.parent
-ETC_DIR = ROOT_DIR.joinpath("etc")
+ETC_DIR = ROOT_DIR / "etc"
 RELEASE_DIR = ROOT_DIR / "releases"
 PACKAGE_FILE = ROOT_DIR / "etc/packages.yml"
 NOTICE_FILE = ROOT_DIR / 'NOTICE.txt'
@@ -59,7 +59,7 @@ def manage_versions(rules: list, deprecated_rules: list = None, current_versions
     changed_rules = []
 
     if current_versions is None:
-        current_versions = load_dump(ETC_DIR.joinpath('version.lock.json'))
+        current_versions = load_dump(ETC_DIR / 'version.lock.json')
 
     for rule in rules:
         # it is a new rule, so add it if specified, and add an initial version to the rule
@@ -88,7 +88,7 @@ def manage_versions(rules: list, deprecated_rules: list = None, current_versions
     rule_deprecations = {}
 
     if deprecated_rules:
-        rule_deprecations = load_dump(ETC_DIR.joinpath('deprecated_rules.json'))
+        rule_deprecations = load_dump(ETC_DIR / 'deprecated_rules.json')
 
         deprecation_date = str(datetime.date.today())
 

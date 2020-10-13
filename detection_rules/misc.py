@@ -231,7 +231,7 @@ def get_kibana_rules(*rule_paths, branch='master', verbose=True, threads=50):
 @cached
 def parse_config():
     """Parse a default config file."""
-    config_file = ROOT_DIR.joinpath('.detection-rules-cfg.json')
+    config_file = ROOT_DIR / '.detection-rules-cfg.json'
     config = {}
 
     if config_file.exists():

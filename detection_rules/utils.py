@@ -43,7 +43,7 @@ def get_json_iter(f):
 
 def save_etc_dump(contents, *path, **kwargs):
     """Save a json/yml/toml file to the etc/ folder."""
-    path = ETC_DIR.joinpath(path)
+    path = ETC_DIR / path
     _, ext = path.parent, path.suffix
     sort_keys = kwargs.pop('sort_keys', True)
     indent = kwargs.pop('indent', 2)

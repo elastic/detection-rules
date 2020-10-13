@@ -11,8 +11,8 @@ from .schemas import validate_rta_mapping
 from .utils import load_dump, save_etc_dump
 
 ROOT_DIR = Path(__file__).parent.parent
-RTA_DIR = ROOT_DIR.joinpath("rta")
-ETC_DIR = ROOT_DIR.joinpath("etc")
+RTA_DIR = ROOT_DIR / "rta"
+ETC_DIR = ROOT_DIR / "etc"
 
 
 class RtaMappings(object):

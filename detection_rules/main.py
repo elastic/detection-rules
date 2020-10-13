@@ -22,7 +22,7 @@ from .utils import clear_caches, load_rule_contents
 
 
 ROOT_DIR = Path(__file__).parent.parent
-RULES_DIR = ROOT_DIR.joinpath('rules')
+RULES_DIR = ROOT_DIR / 'rules'
 
 
 @click.group('detection-rules', context_settings={'help_option_names': ['-h', '--help']})

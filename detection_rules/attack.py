@@ -13,7 +13,7 @@ from .semver import Version
 from .utils import read_gzip, gzip_compress
 
 ROOT_DIR = Path(__file__).parent.parent
-ETC_DIR = ROOT_DIR.joinpath('etc')
+ETC_DIR = ROOT_DIR / 'etc'
 
 PLATFORMS = ['Windows', 'macOS', 'Linux']
 tactics_map = {}

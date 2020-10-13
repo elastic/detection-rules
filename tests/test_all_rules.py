@@ -23,7 +23,7 @@ from detection_rules.utils import load_dump
 from detection_rules.rule import Rule
 
 ROOT_DIR = Path(__file__).parent.parent
-ETC_DIR = ROOT_DIR.joinpath("etc")
+ETC_DIR = ROOT_DIR / 'etc'
 
 
 class TestValidRules(unittest.TestCase):
@@ -104,7 +104,7 @@ class TestValidRules(unittest.TestCase):
     @rule_loader.mock_loader
     def test_production_rules_have_rta(self):
         """Ensure that all production rules have RTAs."""
-        mappings = load_dump(ETC_DIR.joinpath('rule-mapping.yml'))
+        mappings = load_dump(ETC_DIR / 'rule-mapping.yml')
 
         ttp_names = get_ttp_names()
 

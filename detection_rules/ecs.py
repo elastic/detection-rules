@@ -20,9 +20,9 @@ from .semver import Version
 from .utils import unzip, load_dump, cached, save_etc_dump
 
 ROOT_DIR = Path(__file__).parent.parent
-ETC_DIR = ROOT_DIR.joinpath('etc')
+ETC_DIR = ROOT_DIR / 'etc'
 ETC_NAME = 'ecs_schemas'
-ECS_SCHEMAS_DIR = ETC_DIR.joinpath(ETC_NAME)
+ECS_SCHEMAS_DIR = ETC_DIR / ETC_NAME
 
 
 def add_field(schema, name, info):
@@ -151,7 +151,7 @@ def flatten(schema):
 @cached
 def get_non_ecs_schema():
     """Load non-ecs schema."""
-    return load_dump(ETC_DIR.joinpath('non-ecs-schema.json'))
+    return load_dump(ETC_DIR / 'non-ecs-schema.json')
 
 
 @cached

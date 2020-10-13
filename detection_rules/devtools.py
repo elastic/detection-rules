@@ -20,7 +20,7 @@ from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
 from .rule import Rule
 
 ROOT_DIR = Path(__file__).parent.parent
-RULES_DIR = ROOT_DIR.joinpath('rules')
+RULES_DIR = ROOT_DIR / 'rules'
 
 
 @root.group('dev')
@@ -120,7 +120,7 @@ def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_bran
     git_exe = shutil.which("git")
 
     package_name = load_dump(PACKAGE_FILE)['package']["name"]
-    release_dir = RELEASE_DIR.joinpath(package_name)
+    release_dir = RELEASE_DIR / package_name
     message = message or f"[Detection Rules] Add {package_name} rules"
 
     if not release_dir.exists():
@@ -149,13 +149,13 @@ def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_bran
         git("checkout", "-b", f"rules/{package_name}", show_output=True)
         git("rm", "-r", kibana_directory)
 
-        source_dir = release_dir.joinpath("rules")
-        target_dir = local_repo.joinpath(kibana_directory)
+        source_dir = release_dir / "rules"
+        target_dir = local_repo / kibana_directory
         target_dir.mkdir(parents=True)
 
         for name in source_dir.iterdir():
             _, ext = name.stem, name.suffix
-            path = source_dir.joinpath(name)
+            path = source_dir / name
 
             if ext in (".ts", ".json"):
                 shutil.copyfile(path, target_dir.joinpath(name))
