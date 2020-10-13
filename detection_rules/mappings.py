@@ -20,7 +20,7 @@ class RtaMappings(object):
 
     def __init__(self):
         """Rta-mapping validation and prep."""
-        self.mapping = load_dump(ETC_DIR.joinpath('rule-mapping.yml'))  # type: dict
+        self.mapping = load_dump(str(ETC_DIR.joinpath('rule-mapping.yml')))  # type: dict
         self.validate()
 
         self._rta_mapping = defaultdict(list)
