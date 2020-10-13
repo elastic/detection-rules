@@ -1,0 +1,76 @@
+[metadata]
+creation_date = "2020/10/13"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/10/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies unusual child processes of svchost services that normally spawn limited child processes. This may indicate a
+code injection or an equivalent form of exploitation.
+"""
+false_positives = ["Changes to Windows Services or an rarely executed child process."]
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*"]
+language = "eql"
+license = "Elastic License"
+name = "Unusual Svchost Child Process"
+risk_score = 47
+rule_id = "780ef94a-dc82-4f80-a604-a50ee2e79e6f"
+severity = "medium"
+tags = ["Elastic", "Windows"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and process.parent.name=="svchost.exe" and
+
+ /* Svchost services based on -s arg that spawn a limited number of known child processes */
+
+ wildcard(process.parent.args,"Appinfo","dmwappushservice","PcaSvc",
+  "TabletInputService","UsoSvc","WerSvcGroup","lfsvc","wuauserv","utcsvc",
+  "DPS","DeviceAssociationService","TokenBroker","wscsvc","ClipSVC",
+  "WinHttpAutoProxySvc","LanmanServer","LocalServiceNetworkFirewall",
+   "UserManager","SessionEnv","SENS","NcbService","PlugPlay",
+   "Winmgmt","Themes","SysMain","AudioEndpointBuilder","iissvcs","AppXSvc",
+   "RPCSS","WaaSMedicSvc","GPSvcGroup","termsvcs","TermService","NcaSvc","LSM") and
+
+   /* FPs can be added below */
+
+  not wildcard(process.name,"WerFault.exe","WerFaultSecure.exe","rundll32.exe",
+   "consent.exe","ctfmon.exe","deviceenroller.exe","omadmclient.exe","UsoClient.exe",
+   "MusNotificationUx.exe","wermgr.exe","Headlesshost.exe","sc.exe","srtasks.exe","wuauclt.exe",
+   "dasHost.exe","UtcDecoderHost.exe","dtdump.exe","TTTracer.exe","dsregcmd.exe","RdrLeakDiag.exe",
+   "TokenBrokerCookies.exe","mpcmdrun.exe","MsMpeng.exe","upgrade.exe","Clipup.exe","DeviceCensus.exe",
+   "pacjsworker.exe","audiodg.exe","wlanext.exe","hotspothost.exe","dism.exe","sihost.exe","mobsync.exe",
+   "RDVGHelper.exe","RdpSaUacHelper.exe","ntsd.exe","CheckPointVpnPluginApp.exe","wmidap.exe","audiodg.exe",
+   "w3wp.exe","wwahost.exe","ByteCodeGenerator.exe","WaaSMedicAgent.exe","gpscript.exe","dllhost.exe",
+   "rdpclip.exe","mcrmgr.exe","ntsd.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1093"
+name = "Process Hollowing"
+reference = "https://attack.mitre.org/techniques/T1093/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1055"
+name = "Process Injection"
+reference = "https://attack.mitre.org/techniques/T1055/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
