@@ -51,8 +51,9 @@ def download_latest_beats_schema():
                 # create a hierarchical structure
                 parsed[key] = decoded
                 branch = fs
-                directory, base_name = os.path.split(key)
-                for limb in directory.split(os.path.sep):
+                key = Path(key)
+                directory, base_name = key.parent, key.name
+                for limb in str(directory).split(os.path.sep):
                     branch = branch.setdefault("folders", {}).setdefault(limb, {})
 
                 branch.setdefault("files", {})[base_name] = decoded
