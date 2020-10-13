@@ -42,7 +42,7 @@ def get_json_iter(f):
 
 
 def save_etc_dump(contents, *path, **kwargs):
-    """Load a json/yml/toml file from the etc/ folder."""
+    """Save a json/yml/toml file to the etc/ folder."""
     path = ETC_DIR.joinpath(path)
     _, ext = path.parent, path.suffix
     sort_keys = kwargs.pop('sort_keys', True)
@@ -52,7 +52,8 @@ def save_etc_dump(contents, *path, **kwargs):
         with open(path, "wt") as f:
             json.dump(contents, f, cls=DateTimeEncoder, sort_keys=sort_keys, indent=indent, **kwargs)
     else:
-        return eql.utils.save_dump(contents, path)
+        # TODO Remove str when eql.utils.save_dump takes a Path object as input
+        return eql.utils.save_dump(contents, str(path))
 
 
 def gzip_compress(contents):
