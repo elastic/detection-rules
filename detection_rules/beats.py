@@ -4,6 +4,7 @@
 
 """ECS Schemas management."""
 import os
+from pathlib import Path
 
 import kql
 import eql
@@ -33,7 +34,7 @@ def download_latest_beats_schema():
         base_directory = archive.namelist()[0]
 
         for name in archive.namelist():
-            if os.path.basename(name) in ("fields.yml", "fields.common.yml", "config.yml"):
+            if Path(name).name in ("fields.yml", "fields.common.yml", "config.yml"):
                 contents = archive.read(name)
 
                 # chop off the base directory name
