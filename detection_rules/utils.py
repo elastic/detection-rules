@@ -184,9 +184,9 @@ def clear_caches():
     _cache.clear()
 
 
-def load_rule_contents(rule_file: str, single_only=False) -> list:
+def load_rule_contents(rule_file: Path, single_only=False) -> list:
     """Load a rule file from multiple formats."""
-    _, extension = Path(rule_file).parent, Path(rule_file).suffix
+    _, extension = rule_file.parent, rule_file.suffix
 
     if extension in ('.ndjson', '.jsonl'):
         # kibana exported rule object is ndjson with the export metadata on the last line

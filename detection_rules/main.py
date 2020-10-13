@@ -3,9 +3,9 @@
 # you may not use this file except in compliance with the Elastic License.
 
 """CLI commands for detection_rules."""
-import glob
 import json
 import os
+from pathlib import Path
 import re
 
 import click
@@ -51,7 +51,8 @@ def create_rule(path, config, required_only, rule_type):
 @click.option('--directory', '-d', type=click.Path(file_okay=False, exists=True), help='Load files from a directory')
 def import_rules(infile, directory):
     """Import rules from json, toml, or Kibana exported rule file(s)."""
-    rule_files = glob.glob(os.path.join(directory, '**', '*.*'), recursive=True) if directory else []
+    directory = Path(directory)
+    rule_files = list(directory.rglob('*.*')) if directory else []
     rule_files = sorted(set(rule_files + list(infile)))
 
     rule_contents = []
