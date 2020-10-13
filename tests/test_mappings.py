@@ -9,11 +9,7 @@ import warnings
 
 from . import get_data_files, get_fp_data_files
 from detection_rules import rule_loader
-from detection_rules.utils import combine_sources, evaluate, load_dump
-from pathlib import Path
-
-ROOT_DIR = Path(__file__).parent.parent
-ETC_DIR = ROOT_DIR / 'etc'
+from detection_rules.utils import ETC_DIR, combine_sources, evaluate, load_dump
 
 
 class TestMappings(unittest.TestCase):

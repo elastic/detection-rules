@@ -5,7 +5,6 @@
 """Test that all rules have valid metadata and syntax."""
 import json
 import os
-from pathlib import Path
 import re
 import sys
 import unittest
@@ -19,11 +18,8 @@ import pytoml
 from rta import get_ttp_names
 
 from detection_rules import attack, rule_loader
-from detection_rules.utils import load_dump
+from detection_rules.utils import ETC_DIR, load_dump
 from detection_rules.rule import Rule
-
-ROOT_DIR = Path(__file__).parent.parent
-ETC_DIR = ROOT_DIR / 'etc'
 
 
 class TestValidRules(unittest.TestCase):

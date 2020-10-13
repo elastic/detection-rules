@@ -5,14 +5,11 @@
 import copy
 import json
 import os
-from pathlib import Path
 import pytoml
 import unittest
 from detection_rules import rule_loader
 from detection_rules.rule_formatter import nested_normalize, toml_write
-
-ROOT_DIR = Path(__file__).parent.parent
-ETC_DIR = ROOT_DIR / 'etc'
+from detection_rules.utils import ETC_DIR
 
 tmp_file = 'tmp_file.toml'
 
