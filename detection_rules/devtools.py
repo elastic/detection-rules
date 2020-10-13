@@ -6,6 +6,7 @@
 import io
 import json
 import os
+from pathlib import Path
 import shutil
 import subprocess
 
@@ -177,10 +178,10 @@ def license_check(ctx):
     failed = False
 
     for path in ROOT_DIR.rglob("*.py"):
-        if str(path).startswith('{}"/env/"'):
+        if 'env' in path.parts:
             continue
 
-        relative_path = os.path.relpath(path)
+        relative_path = Path(os.path.relpath(path))
 
         with io.open(path, "rt", encoding="utf-8") as f:
             contents = f.read()
