@@ -88,7 +88,7 @@ class Events(object):
         dump_dir = dump_dir or self._get_dump_dir(rta_name)
 
         for source, events in self.events.items():
-            path = os.path.join(dump_dir, source + '.jsonl')
+            path = dump_dir / source / '.jsonl'
             with open(path, 'w') as f:
                 f.writelines([json.dumps(e, sort_keys=True) + '\n' for e in events])
                 click.echo('{} events saved to: {}'.format(len(events), path))
