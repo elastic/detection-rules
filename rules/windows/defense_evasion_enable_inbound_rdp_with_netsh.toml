@@ -9,19 +9,19 @@ author = ["Elastic"]
 description = "Identifies use of the netsh.exe to enable inbound RDP in the Windows Local Firewall."
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
 name = "Inbound RDP Enabled via Netsh"
 risk_score = 47
 rule_id = "074464f9-f30d-4029-8c03-0ed237fffec7"
 severity = "medium"
 tags = ["Elastic", "Windows"]
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
-  (process.name:netsh.exe or process.pe.original_file_name:netsh.exe) and
-  process.args:("localport=3389" and add and advfirewall and "dir=in")
+process where event.type in ("start", "process_started") and
+  (process.name == "netsh.exe" or process.pe.original_file_name == "netsh.exe") and
+  process.args == "localport=3389" and process.args == "action=allow" and process.args == "advfirewall"
 '''
 
 
