@@ -1,0 +1,43 @@
+[metadata]
+creation_date = "2020/10/16"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/10/16"
+
+[rule]
+author = ["Elastic"]
+description = "Adversaries may abuse Microsoft Office add-ins to obtain persistence on a compromised system."
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*"]
+language = "eql"
+license = "Elastic License"
+name = "Persistence via Microsoft Office AddIns"
+references = ["https://attack.mitre.org/techniques/T1137/006/"]
+risk_score = 71
+rule_id = "f44fa4b6-524c-4e87-8d9e-a32599e4fb7c"
+severity = "high"
+tags = ["Elastic", "Windows"]
+type = "eql"
+
+query = '''
+file where event.type != "delete" and
+ wildcard(file.extension,".wll",".ppa",".xlam",".xll",".dll",".exe") and
+ wildcard(file.path, "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Word\\Startup\\*",
+                      "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\AddIns\\*",
+                       "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Excel\\XLSTART\\*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1044"
+name = "Office Application Startup"
+reference = "https://attack.mitre.org/techniques/T1137/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
