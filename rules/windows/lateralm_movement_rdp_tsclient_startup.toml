@@ -1,0 +1,56 @@
+[metadata]
+creation_date = "2020/10/19"
+ecs_version = ["1.6.0"]
+maturity = "development"
+query_schema_validation = false
+updated_date = "2020/10/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies file creation in Windows Startup folder of a Remote Desktop Client via RDP tsclient shared resources. This is a
+known technique that an adversary can use to move laterally by dropping a malicious script on RDP client Startup Folder
+that will be executed after a reboot.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*"]
+language = "eql"
+license = "Elastic License"
+name = "Lateral Movement via Startup Folder"
+risk_score = 41
+rule_id = "bacc46fc-1385-4e7b-9cc1-444327f50269"
+severity = "medium"
+tags = ["Elastic", "Windows"]
+type = "eql"
+
+query = '''
+file where event.type == "creation" and process.name == "mstsc.exe" and
+  wildcard(file.path,"*\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1060"
+name = "Startup Folder"
+reference = "https://attack.mitre.org/techniques/T1060/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
