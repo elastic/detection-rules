@@ -1,0 +1,53 @@
+[metadata]
+creation_date = "2020/10/19"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/10/19"
+
+[rule]
+author = ["Elastic"]
+description = "Identifies command shell activity started via rundll32 which is usually abused by attackers to host malicious code."
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Command shell activity started via rundll32"
+risk_score = 21
+rule_id = "9ccf3ce0-0057-440a-91f5-870c6ad39093"
+severity = "low"
+tags = ["Elastic", "Windows"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+ wildcard(process.name, "cmd.exe", "powershell.exe") and
+  process.parent.name == "rundll32.exe" and 
+   not wildcard(process.parent.args, "*RunAsNewUser_RunDLL*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1086"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1086/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
