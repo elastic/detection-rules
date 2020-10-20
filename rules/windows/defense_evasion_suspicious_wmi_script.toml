@@ -24,11 +24,15 @@ type = "eql"
 query = '''
 /* lots of wildcards in the args
    need to verify args cleanup is accurate
+
+   replace winlog.event_data.OriginalFileName with process.pe.original_file_name once field is available in winlogbeat
 */
+
 
 sequence by process.entity_id with maxspan=2m
 [process where event.type in ("start", "process_started") and
-   (process.name == "wmic.exe" or process.pe.original_file_name == "wmic.exe") and
+   (process.name == "wmic.exe" or process.pe.original_file_name == "wmic.exe" or
+      winlog.event_data.OriginalFileName == "wmic.exe") and
    wildcard(process.args, "format*:*", "/format*:*", "*-format*:*") and
    not process.args in ("/format:table", "/format:table") or wildcard(process.args, "format*:*")]
 [library where event.type == "start" and file.name in ("jscript.dll", "vbscript.dll")]
