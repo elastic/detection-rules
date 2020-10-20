@@ -285,9 +285,10 @@ class TestRuleFiles(unittest.TestCase):
             if rule_path.parent.name == 'ml':
                 continue
 
-            threat = rule.contents.get('threat')
-
-            if threat:
+            threat = rule.contents.get('threat', [])
+            authors = rule.contents.get('author', [])
+            
+            if threat and 'Elastic' in authors:
                 primary_tactic = threat[0]['tactic']['name']
                 tactic_str = primary_tactic.lower().replace(' ', '_')
 
