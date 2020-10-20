@@ -10,6 +10,7 @@ import sys
 import unittest
 import warnings
 from collections import defaultdict
+from pathlib import Path
 
 import jsonschema
 import kql
@@ -268,3 +269,28 @@ class TestRuleTags(unittest.TestCase):
 
             if missing_required_tags or is_missing_any_tags:
                 self.fail(error_msg)
+
+
+class TestRuleFiles(unittest.TestCase):
+    """Test the expected file names."""
+
+    def test_rule_file_names_by_tactic(self):
+        """Test to ensure rule files have the primary tactic prepended to the filename."""
+        rules = rule_loader.load_rules().values()
+
+        for rule in rules:
+            rule_path = Path(rule.path).resolve()
+            filename = rule_path.name
+
+            if rule_path.parent.name == 'ml':
+                continue
+
+            threat = rule.contents.get('threat', [])
+            authors = rule.contents.get('author', [])
+
+            if threat and 'Elastic' in authors:
+                primary_tactic = threat[0]['tactic']['name']
+                tactic_str = primary_tactic.lower().replace(' ', '_')
+
+                error_msg = 'filename does not start with the primary tactic - update the tactic or the rule filename'
+                self.assertEqual(tactic_str, filename[:len(tactic_str)], f'{rule.id} - {rule.name} -> {error_msg}')
