@@ -11,7 +11,7 @@ Identifies WMIC whitelisting bypass techniques by alerting on suspicious executi
 libraries it may be indicative of a whitelist bypass.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License"
 name = "Suspicious WMIC XSL Script Execution"
@@ -22,19 +22,11 @@ tags = ["Elastic", "Windows"]
 type = "eql"
 
 query = '''
-/* lots of wildcards in the args
-   need to verify args cleanup is accurate
-
-   replace winlog.event_data.OriginalFileName with process.pe.original_file_name once field is available in winlogbeat
-*/
-
-
 sequence by process.entity_id with maxspan=2m
 [process where event.type in ("start", "process_started") and
-   (process.name == "wmic.exe" or process.pe.original_file_name == "wmic.exe" or
-      winlog.event_data.OriginalFileName == "wmic.exe") and
+   (process.name : "WMIC.exe" or process.pe.original_file_name == "wmic.exe") and
    wildcard(process.args, "format*:*", "/format*:*", "*-format*:*") and
-   not process.args in ("/format:table", "/format:table") or wildcard(process.args, "format*:*")]
+   not wildcard(process.command_line, "* /format:table *")]
 [library where event.type == "start" and file.name in ("jscript.dll", "vbscript.dll")]
 '''
 
