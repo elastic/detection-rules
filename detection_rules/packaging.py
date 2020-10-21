@@ -318,7 +318,7 @@ class Package(object):
             return rule_str
 
         def get_markdown_rule_info(r: Rule, sd):
-            rules_dir_link = f'https://github.com/elastic/detection-rules/tree/v{self.name}/rules/{sd}/'
+            rules_dir_link = f'https://github.com/elastic/detection-rules/tree/{self.name}/rules/{sd}/'
             rule_type = r.contents['language'] if r.type in ('query', 'eql') else r.type
             return f'`{r.id}` **[{r.name}]({rules_dir_link + os.path.basename(r.path)})** (_{rule_type}_)'
 
