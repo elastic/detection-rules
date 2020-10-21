@@ -25,11 +25,7 @@ query = '''
 sequence with maxspan=1h
   [process where event.type in ("start", "process_started") and
      (process.name : "rundll32.exe" or process.pe.original_file_name == "RUNDLL32.EXE") and
-
-     /* zero arguments excluding the binary itself (and accounting for when the binary may not be logged in args) */
-     ((process.args == "rundll32.exe" and process.args_count == 1) or
-      (process.args != "rundll32.exe" and process.args_count == 0))
-
+     process.args_count < 2
   ] by process.entity_id
   [process where event.type in ("start", "process_started") and
      (process.name : "rundll32.exe" or process.pe.original_file_name == "RUNDLL32.EXE")
