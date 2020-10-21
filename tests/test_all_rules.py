@@ -232,7 +232,7 @@ class TestRuleTags(unittest.TestCase):
             'endgame-*': {'all': ['Endpoint']},
             'logs-aws*': {'all': ['AWS']},
             'logs-endpoint.alerts-*': {'all': ['Endpoint']},
-            'logs-endpoint.events.*': {'any': ['Windows', 'macOS', 'Linux']},
+            'logs-endpoint.events.*': {'any': ['Windows', 'macOS', 'Linux', 'Network']},
             'logs-okta*': {'all': ['Okta']},
             'packetbeat-*': {'all': ['Network']},
             'winlogbeat-*': {'all': ['Windows']}
