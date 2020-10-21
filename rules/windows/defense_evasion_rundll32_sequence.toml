@@ -11,7 +11,7 @@ Identifies unusual instances of Rundll32.exe making outbound network connections
 and may identify malicious DLLs.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License"
 name = "Unusual Network Connection Sequence via RunDLL32"
@@ -24,10 +24,12 @@ type = "eql"
 query = '''
 sequence by process.entity_id with maxspan=2h
   [process where event.type in ("start", "process_started") and
-     (process.name : "rundll32.exe" or process.pe.original_file_name == "RUNDLL32.EXE") and
+                                    /* uncomment once in winlogbeat */
+     (process.name : "rundll32.exe" /* or process.pe.original_file_name == "RUNDLL32.EXE" */ ) and
      process.args_count < 2]
   [network where event.type == "connection" and
-     (process.name : "rundll32.exe" or process.pe.original_file_name == "RUNDLL32.EXE")]
+                                     /* uncomment once in winlogbeat */
+     (process.name : "rundll32.exe" /* or process.pe.original_file_name == "RUNDLL32.EXE" */ )]
 '''
 
 

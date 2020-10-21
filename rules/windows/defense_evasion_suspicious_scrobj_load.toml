@@ -11,7 +11,7 @@ Identifies scrobj.dll loaded into unusual Microsoft processes. This usually mean
 executed in the target process.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License"
 name = "Windows Suspicious Script Object Execution"
@@ -26,7 +26,8 @@ query = '''
 
 sequence by process.entity_id with maxspan=2m
   [process where event.type in ("start", "process_started") and
-     process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true and
+     /* uncomment once in winlogbeat */
+     /* process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true and */
      not (process.name : "cscript.exe" or
           process.name : "iexplore.exe" or
           process.name : "MicrosoftEdge.exe" or
