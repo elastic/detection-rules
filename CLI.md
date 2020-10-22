@@ -25,8 +25,8 @@ Currently supported arguments:
 * elasticsearch_url
 * kibana_url
 * cloud_id
-* *_username (kibana and es)
-* *_password (kibana and es)
+* username
+* password
 
 #### Using environment variables
 
@@ -92,79 +92,14 @@ This will also strip additional fields and prompt for missing required fields.
 <a id="note-3">\* Note</a>: This will attempt to parse ALL files recursively within a specified directory.
 
 
-## Commands using Elasticsearch and Kibana clients
-
-Commands which connect to Elasticsearch or Kibana are embedded under the subcommands:
-* es
-* kibana
-
-These command groups will leverage their respective clients and will automatically use parsed config options if
-defined, otherwise arguments should be passed to the sub-command as:
-
-`python -m detection-rules kibana -u <username> -p <password> upload-rule <...>`
-
-```console
-python -m detection_rules es -h
-
-Usage: detection_rules es [OPTIONS] COMMAND [ARGS]...
-
-  Commands for integrating with Elasticsearch.
-
-Options:
-  -e, --elasticsearch-url TEXT
-  --cloud-id TEXT
-  -u, --es-user TEXT
-  -p, --es-password TEXT
-  -t, --timeout INTEGER         Timeout for elasticsearch client
-  -h, --help                    Show this message and exit.
-
-Commands:
-  collect-events  Collect events from Elasticsearch.
-```
-
-```console
-python -m detection_rules kibana -h
-
-Usage: detection_rules kibana [OPTIONS] COMMAND [ARGS]...
-
-  Commands for integrating with Kibana.
-
-Options:
-  -k, --kibana-url TEXT
-  --cloud-id TEXT
-  -u, --kibana-user TEXT
-  -p, --kibana-password TEXT
-  -t, --timeout INTEGER       Timeout for kibana client
-  -h, --help                  Show this message and exit.
-
-Commands:
-  upload-rule  Upload a list of rule .toml files to Kibana.
-```
-
-
 ## Uploading rules to Kibana
 
-Toml formatted rule files can be uploaded as custom rules using the `kibana upload-rule` command. To upload more than one 
+Toml formatted rule files can be uploaded as custom rules using the `kibana-upload` command. To upload more than one 
 file, specify multiple files at a time as individual args. This command is meant to support uploading and testing of 
 rules and is not intended for production use in its current state.
 
 ```console
-python -m detection_rules kibana upload-rule -h
-
-Kibana client:
-Options:
-  -k, --kibana-url TEXT
-  --cloud-id TEXT
-  -u, --kibana-user TEXT
-  -p, --kibana-password TEXT
-  -t, --timeout INTEGER       Timeout for kibana client
-
-Usage: detection_rules kibana upload-rule [OPTIONS] TOML_FILES...
-
-  Upload a list of rule .toml files to Kibana.
-
-Options:
-  -h, --help  Show this message and exit.
+python -m detection_rules kibana-upload my-rules/example_custom_rule.toml
 ```
 
 _*To load a custom rule, the proper index must be setup first. The simplest way to do this is to click 
@@ -195,11 +130,3 @@ rules. This is based on the hash of the rule in the following format:
 * sha256 hash
 
 As a result, all cases where rules are shown or converted to JSON are not just simple conversions from TOML.
-
-## Debugging
-
-Most of the CLI errors will print a concise, user friendly error. To enable debug mode and see full error stacktraces,
-you can define `"debug": true` in your config file, or run `python -m detection-rules -d <commands...>`.
-
-Precedence goes to the flag over the config file, so if debug is enabled in your config and you run 
-`python -m detection-rules --no-debug`, debugging will be disabled.

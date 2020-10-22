@@ -31,31 +31,6 @@ JS_LICENSE = """
 """.strip().format("\n".join(' * ' + line for line in LICENSE_LINES))
 
 
-class ClientError(click.ClickException):
-    """Custom CLI error to format output or full debug stacktrace."""
-
-    def __init__(self, message, original_error=None):
-        super(ClientError, self).__init__(message)
-        self.original_error = original_error
-
-    def show(self, file=None, err=True):
-        """Print the error to the console."""
-        err = f' ({self.original_error})' if self.original_error else ''
-        click.echo(f'{click.style(f"CLI Error{err}", fg="red", bold=True)}: {self.format_message()}',
-                   err=err, file=file)
-
-
-def client_error(message, exc: Exception = None, debug=None, ctx: click.Context = None, file=None, err=None):
-    config_debug = True if ctx and ctx.ensure_object(dict) and ctx.obj.get('debug') is True else False
-    debug = debug if debug is not None else config_debug
-
-    if debug:
-        click.echo(click.style('DEBUG: ', fg='yellow') + message, err=err, file=file)
-        raise
-    else:
-        raise ClientError(message, original_error=type(exc).__name__)
-
-
 def nested_get(_dict, dot_key, default=None):
     """Get a nested field from a nested dict with dot notation."""
     if _dict is None or dot_key is None:

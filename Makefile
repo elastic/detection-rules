@@ -35,7 +35,7 @@ pytest: $(VENV) deps
 .PHONY: license-check
 license-check: $(VENV) deps
 	@echo "LICENSE CHECK"
-	$(PYTHON) -m detection_rules dev license-check
+	$(PYTHON) -m detection_rules license-check
 
 .PHONY: lint
 lint: $(VENV) deps
@@ -48,7 +48,7 @@ test: $(VENV) lint pytest
 .PHONY: release
 release: deps
 	@echo "RELEASE: $(app_name)"
-	$(PYTHON) -m detection_rules dev build-release
+	$(PYTHON) -m detection_rules build-release
 	rm -rf dist
 	mkdir dist
 	cp -r releases/*/*.zip dist/
@@ -56,4 +56,4 @@ release: deps
 .PHONY: kibana-commit
 kibana-commit: deps
 	@echo "PREP KIBANA-COMMIT: $(app_name)"
-	$(PYTHON) -m detection_rules dev kibana-commit
+	$(PYTHON) -m detection_rules kibana-commit

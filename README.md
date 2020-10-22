@@ -55,23 +55,22 @@ Usage: detection_rules [OPTIONS] COMMAND [ARGS]...
   Commands for detection-rules repository.
 
 Options:
-  -d, --debug / -n, --no-debug  Print full exception stacktrace on errors
-  -h, --help                    Show this message and exit.
+  -h, --help  Show this message and exit.
 
 Commands:
-  create-rule     Create a detection rule.
-  dev             Commands for development and management by internal...
-  es              Commands for integrating with Elasticsearch.
-  import-rules    Import rules from json, toml, or Kibana exported rule...
-  kibana          Commands for integrating with Kibana.
-  mass-update     Update multiple rules based on eql results.
-  normalize-data  Normalize Elasticsearch data timestamps and sort.
-  rule-search     Use KQL or EQL to find matching rules.
-  test            Run unit tests over all of the rules.
-  toml-lint       Cleanup files with some simple toml formatting.
-  validate-all    Check if all rules validates against a schema.
-  validate-rule   Check if a rule staged in rules dir validates against a...
-  view-rule       View an internal rule or specified rule file.
+  build-release         Assemble all the rules into Kibana-ready release files.
+  create-rule           Create a new rule TOML file.
+  es                    Helper commands for integrating with Elasticsearch.
+  kibana-diff           Diff rules against their version represented in...
+  load-from-file        Load rules from file(s).
+  mass-update           Update multiple rules based on eql results.
+  rule-search           Use EQL to search the rules.
+  test                  Run unit tests over all of the rules.
+  toml-lint             Cleanup files with some simple toml formatting.
+  update-lock-versions  Update rule hashes in version.lock.json file...
+  validate-all          Check if all rules validates against a schema.
+  validate-rule         Check if a rule staged in rules dir validates...
+  view-rule             View an internal rule or specified rule file.
 ```
 
 The [contribution guide](CONTRIBUTING.md) describes how to use the `create-rule` and `test` commands to create and test a new rule when contributing to Detection Rules.
