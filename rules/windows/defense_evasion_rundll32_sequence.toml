@@ -24,14 +24,12 @@ type = "eql"
 query = '''
 sequence by process.entity_id with maxspan=2h
   [process where event.type in ("start", "process_started") and
-     (process.name == "rundll32.exe" or process.pe.original_file_name == "rundll32.exe") and
-
-     /* zero arguments excluding the binary itself (and accounting for when the binary may not be logged in args) */
-     ((process.args == "rundll32.exe" and process.args_count == 1) or
-      (process.args != "rundll32.exe" and process.args_count == 0))]
-
+                                    /* uncomment once in winlogbeat */
+     (process.name : "rundll32.exe" /* or process.pe.original_file_name == "RUNDLL32.EXE" */ ) and
+     process.args_count < 2]
   [network where event.type == "connection" and
-     (process.name == "rundll32.exe" or process.pe.original_file_name == "rundll32.exe")]
+                                     /* uncomment once in winlogbeat */
+     (process.name : "rundll32.exe" /* or process.pe.original_file_name == "RUNDLL32.EXE" */ )]
 '''
 
 
