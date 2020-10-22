@@ -1,0 +1,60 @@
+[metadata]
+creation_date = "2020/10/22"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/10/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Living-off-the-land binaries (LoLBins) are used by different actors combined with fileless malware and legitimate cloud
+services to improve chances of staying undetected within an organization, usually during post-exploitation attack
+phases. Living-off-the-land tactics mean that attackers are using present systems tools to carry out their work. This
+makes it more difficult for defenders to detect attacks and researchers to identify the attackers behind the
+campaign.These LOLBins were collected using the LOLBAS project and have been filtered to binaries that are present on a
+default Windows 10 system, have the ability to execute and/or download, and are running as a privileged account.
+"""
+from = "now-9m"
+index = ["logs.endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "LOLBins Command Activity"
+note = "While LOLBins can be abused by threat actors, they are legitimate tools that are commonly run by system administrators. Rule alerts should be investigated to identify if the user has a role that would explain using these tools and that they are being run for an authorized purpose and endpoint. Leverage the exception workflow in the Kibana Security App or Elasticsearch API to tune this rule to your environment."
+references = [
+    "https://lolbas-project.github.io/#/execute",
+    "https://lolbas-project.github.io/#/download",
+    "https://blog.talosintelligence.com/2019/11/hunting-for-lolbins.html",
+]
+risk_score = 21
+rule_id = "bfcabf5f-4b5e-43c1-9972-9a218b5edfeb"
+severity = "low"
+tags = ["Elastic"]
+type = "query"
+
+query = '''
+event.category:process and event.action:start and (process.pe.original_file_name:(PowerShell.EXE
+  or bitsadmin.exe or CertReq.exe or CertUtil.exe or psexec.c or wmic.exe or MSHTA.EXE or mofcomp.exe
+  or CMSTP.EXE or REGSVR32.EXE or desktopimgdownldr.exe or MDMAppInstaller.exe or DirectXDatabaseUpdater.exe
+  or deviceenroller.exe or netsh.exe or msiexec.exe or msdt.exe or msconfig.EXE or mmc.exe or mavinject64.exe
+  or InfDefaultInstall.EXE or IE4UINIT.EXE or GPSCRIPT.EXE or HH.exe or ftp.exe or forfiles.exe or odbcconf.exe
+  or pcwrun.exe or PresentationHost.exe or rasdlui.exe or Register-CimProvider2.exe or REGSVR32.EXE or RUNONCE.EXE
+  or schtasks.exe or ScriptRunner.exe or syncappvpublishingserver.exe or TTDInject.EXE or TTTracer.exe
+  or verclsid.exe or xwizard.exe or esentutl.exe or expand or extrac32.exe or FINDSTR.EXE or makecab.exe or REPLACE.EXE
+  or ConfigSecurityPolicy.exe or MpCmdRun.exe) or process.name:pcalua.exe) and user.name:(Administrator or SYSTEM
+  or "LOCAL SERVICE" or "NETWORK SERVICE") and not process.parent.executable:("C:\Windows\System32\CompatTelRunner.exe"
+  or *TiWorker.exe or *MpCmdRun.exe or *MsMpEng.exe or "C:\Windows\System32\svchost.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "Signed Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
