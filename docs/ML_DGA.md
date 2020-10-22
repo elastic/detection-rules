@@ -13,7 +13,7 @@ They can also be reached by using the `stack-machine-learning` tag in the [discu
 
 ## Releases
 
-Models and dependencies will be [released](https://github.com/elastic/detection-rules/releases) as `*-ML-DGA-v0.1.0`
+Models and dependencies will be [released](https://github.com/elastic/detection-rules/releases) as `ML-DGA-YYYMMDD-N`
 
 ## Uploading a Model and dependencies using the CLI
 

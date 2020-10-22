@@ -280,10 +280,12 @@ def remove_dga_model(ctx, model_id, force, es_client: Elasticsearch = None, ml_c
             click.secho('[-] Existing model detected - deleting files', fg='yellow')
 
         deleted = [
-            safe_delete(ingest_client.delete_pipeline, 'dga_ngram_expansion_inference'),
-            safe_delete(ingest_client.delete_pipeline, 'dns_classification_pipeline'),
-            safe_delete(es_client.delete_script, 'ngram-extractor-packetbeat'),
-            safe_delete(es_client.delete_script, 'ngram-remover-packetbeat'),
+            safe_delete(ingest_client.delete_pipeline, 'dns_dga_inference_enrich_pipeline'),
+            safe_delete(ingest_client.delete_pipeline, 'dns_enrich_pipeline'),
+            safe_delete(es_client.delete_script, 'dga_ngrams_transform_delete'),
+            # f'{model_id}_dga_ngrams_transform_delete'
+            safe_delete(es_client.delete_script, 'dga_ngrams_create'),
+            # f'{model_id}_dga_ngrams_create'
             safe_delete(ml_client.delete_trained_model, model_id)
         ]
 
@@ -380,10 +382,12 @@ def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
     click.secho('[+] Uploading painless scripts')
 
     with open_model_file('dga_*_ngrams_create.json') as painless_install:
-        es_client.put_script(id='ngram-extractor-packetbeat', body=painless_install)
+        es_client.put_script(id='dga_ngrams_create', body=painless_install)
+        # f'{model_id}_dga_ngrams_create'
 
-    with open_model_file('dga_*_ngrams_delete.json') as painless_delete:
-        es_client.put_script(id='ngram-remover-packetbeat', body=painless_delete)
+    with open_model_file('dga_*_ngrams_transform_delete.json') as painless_delete:
+        es_client.put_script(id='dga_ngrams_transform_delete', body=painless_delete)
+        # f'{model_id}_dga_ngrams_transform_delete'
 
     # Install ingest pipelines
     click.secho('[+] Uploading pipelines')
@@ -401,11 +405,8 @@ def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
         return click.style('\n'.join(error_msg), fg='red')
 
     with open_model_file('dga_*_ingest_pipeline1.json') as ingest_pipeline1:
-        processors = ingest_pipeline1['processors']
-        inference_processor = next(p for p in processors if 'inference' in p)
-        inference_processor['inference']['model_id'] = model_id
         try:
-            ingest_client.put_pipeline(id='dga_ngram_expansion_inference', body=ingest_pipeline1)
+            ingest_client.put_pipeline(id='dns_enrich_pipeline', body=ingest_pipeline1)
         except elasticsearch.RequestError as e:
             if e.error == 'script_exception':
                 client_error(_build_es_script_error(e, 'ingest_pipeline1'), e, ctx=ctx)
@@ -413,8 +414,14 @@ def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
                 raise
 
     with open_model_file('dga_*_ingest_pipeline2.json') as ingest_pipeline2:
+        # try:
+        #     processors = ingest_pipeline2['processors']
+        #     inference_processor = next(p for p in processors if 'inference' in p)
+        #     inference_processor['inference']['model_id'] = model_id
+        # except StopIteration:
+        #     client_error(f'{get_model_filename("dga_*_ingest_pipeline2.json")} may be malformed - check file')
         try:
-            ingest_client.put_pipeline(id='dns_classification_pipeline', body=ingest_pipeline2)
+            ingest_client.put_pipeline(id='dns_dga_inference_enrich_pipeline', body=ingest_pipeline2)
         except elasticsearch.RequestError as e:
             if e.error == 'script_exception':
                 client_error(_build_es_script_error(e, 'ingest_pipeline2'), e, ctx=ctx)
