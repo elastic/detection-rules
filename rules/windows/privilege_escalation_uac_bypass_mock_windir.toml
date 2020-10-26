@@ -1,0 +1,43 @@
+[metadata]
+creation_date = "2020/10/26"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/10/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies User Account Control (UAC) bypass via Mocking Microsoft Trusted Windows directory. Attackers bypass UAC to
+stealthily execute code with elevated permissions.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Bypass UAC via Mocking Windows Directory"
+references = ["https://medium.com/tenable-techblog/uac-bypass-by-mocking-trusted-directories-24a96675f6e"]
+risk_score = 71
+rule_id = "290aca65-e94d-403b-ba0f-62f320e63f51"
+severity = "high"
+tags = ["Elastic", "Windows"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+ wildcard(process.args, "C:\\Windows \\system32\\*", "C:\\Windows \\SysWOW64\\*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1088"
+name = "Bypass User Account Control"
+reference = "https://attack.mitre.org/techniques/T1088/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
