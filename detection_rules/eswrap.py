@@ -12,7 +12,7 @@ from pathlib import Path
 import click
 import elasticsearch
 from elasticsearch import AuthenticationException, Elasticsearch
-from elasticsearch.client import IngestClient, MlClient
+from elasticsearch.client import IngestClient, LicenseClient, MlClient
 
 from .main import root
 from .misc import client_error, getdefault
@@ -313,6 +313,10 @@ def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
 
     es_client: Elasticsearch = ctx.obj['es']
     client_info = es_client.info()
+    license_client = LicenseClient(es_client)
+
+    if license_client.get()['license']['type'] not in ('platinum', 'Enterprise'):
+        client_error('You must have a platinum or enterprise subscription in order to use these ML features')
 
     # download files if necessary
     if not model_dir:
@@ -427,3 +431,27 @@ def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
                 client_error(_build_es_script_error(e, 'ingest_pipeline2'), e, ctx=ctx)
             else:
                 raise
+
+    click.echo('Ensure that you have updated your packetbeat.yml config file.')
+    click.echo('    - reference: ML_DGA.md #2-update-packetbeat-configuration')
+    click.echo('To upload rules, run: kibana upload-rule <dga-rule-files>')
+    click.echo('To upload ML jobs, run: es experimental upload-ml-job <dga-job-files>')
+
+
+@es_experimental.command('upload-ml-job')
+@click.argument('job-file', type=click.Path(exists=True, dir_okay=False))
+@click.option('--anomaly-detection/--data-frame-analytic', '-a/-d', default=True, help='Type of ML job to upload')
+@click.pass_context
+def upload_ml_job(ctx, job_file, anomaly_detection):
+    """Upload experimental ML jobs."""
+    es_client: Elasticsearch = ctx.obj['es']
+    ml_client = MlClient(es_client)
+
+    job_name = Path(job_file.name).name
+    with open(job_file, 'r') as f:
+        job_body = json.load(f)
+
+    if anomaly_detection:
+        ml_client.put_job(job_name, job_body)
+    else:
+        ml_client.put_data_frame_analytics(job_name, job_body)

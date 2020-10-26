@@ -11,20 +11,17 @@ For questions, please reach out to the ML team in the #machine-learning channel 
 
 They can also be reached by using the `stack-machine-learning` tag in the [discuss forums](https://discuss.elastic.co/tags/c/elastic-stack/stack-machine-learning)
 
+*Note: in order to use these ML features, you must have a platinum or higher [subscription](https://www.elastic.co/subscriptions)*
+
 ## Releases
 
-Models and dependencies will be [released](https://github.com/elastic/detection-rules/releases) as `ML-DGA-YYYMMDD-N`
+Models and dependencies will be [released](https://github.com/elastic/detection-rules/releases) as `ML-DGA-YYYMMDD-N`.
+This tag name is what will need to be passed to the CLI command.
 
-## Uploading a Model and dependencies using the CLI
+## Uploading a model and dependencies using the CLI
 
-### Simple Usage
+### Usage
 
-Run `python -m detection_rules es <args_or_config> experimental setup-dga-model -t <release-tag>`
-
-Any packetbeat documents with the field `dns.question.registered_domain` should now have the enriched data
-
-
-### Details
 ```console
 python -m detection_rules es experimental setup-dga-model -h
 
@@ -48,14 +45,43 @@ Options:
   -h, --help                 Show this message and exit.
 ```
 
-If updating a new model, you should first uninstall any existing models using `remove-dga-model`
+### Detailed steps
 
-#### Local Files
+#### 1. Upload and setup the model file and dependencies
 
-You can also upload files locally using the `-d` option, so long as the naming convention matches the expected pattern 
-for the filenames.
+Run `python -m detection_rules es <args_or_config> experimental setup-dga-model -t <release-tag>`
 
-## Rules
+*If updating a new model, you should first uninstall any existing models using `remove-dga-model`*
+
+You can also upload files locally using the `-d` option, so long as the naming convention of the files match the 
+expected pattern for the filenames.
+
+#### 2. Update packetbeat configuration
+
+You will need to update your packebeat.yml config file to point to the enrichment pipeline
+
+Under `Elasticsearch Output` add the following:
+
+```yaml
+output.elasticsearch:
+  hosts: ["your-hostname:your-port"]
+  pipeline: dns_enrich_pipeline
+```
+
+#### 3. Refresh your packetbeat index
+
+You can optionally choose to refresh your packetbeat index mapping within Kibana:
+* navigate to `Stack Management > (Kibana) Index Patterns` 
+* select the applicable packetbeat index
+* click `refresh field list`
+
+#### 4. Verify enrichment fields
+
+Any packetbeat documents with the field `dns.question.registered_domain` should now have the enriched data:
+`ml_is_dga.*`
+
+
+## DGA Rules
 
 There are several rules within the repo which leverage this enriched data. The easiest way to see these rules is to run
 `python -m detection_rules rule-search "tags:ML-DGA"`
