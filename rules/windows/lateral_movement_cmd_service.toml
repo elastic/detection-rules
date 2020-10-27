@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2020/10/27"
 
 [rule]
 author = ["Elastic"]
@@ -19,6 +19,7 @@ risk_score = 21
 rule_id = "d61cbcf8-1bc1-4cff-85ba-e7b21c5beedc"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
 type = "eql"
 
 query = '''
@@ -27,7 +28,7 @@ sequence by process.entity_id with maxspan=1m
                                /* uncomment once in winlogbeat */
      (process.name == "sc.exe" /* or process.pe.original_file_name == "sc.exe" */ ) and
                                                    /* case insensitive */
-      wildcard(process.args, "\\\\*") and wildcard(process.args, "binPath=*", "binpath=*") and 
+      wildcard(process.args, "\\\\*") and wildcard(process.args, "binPath=*", "binpath=*") and
       (process.args : "create" or
        process.args : "config" or
        process.args : "failure" or
