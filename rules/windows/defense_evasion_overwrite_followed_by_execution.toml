@@ -1,0 +1,44 @@
+[metadata]
+creation_date = "2020/10/27"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/10/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of a file that was overwritten. This may indicate an evasion attempt to execute malicious in a
+stealthy way.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*"]
+language = "eql"
+license = "Elastic License"
+name = "Suspicious Execution via File Overwrite"
+references = ["https://github.com/jxy-s/herpaderping"]
+risk_score = 71
+rule_id = "ccc55af4-9882-4c67-87b4-449a7ae8079c"
+severity = "high"
+tags = ["Elastic", "Windows"]
+type = "eql"
+
+query = '''
+sequence with maxspan=1m
+   [file where event.type == "change" and event.action == "overwrite" and file.extension == "exe"] by host.id, file.path, process.entity_id
+   [process where event.type == "start"] by host.id, process.executable, process.parent.entity_id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
