@@ -1,0 +1,50 @@
+[metadata]
+creation_date = "2020/10/27"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/10/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies User Account Control (UAC) bypass via DLL side loading. Attackers bypass UAC to stealthily execute code with
+elevated permissions.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Bypass UAC via Privileged IFileOperation COM interface"
+references = ["https://github.com/hfiref0x/UACME"]
+risk_score = 71
+rule_id = "5a14d01d-7ac8-4545-914c-b687c2cf66b3"
+severity = "high"
+tags = ["Elastic", "Windows"]
+type = "eql"
+
+query = '''
+file where event.type == "change" and process.name == "dllhost.exe" and
+
+  /* Known modules names side loaded into process running with high or system integrity level for UAC Bypass, update here for new modules */
+
+  wildcard(file.name,"wow64log.dll","comctl32.dll","DismCore.dll","OskSupport.dll","duser.dll","Accessibility.ni.dll") and
+
+  /* has no impact on rule logic just to avoid OS install related FPs */
+
+  not wildcard(file.path,"*:\\Windows\\SoftwareDistribution\\*","*:\\Windows\\WinSxS\\*")  // specific hunt to known abused UAC module names
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1088"
+name = "Bypass User Account Control"
+reference = "https://attack.mitre.org/techniques/T1088/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
