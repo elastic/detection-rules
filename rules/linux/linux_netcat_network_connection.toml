@@ -20,7 +20,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
 name = "Netcat Network Activity"
 references = [
@@ -32,10 +32,13 @@ risk_score = 47
 rule_id = "adb961e0-cb74-42a0-af9e-29fc41f88f5f"
 severity = "medium"
 tags = ["Elastic", "Host", "Linux", "Threat Detection"]
-type = "query"
+type = "eql"
 
 query = '''
-event.category:network and event.type:(access or connection or start) and
-  process.name:(nc or ncat or netcat or netcat.openbsd or netcat.traditional)
+network where (process.name : "nc" or
+               process.name : "ncat" or
+               process.name : "netcat" or
+               process.name : "netcat.openbsd" or
+               process.name : "netcat.traditional")
 '''
 

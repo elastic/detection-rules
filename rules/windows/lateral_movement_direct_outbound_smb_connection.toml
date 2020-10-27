@@ -14,20 +14,19 @@ suspicious user-level processes moving laterally.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
 name = "Direct Outbound SMB Connection"
 risk_score = 47
 rule_id = "c82c7d8f-fb9e-4874-a4bd-fd9e3f9becf1"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
-type = "query"
+type = "eql"
 
 query = '''
-event.category:network and event.type:connection and
-  destination.port:445 and
-  not process.pid:4 and
-  not destination.ip:(127.0.0.1 or "::1")
+network where destination.port == 445 and
+  process.pid != 4 and
+  destination.ip not in ("127.0.0.1", "::1")
 '''
 
 

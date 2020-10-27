@@ -12,19 +12,28 @@ applications are often leveraged by adversaries to execute code and evade detect
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
 name = "Unusual Process Network Connection"
 risk_score = 21
 rule_id = "610949a1-312f-4e04-bb55-3a79b8c95267"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
-type = "query"
+type = "eql"
 
 query = '''
-event.category:network and event.type:connection and
-  process.name:(Microsoft.Workflow.Compiler.exe or bginfo.exe or cdb.exe or cmstp.exe or csi.exe or dnx.exe or
-                fsi.exe or ieexec.exe or iexpress.exe or odbcconf.exe or rcsi.exe or xwizard.exe)
+network where (process.name : "Microsoft.Workflow.Compiler.exe" or
+               process.name : "bginfo.exe" or
+               process.name : "cdb.exe" or
+               process.name : "cmstp.exe" or
+               process.name : "csi.exe" or
+               process.name : "dnx.exe" or
+               process.name : "fsi.exe" or
+               process.name : "ieexec.exe" or
+               process.name : "iexpress.exe" or
+               process.name : "odbcconf.exe" or
+               process.name : "rcsi.exe" or
+               process.name : "xwizard.exe")
 '''
 
 

@@ -13,19 +13,18 @@ program (hh.exe).
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
 name = "Network Connection via Compiled HTML File"
 risk_score = 21
 rule_id = "b29ee2be-bf99-446c-ab1a-2dc0183394b8"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
-type = "query"
+type = "eql"
 
 query = '''
-event.category:network and event.type:connection and
-  process.name:hh.exe and
-  not destination.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
+network where process.name : "hh.exe" and
+  destination.ip not in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
 '''
 
 

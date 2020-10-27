@@ -20,20 +20,19 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
 name = "Connection to Internal Network via Telnet"
 risk_score = 47
 rule_id = "1b21abcc-4d9f-4b08-a7f5-316f5f94b973"
 severity = "medium"
 tags = ["Elastic", "Host", "Linux", "Threat Detection", "Lateral Movement"]
-type = "query"
+type = "eql"
 
 query = '''
-event.category:network and event.type:(connection or start) and
-  process.name:telnet and
-  destination.ip:((10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16 or "FE80::/10") and
-                    not (127.0.0.0/8 or "::1/128"))
+network where process.name : "telnet" and
+  destination.ip in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "FE80::/10") and
+  destination.ip not in ("127.0.0.0/8", "::1/128")
 '''
 
 
