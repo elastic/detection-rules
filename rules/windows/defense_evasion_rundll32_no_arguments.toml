@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2020/10/28"
 
 [rule]
 author = ["Elastic"]
@@ -28,9 +28,7 @@ sequence with maxspan=1h
      (process.name : "rundll32.exe" /* or process.pe.original_file_name == "RUNDLL32.EXE" */ ) and
      process.args_count < 2
   ] by process.entity_id
-  [process where event.type in ("start", "process_started") and
-                                    /* uncomment once in winlogbeat */
-     (process.name : "rundll32.exe" /* or process.pe.original_file_name == "RUNDLL32.EXE" */ )
+  [process where event.type in ("start", "process_started") and process.parent.name : "rundll32.exe"
   ] by process.parent.entity_id
 '''
 
