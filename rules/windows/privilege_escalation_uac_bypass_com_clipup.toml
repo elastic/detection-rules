@@ -23,11 +23,9 @@ tags = ["Elastic", "Windows"]
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started", "info") and
+process where event.type in ("start", "process_started", "info") and process.name == "Clipup.exe" and 
 
- (process.pe.original_file_name == "ClipUp.exe" or process.name == "ClipUp.exe") and not wildcard(process.executable, "C:\\Windows\\System32\\*") and
-
- process.parent.name == "dllhost.exe" and
+not wildcard(process.executable, "C:\\Windows\\System32\\*") and process.parent.name == "dllhost.exe" and
 
  /* CLSID of the Elevated COM Interface IEditionUpgradeManager */
 
