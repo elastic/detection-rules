@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2020/10/28"
 
 [rule]
 author = ["Elastic"]
@@ -35,10 +35,11 @@ tags = ["Elastic", "Host", "Linux", "Threat Detection"]
 type = "eql"
 
 query = '''
-network where (process.name : "nc" or
-               process.name : "ncat" or
-               process.name : "netcat" or
-               process.name : "netcat.openbsd" or
-               process.name : "netcat.traditional")
+sequence by process.entity_id
+  [process where (process.name : "nc" or process.name : "ncat" or process.name : "netcat" or
+                  process.name : "netcat.openbsd" or process.name : "netcat.traditional") and
+     event.type == "start"]
+  [network where (process.name : "nc" or process.name : "ncat" or process.name : "netcat" or
+                  process.name : "netcat.openbsd" or process.name : "netcat.traditional")]
 '''
 

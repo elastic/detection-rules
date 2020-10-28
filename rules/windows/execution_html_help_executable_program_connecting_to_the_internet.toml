@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2020/10/28"
 
 [rule]
 author = ["Elastic"]
@@ -23,8 +23,10 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
 type = "eql"
 
 query = '''
-network where process.name : "hh.exe" and
-  destination.ip not in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
+sequence by process.entity_id
+  [process where process.name : "hh.exe" and event.type == "start"]
+  [network where process.name : "hh.exe" and
+     destination.ip not in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")]
 '''
 
 
