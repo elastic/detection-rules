@@ -7,8 +7,8 @@ updated_date = "2020/10/28"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies User Account Control (UAC) bypass via abusing an elevated COM Interface to launch a rogue Windows ClipUp program. Attackers bypass UAC to stealthily
-execute code with elevated permissions.
+Identifies User Account Control (UAC) bypass via abusing an elevated COM Interface to launch a rogue Windows ClipUp
+program. Attackers bypass UAC to stealthily execute code with elevated permissions.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
@@ -23,7 +23,6 @@ tags = ["Elastic", "Windows"]
 type = "eql"
 
 query = '''
-
 process where event.type in ("start", "process_started", "info") and
 
  (process.pe.original_file_name == "ClipUp.exe" or process.name == "ClipUp.exe") and not wildcard(process.executable, "C:\\Windows\\System32\\*") and
@@ -33,8 +32,6 @@ process where event.type in ("start", "process_started", "info") and
  /* CLSID of the Elevated COM Interface IEditionUpgradeManager */
 
  wildcard(process.parent.args,"*BD54C901-076B-434E-B6C7-17C531F4AB41*")
-
-
 '''
 
 
@@ -50,3 +47,4 @@ reference = "https://attack.mitre.org/techniques/T1088/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
