@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/27"
+updated_date = "2020/10/28"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ leveraged by adversaries to execute code and evade detection.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
 name = "MsBuild Making Network Connections"
 risk_score = 47
@@ -20,12 +20,13 @@ rule_id = "0e79980b-4250-4a50-a509-69294c14e84b"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
 timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:network and event.type:connection and
- process.name:MSBuild.exe and
- not destination.ip:(127.0.0.1 or "::1")
+sequence by process.entity_id
+  [process where process.name : "MSBuild.exe" and event.type == "start"]
+  [network where process.name : "MSBuild.exe" and
+     destination.ip not in ("127.0.0.1", "::1")]
 '''
 
 

@@ -2,7 +2,7 @@
 creation_date = "2020/04/23"
 ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/27"
+updated_date = "2020/10/28"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
 name = "Connection to External Network via Telnet"
 risk_score = 47
@@ -28,12 +28,13 @@ rule_id = "e19e64ee-130e-4c07-961f-8a339f0b8362"
 severity = "medium"
 tags = ["Elastic", "Host", "Linux", "Threat Detection", "Lateral Movement"]
 timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:network and event.type:(connection or start) and
-  process.name:telnet and
-  not destination.ip:(127.0.0.0/8 or 10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16 or "FE80::/10" or "::1/128")
+sequence by process.entity_id
+  [process where process.name == "telnet" and event.type == "start"]
+  [network where process.name == "telnet" and
+    destination.ip not in ("127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "FE80::/10", "::1/128")]
 '''
 
 
@@ -49,4 +50,3 @@ reference = "https://attack.mitre.org/techniques/T1021/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-
