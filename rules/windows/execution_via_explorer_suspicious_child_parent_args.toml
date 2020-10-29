@@ -1,0 +1,51 @@
+[metadata]
+creation_date = "2020/10/29"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/10/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a suspicious Windows explorer child process. Explorer.exe can be abused to launch malicious script or executables from a trustred parent process.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*"]
+language = "eql"
+license = "Elastic License"
+name = "Suspicious Explorer Child Process"
+risk_score = 43
+rule_id = "9a5b4e31-6cde-4295-9ff7-6be1b8567e1b"
+severity = "medium"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+ process.name in ("cscript.exe", "wscript.exe", "powershell.exe", "rundll32.exe", "cmd.exe") and
+  process.parent.name == "explorer.exe" and wildcard(process.parent.args, "*75dff2b7-6936-4c06-a8bb-676a7b00b24b*")
+
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1064"
+name = "Scripting"
+reference = "https://attack.mitre.org/techniques/T1064/"
+
+[[rule.threat.technique]]
+id = "T1192"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1192/"
+
+[[rule.threat.technique]]
+id = "T1193"
+name = "Spearphishing Attachment"
+reference = "https://attack.mitre.org/techniques/T1193/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
