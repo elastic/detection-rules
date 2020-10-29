@@ -440,18 +440,68 @@ def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
 
 @es_experimental.command('upload-ml-job')
 @click.argument('job-file', type=click.Path(exists=True, dir_okay=False))
-@click.option('--anomaly-detection/--data-frame-analytic', '-a/-d', default=True, help='Type of ML job to upload')
+@click.option('--overwrite', '-o', is_flag=True, help='Overwrite job if exists by name')
 @click.pass_context
-def upload_ml_job(ctx, job_file, anomaly_detection):
+def upload_ml_job(ctx: click.Context, job_file, overwrite):
     """Upload experimental ML jobs."""
     es_client: Elasticsearch = ctx.obj['es']
     ml_client = MlClient(es_client)
 
-    job_name = Path(job_file.name).name
     with open(job_file, 'r') as f:
-        job_body = json.load(f)
+        job = json.load(f)
 
-    if anomaly_detection:
-        ml_client.put_job(job_name, job_body)
-    else:
-        ml_client.put_data_frame_analytics(job_name, job_body)
+    def safe_upload(func):
+        try:
+            func(name, body)
+        except (elasticsearch.ConflictError, elasticsearch.RequestError) as err:
+            if isinstance(err, elasticsearch.RequestError) and err.error != 'resource_already_exists_exception':
+                client_error(str(err), err, ctx=ctx)
+
+            if overwrite:
+                ctx.invoke(delete_ml_job, job_name=name, job_type=job_type)
+                func(name, body)
+            else:
+                client_error(str(err), err, ctx=ctx)
+
+    try:
+        job_type = job['type']
+        name = job['name']
+        body = job['body']
+
+        if job_type == 'anomaly_detection':
+            safe_upload(ml_client.put_job)
+        elif job_type == 'data_frame_analytic':
+            safe_upload(ml_client.put_data_frame_analytics)
+        elif job_type == 'datafeed':
+            safe_upload(ml_client.put_datafeed)
+        else:
+            client_error(f'Unknown ML job type: {job_type}')
+
+        click.echo(f'Uploaded {job_type} job: {name}')
+    except KeyError as e:
+        client_error(f'{job_file} missing required info: {e}')
+
+
+@es_experimental.command('delete-ml-job')
+@click.argument('job-name')
+@click.argument('job-type')
+@click.pass_context
+def delete_ml_job(ctx: click.Context, job_name, job_type, verbose=True):
+    """Remove experimental ML jobs."""
+    es_client: Elasticsearch = ctx.obj['es']
+    ml_client = MlClient(es_client)
+
+    try:
+        if job_type == 'anomaly_detection':
+            ml_client.delete_job(job_name)
+        elif job_type == 'data_frame_analytic':
+            ml_client.delete_data_frame_analytics(job_name)
+        elif job_type == 'datafeed':
+            ml_client.delete_datafeed(job_name)
+        else:
+            client_error(f'Unknown ML job type: {job_type}')
+    except (elasticsearch.NotFoundError, elasticsearch.ConflictError) as e:
+        client_error(str(e), e, ctx=ctx)
+
+    if verbose:
+        click.echo(f'Deleted {job_type} job: {job_name}')
