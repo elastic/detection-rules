@@ -20,7 +20,7 @@ class Kibana(object):
 
     CACHED = False
 
-    def __init__(self, cloud_id=None, kibana_url=None, verify=True, elasticsearch=None):
+    def __init__(self, cloud_id=None, kibana_url=None, verify=True, elasticsearch=None, space=None):
         """"Open a session to the platform."""
         self.authenticated = False
         self.session = requests.Session()
@@ -29,6 +29,7 @@ class Kibana(object):
         self.cloud_id = cloud_id
         self.kibana_url = kibana_url
         self.elastic_url = None
+        self.space = space
         self.status = None
 
         if self.cloud_id:
@@ -55,9 +56,13 @@ class Kibana(object):
     def url(self, uri):
         """Get the full URL given a URI."""
         assert self.kibana_url is not None
-        return f"{self.kibana_url}/{uri.lstrip('/')}"
+        # If a space is defined update the URL accordingly
+        uri = uri.lstrip('/')
+        if self.space:
+            uri = "s/{}/{}".format(self.space, uri)
+        return f"{self.kibana_url}/{uri}"
 
-    def request(self, method, uri, params=None, data=None, error=True):
+    def request(self, method, uri, params=None, data=None, error=True, verbose=True):
         """Perform a RESTful HTTP request with JSON responses."""
         params = params or {}
         url = self.url(uri)
@@ -71,7 +76,8 @@ class Kibana(object):
             try:
                 response.raise_for_status()
             except requests.exceptions.HTTPError:
-                print(response.content.decode("utf-8"), file=sys.stderr)
+                if verbose:
+                    print(response.content.decode("utf-8"), file=sys.stderr)
                 raise
 
         if not response.content:
@@ -79,32 +85,41 @@ class Kibana(object):
 
         return response.json()
 
-    def get(self, uri, params=None, data=None, error=True):
+    def get(self, uri, params=None, data=None, error=True, **kwargs):
         """Perform an HTTP GET."""
-        return self.request('GET', uri, data=data, params=params, error=error)
+        return self.request('GET', uri, data=data, params=params, error=error, **kwargs)
 
-    def put(self, uri, params=None, data=None, error=True):
+    def put(self, uri, params=None, data=None, error=True, **kwargs):
         """Perform an HTTP PUT."""
-        return self.request('PUT', uri, params=params, data=data, error=error)
+        return self.request('PUT', uri, params=params, data=data, error=error, **kwargs)
 
-    def post(self, uri, params=None, data=None, error=True):
+    def post(self, uri, params=None, data=None, error=True, **kwargs):
         """Perform an HTTP POST."""
-        return self.request('POST', uri, params=params, data=data, error=error)
+        return self.request('POST', uri, params=params, data=data, error=error, **kwargs)
 
-    def patch(self, uri, params=None, data=None, error=True):
+    def patch(self, uri, params=None, data=None, error=True, **kwargs):
         """Perform an HTTP PATCH."""
-        return self.request('PATCH', uri, params=params, data=data, error=error)
+        return self.request('PATCH', uri, params=params, data=data, error=error, **kwargs)
 
-    def delete(self, uri, params=None, error=True):
+    def delete(self, uri, params=None, error=True, **kwargs):
         """Perform an HTTP DELETE."""
-        return self.request('DELETE', uri, params=params, error=error)
+        return self.request('DELETE', uri, params=params, error=error, **kwargs)
 
     def login(self, kibana_username, kibana_password):
         """Authenticate to Kibana using the API to update our cookies."""
         payload = {'username': kibana_username, 'password': kibana_password}
         path = '/internal/security/login'
 
-        self.post(path, data=payload, error=True)
+        try:
+            self.post(path, data=payload, error=True, verbose=False)
+        except requests.HTTPError as e:
+            # 7.10 changed the structure of the auth data
+            if e.response.status_code == 400 and '[undefined]' in e.response.text:
+                payload = {'params': payload, 'currentURL': '', 'providerType': 'basic', 'providerName': 'cloud-basic'}
+                self.post(path, data=payload, error=True)
+            else:
+                raise
+
         self.authenticated = True
         self.status = self.get("/api/status")
 
