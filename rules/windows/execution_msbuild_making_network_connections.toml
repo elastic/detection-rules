@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/28"
+updated_date = "2020/10/29"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +26,7 @@ query = '''
 sequence by process.entity_id
   [process where process.name : "MSBuild.exe" and event.type == "start"]
   [network where process.name : "MSBuild.exe" and
-     destination.ip not in ("127.0.0.1", "::1")]
+     not cidrmatch(destination.ip, "127.0.0.1", "::1")]
 '''
 
 

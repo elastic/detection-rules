@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/28"
+updated_date = "2020/10/29"
 
 [rule]
 author = ["Elastic"]
@@ -30,7 +30,7 @@ sequence by process.entity_id
      event.type == "start"]
   [network where (process.name : "expand.exe" or process.name : "extrac.exe" or
                  process.name : "ieexec.exe" or process.name : "makecab.exe") and
-     destination.ip not in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")]
+     not cidrmatch(destination.ip, "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")]
 '''
 
 
@@ -58,4 +58,3 @@ reference = "https://attack.mitre.org/techniques/T1218/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
