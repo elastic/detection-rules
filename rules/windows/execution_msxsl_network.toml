@@ -2,7 +2,7 @@
 creation_date = "2020/03/18"
 ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/28"
+updated_date = "2020/10/29"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +26,7 @@ query = '''
 sequence by process.entity_id
   [process where process.name : "msxsl.exe" and event.type == "start"]
   [network where process.name : "msxsl.exe" and
-     destination.ip not in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")]
+     not cidrMatch(destination.ip, "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")]
 '''
 
 

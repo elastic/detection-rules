@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/28"
+updated_date = "2020/10/29"
 
 [rule]
 author = ["Elastic"]
@@ -35,7 +35,7 @@ sequence by process.entity_id
      event.type == "start"]
   [network where (process.name : "regsvr32.exe" or process.name : "regsvr64.exe" or
                   process.name : "RegAsm.exe" or process.name : "RegSvcs.exe") and
-     destination.ip not in ("10.0.0.0/8", "169.254.169.254", "172.16.0.0/12", "192.168.0.0/16")]
+     not cidrMatch(destination.ip, "10.0.0.0/8", "169.254.169.254", "172.16.0.0/12", "192.168.0.0/16")]
 '''
 
 
