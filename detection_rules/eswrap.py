@@ -18,7 +18,7 @@ from .rule_loader import get_rule, rta_mappings
 COLLECTION_DIR = get_path('collections')
 
 
-def get_es_client(user, password, elasticsearch_url=None, cloud_id=None, **kwargs):
+def get_es_client(es_user, es_password, elasticsearch_url=None, cloud_id=None, **kwargs):
     """Get an auth-validated elsticsearch client."""
     assert elasticsearch_url or cloud_id, \
         'You must specify a host or cloud_id to authenticate to an elasticsearch instance'
@@ -193,7 +193,7 @@ def es_group(ctx: click.Context, **es_kwargs):
         click.echo(format_command_options(ctx))
 
     else:
-        if not es_kwargs['cloud_id'] or es_kwargs['elasticsearch_url']:
+        if not (es_kwargs['cloud_id'] or es_kwargs['elasticsearch_url']):
             client_error("Missing required --cloud-id or --elasticsearch-url")
 
         # don't prompt for these until there's a cloud id or elasticsearch URL
