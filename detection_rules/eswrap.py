@@ -25,7 +25,7 @@ def get_es_client(es_user, es_password, elasticsearch_url=None, cloud_id=None, *
 
     hosts = [elasticsearch_url] if elasticsearch_url else elasticsearch_url
 
-    client = Elasticsearch(hosts=hosts, cloud_id=cloud_id, http_auth=(user, password), **kwargs)
+    client = Elasticsearch(hosts=hosts, cloud_id=cloud_id, http_auth=(es_user, es_password), **kwargs)
     # force login to test auth
     client.info()
     return client
