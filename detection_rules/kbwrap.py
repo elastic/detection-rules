@@ -4,12 +4,26 @@
 
 """Kibana cli commands."""
 import click
-from kibana import Kibana, RuleResource
+from kibana import Kibana, Signal, RuleResource
 
 from .main import root
 from .misc import client_error, getdefault
 from .rule_loader import load_rule_files, load_rules
 from .utils import format_command_options
+
+
+def get_authed_kibana_client(kibana_kwargs):
+    """Get an authenticated Kibana client."""
+    if not (kibana_kwargs['cloud_id'] or kibana_kwargs['kibana_url']):
+        client_error("Missing required --cloud-id or --kibana-url")
+
+    # don't prompt for these until there's a cloud id or Kibana URL
+    kibana_user = kibana_kwargs.pop('kibana_user', None) or click.prompt("kibana_user")
+    kibana_password = kibana_kwargs.pop('kibana_password', None) or click.prompt("kibana_password", hide_input=True)
+
+    with Kibana(**kibana_kwargs) as kibana:
+        kibana.login(kibana_user, kibana_password)
+        return kibana
 
 
 @root.group('kibana')
@@ -29,16 +43,7 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
         click.echo(format_command_options(ctx))
 
     else:
-        if not (kibana_kwargs['cloud_id'] or kibana_kwargs['kibana_url']):
-            client_error("Missing required --cloud-id or --kibana-url")
-
-        # don't prompt for these until there's a cloud id or Kibana URL
-        kibana_user = kibana_kwargs.pop('kibana_user', None) or click.prompt("kibana_user")
-        kibana_password = kibana_kwargs.pop('kibana_password', None) or click.prompt("kibana_password", hide_input=True)
-
-        with Kibana(**kibana_kwargs) as kibana:
-            kibana.login(kibana_user, kibana_password)
-            ctx.obj['kibana'] = kibana
+        ctx.obj['kibana'] = get_authed_kibana_client(kibana_kwargs)
 
 
 @kibana_group.command("upload-rule")
@@ -73,3 +78,13 @@ def upload_rule(ctx, toml_files):
     with kibana:
         rules = RuleResource.bulk_create(api_payloads)
         click.echo(f"Successfully uploaded {len(rules)} rules")
+
+
+@kibana_group.command('list-alerts')
+@click.pass_context
+def list_alerts(ctx):
+    """List detection engine alerts."""
+    kibana = ctx.obj['kibana']
+
+    with kibana:
+        return Signal.all()
