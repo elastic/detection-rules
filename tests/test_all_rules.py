@@ -297,7 +297,7 @@ class TestRuleTimelines(unittest.TestCase):
                 self.assertIn(timeline_id, list(self.TITLES), unknown_id)
 
                 unknown_title = f'{rule_str} -> unknown timeline_title: {timeline_title}'
-                unknown_title += f' replace with {",".join(self.TITLES.values())}'
+                unknown_title += f' replace with {", ".join(self.TITLES.values())}'
                 unknown_title += ' or update this unit test with acceptable titles'
                 self.assertEqual(timeline_title, self.TITLES[timeline_id], )
 
