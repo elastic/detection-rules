@@ -1,0 +1,43 @@
+[metadata]
+creation_date = "2020/11/02"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the use of fsutil Windows utility to gather information about attached peripheral devices and components
+connected to a computer system.
+"""
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Peripheral Device Discovery"
+risk_score = 21
+rule_id = "0c7ca5c2-728d-4ad9-b1c5-bbba83ecb1f4"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery"]
+timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+(process.name == "fsutil.exe" or process.pe.original_file_name == "fsutil.exe") and
+wildcard(process.args, "drives") and wildcard(process.args, "fsinfo")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1120"
+name = "Peripheral Device Discovery"
+reference = "https://attack.mitre.org/techniques/T1120/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
