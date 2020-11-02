@@ -1,0 +1,48 @@
+[metadata]
+creation_date = "2020/11/03"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies User Account Control (UAC) bypass via abusing an elevated COM Interface to launch a malicious
+program. Attackers bypass UAC to stealthily execute code with elevated permissions.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Bypass UAC via Elevated COM Internet Explorer Add-on Installer"
+references = ["https://swapcontext.blogspot.com/2020/11/uac-bypasses-from-comautoapprovallist.html"]
+risk_score = 47
+rule_id = "fc7c0fa4-8f03-4b3e-8336-c5feab0be022"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
+timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started", "info") and
+ wildcard(process.executable, "*\\AppData\\*\\Temp\\IDC*.tmp\\*.exe") and
+  process.parent.name == "ieinstal.exe" and process.parent.args == "-Embedding"
+
+ /* uncomment once in winlogbeat */
+ /* and not (process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true) */
+
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1088"
+name = "Bypass User Account Control"
+reference = "https://attack.mitre.org/techniques/T1088/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
