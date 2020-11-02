@@ -76,7 +76,8 @@ class Rule(object):
             if self.contents['language'] == 'kuery':
                 return kql.parse(self.query)
             elif self.contents['language'] == 'eql':
-                return eql.parse_query(self.query)
+                with eql.parser.elasticsearch_syntax:
+                    return eql.parse_query(self.query)
 
     @property
     def filters(self):
@@ -124,7 +125,9 @@ class Rule(object):
         query = rule_contents.get('query')
         language = rule_contents.get('language')
         if language in ('kuery', 'eql'):
-            parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
+            with eql.parser.elasticsearch_syntax:
+                parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
+
             return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
 
     @staticmethod
@@ -202,7 +205,9 @@ class Rule(object):
     @cached
     def _validate_eql(ecs_versions, indexes, query, name):
         # validate against all specified schemas or the latest if none specified
-        parsed = eql.parse_query(query)
+        with eql.parser.elasticsearch_syntax:
+            parsed = eql.parse_query(query)
+
         beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
         beat_schema = beats.get_schema_from_eql(parsed, beat_types) if beat_types else None
 
@@ -218,7 +223,7 @@ class Rule(object):
 
         for schema in schemas:
             try:
-                with ecs.KqlSchema2Eql(schema):
+                with ecs.KqlSchema2Eql(schema), eql.parser.elasticsearch_syntax:
                     eql.parse_query(query)
 
             except eql.EqlTypeMismatchError:

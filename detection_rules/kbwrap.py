@@ -29,7 +29,7 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
         click.echo(format_command_options(ctx))
 
     else:
-        if not kibana_kwargs['cloud_id'] or kibana_kwargs['kibana_url']:
+        if not (kibana_kwargs['cloud_id'] or kibana_kwargs['kibana_url']):
             client_error("Missing required --cloud-id or --kibana-url")
 
         # don't prompt for these until there's a cloud id or Kibana URL
@@ -70,5 +70,6 @@ def upload_rule(ctx, toml_files):
         rule = RuleResource(payload)
         api_payloads.append(rule)
 
-    rules = RuleResource.bulk_create(api_payloads)
-    click.echo(f"Successfully uploaded {len(rules)} rules")
+    with kibana:
+        rules = RuleResource.bulk_create(api_payloads)
+        click.echo(f"Successfully uploaded {len(rules)} rules")
