@@ -271,6 +271,37 @@ class TestRuleTags(unittest.TestCase):
                 self.fail(error_msg)
 
 
+class TestRuleTimelines(unittest.TestCase):
+    """Test timelines in rules are valid."""
+
+    TITLES = {
+        'db366523-f1c6-4c1f-8731-6ce5ed9e5717': 'Generic Endpoint Timeline',
+        '91832785-286d-4ebe-b884-1a208d111a70': 'Generic Network Timeline',
+        '76e52245-7519-4251-91ab-262fb1a1728c': 'Generic Process Timeline'
+    }
+
+    def test_timeline_has_title(self):
+        """Ensure rules with timelines have a corresponding title."""
+        for rule in rule_loader.load_rules().values():
+            rule_str = f'{rule.id} - {rule.name}'
+            timeline_id = rule.contents.get('timeline_id')
+            timeline_title = rule.contents.get('timeline_title')
+
+            if (timeline_title or timeline_id) and not (timeline_title and timeline_id):
+                missing_err = f'{rule_str} -> timeline "title" and "id" required when timelines are defined'
+                self.fail(missing_err)
+
+            if timeline_id:
+                unknown_id = f'{rule_str} -> Unknown timeline_id: {timeline_id}.'
+                unknown_id += f' replace with {", ".join(self.TITLES)} or update this unit test with acceptable ids'
+                self.assertIn(timeline_id, list(self.TITLES), unknown_id)
+
+                unknown_title = f'{rule_str} -> unknown timeline_title: {timeline_title}'
+                unknown_title += f' replace with {",".join(self.TITLES.values())}'
+                unknown_title += ' or update this unit test with acceptable titles'
+                self.assertEqual(timeline_title, self.TITLES[timeline_id], )
+
+
 class TestRuleFiles(unittest.TestCase):
     """Test the expected file names."""
 
