@@ -1,0 +1,49 @@
+[metadata]
+creation_date = "2020/11/03"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies remote execution via Windows DCOM service leveraging MSHTA as a method to execute malicious code on a remote
+machine.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Remote Execution via DCOM - MSHTA"
+references = ["https://codewhitesec.blogspot.com/2018/07/lethalhta.html"]
+risk_score = 73
+rule_id = "622ecb68-fa81-4601-90b5-f8cd661e4520"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+timeline_id = "91832785-286d-4ebe-b884-1a208d111a70"
+type = "eql"
+
+query = '''
+sequence with maxspan=1m
+  [process where event.type in ("start", "process_started") and
+   process.name == "mshta.exe" and process.args == "-Embedding" and process.parent.name == "svchost.exe"
+  ] by process.entity_id
+  [network where event.type == "start" and process.name=="mshta.exe" and
+   source.port > 49151 and destination.port > 49151
+  ] by process.entity_id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
