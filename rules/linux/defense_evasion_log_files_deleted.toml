@@ -1,0 +1,47 @@
+[metadata]
+creation_date = "2020/11/03"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies deletion of Linux sensitive system logs. This may indicate an attempt to evade detection or destroy forensic
+evidence on a system.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "System Log Files Deleted"
+references = [
+    "https://www.fireeye.com/blog/threat-research/2020/11/live-off-the-land-an-overview-of-unc1945.html",
+]
+risk_score = 43
+rule_id = "aa895aea-b69c-4411-b110-8d7599634b30"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Defense Evasion"]
+timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
+type = "eql"
+
+query = '''
+file where event.type == "deletion" and
+ wildcard(file.path, "/var/run/utmp", "/var/log/wtmp", "/var/log/btmp", "/var/log/lastlog", "/var/log/faillog",
+ "/var/log/syslog", "/var/log/messages", "/var/log/secure", "/var/log/auth.log")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal on Host"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
