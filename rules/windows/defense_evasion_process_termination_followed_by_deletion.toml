@@ -1,0 +1,45 @@
+[metadata]
+creation_date = "2020/11/04"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies process termination followed by the deletion of its executable file. Malware, tools, or other non-native
+files dropped or created on a system by an adversary may leave traces to indicate to what was done within a network and
+how. Removal of these files can occur during an intrusion, or as part of a post-intrusion process to minimize the
+adversary's footprint.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Process Termination Followed by Deletion"
+risk_score = 43
+rule_id = "09443c92-46b3-45a4-8f25-383b028b258d"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+type = "eql"
+
+query = '''
+sequence with maxspan=1m
+   [process where event.type == "end"] by  host.id, process.executable
+   [file where event.type == "deletion" and file.extension in ("exe", "scr", "com")] by  host.id, file.path
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal on Host"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
