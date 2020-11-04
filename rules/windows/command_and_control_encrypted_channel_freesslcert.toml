@@ -1,0 +1,53 @@
+[metadata]
+creation_date = "2020/11/04"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies unusual process connecting to domains using known free SSL Certificates. Adversaries may employ a known
+encryption algorithm to conceal command and control traffic rather than relying on any inherent protections provided by
+a communication protocol.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Connection to Commonly Abused Free SSL Certificate Providers"
+risk_score = 21
+rule_id = "e3cf38fa-d5b8-46cc-87f9-4a7513e4281d"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control"]
+type = "eql"
+
+query = '''
+network where network.protocol == "dns" and
+             /* Add new free SSL Cert providers domains here */
+              wildcard(dns.question.name, "*letsencrypt*",
+			                              "*.sslforfree.com",
+										  "*.zerossl.com",
+										  "*.freessl.org") and
+			  wildcard(process.executable, "C:\\Windows\\System32\\*.exe",
+			                               "C:\\Windows\\System\\*.exe",
+										   "C:\\Windows\\SysWOW64\\*.exe",
+										   "C:\\Windows\\Microsoft.NET\\Framework*\\*.exe") and
+                          /* Insert noisy false positives here */
+              not wildcard(process.name, "svchost.exe", "MicrosoftEdge*.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1573"
+name = "Encrypted Channel"
+reference = "https://attack.mitre.org/techniques/T1573/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
