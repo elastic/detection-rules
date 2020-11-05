@@ -15,6 +15,7 @@ index = ["logs-endpoint.events.*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License"
 name = "Suspicious Execution via File Overwrite"
+references = ["https://github.com/jxy-s/herpaderping"]
 risk_score = 71
 rule_id = "ccc55af4-9882-4c67-87b4-449a7ae8079c"
 severity = "high"
@@ -22,9 +23,9 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 type = "eql"
 
 query = '''
-sequence with maxspan=1m
+sequence with maxspan=5s
+   [process where event.type == "start" and not wildcard(process.executable, "*:\\Windows\\SoftwareDistribution\\*.exe")] by host.id, process.executable, process.parent.entity_id
    [file where event.type == "change" and event.action == "overwrite" and file.extension == "exe"] by host.id, file.path, process.entity_id
-   [process where event.type == "start"] by host.id, process.executable, process.parent.entity_id
 '''
 
 
