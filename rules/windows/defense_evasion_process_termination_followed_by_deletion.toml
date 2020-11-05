@@ -25,7 +25,7 @@ type = "eql"
 
 query = '''
 sequence with maxspan=1m
-   [process where event.type == "end"] by  host.id, process.executable
+   [process where event.type == "end" and not wildcard(process.executable, "*:\\Windows\\SoftwareDistribution\\*.exe", "*:\\Windows\\WinSxS\\*")] by  host.id, process.executable
    [file where event.type == "deletion" and file.extension in ("exe", "scr", "com")] by  host.id, file.path
 '''
 
