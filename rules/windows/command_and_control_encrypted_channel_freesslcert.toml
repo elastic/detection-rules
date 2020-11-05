@@ -29,10 +29,13 @@ network where network.protocol == "dns" and
 	                                  "*.sslforfree.com",
 					  "*.zerossl.com",
 					  "*.freessl.org") and
+	       /* Native Windows Processes paths that are unlikely to have network connections to domains secured using freel SSL certs */
 	      wildcard(process.executable, "C:\\Windows\\System32\\*.exe",
 	                                   "C:\\Windows\\System\\*.exe",
 					   "C:\\Windows\\SysWOW64\\*.exe",
-					   "C:\\Windows\\Microsoft.NET\\Framework*\\*.exe") and
+					   "C:\\Windows\\Microsoft.NET\\Framework*\\*.exe",
+					   "C:\\Windows\\explorer.exe",
+					   "C:\\Windows\\notepad.exe") and
                           /* Insert noisy false positives here */
               not wildcard(process.name, "svchost.exe", "MicrosoftEdge*.exe")
 '''
