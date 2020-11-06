@@ -1,0 +1,49 @@
+[metadata]
+creation_date = "2020/11/06"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies remote execution via Windows DCOM service leveraging ShellBrowserWindow or ShellWindows as a way to execute a
+program on a remote machine.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Remote Execution via DCOM - ShellBrowserWindow or ShellWindows"
+references = ["https://enigma0x3.net/2017/01/23/lateral-movement-via-dcom-round-2/"]
+risk_score = 41
+rule_id = "8f919d4b-a5af-47ca-a594-6be59cd924a4"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+type = "eql"
+
+query = '''
+sequence with maxspan=1m
+ [network where event.type == "start" and process.name=="explorer.exe" and
+  event.action == "connection_accepted" and network.direction == "incoming" and network.transport == "tcp" and
+  source.port>=49152 and destination.port>=49152
+ ] by host.id, process.entity_id
+ [process where event.type in ("start", "process_started") and
+  process.parent.name=="explorer.exe"
+ ] by host.id, process.parent.entity_id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
