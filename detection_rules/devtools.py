@@ -401,10 +401,9 @@ def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_coun
     else:
         click.echo(table)
 
-    if dump_file:
-        os.makedirs(get_path('surveys'), exist_ok=True)
-        with open(dump_file, 'w') as f:
-            json.dump(details, f, indent=2, sort_keys=True)
+    os.makedirs(get_path('surveys'), exist_ok=True)
+    with open(dump_file, 'w') as f:
+        json.dump(details, f, indent=2, sort_keys=True)
 
     return survey_results
 
