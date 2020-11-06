@@ -302,7 +302,7 @@ def add_client(*client_type, add_to_ctx=True):
                     ctx.obj['es'] = elasticsearch_client
 
             if 'kibana' in client_type:
-                kibana_client = get_authed_kibana_client(kibana_client_args)
+                kibana_client = get_authed_kibana_client(**kibana_client_args)
                 kwargs['kibana_client'] = kibana_client
                 if ctx and add_to_ctx:
                     ctx.obj['kibana'] = kibana_client

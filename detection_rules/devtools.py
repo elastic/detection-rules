@@ -294,13 +294,13 @@ def rule_event_search(ctx, rule_file, rule_id, date_range, count, verbose, elast
     else:
         client_error('Must specify a rule file or rule ID')
 
-    if rule.contents.get('query') and rule.contents.get('language'):
+    if rule.contents.query and rule.contents.get('language'):
         if verbose:
             click.echo(f'Searching rule: {rule.name}')
 
         rule_lang = rule.contents.get('language')
         language = None if rule_lang == 'kuery' else True if rule_lang == 'eql' else "lucene"
-        ctx.invoke(event_search, query=rule.query, index=rule.contents.get('index', "*"), language=language,
+        ctx.invoke(event_search, query=rule.query, index=rule.contents.get('index', '*'), language=language,
                    date_range=date_range, count=count, verbose=verbose, elasticsearch_client=elasticsearch_client)
     else:
         client_error('Rule is not a query rule!')
@@ -311,7 +311,7 @@ def rule_event_search(ctx, rule_file, rule_id, date_range, count, verbose, elast
 @click.option('--date-range', '-d', type=(str, str), default=('now-7d', 'now'), help='Date range to scope search')
 @click.option('--dump-file', type=click.Path(dir_okay=False),
               default=get_path('surveys', f'{time.strftime("%Y%m%dT%H%M%SL")}.json'),
-              help='Save details of results (capped at 1000 results/rule) (warning: potentially resource intensive)')
+              help='Save details of results (capped at 1000 results/rule)')
 @click.option('--hide-zero-counts', '-z', is_flag=True, help='Exclude rules with zero hits from printing')
 @click.option('--hide-errors', '-e', is_flag=True, help='Exclude rules with errors from printing')
 @click.pass_context

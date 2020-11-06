@@ -16,16 +16,16 @@ from .utils import format_command_options
 MATCH_ALL = {'bool': {'filter': [{'match_all': {}}]}}
 
 
-def get_authed_kibana_client(kibana_kwargs):
+def get_authed_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, **kwargs):
     """Get an authenticated Kibana client."""
-    if not (kibana_kwargs['cloud_id'] or kibana_kwargs['kibana_url']):
+    if not (cloud_id or kibana_url):
         client_error("Missing required --cloud-id or --kibana-url")
 
     # don't prompt for these until there's a cloud id or Kibana URL
-    kibana_user = kibana_kwargs.pop('kibana_user', None) or click.prompt("kibana_user")
-    kibana_password = kibana_kwargs.pop('kibana_password', None) or click.prompt("kibana_password", hide_input=True)
+    kibana_user = kibana_user or click.prompt("kibana_user")
+    kibana_password = kibana_password or click.prompt("kibana_password", hide_input=True)
 
-    with Kibana(**kibana_kwargs) as kibana:
+    with Kibana(cloud_id=cloud_id, kibana_url=kibana_url, **kwargs) as kibana:
         kibana.login(kibana_user, kibana_password)
         return kibana
 
@@ -43,7 +43,7 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
         click.echo(format_command_options(ctx))
 
     else:
-        ctx.obj['kibana'] = get_authed_kibana_client(kibana_kwargs)
+        ctx.obj['kibana'] = get_authed_kibana_client(**kibana_kwargs)
 
 
 @kibana_group.command("upload-rule")
