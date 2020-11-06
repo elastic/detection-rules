@@ -10,12 +10,11 @@ import time
 import click
 import elasticsearch
 from elasticsearch import Elasticsearch
-from elasticsearch.client import AsyncSearchClient
 from eql.utils import load_dump
 
 
 from .main import root
-from .misc import client_error, getdefault
+from .misc import add_params, client_error, elasticsearch_options
 from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
 from .rule import Rule
 from .rule_loader import get_rule, rta_mappings
@@ -23,17 +22,30 @@ from .rule_loader import get_rule, rta_mappings
 COLLECTION_DIR = get_path('collections')
 
 
-def get_es_client(es_user, es_password, elasticsearch_url=None, cloud_id=None, **kwargs):
-    """Get an auth-validated elsticsearch client."""
-    assert elasticsearch_url or cloud_id, \
-        'You must specify a host or cloud_id to authenticate to an elasticsearch instance'
+def get_authed_es_client(cloud_id=None, elasticsearch_url=None, es_user=None, es_password=None, ctx=None, **kwargs):
+    """Get an authenticated elasticsearch client."""
+    if not (cloud_id or elasticsearch_url):
+        client_error("Missing required --cloud-id or --elasticsearch-url")
 
-    hosts = [elasticsearch_url] if elasticsearch_url else elasticsearch_url
+    # don't prompt for these until there's a cloud id or elasticsearch URL
+    es_user = es_user or click.prompt("es_user")
+    es_password = es_password or click.prompt("es_password", hide_input=True)
+    hosts = [elasticsearch_url] if elasticsearch_url else None
 
-    client = Elasticsearch(hosts=hosts, cloud_id=cloud_id, http_auth=(es_user, es_password), **kwargs)
-    # force login to test auth
-    client.info()
-    return client
+    try:
+        client = Elasticsearch(hosts=hosts, cloud_id=cloud_id, http_auth=(es_user, es_password), **kwargs)
+        # force login to test auth
+        client.info()
+        return client
+    except elasticsearch.AuthenticationException as e:
+        error_msg = f'Failed authentication for {elasticsearch_url or cloud_id}'
+        client_error(error_msg, e, ctx=ctx, err=True)
+
+
+def add_range_to_dsl(dsl_filter, start_time, end_time='now'):
+    dsl_filter.append(
+        {"range": {"@timestamp": {"gt": start_time, "lte": end_time, "format": "strict_date_optional_time"}}}
+    )
 
 
 class Events(object):
@@ -182,13 +194,9 @@ def normalize_data(events_file):
 
 
 @root.group('es')
-@click.option('--elasticsearch-url', '-e', default=getdefault("elasticsearch_url"))
-@click.option('--cloud-id', default=getdefault("cloud_id"))
-@click.option('--es-user', '-u', default=getdefault("es_user"))
-@click.option('--es-password', '-p', default=getdefault("es_password"))
-@click.option('--timeout', '-t', default=60, help='Timeout for elasticsearch client')
+@add_params(*elasticsearch_options)
 @click.pass_context
-def es_group(ctx: click.Context, **es_kwargs):
+def es_group(ctx: click.Context, **kwargs):
     """Commands for integrating with Elasticsearch."""
     ctx.ensure_object(dict)
 
@@ -198,19 +206,7 @@ def es_group(ctx: click.Context, **es_kwargs):
         click.echo(format_command_options(ctx))
 
     else:
-        if not (es_kwargs['cloud_id'] or es_kwargs['elasticsearch_url']):
-            client_error("Missing required --cloud-id or --elasticsearch-url")
-
-        # don't prompt for these until there's a cloud id or elasticsearch URL
-        es_kwargs['es_user'] = es_kwargs['es_user'] or click.prompt("es_user")
-        es_kwargs['es_password'] = es_kwargs['es_password'] or click.prompt("es_password", hide_input=True)
-
-        try:
-            client = get_es_client(use_ssl=True, **es_kwargs)
-            ctx.obj['es'] = client
-        except elasticsearch.AuthenticationException as e:
-            error_msg = f'Failed authentication for {es_kwargs.get("elasticsearch_url") or es_kwargs.get("cloud_id")}'
-            client_error(error_msg, e, ctx=ctx, err=True)
+        ctx.obj['es'] = get_authed_es_client(ctx=ctx, **kwargs)
 
 
 @es_group.command('collect-events')
@@ -307,78 +303,3 @@ def rule_event_search(ctx, rule_file, rule_id, count, verbose):
                    count=count, verbose=verbose)
     else:
         client_error('Rule is not a query rule!')
-
-
-@es_group.command('rule-survey')
-@click.argument('query', required=False)
-@click.pass_context
-def rule_survey(ctx: click.Context, query):
-    """Survey rule counts."""
-    import kql
-    from . import rule_loader
-    from .main import search_rules
-    # from .kbwrap import get_authed_kibana_client
-
-    client: Elasticsearch = ctx.obj['es']
-    async_client = AsyncSearchClient(client)
-    survey_results = {}  # rule_id - rule_name: {search_count: #, alert_count: #}
-
-    rules = ctx.invoke(search_rules, query=query, verbose=False) if query else \
-        rule_loader.load_rules(verbose=False).values()
-
-    multi_search = []
-    multi_search_rule_str = []
-    async_searches = {}
-    eql_searches = {}
-
-    for rule in rules:
-        if not rule.contents.get('query'):
-            continue
-
-        index = ','.join(rule.contents['index'])
-        rule_str = f'{rule.id} - {rule.name}'
-
-        # prep for searches:
-        #   msearch for all kql searches
-        #   async search for all lucene searches
-        #   eql client for eql searches
-        if rule.contents['language'] == 'kuery':
-            multi_search_rule_str.append(rule_str)
-            multi_search.append(json.dumps({'index': index}))
-            multi_search.append(json.dumps({'query': kql.to_dsl(rule.query)}))
-        elif rule.contents['language'] == 'lucene':
-            result = async_client.submit(q=rule.query, index=index, wait_for_completion_timeout=0)
-            if result['is_running'] is True:
-                async_searches[rule_str] = result['id']
-            else:
-                survey_results[rule_str] = {'search_count': len(result['response']['hits']['hits'])}
-        elif rule.contents['language'] == 'eql':
-            eql_searches[rule_str] = {'index': index, 'body': {'query': rule.query}}
-
-    # assemble search results
-    multi_search_results = client.msearch('\n'.join(multi_search) + '\n')
-    # TODO: parse results to survey_results
-    for index, result in enumerate(multi_search_results['responses']):
-        try:
-            survey_results[multi_search_rule_str[index]] = {'search_count': len(result['hits']['hits'])}
-        except KeyError:
-            survey_results[multi_search_rule_str[index]] = {'search_count': -1}
-
-    for eql_rule, search_args in eql_searches.items():
-        try:
-            result = client.eql.search(**search_args)
-            survey_results[eql_rule] = {'search_count': result.count}
-        except elasticsearch.NotFoundError as e:
-            if e.error == 'index_not_found_exception':
-                survey_results[eql_rule] = {'search_count': -1}
-            else:
-                raise
-
-    for lucene_rule, async_id in async_searches.items():
-        result = async_client.get(async_id)
-        survey_results[lucene_rule] = {'search_count': len(result['response']['hits']['hits'])}
-
-    # add alerts
-    # alerts = ctx.invoke(list_alerts)
-
-    return

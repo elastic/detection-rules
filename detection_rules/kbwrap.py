@@ -4,12 +4,16 @@
 
 """Kibana cli commands."""
 import click
+import kql
 from kibana import Kibana, Signal, RuleResource
 
 from .main import root
-from .misc import client_error, getdefault
+from .misc import add_params, client_error, kibana_options
 from .rule_loader import load_rule_files, load_rules
 from .utils import format_command_options
+
+
+MATCH_ALL = {'bool': {'filter': [{'match_all': {}}]}}
 
 
 def get_authed_kibana_client(kibana_kwargs):
@@ -27,11 +31,7 @@ def get_authed_kibana_client(kibana_kwargs):
 
 
 @root.group('kibana')
-@click.option('--kibana-url', '-k', default=getdefault('kibana_url'))
-@click.option('--cloud-id', default=getdefault('cloud_id'))
-@click.option('--kibana-user', '-u', default=getdefault('kibana_user'))
-@click.option('--kibana-password', '-p', default=getdefault('kibana_password'))
-@click.option('--space', default=None)
+@add_params(*kibana_options)
 @click.pass_context
 def kibana_group(ctx: click.Context, **kibana_kwargs):
     """Commands for integrating with Kibana."""
@@ -80,11 +80,22 @@ def upload_rule(ctx, toml_files):
         click.echo(f"Successfully uploaded {len(rules)} rules")
 
 
-@kibana_group.command('list-alerts')
+@kibana_group.command('search-alerts')
+@click.argument('query', required=False)
+@click.option('--date-range', '-d', type=(str, str), default=('now-7d', 'now'), help='Date range to scope search')
 @click.pass_context
-def list_alerts(ctx):
-    """List detection engine alerts."""
+def search_alerts(ctx, query, date_range):
+    """Search detection engine alerts with KQL."""
+    from eql.table import Table
+    from .eswrap import add_range_to_dsl
+
     kibana = ctx.obj['kibana']
+    start_time, end_time = date_range
+    kql_query = kql.to_dsl(query) if query else MATCH_ALL
+    add_range_to_dsl(kql_query['bool'].setdefault('filter', []), start_time, end_time)
 
     with kibana:
-        return Signal.all()
+        alerts = [a['_source'] for a in Signal.search({'query': kql_query})['hits']['hits']]
+
+    click.echo(Table.from_list(['host.hostname', 'signal.rule.name', 'signal.status', 'signal.original_time'], alerts))
+    return alerts

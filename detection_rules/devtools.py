@@ -9,15 +9,23 @@ import json
 import os
 import shutil
 import subprocess
+import time
+from collections import defaultdict
 
 import click
+import elasticsearch
+from elasticsearch import Elasticsearch
+from elasticsearch.client import AsyncSearchClient
 from eql import load_dump
+from kibana.connector import Kibana
 
 from . import rule_loader
+from .eswrap import add_range_to_dsl
 from .main import root
-from .misc import PYTHON_LICENSE, client_error
+from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
 from .rule import Rule
+from .rule_loader import get_rule
 from .utils import get_path
 
 
@@ -201,3 +209,285 @@ def license_check(ctx):
                 click.echo(relative_path, err=True)
 
     ctx.exit(int(failed))
+
+
+@dev_group.group('test')
+def test_group():
+    """Commands for testing against stack resources."""
+
+
+@test_group.command('event-search')
+@click.argument('query')
+@click.option('--index', '-i', multiple=True, required=True, help='Index(es) to search against ("*": for all indexes)')
+@click.option('--eql/--lucene', '-e/-l', 'language', default=None, help='Query language used (default: kql)')
+@click.option('--date-range', '-d', type=(str, str), default=('now-7d', 'now'), help='Date range to scope search')
+@click.option('--count', '-c', is_flag=True, help='Return count of results only')
+@click.option('--max-results', '-m', type=click.IntRange(1, 1000), default=100,
+              help='Max results to return (capped at 1000)')
+@click.option('--verbose', '-v', is_flag=True, default=True)
+@add_client('elasticsearch')
+def event_search(query, index, language, date_range, count, max_results, verbose=True,
+                 elasticsearch_client: Elasticsearch = None):
+    """Search using a query against an Elasticsearch instance."""
+    import kql
+
+    language_used = "kql" if language is None else "eql" if language is True else "lucene"
+
+    index_str = ','.join(index)
+    formatted_query = {'query': kql.to_dsl(query)} if language_used == 'kql' else \
+        {'query': query} if language_used == 'eql' else {'query': {'bool': {'filter': []}}}  # lucene
+
+    # add range to query - for dsl: add to filter, for lucene and eql: build new and add to body[filter]
+    start_time, end_time = date_range
+    if language_used in ('kql', 'lucene'):
+        add_range_to_dsl(formatted_query['query']['bool'].setdefault('filter', []), start_time, end_time)
+    elif language_used == 'eql':
+        formatted_query['filter'] = {'bool': {'filter': [{'match_all': {}}]}}
+        add_range_to_dsl(formatted_query['filter']['bool']['filter'], start_time, end_time)
+
+    if verbose:
+        click.echo(f'searching {index_str} from {start_time} to {end_time}')
+        click.echo(f'{language_used}: {formatted_query or query}')
+
+    results = []
+    if language_used == 'eql':
+        formatted_query['size'] = 1000 if count else max_results
+        results = elasticsearch_client.eql.search(body=formatted_query, index=index_str)['hits']
+        results = results.get('events') or results.get('sequences', [])
+
+    if count:
+        # EQL API has no count endpoint
+        if language_used == 'eql':
+            count = len(results)
+        else:
+            count = elasticsearch_client.count(body=formatted_query, index=index_str)
+            click.echo(f'Total results: {count["count"]}')
+
+        return count
+    else:
+        # EQL search results will pass through from above
+        if language_used != 'eql':
+            results = elasticsearch_client.search(body=formatted_query, q=query if language_used == 'lucene' else None,
+                                                  index=index_str, size=max_results)['hits']['hits']
+
+        click.echo(f'total results: {len(results)}')
+        click.echo_via_pager(json.dumps(results, indent=2, sort_keys=True))
+        return results
+
+
+@test_group.command('rule-event-search')
+@click.argument('rule-file', type=click.Path(dir_okay=False), required=False)
+@click.option('--rule-id', '-id')
+@click.option('--date-range', '-d', type=(str, str), default=('now-7d', 'now'), help='Date range to scope search')
+@click.option('--count', '-c', is_flag=True, help='Return count of results only')
+@click.option('--verbose', '-v', is_flag=True)
+@click.pass_context
+@add_client('elasticsearch')
+def rule_event_search(ctx, rule_file, rule_id, date_range, count, verbose, elasticsearch_client: Elasticsearch = None):
+    """Search using a rule file against an Elasticsearch instance."""
+    rule = None
+
+    if rule_id:
+        rule = get_rule(rule_id, verbose=False)
+    elif rule_file:
+        rule = Rule(rule_file, load_dump(rule_file))
+    else:
+        client_error('Must specify a rule file or rule ID')
+
+    if rule.contents.get('query') and rule.contents.get('language'):
+        if verbose:
+            click.echo(f'Searching rule: {rule.name}')
+
+        rule_lang = rule.contents.get('language')
+        language = None if rule_lang == 'kuery' else True if rule_lang == 'eql' else "lucene"
+        ctx.invoke(event_search, query=rule.query, index=rule.contents.get('index', "*"), language=language,
+                   date_range=date_range, count=count, verbose=verbose, elasticsearch_client=elasticsearch_client)
+    else:
+        client_error('Rule is not a query rule!')
+
+
+@test_group.command('rule-survey')
+@click.argument('query', required=False)
+@click.option('--date-range', '-d', type=(str, str), default=('now-7d', 'now'), help='Date range to scope search')
+@click.option('--dump-file', type=click.Path(dir_okay=False),
+              default=get_path('surveys', f'{time.strftime("%Y%m%dT%H%M%SL")}.json'),
+              help='Save details of results (capped at 1000 results/rule) (warning: potentially resource intensive)')
+@click.option('--hide-zero-counts', '-z', is_flag=True, help='Exclude rules with zero hits from printing')
+@click.option('--hide-errors', '-e', is_flag=True, help='Exclude rules with errors from printing')
+@click.pass_context
+@add_client('elasticsearch', 'kibana', add_to_ctx=True)
+def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_counts, hide_errors,
+                elasticsearch_client: Elasticsearch = None, kibana_client: Kibana = None):
+    """Survey rule counts."""
+    import kql
+    from eql.table import Table
+    from kibana.resources import Signal
+    from . import rule_loader
+    from .main import search_rules
+
+    survey_results = []
+    start_time, end_time = date_range
+
+    if query:
+        rule_paths = [r['file'] for r in ctx.invoke(search_rules, query=query, verbose=False)]
+        rules = rule_loader.load_rules(rule_loader.load_rule_files(paths=rule_paths, verbose=False), verbose=False)
+        rules = rules.values()
+    else:
+        rules = rule_loader.load_rules(verbose=False).values()
+
+    click.echo(f'Running survey against {len(rules)} rules')
+    click.echo(f'Saving detailed dump to: {dump_file}')
+    details = get_detailed_search_results(elasticsearch_client, rules, start_time, end_time)
+
+    # add alerts
+    with kibana_client:
+        range_dsl = {'query': {'bool': {'filter': []}}}
+        add_range_to_dsl(range_dsl['query']['bool']['filter'], start_time, end_time)
+        alerts = {a['_source']['signal']['rule']['rule_id']: a['_source']
+                  for a in Signal.search(range_dsl)['hits']['hits']}
+
+    for rule in rules:
+        rule_results = {'rule_id': rule.id, 'name': rule.name}
+        if not rule.contents.get('query'):
+            continue
+
+        index = ','.join(rule.contents['index'])
+        language = rule.contents.get('language')
+        is_kql = language == 'kuery'
+        is_lucene = language == 'lucene'
+        is_eql = language == 'eql'
+
+        # dsl filter for date ranges for lucene and eql (kql is already dsl and so will mutate filter)
+        range_dsl = {'query': {'bool': {'filter': []}}}
+        add_range_to_dsl(range_dsl['query']['bool']['filter'], start_time, end_time)
+
+        try:
+            if is_kql:
+                kql_query = kql.to_dsl(rule.query)
+                add_range_to_dsl(kql_query['bool'].setdefault('filter', []), start_time, end_time)
+                result = elasticsearch_client.count({'query': kql_query}, index=index)
+                rule_results['search_count'] = result['count']
+            elif is_lucene:
+                result = elasticsearch_client.count(body=range_dsl, q=rule.query, index=index)
+                rule_results['search_count'] = result['count']
+            elif is_eql:
+                # EQL API has no count endpoint, so just count results
+                rule_results['search_count'] = len(details[rule.id].get('results', []))
+        except elasticsearch.NotFoundError as e:
+            if e.error == 'index_not_found_exception':
+                rule_results['search_count'] = -1
+            else:
+                raise
+        except (elasticsearch.NotFoundError, elasticsearch.RequestError):
+            rule_results['search_count'] = -1
+
+        alert_count = len(alerts.get(rule.id, []))
+        if alert_count > 0:
+            rule_results['alert_count'] = alert_count
+
+        details[rule.id].update(rule_results)
+
+        search_count = rule_results['search_count']
+        if not alert_count and (hide_zero_counts and search_count == 0) or (hide_errors and search_count == -1):
+            continue
+
+        survey_results.append(rule_results)
+
+    fields = ['rule_id', 'name', 'search_count', 'alert_count']
+    table = Table.from_list(fields, survey_results)
+
+    if len(survey_results) > 200:
+        click.echo_via_pager(table)
+    else:
+        click.echo(table)
+
+    if dump_file:
+        os.makedirs(get_path('surveys'), exist_ok=True)
+        with open(dump_file, 'w') as f:
+            json.dump(details, f, indent=2, sort_keys=True)
+
+    return survey_results
+
+
+def get_detailed_search_results(client: Elasticsearch, rules, start_time, end_time, max_results=1000):
+    """Get detailed search results for rules."""
+    import kql
+    from .misc import nested_get
+
+    async_client = AsyncSearchClient(client)
+    survey_results = {}
+
+    def parse_unique_field_results(rule_type, unique_fields, search_results):
+        parsed_results = defaultdict(lambda: defaultdict(int))
+        hits = search_results['hits']['hits'] if rule_type != 'eql' else search_results.events
+        for hit in hits:
+            for field in unique_fields:
+                match = nested_get(hit['_source'], field)
+                match = ','.join(sorted(match)) if isinstance(match, list) else match
+                parsed_results[field][match] += 1
+        # if rule.type == eql, structure is different
+        return {'results': parsed_results} if parsed_results else {}
+
+    multi_search = []
+    multi_search_rules = []
+    async_searches = {}
+    eql_searches = {}
+
+    for rule in rules:
+        if not rule.contents.get('query'):
+            continue
+
+        index = ','.join(rule.contents['index'])
+
+        # dsl filter for date ranges for lucene and eql (kql is already dsl and so will mutate filter)
+        range_dsl = {'query': {'bool': {'filter': []}}}
+        add_range_to_dsl(range_dsl['query']['bool']['filter'], start_time, end_time)
+
+        # prep for searches: msearch for kql | async search for lucene | eql client search for eql
+        if rule.contents['language'] == 'kuery':
+            multi_search_rules.append(rule)
+            multi_search.append(json.dumps({'index': index}))
+            kql_query = kql.to_dsl(rule.query)
+            add_range_to_dsl(kql_query['bool'].setdefault('filter', []), start_time, end_time)
+            body = {'query': kql_query, 'size': max_results, 'track_total_hits': True}
+            multi_search.append(json.dumps(body))
+        elif rule.contents['language'] == 'lucene':
+            # wait for 0 to try and force async with no immediate results (not guaranteed)
+            result = async_client.submit(body=range_dsl, q=rule.query, index=index, wait_for_completion_timeout=0,
+                                         size=max_results, track_total_hits=True)
+            if result['is_running'] is True:
+                async_searches[rule] = result['id']
+            else:
+                survey_results[rule.id] = parse_unique_field_results(rule.type, rule.unique_fields, result['response'])
+        elif rule.contents['language'] == 'eql':
+            eql_body = {
+                'index': index,
+                'params': {'ignore_unavailable': 'true'},
+                'body': {'query': rule.query, 'size': max_results, 'filter': range_dsl['query']}
+            }
+            eql_searches[rule] = eql_body
+
+    # assemble search results
+    multi_search_results = client.msearch('\n'.join(multi_search) + '\n')
+    for index, result in enumerate(multi_search_results['responses']):
+        try:
+            rule = multi_search_rules[index]
+            survey_results[rule.id] = parse_unique_field_results(rule.type, rule.unique_fields, result)
+        except KeyError:
+            survey_results[multi_search_rules[index].id] = {'error_retrieving_results': True}
+
+    for rule, search_args in eql_searches.items():
+        try:
+            result = client.eql.search(**search_args)
+            survey_results[rule.id] = parse_unique_field_results(rule.type, rule.unique_fields, result)
+        except (elasticsearch.NotFoundError, elasticsearch.RequestError) as e:
+            if e.error in ('index_not_found_exception', 'verification_exception'):
+                survey_results[rule.id] = {'error_retrieving_results': True, 'error': e.info['error']['reason']}
+            else:
+                raise
+
+    for rule, async_id in async_searches.items():
+        result = async_client.get(async_id)['response']
+        survey_results[rule.id] = parse_unique_field_results(rule.type, rule.unique_fields, result)
+
+    return survey_results

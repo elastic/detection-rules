@@ -8,11 +8,12 @@ import os
 import re
 import time
 import uuid
+from functools import wraps
 
 import click
 import requests
 
-from .utils import cached, get_path
+from .utils import add_params, cached, get_path
 
 _CONFIG = {}
 
@@ -246,3 +247,68 @@ def getdefault(name):
     envvar = f"DR_{name.upper()}"
     config = parse_config()
     return lambda: os.environ.get(envvar, config.get(name))
+
+
+client_options = {
+    'kibana': {
+        'kibana_url': click.Option(['--kibana-url'], default=getdefault('kibana_url')),
+        'cloud_id': click.Option(['--cloud-id'], default=getdefault('cloud_id')),
+        'kibana_user': click.Option(['--kibana-user', '-ku'], default=getdefault('kibana_user')),
+        'kibana_password': click.Option(['--kibana-password', '-kp'], default=getdefault('kibana_password')),
+        'space': click.Option(['--space'], default=None, help='Kibana space')
+    },
+    'elasticsearch': {
+        'elasticsearch_url': click.Option(['--elasticsearch-url'], default=getdefault("elasticsearch_url")),
+        'cloud_id': click.Option(['--cloud-id'], default=getdefault("cloud_id")),
+        'es_user': click.Option(['--es-user', '-eu'], default=getdefault("es_user")),
+        'es_password': click.Option(['--es-password', '-ep'], default=getdefault("es_password")),
+        'timeout': click.Option(['--timeout', '-et'], default=60, help='Timeout for elasticsearch client')
+    }
+}
+kibana_options = list(client_options['kibana'].values())
+elasticsearch_options = list(client_options['elasticsearch'].values())
+
+
+def add_client(*client_type, add_to_ctx=True):
+    """Wrapper to add authed client."""
+    from .eswrap import get_authed_es_client
+    from .kbwrap import get_authed_kibana_client
+
+    def _wrapper(func):
+        client_ops_dict = {}
+        client_ops_keys = {}
+        for c_type in client_type:
+            ops = client_options.get(c_type)
+            client_ops_dict.update(ops)
+            client_ops_keys[c_type] = list(ops)
+
+        if not client_ops_dict:
+            raise ValueError(f'Unknown client: {client_type} in {func.__name__}')
+
+        client_ops = list(client_ops_dict.values())
+
+        @wraps(func)
+        @add_params(*client_ops)
+        def _wrapped(*args, **kwargs):
+            ctx: click.Context = next((a for a in args if isinstance(a, click.Context)), None)
+            es_client_args = {k: kwargs.pop(k) for k in client_ops_keys.get('elasticsearch', [])}
+            #                                      shared args like cloud_id
+            kibana_client_args = {k: kwargs.pop(k, es_client_args.get(k)) for k in client_ops_keys.get('kibana', [])}
+
+            if 'elasticsearch' in client_type:
+                elasticsearch_client = get_authed_es_client(use_ssl=True, **es_client_args)
+                kwargs['elasticsearch_client'] = elasticsearch_client
+                if ctx and add_to_ctx:
+                    ctx.obj['es'] = elasticsearch_client
+
+            if 'kibana' in client_type:
+                kibana_client = get_authed_kibana_client(kibana_client_args)
+                kwargs['kibana_client'] = kibana_client
+                if ctx and add_to_ctx:
+                    ctx.obj['kibana'] = kibana_client
+
+            return func(*args, **kwargs)
+
+        return _wrapped
+
+    return _wrapper
