@@ -10,13 +10,11 @@ import time
 import click
 import elasticsearch
 from elasticsearch import Elasticsearch
-from eql.utils import load_dump
 
 
 from .main import root
 from .misc import add_params, client_error, elasticsearch_options
 from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
-from .rule import Rule
 from .rule_loader import get_rule, rta_mappings
 
 COLLECTION_DIR = get_path('collections')
@@ -237,69 +235,3 @@ def collect_events(ctx, agent_hostname, index, agent_type, rta_name, rule_id, vi
     except AssertionError as e:
         error_msg = 'No events collected! Verify events are streaming and that the agent-hostname is correct'
         client_error(error_msg, e, ctx=ctx)
-
-
-@es_group.command('event-search')
-@click.argument('query')
-@click.option('--index', '-i', multiple=True, required=True, help='Index(es) to search against ("*": for all indexes)')
-@click.option('--eql/--lucene', '-e/-l', 'language', default=None, help='Query language used (default: kql)')
-@click.option('--count', '-c', is_flag=True, help='Return count of results only')
-@click.option('--verbose', '-v', is_flag=True)
-@click.pass_context
-def event_search(ctx: click.Context, query, index, language, count, verbose):
-    """Search using a query against an Elasticsearch instance."""
-    import kql
-
-    client = ctx.obj['es']
-
-    language_used = "kql" if language is None else "eql" if language is True else "lucene"
-
-    index_str = ','.join(index)
-    formatted_query = {'query': kql.to_dsl(query)} if language_used == 'kql' else \
-        {'query': query} if language_used == 'eql' else None
-
-    if verbose:
-        click.echo(f'{language_used}: {formatted_query or query}')
-
-    if count:
-        count = client.count(body=formatted_query, index=index_str)
-        click.echo(f'Total results: {count["count"]}')
-        return count
-    else:
-        if language_used != 'eql':
-            results = client.search(body=formatted_query, q=query if language_used == 'lucene' else None,
-                                    index=index_str)
-        else:
-            results = client.eql.search(body=formatted_query, index=index_str)
-
-        click.echo_via_pager(json.dumps(results['hits']['events'], indent=2, sort_keys=True))
-        return results
-
-
-@es_group.command('rule-event-search')
-@click.argument('rule-file', type=click.Path(dir_okay=False), required=False)
-@click.option('--rule-id', '-id')
-@click.option('--count', '-c', is_flag=True, help='Return count of results only')
-@click.option('--verbose', '-v', is_flag=True)
-@click.pass_context
-def rule_event_search(ctx, rule_file, rule_id, count, verbose):
-    """Search using a rule file against an Elasticsearch instance."""
-    rule = None
-
-    if rule_id:
-        rule = get_rule(rule_id, verbose=False)
-    elif rule_file:
-        rule = Rule(rule_file, load_dump(rule_file))
-    else:
-        client_error('Must specify a rule file or rule ID')
-
-    if rule.contents.get('query') and rule.contents.get('language'):
-        if verbose:
-            click.echo(f'Searching rule: {rule.name}')
-
-        rule_lang = rule.contents.get('language')
-        language = None if rule_lang == 'kuery' else True if rule_lang == 'eql' else "lucene"
-        ctx.invoke(event_search, query=rule.query, index=rule.contents.get('index', "*"), language=language,
-                   count=count, verbose=verbose)
-    else:
-        client_error('Rule is not a query rule!')
