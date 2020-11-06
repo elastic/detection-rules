@@ -1,15 +1,15 @@
 [metadata]
-creation_date = "2020/05/21"
+creation_date = "2020/11/06"
 ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2020/11/06"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects attempts to modify an Okta network zone. Okta network zones can be configured to limit or restrict access to a
-network based on IP addresses or geolocations. An adversary may attempt to modify, delete, or deactivate an Okta network
-zone in order to remove or weaken an organization's security controls.
+Detects attempts to deactivate an Okta network zone. Okta network zones can be configured to limit or restrict access to
+a network based on IP addresses or geolocations. An adversary may attempt to modify, delete, or deactivate an Okta
+network zone in order to remove or weaken an organization's security controls.
 """
 false_positives = [
     """
@@ -20,7 +20,7 @@ false_positives = [
 index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License"
-name = "Attempt to Modify an Okta Network Zone"
+name = "Attempt to Deactivate an Okta Network Zone"
 note = "The Okta Fleet integration or Filebeat module must be enabled to use this rule."
 references = [
     "https://help.okta.com/en/prod/Content/Topics/Security/network/network-zones.htm",
@@ -28,12 +28,12 @@ references = [
     "https://developer.okta.com/docs/reference/api/event-types/",
 ]
 risk_score = 47
-rule_id = "e48236ca-b67a-4b4e-840c-fdc7782bc0c3"
+rule_id = "8a5c1e5f-ad63-481e-b53a-ef959230f7f1"
 severity = "medium"
 tags = ["Elastic", "Identity", "Okta", "Continuous Monitoring", "SecOps", "Network Security"]
 type = "query"
 
 query = '''
-event.dataset:okta.system and event.action:(zone.update or network_zone.rule.disabled or zone.remove_blacklist)
+event.dataset:okta.system and event.action:zone.deactivate
 '''
 
