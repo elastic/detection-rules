@@ -13,9 +13,6 @@ from .rule_loader import load_rule_files, load_rules
 from .utils import format_command_options
 
 
-MATCH_ALL = {'bool': {'filter': [{'match_all': {}}]}}
-
-
 def get_authed_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, **kwargs):
     """Get an authenticated Kibana client."""
     if not (cloud_id or kibana_url):
@@ -87,7 +84,7 @@ def upload_rule(ctx, toml_files):
 def search_alerts(ctx, query, date_range):
     """Search detection engine alerts with KQL."""
     from eql.table import Table
-    from .eswrap import add_range_to_dsl
+    from .eswrap import MATCH_ALL, add_range_to_dsl
 
     kibana = ctx.obj['kibana']
     start_time, end_time = date_range
