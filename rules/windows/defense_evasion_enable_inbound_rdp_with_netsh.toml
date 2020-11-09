@@ -6,7 +6,7 @@ updated_date = "2020/10/13"
 
 [rule]
 author = ["Elastic"]
-description = "Identifies use of the netsh.exe to enable inbound RDP in the Windows Local Firewall."
+description = "Identifies use of the netsh.exe utilty to enable inbound RDP in the Windows Local Firewall."
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
 language = "eql"
@@ -21,7 +21,7 @@ type = "eql"
 query = '''
 process where event.type in ("start", "process_started") and
   (process.name == "netsh.exe" or process.pe.original_file_name == "netsh.exe") and
-  wildcard(process.args,"localport=3389","remotedesktop*","*TermService*") and process.args == "action=allow" and process.args == "advfirewall"
+  wildcard(process.args,"localport=3389","remotedesktop") and process.args == "action=allow"
 '''
 
 
