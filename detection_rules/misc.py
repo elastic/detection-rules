@@ -274,8 +274,8 @@ def add_client(*client_type, add_to_ctx=True):
     """Wrapper to add authed client."""
     from elasticsearch import Elasticsearch, ElasticsearchException
     from kibana import Kibana
-    from .eswrap import get_authed_es_client
-    from .kbwrap import get_authed_kibana_client
+    from .eswrap import get_elasticsearch_client
+    from .kbwrap import get_kibana_client
 
     def _wrapper(func):
         client_ops_dict = {}
@@ -306,9 +306,9 @@ def add_client(*client_type, add_to_ctx=True):
                             elasticsearch_client.info():
                         pass
                     else:
-                        elasticsearch_client = get_authed_es_client(use_ssl=True, **es_client_args)
+                        elasticsearch_client = get_elasticsearch_client(use_ssl=True, **es_client_args)
                 except ElasticsearchException:
-                    elasticsearch_client = get_authed_es_client(use_ssl=True, **es_client_args)
+                    elasticsearch_client = get_elasticsearch_client(use_ssl=True, **es_client_args)
 
                 kwargs['elasticsearch_client'] = elasticsearch_client
                 if ctx and add_to_ctx:
@@ -322,9 +322,9 @@ def add_client(*client_type, add_to_ctx=True):
                         if kibana_client and isinstance(kibana_client, Kibana) and kibana_client.version:
                             pass
                         else:
-                            kibana_client = get_authed_kibana_client(**kibana_client_args)
+                            kibana_client = get_kibana_client(**kibana_client_args)
                 except (requests.HTTPError, AttributeError):
-                    kibana_client = get_authed_kibana_client(**kibana_client_args)
+                    kibana_client = get_kibana_client(**kibana_client_args)
 
                 kwargs['kibana_client'] = kibana_client
                 if ctx and add_to_ctx:

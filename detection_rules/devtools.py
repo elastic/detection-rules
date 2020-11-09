@@ -215,7 +215,7 @@ def test_group():
 
 @test_group.command('event-search')
 @click.argument('query')
-@click.option('--index', '-i', multiple=True, required=True, help='Index(es) to search against ("*": for all indexes)')
+@click.option('--index', '-i', multiple=True, help='Index patterns to search against')
 @click.option('--eql/--lucene', '-e/-l', 'language', default=None, help='Query language used (default: kql)')
 @click.option('--date-range', '-d', type=(str, str), default=('now-7d', 'now'), help='Date range to scope search')
 @click.option('--count', '-c', is_flag=True, help='Return count of results only')
@@ -227,6 +227,7 @@ def event_search(query, index, language, date_range, count, max_results, verbose
                  elasticsearch_client: Elasticsearch = None):
     """Search using a query against an Elasticsearch instance."""
     start_time, end_time = date_range
+    index = index or ('*',)
     language_used = "kql" if language is None else "eql" if language is True else "lucene"
     collector = CollectEvents(elasticsearch_client, max_results)
 

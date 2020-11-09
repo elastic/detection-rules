@@ -13,7 +13,7 @@ from .rule_loader import load_rule_files, load_rules
 from .utils import format_command_options
 
 
-def get_authed_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, **kwargs):
+def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, **kwargs):
     """Get an authenticated Kibana client."""
     if not (cloud_id or kibana_url):
         client_error("Missing required --cloud-id or --kibana-url")
@@ -40,7 +40,7 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
         click.echo(format_command_options(ctx))
 
     else:
-        ctx.obj['kibana'] = get_authed_kibana_client(**kibana_kwargs)
+        ctx.obj['kibana'] = get_kibana_client(**kibana_kwargs)
 
 
 @kibana_group.command("upload-rule")

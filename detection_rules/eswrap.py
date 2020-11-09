@@ -25,7 +25,7 @@ COLLECTION_DIR = get_path('collections')
 MATCH_ALL = {'bool': {'filter': [{'match_all': {}}]}}
 
 
-def get_authed_es_client(cloud_id=None, elasticsearch_url=None, es_user=None, es_password=None, ctx=None, **kwargs):
+def get_elasticsearch_client(cloud_id=None, elasticsearch_url=None, es_user=None, es_password=None, ctx=None, **kwargs):
     """Get an authenticated elasticsearch client."""
     if not (cloud_id or elasticsearch_url):
         client_error("Missing required --cloud-id or --elasticsearch-url")
@@ -349,7 +349,7 @@ def es_group(ctx: click.Context, **kwargs):
         click.echo(format_command_options(ctx))
 
     else:
-        ctx.obj['es'] = get_authed_es_client(ctx=ctx, **kwargs)
+        ctx.obj['es'] = get_elasticsearch_client(ctx=ctx, **kwargs)
 
 
 @es_group.command('collect-events')
