@@ -62,7 +62,7 @@ class Kibana(object):
             uri = "s/{}/{}".format(self.space, uri)
         return f"{self.kibana_url}/{uri}"
 
-    def request(self, method, uri, params=None, data=None, error=True, verbose=True):
+    def request(self, method, uri, params=None, data=None, error=True, verbose=True, raw=False):
         """Perform a RESTful HTTP request with JSON responses."""
         params = params or {}
         url = self.url(uri)
@@ -83,7 +83,7 @@ class Kibana(object):
         if not response.content:
             return
 
-        return response.json()
+        return response.content if raw else response.json()
 
     def get(self, uri, params=None, data=None, error=True, **kwargs):
         """Perform an HTTP GET."""
@@ -133,7 +133,10 @@ class Kibana(object):
 
     def logout(self):
         """Quit the current session."""
-        # TODO: implement session logout
+        self.get('/logout', raw=True)
+        self.status = None
+        self.authenticated = False
+        self.session = requests.Session()
         self.elasticsearch = None
 
     def __del__(self):

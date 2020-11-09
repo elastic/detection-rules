@@ -198,7 +198,8 @@ class CollectEvents(object):
 
         def parse_unique_field_results(rule_type, unique_fields, search_results):
             parsed_results = defaultdict(lambda: defaultdict(int))
-            hits = search_results['hits']['hits'] if rule_type != 'eql' else search_results.events
+            hits = search_results['hits']
+            hits = hits['hits'] if rule_type != 'eql' else hits.get('events') or hits.get('sequences', [])
             for hit in hits:
                 for field in unique_fields:
                     match = nested_get(hit['_source'], field)
