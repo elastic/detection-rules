@@ -11,7 +11,7 @@ from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License"
-name = "Inbound RDP Enabled via Netsh"
+name = "Remote Desktop Enabled in Windows Firewall"
 risk_score = 47
 rule_id = "074464f9-f30d-4029-8c03-0ed237fffec7"
 severity = "medium"
@@ -21,7 +21,8 @@ type = "eql"
 query = '''
 process where event.type in ("start", "process_started") and
   (process.name == "netsh.exe" or process.pe.original_file_name == "netsh.exe") and
-  wildcard(process.args,"localport=3389","remotedesktop") and process.args == "action=allow"
+  wildcard(process.args,"localport=3389","RemoteDesktop", "group=\"remote desktop\"") and 
+  wildcard(process.args, "action=allow", "enable=Yes", "enable")
 '''
 
 
