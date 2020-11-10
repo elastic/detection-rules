@@ -80,8 +80,10 @@ def upload_rule(ctx, toml_files):
 @kibana_group.command('search-alerts')
 @click.argument('query', required=False)
 @click.option('--date-range', '-d', type=(str, str), default=('now-7d', 'now'), help='Date range to scope search')
+@click.option('--columns', '-c', multiple=True, help='Columns to display in table')
+@click.option('--extend', '-e', is_flag=True, help='If columns are specified, extend the original columns')
 @click.pass_context
-def search_alerts(ctx, query, date_range):
+def search_alerts(ctx, query, date_range, columns, extend):
     """Search detection engine alerts with KQL."""
     from eql.table import Table
     from .eswrap import MATCH_ALL, add_range_to_dsl
@@ -94,5 +96,9 @@ def search_alerts(ctx, query, date_range):
     with kibana:
         alerts = [a['_source'] for a in Signal.search({'query': kql_query})['hits']['hits']]
 
-    click.echo(Table.from_list(['host.hostname', 'signal.rule.name', 'signal.status', 'signal.original_time'], alerts))
+    table_columns = ['host.hostname', 'signal.rule.name', 'signal.status', 'signal.original_time']
+    if columns:
+        columns = list(columns)
+        table_columns = table_columns + columns if extend else columns
+    click.echo(Table.from_list(table_columns, alerts))
     return alerts
