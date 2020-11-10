@@ -24,12 +24,9 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started", "info") and process.name == "Clipup.exe" and 
-
-not wildcard(process.executable, "C:\\Windows\\System32\\*") and process.parent.name == "dllhost.exe" and
-
+process.executable != "C:\\Windows\\System32\\ClipUp.exe" and process.parent.name == "dllhost.exe" and
  /* CLSID of the Elevated COM Interface IEditionUpgradeManager */
-
- wildcard(process.parent.args,"*BD54C901-076B-434E-B6C7-17C531F4AB41*")
+ wildcard(process.parent.args,"/Processid:{BD54C901-076B-434E-B6C7-17C531F4AB41}")
 '''
 
 
