@@ -8,15 +8,15 @@ updated_date = "2020/10/19"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies file creation in Windows Startup folder of a Remote Desktop Client via RDP tsclient shared resources. This is a
-known technique that an adversary can use to move laterally by dropping a malicious script on RDP client Startup Folder
+Identifies suspicious file creation on a Remote Desktop Client via RDP tsclient shared resources. 
+This is a known technique that an adversary can use to move laterally by dropping a malicious script or executable on an RDP client Startup Folder or alike
 that will be executed after a reboot.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License"
-name = "Lateral Movement via Startup Folder"
+name = "Lateral Movement via TSClient Share"
 risk_score = 41
 rule_id = "bacc46fc-1385-4e7b-9cc1-444327f50269"
 severity = "medium"
@@ -25,7 +25,7 @@ type = "eql"
 
 query = '''
 file where event.type == "creation" and process.name == "mstsc.exe" and
-  wildcard(file.path,"C:\\*\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\*")
+  (wildcard(file.path,"C:\\*\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\*") or file.extension in ("exe", "dll"))
 '''
 
 
