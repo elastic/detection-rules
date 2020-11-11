@@ -137,7 +137,7 @@ Release zipped assets, name, and tag name all share the same name. These should 
 * Model releases: `ML-DGA-20\d\d[0-1]\d[0-3]\d-\d`
 * Detection releases: `ML-experimental-detections-20\d\d[0-1]\d[0-3]\d-\d`
 
-the trailing digit should be incremented for each release 
+The trailing digit should be incremented for each release 
 
 Rule and Job names should also be unique
 
@@ -170,4 +170,4 @@ A release can be done via the cli using `python -m detection-rules dev gh-releas
 * validation also occurs on this, with a prompt to proceed
 * upon completion, a manifest is saved in [etc/release_manifests](/etc/release_manifests)
 
-To test, you can fork the repo and use `--repo <you-fork` to validate a release is working as expected
+To test, you can fork the repo and use `--repo <your-fork>` to validate a release is working as expected
