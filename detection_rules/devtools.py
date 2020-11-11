@@ -4,18 +4,21 @@
 
 """CLI commands for internal detection_rules dev team."""
 import glob
+import hashlib
 import io
 import json
 import os
 import shutil
 import subprocess
+import time
+from pathlib import Path
 
 import click
 from eql import load_dump
 
 from . import rule_loader
 from .main import root
-from .misc import PYTHON_LICENSE, client_error
+from .misc import Manifest, PYTHON_LICENSE, client_error, getdefault
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
 from .rule import Rule
 from .utils import get_path
@@ -201,3 +204,223 @@ def license_check(ctx):
                 click.echo(relative_path, err=True)
 
     ctx.exit(int(failed))
+
+
+@dev_group.group('gh-release')
+def gh_release_group():
+    """Commands to manage GitHub releases."""
+
+
+@gh_release_group.command('create-ml')
+@click.argument('directory', type=click.Path(dir_okay=True, file_okay=False))
+@click.option('--gh-token', '-t', default=getdefault('gh_token'))
+@click.option('--repo', '-r', default='elastic/detection-rules', help='GitHub owner/repo')
+@click.option('--release-name', '-n', required=True, help='Name of release')
+@click.option('--description', '-d', help='Description of release to append to default message')
+@click.pass_context
+def create_ml_release(ctx, directory, gh_token, repo, release_name, description):
+    """Create a GitHub release."""
+    import re
+    import requests
+
+    pattern = r'(ML-DGA|ML-experimental-detections)-20\d\d[0-1]\d[0-3]\d-\d'
+    assert re.match(pattern, release_name), f'release name must match pattern: {pattern}'
+    assert Path(directory).name == release_name, f'directory name must match release name: {release_name}'
+
+    try:
+        from github import Github
+    except ImportError as e:
+        Github = None  # noqa: N806  # for type hinting
+        client_error('Missing PyGithub - try running `pip install -r requirements-dev.txt`', e)
+
+    gh_token = gh_token or click.prompt('GitHub token', hide_input=True)
+    client = Github(gh_token)
+    gh_repo = client.get_repo(repo)
+
+    # validate tag name is increment by 1
+    name_parts = release_name.rsplit('-')
+    name_prefix = '-'.join(name_parts[:2])
+    version = int(name_parts[-1])
+    releases = gh_repo.get_releases()
+    max_ver = max([int(r.raw_data['name'].rsplit('-', maxsplit=1)[-1]) for r in releases
+                   if r.raw_data['name'].startswith(name_prefix)], default=0)
+
+    if version != (max_ver + 1):
+        client_error(f'Last release version was {max_ver}. Release name should end with version: {max_ver + 1}')
+
+    # validate files
+    if name_prefix == 'ML-DGA':
+        zipped_bundle, description_str = ctx.invoke(validate_ml_dga_asset, directory=directory)
+    else:
+        zipped_bundle, description_str = ctx.invoke(validate_ml_detections_asset, directory=directory)
+
+    click.confirm('Validation passed, verify output. Continue?')
+
+    if description:
+        description_str = f'{description_str}\n\n----\n\n{description}'
+
+    release = gh_repo.create_git_release(name=release_name, tag=release_name, message=description_str)
+    zip_name = Path(zipped_bundle).name
+
+    # add zipped bundle as an asset to the release
+    with open(zipped_bundle, 'rb') as zipped_fo:
+        headers = {'content-type': 'application/zip'}
+        url = f'{release.upload_url[:-13]}?name={zip_name}&label={zip_name}'
+        r = requests.post(url, auth=('', gh_token), data=zipped_fo.read(), headers=headers)
+        r.raise_for_status()
+
+    # create manifest entry
+    manifest = Manifest(repo, tag_name=release_name)
+    manifest.save()
+
+    return release
+
+
+@gh_release_group.command('validate-ml-dga-asset')
+@click.argument('directory', type=click.Path(exists=True, file_okay=False))
+def validate_ml_dga_asset(directory):
+    """"Validate and prep an ML DGA bundle for release."""
+    from .eswrap import expected_ml_dga_patterns
+
+    now = time.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    files = list(Path(directory).glob('*'))
+    if len(files) > 5:
+        client_error('Too many files, expected 5')
+
+    click.secho('[*] validated expected number of files', fg='green')
+
+    # backup files - will re-save sorted to have deterministic hash
+    backup_path = Path(directory).resolve().parent.joinpath(f'backups-{Path(directory).name}-{now.replace(":", "-")}')
+    shutil.copytree(directory, backup_path)
+
+    # validate file names and json and load
+    loaded_contents = {}
+    for name, pattern in expected_ml_dga_patterns.items():
+        path = list(Path(directory).glob(pattern))
+        match_count = len(path)
+        if match_count != 1:
+            client_error(f'Expected filename pattern "{pattern}" for "{name}": {match_count} matches detected')
+
+        file_path = path[0]
+        try:
+            with open(file_path, 'r') as f:
+                contents = json.dumps(json.load(f), sort_keys=True)
+                loaded_contents[name] = {'contents': contents, 'filename': file_path}
+
+                sha256 = hashlib.sha256(contents.encode('utf-8')).hexdigest()
+                click.secho(f'     - sha256: {sha256} - {name}')
+
+            # re-save sorted
+            with open(file_path, 'w') as f:
+                f.write(contents)
+        except json.JSONDecodeError as e:
+            client_error(f'Invalid JSON in {file_path} file', e)
+
+    model_filename = Path(loaded_contents['model']['filename']).name
+    model_name, _ = model_filename.rsplit('_', maxsplit=1)
+
+    click.secho('[*] re-saved all files with keys sorted for deterministic hashing', fg='green')
+    click.secho(f'    [+] backups saved to: {backup_path}')
+    click.secho('[*] validated expected naming patterns for all files', fg='green')
+    click.secho('[*] validated json formatting of all files', fg='green')
+
+    # check manifest for existing things
+    existing_sha = False
+    existing_model_name = False
+    model_hash = hashlib.sha256(loaded_contents['model']['contents'].encode('utf-8')).hexdigest()
+    manifest_hashes = Manifest.get_existing_asset_hashes()
+    for release, file_data in manifest_hashes.items():
+        for file_name, sha in file_data.items():
+            if model_hash == sha:
+                existing_sha = True
+                click.secho(f'[!] hash for model file: "{loaded_contents["model"]["filename"]}" matches: '
+                            f'{release} -> {file_name} -> {sha}', fg='yellow')
+
+            if model_filename == file_name:
+                existing_model_name = True
+                click.secho(f'[!] name for model file: "{loaded_contents["model"]["filename"]}" matches: '
+                            f'{release} -> {file_name} -> {file_name}', fg='yellow')
+
+    if not existing_sha:
+        click.secho(f'[+] validated no existing models matched hashes for: '
+                    f'{loaded_contents["model"]["filename"]}', fg='green')
+
+    if not existing_model_name:
+        click.secho(f'[+] validated no existing models matched names for: '
+                    f'{loaded_contents["model"]["filename"]}', fg='green')
+
+    # save zip
+    zip_name_no_ext = Path(directory).resolve()
+    zip_name = f'{zip_name_no_ext}.zip'
+    shutil.make_archive(str(zip_name_no_ext), 'zip', root_dir=zip_name_no_ext.parent, base_dir=zip_name_no_ext.name)
+    click.secho(f'[+] zipped folder saved to {zip_name} for release', fg='green')
+
+    click.secho(f'[!] run `setup-dga-model -d {directory}` to test this on a live stack before releasing!', fg='yellow')
+
+    description = {
+        'model_name': model_name + '\n\n----\n\n',
+        'date': now,
+        'model_sha256': model_hash
+    }
+    description_str = '\n'.join([f'{k}: {v}' for k, v in description.items()])
+    click.echo()
+    click.echo(f'[*] description to paste with release:\n\n{description_str}\n')
+
+    return zip_name, description_str
+
+
+@gh_release_group.command('validate-ml-detections-asset')
+@click.argument('directory', type=click.Path(exists=True, file_okay=False))
+def validate_ml_detections_asset(directory):
+    """Validate and prep ML detection rules and jobs before release."""
+    import pytoml
+
+    now = time.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    job_paths = list(Path(directory).glob('*.json'))
+    rule_paths = list(Path(directory).glob('*.toml'))
+    job_count = len(job_paths)
+    rule_count = len(rule_paths)
+
+    for job in job_paths:
+        try:
+            with open(job, 'r') as f:
+                j = json.load(f)
+                assert j.get('name'), click.style(f'[!] job file "{job}" missing: name', fg='red')
+                assert j.get('type'), click.style(f'[!] job file "{job}" missing: type', fg='red')
+                assert j.get('body'), click.style(f'[!] job file "{job}" missing: body', fg='red')
+        except json.JSONDecodeError as e:
+            client_error(f'Invalid JSON in {job} file', e)
+
+    click.secho(f'[*] validated json formatting and required fields in {job_count} job files', fg='green')
+
+    for rule in rule_paths:
+        with open(rule, 'r') as f:
+            try:
+                pytoml.load(f)
+            except pytoml.TomlError as e:
+                client_error(f'[!] invalid rule toml for: {rule}', e)
+
+    click.secho(f'[*] validated toml formatting for {rule_count} rule files', fg='green')
+
+    # save zip
+    zip_name_no_ext = Path(directory).resolve()
+    zip_name = f'{zip_name_no_ext}.zip'
+    shutil.make_archive(str(zip_name_no_ext), 'zip', root_dir=zip_name_no_ext.parent, base_dir=zip_name_no_ext.name)
+    click.secho(f'[+] zipped folder saved to {zip_name} for release', fg='green')
+
+    click.secho('[!] run `kibana upload-rule` to test rules on a live stack before releasing!', fg='green')
+    click.secho('[!] run `es upload-ml-job` to test jobs on a live stack before releasing!', fg='green')
+
+    description = {
+        'Experimental ML rules': rule_count,
+        'Experimental ML jobs': str(job_count) + '\n\n----\n\n',
+        'DGA release': '<add link to DGA release these detections were built on>',
+        'date': now
+    }
+    description_str = '\n'.join([f'{k}: {v}' for k, v in description.items()])
+    click.echo()
+    click.echo(f'description to paste with release:\n\n{description_str}\n')
+
+    return zip_name, description_str

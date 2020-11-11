@@ -3,11 +3,20 @@
 # you may not use this file except in compliance with the Elastic License.
 
 """Misc support."""
+import hashlib
+import io
 import json
 import os
 import re
+import shutil
 import time
 import uuid
+import dataclasses
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, Tuple
+from zipfile import ZipFile
 
 import click
 import requests
@@ -29,6 +38,205 @@ JS_LICENSE = """
 {}
  */
 """.strip().format("\n".join(' * ' + line for line in LICENSE_LINES))
+
+
+def read_gh_asset(url) -> Tuple[str, dict]:
+    """Download and unzip a GitHub asset."""
+    response = requests.get(url)
+    zipped_asset = ZipFile(io.BytesIO(response.content))
+    zipped_sha256 = hashlib.sha256(response.content).hexdigest()
+
+    assets = {}
+    for zipped in zipped_asset.filelist:
+        if zipped.is_dir():
+            continue
+
+        contents = zipped_asset.read(zipped.filename)
+        sha256 = hashlib.sha256(contents).hexdigest()
+
+        assets[zipped.filename] = {
+            'contents': contents,
+            'metadata': {
+                'compress_size': zipped.compress_size,
+                'created_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', zipped.date_time + (0, 0, -1)),
+                'sha256': sha256,
+                'size': zipped.file_size,
+            }
+        }
+
+    return zipped_sha256, assets
+
+
+def download_gh_asset(url, path, overwrite=False):
+    """Download and unzip a GitHub asset."""
+    zipped = requests.get(url)
+    z = ZipFile(io.BytesIO(zipped.content))
+
+    Path(path).mkdir(exist_ok=True)
+    if overwrite:
+        shutil.rmtree(path, ignore_errors=True)
+
+    z.extractall(path)
+    click.echo(f'files saved to {path}')
+
+    z.close()
+
+
+@dataclass
+class AssetManifestEntry:
+
+    compress_size: int
+    created_at: datetime
+    name: str
+    sha256: str
+    size: int
+
+
+@dataclass
+class AssetManifestMetadata:
+
+    relative_url: str
+    entries: Dict[str, AssetManifestEntry]
+    zipped_sha256: str
+    created_at: datetime = datetime.utcnow()
+    description: str = None  # label
+
+
+@dataclass
+class ReleaseMetadata:
+
+    assets: Dict[str, AssetManifestMetadata]
+    assets_url: str
+    author: str  # author[login]
+    created_at: str
+    html_url: str
+    id: int
+    name: str
+    published_at: str
+    url: str
+    zipball_url: str
+    tag_name: str = None
+    description: str = None  # body
+
+
+class Manifest:
+    """Manifest handler for GitHub releases."""
+
+    manifest_directory: Path = Path(__file__).resolve().parent.parent.joinpath('etc', 'release_manifests')
+
+    def __init__(self, repo='elastic/detection-rules', release_name=None, tag_name=None):
+        assets, release_meta = self._get_assets_from_release(repo, release_name, tag_name)
+        self.assets: dict = assets
+        self.release_meta: dict = release_meta
+        self.release_manifest = self._create()
+
+    def _create(self):
+        """Create the manifest from GitHub asset metadata and file contents."""
+        assets = {}
+        for asset_name, asset_data in self.assets.items():
+            entries = {}
+            data = asset_data['data']
+            metadata = asset_data['metadata']
+
+            for file_name, file_data in data.items():
+                file_metadata = file_data['metadata']
+
+                name = Path(file_name).name
+                file_metadata.update(name=name)
+
+                entry = AssetManifestEntry(**file_metadata)
+                entries[name] = entry
+
+            assets[asset_name] = AssetManifestMetadata(metadata['browser_download_url'], entries,
+                                                       metadata['zipped_sha256'], metadata['created_at'],
+                                                       metadata['label'])
+
+        release_metadata = self._parse_release_metadata()
+        release_metadata.update(assets=assets)
+        release_manifest = ReleaseMetadata(**release_metadata)
+
+        return release_manifest
+
+    def _parse_release_metadata(self):
+        """Parse relevant info from GitHub metadata for release manifest."""
+        ignore = ['assets']
+        manual_set_keys = ['author', 'description']
+        keys = [f for f in list(ReleaseMetadata.__annotations__) if str(f) not in ignore + manual_set_keys]
+        parsed = {k: self.release_meta[k] for k in keys}
+        parsed.update(description=self.release_meta['body'], author=self.release_meta['author']['login'])
+        return parsed
+
+    def save(self):
+        """Save manifest files."""
+        path = self.manifest_directory.joinpath(f'{self.release_manifest.name}.json')
+        with open(path, 'w') as f:
+            json.dump(dataclasses.asdict(self.release_manifest), f, indent=2, sort_keys=True)
+            click.echo(f'Manifest saved to: {path}')
+
+    @classmethod
+    def load(cls, name: str) -> dict:
+        """Load a manifest entry."""
+        name = f'{name}.json' if not name.endswith('.json') else name
+        path = cls.manifest_directory.joinpath(name)
+        with open(path, 'r') as f:
+            return json.load(f)
+
+    @classmethod
+    def load_all(cls) -> dict:
+        """Load a consolidated manifest."""
+        consolidated = {}
+        paths = cls.manifest_directory.glob('*.json')
+        for path in paths:
+            with open(path, 'r') as f:
+                consolidated[Path(path).name] = json.load(f)
+
+        return consolidated
+
+    @classmethod
+    def get_existing_asset_hashes(cls) -> dict:
+        """Load all assets with their hashes, by release."""
+        flat = {}
+        consolidated = cls.load_all()
+        for release, data in consolidated.items():
+            for asset in data['assets'].values():
+                for asset_name, asset_data in asset['entries'].items():
+                    flat.setdefault(release, {})[asset_name] = asset_data['sha256']
+
+        return flat
+
+    @staticmethod
+    def _get_assets_from_release(repo='elastic/detection-rules', release_name=None, tag_name=None):
+        """Get assets and metadata from a GitHub release."""
+        assert release_name or tag_name, 'Must specify a release_name or tag_name'
+
+        base_url = f'https://api.github.com/repos/{repo}'
+
+        if tag_name:
+            release_url = f'{base_url}/releases/tags/{tag_name}'
+            response = requests.get(release_url)
+        else:
+            release_url = f'{base_url}/releases'
+            response = requests.get(release_url)
+
+        response.raise_for_status()
+        response = response.json()
+        release_meta = response if isinstance(response, dict) else next((r for r in response
+                                                                        if r['name'] == release_name), None)
+
+        if not release_meta:
+            raise ValueError(f'Unknown release: {release_name}')
+
+        assets = {}
+        for asset in release_meta['assets']:
+            zipped_sha256, data = read_gh_asset(asset['browser_download_url'])
+            asset.update(zipped_sha256=zipped_sha256)
+
+            assets[asset['name']] = {
+                'metadata': asset,
+                'data': data
+            }
+
+        return assets, release_meta
 
 
 class ClientError(click.ClickException):

@@ -295,6 +295,15 @@ def remove_dga_model(ctx, model_id, force, es_client: Elasticsearch = None, ml_c
         click.echo(f'Model: {model_id} not found')
 
 
+expected_ml_dga_patterns = {
+    'model':                                'dga_*_model.json',  # noqa: E241
+    'dga_ngrams_create':                    'dga_*_ngrams_create.json',  # noqa: E241
+    'dga_ngrams_transform_delete':          'dga_*_ngrams_transform_delete.json',  # noqa: E241
+    'dns_enrich_pipeline':                  'dga_*_ingest_pipeline1.json',  # noqa: E241
+    'dns_dga_inference_enrich_pipeline':    'dga_*_ingest_pipeline2.json'  # noqa: E241
+}
+
+
 @es_experimental.command('setup-dga-model')
 @click.option('--model-tag', '-t',
               help='Release tag for model files staged in detection-rules (required to download files)')
@@ -353,7 +362,8 @@ def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
         return paths[0]
 
     @contextmanager
-    def open_model_file(pattern):
+    def open_model_file(name):
+        pattern = expected_ml_dga_patterns[name]
         with open(get_model_filename(pattern), 'r') as f:
             yield json.load(f)
 
@@ -375,7 +385,7 @@ def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
 
     click.secho('[+] Uploading model (may take a while)')
 
-    with open_model_file('dga_*_model.json') as model_file:
+    with open_model_file('model') as model_file:
         try:
             ml_client.put_trained_model(model_id=model_id, body=model_file)
         except elasticsearch.ConnectionTimeout:
@@ -385,11 +395,11 @@ def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
     # install scripts
     click.secho('[+] Uploading painless scripts')
 
-    with open_model_file('dga_*_ngrams_create.json') as painless_install:
+    with open_model_file('dga_ngrams_create') as painless_install:
         es_client.put_script(id='dga_ngrams_create', body=painless_install)
         # f'{model_id}_dga_ngrams_create'
 
-    with open_model_file('dga_*_ngrams_transform_delete.json') as painless_delete:
+    with open_model_file('dga_ngrams_transform_delete') as painless_delete:
         es_client.put_script(id='dga_ngrams_transform_delete', body=painless_delete)
         # f'{model_id}_dga_ngrams_transform_delete'
 
@@ -408,7 +418,7 @@ def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
 
         return click.style('\n'.join(error_msg), fg='red')
 
-    with open_model_file('dga_*_ingest_pipeline1.json') as ingest_pipeline1:
+    with open_model_file('dns_enrich_pipeline') as ingest_pipeline1:
         try:
             ingest_client.put_pipeline(id='dns_enrich_pipeline', body=ingest_pipeline1)
         except elasticsearch.RequestError as e:
@@ -417,7 +427,7 @@ def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
             else:
                 raise
 
-    with open_model_file('dga_*_ingest_pipeline2.json') as ingest_pipeline2:
+    with open_model_file('dns_dga_inference_enrich_pipeline') as ingest_pipeline2:
         # try:
         #     processors = ingest_pipeline2['processors']
         #     inference_processor = next(p for p in processors if 'inference' in p)
