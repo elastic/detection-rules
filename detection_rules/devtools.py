@@ -282,7 +282,7 @@ def validate_ml_dga_asset(directory):
     """"Validate and prep an ML DGA bundle for release."""
     from .eswrap import expected_ml_dga_patterns
 
-    now = time.strftime('%Y-%m-%dT%H:%M:%SZ')
+    now = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
 
     files = list(Path(directory).glob('*'))
     if len(files) > 5:
@@ -376,7 +376,7 @@ def validate_ml_detections_asset(directory):
     """Validate and prep ML detection rules and jobs before release."""
     import pytoml
 
-    now = time.strftime('%Y-%m-%dT%H:%M:%SZ')
+    now = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
 
     job_paths = list(Path(directory).glob('*.json'))
     rule_paths = list(Path(directory).glob('*.toml'))
