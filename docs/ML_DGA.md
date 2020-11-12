@@ -134,8 +134,8 @@ The model file name and hash should be unique or else it will raise a warning in
 distinction and ascertain information about a bundle by consulting the manifest, based on a unique name
 
 Release zipped assets, name, and tag name all share the same name. These should follow the following format:
-* Model releases: `ML-DGA-20\d\d[0-1]\d[0-3]\d-\d`
-* Detection releases: `ML-experimental-detections-20\d\d[0-1]\d[0-3]\d-\d`
+* Model releases: `ML-DGA-YYYYMMDD-1`
+* Detection releases: `ML-experimental-detections-YYYYMMDD-1`
 
 The trailing digit should be incremented for each release 
 

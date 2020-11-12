@@ -12,7 +12,7 @@ import shutil
 import time
 import uuid
 import dataclasses
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Tuple
@@ -58,6 +58,7 @@ def read_gh_asset(url) -> Tuple[str, dict]:
             'contents': contents,
             'metadata': {
                 'compress_size': zipped.compress_size,
+                # zipfile provides only a 6 tuple datetime; -1 means DST is unknown;  0's set tm_wday and tm_yday
                 'created_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', zipped.date_time + (0, 0, -1)),
                 'sha256': sha256,
                 'size': zipped.file_size,
@@ -98,7 +99,7 @@ class AssetManifestMetadata:
     relative_url: str
     entries: Dict[str, AssetManifestEntry]
     zipped_sha256: str
-    created_at: datetime = datetime.utcnow()
+    created_at: datetime = field(default_factory=datetime.utcnow)
     description: str = None  # label
 
 

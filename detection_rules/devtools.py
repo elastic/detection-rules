@@ -223,7 +223,8 @@ def create_ml_release(ctx, directory, gh_token, repo, release_name, description)
     import re
     import requests
 
-    pattern = r'(ML-DGA|ML-experimental-detections)-20\d\d[0-1]\d[0-3]\d-\d'
+    # ML-DGA-20201129-25
+    pattern = r'^(ML-DGA|ML-experimental-detections)-20\d\d[0-1]\d[0-3]\d-\d+$'
     assert re.match(pattern, release_name), f'release name must match pattern: {pattern}'
     assert Path(directory).name == release_name, f'directory name must match release name: {release_name}'
 
@@ -242,7 +243,7 @@ def create_ml_release(ctx, directory, gh_token, repo, release_name, description)
     name_prefix = '-'.join(name_parts[:2])
     version = int(name_parts[-1])
     releases = gh_repo.get_releases()
-    max_ver = max([int(r.raw_data['name'].rsplit('-', maxsplit=1)[-1]) for r in releases
+    max_ver = max([int(r.raw_data['name'].split('-')[-1]) for r in releases
                    if r.raw_data['name'].startswith(name_prefix)], default=0)
 
     if version != (max_ver + 1):
@@ -265,7 +266,8 @@ def create_ml_release(ctx, directory, gh_token, repo, release_name, description)
     # add zipped bundle as an asset to the release
     with open(zipped_bundle, 'rb') as zipped_fo:
         headers = {'content-type': 'application/zip'}
-        url = f'{release.upload_url[:-13]}?name={zip_name}&label={zip_name}'
+        suffix = '{?name,label}'
+        url = release.upload_url.replace(suffix, f'?name={zip_name}&label={zip_name}')
         r = requests.post(url, auth=('', gh_token), data=zipped_fo.read(), headers=headers)
         r.raise_for_status()
 
