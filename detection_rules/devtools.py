@@ -273,7 +273,12 @@ def rule_event_search(ctx, rule_file, rule_id, date_range, count, max_results, v
             click.echo(f'Searching rule: {rule.name}')
 
         rule_lang = rule.contents.get('language')
-        language = None if rule_lang == 'kuery' else True if rule_lang == 'eql' else "lucene"
+        if rule_lang == 'kuery':
+            language = None
+        elif rule_lang == 'eql':
+            language = True
+        else:
+            language = False
         ctx.invoke(event_search, query=rule.query, index=rule.contents.get('index', '*'), language=language,
                    date_range=date_range, count=count, max_results=max_results, verbose=verbose,
                    elasticsearch_client=elasticsearch_client)
