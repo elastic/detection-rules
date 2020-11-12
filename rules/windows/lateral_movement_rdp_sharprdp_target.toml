@@ -40,9 +40,9 @@ sequence by host.id with maxspan=1m
    wildcard(registry.data.strings, "cmd.exe*", "powershell.exe*", "taskmgr*", "\\\\tsclient\\*.exe\\*")
   ]
   
-  [process where event.type in ("start", "process_started") and 
-   (process.parent.name in ("cmd.exe","powershell.exe","taskmgr.exe") and process.name != "conhost.exe") or 
-    wildcard(process.args, "\\\\tsclient\\*.exe")
+  [process where event.type in ("start", "process_started") and process.name != "conhost.exe" and
+   (process.parent.name in ("cmd.exe","powershell.exe","taskmgr.exe") or
+   wildcard(process.args, "\\\\tsclient\\*.exe"))
    ]
 '''
 
