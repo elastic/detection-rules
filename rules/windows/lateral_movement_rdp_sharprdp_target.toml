@@ -29,21 +29,21 @@ type = "eql"
 query = '''
 /* Incoming RDP followed by RunMRU new string value set to cmd, powershell, taskmgr or tsclient followed by process execution within 1m */
 
-sequence with maxspan=1m
+sequence by host.id with maxspan=1m
   [network where event.type == "start" and process.name == "svchost.exe" and destination.port == 3389 and 
   event.action == "connection_accepted" and network.direction == "incoming" and network.transport == "tcp" and
   not source.address in ("127.0.0.1", "::1")
-  ] by host.id
-  
+  ]
+
   [registry where process.name == "explorer.exe" and 
    wildcard(registry.path, "HKEY_USERS\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU\\*") and
    wildcard(registry.data.strings, "cmd.exe*", "powershell.exe*", "taskmgr*", "\\\\tsclient\\*.exe\\*")
-  ] by host.id
+  ]
   
   [process where event.type in ("start", "process_started") and 
    (process.parent.name in ("cmd.exe","powershell.exe","taskmgr.exe") and process.name != "conhost.exe") or 
     wildcard(process.args, "\\\\tsclient\\*.exe")
-   ] by host.id
+   ]
 '''
 
 
