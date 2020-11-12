@@ -162,7 +162,9 @@ live stack should always occur even with passing validation before saving to a G
 
 #### Releasing
 
-A release can be done via the cli using `python -m detection-rules dev gh-release create-ml`
+Install dependencies with `pip install -r requirements-dev.txt`
+
+A release can be created via the cli using `python -m detection-rules dev gh-release create-ml`
 
 * you can only use a github token
 * the base directory name and release name must match
