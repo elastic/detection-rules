@@ -26,7 +26,7 @@ type = "eql"
 query = '''
 sequence with maxspan=1m
  [network where event.type == "start" and process.name=="mmc.exe" and event.action == "connection_accepted" and
-  source.port>=49152 and destination.port>=49152 and
+  source.port>=49152 and destination.port>=49152 and source.address != "127.0.0.1" and source.address != "::1" and
   network.direction == "incoming" and network.transport == "tcp"
  ] by process.entity_id
  [process where event.type in ("start", "process_started") and
