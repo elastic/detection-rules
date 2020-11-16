@@ -10,7 +10,7 @@ description = """
 Identifies when a terminal (tty) is spawned via Python. Attackers may upgrade a simple reverse shell to a fully
 interactive tty after obtaining initial access to a host.
 """
-index = ["auditbeat-*", "logs-endpoint.events.*"]
+index = ["auditbeat-*"]
 language = "kuery"
 license = "Elastic License"
 name = "Interactive Terminal Spawned via Python"
@@ -21,7 +21,7 @@ tags = ["Elastic", "Linux"]
 type = "query"
 
 query = '''
-event.category:process and event.type:(start or process_started) and process.name:python and
+event.category:process and event.type:start and process.name:python* and
   process.args:("import pty; pty.spawn(\"/bin/sh\")" or
                 "import pty; pty.spawn(\"/bin/dash\")" or
                 "import pty; pty.spawn(\"/bin/bash\")")
@@ -40,4 +40,3 @@ reference = "https://attack.mitre.org/techniques/T1059/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

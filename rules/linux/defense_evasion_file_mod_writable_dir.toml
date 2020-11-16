@@ -16,7 +16,7 @@ false_positives = [
     by username.
     """,
 ]
-index = ["auditbeat-*", "logs-endpoint.events.*"]
+index = ["auditbeat-*"]
 language = "kuery"
 license = "Elastic License"
 name = "File Permission Modification in Writable Directory"
@@ -27,7 +27,7 @@ tags = ["Elastic", "Linux"]
 type = "query"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
+event.category:process and event.type:start and
   process.name:(chmod or chown or chattr or chgrp) and
   process.working_directory:(/tmp or /var/tmp or /dev/shm) and
   not user.name:root
@@ -46,4 +46,3 @@ reference = "https://attack.mitre.org/techniques/T1222/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
