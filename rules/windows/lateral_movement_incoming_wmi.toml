@@ -22,12 +22,12 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
 type = "eql"
 
 query = '''
-sequence by host.id with maxspan = 5s
+sequence by host.id with maxspan = 2s
 
  /* Accepted Incoming RPC connection by Winmgmt service */
 
   [network where event.action == "connection_accepted" and network.direction == "incoming" and
-   not cidrmatch(source.address, "127.0.0.1", "::1") and source.port > 49151 and
+   source.address != "127.0.0.1" and source.address != "::1" and source.port > 49151 and
    destination.port > 49151 and process.name == "svchost.exe"
   ]
 
