@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/09/02"
 ecs_version = ["1.6.0"]
-maturity = "production"
-updated_date = "2020/10/27"
+maturity = "development"
+updated_date = "2020/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -19,16 +19,17 @@ risk_score = 21
 rule_id = "2b347f66-6739-4ae3-bd94-195036dde8b3"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
-timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
 type = "eql"
 
 query = '''
+/* duplicate of Unusual Network Connection via RunDLL32 - 52aaab7b-b51c-441a-89ce-4387b3aea886 */
+
 sequence by process.entity_id with maxspan=2h
   [process where event.type in ("start", "process_started") and
                                     /* uncomment once in winlogbeat */
      (process.name : "rundll32.exe" /* or process.pe.original_file_name == "RUNDLL32.EXE" */ ) and
      process.args_count < 2]
-  [network where event.type == "connection" and
+  [network where
                                      /* uncomment once in winlogbeat */
      (process.name : "rundll32.exe" /* or process.pe.original_file_name == "RUNDLL32.EXE" */ )]
 '''
