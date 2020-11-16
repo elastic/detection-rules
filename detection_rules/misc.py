@@ -53,7 +53,7 @@ def client_error(message, exc: Exception = None, debug=None, ctx: click.Context 
         click.echo(click.style('DEBUG: ', fg='yellow') + message, err=err, file=file)
         raise
     else:
-        raise ClientError(message, original_error=type(exc).__name__)
+        raise ClientError(message, original_error=exc and type(exc).__name__)
 
 
 def nested_get(_dict, dot_key, default=None):
