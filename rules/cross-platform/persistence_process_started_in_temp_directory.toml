@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.5.0"]
+ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/08/24"
+updated_date = "2020/11/16"
 
 [rule]
 author = ["Elastic"]
@@ -21,9 +21,24 @@ note = "Auditbeat configurations: For macOS systems, Auditbeat must be run with 
 risk_score = 47
 rule_id = "df959768-b0c9-4d45-988c-5606a2be8e5a"
 severity = "medium"
-tags = ["Elastic", "Linux", "macOS"]
+tags = ["Elastic", "Linux", "macOS", "Persistence"]
 type = "query"
 
 query = '''
-event.category:process and event.type:start and process.working_directory:(/tmp or /private/tmp)
+event.category:process and event.type:start and
+(process.working_directory:/tmp or process.executable:(/private/tmp* or /private/var/tmp*))
 '''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Flow Control"
+reference = "https://attack.mitre.org/techniques/T1574/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

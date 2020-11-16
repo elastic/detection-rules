@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.5.0"]
+ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/08/03"
+updated_date = "2020/11/16"
 
 [rule]
 author = ["Elastic"]
@@ -30,10 +30,24 @@ references = [
 risk_score = 47
 rule_id = "adb961e0-cb74-42a0-af9e-29fc41f88f5f"
 severity = "medium"
-tags = ["Elastic", "Linux", "macOS"]
+tags = ["Elastic", "Linux", "macOS", "Persistence"]
 type = "query"
 
 query = '''
 event.category:process and event.type:start and
   process.name:(nc or ncat or netcat*)
 '''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1133"
+name = "External Remote Services"
+reference = "https://attack.mitre.org/techniques/T1133/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
