@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/09/02"
 ecs_version = ["1.6.0"]
-maturity = "production"
-updated_date = "2020/09/02"
+maturity = "development"
+updated_date = "2020/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -18,16 +18,20 @@ name = "Registration Tool Making Network Connections"
 risk_score = 21
 rule_id = "6d3456a5-4a42-49d1-aaf2-7b1fd475b2c6"
 severity = "medium"
-tags = ["Elastic", "Windows"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 type = "eql"
 
 query = '''
+/* duplicate of Network Connection via Registration Utility - fb02b8d3-71ee-4af1-bacd-215d23f17efa */
+
 sequence by process.entity_id
   [process where event.type in ("start", "process_started") and
-     process.name in ("regasm.exe", "regsvcs.exe", "regsvr32.exe")]
-  [network where event.type == "connection" and process.name in ("regasm.exe", "regsvcs.exe", "regsvr32.exe")]
+     (process.name : "RegAsm.exe" or process.name : "regsvcs.exe" or process.name : "regsvr32.exe")]
+  [network where
+     (process.name : "RegAsm.exe" or process.name : "regsvcs.exe" or process.name : "regsvr32.exe")]
 until
-  [process where event.type == "end" and process.name in ("regasm.exe", "regsvcs.exe", "regsvr32.exe")]
+  [process where event.type == "end" and
+     (process.name : "RegAsm.exe" or process.name : "regsvcs.exe" or process.name : "regsvr32.exe")]
 '''
 
 
@@ -43,3 +47,4 @@ reference = "https://attack.mitre.org/techniques/T1121/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

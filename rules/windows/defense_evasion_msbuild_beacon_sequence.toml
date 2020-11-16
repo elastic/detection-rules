@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/09/02"
 ecs_version = ["1.6.0"]
-maturity = "production"
-updated_date = "2020/09/02"
+maturity = "development"
+updated_date = "2020/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -18,14 +18,16 @@ name = "MsBuild Network Connection Sequence"
 risk_score = 21
 rule_id = "9dc6ed5d-62a9-4feb-a903-fafa1d33b8e9"
 severity = "medium"
-tags = ["Elastic", "Windows"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 type = "eql"
 
 query = '''
+/* duplicate of MsBuild Making Network Connections - 0e79980b-4250-4a50-a509-69294c14e84b */
+
 sequence by process.entity_id
-  [process where event.type in ("start", "process_started") and process.name == "MSBuild.exe"]
-  [network where process.name == "MSBuild.exe" and
-     not (destination.address == "127.0.0.1" and source.address == "127.0.0.1")]
+  [process where event.type in ("start", "process_started") and process.name : "MSBuild.exe"]
+  [network where process.name : "MSBuild.exe" and
+     not (destination.ip == "127.0.0.1" and source.ip == "127.0.0.1")]
 '''
 
 
@@ -41,3 +43,4 @@ reference = "https://attack.mitre.org/techniques/T1127/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
