@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/09/02"
 ecs_version = ["1.6.0"]
-maturity = "production"
-updated_date = "2020/09/02"
+maturity = "development"
+updated_date = "2020/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -18,20 +18,20 @@ name = "Unusual Network Connection Sequence via RunDLL32"
 risk_score = 21
 rule_id = "2b347f66-6739-4ae3-bd94-195036dde8b3"
 severity = "low"
-tags = ["Elastic", "Windows"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 type = "eql"
 
 query = '''
+/* duplicate of Unusual Network Connection via RunDLL32 - 52aaab7b-b51c-441a-89ce-4387b3aea886 */
+
 sequence by process.entity_id with maxspan=2h
   [process where event.type in ("start", "process_started") and
-     (process.name == "rundll32.exe" or process.pe.original_file_name == "rundll32.exe") and
-
-     /* zero arguments excluding the binary itself (and accounting for when the binary may not be logged in args) */
-     ((process.args == "rundll32.exe" and process.args_count == 1) or
-      (process.args != "rundll32.exe" and process.args_count == 0))]
-
-  [network where event.type == "connection" and
-     (process.name == "rundll32.exe" or process.pe.original_file_name == "rundll32.exe")]
+                                    /* uncomment once in winlogbeat */
+     (process.name : "rundll32.exe" /* or process.pe.original_file_name == "RUNDLL32.EXE" */ ) and
+     process.args_count < 2]
+  [network where
+                                     /* uncomment once in winlogbeat */
+     (process.name : "rundll32.exe" /* or process.pe.original_file_name == "RUNDLL32.EXE" */ )]
 '''
 
 
@@ -47,3 +47,4 @@ reference = "https://attack.mitre.org/techniques/T1085/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
