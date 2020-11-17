@@ -22,15 +22,12 @@ tags = ["Elastic", "Linux", "macOS", "Defense Evasion", "Threat Detection"]
 type = "query"
 
 query = '''
-event.category:process and event.type:(start or change) and
-  process.name:systemctl and process.args:((disable or stop or mask or preset) and ufw) or
-  (((process.name:service and process.args:stop) or
-  (process.name:chkconfig and process.args:off) or
-  (process.name:systemctl and process.args:(disable or stop or kill)))
-  and process.args:(firewalld or ip6tables or iptables of nftables)) or
-  (event.category:process and event.type:(start or change) and process.name:socketfilterfw)
-  or (event.category:process and event.type:(start or change) and process.args:(defaults
-  and write and "/Library/Preferences/com.apple.alf" and globalstate and "-int" and 0))
+event.category:process and event.type:(start or change) and (process.name:systemctl
+and process.args:((disable or stop or mask or preset) and ufw) or (((process.name:service
+and process.args:stop) or (process.name:chkconfig and process.args:off) or (process.name:systemctl
+and process.args:(disable or stop or kill))) and process.args:(firewalld or ip6tables or
+iptables of nftables)) or (process.name:socketfilterfw or (process.args:(defaults and write
+and "/Library/Preferences/com.apple.alf" and globalstate and "-int" and 0))))
 '''
 
 
