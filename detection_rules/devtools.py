@@ -279,7 +279,7 @@ def rule_event_search(ctx, rule_file, rule_id, date_range, count, max_results, v
             language = True
         else:
             language = False
-        ctx.invoke(event_search, query=rule.query, index=rule.contents.get('index', '*'), language=language,
+        ctx.invoke(event_search, query=rule.query, index=rule.contents.get('index', ['*']), language=language,
                    date_range=date_range, count=count, max_results=max_results, verbose=verbose,
                    elasticsearch_client=elasticsearch_client)
     else:
