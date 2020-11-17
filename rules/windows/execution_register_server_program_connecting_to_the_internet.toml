@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/27"
+updated_date = "2020/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -18,20 +18,23 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
 name = "Network Connection via Registration Utility"
 risk_score = 21
 rule_id = "fb02b8d3-71ee-4af1-bacd-215d23f17efa"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
-timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:network and event.type:connection and
-  process.name:(regsvr32.exe or regsvr64.exe or RegAsm.exe or RegSvcs.exe) and
-  not destination.ip:(10.0.0.0/8 or 169.254.169.254 or 172.16.0.0/12 or 192.168.0.0/16)
+sequence by process.entity_id
+  [process where (process.name : "regsvr32.exe" or process.name : "regsvr64.exe" or
+                  process.name : "RegAsm.exe" or process.name : "RegSvcs.exe") and
+     event.type == "start"]
+  [network where (process.name : "regsvr32.exe" or process.name : "regsvr64.exe" or
+                  process.name : "RegAsm.exe" or process.name : "RegSvcs.exe") and
+     not cidrmatch(destination.ip, "10.0.0.0/8", "169.254.169.254", "172.16.0.0/12", "192.168.0.0/16")]
 '''
 
 
