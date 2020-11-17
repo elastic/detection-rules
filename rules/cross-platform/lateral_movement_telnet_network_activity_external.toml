@@ -20,7 +20,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
 name = "Connection to External Network via Telnet"
 risk_score = 47
@@ -30,9 +30,11 @@ tags = ["Elastic", "macOS", "Linux", "Threat Detection", "Lateral Movement"]
 type = "query"
 
 query = '''
-event.category:network and event.type:(connection or start) and
-  process.name:telnet and
-  not destination.ip:(127.0.0.0/8 or 10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16 or "FE80::/10" or "::1/128")
+sequence by process.entity_id
+  [process where process.name == "telnet" and event.type == "start"]
+  [network where process.name == "telnet" and
+    not cidrmatch(destination.ip, "127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12",
+                                  "192.168.0.0/16", "FE80::/10", "::1/128")]
 '''
 
 
@@ -48,4 +50,3 @@ reference = "https://attack.mitre.org/techniques/T1021/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-

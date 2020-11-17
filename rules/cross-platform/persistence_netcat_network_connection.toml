@@ -20,7 +20,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
 name = "Netcat Network Activity"
 references = [
@@ -31,12 +31,16 @@ references = [
 risk_score = 47
 rule_id = "adb961e0-cb74-42a0-af9e-29fc41f88f5f"
 severity = "medium"
-tags = ["Elastic", "Linux", "macOS", "Threat Detection", "Persistence"]
-type = "query"
+tags = ["Elastic", "Host", "Linux", "macOS", "Threat Detection"]
+type = "eql"
 
 query = '''
-event.category:process and event.type:start and
-  process.name:(nc or ncat or netcat*)
+sequence by process.entity_id
+  [process where (process.name == "nc" or process.name == "ncat" or process.name == "netcat" or
+                  process.name == "netcat.openbsd" or process.name == "netcat.traditional") and
+     event.type == "start"]
+  [network where (process.name == "nc" or process.name == "ncat" or process.name == "netcat" or
+                  process.name == "netcat.openbsd" or process.name == "netcat.traditional")]
 '''
 
 
@@ -52,4 +56,3 @@ reference = "https://attack.mitre.org/techniques/T1133/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
