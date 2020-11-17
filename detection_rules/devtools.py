@@ -232,9 +232,8 @@ def create_ml_release(ctx, directory, gh_token, repo, release_name, description)
     gh_repo = client.authenticated_client.get_repo(repo)
 
     # validate tag name is increment by 1
-    name_parts = release_name.rsplit('-')
-    name_prefix = '-'.join(name_parts[:2])
-    version = int(name_parts[-1])
+    name_prefix, _, version = release_name.rsplit('-', 2)
+    version = int(version)
     releases = gh_repo.get_releases()
     max_ver = max([int(r.raw_data['name'].split('-')[-1]) for r in releases
                    if r.raw_data['name'].startswith(name_prefix)], default=0)
