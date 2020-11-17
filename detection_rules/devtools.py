@@ -18,7 +18,7 @@ from eql import load_dump
 
 from . import rule_loader
 from .main import root
-from .misc import Manifest, PYTHON_LICENSE, client_error, getdefault
+from .misc import PYTHON_LICENSE, GithubClient, Manifest, client_error, getdefault
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
 from .rule import Rule
 from .utils import get_path
@@ -221,22 +221,15 @@ def gh_release_group():
 def create_ml_release(ctx, directory, gh_token, repo, release_name, description):
     """Create a GitHub release."""
     import re
-    import requests
 
     # ML-DGA-20201129-25
     pattern = r'^(ML-DGA|ML-experimental-detections)-20\d\d[0-1]\d[0-3]\d-\d+$'
     assert re.match(pattern, release_name), f'release name must match pattern: {pattern}'
     assert Path(directory).name == release_name, f'directory name must match release name: {release_name}'
 
-    try:
-        from github import Github
-    except ImportError as e:
-        Github = None  # noqa: N806  # for type hinting
-        client_error('Missing PyGithub - try running `pip install -r requirements-dev.txt`', e)
-
     gh_token = gh_token or click.prompt('GitHub token', hide_input=True)
-    client = Github(gh_token)
-    gh_repo = client.get_repo(repo)
+    client = GithubClient(gh_token)
+    gh_repo = client.authenticated_client.get_repo(repo)
 
     # validate tag name is increment by 1
     name_parts = release_name.rsplit('-')
@@ -251,7 +244,7 @@ def create_ml_release(ctx, directory, gh_token, repo, release_name, description)
 
     # validate files
     if name_prefix == 'ML-DGA':
-        zipped_bundle, description_str = ctx.invoke(validate_ml_dga_asset, directory=directory)
+        zipped_bundle, description_str = ctx.invoke(validate_ml_dga_asset, directory=directory, repo=repo)
     else:
         zipped_bundle, description_str = ctx.invoke(validate_ml_detections_asset, directory=directory)
 
@@ -263,16 +256,15 @@ def create_ml_release(ctx, directory, gh_token, repo, release_name, description)
     release = gh_repo.create_git_release(name=release_name, tag=release_name, message=description_str)
     zip_name = Path(zipped_bundle).name
 
+    click.echo(f'release created at: {release.html_url}')
+
     # add zipped bundle as an asset to the release
-    with open(zipped_bundle, 'rb') as zipped_fo:
-        headers = {'content-type': 'application/zip'}
-        suffix = '{?name,label}'
-        url = release.upload_url.replace(suffix, f'?name={zip_name}&label={zip_name}')
-        r = requests.post(url, auth=('', gh_token), data=zipped_fo.read(), headers=headers)
-        r.raise_for_status()
+    click.echo(f'Uploading zip file: {zip_name}')
+    release.upload_asset(zipped_bundle, label=zip_name, name=zip_name, content_type='application/zip')
 
     # create manifest entry
-    manifest = Manifest(repo, tag_name=release_name)
+    click.echo('creating manifest for release')
+    manifest = Manifest(repo, tag_name=release_name, token=gh_token)
     manifest.save()
 
     return release
@@ -280,7 +272,8 @@ def create_ml_release(ctx, directory, gh_token, repo, release_name, description)
 
 @gh_release_group.command('validate-ml-dga-asset')
 @click.argument('directory', type=click.Path(exists=True, file_okay=False))
-def validate_ml_dga_asset(directory):
+@click.option('--repo', '-r', default='elastic/detection-rules', help='GitHub owner/repo')
+def validate_ml_dga_asset(directory, repo):
     """"Validate and prep an ML DGA bundle for release."""
     from .eswrap import expected_ml_dga_patterns
 
@@ -331,7 +324,7 @@ def validate_ml_dga_asset(directory):
     existing_sha = False
     existing_model_name = False
     model_hash = hashlib.sha256(loaded_contents['model']['contents'].encode('utf-8')).hexdigest()
-    manifest_hashes = Manifest.get_existing_asset_hashes()
+    manifest_hashes = Manifest.get_existing_asset_hashes(repo)
     for release, file_data in manifest_hashes.items():
         for file_name, sha in file_data.items():
             if model_hash == sha:
@@ -341,8 +334,8 @@ def validate_ml_dga_asset(directory):
 
             if model_filename == file_name:
                 existing_model_name = True
-                click.secho(f'[!] name for model file: "{loaded_contents["model"]["filename"]}" matches: '
-                            f'{release} -> {file_name} -> {file_name}', fg='yellow')
+                client_error(f'name for model file: "{loaded_contents["model"]["filename"]}" matches: '
+                             f'{release} -> {file_name} -> {file_name}')
 
     if not existing_sha:
         click.secho(f'[+] validated no existing models matched hashes for: '

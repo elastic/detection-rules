@@ -248,6 +248,52 @@ def es_experimental():
     """[Experimental] helper commands for integrating with Elasticsearch."""
 
 
+@es_experimental.command('check-model-files')
+@click.pass_context
+def check_model_files(ctx):
+    """Check ML model files on an elasticsearch instance."""
+    from elasticsearch.client import IngestClient, MlClient
+    from .misc import get_ml_model_manifests_by_model_id
+
+    es_client: Elasticsearch = ctx.obj['es']
+    ml_client = MlClient(es_client)
+    ingest_client = IngestClient(es_client)
+
+    def safe_get(func, arg):
+        try:
+            return func(arg)
+        except elasticsearch.NotFoundError:
+            return None
+
+    models = [m for m in ml_client.get_trained_models().get('trained_model_configs', [])
+              if not m['created_by'] == '_xpack']
+
+    if models:
+        if len([m for m in models if m['model_id'].startswith('dga_')]) > 1:
+            click.secho('Multiple DGA models detected! It is not recommended to run more than one DGA model at a time',
+                        fg='yellow')
+
+        manifests = get_ml_model_manifests_by_model_id()
+
+        click.echo(f'DGA Model{"s" if len(models) > 1 else ""} found:')
+        for model in models:
+            manifest = manifests.get(model['model_id'])
+            click.echo(f'    - {model["model_id"]}, associated release: {manifest.html_url if manifest else None}')
+    else:
+        click.echo('No DGA Models found')
+
+    support_files = {
+        'create_script': safe_get(es_client.get_script, 'dga_ngrams_create'),
+        'delete_script': safe_get(es_client.get_script, 'dga_ngrams_transform_delete'),
+        'enrich_pipeline': safe_get(ingest_client.get_pipeline, 'dns_enrich_pipeline'),
+        'inference_pipeline': safe_get(ingest_client.get_pipeline, 'dns_dga_inference_enrich_pipeline')
+    }
+
+    click.echo('Support Files:')
+    for support_file, results in support_files.items():
+        click.echo(f'    - {support_file}: {"found" if results else "not found"}')
+
+
 @es_experimental.command('remove-dga-model')
 @click.argument('model-id')
 @click.option('--force', '-f', is_flag=True, help='Force the attempted delete without checking if model exists')
@@ -337,8 +383,12 @@ def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
         release_url = f'https://api.github.com/repos/{repo}/releases/tags/{model_tag}'
         release = requests.get(release_url)
         release.raise_for_status()
+        assets = [a for a in release.json()['assets'] if a['name'].startswith('ML-DGA') and a['name'].endswith('.zip')]
 
-        zipped_url = release.json()['assets'][0]['browser_download_url']
+        if len(assets) != 1:
+            client_error(f'Malformed release: expected 1 match ML-DGA zip, found: {len(assets)}!')
+
+        zipped_url = assets[0]['browser_download_url']
         zipped = requests.get(zipped_url)
         z = zipfile.ZipFile(io.BytesIO(zipped.content))
 

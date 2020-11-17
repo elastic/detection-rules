@@ -31,7 +31,7 @@ Options:
   --cloud-id TEXT
   -u, --user TEXT
   -p, --es-password TEXT
-  -t, --timeout INTEGER         Elasticsearch client kwargs
+  -t, --timeout INTEGER         Timeout for elasticsearch client
 
 Usage: detection_rules es experimental setup-dga-model [OPTIONS]
 
@@ -170,6 +170,6 @@ A release can be created via the cli using `python -m detection-rules dev gh-rel
 * the base directory name and release name must match
 * you must have write permissions to the repo to create a release
 * validation also occurs on this, with a prompt to proceed
-* upon completion, a manifest is saved in [etc/release_manifests](/etc/release_manifests)
+* upon completion, a manifest is uploaded as an asset to the GitHub release
 
 To test, you can fork the repo and use `--repo <your-fork>` to validate a release is working as expected
