@@ -14,13 +14,17 @@ import time
 from pathlib import Path
 
 import click
+from elasticsearch import Elasticsearch
 from eql import load_dump
+from kibana.connector import Kibana
 
 from . import rule_loader
+from .eswrap import CollectEvents, add_range_to_dsl
 from .main import root
-from .misc import PYTHON_LICENSE, GithubClient, Manifest, client_error, getdefault
+from .misc import PYTHON_LICENSE, add_client, GithubClient, Manifest, client_error, getdefault
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
 from .rule import Rule
+from .rule_loader import get_rule
 from .utils import get_path
 
 
@@ -204,6 +208,154 @@ def license_check(ctx):
                 click.echo(relative_path, err=True)
 
     ctx.exit(int(failed))
+
+
+@dev_group.group('test')
+def test_group():
+    """Commands for testing against stack resources."""
+
+
+@test_group.command('event-search')
+@click.argument('query')
+@click.option('--index', '-i', multiple=True, help='Index patterns to search against')
+@click.option('--eql/--lucene', '-e/-l', 'language', default=None, help='Query language used (default: kql)')
+@click.option('--date-range', '-d', type=(str, str), default=('now-7d', 'now'), help='Date range to scope search')
+@click.option('--count', '-c', is_flag=True, help='Return count of results only')
+@click.option('--max-results', '-m', type=click.IntRange(1, 1000), default=100,
+              help='Max results to return (capped at 1000)')
+@click.option('--verbose', '-v', is_flag=True, default=True)
+@add_client('elasticsearch')
+def event_search(query, index, language, date_range, count, max_results, verbose=True,
+                 elasticsearch_client: Elasticsearch = None):
+    """Search using a query against an Elasticsearch instance."""
+    start_time, end_time = date_range
+    index = index or ('*',)
+    language_used = "kql" if language is None else "eql" if language is True else "lucene"
+    collector = CollectEvents(elasticsearch_client, max_results)
+
+    if verbose:
+        click.echo(f'searching {",".join(index)} from {start_time} to {end_time}')
+        click.echo(f'{language_used}: {query}')
+
+    if count:
+        results = collector.count(query, language_used, index, start_time, end_time)
+        click.echo(f'total results: {results}')
+    else:
+        results = collector.search(query, language_used, index, start_time, end_time, max_results)
+        click.echo(f'total results: {len(results)} (capped at {max_results})')
+        click.echo_via_pager(json.dumps(results, indent=2, sort_keys=True))
+
+    return results
+
+
+@test_group.command('rule-event-search')
+@click.argument('rule-file', type=click.Path(dir_okay=False), required=False)
+@click.option('--rule-id', '-id')
+@click.option('--date-range', '-d', type=(str, str), default=('now-7d', 'now'), help='Date range to scope search')
+@click.option('--count', '-c', is_flag=True, help='Return count of results only')
+@click.option('--max-results', '-m', type=click.IntRange(1, 1000), default=100,
+              help='Max results to return (capped at 1000)')
+@click.option('--verbose', '-v', is_flag=True)
+@click.pass_context
+@add_client('elasticsearch')
+def rule_event_search(ctx, rule_file, rule_id, date_range, count, max_results, verbose,
+                      elasticsearch_client: Elasticsearch = None):
+    """Search using a rule file against an Elasticsearch instance."""
+    rule = None
+
+    if rule_id:
+        rule = get_rule(rule_id, verbose=False)
+    elif rule_file:
+        rule = Rule(rule_file, load_dump(rule_file))
+    else:
+        client_error('Must specify a rule file or rule ID')
+
+    if rule.query and rule.contents.get('language'):
+        if verbose:
+            click.echo(f'Searching rule: {rule.name}')
+
+        rule_lang = rule.contents.get('language')
+        if rule_lang == 'kuery':
+            language = None
+        elif rule_lang == 'eql':
+            language = True
+        else:
+            language = False
+        ctx.invoke(event_search, query=rule.query, index=rule.contents.get('index', ['*']), language=language,
+                   date_range=date_range, count=count, max_results=max_results, verbose=verbose,
+                   elasticsearch_client=elasticsearch_client)
+    else:
+        client_error('Rule is not a query rule!')
+
+
+@test_group.command('rule-survey')
+@click.argument('query', required=False)
+@click.option('--date-range', '-d', type=(str, str), default=('now-7d', 'now'), help='Date range to scope search')
+@click.option('--dump-file', type=click.Path(dir_okay=False),
+              default=get_path('surveys', f'{time.strftime("%Y%m%dT%H%M%SL")}.json'),
+              help='Save details of results (capped at 1000 results/rule)')
+@click.option('--hide-zero-counts', '-z', is_flag=True, help='Exclude rules with zero hits from printing')
+@click.option('--hide-errors', '-e', is_flag=True, help='Exclude rules with errors from printing')
+@click.pass_context
+@add_client('elasticsearch', 'kibana', add_to_ctx=True)
+def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_counts, hide_errors,
+                elasticsearch_client: Elasticsearch = None, kibana_client: Kibana = None):
+    """Survey rule counts."""
+    from eql.table import Table
+    from kibana.resources import Signal
+    from . import rule_loader
+    from .main import search_rules
+
+    survey_results = []
+    start_time, end_time = date_range
+
+    if query:
+        rule_paths = [r['file'] for r in ctx.invoke(search_rules, query=query, verbose=False)]
+        rules = rule_loader.load_rules(rule_loader.load_rule_files(paths=rule_paths, verbose=False), verbose=False)
+        rules = rules.values()
+    else:
+        rules = rule_loader.load_rules(verbose=False).values()
+
+    click.echo(f'Running survey against {len(rules)} rules')
+    click.echo(f'Saving detailed dump to: {dump_file}')
+
+    collector = CollectEvents(elasticsearch_client)
+    details = collector.search_from_rule(*rules, start_time=start_time, end_time=end_time)
+    counts = collector.count_from_rule(*rules, start_time=start_time, end_time=end_time)
+
+    # add alerts
+    with kibana_client:
+        range_dsl = {'query': {'bool': {'filter': []}}}
+        add_range_to_dsl(range_dsl['query']['bool']['filter'], start_time, end_time)
+        alerts = {a['_source']['signal']['rule']['rule_id']: a['_source']
+                  for a in Signal.search(range_dsl)['hits']['hits']}
+
+    for rule_id, count in counts.items():
+        alert_count = len(alerts.get(rule_id, []))
+        if alert_count > 0:
+            count['alert_count'] = alert_count
+
+        details[rule_id].update(count)
+
+        search_count = count['search_count']
+        if not alert_count and (hide_zero_counts and search_count == 0) or (hide_errors and search_count == -1):
+            continue
+
+        survey_results.append(count)
+
+    fields = ['rule_id', 'name', 'search_count', 'alert_count']
+    table = Table.from_list(fields, survey_results)
+
+    if len(survey_results) > 200:
+        click.echo_via_pager(table)
+    else:
+        click.echo(table)
+
+    os.makedirs(get_path('surveys'), exist_ok=True)
+    with open(dump_file, 'w') as f:
+        json.dump(details, f, indent=2, sort_keys=True)
+
+    return survey_results
 
 
 @dev_group.group('gh-release')

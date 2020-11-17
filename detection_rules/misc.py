@@ -12,8 +12,10 @@ import shutil
 import time
 import uuid
 import dataclasses
+
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import wraps
 from pathlib import Path
 from typing import Dict, Tuple
 from zipfile import ZipFile
@@ -34,8 +36,7 @@ except ImportError:
     GitRelease = None  # noqa: N806
     GitReleaseAsset = None  # noqa: N806
 
-
-from .utils import cached, get_path
+from .utils import add_params, cached, get_path
 
 _CONFIG = {}
 
@@ -345,12 +346,13 @@ class ClientError(click.ClickException):
     def __init__(self, message, original_error=None):
         super(ClientError, self).__init__(message)
         self.original_error = original_error
+        self.original_error_type = type(original_error).__name__ if original_error else ''
 
     def show(self, file=None, err=True):
         """Print the error to the console."""
-        err = f' ({self.original_error})' if self.original_error else ''
-        click.echo(f'{click.style(f"CLI Error{err}", fg="red", bold=True)}: {self.format_message()}',
-                   err=err, file=file)
+        err = f' {self.original_error_type}' if self.original_error else ''
+        msg = f'{click.style(f"CLI Error{self.original_error_type}", fg="red", bold=True)}: {self.format_message()}'
+        click.echo(msg, err=err, file=file)
 
 
 def client_error(message, exc: Exception = None, debug=None, ctx: click.Context = None, file=None, err=None):
@@ -361,7 +363,7 @@ def client_error(message, exc: Exception = None, debug=None, ctx: click.Context 
         click.echo(click.style('DEBUG: ', fg='yellow') + message, err=err, file=file)
         raise
     else:
-        raise ClientError(message, original_error=type(exc).__name__ if exc else None)
+        raise ClientError(message, original_error=exc)
 
 
 def nested_get(_dict, dot_key, default=None):
@@ -554,3 +556,90 @@ def getdefault(name):
     envvar = f"DR_{name.upper()}"
     config = parse_config()
     return lambda: os.environ.get(envvar, config.get(name))
+
+
+client_options = {
+    'kibana': {
+        'kibana_url': click.Option(['--kibana-url'], default=getdefault('kibana_url')),
+        'cloud_id': click.Option(['--cloud-id'], default=getdefault('cloud_id')),
+        'kibana_user': click.Option(['--kibana-user', '-ku'], default=getdefault('kibana_user')),
+        'kibana_password': click.Option(['--kibana-password', '-kp'], default=getdefault('kibana_password')),
+        'space': click.Option(['--space'], default=None, help='Kibana space')
+    },
+    'elasticsearch': {
+        'elasticsearch_url': click.Option(['--elasticsearch-url'], default=getdefault("elasticsearch_url")),
+        'cloud_id': click.Option(['--cloud-id'], default=getdefault("cloud_id")),
+        'es_user': click.Option(['--es-user', '-eu'], default=getdefault("es_user")),
+        'es_password': click.Option(['--es-password', '-ep'], default=getdefault("es_password")),
+        'timeout': click.Option(['--timeout', '-et'], default=60, help='Timeout for elasticsearch client')
+    }
+}
+kibana_options = list(client_options['kibana'].values())
+elasticsearch_options = list(client_options['elasticsearch'].values())
+
+
+def add_client(*client_type, add_to_ctx=True):
+    """Wrapper to add authed client."""
+    from elasticsearch import Elasticsearch, ElasticsearchException
+    from kibana import Kibana
+    from .eswrap import get_elasticsearch_client
+    from .kbwrap import get_kibana_client
+
+    def _wrapper(func):
+        client_ops_dict = {}
+        client_ops_keys = {}
+        for c_type in client_type:
+            ops = client_options.get(c_type)
+            client_ops_dict.update(ops)
+            client_ops_keys[c_type] = list(ops)
+
+        if not client_ops_dict:
+            raise ValueError(f'Unknown client: {client_type} in {func.__name__}')
+
+        client_ops = list(client_ops_dict.values())
+
+        @wraps(func)
+        @add_params(*client_ops)
+        def _wrapped(*args, **kwargs):
+            ctx: click.Context = next((a for a in args if isinstance(a, click.Context)), None)
+            es_client_args = {k: kwargs.pop(k, None) for k in client_ops_keys.get('elasticsearch', [])}
+            #                                      shared args like cloud_id
+            kibana_client_args = {k: kwargs.pop(k, es_client_args.get(k)) for k in client_ops_keys.get('kibana', [])}
+
+            if 'elasticsearch' in client_type:
+                # for nested ctx invocation, no need to re-auth if an existing client is already passed
+                elasticsearch_client: Elasticsearch = kwargs.get('elasticsearch_client')
+                try:
+                    if elasticsearch_client and isinstance(elasticsearch_client, Elasticsearch) and \
+                            elasticsearch_client.info():
+                        pass
+                    else:
+                        elasticsearch_client = get_elasticsearch_client(use_ssl=True, **es_client_args)
+                except ElasticsearchException:
+                    elasticsearch_client = get_elasticsearch_client(use_ssl=True, **es_client_args)
+
+                kwargs['elasticsearch_client'] = elasticsearch_client
+                if ctx and add_to_ctx:
+                    ctx.obj['es'] = elasticsearch_client
+
+            if 'kibana' in client_type:
+                # for nested ctx invocation, no need to re-auth if an existing client is already passed
+                kibana_client: Kibana = kwargs.get('kibana_client')
+                try:
+                    with kibana_client:
+                        if kibana_client and isinstance(kibana_client, Kibana) and kibana_client.version:
+                            pass
+                        else:
+                            kibana_client = get_kibana_client(**kibana_client_args)
+                except (requests.HTTPError, AttributeError):
+                    kibana_client = get_kibana_client(**kibana_client_args)
+
+                kwargs['kibana_client'] = kibana_client
+                if ctx and add_to_ctx:
+                    ctx.obj['kibana'] = kibana_client
+
+            return func(*args, **kwargs)
+
+        return _wrapped
+
+    return _wrapper
