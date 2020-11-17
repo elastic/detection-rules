@@ -1,0 +1,43 @@
+[metadata]
+creation_date = "2020/04/15"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a terminal (tty) is spawned via Python. Attackers may upgrade a simple reverse shell to a fully
+interactive tty after obtaining initial access to a host.
+"""
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Interactive Terminal Spawned via Python"
+risk_score = 73
+rule_id = "d76b02ef-fc95-4001-9297-01cb7412232f"
+severity = "high"
+tags = ["Elastic", "Linux", "macOS", "Execution", "Threat Detection", "Host"]
+type = "query"
+
+query = '''
+event.category:process and event.type:start and process.name:python* and
+  process.args:("import pty; pty.spawn(\"/bin/sh\")" or
+                "import pty; pty.spawn(\"/bin/dash\")" or
+                "import pty; pty.spawn(\"/bin/bash\")")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

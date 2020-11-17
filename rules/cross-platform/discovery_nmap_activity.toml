@@ -1,0 +1,69 @@
+[metadata]
+creation_date = "2020/02/18"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Nmap was executed on a Linux host. Nmap is a FOSS tool for network scanning and security testing. It can map and
+discover networks, and identify listening services and operating systems. It is sometimes used to gather information in
+support of exploitation, execution or lateral movement.
+"""
+false_positives = [
+    """
+    Security testing tools and frameworks may run `Nmap` in the course of security auditing. Some normal use of this
+    command may originate from security engineers and network or server administrators. Use of nmap by ordinary users is
+    uncommon.
+    """,
+]
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Nmap Process Activity"
+references = ["https://en.wikipedia.org/wiki/Nmap"]
+risk_score = 21
+rule_id = "c87fca17-b3a9-4e83-b545-f30746c53920"
+severity = "low"
+tags = ["Elastic", "Linux", "macOS", "Threat Detection", "Discovery", "Host"]
+type = "query"
+
+query = '''
+event.category:process and event.type:start and process.name:nmap
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1046"
+name = "Network Service Scanning"
+reference = "https://attack.mitre.org/techniques/T1046/"
+
+[[rule.threat.technique]]
+id = "T1135"
+name = "Network Share Discovery"
+reference = "https://attack.mitre.org/techniques/T1135/"
+
+[[rule.threat.technique]]
+id = "T1040"
+name = "Network Sniffing"
+reference = "https://attack.mitre.org/techniques/T1040/"
+
+[[rule.threat.technique]]
+id = "T1016"
+name = "System Network Configuration Discovery"
+reference = "https://attack.mitre.org/techniques/T1016/"
+
+[[rule.threat.technique]]
+id = "T1049"
+name = "System Network Connections Discovery"
+reference = "https://attack.mitre.org/techniques/T1049/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
