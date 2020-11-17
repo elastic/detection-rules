@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.5.0"]
+ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/07/02"
+updated_date = "2020/10/27"
 
 [rule]
 author = ["Elastic"]
@@ -12,14 +12,15 @@ the Internet. SMB is commonly used within networks to share files, printers, and
 systems. It should almost never be directly exposed to the Internet, as it is frequently targeted and exploited by
 threat actors as an initial access or back-door vector or for data exfiltration.
 """
-index = ["filebeat-*", "packetbeat-*"]
+index = ["filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License"
 name = "SMB (Windows File Sharing) Activity to the Internet"
 risk_score = 73
 rule_id = "c82b2bd8-d701-420c-ba43-f11a155b681a"
 severity = "high"
-tags = ["Elastic", "Network"]
+tags = ["Elastic", "Host", "Network", "Threat Detection", "Initial Access"]
+timeline_id = "91832785-286d-4ebe-b884-1a208d111a70"
 type = "query"
 
 query = '''
@@ -38,9 +39,9 @@ reference = "https://attack.mitre.org/techniques/T1190/"
 
 
 [rule.threat.tactic]
-id = "TA0011"
+id = "TA0001"
 name = "Initial Access"
-reference = "https://attack.mitre.org/tactics/TA0011/"
+reference = "https://attack.mitre.org/tactics/TA0001/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -53,3 +54,4 @@ reference = "https://attack.mitre.org/techniques/T1048/"
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+

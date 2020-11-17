@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.4.0"]
+ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/02/18"
+updated_date = "2020/10/27"
 
 [rule]
 author = ["Elastic"]
@@ -11,18 +11,19 @@ Windows contains accessibility features that may be launched with a key combinat
 adversary can modify the way these programs are launched to get a command prompt or backdoor without logging in to the
 system.
 """
-index = ["winlogbeat-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License"
 name = "Potential Modification of Accessibility Binaries"
 risk_score = 21
 rule_id = "7405ddf1-6c8e-41ce-818f-48bea6bcaed8"
 severity = "low"
-tags = ["Elastic", "Windows"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
 type = "query"
 
 query = '''
-event.code:1 and process.parent.name:winlogon.exe and process.name:(atbroker.exe or displayswitch.exe or magnify.exe or narrator.exe or osk.exe or sethc.exe or utilman.exe)
+event.category:process and event.type:(start or process_started) and process.parent.name:winlogon.exe and not process.name:(atbroker.exe or displayswitch.exe or magnify.exe or narrator.exe or osk.exe or sethc.exe or utilman.exe)
 '''
 
 

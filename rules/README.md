@@ -1,6 +1,6 @@
 # rules/
 
-Rules within this folder are organized by solution or platform. The structure is flattened out, because nested file hierarchies are hard to navigate and find what you're looking for. Each directory contains several [.toml](https://github.com/toml-lang/toml) files, and the primary ATT&CK tactic is included in the file name when it's relevant (i.e. [`windows/execution_via_compiled_html_file.toml`](windows/execution_via_compiled_html_file.toml))  
+Rules within this folder are organized by solution or platform. The structure is flattened out, because nested file hierarchies are hard to navigate and find what you're looking for. Each directory contains several [.toml](https://github.com/toml-lang/toml) files, and the primary ATT&CK tactic is included in the file name when it's relevant (i.e. [`windows/execution_via_compiled_html_file.toml`](windows/execution_via_compiled_html_file.toml))
 
 | folder                              |  description                                                         |
 |-------------------------------------|----------------------------------------------------------------------|

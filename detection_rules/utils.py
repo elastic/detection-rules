@@ -5,6 +5,7 @@
 """Util functions."""
 import contextlib
 import functools
+import glob
 import gzip
 import io
 import json
@@ -51,6 +52,12 @@ def get_etc_path(*paths):
     return os.path.join(ETC_DIR, *paths)
 
 
+def get_etc_glob_path(*patterns):
+    """Load a file from the etc/ folder."""
+    pattern = os.path.join(*patterns)
+    return glob.glob(os.path.join(ETC_DIR, pattern))
+
+
 def get_etc_file(name, mode="r"):
     """Load a file from the etc/ folder."""
     with open(get_etc_path(name), mode) as f:
@@ -62,19 +69,21 @@ def load_etc_dump(*path):
     return eql.utils.load_dump(get_etc_path(*path))
 
 
-def save_etc_dump(contents, *path):
+def save_etc_dump(contents, *path, **kwargs):
     """Load a json/yml/toml file from the etc/ folder."""
     path = get_etc_path(*path)
     _, ext = os.path.splitext(path)
+    sort_keys = kwargs.pop('sort_keys', True)
+    indent = kwargs.pop('indent', 2)
 
     if ext == ".json":
         with open(path, "wt") as f:
-            json.dump(contents, f, cls=DateTimeEncoder, sort_keys=True, indent=2)
+            json.dump(contents, f, cls=DateTimeEncoder, sort_keys=sort_keys, indent=indent, **kwargs)
     else:
         return eql.utils.save_dump(contents, path)
 
 
-def save_gzip(contents):
+def gzip_compress(contents):
     gz_file = io.BytesIO()
 
     with gzip.GzipFile(mode="w", fileobj=gz_file) as f:
@@ -83,6 +92,11 @@ def save_gzip(contents):
         f.write(contents)
 
     return gz_file.getvalue()
+
+
+def read_gzip(path):
+    with gzip.GzipFile(path, mode='r') as gz:
+        return gz.read().decode("utf8")
 
 
 @contextlib.contextmanager
@@ -218,3 +232,23 @@ def load_rule_contents(rule_file: str, single_only=False) -> list:
             return rule
         else:
             raise ValueError(f"Expected a list or dictionary in {rule_file}")
+
+
+def format_command_options(ctx):
+    """Echo options for a click command."""
+    formatter = ctx.make_formatter()
+    opts = []
+
+    for param in ctx.command.get_params(ctx):
+        if param.name == 'help':
+            continue
+
+        rv = param.get_help_record(ctx)
+        if rv is not None:
+            opts.append(rv)
+
+    if opts:
+        with formatter.section('Options'):
+            formatter.write_dl(opts)
+
+    return formatter.getvalue()

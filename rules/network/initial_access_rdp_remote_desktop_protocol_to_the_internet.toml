@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.5.0"]
+ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/07/02"
+updated_date = "2020/10/27"
 
 [rule]
 author = ["Elastic"]
@@ -21,14 +21,15 @@ false_positives = [
     unexpected. Usage that is unfamiliar to server or network owners can be unexpected and suspicious.
     """,
 ]
-index = ["filebeat-*", "packetbeat-*"]
+index = ["filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License"
 name = "RDP (Remote Desktop Protocol) to the Internet"
 risk_score = 21
 rule_id = "e56993d2-759c-4120-984c-9ec9bb940fd5"
 severity = "low"
-tags = ["Elastic", "Network"]
+tags = ["Elastic", "Host", "Network", "Threat Detection", "Initial Access"]
+timeline_id = "91832785-286d-4ebe-b884-1a208d111a70"
 type = "query"
 
 query = '''
@@ -41,15 +42,15 @@ event.category:(network or network_traffic) and network.transport:tcp and (desti
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1043"
+id = "T1190"
 name = "Exploit Public-Facing Application"
-reference = "https://attack.mitre.org/techniques/T1043/"
+reference = "https://attack.mitre.org/techniques/T1190/"
 
 
 [rule.threat.tactic]
-id = "TA0011"
+id = "TA0001"
 name = "Initial Access"
-reference = "https://attack.mitre.org/tactics/TA0011/"
+reference = "https://attack.mitre.org/tactics/TA0001/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -62,3 +63,4 @@ reference = "https://attack.mitre.org/techniques/T1048/"
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+

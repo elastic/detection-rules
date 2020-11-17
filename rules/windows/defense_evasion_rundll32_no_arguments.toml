@@ -1,0 +1,51 @@
+[metadata]
+creation_date = "2020/09/02"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/10/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies child processes of unusual instances of RunDLL32 where the command line parameters were suspicious. Misuse of
+RunDLL32 could indicate malicious activity.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*"]
+language = "eql"
+license = "Elastic License"
+name = "Unusual Child Processes of RunDLL32"
+risk_score = 21
+rule_id = "f036953a-4615-4707-a1ca-dc53bf69dcd5"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
+type = "eql"
+
+query = '''
+sequence with maxspan=1h
+  [process where event.type in ("start", "process_started") and
+                                    /* uncomment once in winlogbeat */
+     (process.name : "rundll32.exe" /* or process.pe.original_file_name == "RUNDLL32.EXE" */ ) and
+     process.args_count < 2
+  ] by process.entity_id
+  [process where event.type in ("start", "process_started") and
+                                    /* uncomment once in winlogbeat */
+     (process.name : "rundll32.exe" /* or process.pe.original_file_name == "RUNDLL32.EXE" */ )
+  ] by process.parent.entity_id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1085"
+name = "Rundll32"
+reference = "https://attack.mitre.org/techniques/T1085/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

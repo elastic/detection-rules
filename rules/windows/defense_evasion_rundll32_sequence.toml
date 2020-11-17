@@ -1,0 +1,49 @@
+[metadata]
+creation_date = "2020/09/02"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/10/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies unusual instances of Rundll32.exe making outbound network connections. This may indicate adversarial activity
+and may identify malicious DLLs.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*"]
+language = "eql"
+license = "Elastic License"
+name = "Unusual Network Connection Sequence via RunDLL32"
+risk_score = 21
+rule_id = "2b347f66-6739-4ae3-bd94-195036dde8b3"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
+type = "eql"
+
+query = '''
+sequence by process.entity_id with maxspan=2h
+  [process where event.type in ("start", "process_started") and
+                                    /* uncomment once in winlogbeat */
+     (process.name : "rundll32.exe" /* or process.pe.original_file_name == "RUNDLL32.EXE" */ ) and
+     process.args_count < 2]
+  [network where event.type == "connection" and
+                                     /* uncomment once in winlogbeat */
+     (process.name : "rundll32.exe" /* or process.pe.original_file_name == "RUNDLL32.EXE" */ )]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1085"
+name = "Rundll32"
+reference = "https://attack.mitre.org/techniques/T1085/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

@@ -93,12 +93,13 @@ def load_rules(file_lookup=None, verbose=True, error=True):
                 raise KeyError("Rule has duplicate name to {}".format(
                     next(r for r in rules if r.name == rule.name).path))
 
-            if rule.parsed_kql:
-                if rule.parsed_kql in queries:
+            parsed_query = rule.parsed_query
+            if parsed_query is not None:
+                if parsed_query in queries:
                     raise KeyError("Rule has duplicate query with {}".format(
-                        next(r for r in rules if r.parsed_kql == rule.parsed_kql).path))
+                        next(r for r in rules if r.parsed_query == parsed_query).path))
 
-                queries.append(rule.parsed_kql)
+                queries.append(parsed_query)
 
             if not re.match(FILE_PATTERN, os.path.basename(rule.path)):
                 raise ValueError(f"Rule {rule.path} does not meet rule name standard of {FILE_PATTERN}")
@@ -112,7 +113,8 @@ def load_rules(file_lookup=None, verbose=True, error=True):
             err_msg = "Invalid rule file in {}\n{}".format(rule_file, click.style(e.args[0], fg='red'))
             errors.append(err_msg)
             if error:
-                print(err_msg)
+                if verbose:
+                    print(err_msg)
                 raise e
 
     if failed:
@@ -161,12 +163,12 @@ def get_rule_contents(rule_id, verbose=True):
 @cached
 def filter_rules(rules, metadata_field, value):
     """Filter rules based on the metadata."""
-    return [rule for rule in rules if rule.metadata.get(metadata_field, {}) == value]
+    return [rule for rule in rules if rule.metadata.get(metadata_field, '') == value]
 
 
-def get_production_rules():
+def get_production_rules(verbose=False):
     """Get rules with a maturity of production."""
-    return filter_rules(load_rules().values(), 'maturity', 'production')
+    return filter_rules(load_rules(verbose=verbose).values(), 'maturity', 'production')
 
 
 def find_unneeded_defaults(rule):
@@ -183,6 +185,7 @@ rta_mappings = RtaMappings()
 
 
 __all__ = (
+    "load_rule_files",
     "load_rules",
     "get_file_name",
     "get_production_rules",

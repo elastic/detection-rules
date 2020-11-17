@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/07/06"
-ecs_version = ["1.5.0"]
+ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/07/28"
+updated_date = "2020/10/26"
 
 [rule]
 author = ["Elastic"]
@@ -12,26 +12,26 @@ practices indicate that the root user should be protected by MFA.
 """
 false_positives = [
     """
-    Some organizations allow login with the root user without MFA, however this is not considered best practice by AWS
+    Some organizations allow login with the root user without MFA, however, this is not considered best practice by AWS
     and increases the risk of compromised credentials.
     """,
 ]
 from = "now-60m"
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-aws*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License"
 name = "AWS Root Login Without MFA"
 note = "The AWS Filebeat module must be enabled to use this rule."
 references = ["https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html"]
-risk_score = 21
+risk_score = 73
 rule_id = "bc0c6f0d-dab0-47a3-b135-0925f0a333bc"
-severity = "low"
-tags = ["AWS", "Elastic", "SecOps", "Identity and Access", "Continuous Monitoring"]
+severity = "high"
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Identity and Access"]
 type = "query"
 
 query = '''
-event.module:aws and event.dataset:aws.cloudtrail and event.provider:signin.amazonaws.com and event.action:ConsoleLogin and aws.cloudtrail.user_identity.type:Root and aws.cloudtrail.console_login.additional_eventdata.mfa_used:false and event.outcome:success
+event.dataset:aws.cloudtrail and event.provider:signin.amazonaws.com and event.action:ConsoleLogin and aws.cloudtrail.user_identity.type:Root and aws.cloudtrail.console_login.additional_eventdata.mfa_used:false and event.outcome:success
 '''
 
 
@@ -47,3 +47,4 @@ reference = "https://attack.mitre.org/techniques/T1078/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
