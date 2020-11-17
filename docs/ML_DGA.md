@@ -149,7 +149,7 @@ expectations
 Job files are checked if they are valid toml and contain the following top level fields:
 * name - job name
 * type - job type
-* body - the meat of the job. The contents are not validated
+* body - the actual ML job data. The contents are not validated
 
 #### Validation
 
