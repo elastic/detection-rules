@@ -29,7 +29,7 @@ class Kibana(object):
         self.cloud_id = cloud_id
         self.kibana_url = kibana_url
         self.elastic_url = None
-        self.space = space
+        self.space = space if space and space.lower() != 'default' else None
         self.status = None
 
         if self.cloud_id:
@@ -62,7 +62,7 @@ class Kibana(object):
             uri = "s/{}/{}".format(self.space, uri)
         return f"{self.kibana_url}/{uri}"
 
-    def request(self, method, uri, params=None, data=None, error=True, verbose=True):
+    def request(self, method, uri, params=None, data=None, error=True, verbose=True, raw=False):
         """Perform a RESTful HTTP request with JSON responses."""
         params = params or {}
         url = self.url(uri)
@@ -83,7 +83,7 @@ class Kibana(object):
         if not response.content:
             return
 
-        return response.json()
+        return response.content if raw else response.json()
 
     def get(self, uri, params=None, data=None, error=True, **kwargs):
         """Perform an HTTP GET."""
@@ -120,6 +120,10 @@ class Kibana(object):
             else:
                 raise
 
+        # Kibana will authenticate against URLs which contain invalid spaces
+        if self.space:
+            self.verify_space(self.space)
+
         self.authenticated = True
         self.status = self.get("/api/status")
 
@@ -133,7 +137,14 @@ class Kibana(object):
 
     def logout(self):
         """Quit the current session."""
-        # TODO: implement session logout
+        try:
+            self.get('/logout', raw=True, error=False)
+        except requests.exceptions.ConnectionError:
+            # for really short scoping from buildup to teardown, ES will cause a Max retry error
+            pass
+        self.status = None
+        self.authenticated = False
+        self.session = requests.Session()
         self.elasticsearch = None
 
     def __del__(self):
@@ -161,3 +172,10 @@ class Kibana(object):
             raise RuntimeError("No Kibana connector in scope!")
 
         return stack[-1]
+
+    def verify_space(self, space):
+        """Verify a space is valid."""
+        spaces = self.get('/api/spaces/space')
+        space_names = [s['name'] for s in spaces]
+        if space not in space_names:
+            raise ValueError(f'Unknown Kibana space: {space}')
