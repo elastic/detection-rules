@@ -194,25 +194,26 @@ class Rule(object):
             self.metadata.get('query_schema_validation') is False
 
         if query and self.query is not None and not skip_query_validation:
-            ecs_versions = self.metadata.get('ecs_version')
+            ecs_versions = self.metadata.get('ecs_version', [ecs.get_max_version()])
+            beats_version = self.metadata.get('beats_version', beats.get_max_version())
             indexes = self.contents.get("index", [])
 
             if self.contents['language'] == 'kuery':
-                self._validate_kql(ecs_versions, indexes, self.query, self.name)
+                self._validate_kql(ecs_versions, beats_version, indexes, self.query, self.name)
 
             if self.contents['language'] == 'eql':
-                self._validate_eql(ecs_versions, indexes, self.query, self.name)
+                self._validate_eql(ecs_versions, beats_version, indexes, self.query, self.name)
 
     @staticmethod
     @cached
-    def _validate_eql(ecs_versions, indexes, query, name):
+    def _validate_eql(ecs_versions, beats_version, indexes, query, name):
         # validate against all specified schemas or the latest if none specified
         # TODO: remove once py-eql supports ipv6 for cidrmatch
         with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
             parsed = eql.parse_query(query)
 
         beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
-        beat_schema = beats.get_schema_from_eql(parsed, beat_types) if beat_types else None
+        beat_schema = beats.get_schema_from_eql(parsed, beat_types, version=beats_version) if beat_types else None
 
         ecs_versions = ecs_versions or [ecs_versions]
         schemas = []
@@ -244,11 +245,11 @@ class Rule(object):
 
     @staticmethod
     @cached
-    def _validate_kql(ecs_versions, indexes, query, name):
+    def _validate_kql(ecs_versions, beats_version, indexes, query, name):
         # validate against all specified schemas or the latest if none specified
         parsed = kql.parse(query)
         beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
-        beat_schema = beats.get_schema_from_kql(parsed, beat_types) if beat_types else None
+        beat_schema = beats.get_schema_from_kql(parsed, beat_types, version=beats_version) if beat_types else None
 
         if not ecs_versions:
             kql.parse(query, schema=ecs.get_kql_schema(indexes=indexes, beat_schema=beat_schema))
@@ -376,12 +377,6 @@ class Rule(object):
 
         metadata = {}
 
-        if not required_only:
-            ecs_version = schema_prompt('ecs_version', required=False, value=None,
-                                        **TomlMetadata.get_schema()['properties']['ecs_version'])
-            if ecs_version:
-                metadata['ecs_version'] = ecs_version
-
         suggested_path = os.path.join(RULES_DIR, contents['name'])  # TODO: UPDATE BASED ON RULE STRUCTURE
         path = os.path.realpath(path or input('File path for rule [{}]: '.format(suggested_path)) or suggested_path)
 
@@ -423,5 +418,9 @@ class Rule(object):
 
         # rta_mappings.add_rule_to_mapping_file(rule)
         # click.echo('Placeholder added to rule-mapping.yml')
+
+        click.echo('Rule will validate against the latest ECS schema available (and beats if necessary')
+        click.echo('    - to have a rule validate against specific ECS schemas, add them to metadata->ecs_versions')
+        click.echo('    - to have a rule validate against a specific beats schema, add them to metadata->beats_version')
 
         return rule

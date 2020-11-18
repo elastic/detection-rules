@@ -7,11 +7,12 @@ import os
 
 import kql
 import eql
+import json
 import requests
 import yaml
 
 from .semver import Version
-from .utils import unzip, load_etc_dump, save_etc_dump, get_etc_path, cached
+from .utils import DateTimeEncoder, unzip, get_etc_path, gzip_compress, read_gzip, cached
 
 
 def download_latest_beats_schema():
@@ -59,7 +60,11 @@ def download_latest_beats_schema():
     # remove all non-beat directories
     fs = {k: v for k, v in fs.get("folders", {}).items() if k.endswith("beat")}
     print(f"Saving etc/beats_schema/{latest_release['tag_name']}.json")
-    save_etc_dump(fs, "beats_schemas", latest_release["tag_name"] + ".json")
+
+    compressed = gzip_compress(json.dumps(fs, sort_keys=True, cls=DateTimeEncoder))
+    path = get_etc_path("beats_schemas", latest_release["tag_name"] + ".json.gz")
+    with open(path, 'wb') as f:
+        f.write(compressed)
 
 
 def _flatten_schema(schema: list, prefix="") -> list:
@@ -130,17 +135,29 @@ def get_beats_sub_schema(schema: dict, beat: str, module: str, *datasets: str):
     return {field["name"]: field for field in sorted(flattened, key=lambda f: f["name"])}
 
 
+def get_versions():
+    return [Version(f.lstrip('v').rstrip('.json.gz')) for f in os.listdir(get_etc_path("beats_schemas"))]
+
+
+def get_max_version():
+    return max(get_versions())
+
+
 @cached
-def read_beats_schema():
-    beats_schemas = os.listdir(get_etc_path("beats_schemas"))
-    latest = max(beats_schemas, key=lambda b: Version(b.lstrip("v")))
+def read_beats_schema(version=None):
+    beats_schemas = get_versions()
 
-    return load_etc_dump("beats_schemas", latest)
+    if version and Version(version) not in beats_schemas:
+        raise ValueError(f'Unknown beats schema: {version}')
+
+    version = version or max(beats_schemas)
+
+    return json.loads(read_gzip(get_etc_path('beats_schemas', f'v{version}.json.gz')))
 
 
-def get_schema_from_datasets(beats, modules, datasets):
+def get_schema_from_datasets(beats, modules, datasets, version=None):
     filtered = {}
-    beats_schema = read_beats_schema()
+    beats_schema = read_beats_schema(version=version)
 
     # infer the module if only a dataset are defined
     if not modules:
@@ -158,7 +175,7 @@ def get_schema_from_datasets(beats, modules, datasets):
     return filtered
 
 
-def get_schema_from_eql(tree: eql.ast.BaseNode, beats: list) -> dict:
+def get_schema_from_eql(tree: eql.ast.BaseNode, beats: list, version: str = None) -> dict:
     modules = set()
     datasets = set()
 
@@ -176,10 +193,10 @@ def get_schema_from_eql(tree: eql.ast.BaseNode, beats: list) -> dict:
             elif node.expression == eql.ast.Field("event", ["dataset"]):
                 datasets.add(node.get_literals())
 
-    return get_schema_from_datasets(beats, modules, datasets)
+    return get_schema_from_datasets(beats, modules, datasets, version=version)
 
 
-def get_schema_from_kql(tree: kql.ast.BaseNode, beats: list) -> dict:
+def get_schema_from_kql(tree: kql.ast.BaseNode, beats: list, version: str = None) -> dict:
     modules = set()
     datasets = set()
 
@@ -191,4 +208,4 @@ def get_schema_from_kql(tree: kql.ast.BaseNode, beats: list) -> dict:
         if isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.dataset"):
             datasets.update(child.value for child in node.value if isinstance(child, kql.ast.String))
 
-    return get_schema_from_datasets(beats, modules, datasets)
+    return get_schema_from_datasets(beats, modules, datasets, version=version)

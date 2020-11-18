@@ -49,7 +49,7 @@ class TestValidRules(unittest.TestCase):
                 raise e
 
     def test_rule_loading(self):
-        """Ensure that all rule queries have ecs version."""
+        """Ensure that all rules validate."""
         rule_loader.load_rules().values()
 
     def test_file_names(self):
