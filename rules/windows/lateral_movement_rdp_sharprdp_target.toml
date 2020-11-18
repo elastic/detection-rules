@@ -27,7 +27,7 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
 type = "eql"
 
 query = '''
-/* Incoming RDP followed by RunMRU new string value set to cmd, powershell, taskmgr or tsclient followed by process execution within 1m */
+/* Incoming RDP followed by a new RunMRU string value set to cmd, powershell, taskmgr or tsclient, followed by process execution within 1m */
 
 sequence by host.id with maxspan=1m
   [network where event.type == "start" and process.name == "svchost.exe" and destination.port == 3389 and 
