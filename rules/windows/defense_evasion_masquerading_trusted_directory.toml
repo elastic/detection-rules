@@ -1,0 +1,45 @@
+[metadata]
+creation_date = "2020/11/18"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies execution from a directory masquerading as Windows ProgramFiles directory. This folder is a trusted directory
+and usually host trusted third party programs, an Adversary with low privileges may attempt to masquerade as such to
+bypass whitelist filters.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Program Files Directory Masquerading"
+risk_score = 43
+rule_id = "32c5cf9c-2ef8-4e87-819e-5ccb7cd18b14"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started", "info") and
+  (wildcard(process.executable, "C:\\*Program*Files*\\*.exe") or wildcard(process.args, "C:\\*Program*Files*\\*")) and
+  not wildcard(process.executable, "C:\\Program Files\\*.exe", "C:\\Program Files (x86)\\*.exe") and
+  not wildcard(process.args, "C:\\Program Files\\*.exe", "C:\\Program Files (x86)\\*.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
