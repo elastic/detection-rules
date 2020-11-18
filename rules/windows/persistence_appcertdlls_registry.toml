@@ -1,0 +1,42 @@
+[metadata]
+creation_date = "2020/11/18"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Attackers maintain persistence by creating registry keys using AppCert DLLs. AppCert DLLs are loaded by every process
+using the common API functions to create processes.
+"""
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Registry Persistence via AppCert DLL"
+risk_score = 41
+rule_id = "513f0ffd-b317-4b9c-9494-92ce861f22c7"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+type = "eql"
+
+query = '''
+registry where
+/* uncomment once stable length(bytes_written_string) > 0 and */
+  wildcard(registry.path, "HKLM\\SYSTEM\\ControlSet*\\Control\\Session Manager\\AppCertDLLs\\*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1182"
+name = "AppCert DLLs"
+reference = "https://attack.mitre.org/techniques/T1182/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

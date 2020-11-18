@@ -1,0 +1,54 @@
+[metadata]
+creation_date = "2020/11/18"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+In order to survive reboots and other system interrupts, attackers will modify run keys within the registry or leverage
+startup folder items as a form of persistence.
+"""
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Modification of Run Key and Startup Registry Keys"
+risk_score = 21
+rule_id = "97fc44d3-8dae-4019-ae83-298c3015600f"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+type = "eql"
+
+query = '''
+/* uncomment length once stable */
+registry where /* length(registry.data.strings) > 0 and */
+  wildcard(registry.path, "*\\Microsoft\\Windows\\CurrentVersion\\Run\\*",
+                          "*\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\*",
+						  "*\\Microsoft\\Windows\\CurrentVersion\\RunOnceEx\\*",
+						  "*\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders\\*",
+						  "*\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders\\*",
+						  "*\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run\\*",
+						  "*\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Shell\\*") and
+  /* add here common legit changes without making too restrictive as this is one of the most abused AESPs */
+  registry.data.strings != "ctfmon.exe /n" and
+  not (wildcard(registry.value, "Application Restart #*") and process.name == "csrss.exe") and
+  user.domain != "NT AUTHORITY" and
+  not wildcard(registry.data.strings, "C:\\Program Files*\\*") and
+  not process.name in ("msiexec.exe", "MsiExec.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1060"
+name = "Registry Run Keys / Startup Folder"
+reference = "https://attack.mitre.org/techniques/T1060/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

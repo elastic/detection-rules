@@ -1,0 +1,85 @@
+[metadata]
+creation_date = "2020/11/18"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects changes to registry persistence keys that are uncommonly used or modified by legitimate programs. This could be
+an indication of an adversary attempt to persist in a stealthy manner.
+"""
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Uncommon Registry Persistence Change"
+risk_score = 41
+rule_id = "54902e45-3467-49a4-8abc-529f2c8cfb80"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+type = "eql"
+
+query = '''
+registry where
+  /* uncomment once stable length(registry.data.strings) > 0 and */
+  wildcard(registry.path,
+           "*\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\*",
+		   "*\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Runonce\\*",
+		   "*\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\Load",
+		   "*\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\Run",
+		   "*\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\IconServiceLib",
+		   "*\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Shell",
+		   "*\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\AppSetup",
+		   "*\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Taskman",
+		   "*\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Userinit",
+		   "*\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\VmApplet",
+		   "*\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run\\*",
+		   "*\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Shell",
+		   "*\\Policies\\Microsoft\\Windows\\System\\Scripts\\Logoff\\Script",
+		   "*\\Policies\\Microsoft\\Windows\\System\\Scripts\\Logon\\Script",
+		   "*\\Policies\\Microsoft\\Windows\\System\\Scripts\\Shutdown\\Script",
+		   "*\\Policies\\Microsoft\\Windows\\System\\Scripts\\Startup\\Script",
+		   "*\\Microsoft\\Active Setup\\Installed Components\\*\\ShellComponent",
+		   "*\\Microsoft\\Windows CE Services\\AutoStartOnConnect\\MicrosoftActiveSync",
+		   "*\\Microsoft\\Windows CE Services\\AutoStartOnDisconnect\\MicrosoftActiveSync",
+		   "*\\Microsoft\\Ctf\\LangBarAddin\\*\\FilePath",
+		   "*\\Microsoft\\Internet Explorer\\Extensions\\*\\Exec",
+		   "*\\Microsoft\\Internet Explorer\\Extensions\\*\\Script",
+		   "*\\Microsoft\\Command Processor\\Autorun",
+		   "*\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*\\VerifierDlls",
+		   "*\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\GpExtensions\\*\\DllName",
+		   "*\\SYSTEM\\ControlSet*\\Control\\SafeBoot\\AlternateShell",
+		   "*\\SYSTEM\\ControlSet*\\Control\\Terminal Server\\Wds\\rdpwd\\StartupPrograms",
+		   "*\\SYSTEM\\ControlSet*\\Control\\Terminal Server\\WinStations\\RDP-Tcp\\InitialProgram",
+		   "*\\SYSTEM\\ControlSet*\\Control\\Session Manager\\BootExecute",
+		   "*\\SYSTEM\\ControlSet*\\Control\\Session Manager\\SetupExecute",
+		   "*\\SYSTEM\\ControlSet*\\Control\\Session Manager\\Execute",
+		   "*\\SYSTEM\\ControlSet*\\Control\\Session Manager\\S0InitialCommand",
+		   "*\\SYSTEM\\ControlSet*\\Control\\ServiceControlManagerExtension",
+		   "*\\SYSTEM\\ControlSet*\\Control\\BootVerificationProgram\\ImagePath",
+		   "*\\SYSTEM\\Setup\\CmdLine",
+		   "*\\Environment\\UserInitMprLogonScript"
+		   ) and
+ not wildcard(registry.data.strings, "C:\\Windows\\system32\\userinit.exe", "cmd.exe", "C:\\Program Files*\\*.exe") and
+ not (process.name == "rundll32.exe" and wildcard(registry.path, "*\\Software\\Microsoft\\Internet Explorer\\Extensions\\*\\Script")) and
+ not process.executable in ("C:\\Windows\\System32\\msiexec.exe",
+                            "C:\\Windows\\SysWOW64\\msiexec.exe",
+                            "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
+                            "C:\\Program Files*\\*.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

@@ -1,0 +1,44 @@
+[metadata]
+creation_date = "2020/11/18"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Attackers maintain persistence by creating registry keys using AppInit DLLs. AppInit DLLs are loaded by every process
+using the common library user32.dll.
+"""
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Registry Persistence via AppInit DLL"
+risk_score = 41
+rule_id = "d0e159cf-73e9-40d1-a9ed-077e3158a855"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+type = "eql"
+
+query = '''
+registry where
+   wildcard(registry.path,
+            "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls",
+            "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_Dlls") and
+   not process.executable in ("C:\\Windows\\System32\\msiexec.exe", "C:\\Windows\\SysWOW64\\msiexec.exe", "C:\\Program Files*\\Commvault\\ContentStore*\\Base\\cvd.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1103"
+name = "AppInit DLLs"
+reference = "https://attack.mitre.org/techniques/T1103/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
