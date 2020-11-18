@@ -76,7 +76,8 @@ class Rule(object):
             if self.contents['language'] == 'kuery':
                 return kql.parse(self.query)
             elif self.contents['language'] == 'eql':
-                with eql.parser.elasticsearch_syntax:
+                # TODO: remove once py-eql supports ipv6 for cidrmatch
+                with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
                     return eql.parse_query(self.query)
 
     @property
@@ -125,7 +126,8 @@ class Rule(object):
         query = rule_contents.get('query')
         language = rule_contents.get('language')
         if language in ('kuery', 'eql'):
-            with eql.parser.elasticsearch_syntax:
+            # TODO: remove once py-eql supports ipv6 for cidrmatch
+            with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
                 parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
 
             return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
@@ -205,7 +207,8 @@ class Rule(object):
     @cached
     def _validate_eql(ecs_versions, indexes, query, name):
         # validate against all specified schemas or the latest if none specified
-        with eql.parser.elasticsearch_syntax:
+        # TODO: remove once py-eql supports ipv6 for cidrmatch
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
             parsed = eql.parse_query(query)
 
         beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
@@ -223,7 +226,8 @@ class Rule(object):
 
         for schema in schemas:
             try:
-                with ecs.KqlSchema2Eql(schema), eql.parser.elasticsearch_syntax:
+                # TODO: remove once py-eql supports ipv6 for cidrmatch
+                with ecs.KqlSchema2Eql(schema), eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
                     eql.parse_query(query)
 
             except eql.EqlTypeMismatchError:
