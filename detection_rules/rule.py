@@ -419,7 +419,7 @@ class Rule(object):
         # rta_mappings.add_rule_to_mapping_file(rule)
         # click.echo('Placeholder added to rule-mapping.yml')
 
-        click.echo('Rule will validate against the latest ECS schema available (and beats if necessary')
+        click.echo('Rule will validate against the latest ECS schema available (and beats if necessary)')
         click.echo('    - to have a rule validate against specific ECS schemas, add them to metadata->ecs_versions')
         click.echo('    - to have a rule validate against a specific beats schema, add them to metadata->beats_version')
 

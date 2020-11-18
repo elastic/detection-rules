@@ -4,6 +4,7 @@
 
 """ECS Schemas management."""
 import os
+import re
 
 import kql
 import eql
@@ -136,7 +137,13 @@ def get_beats_sub_schema(schema: dict, beat: str, module: str, *datasets: str):
 
 
 def get_versions():
-    return [Version(f.lstrip('v').rstrip('.json.gz')) for f in os.listdir(get_etc_path("beats_schemas"))]
+    versions = []
+    for filename in os.listdir(get_etc_path("beats_schemas")):
+        version_match = re.match(r'v(.+)\.json\.gz', filename)
+        if version_match:
+            versions.append(Version(version_match.groups()[0]))
+
+    return versions
 
 
 def get_max_version():
