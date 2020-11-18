@@ -1,15 +1,15 @@
 [metadata]
-creation_date = "2020/05/21"
+creation_date = "2020/11/06"
 ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2020/11/06"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when an administrator role is assigned to an Okta group. An adversary may attempt to assign administrator
-privileges to an Okta group in order to assign additional permissions to compromised user accounts and maintain access
-to their target organization.
+Identifies when an administrator role is assigned to an Okta user. An adversary may attempt to assign an administrator
+role to an Okta user in order to assign additional permissions to a user account and maintain access to their target's
+environment.
 """
 false_positives = [
     """
@@ -20,7 +20,7 @@ false_positives = [
 index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License"
-name = "Administrator Privileges Assigned to an Okta Group"
+name = "Administrator Role Assigned to an Okta User"
 note = "The Okta Fleet integration or Filebeat module must be enabled to use this rule."
 references = [
     "https://help.okta.com/en/prod/Content/Topics/Security/administrators-admin-comparison.htm",
@@ -28,13 +28,13 @@ references = [
     "https://developer.okta.com/docs/reference/api/event-types/",
 ]
 risk_score = 47
-rule_id = "b8075894-0b62-46e5-977c-31275da34419"
+rule_id = "f06414a6-f2a4-466d-8eba-10f85e8abf71"
 severity = "medium"
-tags = ["Elastic", "Identity", "Okta", "Continuous Monitoring", "SecOps", "Monitoring"]
+tags = ["Elastic", "Okta", "SecOps", "Monitoring", "Continuous Monitoring"]
 type = "query"
 
 query = '''
-event.dataset:okta.system and event.action:group.privilege.grant
+event.dataset:okta.system and event.action:user.account.privilege.grant
 '''
 
 
@@ -50,4 +50,3 @@ reference = "https://attack.mitre.org/techniques/T1098/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
