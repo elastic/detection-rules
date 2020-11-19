@@ -1,0 +1,66 @@
+[metadata]
+creation_date = "2020/11/19"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies execution of suspicious persistent program via Scheduled Tasks (Scripts, Rundll32, etc.) by looking at
+process lineage and command line usage.
+"""
+false_positives = ["Legitimate scheduled tasks running third party software."]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Suspicious Execution via Scheduled Task"
+risk_score = 43
+rule_id = "5d1d6907-0747-4d5d-9b24-e4a18853dc0a"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+type = "eql"
+
+query = '''
+process where event.type == "start" and
+    /* Sechdule service cmdline on Win10+ */
+    process.name == "svchost.exe" and process.parent.args == "Schedule" and
+    /* add suspicious programs here */
+    process.pe.original_file_name in
+                                (
+                                  "cscript.exe",
+                                  "wscript.exe",
+                                  "PowerShell.EXE",
+                                  "Cmd.Exe",
+                                  "MSHTA.EXE",
+                                  "RUNDLL32.EXE",
+                                  "REGSVR32.EXE",
+                                  "MSBuild.exe",
+                                  "InstallUtil.exe",
+                                  "RegAsm.exe",
+                                  "RegSvcs.exe",
+                                  "msxsl.exe",
+                                  "CONTROL.EXE",
+                                  "EXPLORER.EXE",
+                                  "Microsoft.Workflow.Compiler.exe",
+                                  "msiexec.exe"
+                                  ) and
+    /* add suspicious paths here */
+    wildcard(process.args, "C:\\Users\\*", "C:\\ProgramData\\*", "C:\\Windows\\Temp\\*", "C:\\Windows\\Temp\\*", "C:\\PerfLogs\\*", "C:\\Intel\\*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
