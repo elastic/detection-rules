@@ -151,10 +151,11 @@ def get_max_version():
 
 
 @cached
-def read_beats_schema(version=None):
+def read_beats_schema(version: str = None):
+    version = Version(version) if version else None
     beats_schemas = get_versions()
 
-    if version and Version(version) not in beats_schemas:
+    if version and version not in beats_schemas:
         raise ValueError(f'Unknown beats schema: {version}')
 
     version = version or max(beats_schemas)
