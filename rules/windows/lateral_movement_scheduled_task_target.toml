@@ -1,0 +1,60 @@
+[metadata]
+creation_date = "2020/11/20"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies remote scheduled task creation or change on the target host. This could be indicative of adversary lateral
+movement via scheduled tasks.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*"]
+language = "eql"
+license = "Elastic License"
+name = "Remote Scheduled Task Modification"
+risk_score = 47
+rule_id = "954ee7c8-5437-49ae-b2d6-2960883898e9"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+type = "eql"
+
+query = '''
+/* Task Scheduler service incoming connection followed by creation or change of task XML file  */
+
+sequence by host.id, process.entity_id with maxspan = 1m
+  [network where process.name == "svchost.exe" and event.action == "connection_accepted" and
+   network.direction == "incoming" and source.port > 49151 and destination.port > 49151 and
+   source.address != "127.0.0.1" and source.address != "::1"
+   ]
+  [file where event.type != "deletion" and wildcard(file.path, "C:\\Windows\\System32\\Tasks\\*")]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
