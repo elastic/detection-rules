@@ -25,14 +25,28 @@ type = "eql"
 query = '''
 process where event.type in ("start", "process_started", "info") and
  process.parent.name in ("Utilman.exe", "winlogon.exe") and user.name == "SYSTEM" and
- wildcard(process.args, "C:\\Windows\\System32\\osk.exe",
-                        "C:\\Windows\\System32\\Magnify.exe",
-                        "C:\\Windows\\System32\\Narrator.exe",
-                        "C:\\Windows\\System32\\Sethc.exe",
-                        "utilman.exe", "ATBroker.exe", "DisplaySwitch.exe", "sethc.exe") and
- not process.pe.original_file_name in ("osk.exe", "sethc.exe", "utilman2.exe",
-                                       "DisplaySwitch.exe", "ATBroker.exe", "ScreenMagnifier.exe",
-                                       "SR.exe", "Narrator.exe", "magnify.exe", "MAGNIFY.EXE")
+ process.args in (
+                  "C:\\Windows\\System32\\osk.exe",
+                  "C:\\Windows\\System32\\Magnify.exe",
+                  "C:\\Windows\\System32\\Narrator.exe",
+                  "C:\\Windows\\System32\\Sethc.exe",
+                  "utilman.exe", 
+                  "ATBroker.exe", 
+                  "DisplaySwitch.exe",
+                  "sethc.exe"
+                  ) and
+ not process.pe.original_file_name in (
+                                       "osk.exe", 
+                                       "sethc.exe", 
+                                       "utilman2.exe",
+                                       "DisplaySwitch.exe", 
+                                       "ATBroker.exe", 
+                                       "ScreenMagnifier.exe",
+                                       "SR.exe", 
+                                       "Narrator.exe", 
+                                       "magnify.exe", 
+                                       "MAGNIFY.EXE"
+                                       )
 
             /* uncomment once in winlogbeat to avoid bypass with rogue process with matching pe original file name */
            /* and process.code_signature.subject_name == "Microsoft Windows" and process.code_signature.status == "trusted" */
