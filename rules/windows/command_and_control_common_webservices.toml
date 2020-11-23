@@ -1,0 +1,77 @@
+[metadata]
+creation_date = "2020/11/04"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Adversaries may implement command and control communications that use common web services in order to hide their
+activity. This attack technique is typically targeted to an organization and uses web services common to the victim network which allows the adversary to blend into legitimate traffic.
+activity. These popular services are typically targeted since they have most likely been used before a compromise and
+allow adversaries to blend in the network.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Connection to Commonly Abused Web Services"
+risk_score = 21
+rule_id = "66883649-f908-4a5b-a1e0-54090a1d3a32"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control"]
+type = "eql"
+
+query = '''
+network where network.protocol == "dns" and
+             /* Add new WebSvc domains here */
+              wildcard(dns.question.name, "*.githubusercontent.*",
+                                          "*.pastebin.*",
+                                          "*drive.google.*",
+                                          "*docs.live.*",
+                                          "*api.dropboxapi.*",
+                                          "*dropboxusercontent.*",
+                                          "*onedrive.*",
+                                          "*4shared.*",
+                                          "*.file.io",
+                                          "*filebin.net",
+                                          "*slack-files.com",
+                                          "*ghostbin.*",
+                                          "*ngrok.*",
+                                          "*portmap.*",
+                                          "*serveo.net",
+                                          "*localtunnel.me",
+                                          "*pagekite.me",
+                                          "*localxpose.io",
+                                          "*notabug.org"
+                      ) and
+                          /* Insert noisy false positives here */
+              not process.name in ("MicrosoftEdgeCP.exe",
+                                    "MicrosoftEdge.exe",
+                                    "iexplore.exe",
+                                    "chrome.exe",
+                                    "msedge.exe",
+                                    "opera.exe",
+                                    "firefox.exe",
+                                    "Dropbox.exe",
+                                    "slack.exe",
+                                    "svchost.exe",
+                                    "thunderbird.exe",
+                                    "outlook.exe",
+                                    "OneDrive.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1102"
+name = "Web Service"
+reference = "https://attack.mitre.org/techniques/T1102/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
