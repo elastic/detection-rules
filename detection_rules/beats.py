@@ -76,7 +76,16 @@ def _flatten_schema(schema: list, prefix="") -> list:
     flattened = []
     for s in schema:
         if s.get("type") == "group":
-            flattened.extend(_flatten_schema(s["fields"], prefix=prefix + s["name"] + "."))
+            nested_prefix = prefix + s["name"] + "."
+            # beats is complicated. it seems lke we would expect a zoom.webhook.*, for the zoom.webhook dataset,
+            # but instead it's just at zoom.* directly.
+            #
+            # we have what looks like zoom.zoom.*, but should actually just be zoom.*.
+            # this is one quick heuristic to determine if a submodule nests fields at the parent.
+            # it's probably not perfect, but we can fix other bugs as we run into them later
+            if len(schema) == 1 and nested_prefix == prefix + prefix:
+                nested_prefix = prefix
+            flattened.extend(_flatten_schema(s["fields"], prefix=nested_prefix))
         elif "fields" in s:
             flattened.extend(_flatten_schema(s["fields"], prefix=prefix))
         elif "name" in s and "description" in s:
