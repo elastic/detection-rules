@@ -2,24 +2,24 @@
 creation_date = "2020/02/18"
 ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/02/18"
+updated_date = "2020/11/03"
 
 [rule]
 author = ["Elastic"]
 description = "Identifies possibly suspicious activity using trusted Windows developer activity."
 false_positives = ["These programs may be used by Windows developers but use by non-engineers is unusual."]
-index = ["winlogbeat-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License"
 name = "Trusted Developer Application Usage"
 risk_score = 21
 rule_id = "9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae1"
 severity = "low"
-tags = ["Elastic", "Windows"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 type = "query"
 
 query = '''
-event.code:1 and process.name:(MSBuild.exe or msxsl.exe)
+event.category:process and event.type:(start or process_started) and process.name:(MSBuild.exe or msxsl.exe)
 '''
 
 

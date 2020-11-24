@@ -69,14 +69,16 @@ def load_etc_dump(*path):
     return eql.utils.load_dump(get_etc_path(*path))
 
 
-def save_etc_dump(contents, *path):
+def save_etc_dump(contents, *path, **kwargs):
     """Load a json/yml/toml file from the etc/ folder."""
     path = get_etc_path(*path)
     _, ext = os.path.splitext(path)
+    sort_keys = kwargs.pop('sort_keys', True)
+    indent = kwargs.pop('indent', 2)
 
     if ext == ".json":
         with open(path, "wt") as f:
-            json.dump(contents, f, cls=DateTimeEncoder, sort_keys=True, indent=2)
+            json.dump(contents, f, cls=DateTimeEncoder, sort_keys=sort_keys, indent=indent, **kwargs)
     else:
         return eql.utils.save_dump(contents, path)
 
@@ -230,3 +232,34 @@ def load_rule_contents(rule_file: str, single_only=False) -> list:
             return rule
         else:
             raise ValueError(f"Expected a list or dictionary in {rule_file}")
+
+
+def format_command_options(ctx):
+    """Echo options for a click command."""
+    formatter = ctx.make_formatter()
+    opts = []
+
+    for param in ctx.command.get_params(ctx):
+        if param.name == 'help':
+            continue
+
+        rv = param.get_help_record(ctx)
+        if rv is not None:
+            opts.append(rv)
+
+    if opts:
+        with formatter.section('Options'):
+            formatter.write_dl(opts)
+
+    return formatter.getvalue()
+
+
+def add_params(*params):
+    """Add parameters to a click command."""
+    def decorator(f):
+        if not hasattr(f, '__click_params__'):
+            f.__click_params__ = []
+        f.__click_params__.extend(params)
+        return f
+
+    return decorator

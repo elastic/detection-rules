@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/02/18"
+updated_date = "2020/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -14,18 +14,18 @@ false_positives = [
     tasklist to get information about running processes.
     """,
 ]
-index = ["winlogbeat-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License"
 name = "Process Discovery via Tasklist"
 risk_score = 21
 rule_id = "cc16f774-59f9-462d-8b98-d27ccd4519ec"
 severity = "low"
-tags = ["Elastic", "Windows"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery"]
 type = "query"
 
 query = '''
-event.code:1 and process.name:tasklist.exe
+event.category:process and event.type:(start or process_started) and process.name:tasklist.exe
 '''
 
 

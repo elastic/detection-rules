@@ -76,7 +76,9 @@ class Rule(object):
             if self.contents['language'] == 'kuery':
                 return kql.parse(self.query)
             elif self.contents['language'] == 'eql':
-                return eql.parse_query(self.query)
+                # TODO: remove once py-eql supports ipv6 for cidrmatch
+                with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+                    return eql.parse_query(self.query)
 
     @property
     def filters(self):
@@ -104,13 +106,30 @@ class Rule(object):
         if self.query and self.contents['language'] == 'kuery':
             return kql.to_eql(self.query)
 
+    def get_flat_mitre(self):
+        """Get flat lists of tactic and technique info."""
+        tactic_names = []
+        tactic_ids = []
+        technique_ids = set()
+        technique_names = set()
+        for entry in self.contents.get('threat', []):
+            tactic_names.append(entry['tactic']['name'])
+            tactic_ids.append(entry['tactic']['id'])
+            technique_names.update([t['name'] for t in entry['technique']])
+            technique_ids.update([t['id'] for t in entry['technique']])
+
+        return sorted(tactic_names), sorted(tactic_ids), sorted(technique_names), sorted(technique_ids)
+
     @classmethod
     def get_unique_query_fields(cls, rule_contents):
         """Get a list of unique fields used in a rule query from rule contents."""
         query = rule_contents.get('query')
         language = rule_contents.get('language')
         if language in ('kuery', 'eql'):
-            parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
+            # TODO: remove once py-eql supports ipv6 for cidrmatch
+            with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+                parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
+
             return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
 
     @staticmethod
@@ -138,7 +157,7 @@ class Rule(object):
 
     def normalize(self, indent=2):
         """Normalize the (api only) contents and return a serialized dump of it."""
-        return json.dumps(nested_normalize(self.contents), sort_keys=True, indent=indent)
+        return json.dumps(nested_normalize(self.contents, eql_rule=self.type == 'eql'), sort_keys=True, indent=indent)
 
     def get_path(self):
         """Wrapper around getting path."""
@@ -171,7 +190,10 @@ class Rule(object):
 
         schema_cls.validate(contents, role=self.type)
 
-        if query and self.query is not None:
+        skip_query_validation = self.metadata['maturity'] == 'development' and \
+            self.metadata.get('query_schema_validation') is False
+
+        if query and self.query is not None and not skip_query_validation:
             ecs_versions = self.metadata.get('ecs_version')
             indexes = self.contents.get("index", [])
 
@@ -185,7 +207,10 @@ class Rule(object):
     @cached
     def _validate_eql(ecs_versions, indexes, query, name):
         # validate against all specified schemas or the latest if none specified
-        parsed = eql.parse_query(query)
+        # TODO: remove once py-eql supports ipv6 for cidrmatch
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+            parsed = eql.parse_query(query)
+
         beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
         beat_schema = beats.get_schema_from_eql(parsed, beat_types) if beat_types else None
 
@@ -201,7 +226,8 @@ class Rule(object):
 
         for schema in schemas:
             try:
-                with ecs.KqlSchema2Eql(schema):
+                # TODO: remove once py-eql supports ipv6 for cidrmatch
+                with ecs.KqlSchema2Eql(schema), eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
                     eql.parse_query(query)
 
             except eql.EqlTypeMismatchError:
@@ -211,7 +237,7 @@ class Rule(object):
                 message = exc.error_msg
                 trailer = None
                 if "Unknown field" in message and beat_types:
-                    trailer = "\nTry adding event.module and event.dataset to specify beats module"
+                    trailer = "\nTry adding event.module or event.dataset to specify beats module"
 
                 raise type(exc)(exc.error_msg, exc.line, exc.column, exc.source,
                                 len(exc.caret.lstrip()), trailer=trailer) from None
@@ -241,7 +267,7 @@ class Rule(object):
                     message = exc.error_msg
                     trailer = None
                     if "Unknown field" in message and beat_types:
-                        trailer = "\nTry adding event.module and event.dataset to specify beats module"
+                        trailer = "\nTry adding event.module or event.dataset to specify beats module"
 
                     raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
                                             len(exc.caret.lstrip()), trailer=trailer)

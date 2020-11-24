@@ -2,14 +2,14 @@
 creation_date = "2020/05/28"
 ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/09/15"
+updated_date = "2020/10/26"
 
 [rule]
 author = ["Elastic"]
 description = """
-An adversary may attempt to delete an Okta policy in order to weaken an organization's security controls. For example,
-an adversary may attempt to delete an Okta multi-factor authentication (MFA) policy in order to weaken the
-authentication requirements for user accounts.
+Detects attempts to delete an Okta policy. An adversary may attempt to delete an Okta policy in order to weaken an
+organization's security controls. For example, an adversary may attempt to delete an Okta multi-factor authentication
+(MFA) policy in order to weaken the authentication requirements for user accounts.
 """
 false_positives = [
     """
@@ -20,19 +20,20 @@ false_positives = [
 index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License"
-name = "Attempt to Delete Okta Policy"
-note = "The Okta Filebeat module must be enabled to use this rule."
+name = "Attempt to Delete an Okta Policy"
+note = "The Okta Fleet integration or Filebeat module must be enabled to use this rule."
 references = [
+    "https://help.okta.com/en/prod/Content/Topics/Security/Security_Policies.htm",
     "https://developer.okta.com/docs/reference/api/system-log/",
     "https://developer.okta.com/docs/reference/api/event-types/",
 ]
-risk_score = 21
+risk_score = 47
 rule_id = "b4bb1440-0fcb-4ed1-87e5-b06d58efc5e9"
-severity = "low"
-tags = ["Elastic", "Okta", "SecOps", "Monitoring", "Continuous Monitoring"]
+severity = "medium"
+tags = ["Elastic", "Identity", "Okta", "Continuous Monitoring", "SecOps", "Monitoring"]
 type = "query"
 
 query = '''
-event.module:okta and event.dataset:okta.system and event.action:policy.lifecycle.delete
+event.dataset:okta.system and event.action:policy.lifecycle.delete
 '''
 
