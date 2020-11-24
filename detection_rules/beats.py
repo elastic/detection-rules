@@ -145,6 +145,7 @@ def get_beats_sub_schema(schema: dict, beat: str, module: str, *datasets: str):
     return {field["name"]: field for field in sorted(flattened, key=lambda f: f["name"])}
 
 
+@cached
 def get_versions():
     versions = []
     for filename in os.listdir(get_etc_path("beats_schemas")):
