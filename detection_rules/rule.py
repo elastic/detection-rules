@@ -30,7 +30,7 @@ class Rule(object):
         """Create a Rule from a toml management format."""
         self.path = os.path.abspath(path)
         self.contents = contents.get('rule', contents)
-        self.metadata = self.set_metadata(contents.get('metadata', contents))
+        self.metadata = contents.get('metadata', self.set_metadata(contents))
 
         self.formatted_rule = copy.deepcopy(self.contents).get('query', None)
 
@@ -375,15 +375,13 @@ class Rule(object):
 
                 contents[name] = result
 
-        metadata = {}
-
         suggested_path = os.path.join(RULES_DIR, contents['name'])  # TODO: UPDATE BASED ON RULE STRUCTURE
         path = os.path.realpath(path or input('File path for rule [{}]: '.format(suggested_path)) or suggested_path)
 
         rule = None
 
         try:
-            rule = cls(path, {'rule': contents, 'metadata': metadata})
+            rule = cls(path, {'rule': contents})
         except kql.KqlParseError as e:
             if e.error_msg == 'Unknown field':
                 warning = ('If using a non-ECS field, you must update "ecs{}.non-ecs-schema.json" under `beats` or '
@@ -396,7 +394,7 @@ class Rule(object):
             while True:
                 try:
                     contents['query'] = click.edit(contents['query'], extension='.eql')
-                    rule = cls(path, {'rule': contents, 'metadata': metadata})
+                    rule = cls(path, {'rule': contents})
                 except kql.KqlParseError as e:
                     click.secho(e.args[0], fg='red', err=True)
                     click.pause()
@@ -421,6 +419,6 @@ class Rule(object):
 
         click.echo('Rule will validate against the latest ECS schema available (and beats if necessary)')
         click.echo('    - to have a rule validate against specific ECS schemas, add them to metadata->ecs_versions')
-        click.echo('    - to have a rule validate against a specific beats schema, add them to metadata->beats_version')
+        click.echo('    - to have a rule validate against a specific beats schema, add it to metadata->beats_version')
 
         return rule

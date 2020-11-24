@@ -106,7 +106,7 @@ def get_max_version(include_master=False):
 @cached
 def get_schema(version=None, name='ecs_flat'):
     """Get schema by version."""
-    return get_schemas()[version][name]
+    return get_schemas()[version or str(get_max_version())][name]
 
 
 @cached
