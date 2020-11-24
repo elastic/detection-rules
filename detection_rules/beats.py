@@ -156,6 +156,7 @@ def get_versions():
     return versions
 
 
+@cached
 def get_max_version():
     return max(get_versions())
 
