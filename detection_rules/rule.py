@@ -112,13 +112,30 @@ class Rule(object):
         tactic_ids = []
         technique_ids = set()
         technique_names = set()
+        sub_technique_ids = set()
+        sub_technique_names = set()
+
         for entry in self.contents.get('threat', []):
             tactic_names.append(entry['tactic']['name'])
             tactic_ids.append(entry['tactic']['id'])
-            technique_names.update([t['name'] for t in entry['technique']])
-            technique_ids.update([t['id'] for t in entry['technique']])
+            for technique in entry['technique']:
+                technique_names.update(technique['name'])
+                technique_ids.update(technique['id'])
+                sub_technique = technique.get('subtechnique')
 
-        return sorted(tactic_names), sorted(tactic_ids), sorted(technique_names), sorted(technique_ids)
+                if sub_technique:
+                    sub_technique_ids.update(sub_technique['id'])
+                    sub_technique_names.update(sub_technique['name'])
+
+        flat = {
+            'tactic_names': sorted(tactic_names),
+            'tactic_ids': sorted(tactic_ids),
+            'technique_names': sorted(technique_names),
+            'technique_ids': sorted(technique_ids),
+            'sub_technique_names': sorted(sub_technique_names),
+            'sub_technique_ids': sorted(sub_technique_ids)
+        }
+        return flat
 
     @classmethod
     def get_unique_query_fields(cls, rule_contents):
@@ -343,8 +360,8 @@ class Rule(object):
 
                 while click.confirm('add mitre tactic?'):
                     tactic = schema_prompt('mitre tactic name', type='string', enum=tactics, required=True)
-                    technique_ids = schema_prompt(f'technique IDs for {tactic}', type='array', required=True,
-                                                  enum=list(technique_lookup))
+                    technique_ids = schema_prompt(f'technique or sub-technique IDs for {tactic}', type='array',
+                                                  required=True, enum=list(technique_lookup))
 
                     try:
                         threat_map.append(build_threat_map_entry(tactic, *technique_ids))

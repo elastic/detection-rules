@@ -140,6 +140,8 @@ class TestThreatMappings(unittest.TestCase):
                 for entry in threat_mapping:
                     tactic = entry.get('tactic')
                     techniques = entry.get('technique', [])
+
+                    # tactic
                     expected_tactic = attack.tactics_map[tactic['name']]
                     self.assertEqual(expected_tactic, tactic['id'],
                                      f'ATT&CK tactic mapping error for rule: {rule.id} - {rule.name} ->\n'
@@ -152,6 +154,7 @@ class TestThreatMappings(unittest.TestCase):
                                      f'tactic ID {tactic["id"]} does not match the reference URL ID '
                                      f'{tactic["reference"]}')
 
+                    # techniques
                     for technique in techniques:
                         expected_technique = attack.technique_lookup[technique['id']]['name']
                         self.assertEqual(expected_technique, technique['name'],
@@ -164,6 +167,22 @@ class TestThreatMappings(unittest.TestCase):
                                          f'ATT&CK technique mapping error for rule: {rule.id} - {rule.name} ->\n'
                                          f'technique ID {technique["id"]} does not match the reference URL ID '
                                          f'{technique["reference"]}')
+
+                        # sub-techniques
+                        # TODO: add attack.sub_technique_ids to schema enum
+                        sub_technique = technique.get('subtechnique')
+                        if sub_technique:
+                            expected_sub_technique = attack.technique_lookup[sub_technique['id']]['name']
+                            self.assertEqual(expected_sub_technique, sub_technique['name'],
+                                             f'ATT&CK sub-technique mapping error for rule: {rule.id} - {rule.name} ->\n'  # noqa: E501
+                                             f'expected: {expected_sub_technique} for {sub_technique["id"]}\n'
+                                             f'actual: {sub_technique["name"]}')
+
+                            sub_technique_reference_id = sub_technique['reference'].rstrip('/').split('/')[-1]
+                            self.assertEqual(sub_technique['id'], sub_technique_reference_id,
+                                             f'ATT&CK sub-technique mapping error for rule: {rule.id} - {rule.name} ->\n'  # noqa: E501
+                                             f'sub-technique ID {sub_technique["id"]} does not match the reference URL ID '  # noqa: E501
+                                             f'{sub_technique["reference"]}')
 
     def test_technique_deprecations(self):
         """Check and warn for use of any ATT&CK techniques that have been deprecated."""
