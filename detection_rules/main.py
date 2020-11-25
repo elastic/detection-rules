@@ -130,7 +130,7 @@ def mass_update(ctx, query, metadata, language, field):
 @click.option('--rule-file', '-f', type=click.Path(dir_okay=False), help='Optionally view a rule from a specified file')
 @click.option('--api-format/--rule-format', default=True, help='Print the rule in final api or rule format')
 @click.pass_context
-def view_rule(ctx, rule_id, rule_file, api_format):
+def view_rule(ctx, rule_id, rule_file, api_format, verbose=True):
     """View an internal rule or specified rule file."""
     rule = None
 
@@ -149,10 +149,34 @@ def view_rule(ctx, rule_id, rule_file, api_format):
     if not rule:
         client_error('Unknown format!')
 
-    click.echo(toml_write(rule.rule_format()) if not api_format else
-               json.dumps(rule.contents, indent=2, sort_keys=True))
+    if verbose:
+        click.echo(toml_write(rule.rule_format()) if not api_format else
+                   json.dumps(rule.contents, indent=2, sort_keys=True))
 
     return rule
+
+
+@root.command('export-rule')
+@click.argument('rule-id', required=False)
+@click.option('--rule-file', '-f', type=click.Path(dir_okay=False), help='Optionally view a rule from a specified file')
+@click.option('--ndjson/--json', default=True, help='Output format')
+@click.pass_context
+def export_rule(ctx, rule_id, rule_file, ndjson):
+    """Export a rule as json/ndjson."""
+    from .packaging import manage_versions
+
+    rule = ctx.invoke(view_rule, rule_id=rule_id, rule_file=rule_file, verbose=False)
+
+    ext = '.ndjson' if ndjson else '.json'
+    base, _ = os.path.splitext(rule.path)
+    outfile = base + ext
+
+    # add version
+    manage_versions([rule], verbose=False)
+
+    with open(outfile, 'w') as f:
+        json.dump(rule.contents, f, sort_keys=True, indent=None if ndjson else 2)
+        click.echo(f'Rule: {rule.name} saved to: {outfile}')
 
 
 @root.command('validate-rule')
