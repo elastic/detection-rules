@@ -44,9 +44,10 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
 
 
 @kibana_group.command("upload-rule")
+@click.option('--preserve-id', is_flag=True, help='Preserve the rule_id from toml file as rule id')
 @click.argument("toml-files", nargs=-1, required=True)
 @click.pass_context
-def upload_rule(ctx, toml_files):
+def upload_rule(ctx, preserve_id, toml_files):
     """Upload a list of rule .toml files to Kibana."""
     from uuid import uuid4
     from .packaging import manage_versions
@@ -67,7 +68,11 @@ def upload_rule(ctx, toml_files):
         payload = rule.contents.copy()
         meta = payload.setdefault("meta", {})
         meta["original"] = dict(id=rule.id, **rule.metadata)
-        payload["rule_id"] = str(uuid4())
+        if preserve_id:
+            print(rule.id)
+            payload["rule_id"] = rule.id
+        else:
+            payload["rule_id"] = str(uuid4())
         payload = downgrade(payload, kibana.version)
         rule = RuleResource(payload)
         api_payloads.append(rule)
