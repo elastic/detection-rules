@@ -6,6 +6,7 @@
 import click
 import kql
 from kibana import Kibana, Signal, RuleResource
+from requests.exceptions import HTTPError
 
 from .main import root
 from .misc import add_params, client_error, kibana_options
@@ -45,9 +46,10 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
 
 @kibana_group.command("upload-rule")
 @click.option('--preserve-id', is_flag=True, help='Preserve the rule_id from toml file as rule id')
+@click.option('--force', is_flag=True, help='Force the usage of --preserver-id; a.k.a do not get a confirm pop-up')
 @click.argument("toml-files", nargs=-1, required=True)
 @click.pass_context
-def upload_rule(ctx, preserve_id, toml_files):
+def upload_rule(ctx, preserve_id, force, toml_files):
     """Upload a list of rule .toml files to Kibana."""
     from uuid import uuid4
     from .packaging import manage_versions
@@ -68,8 +70,33 @@ def upload_rule(ctx, preserve_id, toml_files):
         payload = rule.contents.copy()
         meta = payload.setdefault("meta", {})
         meta["original"] = dict(id=rule.id, **rule.metadata)
-        if preserve_id:
-            print(rule.id)
+
+        # Determine the rule id to use.
+        # Github issue 612
+        if preserve_id and not force:
+            with kibana:
+                # determine if the rule already exists
+                try:
+                    resp = kibana.request(
+                        method="GET",
+                        uri="/api/detection_engine/rules",
+                        params={
+                            "rule_id": "{}".format(rule.id)
+                        }
+                    )
+                except HTTPError:
+                    # HTTPError is raised if the rule does not exist
+                    payload["rule_id"] = rule.id
+                else:
+                    # Rule exists, asking user to overwrite or not
+                    print("The rule {} already exists with the given rule id".format(resp["name"]))
+                    overwrite = input("Overwrite existing rule: [y/n]")
+                    if overwrite in ["y", "Y"]:
+                        payload["rule_id"] = rule.id
+                    else:
+                        payload["rule_id"] = str(uuid4())
+                        print("New rule id = {}".format(payload["rule_id"]))
+        elif preserve_id and force:
             payload["rule_id"] = rule.id
         else:
             payload["rule_id"] = str(uuid4())
