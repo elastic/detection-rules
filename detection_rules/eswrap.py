@@ -393,6 +393,7 @@ def collect_events(ctx, host_id, query, index, rta_name, rule_id, view_events):
 @es_group.group('experimental')
 def es_experimental():
     """[Experimental] helper commands for integrating with Elasticsearch."""
+    click.secho('\n* experimental commands are use at your own risk and may change without warning *\n')
 
 
 @es_experimental.command('check-model-files')
@@ -413,7 +414,7 @@ def check_model_files(ctx):
             return None
 
     models = [m for m in ml_client.get_trained_models().get('trained_model_configs', [])
-              if not m['created_by'] == '_xpack']
+              if m['created_by'] != '_xpack']
 
     if models:
         if len([m for m in models if m['model_id'].startswith('dga_')]) > 1:
@@ -517,7 +518,7 @@ def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
     client_info = es_client.info()
     license_client = LicenseClient(es_client)
 
-    if license_client.get()['license']['type'] not in ('platinum', 'Enterprise'):
+    if license_client.get()['license']['type'].lower() not in ('platinum', 'enterprise'):
         client_error('You must have a platinum or enterprise subscription in order to use these ML features')
 
     # download files if necessary
@@ -625,12 +626,6 @@ def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
                 raise
 
     with open_model_file('dns_dga_inference_enrich_pipeline') as ingest_pipeline2:
-        # try:
-        #     processors = ingest_pipeline2['processors']
-        #     inference_processor = next(p for p in processors if 'inference' in p)
-        #     inference_processor['inference']['model_id'] = model_id
-        # except StopIteration:
-        #     client_error(f'{get_model_filename("dga_*_ingest_pipeline2.json")} may be malformed - check file')
         try:
             ingest_client.put_pipeline(id='dns_dga_inference_enrich_pipeline', body=ingest_pipeline2)
         except elasticsearch.RequestError as e:

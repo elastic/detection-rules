@@ -61,7 +61,7 @@ def get_gh_release(repo: Repository, release_name=None, tag_name=None) -> GitRel
 
     releases = repo.get_releases()
     release = next((r for r in releases
-                    if release_name and release_name == r.title or tag_name and tag_name == r.tag_name), None)
+                    if (release_name and release_name == r.title) or (tag_name and tag_name == r.tag_name)), None)
 
     return release
 
@@ -183,7 +183,7 @@ class ReleaseManifest:
 
     assets: Dict[str, AssetManifestMetadata]
     assets_url: str
-    author: str  # author[login]
+    author: str  # parsed from GitHub release metadata as: author[login]
     created_at: str
     html_url: str
     id: int
@@ -255,7 +255,7 @@ class Manifest:
         """Parse relevant info from GitHub metadata for release manifest."""
         ignore = ['assets']
         manual_set_keys = ['author', 'description']
-        keys = [f for f in list(ReleaseManifest.__annotations__) if str(f) not in ignore + manual_set_keys]
+        keys = [f.name for f in dataclasses.fields(ReleaseManifest) if f.name not in ignore + manual_set_keys]
         parsed = {k: self.release.raw_data[k] for k in keys}
         parsed.update(description=self.release.raw_data['body'], author=self.release.raw_data['author']['login'])
         return parsed
@@ -278,34 +278,38 @@ class Manifest:
         repo = gh_client.client.get_repo(repo)
         release = get_gh_release(repo, tag_name=name)
         asset = next((a for a in release.get_assets() if a.name == f'manifest-{name}.json'), None)
-        return load_json_gh_asset(asset.browser_download_url) if asset else None if asset else None
+
+        if asset is not None:
+            return load_json_gh_asset(asset.browser_download_url)
 
     @classmethod
-    def load_all(cls, repo: str = 'elastic/detection-rules', include_missing=False, token=None) -> dict:
+    def load_all(cls, repo: str = 'elastic/detection-rules', token=None) -> Tuple[Dict[str, dict], list]:
         """Load a consolidated manifest."""
         gh_client = GithubClient(token)
         repo = gh_client.client.get_repo(repo)
 
         consolidated = {}
+        missing = set()
         for release in repo.get_releases():
             name = release.tag_name
             asset = next((a for a in release.get_assets() if a.name == f'manifest-{name}.json'), None)
-            if not asset and not include_missing:
-                continue
+            if not asset:
+                missing.add(name)
+            else:
+                consolidated[name] = load_json_gh_asset(asset.browser_download_url)
 
-            consolidated[name] = load_json_gh_asset(asset.browser_download_url) if asset else None
-
-        return consolidated
+        return consolidated, list(missing)
 
     @classmethod
     def get_existing_asset_hashes(cls, repo: str = 'elastic/detection-rules', token=None) -> dict:
         """Load all assets with their hashes, by release."""
         flat = {}
-        consolidated = cls.load_all(repo=repo, token=token)
+        consolidated, _ = cls.load_all(repo=repo, token=token)
         for release, data in consolidated.items():
             for asset in data['assets'].values():
+                flat_release = flat[release] = {}
                 for asset_name, asset_data in asset['entries'].items():
-                    flat.setdefault(release, {})[asset_name] = asset_data['sha256']
+                    flat_release[asset_name] = asset_data['sha256']
 
         return flat
 
@@ -326,7 +330,7 @@ class Manifest:
 
 def get_ml_model_manifests_by_model_id(repo: str = 'elastic/detection-rules') -> Dict[str, ReleaseManifest]:
     """Load all ML DGA model release manifests by model id."""
-    manifests = Manifest.load_all(repo=repo)
+    manifests, _ = Manifest.load_all(repo=repo)
     model_manifests = {}
 
     for manifest_name, manifest in manifests.items():

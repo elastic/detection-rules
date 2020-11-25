@@ -375,7 +375,7 @@ def create_ml_release(ctx, directory, gh_token, repo, release_name, description)
     import re
 
     # ML-DGA-20201129-25
-    pattern = r'^(ML-DGA|ML-experimental-detections)-20\d\d[0-1]\d[0-3]\d-\d+$'
+    pattern = r'^(ML-DGA|ML-experimental-detections)-\d{4}\d{2}\d{2}-\d+$'
     assert re.match(pattern, release_name), f'release name must match pattern: {pattern}'
     assert Path(directory).name == release_name, f'directory name must match release name: {release_name}'
 
@@ -476,6 +476,7 @@ def validate_ml_dga_asset(directory, repo):
     existing_model_name = False
     model_hash = hashlib.sha256(loaded_contents['model']['contents'].encode('utf-8')).hexdigest()
     manifest_hashes = Manifest.get_existing_asset_hashes(repo)
+
     for release, file_data in manifest_hashes.items():
         for file_name, sha in file_data.items():
             if model_hash == sha:
@@ -502,12 +503,13 @@ def validate_ml_dga_asset(directory, repo):
     shutil.make_archive(str(zip_name_no_ext), 'zip', root_dir=zip_name_no_ext.parent, base_dir=zip_name_no_ext.name)
     click.secho(f'[+] zipped folder saved to {zip_name} for release', fg='green')
 
-    click.secho(f'[!] run `setup-dga-model -d {directory}` to test this on a live stack before releasing!', fg='yellow')
+    click.secho(f'[!] run `setup-dga-model -d {directory}` to test this on a live stack before releasing', fg='yellow')
 
     description = {
         'model_name': model_name + '\n\n----\n\n',
         'date': now,
-        'model_sha256': model_hash
+        'model_sha256': model_hash,
+        'For details reference': 'https://github.com/elastic/detection-rules/blob/main/docs/ML_DGA.md'
     }
     description_str = '\n'.join([f'{k}: {v}' for k, v in description.items()])
     click.echo()
@@ -556,14 +558,15 @@ def validate_ml_detections_asset(directory):
     shutil.make_archive(str(zip_name_no_ext), 'zip', root_dir=zip_name_no_ext.parent, base_dir=zip_name_no_ext.name)
     click.secho(f'[+] zipped folder saved to {zip_name} for release', fg='green')
 
-    click.secho('[!] run `kibana upload-rule` to test rules on a live stack before releasing!', fg='green')
-    click.secho('[!] run `es upload-ml-job` to test jobs on a live stack before releasing!', fg='green')
+    click.secho('[!] run `kibana upload-rule` to test rules on a live stack before releasing', fg='green')
+    click.secho('[!] run `es upload-ml-job` to test jobs on a live stack before releasing', fg='green')
 
     description = {
         'Experimental ML rules': rule_count,
         'Experimental ML jobs': str(job_count) + '\n\n----\n\n',
         'DGA release': '<add link to DGA release these detections were built on>',
-        'date': now
+        'date': now,
+        'For details reference': 'https://github.com/elastic/detection-rules/blob/main/docs/ML_DGA.md'
     }
     description_str = '\n'.join([f'{k}: {v}' for k, v in description.items()])
     click.echo()
