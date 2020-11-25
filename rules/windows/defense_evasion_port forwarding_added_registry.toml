@@ -1,0 +1,44 @@
+[metadata]
+creation_date = "2020/11/25"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of a new Port forwarding rule, an adversary may use this technique to bypass network
+segmentation restrictions.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "New Port Forwarding Rule Added"
+references = [
+    "https://www.fireeye.com/blog/threat-research/2019/01/bypassing-network-restrictions-through-rdp-tunneling.html",
+]
+risk_score = 43
+rule_id = "3535c8bb-3bd5-40f4-ae32-b7cd589d5372"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+type = "eql"
+
+query = '''
+registry where wildcard(registry.path, "HKLM\\SYSTEM\\ControlSet*\\Services\\PortProxy\\v4tov4\\*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1089"
+name = "Disabling Security Tools"
+reference = "https://attack.mitre.org/techniques/T1089/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
