@@ -81,7 +81,7 @@ def upload_rule(ctx, preserve_id, force, toml_files):
                         method="GET",
                         uri="/api/detection_engine/rules",
                         params={
-                            "rule_id": "{}".format(rule.id)
+                            "rule_id": rule.id
                         }
                     )
                 except HTTPError:
