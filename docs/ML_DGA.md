@@ -12,6 +12,7 @@ For questions, please reach out to the ML team in the #machine-learning channel 
 They can also be reached by using the `stack-machine-learning` tag in the [discuss forums](https://discuss.elastic.co/tags/c/elastic-stack/stack-machine-learning)
 
 *Note: in order to use these ML features, you must have a platinum or higher [subscription](https://www.elastic.co/subscriptions)*
+*Note: the ML features are considered experimental in Kibana as well as this rules CLI*
 
 ## Releases
 
