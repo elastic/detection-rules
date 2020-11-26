@@ -167,6 +167,22 @@ Options:
   -h, --help  Show this message and exit.
 ```
 
+Alternatively, rules can be exported into a consolidated ndjson file which can be imported in the Kibana security app 
+directly.
+
+```console
+Usage: detection_rules export-rules [OPTIONS] [RULE_ID]...
+
+  Export rule(s) into an importable ndjson file.
+
+Options:
+  -f, --rule-file FILE       Export specified rule files
+  -d, --directory DIRECTORY  Recursively export rules from a directory
+  -o, --outfile FILE         Name of file for exported rules
+  -r, --randomize-id         Randomize rule IDs before export
+  -h, --help                 Show this message and exit.
+```
+
 _*To load a custom rule, the proper index must be setup first. The simplest way to do this is to click 
 the `Load prebuilt detection rules and timeline templates` button on the `detections` page in the Kibana security app._
 

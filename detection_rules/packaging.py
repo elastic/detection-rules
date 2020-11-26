@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 from collections import defaultdict, OrderedDict
+from typing import List
 
 import click
 
@@ -137,24 +138,25 @@ class Package(object):
     """Packaging object for siem rules and releases."""
 
     def __init__(self, rules, name, deprecated_rules=None, release=False, current_versions=None, min_version=None,
-                 max_version=None, update_version_lock=False):
+                 max_version=None, update_version_lock=False, verbose=True):
         """Initialize a package."""
-        self.rules = [r.copy() for r in rules]  # type: list[Rule]
+        self.rules: List[Rule] = [r.copy() for r in rules]
         self.name = name
-        self.deprecated_rules = [r.copy() for r in deprecated_rules or []]  # type: list[Rule]
+        self.deprecated_rules: List[Rule] = [r.copy() for r in deprecated_rules or []]
         self.release = release
 
         self.changed_rule_ids, self.new_rules_ids, self.removed_rule_ids = self._add_versions(current_versions,
-                                                                                              update_version_lock)
+                                                                                              update_version_lock,
+                                                                                              verbose=verbose)
 
         if min_version or max_version:
             self.rules = [r for r in self.rules
                           if (min_version or 0) <= r.contents['version'] <= (max_version or r.contents['version'])]
 
-    def _add_versions(self, current_versions, update_versions_lock=False):
+    def _add_versions(self, current_versions, update_versions_lock=False, verbose=True):
         """Add versions to rules at load time."""
         return manage_versions(self.rules, deprecated_rules=self.deprecated_rules, current_versions=current_versions,
-                               save_changes=update_versions_lock)
+                               save_changes=update_versions_lock, verbose=verbose)
 
     @staticmethod
     def _package_notice_file(save_dir):
@@ -244,6 +246,17 @@ class Package(object):
 
         if verbose:
             click.echo('Package saved to: {}'.format(save_dir))
+
+    def export(self, outfile, verbose=True):
+        """Export rules into a consolidated ndjson file."""
+        base, _ = os.path.splitext(outfile)
+        outfile = base + '.ndjson'
+
+        with open(outfile, 'w') as f:
+            f.write('\n'.join(json.dumps(r.contents, sort_keys=True) for r in self.rules))
+
+        if verbose:
+            click.echo(f'Exported {len(self.rules)} rules into {outfile}')
 
     def get_package_hash(self, as_api=True, verbose=True):
         """Get hash of package contents."""

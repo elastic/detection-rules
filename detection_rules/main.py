@@ -7,6 +7,8 @@ import glob
 import json
 import os
 import re
+import time
+from pathlib import Path
 
 import click
 import jsonschema
@@ -156,27 +158,39 @@ def view_rule(ctx, rule_id, rule_file, api_format, verbose=True):
     return rule
 
 
-@root.command('export-rule')
-@click.argument('rule-id', required=False)
-@click.option('--rule-file', '-f', type=click.Path(dir_okay=False), help='Optionally view a rule from a specified file')
-@click.option('--ndjson/--json', default=True, help='Output format')
-@click.pass_context
-def export_rule(ctx, rule_id, rule_file, ndjson):
-    """Export a rule as json/ndjson."""
-    from .packaging import manage_versions
+@root.command('export-rules')
+@click.argument('rule-id', nargs=-1, required=False)
+@click.option('--rule-file', '-f', multiple=True, type=click.Path(dir_okay=False), help='Export specified rule files')
+@click.option('--directory', '-d', multiple=True, type=click.Path(file_okay=False),
+              help='Recursively export rules from a directory')
+@click.option('--outfile', '-o', default=get_path('exports', f'{time.strftime("%Y%m%dT%H%M%SL")}.ndjson'),
+              type=click.Path(dir_okay=False), help='Name of file for exported rules')
+@click.option('--randomize-id', '-r', is_flag=True, help='Randomize rule IDs before export')
+def export_rules(rule_id, rule_file, directory, outfile, randomize_id):
+    """Export rule(s) into an importable ndjson file."""
+    from .packaging import Package
 
-    rule = ctx.invoke(view_rule, rule_id=rule_id, rule_file=rule_file, verbose=False)
+    if not (rule_id or rule_file or directory):
+        client_error('Must specify a rule_id, rule_file, or directory')
 
-    ext = '.ndjson' if ndjson else '.json'
-    base, _ = os.path.splitext(rule.path)
-    outfile = base + ext
+    rules = [r for r in rule_loader.load_rules(verbose=False).values() if r.id in rule_id] if rule_id else []
 
-    # add version
-    manage_versions([rule], verbose=False)
+    rule_files = list(rule_file)
+    for _dir in directory:
+        rule_files.extend(list(Path(_dir).rglob('*.toml')))
 
-    with open(outfile, 'w') as f:
-        json.dump(rule.contents, f, sort_keys=True, indent=None if ndjson else 2)
-        click.echo(f'Rule: {rule.name} saved to: {outfile}')
+    file_lookup = rule_loader.load_rule_files(verbose=False, paths=rule_files)
+    rules.extend(rule_loader.load_rules(file_lookup=file_lookup).values())
+
+    if randomize_id:
+        from uuid import uuid4
+        for rule in rules:
+            rule.contents['rule_id'] = str(uuid4())
+
+    Path(outfile).parent.mkdir(exist_ok=True)
+    package = Package(rules, '_', verbose=False)
+    package.export(outfile)
+    return package.rules
 
 
 @root.command('validate-rule')
