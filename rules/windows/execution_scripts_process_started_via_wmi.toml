@@ -27,7 +27,7 @@ sequence by host.id with maxspan = 1s
     [process where event.type in ("start", "process_started") and
      process.parent.name : "wmiprvse.exe" and
      user.domain != "NT AUTHORITY" and
-     process.pe.original_file_name in
+     (process.pe.original_file_name in
                                 (
                                   "cscript.exe",
                                   "wscript.exe",
@@ -45,7 +45,9 @@ sequence by host.id with maxspan = 1s
                                   "EXPLORER.EXE",
                                   "Microsoft.Workflow.Compiler.exe",
                                   "msiexec.exe"
-                                  )
+                                  ) or
+      wildcard(process.executable, "C:\\Users\\*.exe", "C:\\ProgramData\\*.exe")
+     )
     ]
 '''
 
