@@ -24,9 +24,12 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 type = "eql"
 
 query = '''
-sequence with maxspan=1m
-   [process where event.type == "end" and not wildcard(process.executable, "C:\\Windows\\SoftwareDistribution\\*.exe", "C:\\Windows\\WinSxS\\*.exe")] by  host.id, process.executable
-   [file where event.type == "deletion" and file.extension == "exe"] by  host.id, file.path
+sequence by host.id with maxspan=5s
+   [process where event.type == "end" and 
+    process.code_signature.trusted == false and
+    not wildcard(process.executable, "C:\\Windows\\SoftwareDistribution\\*.exe", "C:\\Windows\\WinSxS\\*.exe")
+   ] by  process.executable
+   [file where event.type == "deletion" and file.extension == "exe"] by file.path
 '''
 
 
