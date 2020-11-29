@@ -1,0 +1,42 @@
+[metadata]
+creation_date = "2020/11/29"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/29"
+
+[rule]
+author = ["Elastic"]
+description = "A scheduled task was created by cscript.exe or wscript.exe, this can be used by an adversary to establish persistence."
+false_positives = ["Legitimate scheduled tasks may be created during installation of new software."]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Scheduled Task Created via Windows Scripts"
+note = "Decode the base 64 encoded Tasks Actions registry value to investigate the task configured action."
+risk_score = 43
+rule_id = "689b9d57-e4d5-4357-ad17-9c334609d79a"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+type = "eql"
+
+query = '''
+sequence by host.id with maxspan = 5s
+  [library where file.name == "taskschd.dll" and process.name in ("cscript.exe", "wscript.exe")]
+  [registry where wildcard(registry.path, "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\*\\Actions")]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
