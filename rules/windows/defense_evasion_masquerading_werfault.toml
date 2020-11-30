@@ -6,13 +6,16 @@ updated_date = "2020/11/03"
 
 [rule]
 author = ["Elastic"]
-description = "Identifies a suspicious WerFault command line parameter, which may indicate an attempt to run unnoticed."
+description = """
+Identifies suspicious instances of WerFault or Wermgr with null commandline value, this may indicate an attempt to evade
+suspicious child processes related behavior detections.
+"""
 false_positives = ["Legit Application Crash with rare Werfault commandline value"]
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License"
-name = "Process Potentially Masquerading as WerFault"
+name = "Process Potentially Masquerading as Windows Error Manager"
 references = [
     "https://twitter.com/SBousseaden/status/1235533224337641473",
     "https://www.hexacorn.com/blog/2019/09/20/werfault-command-line-switches-v0-1/",
@@ -25,8 +28,7 @@ type = "query"
 
 query = '''
 event.category:process and event.type:(start or process_started) and
- process.name:WerFault.exe and
- not process.args:((("-u" or "-pss") and "-p" and "-s") or ("/h" and "/shared") or ("-k" and "-lcq"))
+ process.name:(WerFault.exe or wermgr.exe) and process.args_count : 1
 '''
 
 
