@@ -7,8 +7,7 @@ updated_date = "2020/10/29"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a suspicious Windows explorer child process. Explorer.exe can be abused to launch malicious script or
-executables from a trustred parent process.
+Identifies a suspicious Windows explorer child process. Explorer.exe can be abused to launch malicious scripts or executables from a trusted parent process.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "winlogbeat-*"]
@@ -19,13 +18,13 @@ risk_score = 43
 rule_id = "9a5b4e31-6cde-4295-9ff7-6be1b8567e1b"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
-timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
 type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
- process.name in ("cscript.exe", "wscript.exe", "powershell.exe", "rundll32.exe", "cmd.exe") and
-  process.parent.name == "explorer.exe" and wildcard(process.parent.args, "*75dff2b7-6936-4c06-a8bb-676a7b00b24b*")
+  process.name : ("cscript.exe", "wscript.exe", "powershell.exe", "rundll32.exe", "cmd.exe", "mshta.exe", "regsvr32.exe") and
+  /* Explorer started via DCOM */
+  process.parent.name : "explorer.exe" and process.parent.args : "-Embedding"
 '''
 
 
