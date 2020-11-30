@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
 ecs_version = ["1.6.0"]
-maturity = "production"
-updated_date = "2020/08/03"
+maturity = "development"
+updated_date = "2020/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -12,18 +12,22 @@ by adversaries to execute malicious scripts and evade detection.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
 name = "Network Connection via Mshta"
 references = ["https://www.fireeye.com/blog/threat-research/2017/05/cyber-espionage-apt32.html"]
 risk_score = 47
 rule_id = "a4ec1382-4557-452b-89ba-e413b22ed4b8"
 severity = "medium"
-tags = ["Elastic", "Windows"]
-type = "query"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+type = "eql"
 
 query = '''
-event.category:network and event.type:connection and process.name:mshta.exe
+/* duplicate of Mshta Making Network Connections - c2d90150-0133-451c-a783-533e736c12d7 */
+
+sequence by process.entity_id
+  [process where process.name : "mshta.exe" and event.type == "start"]
+  [network where process.name : "mshta.exe"]
 '''
 
 
