@@ -24,11 +24,11 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
-     process.parent.name=="svchost.exe" and
+     process.parent.name : "svchost.exe" and
 
-     /* based on svchost service arguments -s svcname where the service is known to be childess */
+     /* based on svchost service arguments -s svcname where the service is known to be childless */
 
-     wildcard(process.parent.args,"WdiSystemHost","LicenseManager",
+    process.parent.args : ("WdiSystemHost","LicenseManager",
       "StorSvc","CDPSvc","cdbhsvc","BthAvctpSvc","SstpSvc","WdiServiceHost",
       "imgsvc","TrkWks","WpnService","IKEEXT","PolicyAgent","CryptSvc",
       "netprofm","ProfSvc","StateRepository","camsvc","LanmanWorkstation",
@@ -37,7 +37,7 @@ process where event.type in ("start", "process_started") and
 
       /* unknown FPs can be added here */
 
-     not wildcard(process.name,"WerFault.exe","WerFaultSecure.exe","wermgr.exe")
+     not process.name : ("WerFault.exe","WerFaultSecure.exe","wermgr.exe")
 '''
 
 
