@@ -1,0 +1,50 @@
+[metadata]
+creation_date = "2020/09/02"
+ecs_version = ["1.6.0"]
+maturity = "development"
+updated_date = "2020/11/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies registration utilities making outbound network connections. This includes regsvcs, regasm, and regsvr32. This
+may indicate adversarial activity as these tools are often leveraged by adversaries to execute code and evade detection.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*"]
+language = "eql"
+license = "Elastic License"
+name = "Registration Tool Making Network Connections"
+risk_score = 21
+rule_id = "6d3456a5-4a42-49d1-aaf2-7b1fd475b2c6"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+type = "eql"
+
+query = '''
+/* duplicate of Network Connection via Registration Utility - fb02b8d3-71ee-4af1-bacd-215d23f17efa */
+
+sequence by process.entity_id
+  [process where event.type in ("start", "process_started") and
+     (process.name : "RegAsm.exe" or process.name : "regsvcs.exe" or process.name : "regsvr32.exe")]
+  [network where
+     (process.name : "RegAsm.exe" or process.name : "regsvcs.exe" or process.name : "regsvr32.exe")]
+until
+  [process where event.type == "end" and
+     (process.name : "RegAsm.exe" or process.name : "regsvcs.exe" or process.name : "regsvr32.exe")]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1121"
+name = "Regsvcs/Regasm"
+reference = "https://attack.mitre.org/techniques/T1121/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
