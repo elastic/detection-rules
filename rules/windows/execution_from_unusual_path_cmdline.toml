@@ -19,11 +19,10 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
 type = "eql"
 
 query = '''
-
 process where event.type in ("start", "process_started", "info") and
- wildcard(process.name, "wscript.exe","cscript.exe","rundll32.exe","regsvr32.exe","cmstp.exe","RegAsm.exe","installutil.exe","mshta.exe","RegSvcs.exe") and
+ process.name : ("wscript.exe","cscript.exe","rundll32.exe","regsvr32.exe","cmstp.exe","RegAsm.exe","installutil.exe","mshta.exe","RegSvcs.exe") and
  /* add suspicious execution paths here */
- wildcard(process.args,"C:\\PerfLogs\\*","C:\\Users\\Public\\*","C:\\Users\\Default\\*","C:\\Windows\\Tasks\\*","C:\\Intel\\","C:\\Windows\\AppReadiness\\*",
+process.args : ("C:\\PerfLogs\\*","C:\\Users\\Public\\*","C:\\Users\\Default\\*","C:\\Windows\\Tasks\\*","C:\\Intel\\","C:\\Windows\\AppReadiness\\*",
  "C:\\Windows\\ServiceState\\*","C:\\Windows\\security\\*","C:\\Windows\\IdentityCRL\\*","C:\\Windows\\Branding\\*","C:\\Windows\\csc\\*",
  "C:\\Windows\\DigitalLocker\\*","C:\\Windows\\en-US\\*","C:\\Windows\\wlansvc\\*","C:\\Windows\\Prefetch\\*","C:\\Windows\\Fonts\\*",
  "C:\\Windows\\diagnostics\\*","C:\\Windows\\TAPI\\*","C:\\Windows\\INF\\*","C:\\Windows\\System32\\Speech\\*","C:\\windows\\tracing\\*",
@@ -34,4 +33,3 @@ process where event.type in ("start", "process_started", "info") and
  "C:\\Windows\\Globalization\\*","C:\\Windows\\L2Schemas\\*","C:\\Windows\\LiveKernelReports\\*","C:\\Windows\\ModemLogs\\*","C:\\Windows\\ImmersiveControlPanel\\*")
 
 '''
-
