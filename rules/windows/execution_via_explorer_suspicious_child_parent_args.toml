@@ -7,7 +7,8 @@ updated_date = "2020/10/29"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a suspicious Windows explorer child process. Explorer.exe can be abused to launch malicious script or executables from a trustred parent process.
+Identifies a suspicious Windows explorer child process. Explorer.exe can be abused to launch malicious script or
+executables from a trustred parent process.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "winlogbeat-*"]
@@ -25,7 +26,6 @@ query = '''
 process where event.type in ("start", "process_started") and
  process.name in ("cscript.exe", "wscript.exe", "powershell.exe", "rundll32.exe", "cmd.exe") and
   process.parent.name == "explorer.exe" and wildcard(process.parent.args, "*75dff2b7-6936-4c06-a8bb-676a7b00b24b*")
-
 '''
 
 
@@ -51,3 +51,4 @@ reference = "https://attack.mitre.org/techniques/T1193/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
