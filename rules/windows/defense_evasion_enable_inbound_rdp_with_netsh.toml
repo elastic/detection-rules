@@ -6,7 +6,10 @@ updated_date = "2020/10/13"
 
 [rule]
 author = ["Elastic"]
-description = "Identifies use of the network shell utility (netsh.exe) to enable inbound Remote Desktop Protocol (RDP) connections in the Windows Local Firewall."
+description = """
+Identifies use of the network shell utility (netsh.exe) to enable inbound Remote Desktop Protocol (RDP) connections in
+the Windows Local Firewall.
+"""
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
 language = "eql"
@@ -20,9 +23,9 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
-  (process.name : "netsh.exe" or process.pe.original_file_name == "netsh.exe") and
-  process.args : ("localport=3389", "RemoteDesktop", "group=\"remote desktop\"") and 
-  process.args : ("action=allow", "enable=Yes", "enable")
+ (process.name : "netsh.exe" or process.pe.original_file_name == "netsh.exe") and
+ process.args : ("localport=3389", "RemoteDesktop", "group=\"remote desktop\"") and
+ process.args : ("action=allow", "enable=Yes", "enable")
 '''
 
 
@@ -38,3 +41,4 @@ reference = "https://attack.mitre.org/techniques/T1089/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
