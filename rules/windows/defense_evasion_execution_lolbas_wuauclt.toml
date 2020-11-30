@@ -6,7 +6,7 @@ updated_date = "2020/10/13"
 
 [rule]
 author = ["Elastic"]
-description = "Identifies Execution via abusing the Windows Update Client to load an arbitrary Image."
+description = "Identifies Execution via abusing the Windows Update Client to load an arbitrary DLL."
 from = "now-9m"
 index = ["logs-endpoint.events.*", "winlogbeat-*"]
 language = "eql"
@@ -16,12 +16,21 @@ references = ["https://dtm.uk/wuauclt/"]
 risk_score = 47
 rule_id = "edf8ee23-5ea7-4123-ba19-56b41e424ae3"
 severity = "medium"
-tags = ["Elastic", "Windows"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 type = "eql"
 
 query = '''
 
-process where event.type in ("start", "process_started") and process.name:"wuauclt.exe"
+process where event.type in ("start", "process_started") and
+  (process.pe.original_file_name:"wuauclt.exe" or process.name:"wuauclt.exe") and
+  
+   /* necessary windows update client args to load a dll */
+   
+   process.args:"/RunHandlerComServer" and process.args:"/UpdateDeploymentProvider" and
+   
+   /* common paths writeable by a standard user where the target DLL can be placed */
+   
+   wildcard(process.args, "C:\\Users\\*.dll", "C:\\ProgramData\\*.dll", "C:\\Windows\\Temp\\*.dll", "C:\\Windows\\Tasks\\*.dll")
   
 '''
 
@@ -38,4 +47,3 @@ reference = "https://attack.mitre.org/techniques/T1218/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
