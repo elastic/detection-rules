@@ -1,0 +1,43 @@
+[metadata]
+creation_date = "2020/10/19"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/10/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies User Account Control (UAC) bypass attempts via the ICMLuaUtil Elevated COM interface. Attackers may attempt
+to bypass UAC to stealthily execute code with elevated permissions.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "UAC Bypass via ICMLuaUtil Elevated COM Interface"
+risk_score = 73
+rule_id = "68d56fdc-7ffa-4419-8e95-81641bd6f845"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+ process.parent.name == "dllhost.exe" and
+ process.parent.args in ("/Processid:{3E5FC7F9-9A51-4367-9063-A120244FBEC7}", "/Processid:{D2E7041B-2927-42FB-8E9F-7CE93B6DC937}") and
+ process.pe.original_file_name != "WerFault.exe"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1088"
+name = "Bypass User Account Control"
+reference = "https://attack.mitre.org/techniques/T1088/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
