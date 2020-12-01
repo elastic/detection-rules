@@ -9,7 +9,6 @@ import time
 import jsl
 import jsonschema
 
-from .. import ecs
 from ..utils import cached
 
 
@@ -74,8 +73,8 @@ class TomlMetadata(GenericSchema):
     creation_date = jsl.StringField(required=True, pattern=DATE_PATTERN, default=time.strftime('%Y/%m/%d'))
 
     # rule validated against each ecs schema contained
-    ecs_version = jsl.ArrayField(
-        jsl.StringField(pattern=VERSION_PATTERN, required=True, default=ecs.get_max_version()), required=True)
+    beats_version = jsl.StringField(pattern=VERSION_PATTERN, required=False)
+    ecs_versions = jsl.ArrayField(jsl.StringField(pattern=VERSION_PATTERN, required=True), required=False)
     maturity = jsl.StringField(enum=MATURITY_LEVELS, default='development', required=True)
 
     os_type_list = jsl.ArrayField(jsl.StringField(enum=OS_OPTIONS), required=False)
