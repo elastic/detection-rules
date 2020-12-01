@@ -23,7 +23,8 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
-process.name in ("cmd.exe","powershell.exe","robocopy.exe","xcopy.exe") and wildcard(process.command_line,"*copy*$*","*move*$*")
+  process.name : ("cmd.exe", "powershell.exe", "robocopy.exe", "xcopy.exe") and 
+  process.args : ("copy*", "move*", "cp", "mv") and process.args : "*$*"
 '''
 
 
@@ -39,4 +40,3 @@ reference = "https://attack.mitre.org/techniques/T1077/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-
