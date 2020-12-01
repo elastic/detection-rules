@@ -29,9 +29,9 @@ query = '''
 /* Incoming RDP followed by a new RunMRU string value set to cmd, powershell, taskmgr or tsclient, followed by process execution within 1m */
 
 sequence by host.id with maxspan=1m
-  [network where event.type == "start" and process.name == "svchost.exe" and destination.port == 3389 and 
-   event.action == "connection_accepted" and network.direction == "incoming" and network.transport == "tcp" and
-   not source.address in ("127.0.0.1", "::1")
+  [network where event.type == "start" and process.name : "svchost.exe" and destination.port == 3389 and 
+   network.direction == "incoming" and network.transport == "tcp" and
+   source.address != "127.0.0.1" and source.address != "::1"
   ]
 
   [registry where process.name == "explorer.exe" and 
@@ -39,9 +39,9 @@ sequence by host.id with maxspan=1m
    wildcard(registry.data.strings, "cmd.exe*", "powershell.exe*", "taskmgr*", "\\\\tsclient\\*.exe\\*")
   ]
   
-  [process where event.type in ("start", "process_started") and process.name != "conhost.exe" and
-   (process.parent.name in ("cmd.exe","powershell.exe","taskmgr.exe") or
-   wildcard(process.args, "\\\\tsclient\\*.exe"))
+  [process where event.type in ("start", "process_started") and
+   (process.parent.name : ("cmd.exe", "powershell.exe", "taskmgr.exe") or wildcard(process.args, "\\\\tsclient\\*.exe")) and 
+   not process.name : "conhost.exe"
    ]
 '''
 
