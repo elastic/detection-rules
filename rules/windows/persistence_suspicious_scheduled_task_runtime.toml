@@ -22,7 +22,7 @@ type = "eql"
 query = '''
 process where event.type == "start" and
     /* Schedule service cmdline on Win10+ */
-    process.parent.name == "svchost.exe" and process.parent.args == "Schedule" and
+    process.parent.name : "svchost.exe" and process.parent.args : "Schedule" and
     /* add suspicious programs here */
     process.pe.original_file_name in
                                 (
@@ -44,7 +44,7 @@ process where event.type == "start" and
                                   "msiexec.exe"
                                   ) and
     /* add suspicious paths here */
-    wildcard(process.args, "C:\\Users\\*", "C:\\ProgramData\\*", "C:\\Windows\\Temp\\*", "C:\\Windows\\Tasks\\*", "C:\\PerfLogs\\*", "C:\\Intel\\*")
+    process.args : ("C:\\Users\\*", "C:\\ProgramData\\*", "C:\\Windows\\Temp\\*", "C:\\Windows\\Tasks\\*", "C:\\PerfLogs\\*", "C:\\Intel\\*")
 '''
 
 
