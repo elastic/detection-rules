@@ -23,8 +23,8 @@ type = "eql"
 query = '''
 registry where
   /* uncomment once stable length(registry.data.strings) > 0 and */
-  wildcard(registry.path,
-           "*\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\*",
+ registry.path : (
+                   "*\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\*",
 		   "*\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Runonce\\*",
 		   "*\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\Load",
 		   "*\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\Run",
@@ -49,24 +49,24 @@ registry where
 		   "*\\Microsoft\\Command Processor\\Autorun",
 		   "*\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*\\VerifierDlls",
 		   "*\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\GpExtensions\\*\\DllName",
-		   "*\\SYSTEM\\ControlSet*\\Control\\SafeBoot\\AlternateShell",
-		   "*\\SYSTEM\\ControlSet*\\Control\\Terminal Server\\Wds\\rdpwd\\StartupPrograms",
-		   "*\\SYSTEM\\ControlSet*\\Control\\Terminal Server\\WinStations\\RDP-Tcp\\InitialProgram",
-		   "*\\SYSTEM\\ControlSet*\\Control\\Session Manager\\BootExecute",
-		   "*\\SYSTEM\\ControlSet*\\Control\\Session Manager\\SetupExecute",
-		   "*\\SYSTEM\\ControlSet*\\Control\\Session Manager\\Execute",
-		   "*\\SYSTEM\\ControlSet*\\Control\\Session Manager\\S0InitialCommand",
-		   "*\\SYSTEM\\ControlSet*\\Control\\ServiceControlManagerExtension",
-		   "*\\SYSTEM\\ControlSet*\\Control\\BootVerificationProgram\\ImagePath",
-		   "*\\SYSTEM\\Setup\\CmdLine",
+		   "HKLM\\SYSTEM\\ControlSet*\\Control\\SafeBoot\\AlternateShell",
+		   "HKLM\\SYSTEM\\ControlSet*\\Control\\Terminal Server\\Wds\\rdpwd\\StartupPrograms",
+		   "HKLM\\SYSTEM\\ControlSet*\\Control\\Terminal Server\\WinStations\\RDP-Tcp\\InitialProgram",
+		   "HKLM\\SYSTEM\\ControlSet*\\Control\\Session Manager\\BootExecute",
+		   "HKLM\\SYSTEM\\ControlSet*\\Control\\Session Manager\\SetupExecute",
+		   "HKLM\\SYSTEM\\ControlSet*\\Control\\Session Manager\\Execute",
+		   "HKLM\\SYSTEM\\ControlSet*\\Control\\Session Manager\\S0InitialCommand",
+		   "HKLM\\SYSTEM\\ControlSet*\\Control\\ServiceControlManagerExtension",
+		   "HKLM\\SYSTEM\\ControlSet*\\Control\\BootVerificationProgram\\ImagePath",
+		   "HKLM\\SYSTEM\\Setup\\CmdLine",
 		   "*\\Environment\\UserInitMprLogonScript"
-		   ) and
- not wildcard(registry.data.strings, "C:\\Windows\\system32\\userinit.exe", "cmd.exe", "C:\\Program Files*\\*.exe") and
- not (process.name == "rundll32.exe" and wildcard(registry.path, "*\\Software\\Microsoft\\Internet Explorer\\Extensions\\*\\Script")) and
- not process.executable in ("C:\\Windows\\System32\\msiexec.exe",
-                            "C:\\Windows\\SysWOW64\\msiexec.exe",
-                            "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
-                            "C:\\Program Files*\\*.exe")
+		  ) and
+ not registry.data.strings : ("C:\\Windows\\system32\\userinit.exe", "cmd.exe", "C:\\Program Files*\\*.exe") and
+ not (process.name : "rundll32.exe" and registry.path : "*\\Software\\Microsoft\\Internet Explorer\\Extensions\\*\\Script") and
+ not process.executable : ("C:\\Windows\\System32\\msiexec.exe",
+                           "C:\\Windows\\SysWOW64\\msiexec.exe",
+                           "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
+                           "C:\\Program Files*\\*.exe")
 '''
 
 
