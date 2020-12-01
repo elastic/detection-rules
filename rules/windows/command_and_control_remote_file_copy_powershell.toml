@@ -22,9 +22,9 @@ type = "eql"
 
 query = '''
 sequence by host.id, process.entity_id with maxspan = 30s
-  [network where process.name:"powershell.exe" and network.protocol == "dns" and
-   not wildcard(dns.question.name, "localhost", "*.microsoft.com", "*.azureedge.net", "*.powershellgallery.com", "*.windowsupdate.com")]
-  [file where event.type == "creation" and file.extension in ("exe", "dll", "ps1", "bat")]
+  [network where process.name : "powershell.exe" and network.protocol == "dns" and
+   not dns.question.name : ("localhost", "*.microsoft.com", "*.azureedge.net", "*.powershellgallery.com", "*.windowsupdate.com")]
+  [file where event.type == "creation" and file.extension : ("exe", "dll", "ps1", "bat")]
 '''
 
 
