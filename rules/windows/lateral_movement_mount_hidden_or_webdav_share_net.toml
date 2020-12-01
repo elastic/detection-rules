@@ -22,13 +22,13 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
- ((process.name == "net.exe" or process.pe.original_file_name == "net.exe") or ((process.name == "net1.exe" or process.pe.original_file_name == "net1.exe") and
- not process.parent.name == "net.exe")) and
- wildcard(process.args,"use") and
+ ((process.name : "net.exe" or process.pe.original_file_name == "net.exe") or ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and
+ not process.parent.name : "net.exe")) and
+ process.args : "use" and
  /* including hidden and webdav based online shares such as onedrive  */
- wildcard(process.args, "\\\\*\\*$*", "\\\\*@SSL\\*", "http*") and
+ process.args : ("\\\\*\\*$*", "\\\\*@SSL\\*", "http*") and
  /* excluding shares deletion operation */
- not wildcard(process.args, "/d*")
+ not process.args : "/d*"
 '''
 
 
