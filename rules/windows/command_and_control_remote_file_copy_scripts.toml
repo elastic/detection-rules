@@ -22,10 +22,10 @@ type = "eql"
 
 query = '''
 sequence by host.id, process.entity_id with maxspan = 30s
-  [network where process.name in ("wscript.exe", "cscript.exe") and network.protocol != "dns" and
+  [network where process.name : ("wscript.exe", "cscript.exe") and network.protocol != "dns" and
    network.direction == "outgoing" and network.type == "ipv4" and destination.ip !="127.0.0.1"
   ]
-  [file where event.type == "creation" and file.extension in ("exe", "dll")]
+  [file where event.type == "creation" and file.extension : ("exe", "dll")]
 '''
 
 
