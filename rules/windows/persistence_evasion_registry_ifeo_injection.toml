@@ -26,12 +26,12 @@ type = "eql"
 
 query = '''
 registry where length(registry.data.strings) > 0 and
- wildcard(registry.path, "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*.exe\\Debugger",
-                         "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*\\Debugger",
-                         "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\SilentProcessExit\\*\\MonitorProcess",
-                         "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows NT\\CurrentVersion\\SilentProcessExit\\*\\MonitorProcess") and
+ registry.path : ("HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*.exe\\Debugger", 
+                  "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*\\Debugger", 
+                  "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\SilentProcessExit\\*\\MonitorProcess", 
+                  "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows NT\\CurrentVersion\\SilentProcessExit\\*\\MonitorProcess") and
    /* add FPs here */
- not wildcard(registry.data.strings, "C:\\Program Files*\\ThinKiosk\\thinkiosk.exe", "*\\PSAppDeployToolkit\\*")
+ not registry.data.strings : ("C:\\Program Files*\\ThinKiosk\\thinkiosk.exe", "*\\PSAppDeployToolkit\\*")
 '''
 
 
