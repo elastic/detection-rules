@@ -21,15 +21,15 @@ query = '''
 file where event.type != "deletion" and user.domain != "NT AUTHORITY"
   and (
     // detect shortcuts created by wscript.exe or cscript.exe
-    wildcard(file.path, "C:\\*\\Programs\\Startup\\*.lnk") and
-      process.name in ("wscript.exe", "cscript.exe")) or
-
+      file.path : "C:\\*\\Programs\\Startup\\*.lnk" and
+      process.name : ("wscript.exe", "cscript.exe")
+      ) or
      // detect vbs or js files created by any process
-     wildcard(file.path, "C:\\*\\Programs\\Startup\\*.vbs",
-                         "C:\\*\\Programs\\Startup\\*.vbe",
-                         "C:\\*\\Programs\\Startup\\*.wsh",
-                         "C:\\*\\Programs\\Startup\\*.wsf",
-                         "C:\\*\\Programs\\Startup\\*.js")
+     file.path : ("C:\\*\\Programs\\Startup\\*.vbs", 
+                  "C:\\*\\Programs\\Startup\\*.vbe", 
+                  "C:\\*\\Programs\\Startup\\*.wsh", 
+                  "C:\\*\\Programs\\Startup\\*.wsf", 
+                  "C:\\*\\Programs\\Startup\\*.js")
 '''
 
 
