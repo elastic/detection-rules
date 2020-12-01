@@ -24,18 +24,18 @@ query = '''
 sequence by host.id, process.entity_id with maxspan = 5s
   [process where event.type in ("start", "process_started") and process.code_signature.trusted == false and
   /* suspicious paths can be added here  */
-   wildcard(process.executable, "C:\\Users\\*.exe",
-                                "C:\\ProgramData\\*.exe",
-                                "C:\\Windows\\Temp\\*.exe",
-                                "C:\\Windows\\Tasks\\*.exe",
-                                "C:\\Intel\\*.exe",
-                                "C:\\PerfLogs\\*.exe"
-            )
+   process.executable : (
+                         "C:\\Users\\*.exe", 
+                         "C:\\ProgramData\\*.exe", 
+                         "C:\\Windows\\Temp\\*.exe", 
+                         "C:\\Windows\\Tasks\\*.exe", 
+                         "C:\\Intel\\*.exe", 
+                         "C:\\PerfLogs\\*.exe"
+                        )
    ]
    [file where event.type != "deletion" and user.domain != "NT AUTHORITY" and
-     wildcard(file.path,
-              "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\*",
-              "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\StartUp\\*")
+    file.path : ("C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\*", 
+                 "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\StartUp\\*")
    ]
 '''
 
