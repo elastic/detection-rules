@@ -22,11 +22,10 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 type = "eql"
 
 query = '''
-library where file.name in ("System.Management.Automation.ni.dll", "System.Management.Automation.dll") and
+library where file.name : ("System.Management.Automation.ni.dll", "System.Management.Automation.dll") and
 /* add False Positives relevant to your environment here */
-not wildcard(process.executable, "C:\\Windows\\System32\\RemoteFXvGPUDisablement.exe",
-                                 "C:\\Windows\\System32\\sdiagnhost.exe", "C:\\Program Files*\\*.exe") and
-  not process.name in (
+not process.executable : ("C:\\Windows\\System32\\RemoteFXvGPUDisablement.exe", "C:\\Windows\\System32\\sdiagnhost.exe", "C:\\Program Files*\\*.exe") and
+  not process.name : (
   "Altaro.SubAgent.exe",
   "AppV_Manage.exe",
   "azureadconnect.exe",
