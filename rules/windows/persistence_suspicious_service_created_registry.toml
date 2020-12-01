@@ -21,9 +21,9 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
 type = "eql"
 
 query = '''
-registry where wildcard(registry.path, "HKLM\\SYSTEM\\ControlSet*\\Services\\*\\ImagePath") and
+registry where registry.path : "HKLM\\SYSTEM\\ControlSet*\\Services\\*\\ImagePath" and
  /* add suspicious registry ImagePath values here */
- wildcard(registry.data.strings, "%COMSPEC%*", "*\\.\\pipe\\*")
+ registry.data.strings : ("%COMSPEC%*", "*\\.\\pipe\\*")
 '''
 
 
