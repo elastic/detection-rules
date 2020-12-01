@@ -34,13 +34,13 @@ sequence by host.id with maxspan=1m
    source.address != "127.0.0.1" and source.address != "::1"
   ]
 
-  [registry where process.name == "explorer.exe" and 
-   wildcard(registry.path, "HKEY_USERS\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU\\*") and
-   wildcard(registry.data.strings, "cmd.exe*", "powershell.exe*", "taskmgr*", "\\\\tsclient\\*.exe\\*")
+  [registry where process.name : "explorer.exe" and 
+   registry.path : ("HKEY_USERS\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU\\*") and
+   registry.data.strings : ("cmd.exe*", "powershell.exe*", "taskmgr*", "\\\\tsclient\\*.exe\\*")
   ]
   
   [process where event.type in ("start", "process_started") and
-   (process.parent.name : ("cmd.exe", "powershell.exe", "taskmgr.exe") or wildcard(process.args, "\\\\tsclient\\*.exe")) and 
+   (process.parent.name : ("cmd.exe", "powershell.exe", "taskmgr.exe") or process.args : ("\\\\tsclient\\*.exe")) and 
    not process.name : "conhost.exe"
    ]
 '''
