@@ -1,0 +1,45 @@
+[metadata]
+creation_date = "2020/11/03"
+ecs_version = ["1.6.0"]
+maturity = "production"
+updated_date = "2020/11/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the deletion of WebServer access logs. This may indicate an attempt to evade detection or destroy forensic
+evidence on a system.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "WebServer Access Logs Deleted"
+risk_score = 47
+rule_id = "665e7a4f-c58e-4fc6-bc83-87a7572670ac"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Windows", "macOS", "Threat Detection", "Defense Evasion"]
+type = "eql"
+
+query = '''
+file where event.type == "deletion" and
+  file.path : ("C:\\inetpub\\logs\\LogFiles\\*.log", 
+               "/var/log/apache*/access.log",
+               "/etc/httpd/logs/access_log", 
+               "/var/log/httpd/access_log", 
+               "/var/www/*/logs/access.log")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal on Host"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
