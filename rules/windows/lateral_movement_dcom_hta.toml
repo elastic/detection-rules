@@ -26,11 +26,11 @@ type = "eql"
 query = '''
 sequence with maxspan=1m
   [process where event.type in ("start", "process_started") and
-   process.name == "mshta.exe" and process.args == "-Embedding"
+     process.name : "mshta.exe" and process.args : "-Embedding"
   ] by host.id, process.entity_id
-  [network where event.type == "start" and process.name=="mshta.exe" and 
-   event.action == "connection_accepted" and network.direction == "incoming" and network.transport == "tcp" and
-   source.port > 49151 and destination.port > 49151
+  [network where event.type == "start" and process.name : "mshta.exe" and 
+     network.direction == "incoming" and network.transport == "tcp" and
+     source.port > 49151 and destination.port > 49151
   ] by host.id, process.entity_id
 '''
 
@@ -47,4 +47,3 @@ reference = "https://attack.mitre.org/techniques/T1021/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-
