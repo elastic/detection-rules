@@ -24,12 +24,12 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan=5s
- [network where event.type == "start" and process.name=="explorer.exe" and
-  event.action == "connection_accepted" and network.direction == "incoming" and network.transport == "tcp" and
-  source.port>=49152 and destination.port>=49152 and source.address != "127.0.0.1" and source.address != "::1"
+ [network where event.type == "start" and process.name : "explorer.exe" and
+  network.direction == "incoming" and network.transport == "tcp" and
+  source.port > 49151 and destination.port > 49151 and source.address != "127.0.0.1" and source.address != "::1"
  ] by process.entity_id
  [process where event.type in ("start", "process_started") and
-  process.parent.name=="explorer.exe"
+  process.parent.name : "explorer.exe"
  ] by process.parent.entity_id
 '''
 
