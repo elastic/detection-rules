@@ -165,24 +165,44 @@ def view_rule(ctx, rule_id, rule_file, api_format, verbose=True):
               help='Recursively export rules from a directory')
 @click.option('--outfile', '-o', default=get_path('exports', f'{time.strftime("%Y%m%dT%H%M%SL")}.ndjson'),
               type=click.Path(dir_okay=False), help='Name of file for exported rules')
-@click.option('--randomize-id', '-r', is_flag=True, help='Randomize rule IDs before export')
-def export_rules(rule_id, rule_file, directory, outfile, randomize_id):
+@click.option('--replace-id', '-r', is_flag=True, help='Replace rule IDs with new IDs before export')
+def export_rules(rule_id, rule_file, directory, outfile, replace_id):
     """Export rule(s) into an importable ndjson file."""
     from .packaging import Package
 
     if not (rule_id or rule_file or directory):
-        client_error('Must specify a rule_id, rule_file, or directory')
+        client_error('Required: at least one of --rule-id, --rule-file, or --directory')
 
-    rules = [r for r in rule_loader.load_rules(verbose=False).values() if r.id in rule_id] if rule_id else []
+    if rule_id:
+        all_rules = {r.id: r for r in rule_loader.load_rules(verbose=False).values()}
+        missing = [rid for rid in rule_id if rid not in all_rules]
+
+        if missing:
+            client_error(f'Unknown rules for rule IDs: {", ".join(missing)}')
+
+        rules = [r for r in all_rules.values() if r.id in rule_id]
+        rule_ids = [r.id for r in rules]
+    else:
+        rules = []
+        rule_ids = []
 
     rule_files = list(rule_file)
-    for _dir in directory:
-        rule_files.extend(list(Path(_dir).rglob('*.toml')))
+    for dirpath in directory:
+        rule_files.extend(list(Path(dirpath).rglob('*.toml')))
 
     file_lookup = rule_loader.load_rule_files(verbose=False, paths=rule_files)
-    rules.extend(rule_loader.load_rules(file_lookup=file_lookup).values())
+    rules_from_files = rule_loader.load_rules(file_lookup=file_lookup).values()
 
-    if randomize_id:
+    # rule_loader.load_rules handles checks for duplicate rule IDs - this means rules loaded by ID are de-duped and
+    #   rules loaded from files and directories are de-duped from each other, so this check is to ensure that there is
+    #   no overlap between the two sets of rules
+    duplicates = [r.id for r in rules_from_files if r.id in rule_ids]
+    if duplicates:
+        client_error(f'Duplicate rules for rule IDs: {", ".join(duplicates)}')
+
+    rules.extend(rules_from_files)
+
+    if replace_id:
         from uuid import uuid4
         for rule in rules:
             rule.contents['rule_id'] = str(uuid4())

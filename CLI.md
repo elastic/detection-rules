@@ -179,7 +179,7 @@ Options:
   -f, --rule-file FILE       Export specified rule files
   -d, --directory DIRECTORY  Recursively export rules from a directory
   -o, --outfile FILE         Name of file for exported rules
-  -r, --randomize-id         Randomize rule IDs before export
+  -r, --replace-id           Replace rule IDs with new IDs before export
   -h, --help                 Show this message and exit.
 ```
 
