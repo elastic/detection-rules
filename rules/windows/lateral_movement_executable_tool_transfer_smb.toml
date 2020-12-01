@@ -24,11 +24,11 @@ type = "eql"
 query = '''
 sequence by host.id with maxspan=30s
   [network where event.type == "start" and process.pid == 4 and destination.port == 445 and
-   event.action == "connection_accepted" and network.direction == "incoming" and network.transport == "tcp" and
+   network.direction == "incoming" and network.transport == "tcp" and
    source.address != "127.0.0.1" and source.address != "::1"
   ] by process.entity_id
   /* add more executable extensions here if they are not noisy in your environment */
-  [file where event.type in ("creation", "change") and process.pid == 4 and file.extension in ("exe", "dll", "bat")] by process.entity_id
+  [file where event.type in ("creation", "change") and process.pid == 4 and file.extension : ("exe", "dll", "bat", "cmd")] by process.entity_id
 '''
 
 
