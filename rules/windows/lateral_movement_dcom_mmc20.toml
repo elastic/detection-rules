@@ -25,11 +25,10 @@ type = "eql"
 query = '''
 sequence by host.id with maxspan=1m
  [network where event.type == "start" and process.name : "mmc.exe" and
-  source.port > 49151 and destination.port > 49151 and source.address != "127.0.0.1" and source.address != "::1" and
+  source.port > 49151 and destination.port > 49151 and source.address not in ("127.0.0.1", "::1") and
   network.direction == "incoming" and network.transport == "tcp"
  ] by process.entity_id
- [process where event.type in ("start", "process_started") and
-  process.parent.name : "mmc.exe"
+ [process where event.type in ("start", "process_started") and process.parent.name : "mmc.exe"
  ] by process.parent.entity_id
 '''
 
