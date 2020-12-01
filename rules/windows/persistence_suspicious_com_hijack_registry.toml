@@ -24,14 +24,15 @@ type = "eql"
 query = '''
 registry where
  /* uncomment once length is stable length(bytes_written_string) > 0 and */
- (wildcard(registry.path, "HK*}\\InprocServer32\\") and wildcard(registry.data.strings, "scrobj.dll", "*\\scrobj.dll") and
- not wildcard(registry.path, "*\\{06290BD*-48AA-11D2-8432-006008C3FBFC}\\*")) or
+ (registry.path :  "HK*}\\InprocServer32\\" and registry.data.strings: ("scrobj.dll", "*\\scrobj.dll") and
+ not registry.path : "*\\{06290BD*-48AA-11D2-8432-006008C3FBFC}\\*") 
+ or
  /* in general COM Registry changes on Users Hive is less noisy and worth alerting */
- (wildcard(registry.path, "HKEY_USERS\\*Classes\\*\\InprocXServer32\\", 
-                          "HKEY_USERS\\*Classes\\*\\LocalServer32\\",
-                          "HKEY_USERS\\*Classes\\*\\DelegateExecute\\",
-                          "HKEY_USERS\\*Classes\\*\\TreatAs\\",
-                          "HKEY_USERS\\*Classes\\CLSID\\*\\ScriptletURL\\") and
+ (registry.path : ("HKEY_USERS\\*Classes\\*\\InprocXServer32\\",  
+                  "HKEY_USERS\\*Classes\\*\\LocalServer32\\", 
+                  "HKEY_USERS\\*Classes\\*\\DelegateExecute\\", 
+                  "HKEY_USERS\\*Classes\\*\\TreatAs\\", 
+                  "HKEY_USERS\\*Classes\\CLSID\\*\\ScriptletURL\\") and
  /* not necessary but good for filtering privileged installations */
  user.domain != "NT AUTHORITY")
 '''
