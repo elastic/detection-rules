@@ -2,7 +2,7 @@
 creation_date = "2020/03/18"
 ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/27"
+updated_date = "2020/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -12,20 +12,20 @@ by adversaries to execute malicious scripts and evade detection.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
 name = "Network Connection via MsXsl"
 risk_score = 21
 rule_id = "b86afe07-0d98-4738-b15d-8d7465f95ff5"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
-timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:network and event.type:connection and
-  process.name:msxsl.exe and
-  not destination.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
+sequence by process.entity_id
+  [process where process.name : "msxsl.exe" and event.type == "start"]
+  [network where process.name : "msxsl.exe" and
+     not cidrmatch(destination.ip, "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")]
 '''
 
 
