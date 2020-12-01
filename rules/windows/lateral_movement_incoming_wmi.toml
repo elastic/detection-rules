@@ -26,19 +26,19 @@ sequence by host.id with maxspan = 2s
 
  /* Accepted Incoming RPC connection by Winmgmt service */
 
-  [network where event.action == "connection_accepted" and network.direction == "incoming" and
-   source.address != "127.0.0.1" and source.address != "::1" and source.port > 49151 and
-   destination.port > 49151 and process.name == "svchost.exe"
+  [network where process.name : "svchost.exe" and network.direction == "incoming" and
+   source.address != "127.0.0.1" and source.address != "::1" and 
+   source.port > 49151 and destination.port > 49151
   ]
 
   /* Excluding Common FPs Nessus and SCCM */
 
-  [process where event.type in ("start", "process_started") and process.parent.name == "WmiPrvSE.exe" and
-   not wildcard(process.args, "C:\\windows\\temp\\nessus_*.txt",
-                              "C:\\windows\\TEMP\\nessus_*.TMP",
-                              "C:\\Windows\\CCM\\SystemTemp\\*",
-                              "C:\\Windows\\CCMCache\\*",
-                              "C:\\CCM\\Cache\\*")
+  [process where event.type in ("start", "process_started") and process.parent.name : "WmiPrvSE.exe" and
+   not process.args : ("C:\\windows\\temp\\nessus_*.txt", 
+                       "C:\\windows\\TEMP\\nessus_*.TMP", 
+                       "C:\\Windows\\CCM\\SystemTemp\\*", 
+                       "C:\\Windows\\CCMCache\\*", 
+                       "C:\\CCM\\Cache\\*")
    ]
 '''
 
