@@ -18,7 +18,7 @@ import toml
 import pytoml
 from rta import get_ttp_names
 
-from detection_rules import attack, rule_loader
+from detection_rules import attack, beats, ecs, rule_loader
 from detection_rules.utils import load_etc_dump
 from detection_rules.rule import Rule
 
@@ -49,7 +49,7 @@ class TestValidRules(unittest.TestCase):
                 raise e
 
     def test_rule_loading(self):
-        """Ensure that all rule queries have ecs version."""
+        """Ensure that all rules validate."""
         rule_loader.load_rules().values()
 
     def test_file_names(self):
@@ -271,6 +271,37 @@ class TestRuleTags(unittest.TestCase):
                 self.fail(error_msg)
 
 
+class TestRuleTimelines(unittest.TestCase):
+    """Test timelines in rules are valid."""
+
+    TITLES = {
+        'db366523-f1c6-4c1f-8731-6ce5ed9e5717': 'Generic Endpoint Timeline',
+        '91832785-286d-4ebe-b884-1a208d111a70': 'Generic Network Timeline',
+        '76e52245-7519-4251-91ab-262fb1a1728c': 'Generic Process Timeline'
+    }
+
+    def test_timeline_has_title(self):
+        """Ensure rules with timelines have a corresponding title."""
+        for rule in rule_loader.load_rules().values():
+            rule_str = f'{rule.id} - {rule.name}'
+            timeline_id = rule.contents.get('timeline_id')
+            timeline_title = rule.contents.get('timeline_title')
+
+            if (timeline_title or timeline_id) and not (timeline_title and timeline_id):
+                missing_err = f'{rule_str} -> timeline "title" and "id" required when timelines are defined'
+                self.fail(missing_err)
+
+            if timeline_id:
+                unknown_id = f'{rule_str} -> Unknown timeline_id: {timeline_id}.'
+                unknown_id += f' replace with {", ".join(self.TITLES)} or update this unit test with acceptable ids'
+                self.assertIn(timeline_id, list(self.TITLES), unknown_id)
+
+                unknown_title = f'{rule_str} -> unknown timeline_title: {timeline_title}'
+                unknown_title += f' replace with {", ".join(self.TITLES.values())}'
+                unknown_title += ' or update this unit test with acceptable titles'
+                self.assertEqual(timeline_title, self.TITLES[timeline_id], )
+
+
 class TestRuleFiles(unittest.TestCase):
     """Test the expected file names."""
 
@@ -294,3 +325,26 @@ class TestRuleFiles(unittest.TestCase):
 
                 error_msg = 'filename does not start with the primary tactic - update the tactic or the rule filename'
                 self.assertEqual(tactic_str, filename[:len(tactic_str)], f'{rule.id} - {rule.name} -> {error_msg}')
+
+
+class TestRuleMetadata(unittest.TestCase):
+    """Test the metadata of rules."""
+
+    def test_ecs_and_beats_opt_in_not_latest_only(self):
+        """Test that explicitly defined opt-in validation is not only the latest versions to avoid stale tests."""
+        rules = rule_loader.load_rules().values()
+
+        for rule in rules:
+            beats_version = rule.metadata.get('beats_version')
+            ecs_versions = rule.metadata.get('ecs_versions', [])
+            latest_beats = str(beats.get_max_version())
+            latest_ecs = ecs.get_max_version()
+            error_prefix = f'{rule.id} - {rule.name} ->'
+
+            error_msg = f'{error_prefix} it is unnecessary to define the current latest beats version: {latest_beats}'
+            self.assertNotEqual(latest_beats, beats_version, error_msg)
+
+            if len(ecs_versions) == 1:
+                error_msg = f'{error_prefix} it is unnecessary to define the current latest ecs version if only ' \
+                            f'one version is specified: {latest_ecs}'
+                self.assertNotIn(latest_ecs, ecs_versions, error_msg)
