@@ -1,6 +1,5 @@
 [metadata]
 creation_date = "2020/11/18"
-ecs_version = ["1.6.0"]
 maturity = "production"
 updated_date = "2020/11/18"
 
@@ -14,6 +13,7 @@ index = ["winlogbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License"
 name = "Uncommon Registry Persistence Change"
+references = ["https://www.microsoftpressstore.com/articles/article.aspx?p=2762082&seqNum=2"]
 risk_score = 41
 rule_id = "54902e45-3467-49a4-8abc-529f2c8cfb80"
 severity = "medium"
@@ -24,31 +24,31 @@ query = '''
 registry where
   /* uncomment once stable length(registry.data.strings) > 0 and */
  registry.path : (
-      "*\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\*",
-      "*\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Runonce\\*",
-      "*\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\Load",
-      "*\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\Run",
-      "*\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\IconServiceLib",
-      "*\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Shell",
-      "*\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\AppSetup",
-      "*\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Taskman",
-      "*\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Userinit",
-      "*\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\VmApplet",
+      "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\*",
+      "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Runonce\\*",
+      "HKEY_USERS\\*\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\Load",
+      "HKEY_USERS\\*\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\Run",
+      "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\IconServiceLib",
+      "*\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Shell",
+      "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\AppSetup",
+      "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Taskman",
+      "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Userinit",
+      "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\VmApplet",
       "*\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run\\*",
       "*\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Shell",
-      "*\\Policies\\Microsoft\\Windows\\System\\Scripts\\Logoff\\Script",
-      "*\\Policies\\Microsoft\\Windows\\System\\Scripts\\Logon\\Script",
-      "*\\Policies\\Microsoft\\Windows\\System\\Scripts\\Shutdown\\Script",
-      "*\\Policies\\Microsoft\\Windows\\System\\Scripts\\Startup\\Script",
-      "*\\Microsoft\\Active Setup\\Installed Components\\*\\ShellComponent",
-      "*\\Microsoft\\Windows CE Services\\AutoStartOnConnect\\MicrosoftActiveSync",
-      "*\\Microsoft\\Windows CE Services\\AutoStartOnDisconnect\\MicrosoftActiveSync",
-      "*\\Microsoft\\Ctf\\LangBarAddin\\*\\FilePath",
+      "*\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\\Scripts\\Logoff\\Script",
+      "*\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\\Scripts\\Logon\\Script",
+      "*\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\\Scripts\\Shutdown\\Script",
+      "*\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\\Scripts\\Startup\\Script",
+      "HKLM\\SOFTWARE\\Microsoft\\Active Setup\\Installed Components\\*\\ShellComponent",
+      "HKLM\\SOFTWARE\\Microsoft\\Windows CE Services\\AutoStartOnConnect\\MicrosoftActiveSync",
+      "HKLM\\SOFTWARE\\Microsoft\\Windows CE Services\\AutoStartOnDisconnect\\MicrosoftActiveSync",
+      "*\\SOFTWARE\\Microsoft\\Ctf\\LangBarAddin\\*\\FilePath",
       "*\\Microsoft\\Internet Explorer\\Extensions\\*\\Exec",
       "*\\Microsoft\\Internet Explorer\\Extensions\\*\\Script",
       "*\\Microsoft\\Command Processor\\Autorun",
-      "*\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*\\VerifierDlls",
-      "*\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\GpExtensions\\*\\DllName",
+      "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*\\VerifierDlls",
+      "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\GpExtensions\\*\\DllName",
       "HKLM\\SYSTEM\\ControlSet*\\Control\\SafeBoot\\AlternateShell",
       "HKLM\\SYSTEM\\ControlSet*\\Control\\Terminal Server\\Wds\\rdpwd\\StartupPrograms",
       "HKLM\\SYSTEM\\ControlSet*\\Control\\Terminal Server\\WinStations\\RDP-Tcp\\InitialProgram",
@@ -59,7 +59,7 @@ registry where
       "HKLM\\SYSTEM\\ControlSet*\\Control\\ServiceControlManagerExtension",
       "HKLM\\SYSTEM\\ControlSet*\\Control\\BootVerificationProgram\\ImagePath",
       "HKLM\\SYSTEM\\Setup\\CmdLine",
-      "*\\Environment\\UserInitMprLogonScript") and
+      "HKEY_USERS\\*\\Environment\\UserInitMprLogonScript") and
       
  not registry.data.strings : ("C:\\Windows\\system32\\userinit.exe", "cmd.exe", "C:\\Program Files*\\*.exe") and
  not (process.name : "rundll32.exe" and registry.path : "*\\Software\\Microsoft\\Internet Explorer\\Extensions\\*\\Script") and
