@@ -111,11 +111,11 @@ Usage: detection_rules es [OPTIONS] COMMAND [ARGS]...
   Commands for integrating with Elasticsearch.
 
 Options:
-  -e, --elasticsearch-url TEXT
+  -et, --timeout INTEGER        Timeout for elasticsearch client
+  -ep, --es-password TEXT
+  -eu, --es-user TEXT
   --cloud-id TEXT
-  -u, --es-user TEXT
-  -p, --es-password TEXT
-  -t, --timeout INTEGER         Timeout for elasticsearch client
+  -e, --elasticsearch-url TEXT
   -h, --help                    Show this message and exit.
 
 Commands:
@@ -130,12 +130,12 @@ Usage: detection_rules kibana [OPTIONS] COMMAND [ARGS]...
   Commands for integrating with Kibana.
 
 Options:
-  -k, --kibana-url TEXT
+  --space TEXT                 Kibana space
+  -kp, --kibana-password TEXT
+  -ku, --kibana-user TEXT
   --cloud-id TEXT
-  -u, --kibana-user TEXT
-  -p, --kibana-password TEXT
-  -t, --timeout INTEGER       Timeout for kibana client
-  -h, --help                  Show this message and exit.
+  -k, --kibana-url TEXT
+  -h, --help                   Show this message and exit.
 
 Commands:
   upload-rule  Upload a list of rule .toml files to Kibana.
@@ -153,11 +153,11 @@ python -m detection_rules kibana upload-rule -h
 
 Kibana client:
 Options:
-  -k, --kibana-url TEXT
+  --space TEXT                 Kibana space
+  -kp, --kibana-password TEXT
+  -ku, --kibana-user TEXT
   --cloud-id TEXT
-  -u, --kibana-user TEXT
-  -p, --kibana-password TEXT
-  -t, --timeout INTEGER       Timeout for kibana client
+  -k, --kibana-url TEXT
 
 Usage: detection_rules kibana upload-rule [OPTIONS] TOML_FILES...
 
