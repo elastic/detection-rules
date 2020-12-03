@@ -1,0 +1,45 @@
+[metadata]
+creation_date = "2020/08/14"
+maturity = "production"
+updated_date = "2020/11/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+In macOS, when applications or programs are downloaded from the internet, there is a special attribute set on the file.
+This attribute is read by Apple's Gatekeeper defense program at execution time. This may indicate a Potential Gatekeeper
+Bypass.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Attempt to Remove File Quarantine Attribute"
+references = [
+    "https://www.trendmicro.com/en_us/research/20/k/new-macos-backdoor-connected-to-oceanlotus-surfaces.html",
+]
+risk_score = 43
+rule_id = "f0b48bbc-549e-4bcf-8ee0-a7a72586c6a7"
+severity = "medium"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Defense Evasion"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  process.name:"xattr" and process.args:"com.apple.quarantine" and process.args:"-d"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1089"
+name = "Disabling Security Tools"
+reference = "https://attack.mitre.org/techniques/T1089/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
