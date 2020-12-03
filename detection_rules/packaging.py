@@ -137,7 +137,7 @@ class Package(object):
     """Packaging object for siem rules and releases."""
 
     def __init__(self, rules, name, deprecated_rules=None, release=False, current_versions=None, min_version=None,
-                 max_version=None, update_version_lock=False):
+                 max_version=None, update_version_lock=False, verbose=True):
         """Initialize a package."""
         self.rules = [r.copy() for r in rules]  # type: list[Rule]
         self.name = name
@@ -145,16 +145,17 @@ class Package(object):
         self.release = release
 
         self.changed_rule_ids, self.new_rules_ids, self.removed_rule_ids = self._add_versions(current_versions,
-                                                                                              update_version_lock)
+                                                                                              update_version_lock,
+                                                                                              verbose=verbose)
 
         if min_version or max_version:
             self.rules = [r for r in self.rules
                           if (min_version or 0) <= r.contents['version'] <= (max_version or r.contents['version'])]
 
-    def _add_versions(self, current_versions, update_versions_lock=False):
+    def _add_versions(self, current_versions, update_versions_lock=False, verbose=True):
         """Add versions to rules at load time."""
         return manage_versions(self.rules, deprecated_rules=self.deprecated_rules, current_versions=current_versions,
-                               save_changes=update_versions_lock)
+                               save_changes=update_versions_lock, verbose=verbose)
 
     @staticmethod
     def _package_notice_file(save_dir):
@@ -271,7 +272,8 @@ class Package(object):
             click.echo(f' - {len(all_rules) - len(rules)} rules excluded from package')
 
         update = config.pop('update', {})
-        package = cls(rules, deprecated_rules=deprecated_rules, update_version_lock=update_version_lock, **config)
+        package = cls(rules, deprecated_rules=deprecated_rules, update_version_lock=update_version_lock,
+                      verbose=verbose, **config)
 
         # Allow for some fields to be overwritten
         if update.get('data', {}):
