@@ -190,7 +190,7 @@ class Rule(object):
 
         schema_cls.validate(contents, role=self.type)
 
-        skip_query_validation = self.metadata['maturity'] == 'development' and \
+        skip_query_validation = self.metadata['maturity'] in ('experimental', 'development') and \
             self.metadata.get('query_schema_validation') is False
 
         if query and self.query is not None and not skip_query_validation:
