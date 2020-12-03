@@ -16,6 +16,7 @@ license = "Elastic License"
 name = "Unusual Parent-Child Relationship"
 references = [
     "https://github.com/sbousseaden/Slides/blob/master/Hunting MindMaps/PNG/Windows Processes TH.map.png",
+    "https://www.andreafortuna.org/2017/06/15/standard-windows-processes-a-brief-reference/",
 ]
 risk_score = 47
 rule_id = "35df0dd8-092d-4a83-88c1-5151a804f31b"
@@ -52,7 +53,7 @@ process.parent.name != null and
    process.parent.name:"autochk.exe" and not process.name:("chkdsk.exe", "doskey.exe", "WerFault.exe") or
    process.parent.name:"smss.exe" and not process.name:("autochk.exe", "smss.exe", "csrss.exe", "wininit.exe", "winlogon.exe", "WerFault.exe") or
    process.parent.name:"wermgr.exe" and not process.name:("WerFaultSecure.exe", "wermgr.exe", "WerFault.exe") or
-   process.parent.name:"conhost.exe" and not process.name:"mscorsvw.exe"
+   process.parent.name:"conhost.exe" and not process.name:("mscorsvw.exe", "wermgr.exe", "WerFault.exe", "WerFaultSecure.exe")
   )
 '''
 
