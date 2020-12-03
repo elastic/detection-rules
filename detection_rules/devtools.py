@@ -227,7 +227,7 @@ def package_stats(ctx, token, threads):
     """Get statistics for current rule package."""
     current_package: Package = ctx.invoke(build_release, verbose=False, release=False)
     release = f'v{current_package.name}.0'
-    new, modified, errors = rule_loader.load_gh_pr_rules(token=token, threads=threads)
+    new, modified, errors = rule_loader.load_gh_pr_rules(labels=[release], token=token, threads=threads)
 
     click.echo(f'Total rules as of {release} package: {len(current_package.rules)}')
     click.echo(f'New rules: {len(current_package.new_rules_ids)}')
