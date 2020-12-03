@@ -1,0 +1,46 @@
+[metadata]
+creation_date = "2020/12/03"
+maturity = "production"
+updated_date = "2020/12/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule identifies high number of evasion related process executions (stop, delete or suspend a process or service)
+from the same host and within a short time period. This may indicate defense evasion attempt.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "High Number of Process and/or Services Termination"
+references = ["https://unit42.paloaltonetworks.com/dns-tunneling-in-the-wild-overview-of-oilrigs-dns-tunneling/"]
+risk_score = 47
+rule_id = "3a59fc81-99d3-47ea-8cd6-d48d561fca20"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control"]
+type = "threshold"
+
+query = '''
+event.category :"process" and event.type:"start" and process.name: (net.exe or sc.exe or taskkill.exe) and
+ process.args:(stop or pause or delete or "/PID" or "/IM" or "/T" or "/F" or "/t" or "/f" or "/im" or "/pid")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1089"
+name = "Disabling Security Tools"
+reference = "https://attack.mitre.org/techniques/T1089/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.threshold]
+field = "host.id"
+value = 10
+
