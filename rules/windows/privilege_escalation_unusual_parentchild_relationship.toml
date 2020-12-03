@@ -14,6 +14,9 @@ index = ["winlogbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License"
 name = "Unusual Parent-Child Relationship"
+references = [
+    "https://github.com/sbousseaden/Slides/blob/master/Hunting MindMaps/PNG/Windows Processes TH.map.png",
+]
 risk_score = 47
 rule_id = "35df0dd8-092d-4a83-88c1-5151a804f31b"
 severity = "medium"
@@ -22,13 +25,12 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
- process.parent.name != null and
- (process.parent.name:"autochk.exe" and not process.name:("chkdsk.exe", "doskey.exe", "WerFault.exe") or
-   process.parent.name:"smss.exe" and not process.name:("autochk.exe", "smss.exe", "csrss.exe", "wininit.exe", "winlogon.exe", "WerFault.exe") or
+process.parent.name != null and
+ (
+   /* suspicious parent processes */
    process.name:"autochk.exe" and not process.parent.name:"smss.exe" or
    process.name:("fontdrvhost.exe", "dwm.exe") and not process.parent.name:("wininit.exe", "winlogon.exe") or
    process.name:("consent.exe", "RuntimeBroker.exe", "TiWorker.exe") and not process.parent.name:"svchost.exe" or
-   process.parent.name:"wermgr.exe" and not process.name:("WerFaultSecure.exe", "wermgr.exe", "WerFault.exe") or
    process.name:"SearchIndexer.exe" and not process.parent.name:"services.exe" or
    process.name:"SearchProtocolHost.exe" and not process.parent.name:("SearchIndexer.exe", "dllhost.exe") or
    process.name:"dllhost.exe" and not process.parent.name:("services.exe", "svchost.exe") or
@@ -43,7 +45,15 @@ process where event.type in ("start", "process_started") and
    process.name:"spoolsv.exe" and not process.parent.name:"services.exe" or
    process.name:"taskhost.exe" and not process.parent.name:("services.exe", "svchost.exe") or
    process.name:"taskhostw.exe" and not process.parent.name:("services.exe", "svchost.exe") or
-   process.name:"userinit.exe" and not process.parent.name:("dwm.exe", "winlogon.exe"))
+   process.name:"userinit.exe" and not process.parent.name:("dwm.exe", "winlogon.exe") or
+   process.name:("wmiprvse.exe", "wsmprovhost.exe", "winrshost.exe") and not process.parent.name:"svchost.exe" or
+   /* suspicious child processes */
+   process.parent.name:("SearchProtocolHost.exe", "taskhost.exe", "csrss.exe") and not process.name:("werfault.exe", "wermgr.exe", "WerFaultSecure.exe") or
+   process.parent.name:"autochk.exe" and not process.name:("chkdsk.exe", "doskey.exe", "WerFault.exe") or
+   process.parent.name:"smss.exe" and not process.name:("autochk.exe", "smss.exe", "csrss.exe", "wininit.exe", "winlogon.exe", "WerFault.exe") or
+   process.parent.name:"wermgr.exe" and not process.name:("WerFaultSecure.exe", "wermgr.exe", "WerFault.exe") or
+   process.parent.name:"conhost.exe" and not process.name:"mscorsvw.exe"
+  )
 '''
 
 
