@@ -1,14 +1,14 @@
 [metadata]
 creation_date = "2020/11/06"
-ecs_version = ["1.6.0"]
 maturity = "production"
 updated_date = "2020/11/06"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies use of Distributed Component Object Model (DCOM) to run commands from a remote host, which are launched via the ShellBrowserWindow or ShellWindows Application COM Object. This behavior may indicate an attacker abusing a DCOM application to stealthy move
-laterally.
+Identifies use of Distributed Component Object Model (DCOM) to run commands from a remote host, which are launched via
+the ShellBrowserWindow or ShellWindows Application COM Object. This behavior may indicate an attacker abusing a DCOM
+application to stealthily move laterally.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
@@ -16,20 +16,20 @@ language = "eql"
 license = "Elastic License"
 name = "Incoming DCOM Lateral Movement with ShellBrowserWindow or ShellWindows"
 references = ["https://enigma0x3.net/2017/01/23/lateral-movement-via-dcom-round-2/"]
-risk_score = 41
+risk_score = 47
 rule_id = "8f919d4b-a5af-47ca-a594-6be59cd924a4"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
 type = "eql"
 
 query = '''
-sequence with maxspan=1m
- [network where event.type == "start" and process.name=="explorer.exe" and
-  event.action == "connection_accepted" and network.direction == "incoming" and network.transport == "tcp" and
-  source.port>=49152 and destination.port>=49152
+sequence with maxspan=30s
+ [network where event.type == "start" and process.name : "explorer.exe" and
+  network.direction == "incoming" and network.transport == "tcp" and
+  source.port >= 49152 and destination.port >= 49152
  ] by host.id, process.entity_id
  [process where event.type in ("start", "process_started") and
-  process.parent.name=="explorer.exe"
+  process.parent.name : "explorer.exe"
  ] by host.id, process.parent.entity_id
 '''
 
