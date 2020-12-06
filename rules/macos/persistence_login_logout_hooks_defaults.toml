@@ -1,0 +1,42 @@
+[metadata]
+creation_date = "2020/12/07"
+maturity = "production"
+updated_date = "2020/12/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies use of the Defaults command to install a LoginHook Persistence. MacOS LoginHooks allow a script to be
+automatically executed at login and/or logout.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Persistence via Login and/or Logout Hooks"
+references = ["https://www.virusbulletin.com/uploads/pdf/conference_slides/2014/Wardle-VB2014.pdf"]
+risk_score = 47
+rule_id = "5d0265bf-dea9-41a9-92ad-48a8dcd05080"
+severity = "medium"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Credential Access"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+ process.name : "defaults" and process.args : "write" and process.args : "LoginHook"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
