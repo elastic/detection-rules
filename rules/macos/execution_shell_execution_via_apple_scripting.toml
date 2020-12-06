@@ -1,0 +1,45 @@
+[metadata]
+creation_date = "2020/12/07"
+maturity = "production"
+updated_date = "2020/12/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution Shell process via an Apple Scripting (JXA or AppleScript). Adversaries may use doShellScript
+functionality in JXA or do shell script in AppleScript to execute System commands.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Shell Execution via Apple Scripting"
+references = [
+    "https://developer.apple.com/library/archive/documentation/LanguagesUtilities/Conceptual/MacAutomationScriptingGuide/index.html",
+]
+risk_score = 47
+rule_id = "d461fac0-43e8-49e2-85ea-3a58fe120b4f"
+severity = "medium"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Execution"]
+type = "eql"
+
+query = '''
+sequence by host.id with maxspan = 5s
+ [process where event.type in ("start", "process_started", "info") and process.name : "osascript"] by process.pid
+ [process where event.type in ("start", "process_started") and process.name : "sh" and process.args : "-c"] by process.ppid
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
