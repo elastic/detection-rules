@@ -14,7 +14,7 @@ from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License"
-name = "Launch Agent Creation or Modification"
+name = "Launch Agent Creation or Modification followed by Loading"
 references = [
     "https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html",
 ]
@@ -25,7 +25,10 @@ tags = ["Elastic", "Host", "macOS", "Threat Detection", "Persistence"]
 type = "eql"
 
 query = '''
-file where event.type != "deletion" and file.path : ("/System/Library/LaunchAgents/*", "/Library/LaunchAgents/*", "/Users/*/Library/LaunchAgents/*")
+sequence by host.id with maxspan = 1m
+ [file where event.type != "deletion" and file where event.type != "deletion" and 
+  file.path : ("/System/Library/LaunchAgents/*", "/Library/LaunchAgents/*", "/Users/*/Library/LaunchAgents/*")]
+ [process where event.type in ("start", "process_started") and process.name : "launchctl" and process.args : "load"]
 '''
 
 
