@@ -16,17 +16,17 @@ THREAT_MATCH = "threat_match"
 class ApiSchema710(ApiSchema79):
     """Schema for siem rule in API format."""
 
-    class ThreatEntries(jsl.Document):
+    class ThreatMatchEntries(jsl.Document):
         """Threat match rule entries."""
 
-        class ThreatEntry(jsl.Document):
+        class ThreatMatchEntry(jsl.Document):
             """Threat match rule mapping entry."""
 
             field = jsl.StringField(required=True)
             type = jsl.StringField(default='mapping', enum='mapping', required=True)
             value = jsl.StringField(required=True)
 
-        entries = jsl.ArrayField(jsl.DocumentField(ThreatEntry, required=True), min_items=1)
+        entries = jsl.ArrayField(jsl.DocumentField(ThreatMatchEntry, required=True), min_items=1)
 
     STACK_VERSION = "7.10"
     RULE_TYPES = ApiSchema79.RULE_TYPES + [EQL]
@@ -51,7 +51,7 @@ class ApiSchema710(ApiSchema79):
         tm_scope.index = jsl.ArrayField(jsl.StringField(), required=False)
         tm_scope.query = jsl.StringField(required=True)
         tm_scope.threat_query = jsl.StringField(default='*:*', required=True)
-        tm_scope.threat_mapping = jsl.ArrayField(jsl.DocumentField(ThreatEntries, required=True), min_items=1)
+        tm_scope.threat_mapping = jsl.ArrayField(jsl.DocumentField(ThreatMatchEntries, required=True), min_items=1)
         tm_scope.threat_language = jsl.StringField(enum=['kuery', 'lucene'], required=True, default=EQL)
         tm_scope.threat_index = jsl.ArrayField(jsl.StringField(required=True), min_items=1)
 
