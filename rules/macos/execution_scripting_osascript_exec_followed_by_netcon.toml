@@ -27,7 +27,16 @@ type = "eql"
 query = '''
 sequence by host.id, process.entity_id with maxspan = 30s
  [process where event.type == "start" and process.name : "osascript"]
- [network where event.type != "end" and process.name : "osascript" and not destination.address in ("127.0.0.1", "0.0.0.0", "::1")]
+ [network where event.type != "end" and process.name : "osascript" and destination.address != "::1" and
+  not cidrmatch(destination.ip, "10.0.0.0/8",  
+                                "172.16.0.0/12", 
+                                "192.168.0.0/16", 
+                                "127.0.0.0/8", 
+                                "169.254.0.0/16", 
+                                "224.0.0.0/4", 
+                                "FE80::/10", 
+                                "FF00::/8")
+ ]
 '''
 
 
