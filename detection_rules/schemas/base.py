@@ -9,13 +9,12 @@ import time
 import jsl
 import jsonschema
 
-from .. import ecs
 from ..utils import cached
 
 
 DATE_PATTERN = r'\d{4}/\d{2}/\d{2}'
-MATURITY_LEVELS = ['development', 'testing', 'staged', 'production', 'deprecated']
-OS_OPTIONS = ['windows', 'linux', 'macos', 'solaris']  # need to verify with ecs
+MATURITY_LEVELS = ['development', 'experimental', 'beta', 'production', 'deprecated']
+OS_OPTIONS = ['windows', 'linux', 'macos', 'solaris']
 UUID_PATTERN = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 VERSION_PATTERN = r'\d+\.\d+\.\d+'
 
@@ -74,8 +73,8 @@ class TomlMetadata(GenericSchema):
     creation_date = jsl.StringField(required=True, pattern=DATE_PATTERN, default=time.strftime('%Y/%m/%d'))
 
     # rule validated against each ecs schema contained
-    ecs_version = jsl.ArrayField(
-        jsl.StringField(pattern=VERSION_PATTERN, required=True, default=ecs.get_max_version()), required=True)
+    beats_version = jsl.StringField(pattern=VERSION_PATTERN, required=False)
+    ecs_versions = jsl.ArrayField(jsl.StringField(pattern=VERSION_PATTERN, required=True), required=False)
     maturity = jsl.StringField(enum=MATURITY_LEVELS, default='development', required=True)
 
     os_type_list = jsl.ArrayField(jsl.StringField(enum=OS_OPTIONS), required=False)
