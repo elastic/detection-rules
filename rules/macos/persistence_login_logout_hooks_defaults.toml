@@ -14,7 +14,10 @@ index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License"
 name = "Persistence via Login and/or Logout Hooks"
-references = ["https://www.virusbulletin.com/uploads/pdf/conference_slides/2014/Wardle-VB2014.pdf"]
+references = [
+    "https://www.virusbulletin.com/uploads/pdf/conference_slides/2014/Wardle-VB2014.pdf",
+    "https://www.manpagez.com/man/1/defaults/",
+]
 risk_score = 47
 rule_id = "5d0265bf-dea9-41a9-92ad-48a8dcd05080"
 severity = "medium"
@@ -23,7 +26,7 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
- process.name : "defaults" and process.args : "write" and process.args : "LoginHook"
+ process.name : "defaults" and process.args : "write" and process.args : ("LoginHook", "LogoutHook")
 '''
 
 
