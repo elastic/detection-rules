@@ -14,8 +14,10 @@ INTERVAL_PATTERN = r'\d+[mshd]'
 MITRE_URL_PATTERN = r'https://attack.mitre.org/{type}/T[A-Z0-9]+/'
 
 
-# kibana/.../siem/server/lib/detection_engine/routes/schemas/add_prepackaged_rules_schema.ts
-#                           /detection_engine/routes/schemas/schemas.ts
+# kibana/.../security_solution/server/lib/detection_engine/routes/schemas/add_prepackaged_rules_schema.ts
+#                                        /detection_engine/routes/schemas/schemas.ts
+#                                        /detection_engine/schemas/rule_schemas.ts
+
 # rule_id is required here
 # output_index is not allowed (and instead the space index must be used)
 # immutable defaults to true instead of to false and if it is there can only be true
