@@ -1,0 +1,44 @@
+[metadata]
+creation_date = "2020/12/07"
+maturity = "production"
+updated_date = "2020/12/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+An adversary can establish persistence by installing a new launch agent that executes at login by using launchd or
+launchctl to load a plist into the appropriate directories.
+"""
+false_positives = ["Trusted applications persisting via LaunchAgent"]
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Launch Agent Creation or Modification"
+references = [
+    "https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html",
+]
+risk_score = 21
+rule_id = "082e3f8c-6f80-485c-91eb-5b112cb79b28"
+severity = "low"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Persistence"]
+type = "eql"
+
+query = '''
+file where event.type != "deletion" and file.path : ("/System/Library/LaunchAgents/*", "/Library/LaunchAgents/*", "/Users/*/Library/LaunchAgents/*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1159"
+name = "Launch Agent"
+reference = "https://attack.mitre.org/techniques/T1159/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
