@@ -5,6 +5,7 @@
 """ECS Schemas management."""
 import os
 import re
+from typing import List
 
 import kql
 import eql
@@ -16,15 +17,9 @@ from .semver import Version
 from .utils import DateTimeEncoder, unzip, get_etc_path, gzip_compress, read_gzip, cached
 
 
-def download_latest_beats_schema():
-    """Download additional schemas from ecs releases."""
-    url = 'https://api.github.com/repos/elastic/beats/releases'
-    releases = requests.get(url)
-
-    latest_release = max(releases.json(), key=lambda release: Version(release["tag_name"].lstrip("v")))
-
-    print(f"Downloading beats {latest_release['tag_name']}")
-    response = requests.get(latest_release['zipball_url'])
+def _decompress_and_save_schema(url, release_name):
+    print(f"Downloading beats {release_name}")
+    response = requests.get(url)
 
     print(f"Downloaded {len(response.content) / 1024.0 / 1024.0:.2f} MB release.")
 
@@ -60,12 +55,29 @@ def download_latest_beats_schema():
 
     # remove all non-beat directories
     fs = {k: v for k, v in fs.get("folders", {}).items() if k.endswith("beat")}
-    print(f"Saving etc/beats_schema/{latest_release['tag_name']}.json")
+    print(f"Saving etc/beats_schema/{release_name}.json")
 
     compressed = gzip_compress(json.dumps(fs, sort_keys=True, cls=DateTimeEncoder))
-    path = get_etc_path("beats_schemas", latest_release["tag_name"] + ".json.gz")
+    path = get_etc_path("beats_schemas", release_name + ".json.gz")
     with open(path, 'wb') as f:
         f.write(compressed)
+
+
+def download_latest_beats_schema():
+    """Download additional schemas from beats releases."""
+    url = 'https://api.github.com/repos/elastic/beats/releases'
+    releases = requests.get(url)
+
+    latest_release = max(releases.json(), key=lambda release: Version(release["tag_name"].lstrip("v")))
+    beats_url = latest_release['zipball_url']
+    name = latest_release['tag_name']
+
+    _decompress_and_save_schema(beats_url, name)
+
+
+def refresh_master_schema():
+    """Download and refresh beats schema from master."""
+    _decompress_and_save_schema('https://github.com/elastic/beats/archive/master.zip', 'master')
 
 
 def _flatten_schema(schema: list, prefix="") -> list:
@@ -146,7 +158,7 @@ def get_beats_sub_schema(schema: dict, beat: str, module: str, *datasets: str):
 
 
 @cached
-def get_versions():
+def get_versions() -> List[Version]:
     versions = []
     for filename in os.listdir(get_etc_path("beats_schemas")):
         version_match = re.match(r'v(.+)\.json\.gz', filename)
@@ -157,19 +169,22 @@ def get_versions():
 
 
 @cached
-def get_max_version():
-    return max(get_versions())
+def get_max_version() -> str:
+    return str(max(get_versions()))
 
 
 @cached
 def read_beats_schema(version: str = None):
+    if version and version.lower() == 'master':
+        return json.loads(read_gzip(get_etc_path('beats_schemas', 'master.json.gz')))
+
     version = Version(version) if version else None
     beats_schemas = get_versions()
 
     if version and version not in beats_schemas:
         raise ValueError(f'Unknown beats schema: {version}')
 
-    version = version or max(beats_schemas)
+    version = version or get_max_version()
 
     return json.loads(read_gzip(get_etc_path('beats_schemas', f'v{version}.json.gz')))
 
