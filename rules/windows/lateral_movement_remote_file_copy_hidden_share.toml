@@ -1,0 +1,41 @@
+[metadata]
+creation_date = "2020/11/04"
+maturity = "production"
+updated_date = "2020/11/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a remote file copy attempt to a hidden network share. This may indicate lateral movement or data staging
+activity.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*"]
+language = "eql"
+license = "Elastic License"
+name = "Remote File Copy to a Hidden Share"
+risk_score = 47
+rule_id = "fa01341d-6662-426b-9d0c-6d81e33c8a9d"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  process.name : ("cmd.exe", "powershell.exe", "robocopy.exe", "xcopy.exe") and 
+  process.args : ("copy*", "move*", "cp", "mv") and process.args : "*$*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1077"
+name = "Windows Admin Shares"
+reference = "https://attack.mitre.org/techniques/T1077/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
