@@ -1,0 +1,39 @@
+[metadata]
+creation_date = "2020/12/04"
+maturity = "production"
+updated_date = "2020/12/04"
+
+[rule]
+author = ["Elastic"]
+description = "Enrich process events that have command-lines matching known commands to enumerate the file system."
+index = ["logs-endpoint.events.*", "winlogbeat-*"]
+language = "eql"
+license = "Elastic License"
+name = "File and Directory Discovery"
+risk_score = 21
+rule_id = "7b08314d-47a0-4b71-ae4e-16544176924f"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  (process.name : "cmd.exe" or process.pe.original_file_name == "cmd.exe") and
+  process.args : ("dir", "tree")
+
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1083"
+name = "File and Directory Discovery"
+reference = "https://attack.mitre.org/techniques/T1083/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+

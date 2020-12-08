@@ -1,0 +1,55 @@
+[metadata]
+creation_date = "2020/12/04"
+maturity = "production"
+updated_date = "2020/12/04"
+
+[rule]
+author = ["Elastic"]
+description = "Identifies attempts to enumerate hosts in a network using the built-in Windows net.exe tool."
+index = ["logs-endpoint.events.*", "winlogbeat-*"]
+language = "eql"
+license = "Elastic License"
+name = "Windows Network Enumeration"
+risk_score = 47
+rule_id = "7b8bfc26-81d2-435e-965c-d722ee397ef1"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  process.args : "view" and
+  ((process.name : "net.exe" or process.pe.original_file_name == "net.exe") or
+   ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and
+       not process.parent.name : "net.exe"))
+
+  /* expand when ancestory is available
+  and not descendant of [process where event.type == ("start", "process_started") and process.name : "cmd.exe" and
+                           ((process.parent.name : "userinit.exe") or
+                            (process.parent.name : "gpscript.exe") or
+                            (process.parent.name : "explorer.exe" and
+
+                               // expensive leading wildcard
+                               process.args : "*\\Start Menu\\Programs\\Startup\\*.bat*"))]
+  */
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1018"
+name = "Remote System Discovery"
+reference = "https://attack.mitre.org/techniques/T1018/"
+
+[[rule.threat.technique]]
+id = "T1135"
+name = "Network Share Discovery"
+reference = "https://attack.mitre.org/techniques/T1135/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+

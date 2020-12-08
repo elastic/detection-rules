@@ -1,0 +1,49 @@
+[metadata]
+creation_date = "2020/12/04"
+maturity = "production"
+updated_date = "2020/12/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies instances of lower privilege accounts enumerating Administrator accounts or groups, using built-in Windows
+tools.
+"""
+index = ["logs-endpoint.events.*", "winlogbeat-*"]
+language = "eql"
+license = "Elastic License"
+name = "Enumeration of Administrator Accounts"
+risk_score = 21
+rule_id = "871ea072-1b71-4def-b016-6278b505138d"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  ((process.name : "net.exe" or process.pe.original_file_name == "net.exe") or
+   ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and
+       not process.parent.name : "net.exe")) and
+  process.args : ("group", "user") and
+  process.args : ("admin") and not process.args : "/add"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
+
+[[rule.threat.technique]]
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+

@@ -1,0 +1,44 @@
+[metadata]
+creation_date = "2020/12/04"
+maturity = "production"
+updated_date = "2020/12/04"
+
+[rule]
+author = ["Elastic"]
+description = "Identifies use of winrar.exe to create an encrypted rar file using the -hp option."
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Encrypting Files with WinRar"
+risk_score = 47
+rule_id = "45d273fb-1dca-457d-9855-bcb302180c21"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Exfiltration"]
+type = "eql"
+
+query = '''
+sequence by process.entity_id with maxspan=10m
+  [process where event.type in ("start", "process_started") and
+     process.name : ("winrar.exe", "rar.exe", "win.rar") and process.args : ("-hp", "/hp")]
+  [file where event.type != "deletion"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1022"
+name = "Data Encrypted"
+reference = "https://attack.mitre.org/techniques/T1022/"
+
+[[rule.threat.technique]]
+id = "T1002"
+name = "Data Compressed"
+reference = "https://attack.mitre.org/techniques/T1002/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+

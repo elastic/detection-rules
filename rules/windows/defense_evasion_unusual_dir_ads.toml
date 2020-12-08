@@ -1,0 +1,52 @@
+[metadata]
+creation_date = "2020/12/04"
+maturity = "production"
+updated_date = "2020/12/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies processes running from an Alternate Data Stream. This is uncommon for legitimate processes and sometimes done
+by adversaries to hide malware.
+"""
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Unusual Process Execution Path - Alternate Data Stream"
+risk_score = 47
+rule_id = "4bd1c1af-79d4-4d37-9efa-6e0240640242"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  process.executable == "C:\\*:*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1096"
+name = "NTFS File Attributes"
+reference = "https://attack.mitre.org/techniques/T1096/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1096"
+name = "NTFS File Attributes"
+reference = "https://attack.mitre.org/techniques/T1096/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
