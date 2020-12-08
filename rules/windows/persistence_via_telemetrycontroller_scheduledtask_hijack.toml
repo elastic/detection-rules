@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/08/17"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/27"
+updated_date = "2020/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -22,13 +21,12 @@ risk_score = 73
 rule_id = "68921d85-d0dc-48b3-865f-43291ca2c4f2"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
-timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
 type = "query"
 
 query = '''
 event.category:process and event.type:(start or process_started) and
-  process.parent.name:(CompatTelRunner.exe or compattelrunner.exe) and
-  not process.name:(conhost.exe or DeviceCensus.exe or devicecensus.exe or CompatTelRunner.exe or compattelrunner.exe or DismHost.exe or dismhost.exe or rundll32.exe)
+  process.parent.name:(CompatTelRunner.exe or compattelrunner.exe) and process.args:-cv* and
+  not process.name:(conhost.exe or DeviceCensus.exe or devicecensus.exe or CompatTelRunner.exe or compattelrunner.exe or DismHost.exe or dismhost.exe or rundll32.exe or powershell.exe)
 '''
 
 
