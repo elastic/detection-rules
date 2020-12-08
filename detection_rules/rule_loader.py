@@ -95,11 +95,14 @@ def load_rules(file_lookup=None, verbose=True, error=True):
 
             parsed_query = rule.parsed_query
             if parsed_query is not None:
-                if parsed_query in queries:
+                # duplicate logic can be ok across different rule types such as query and threshold rules
+                query_pair = (rule.type, parsed_query)
+
+                if query_pair in queries:
                     raise KeyError("Rule has duplicate query with {}".format(
                         next(r for r in rules if r.parsed_query == parsed_query).path))
 
-                queries.append(parsed_query)
+                queries.append(query_pair)
 
             if not re.match(FILE_PATTERN, os.path.basename(rule.path)):
                 raise ValueError(f"Rule {rule.path} does not meet rule name standard of {FILE_PATTERN}")
