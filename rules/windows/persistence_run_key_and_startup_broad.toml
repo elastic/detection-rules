@@ -23,20 +23,29 @@ query = '''
 /* uncomment length once stable */
 registry where /* length(registry.data.strings) > 0 and */
  registry.path : (
-     "*\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\*", 
-     "*\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\*", 
-     "*\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnceEx\\*", 
-     "*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders\\*", 
-     "*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders\\*", 
-     "*\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run\\*", 
-     "*\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Shell\\*"
+     /* Machine Hive */
+     "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\*", 
+     "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\*", 
+     "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnceEx\\*", 
+     "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders\\*", 
+     "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders\\*", 
+     "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run\\*", 
+     "HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Shell\\*",   
+     /* Users Hive */
+     "HKEY_USERS\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\*", 
+     "HKEY_USERS\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\*", 
+     "HKEY_USERS\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnceEx\\*", 
+     "HKEY_USERS\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders\\*", 
+     "HKEY_USERS\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders\\*", 
+     "HKEY_USERS\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run\\*", 
+     "HKEY_USERS\\*\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Shell\\*"
      ) and
   /* add here common legit changes without making too restrictive as this is one of the most abused AESPs */
   not registry.data.strings : "ctfmon.exe /n" and
   not (registry.value : "Application Restart #*" and process.name : "csrss.exe") and
   user.domain != "NT AUTHORITY" and
-  not registry.data.strings : "C:\\Program Files*\\*" and
-  not process.executable : "C:\\Windows\\System*\\msiexec.exe"
+  not registry.data.strings : ("C:\\Program Files\\*.exe", "C:\\Program Files (x86)\\*.exe") and
+  not process.executable : ("C:\\Windows\\System32\\msiexec.exe", "C:\\Windows\\SysWOW64\\msiexec.exe")
 '''
 
 
