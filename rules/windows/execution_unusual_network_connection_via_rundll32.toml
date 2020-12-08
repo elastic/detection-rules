@@ -1,31 +1,30 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/11/03"
+updated_date = "2020/12/07"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies unusual instances of rundll32.exe making outbound network connections. This may indicate adversarial activity
-and may identify malicious DLLs.
+Identifies unusual instances of rundll32.exe making outbound network connections. This may indicate adversarial Command
+and Control activity.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License"
 name = "Unusual Network Connection via RunDLL32"
-risk_score = 21
+risk_score = 47
 rule_id = "52aaab7b-b51c-441a-89ce-4387b3aea886"
-severity = "low"
+severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
 type = "eql"
 
 query = '''
-sequence by process.entity_id
-  [process where process.name : "rundll32.exe" and event.type == "start"]
-  [network where process.name : "rundll32.exe" and
-     not cidrmatch(destination.ip, "10.0.0.0/8",  "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8")]
+sequence by host.id, process.entity_id with maxspan=1m
+  [process where event.type in ("start", "process_started", "info") and process.name : "rundll32.exe" and process.args_count == 1]
+  [network where process.name : "rundll32.exe" and network.protocol != "dns" and network.direction == "outgoing" and
+   not cidrmatch(destination.ip, "10.0.0.0/8",  "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8")]
 '''
 
 
@@ -41,4 +40,3 @@ reference = "https://attack.mitre.org/techniques/T1085/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
