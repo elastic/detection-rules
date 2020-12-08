@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/27"
+updated_date = "2020/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -12,18 +11,46 @@ adversary can modify the way these programs are launched to get a command prompt
 system.
 """
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
 name = "Potential Modification of Accessibility Binaries"
-risk_score = 21
+references = ["https://www.elastic.co/blog/practical-security-engineering-stateful-detection"]
+risk_score = 73
 rule_id = "7405ddf1-6c8e-41ce-818f-48bea6bcaed8"
-severity = "low"
+severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
-timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and process.parent.name:winlogon.exe and not process.name:(atbroker.exe or displayswitch.exe or magnify.exe or narrator.exe or osk.exe or sethc.exe or utilman.exe)
+process where event.type in ("start", "process_started", "info") and
+ process.parent.name : ("Utilman.exe", "winlogon.exe") and user.name == "SYSTEM" and
+ process.args :
+    (
+    "C:\\Windows\\System32\\osk.exe",
+    "C:\\Windows\\System32\\Magnify.exe",
+    "C:\\Windows\\System32\\Narrator.exe",
+    "C:\\Windows\\System32\\Sethc.exe",
+    "utilman.exe",
+    "ATBroker.exe",
+    "DisplaySwitch.exe",
+    "sethc.exe"
+    )
+ and not process.pe.original_file_name in
+    (
+    "osk.exe",
+    "sethc.exe",
+    "utilman2.exe",
+    "DisplaySwitch.exe",
+    "ATBroker.exe",
+    "ScreenMagnifier.exe",
+    "SR.exe",
+    "Narrator.exe",
+    "magnify.exe",
+    "MAGNIFY.EXE"
+    )
+
+/* uncomment once in winlogbeat to avoid bypass with rogue process with matching pe original file name */
+/* and process.code_signature.subject_name == "Microsoft Windows" and process.code_signature.status == "trusted" */
 '''
 
 
