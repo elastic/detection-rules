@@ -83,12 +83,12 @@ def _flatten_schema(schema: list, prefix="") -> list:
             # we have what looks like zoom.zoom.*, but should actually just be zoom.*.
             # this is one quick heuristic to determine if a submodule nests fields at the parent.
             # it's probably not perfect, but we can fix other bugs as we run into them later
-            if len(schema) == 1 and nested_prefix == prefix + prefix:
-                nested_prefix = prefix
+            if len(schema) == 1 and nested_prefix.startswith(prefix + prefix):
+                nested_prefix = s["name"] + "."
             flattened.extend(_flatten_schema(s["fields"], prefix=nested_prefix))
         elif "fields" in s:
             flattened.extend(_flatten_schema(s["fields"], prefix=prefix))
-        elif "name" in s and "description" in s:
+        elif "name" in s:
             s = s.copy()
             # type is implicitly keyword if not defined
             # example: https://github.com/elastic/beats/blob/master/packetbeat/_meta/fields.common.yml#L7-L12
