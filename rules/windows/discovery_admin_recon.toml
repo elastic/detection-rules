@@ -21,11 +21,17 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
-  ((process.name : "net.exe" or process.pe.original_file_name == "net.exe") or
-   ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and
-       not process.parent.name : "net.exe")) and
-  process.args : ("group", "user") and
-  process.args : ("admin") and not process.args : "/add"
+  (((process.name : "net.exe" or process.pe.original_file_name == "net.exe") or
+    ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and
+        not process.parent.name : "net.exe")) and
+   process.args : ("group", "user", "localgroup") and
+   process.args : ("admin", "Domain Admins", "Remote Desktop Users", "Enterprise Admins", "Organization Management") and
+   not process.args : "/add")
+
+   or
+
+  ((process.name : "wmic.exe" or process.pe.original_file_name == "wmic.exe") and
+     process.args : ("group", "useraccount"))
 '''
 
 

@@ -18,10 +18,11 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
-  process.args : "view" and
   ((process.name : "net.exe" or process.pe.original_file_name == "net.exe") or
    ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and
-       not process.parent.name : "net.exe"))
+       not process.parent.name : "net.exe")) and
+  (process.args : "view" or (process.args : "time" and process.args : "\\\\*"))
+
 
   /* expand when ancestory is available
   and not descendant of [process where event.type == ("start", "process_started") and process.name : "cmd.exe" and

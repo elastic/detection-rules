@@ -5,11 +5,15 @@ updated_date = "2020/12/04"
 
 [rule]
 author = ["Elastic"]
-description = "Identifies use of winrar.exe to create an encrypted rar file using the -hp option."
+description = """
+Identifies use of winrar.exe or 7z to create an encrypted files. Adversaries will often compress and
+encrypt data in preparation for exfiltration.
+"""
 index = ["logs-endpoint.events.*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License"
-name = "Encrypting Files with WinRar"
+name = "Encrypting Files with WinRar or 7z"
+references = ["https://www.welivesecurity.com/2020/12/02/turla-crutch-keeping-back-door-open/"]
 risk_score = 47
 rule_id = "45d273fb-1dca-457d-9855-bcb302180c21"
 severity = "medium"
@@ -17,10 +21,17 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Exfiltration"]
 type = "eql"
 
 query = '''
-sequence by process.entity_id with maxspan=10m
-  [process where event.type in ("start", "process_started") and
-     process.name : ("winrar.exe", "rar.exe", "win.rar") and process.args : ("-hp", "/hp")]
-  [file where event.type != "deletion"]
+process where event.type in ("start", "process_started") and
+  ((process.name:"rar.exe" or process.code_signature.subject_name == "win.rar GmbH" or
+      process.pe.original_file_name == "Command line RAR") and
+    process.args == "a" and process.args : ("-hp*", "-p*", "-dw", "-tb", "-ta", "/hp*", "/p*", "/dw", "/tb", "/ta"))
+
+  or
+  (process.pe.original_file_name in ("7z.exe", "7za.exe") and
+     process.args == "a" and process.args : ("-p*", "-sdel"))
+
+  /* uncomment if noisy for Backup SW related FPs */
+  /* not process.parent.executable : ("C:\\Program Files\\*.exe", "C:\\Program Files (x86)\\*.exe") */
 '''
 
 
