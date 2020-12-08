@@ -252,3 +252,14 @@ def format_command_options(ctx):
             formatter.write_dl(opts)
 
     return formatter.getvalue()
+
+
+def add_params(*params):
+    """Add parameters to a click command."""
+    def decorator(f):
+        if not hasattr(f, '__click_params__'):
+            f.__click_params__ = []
+        f.__click_params__.extend(params)
+        return f
+
+    return decorator
