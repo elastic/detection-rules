@@ -8,6 +8,10 @@ import jsl
 from .v7_9 import ApiSchema79
 
 
+# rule types
+EQL = "eql"
+
+
 class ApiSchema710(ApiSchema79):
     """Schema for siem rule in API format."""
 
