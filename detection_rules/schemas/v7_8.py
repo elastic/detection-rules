@@ -65,8 +65,8 @@ class Threat(jsl.Document):
     """Threat framework mapping such as MITRE ATT&CK."""
 
     class ThreatTactic(jsl.Document):
-        id = jsl.StringField(enum=tactics_map.values())
-        name = jsl.StringField(enum=tactics)
+        id = jsl.StringField(enum=tactics_map.values(), required=True)
+        name = jsl.StringField(enum=tactics, required=True)
         reference = jsl.StringField(MITRE_URL_PATTERN.format(type='tactics'))
 
     class ThreatTechnique(jsl.Document):
