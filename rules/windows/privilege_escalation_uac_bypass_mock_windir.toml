@@ -1,29 +1,29 @@
 [metadata]
-creation_date = "2020/08/18"
+creation_date = "2020/10/26"
 maturity = "production"
-updated_date = "2020/11/03"
+updated_date = "2020/10/26"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies User Account Control (UAC) bypass via hijacking DiskCleanup Scheduled Task. Attackers bypass UAC to
+Identifies an attempt to bypass User Account Control (UAC) by masquerading as a Microsoft trusted Windows directory. Attackers may bypass UAC to
 stealthily execute code with elevated permissions.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License"
-name = "UAC Bypass via DiskCleanup Scheduled Task Hijack"
-risk_score = 47
-rule_id = "1dcc51f6-ba26-49e7-9ef4-2655abb2361e"
-severity = "medium"
+name = "UAC Bypass Attempt via Windows Directory Masquerading"
+references = ["https://medium.com/tenable-techblog/uac-bypass-by-mocking-trusted-directories-24a96675f6e"]
+risk_score = 71
+rule_id = "290aca65-e94d-403b-ba0f-62f320e63f51"
+severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
 type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
-process.args:"/autoclean" and process.args:"/d" and
-not process.executable : ("C:\\Windows\\System32\\cleanmgr.exe", "C:\\Windows\\SysWOW64\\cleanmgr.exe")
+  process.args : ("C:\\Windows \\system32\\*.exe", "C:\\Windows \\SysWOW64\\*.exe")
 '''
 
 
