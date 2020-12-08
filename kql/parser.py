@@ -114,15 +114,13 @@ class BaseKqlParser(Interpreter):
         self.scoped_field = None
 
     def get_field_type(self, dotted_path, lark_tree=None):
-        if self.star_fields:
-            if any(regex.match(dotted_path) for regex in self.star_fields):
-                return None
+        matches_pattern = any(regex.match(dotted_path) for regex in self.star_fields)
 
         if self.mapping_schema is not None:
-            if lark_tree is not None and dotted_path not in self.mapping_schema:
+            if lark_tree is not None and dotted_path not in self.mapping_schema and not matches_pattern:
                 raise self.error(lark_tree, "Unknown field")
 
-            return self.mapping_schema[dotted_path]
+            return self.mapping_schema.get(dotted_path)
 
     @staticmethod
     def get_literal_type(literal_value):
