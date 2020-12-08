@@ -20,9 +20,9 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control"]
 type = "eql"
 
 query = '''
-sequence by host.id, process.entity_id with maxspan = 30s
+sequence by host.id, process.entity_id
   [network where process.name : ("wscript.exe", "cscript.exe") and network.protocol != "dns" and
-   network.direction == "outgoing" and network.type == "ipv4" and destination.ip !="127.0.0.1"
+   network.direction == "outgoing" and network.type == "ipv4" and destination.ip != "127.0.0.1"
   ]
   [file where event.type == "creation" and file.extension : ("exe", "dll")]
 '''
