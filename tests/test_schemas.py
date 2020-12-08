@@ -47,8 +47,8 @@ class TestSchemas(unittest.TestCase):
             ]
         }
         cls.v79_kql = dict(cls.v78_kql, author=["Elastic"], license="Elastic License")
-        cls.v710_kql = copy.deepcopy(cls.v79_kql)
-        cls.v710_kql["threat"][0]["technique"][0]["subtechnique"] = [{
+        cls.v711_kql = copy.deepcopy(cls.v79_kql)
+        cls.v711_kql["threat"][0]["technique"][0]["subtechnique"] = [{
             "id": "T1059.001",
             "name": "PowerShell",
             "reference": "https://attack.mitre.org/techniques/T1059/001/"
@@ -76,15 +76,15 @@ class TestSchemas(unittest.TestCase):
 
     def test_query_downgrade(self):
         """Downgrade a standard KQL rule."""
-        self.assertDictEqual(downgrade(self.v710_kql, "7.10"), self.v710_kql)
-        self.assertDictEqual(downgrade(self.v710_kql, "7.9"), self.v79_kql)
-        self.assertDictEqual(downgrade(self.v710_kql, "7.9.2"), self.v79_kql)
-        self.assertDictEqual(downgrade(self.v710_kql, "7.8.1"), self.v78_kql)
+        self.assertDictEqual(downgrade(self.v711_kql, "7.11"), self.v711_kql)
+        self.assertDictEqual(downgrade(self.v711_kql, "7.9"), self.v79_kql)
+        self.assertDictEqual(downgrade(self.v711_kql, "7.9.2"), self.v79_kql)
+        self.assertDictEqual(downgrade(self.v711_kql, "7.8.1"), self.v78_kql)
         self.assertDictEqual(downgrade(self.v79_kql, "7.8"), self.v78_kql)
         self.assertDictEqual(downgrade(self.v79_kql, "7.8"), self.v78_kql)
 
         with self.assertRaises(ValueError):
-            downgrade(self.v710_kql, "7.7")
+            downgrade(self.v711_kql, "7.7")
 
         with self.assertRaises(ValueError):
             downgrade(self.v79_kql, "7.7")
