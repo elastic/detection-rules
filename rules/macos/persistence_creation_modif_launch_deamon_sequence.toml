@@ -22,9 +22,9 @@ tags = ["Elastic", "Host", "macOS", "Threat Detection", "Persistence"]
 type = "eql"
 
 query = '''
-sequence by host.id with maxspan = 1m
- [file where event.type != "deletion" and file.path : ("/System/Library/LaunchDaemons/*", " /Library/LaunchDaemons/*")]
- [process where event.type in ("start", "process_started") and process.name : "launchctl" and process.args : "load"]
+sequence by host.id with maxspan=1m
+ [file where event.type != "deletion" and file.path in ("/System/Library/LaunchDaemons/*", " /Library/LaunchDaemons/*")]
+ [process where event.type in ("start", "process_started") and process.name == "launchctl" and process.args == "load"]
 '''
 
 
