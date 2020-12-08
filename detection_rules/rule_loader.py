@@ -79,6 +79,7 @@ def load_rules(file_lookup=None, verbose=True, error=True):
     rules = []  # type: list[Rule]
     errors = []
     queries = []
+    query_check_index = []
     rule_ids = set()
     rule_names = set()
 
@@ -87,25 +88,28 @@ def load_rules(file_lookup=None, verbose=True, error=True):
             rule = Rule(rule_file, rule_contents)
 
             if rule.id in rule_ids:
-                raise KeyError("Rule has duplicate ID to {}".format(next(r for r in rules if r.id == rule.id).path))
+                existing = next(r for r in rules if r.id == rule.id)
+                raise KeyError(f'{rule.path} has duplicate ID with \n{existing.path}')
 
             if rule.name in rule_names:
-                raise KeyError("Rule has duplicate name to {}".format(
-                    next(r for r in rules if r.name == rule.name).path))
+                existing = next(r for r in rules if r.name == rule.name)
+                raise KeyError(f'{rule.path} has duplicate name with \n{existing.path}')
 
             parsed_query = rule.parsed_query
             if parsed_query is not None:
-                # duplicate logic can be ok across different rule types such as query and threshold rules
-                query_pair = (rule.type, parsed_query)
+                # duplicate logic is ok across query and threshold rules
+                threshold = rule.contents.get('threshold', {})
+                query_check = (parsed_query, rule.type, threshold.get('field'), threshold.get('value'))
+                query_check_index.append(rule)
 
-                if query_pair in queries:
-                    raise KeyError("Rule has duplicate query with {}".format(
-                        next(r for r in rules if r.parsed_query == parsed_query).path))
+                if query_check in queries:
+                    existing = query_check_index[queries.index(query_check)]
+                    raise KeyError(f'{rule.path} has duplicate query with \n{existing.path}')
 
-                queries.append(query_pair)
+                queries.append(query_check)
 
             if not re.match(FILE_PATTERN, os.path.basename(rule.path)):
-                raise ValueError(f"Rule {rule.path} does not meet rule name standard of {FILE_PATTERN}")
+                raise ValueError(f'{rule.path} does not meet rule name standard of {FILE_PATTERN}')
 
             rules.append(rule)
             rule_ids.add(rule.id)
