@@ -6,7 +6,7 @@ updated_date = "2020/12/04"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies use of winrar.exe or 7z to create an encrypted files. Adversaries will often compress and
+Identifies use of WinRar or 7z to create an encrypted files. Adversaries will often compress and
 encrypt data in preparation for exfiltration.
 """
 index = ["logs-endpoint.events.*", "winlogbeat-*"]
@@ -30,7 +30,7 @@ process where event.type in ("start", "process_started") and
   (process.pe.original_file_name in ("7z.exe", "7za.exe") and
      process.args == "a" and process.args : ("-p*", "-sdel"))
 
-  /* uncomment if noisy for Backup SW related FPs */
+  /* uncomment if noisy for backup software related FPs */
   /* not process.parent.executable : ("C:\\Program Files\\*.exe", "C:\\Program Files (x86)\\*.exe") */
 '''
 
@@ -46,4 +46,3 @@ reference = "https://attack.mitre.org/techniques/T1560/"
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
-
