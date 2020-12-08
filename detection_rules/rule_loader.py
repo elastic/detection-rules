@@ -99,14 +99,14 @@ def load_rules(file_lookup=None, verbose=True, error=True):
             if parsed_query is not None:
                 # duplicate logic is ok across query and threshold rules
                 threshold = rule.contents.get('threshold', {})
-                query_check = (parsed_query, rule.type, threshold.get('field'), threshold.get('value'))
+                duplicate_key = (parsed_query, rule.type, threshold.get('field'), threshold.get('value'))
                 query_check_index.append(rule)
 
-                if query_check in queries:
-                    existing = query_check_index[queries.index(query_check)]
+                if duplicate_key in queries:
+                    existing = query_check_index[queries.index(duplicate_key)]
                     raise KeyError(f'{rule.path} has duplicate query with \n{existing.path}')
 
-                queries.append(query_check)
+                queries.append(duplicate_key)
 
             if not re.match(FILE_PATTERN, os.path.basename(rule.path)):
                 raise ValueError(f'{rule.path} does not meet rule name standard of {FILE_PATTERN}')
