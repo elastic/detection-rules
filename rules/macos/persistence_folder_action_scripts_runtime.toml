@@ -1,0 +1,54 @@
+[metadata]
+creation_date = "2020/12/07"
+maturity = "production"
+updated_date = "2020/12/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+A Folder Action script is executed when the folder to which it is attached has items added or removed, or when its
+window is opened, closed, moved, or resized. Adversaries may abuse this feature to establish persistence by utilizing a malicious script.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Persistence via Folder Action Script"
+references = ["https://posts.specterops.io/folder-actions-for-persistence-on-macos-8923f222343d"]
+risk_score = 47
+rule_id = "c292fa52-4115-408a-b897-e14f684b3cb7"
+severity = "medium"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Execution", "Persistence"]
+type = "eql"
+
+query = '''
+sequence by host.id with maxspan=5s
+ [process where event.type in ("start", "process_started", "info") and process.name == "com.apple.foundation.UserScriptService"] by process.pid
+ [process where event.type in ("start", "process_started") and process.name in ("osascript", "sh")] by process.ppid
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
