@@ -9,10 +9,6 @@ from .v7_8 import Threat as Threat78, MITRE_URL_PATTERN
 from .v7_10 import ApiSchema710
 
 
-# rule types
-EQL = "eql"
-
-
 class Threat711(Threat78):
     """Threat framework mapping such as MITRE ATT&CK."""
 
