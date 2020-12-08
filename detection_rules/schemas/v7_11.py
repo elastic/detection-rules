@@ -30,7 +30,6 @@ class ApiSchema711(ApiSchema710):
     """Schema for siem rule in API format."""
 
     STACK_VERSION = "7.11"
-    RULE_TYPES = ApiSchema710.RULE_TYPES
 
     threat = jsl.ArrayField(jsl.DocumentField(Threat711))
 
