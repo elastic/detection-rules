@@ -1,0 +1,51 @@
+[metadata]
+creation_date = "2020/11/18"
+maturity = "production"
+updated_date = "2020/11/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Component Object Model (COM) hijacking via registry modification. Adversaries may establish persistence by executing malicious content
+triggered by hijacked references to COM objects.
+"""
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Component Object Model Hijacking"
+references = ["https://bohops.com/2018/08/18/abusing-the-com-registry-structure-part-2-loading-techniques-for-evasion-and-persistence/"]
+risk_score = 47
+rule_id = "16a52c14-7883-47af-8745-9357803f0d4c"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+type = "eql"
+
+query = '''
+registry where
+ /* uncomment once length is stable length(bytes_written_string) > 0 and */
+ (registry.path : "HK*}\\InprocServer32\\" and registry.data.strings: ("scrobj.dll", "C:\\*\\scrobj.dll") and
+ not registry.path : "*\\{06290BD*-48AA-11D2-8432-006008C3FBFC}\\*") 
+ or
+ /* in general COM Registry changes on Users Hive is less noisy and worth alerting */
+ (registry.path : ("HKEY_USERS\\*Classes\\*\\InprocXServer32\\",  
+                   "HKEY_USERS\\*Classes\\*\\LocalServer32\\", 
+                   "HKEY_USERS\\*Classes\\*\\DelegateExecute\\", 
+                   "HKEY_USERS\\*Classes\\*\\TreatAs\\", 
+                   "HKEY_USERS\\*Classes\\CLSID\\*\\ScriptletURL\\") and
+ /* not necessary but good for filtering privileged installations */
+ user.domain != "NT AUTHORITY")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1122"
+name = "Component Object Model Hijacking"
+reference = "https://attack.mitre.org/techniques/T1122/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
