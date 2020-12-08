@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/08/18"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/27"
+updated_date = "2020/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -12,21 +11,19 @@ stealthily execute code with elevated permissions.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
 name = "UAC Bypass via DiskCleanup Scheduled Task Hijack"
 risk_score = 47
 rule_id = "1dcc51f6-ba26-49e7-9ef4-2655abb2361e"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
-timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
-  process.args:(/autoclean or /AUTOCLEAN) and
-  process.parent.name:svchost.exe and
-  not process.executable:("C:\Windows\System32\cleanmgr.exe" or "C:\Windows\SysWOW64\cleanmgr.exe")
+process where event.type in ("start", "process_started") and
+process.args:"/autoclean" and process.args:"/d" and
+not process.executable : ("C:\\Windows\\System32\\cleanmgr.exe", "C:\\Windows\\SysWOW64\\cleanmgr.exe")
 '''
 
 
@@ -42,4 +39,3 @@ reference = "https://attack.mitre.org/techniques/T1088/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
