@@ -21,16 +21,18 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement", "E
 type = "eql"
 
 query = '''
-sequence with maxspan = 1s
+sequence with maxspan=1s
    [network where process.name : "services.exe" and
-    network.direction == "incoming" and network.transport == "tcp" and 
-    source.port >= 49152 and destination.port >= 49152 and source.address != "127.0.0.1" and source.address != "::1"
+      network.direction == "incoming" and network.transport == "tcp" and 
+      source.port >= 49152 and destination.port >= 49152 and source.address not in ("127.0.0.1", "::1")
    ] by host.id, process.entity_id
 
    [process where event.type in ("start", "process_started") and process.parent.name : "services.exe" and 
-    not (process.name : "svchost.exe" and process.args : "tiledatamodelsvc") and not (process.name : "msiexec.exe" and process.args : "/V")
-   /* uncomment if psexec is noisy in your environment */
-   /* and not process.name : "PSEXESVC.exe" */
+       not (process.name : "svchost.exe" and process.args : "tiledatamodelsvc") and 
+       not (process.name : "msiexec.exe" and process.args : "/V")
+   
+    /* uncomment if psexec is noisy in your environment */
+    /* and not process.name : "PSEXESVC.exe" */
    ] by host.id, process.parent.entity_id
 '''
 
