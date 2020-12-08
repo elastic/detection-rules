@@ -21,7 +21,7 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
 type = "eql"
 
 query = '''
-sequence by host.id, process.entity_id with maxspan = 1m
+sequence by host.id, process.entity_id with maxspan=1m
   [process where event.type in ("start", "process_started", "info") and process.name : "rundll32.exe" and process.args_count == 1]
   [network where process.name : "rundll32.exe" and network.protocol != "dns" and network.direction == "outgoing" and
    not cidrmatch(destination.ip, "10.0.0.0/8",  "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8")]
@@ -40,4 +40,3 @@ reference = "https://attack.mitre.org/techniques/T1085/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
