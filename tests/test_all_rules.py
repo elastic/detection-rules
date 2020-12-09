@@ -186,7 +186,7 @@ class TestThreatMappings(unittest.TestCase):
                                                  f'{sub_technique["reference"]}')
 
     def test_duplicated_tactics(self):
-        """Check that a tacgic is only defined once."""
+        """Check that a tactic is only defined once."""
         rules = rule_loader.load_rules().values()
 
         for rule in rules:
