@@ -636,8 +636,9 @@ def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
 
     click.echo('Ensure that you have updated your packetbeat.yml config file.')
     click.echo('    - reference: ML_DGA.md #2-update-packetbeat-configuration')
-    click.echo('To upload rules, run: kibana upload-rule <dga-rule-files>')
-    click.echo('To upload ML jobs, run: es experimental upload-ml-job <dga-job-files>')
+    click.echo('Associated rules and jobs can be found under ML-experimental-detections releases in the repo')
+    click.echo('To upload rules, run: kibana upload-rule <ml-rule.toml>')
+    click.echo('To upload ML jobs, run: es experimental upload-ml-job <ml-job.json>')
 
 
 @es_experimental.command('upload-ml-job')
