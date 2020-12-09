@@ -119,7 +119,7 @@ def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict:
         e = {
             'id': _id,
             'name': technique_lookup[_id]['name'],
-            'reference': url_base.format(type='techniques', id=_id)
+            'reference': url_base.format(type='techniques', id=_id.replace('.', '/'))
         }
         return e
 
