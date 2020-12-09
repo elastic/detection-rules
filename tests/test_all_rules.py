@@ -200,7 +200,7 @@ class TestThreatMappings(unittest.TestCase):
 
     def test_technique_deprecations(self):
         """Check for use of any ATT&CK techniques that have been deprecated."""
-        replacement_map = attack.load_replacement_map()
+        crosswalk_map = attack.load_crosswalk_map()
         rules = rule_loader.load_rules().values()
 
         for rule in rules:
@@ -212,8 +212,8 @@ class TestThreatMappings(unittest.TestCase):
                 for entry in threat_mapping:
                     techniques = entry.get('technique', [])
                     for technique in techniques:
-                        if technique['id'] in list(replacement_map):
-                            revoked_techniques[technique['id']] = replacement_map[technique['id']]
+                        if technique['id'] in list(crosswalk_map):
+                            revoked_techniques[technique['id']] = crosswalk_map[technique['id']]
 
             if revoked_techniques:
                 old_new_mapping = "\n".join(f'Actual: {k} -> Expected {v}' for k, v in revoked_techniques.items())
