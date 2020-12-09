@@ -18,7 +18,7 @@ import toml
 import pytoml
 from rta import get_ttp_names
 
-from detection_rules import attack, rule_loader
+from detection_rules import attack, beats, ecs, rule_loader
 from detection_rules.utils import load_etc_dump
 from detection_rules.rule import Rule
 
@@ -49,7 +49,7 @@ class TestValidRules(unittest.TestCase):
                 raise e
 
     def test_rule_loading(self):
-        """Ensure that all rule queries have ecs version."""
+        """Ensure that all rules validate."""
         rule_loader.load_rules().values()
 
     def test_file_names(self):
@@ -140,6 +140,8 @@ class TestThreatMappings(unittest.TestCase):
                 for entry in threat_mapping:
                     tactic = entry.get('tactic')
                     techniques = entry.get('technique', [])
+
+                    # tactic
                     expected_tactic = attack.tactics_map[tactic['name']]
                     self.assertEqual(expected_tactic, tactic['id'],
                                      f'ATT&CK tactic mapping error for rule: {rule.id} - {rule.name} ->\n'
@@ -152,6 +154,7 @@ class TestThreatMappings(unittest.TestCase):
                                      f'tactic ID {tactic["id"]} does not match the reference URL ID '
                                      f'{tactic["reference"]}')
 
+                    # techniques
                     for technique in techniques:
                         expected_technique = attack.technique_lookup[technique['id']]['name']
                         self.assertEqual(expected_technique, technique['name'],
@@ -164,6 +167,37 @@ class TestThreatMappings(unittest.TestCase):
                                          f'ATT&CK technique mapping error for rule: {rule.id} - {rule.name} ->\n'
                                          f'technique ID {technique["id"]} does not match the reference URL ID '
                                          f'{technique["reference"]}')
+
+                        # sub-techniques
+                        sub_techniques = technique.get('subtechnique')
+                        if sub_techniques:
+                            for sub_technique in sub_techniques:
+                                expected_sub_technique = attack.technique_lookup[sub_technique['id']]['name']
+                                self.assertEqual(expected_sub_technique, sub_technique['name'],
+                                                 f'ATT&CK sub-technique mapping error for rule: {rule.id} - {rule.name} ->\n'  # noqa: E501
+                                                 f'expected: {expected_sub_technique} for {sub_technique["id"]}\n'
+                                                 f'actual: {sub_technique["name"]}')
+
+                                sub_technique_reference_id = '.'.join(
+                                    sub_technique['reference'].rstrip('/').split('/')[-2:])
+                                self.assertEqual(sub_technique['id'], sub_technique_reference_id,
+                                                 f'ATT&CK sub-technique mapping error for rule: {rule.id} - {rule.name} ->\n'  # noqa: E501
+                                                 f'sub-technique ID {sub_technique["id"]} does not match the reference URL ID '  # noqa: E501
+                                                 f'{sub_technique["reference"]}')
+
+    def test_duplicated_tactics(self):
+        """Check that a tactic is only defined once."""
+        rules = rule_loader.load_rules().values()
+
+        for rule in rules:
+            rule_info = f'{rule.id} - {rule.name}'
+            threat_mapping = rule.contents.get('threat', [])
+            tactics = [t['tactic']['name'] for t in threat_mapping]
+            duplicates = sorted(set(t for t in tactics if tactics.count(t) > 1))
+
+            if duplicates:
+                self.fail(f'{rule_info} -> duplicate tactics defined for {duplicates}. '
+                          f'Flatten to a single entry per tactic')
 
     def test_technique_deprecations(self):
         """Check and warn for use of any ATT&CK techniques that have been deprecated."""
@@ -325,3 +359,26 @@ class TestRuleFiles(unittest.TestCase):
 
                 error_msg = 'filename does not start with the primary tactic - update the tactic or the rule filename'
                 self.assertEqual(tactic_str, filename[:len(tactic_str)], f'{rule.id} - {rule.name} -> {error_msg}')
+
+
+class TestRuleMetadata(unittest.TestCase):
+    """Test the metadata of rules."""
+
+    def test_ecs_and_beats_opt_in_not_latest_only(self):
+        """Test that explicitly defined opt-in validation is not only the latest versions to avoid stale tests."""
+        rules = rule_loader.load_rules().values()
+
+        for rule in rules:
+            beats_version = rule.metadata.get('beats_version')
+            ecs_versions = rule.metadata.get('ecs_versions', [])
+            latest_beats = str(beats.get_max_version())
+            latest_ecs = ecs.get_max_version()
+            error_prefix = f'{rule.id} - {rule.name} ->'
+
+            error_msg = f'{error_prefix} it is unnecessary to define the current latest beats version: {latest_beats}'
+            self.assertNotEqual(latest_beats, beats_version, error_msg)
+
+            if len(ecs_versions) == 1:
+                error_msg = f'{error_prefix} it is unnecessary to define the current latest ecs version if only ' \
+                            f'one version is specified: {latest_ecs}'
+                self.assertNotIn(latest_ecs, ecs_versions, error_msg)

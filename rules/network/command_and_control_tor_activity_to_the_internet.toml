@@ -1,6 +1,5 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.6.0"]
 maturity = "production"
 updated_date = "2020/11/03"
 
@@ -31,30 +30,39 @@ type = "query"
 
 query = '''
 event.category:(network or network_traffic) and network.transport:tcp and destination.port:(9001 or 9030) and
-  source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16) and
-  not destination.ip:(10.0.0.0/8 or 127.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16 or "::1")
+  source.ip:(10.0.0.0/8 or
+             172.16.0.0/12 or
+             192.168.0.0/16) and
+
+  not destination.ip:(10.0.0.0/8 or
+                      127.0.0.0/8 or
+                      169.254.0.0/16 or
+                      172.16.0.0/12 or
+                      192.168.0.0/16 or
+                      224.0.0.0/4 or
+                      "::1" or
+                      "FE80::/10" or
+                      "FF00::/8")
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1043"
 name = "Commonly Used Port"
 reference = "https://attack.mitre.org/techniques/T1043/"
 
-
-[rule.threat.tactic]
-id = "TA0011"
-name = "Command and Control"
-reference = "https://attack.mitre.org/tactics/TA0011/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1188"
-name = "Multi-hop Proxy"
-reference = "https://attack.mitre.org/techniques/T1188/"
+id = "T1090"
+name = "Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/"
 
+[[rule.threat.technique.subtechnique]]
+id = "T1090.003"
+name = "Multi-hop Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/003/"
 
 [rule.threat.tactic]
 id = "TA0011"
