@@ -133,8 +133,8 @@ class PackageDocument(xlsxwriter.Workbook):
         )
 
         for row, rule in enumerate(rules, 1):
-            tactic_names, _, _, technique_ids = rule.get_flat_mitre()
-            rule_contents = {'tactics': tactic_names, 'techniques': technique_ids}
+            flat_mitre = rule.get_flat_mitre()
+            rule_contents = {'tactics': flat_mitre['tactic_names'], 'techniques': flat_mitre['technique_ids']}
             rule_contents.update(rule.contents.copy())
 
             for column, field in enumerate(metadata_fields):
