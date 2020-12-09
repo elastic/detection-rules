@@ -118,14 +118,14 @@ class Rule(object):
         for entry in self.contents.get('threat', []):
             tactic_names.append(entry['tactic']['name'])
             tactic_ids.append(entry['tactic']['id'])
-            for technique in entry['technique']:
-                technique_names.update(technique['name'])
-                technique_ids.update(technique['id'])
-                sub_technique = technique.get('subtechnique')
 
-                if sub_technique:
-                    sub_technique_ids.update(sub_technique['id'])
-                    sub_technique_names.update(sub_technique['name'])
+            for technique in entry['technique']:
+                technique_names.add(technique['name'])
+                technique_ids.add(technique['id'])
+                sub_technique = technique.get('subtechnique', [])
+
+                sub_technique_ids.update(st['id'] for st in sub_technique)
+                sub_technique_names.update(st['name'] for st in sub_technique)
 
         flat = {
             'tactic_names': sorted(tactic_names),

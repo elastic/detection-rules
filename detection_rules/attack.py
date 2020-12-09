@@ -127,13 +127,14 @@ def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict:
         # sub-techniques
         if '.' in tid:
             parent_technique, _ = tid.split('.', 1)
-            tech_entries.setdefault(parent_technique, make_entry(parent_technique))['subtechnique'] = make_entry(tid)
+            tech_entries.setdefault(parent_technique, make_entry(parent_technique))
+            tech_entries[parent_technique].setdefault('subtechnique', []).append(make_entry(tid))
         else:
             tech_entries.setdefault(tid, make_entry(tid))
 
     entry = {
         'framework': 'MITRE ATT&CK',
-        'technique': sorted(tech_entries.values()),
+        'technique': sorted(tech_entries.values(), key=lambda x: x['id']),
         'tactic': {
             'id': tactic_id,
             'name': tactic,
