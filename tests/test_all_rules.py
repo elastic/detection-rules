@@ -8,7 +8,6 @@ import os
 import re
 import sys
 import unittest
-import warnings
 from collections import defaultdict
 from pathlib import Path
 
@@ -200,11 +199,12 @@ class TestThreatMappings(unittest.TestCase):
                           f'Flatten to a single entry per tactic')
 
     def test_technique_deprecations(self):
-        """Check and warn for use of any ATT&CK techniques that have been deprecated."""
-        deprecated = {}  # {technique: rules_using_them
+        """Check for use of any ATT&CK techniques that have been deprecated."""
+        replacement_map = attack.load_replacement_map()
         rules = rule_loader.load_rules().values()
 
         for rule in rules:
+            revoked_techniques = {}
             rule_info = f'{rule.id} - {rule.name}'
             threat_mapping = rule.contents.get('threat')
 
@@ -212,15 +212,12 @@ class TestThreatMappings(unittest.TestCase):
                 for entry in threat_mapping:
                     techniques = entry.get('technique', [])
                     for technique in techniques:
-                        if technique['id'] in attack.revoked:
-                            deprecated.setdefault(technique['id'], [])
-                            deprecated[technique['id']].append(rule_info)
+                        if technique['id'] in list(replacement_map):
+                            revoked_techniques[technique['id']] = replacement_map[technique['id']]
 
-        if deprecated:
-            deprecated_str = json.dumps(deprecated, indent=2, sort_keys=True)
-            mitre_url = 'https://attack.mitre.org/resources/updates/'
-            warning_str = f'The following rules are using deprecated ATT&CK techniques ({mitre_url}):\n{deprecated_str}'
-            warnings.warn(warning_str)
+            if revoked_techniques:
+                old_new_mapping = "\n".join(f'Actual: {k} -> Expected {v}' for k, v in revoked_techniques.items())
+                self.fail(f'{rule_info} -> Using deprecated ATT&CK techniques: \n{old_new_mapping}')
 
 
 class TestRuleTags(unittest.TestCase):
