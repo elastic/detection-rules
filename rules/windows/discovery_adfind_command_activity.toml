@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/10/19"
 maturity = "production"
-updated_date = "2020/10/19"
+updated_date = "2020/12/09"
 
 [rule]
 author = ["Elastic"]
@@ -10,8 +10,9 @@ This rule detects the Active Directory query tool, AdFind.exe. AdFind has legiti
 leveraged by threat actors to perform post-exploitation Active Directory reconnaissance. The AdFind tool has been
 observed in Trickbot, Ryuk, Maze, and FIN6 campaigns. For Winlogbeat, this rule requires Sysmon.
 """
+from = "now-9m"
 index = ["logs-endpoint.events.*", "winlogbeat-*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
 name = "AdFind Command Activity"
 note = "`AdFind.exe` is a legitimate domain query tool. Rule alerts should be investigated to identify if the user has a role that would explain using this tool and that it is being run from an expected directory and endpoint. Leverage the exception workflow in the Kibana Security App or Elasticsearch API to tune this rule to your environment."
@@ -27,10 +28,16 @@ risk_score = 21
 rule_id = "eda499b8-a073-4e35-9733-22ec71f57f3a"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery"]
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:start and (process.name:AdFind.exe or process.pe.original_file_name:AdFind.exe)
+process where event.type in ("start", "process_started") and (process.name : "AdFind.exe" or
+process.pe.original_file_name == "AdFind.exe") and process.args : ("objectcategory=computer",
+"(objectcategory=computer)", "objectcategory=person", "(objectcategory=computer)",
+"objectcategory=person", "(objectcategory=person)", "objectcategory=subnet", "(objectcategory-subnet)",
+"objectcategory=group", "(objectcategory=group)", "objectcategory=organizationalunit",
+"(objectcategory-organizationalunit)", "objectcategory=attributeschema", "(objectcategory=attributeschema)",
+"domainlist", "dcmodes", "adinfo", "dclist", "computers_pwnotreqd", "trustdmp")
 '''
 
 
@@ -40,21 +47,21 @@ framework = "MITRE ATT&CK"
 id = "T1069"
 name = "Permission Groups Discovery"
 reference = "https://attack.mitre.org/techniques/T1069/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1069.002"
 name = "Domain Groups"
 reference = "https://attack.mitre.org/techniques/T1069/002/"
 
+
 [[rule.threat.technique]]
 id = "T1087"
 name = "Account Discovery"
 reference = "https://attack.mitre.org/techniques/T1087/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1087.002"
 name = "Domain Account"
 reference = "https://attack.mitre.org/techniques/T1087/002/"
+
 
 [[rule.threat.technique]]
 id = "T1482"
@@ -71,3 +78,4 @@ reference = "https://attack.mitre.org/techniques/T1082/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
