@@ -3,9 +3,11 @@
 # you may not use this file except in compliance with the Elastic License.
 
 """Mitre attack info."""
+import os
+import re
+import time
 
 import json
-import os
 import requests
 from collections import OrderedDict
 
@@ -13,6 +15,7 @@ from .semver import Version
 from .utils import get_etc_path, get_etc_glob_path, read_gzip, gzip_compress
 
 PLATFORMS = ['Windows', 'macOS', 'Linux']
+REPLACEMENT_FILE = get_etc_path('attack-replacement-map.json')
 tactics_map = {}
 
 
@@ -150,3 +153,56 @@ def update_threat_map(rule_threat_map):
     for entry in rule_threat_map:
         for tech in entry['technique']:
             tech['name'] = technique_lookup[tech['id']]['name']
+
+
+def retrieve_replacement_id(asset_id: str):
+    """Get the revised ID for a revoked ATT&CK asset."""
+    if asset_id in (tactics_map.values()):
+        attack_type = 'tactics'
+    elif asset_id in list(technique_lookup):
+        attack_type = 'techniques'
+    else:
+        raise ValueError(f'Unknown asset_id: {asset_id}')
+
+    response = requests.get(f'https://attack.mitre.org/{attack_type}/{asset_id.replace(".", "/")}')
+    text = response.text.strip().strip("'").lower()
+
+    if text.startswith('<meta http-equiv="refresh"'):
+        new_id = re.search(r'url=\/\w+\/(.+)"', text).group(1).replace('/', '.').upper()
+        return new_id
+
+
+def build_replacement_techniques_map(threads=50):
+    """Build a mapping of revoked technique IDs to new technique IDs."""
+    from multiprocessing.pool import ThreadPool
+
+    technique_map = {}
+
+    def download_worker(tech_id):
+        new = retrieve_replacement_id(tech_id)
+        if new:
+            technique_map[tech_id] = new
+
+    pool = ThreadPool(processes=threads)
+    pool.map(download_worker, list(technique_lookup))
+    pool.close()
+    pool.join()
+
+    return technique_map
+
+
+def refresh_replacement_techniques_map(threads=50):
+    """Refresh the locally saved copy of the mapping."""
+    replacement_map = build_replacement_techniques_map(threads)
+    mapping = {'saved_date': time.asctime(), 'mapping': replacement_map}
+
+    with open(REPLACEMENT_FILE, 'w') as f:
+        json.dump(mapping, f, sort_keys=True, indent=2)
+
+    print(f'refreshed mapping file: {REPLACEMENT_FILE}')
+
+
+def load_replacement_map():
+    """Retrieve the replacement mapping."""
+    with open(REPLACEMENT_FILE, 'r') as f:
+        return json.load(f)['mapping']
