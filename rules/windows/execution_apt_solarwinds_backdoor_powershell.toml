@@ -1,0 +1,58 @@
+[metadata]
+creation_date = "2020/12/14"
+maturity = "production"
+updated_date = "2020/12/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+A suspicious SolarWinds child powershell process was detected, which may indicate an attempt to execute a downloaded
+file via powershell. Verify process details such as network connections and file writes.
+"""
+false_positives = ["Trusted SolarWinds Child Processes"]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Powershell Execution via SolarWinds Process"
+references = [
+    "https://www.fireeye.com/blog/threat-research/2020/12/evasive-attacker-leverages-solarwinds-supply-chain-compromises-with-sunburst-backdoor.html",
+    "https://github.com/fireeye/sunburst_countermeasures/blob/main/rules/SUNBURST/hxioc/SOLARWINDS%20SUSPICIOUS%20FILEWRITES%20(METHODOLOGY).ioc",
+]
+risk_score = 47
+rule_id = "93b22c0a-06a0-4131-b830-b10d5e166ff4"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+type = "eql"
+
+query = '''
+sequence by host.id with maxspan=5s
+ [file where event.type != "deletion" and
+  process.name: (
+       "SolarWinds.BusinessLayerHostx64.exe",
+       "ConfigurationWizard.exe",
+       "NetflowDatabaseMaintenance.exe",
+       "NetFlowService.exe",
+       "SolarWinds.Administration.exe",
+       "SolarWinds.BusinessLayerHost.exe",
+       "SolarWinds.Collector.Service.exe" ,
+       "SolarwindsDiagnostics.exe")
+  and file.extension : ("ps1", "png", "exe")
+ ] by process.entity_id
+ [process where event.type in ("start", "process_started") and process.name: "powershell.exe"] by process.parent.entity_id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1086"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1086/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

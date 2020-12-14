@@ -1,0 +1,51 @@
+[metadata]
+creation_date = "2020/12/14"
+maturity = "production"
+updated_date = "2020/12/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the modification of a Service start type to disabled. An adversary may abuse this technique to any relevant
+security services.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Service Disabled via Registry"
+references = [
+    "https://www.fireeye.com/blog/threat-research/2020/12/evasive-attacker-leverages-solarwinds-supply-chain-compromises-with-sunburst-backdoor.html",
+]
+risk_score = 47
+rule_id = "b9960fef-82c6-4816-befa-44745030e917"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+type = "eql"
+
+query = '''
+registry where registry.path : "HKLM\\SYSTEM\\ControlSet*\\Services\\*\\Start" and registry.data.strings == "4" and
+ not (process.name : "services.exe" and user.domain: "NT AUTHORITY") and
+ process.name : (
+        "APMServiceControl*.exe",
+        "ExportToPDFCmd*.Exe",
+        "SolarWinds.Credentials.Orion.WebApi*.exe",
+        "SolarWinds.Orion.Topology.Calculator*.exe",
+        "Database-Maint.exe",
+        "SolarWinds.Orion.ApiPoller.Service.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1089"
+name = "Disabling Security Tools"
+reference = "https://attack.mitre.org/techniques/T1089/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
