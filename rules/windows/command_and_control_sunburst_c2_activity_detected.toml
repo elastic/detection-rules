@@ -1,0 +1,53 @@
+[metadata]
+creation_date = "2020/12/14"
+maturity = "production"
+updated_date = "2020/12/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects post-exploitation command and control activity of the SUNBURST backdoor. This rule requires Sysmon for
+Winlogbeats.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "SUNBURST Command and Control Activity"
+note = "The malware known as SUNBURST targets the SolarWind's Orion business software for command and control. The malware attempts to hide within the Orion Improvement Program (OIP) network traffic. As this rule detects post-exploitation network traffic, investigations into this should be prioritized."
+references = [
+    "https://www.fireeye.com/blog/threat-research/2020/12/evasive-attacker-leverages-solarwinds-supply-chain-compromises-with-sunburst-backdoor.html",
+]
+risk_score = 73
+rule_id = "22599847-5d13-48cb-8872-5796fee8692b"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control"]
+type = "eql"
+
+query = '''
+network where network.protocol == "http" and process.name: ("SolarWinds.BusinessLayerHostx64.exe",
+"ConfigurationWizard.exe", "NetflowDatabaseMaintenance.exe", "NetFlowService.exe",
+"SolarWinds.Administration.exe", "SolarWinds.BusinessLayerHost.exe", "SolarWinds.Collector.Service.exe" ,
+"SolarwindsDiagnostics.exe") and wildcard(http.request.body.content, "POST*/swip/Upload.ashx*", "PUT*/swip/Upload.ashx*",
+"GET*/swip/SystemDescription*", "HEAD*/swip/SystemDescription*", "GET*/swip/Events*", "HEAD*/swip/Events*")
+and not wildcard(http.request.body.content, "POST*solarwinds.com*", "PUT*solarwinds.com*", "GET*solarwinds.com*", "HEAD*solarwinds.com*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.001"
+name = "Web Protocols"
+reference = "https://attack.mitre.org/techniques/T1071/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
