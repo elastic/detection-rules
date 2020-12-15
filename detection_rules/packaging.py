@@ -55,7 +55,6 @@ def manage_versions(rules: list, deprecated_rules: list = None, current_versions
     changed_rules = []
 
     if current_versions is None:
-        # TODO Remove str when eql.utils.load_dump takes a Path object as input
         current_versions = load_dump(str(ETC_DIR / 'version.lock.json'))
 
     for rule in rules:

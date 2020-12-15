@@ -101,7 +101,6 @@ class TestValidRules(unittest.TestCase):
     @rule_loader.mock_loader
     def test_production_rules_have_rta(self):
         """Ensure that all production rules have RTAs."""
-        # TODO Remove str when eql.utils.load_dump takes a Path object as input
         mappings = load_dump(str(ETC_DIR / 'rule-mapping.yml'))
 
         ttp_names = get_ttp_names()

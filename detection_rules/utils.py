@@ -55,7 +55,6 @@ def save_etc_dump(contents, *path, **kwargs):
         with open(path, "wt") as f:
             json.dump(contents, f, cls=DateTimeEncoder, sort_keys=sort_keys, indent=indent, **kwargs)
     else:
-        # TODO Remove str when eql.utils.save_dump takes a Path object as input
         return eql.utils.save_dump(contents, str(path))
 
 

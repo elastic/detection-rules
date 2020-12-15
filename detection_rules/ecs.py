@@ -66,18 +66,18 @@ def _recursive_merge(existing, new, depth=0):
 
 def get_schema_files():
     """Get schema files from ecs directory."""
-    return glob.glob(os.path.join(ECS_SCHEMAS_DIR, '*', '*.json.gz'), recursive=True)
+    return list(ECS_SCHEMAS_DIR.rglob('*.json.gz'))
 
 
 def get_schema_map():
     """Get local schema files by version."""
     schema_map = {}
 
-    for file_name in get_schema_files():
-        path, name = os.path.split(file_name)
+    for file in get_schema_files():
+        path, name = file.parent, file.stem
         name = name.split('.')[0]
-        version = os.path.basename(path)
-        schema_map.setdefault(version, {})[name] = file_name
+        version = path.name
+        schema_map.setdefault(version, {})[name] = name
 
     return schema_map
 
@@ -99,7 +99,7 @@ def get_max_version(include_master=False):
     versions = get_schema_map().keys()
 
     if include_master and any([v.startswith('master') for v in versions]):
-        return glob.glob(os.path.join(ECS_SCHEMAS_DIR, 'master*'))[0]
+        return list(ECS_SCHEMAS_DIR.glob('master*'))
 
     return str(max([Version(v) for v in versions if not v.startswith('master')]))
 
@@ -148,7 +148,6 @@ def flatten(schema):
 @cached
 def get_non_ecs_schema():
     """Load non-ecs schema."""
-    # TODO Remove str when eql.utils.load_dump takes a Path object as input
     return load_dump(str(ETC_DIR / 'non-ecs-schema.json'))
 
 
