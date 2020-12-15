@@ -6,15 +6,15 @@ updated_date = "2020/12/14"
 [rule]
 author = ["Elastic"]
 description = """
-A suspicious SolarWinds child powershell process was detected, which may indicate an attempt to execute a downloaded
-file via powershell. Verify process details such as network connections and file writes.
+A suspicious SolarWinds child process (Cmd.exe or Powershell.exe) was detected. Verify process details such as network
+connections and file writes.
 """
 false_positives = ["Trusted SolarWinds Child Processes"]
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License"
-name = "Powershell Execution via SolarWinds Process"
+name = "Command Execution via SolarWinds Process"
 references = [
     "https://www.fireeye.com/blog/threat-research/2020/12/evasive-attacker-leverages-solarwinds-supply-chain-compromises-with-sunburst-backdoor.html",
     "https://github.com/fireeye/sunburst_countermeasures/blob/main/rules/SUNBURST/hxioc/SOLARWINDS%20SUSPICIOUS%20FILEWRITES%20(METHODOLOGY).ioc",
@@ -26,19 +26,15 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
 type = "eql"
 
 query = '''
-sequence by host.id with maxspan=5s
- [file where event.type != "deletion" and
-  process.name: (
-       "SolarWinds.BusinessLayerHost*.exe",
-       "ConfigurationWizard*.exe",
-       "NetflowDatabaseMaintenance*.exe",
-       "NetFlowService*.exe",
-       "SolarWinds.Administration*.exe",
-       "SolarWinds.Collector.Service*.exe" ,
-       "SolarwindsDiagnostics*.exe")
-  and file.extension : ("ps1", "png", "exe")
- ] by process.entity_id
- [process where event.type in ("start", "process_started") and process.name: "powershell.exe"] by process.parent.entity_id
+process where event.type in ("start", "process_started") and process.name: ("powershell.exe", "cmd.exe") and
+process.parent.name: (
+     "ConfigurationWizard*.exe",
+     "NetflowDatabaseMaintenance*.exe",
+     "NetFlowService*.exe",
+     "SolarWinds.Administration*.exe",
+     "SolarWinds.Collector.Service*.exe",
+     "SolarwindsDiagnostics*.exe"
+     )
 '''
 
 
@@ -48,6 +44,18 @@ framework = "MITRE ATT&CK"
 id = "T1086"
 name = "PowerShell"
 reference = "https://attack.mitre.org/techniques/T1086/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
 
 
 [rule.threat.tactic]
