@@ -74,7 +74,7 @@ class RtaEvents(object):
         """Prepare and get the dump path."""
         if rta_name:
             dump_dir = ROOT_DIR / 'unit_tests' / 'data' / 'true_positives' / rta_name
-            os.makedirs(dump_dir, exist_ok=True)
+            dump_dir.mkdir(parents=True, exist_ok=True)
             return dump_dir
         else:
             time_str = time.strftime('%Y%m%dT%H%M%SL')
@@ -112,7 +112,7 @@ class RtaEvents(object):
         dump_dir = dump_dir or self._get_dump_dir(rta_name=rta_name, host_id=host_id)
 
         for source, events in self.events.items():
-            path = os.path.join(dump_dir, source + '.jsonl')
+            path = Path(dump_dir / source / '.jsonl')
             with open(path, 'w') as f:
                 f.writelines([json.dumps(e, sort_keys=True) + '\n' for e in events])
                 click.echo('{} events saved to: {}'.format(len(events), path))
