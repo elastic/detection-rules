@@ -25,7 +25,21 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control"]
 type = "query"
 
 query = '''
-event.category:network and event.type:protocol and network.protocol:http and process.name:("SolarWinds.BusinessLayerHostx64.exe" or "ConfigurationWizard.exe" or "NetflowDatabaseMaintenance.exe" or "NetFlowService.exe" or "SolarWinds.Administration.exe" or "SolarWinds.BusinessLayerHost.exe" or "SolarWinds.Collector.Service.exe" or "SolarwindsDiagnostics.exe") and (http.request.body.content:(*/swip/Upload.ashx* and (POST* or PUT*)) or (http.request.body.content:(*/swip/SystemDescription* and (GET* or HEAD*))) or (http.request.body.content:(*/swip/Events* and (GET* or HEAD*)))) and not http.request.body.content:*solarwinds.com*
+event.category:network and event.type:protocol and network.protocol:http and
+process.name:(
+  "SolarWinds.BusinessLayerHostx64.exe" or
+  "ConfigurationWizard.exe" or
+  "NetflowDatabaseMaintenance.exe" or
+  "NetFlowService.exe" or
+  "SolarWinds.Administration.exe" or
+  "SolarWinds.BusinessLayerHost.exe" or
+  "SolarWinds.Collector.Service.exe" or
+  "SolarwindsDiagnostics.exe"
+) and 
+  (http.request.body.content:(*/swip/Upload.ashx* and (POST* or PUT*)) or
+  (http.request.body.content:(*/swip/SystemDescription* and (GET* or HEAD*))) or
+  (http.request.body.content:(*/swip/Events* and (GET* or HEAD*)))) and not
+  http.request.body.content:*solarwinds.com*
 '''
 
 
