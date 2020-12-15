@@ -5,13 +5,10 @@ updated_date = "2020/12/14"
 
 [rule]
 author = ["Elastic"]
-description = """
-This rule detects post-exploitation command and control activity of the SUNBURST backdoor. This rule requires Sysmon for
-Winlogbeats.
-"""
+description = "This rule detects post-exploitation command and control activity of the SUNBURST backdoor."
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
-language = "eql"
+index = ["logs-endpoint.events.*"]
+language = "kuery"
 license = "Elastic License"
 name = "SUNBURST Command and Control Activity"
 note = "The malware known as SUNBURST targets the SolarWind's Orion business software for command and control. The malware attempts to hide within the Orion Improvement Program (OIP) network traffic. As this rule detects post-exploitation network traffic, investigations into this should be prioritized."
@@ -22,15 +19,10 @@ risk_score = 73
 rule_id = "22599847-5d13-48cb-8872-5796fee8692b"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control"]
-type = "eql"
+type = "query"
 
 query = '''
-network where network.protocol == "http" and process.name: ("SolarWinds.BusinessLayerHostx64.exe",
-"ConfigurationWizard.exe", "NetflowDatabaseMaintenance.exe", "NetFlowService.exe",
-"SolarWinds.Administration.exe", "SolarWinds.BusinessLayerHost.exe", "SolarWinds.Collector.Service.exe" ,
-"SolarwindsDiagnostics.exe") and wildcard(http.request.body.content, "POST*/swip/Upload.ashx*", "PUT*/swip/Upload.ashx*",
-"GET*/swip/SystemDescription*", "HEAD*/swip/SystemDescription*", "GET*/swip/Events*", "HEAD*/swip/Events*")
-and not wildcard(http.request.body.content, "*solarwinds.com*")
+event.category:network and event.type:protocol and network.protocol:http and process.name:("SolarWinds.BusinessLayerHostx64.exe" or "ConfigurationWizard.exe" or "NetflowDatabaseMaintenance.exe" or "NetFlowService.exe" or "SolarWinds.Administration.exe" or "SolarWinds.BusinessLayerHost.exe" or "SolarWinds.Collector.Service.exe" or "SolarwindsDiagnostics.exe") and (http.request.body.content:(*/swip/Upload.ashx* and (POST* or PUT*)) or (http.request.body.content:(*/swip/SystemDescription* and (GET* or HEAD*))) or (http.request.body.content:(*/swip/Events* and (GET* or HEAD*)))) and not http.request.body.content:*solarwinds.com*
 '''
 
 
@@ -51,3 +43,21 @@ reference = "https://attack.mitre.org/techniques/T1071/001/"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
