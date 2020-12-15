@@ -73,11 +73,11 @@ def get_schema_map():
     """Get local schema files by version."""
     schema_map = {}
 
-    for file in get_schema_files():
-        path, name = file.parent, file.stem
+    for file_name in get_schema_files():
+        path, name = file_name.parent, file_name.name
         name = name.split('.')[0]
-        version = path.name
-        schema_map.setdefault(version, {})[name] = name
+        version = os.path.basename(path)
+        schema_map.setdefault(version, {})[name] = file_name
 
     return schema_map
 
