@@ -7,7 +7,7 @@
 import jsl
 
 from .base import BaseApiSchema, MarkdownField
-from ..attack import tactics, tactics_map, technique_lookup
+from ..attack import tactics, tactics_map, technique_id_list
 
 
 INTERVAL_PATTERN = r'\d+[mshd]'
@@ -70,7 +70,7 @@ class Threat(jsl.Document):
         reference = jsl.StringField(MITRE_URL_PATTERN.format(type='tactics'))
 
     class ThreatTechnique(jsl.Document):
-        id = jsl.StringField(enum=list(technique_lookup), required=True)
+        id = jsl.StringField(enum=technique_id_list, required=True)
         name = jsl.StringField(required=True)
         reference = jsl.StringField(MITRE_URL_PATTERN.format(type='techniques'))
 
