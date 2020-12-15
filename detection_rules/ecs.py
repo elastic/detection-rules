@@ -99,7 +99,7 @@ def get_max_version(include_master=False):
     versions = get_schema_map().keys()
 
     if include_master and any([v.startswith('master') for v in versions]):
-        return list(ECS_SCHEMAS_DIR.glob('master*'))
+        return list(ECS_SCHEMAS_DIR.glob('master*'))[0]
 
     return str(max([Version(v) for v in versions if not v.startswith('master')]))
 
