@@ -4,8 +4,8 @@
 
 """ECS Schemas management."""
 import copy
-from pathlib import Path
-
+import glob
+import os
 import shutil
 import json
 
@@ -15,10 +15,10 @@ import eql.types
 import yaml
 
 from .semver import Version
-from .utils import ETC_DIR, unzip, load_dump, cached, save_etc_dump
+from .utils import DateTimeEncoder, cached, load_etc_dump, get_etc_path, gzip_compress, read_gzip, unzip
 
-ETC_NAME = 'ecs_schemas'
-ECS_SCHEMAS_DIR = ETC_DIR / ETC_NAME
+ETC_NAME = "ecs_schemas"
+ECS_SCHEMAS_DIR = get_etc_path(ETC_NAME)
 
 
 def add_field(schema, name, info):
@@ -65,7 +65,7 @@ def _recursive_merge(existing, new, depth=0):
 
 def get_schema_files():
     """Get schema files from ecs directory."""
-    return ECS_SCHEMAS_DIR.rglob('*.json')
+    return glob.glob(os.path.join(ECS_SCHEMAS_DIR, '*', '*.json.gz'), recursive=True)
 
 
 def get_schema_map():
@@ -73,8 +73,9 @@ def get_schema_map():
     schema_map = {}
 
     for file_name in get_schema_files():
-        path, name = file_name.parent, file_name.name
-        version = path.name
+        path, name = os.path.split(file_name)
+        name = name.split('.')[0]
+        version = os.path.basename(path)
         schema_map.setdefault(version, {})[name] = file_name
 
     return schema_map
@@ -87,8 +88,7 @@ def get_schemas():
 
     for version, values in schema_map.items():
         for name, file_name in values.items():
-            with open(file_name, 'r') as f:
-                schema_map[version][name] = json.load(f)
+            schema_map[version][name] = json.loads(read_gzip(file_name))
 
     return schema_map
 
@@ -98,7 +98,7 @@ def get_max_version(include_master=False):
     versions = get_schema_map().keys()
 
     if include_master and any([v.startswith('master') for v in versions]):
-        return list(ECS_SCHEMAS_DIR.glob('master*'))[0]
+        return glob.glob(os.path.join(ECS_SCHEMAS_DIR, 'master*'))[0]
 
     return str(max([Version(v) for v in versions if not v.startswith('master')]))
 
@@ -106,7 +106,7 @@ def get_max_version(include_master=False):
 @cached
 def get_schema(version=None, name='ecs_flat'):
     """Get schema by version."""
-    return get_schemas()[version][name]
+    return get_schemas()[version or str(get_max_version())][name]
 
 
 @cached
@@ -147,7 +147,7 @@ def flatten(schema):
 @cached
 def get_non_ecs_schema():
     """Load non-ecs schema."""
-    return load_dump(ETC_DIR / 'non-ecs-schema.json')
+    return load_etc_dump('non-ecs-schema.json')
 
 
 @cached
@@ -222,7 +222,7 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
         if not version or version < (1, 0, 1) or version in existing:
             continue
 
-        schema_dir = ECS_SCHEMAS_DIR / str(version)
+        schema_dir = os.path.join(ECS_SCHEMAS_DIR, str(version))
 
         with unzip(requests.get(release['zipball_url']).content) as archive:
             name_list = archive.namelist()
@@ -233,13 +233,18 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
             saved = []
 
             for member in members:
-                file_name = Path(member).name
-                schema_dir.mkdir(parents=True, exist_ok=True)
+                file_name = os.path.basename(member)
+                os.makedirs(schema_dir, exist_ok=True)
 
                 # load as yaml, save as json
                 contents = yaml.safe_load(archive.read(member))
-                out_file = file_name.replace(".yml", ".json")
-                save_etc_dump(contents, "ecs_schemas", str(version), out_file)
+                out_file = file_name.replace(".yml", ".json.gz")
+
+                compressed = gzip_compress(json.dumps(contents, sort_keys=True, cls=DateTimeEncoder))
+                new_path = get_etc_path(ETC_NAME, str(version), out_file)
+                with open(new_path, 'wb') as f:
+                    f.write(compressed)
+
                 saved.append(out_file)
 
             if verbose:
@@ -254,14 +259,17 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
 
         # prepend with underscore so that we can differentiate the fact that this is a working master version
         #   but first clear out any existing masters, since we only ever want 1 at a time
-        existing_master = list(ECS_SCHEMAS_DIR.glob('master_*'))
+        existing_master = glob.glob(os.path.join(ECS_SCHEMAS_DIR, 'master_*'))
         for m in existing_master:
             shutil.rmtree(m, ignore_errors=True)
 
         master_dir = "master_{}".format(master_ver)
-        ECS_SCHEMAS_DIR.joinpath(master_dir).mkdir(exist_ok=True)
+        os.makedirs(get_etc_path(ETC_NAME, master_dir), exist_ok=True)
 
-        save_etc_dump(master_schema, ETC_NAME, master_dir, "ecs_flat.json")
+        compressed = gzip_compress(json.dumps(master_schema, sort_keys=True, cls=DateTimeEncoder))
+        new_path = get_etc_path(ETC_NAME, master_dir, "ecs_flat.json.gz")
+        with open(new_path, 'wb') as f:
+            f.write(compressed)
 
         if verbose:
-            print('Saved files to {}: \n\t- {}'.format(master_dir, 'ecs_flat.json'))
+            print('Saved files to {}: \n\t- {}'.format(master_dir, 'ecs_flat.json.gz'))

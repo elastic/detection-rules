@@ -1,13 +1,12 @@
 [metadata]
 creation_date = "2020/09/01"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/09/01"
+updated_date = "2020/12/08"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when a user grants permissions to an Azure-registered application or when an administrator grants tenant-wide
+Detects when a user grants permissions to an Azure-registered application or when an administrator grants tenant-wide
 permissions to an application. An adversary may create an Azure-registered application that requests access to data such
 as contact information, email, or documents.
 """
@@ -27,14 +26,15 @@ references = [
 risk_score = 47
 rule_id = "1c6a8c7a-5cb6-4a82-ba27-d5a5b8a40a38"
 severity = "medium"
-tags = ["Elastic", "Azure", "Continuous Monitoring", "SecOps", "Identity and Access"]
+tags = ["Elastic", "Cloud", "Azure", "Continuous Monitoring", "SecOps", "Identity and Access"]
 type = "query"
 
 query = '''
-event.dataset:(azure.activitylogs or azure.auditlogs) and
+event.dataset:(azure.activitylogs or azure.auditlogs or o365.audit) and 
   (
-    azure.activitylogs.operation_name:"Consent to application" or 
-    azure.auditlogs.operation_name:"Consent to application"
+    azure.activitylogs.operation_name:"Consent to application" or
+    azure.auditlogs.operation_name:"Consent to application" or
+    o365.audit.Operation:"Consent to application."
   ) and
   event.outcome:success
 '''

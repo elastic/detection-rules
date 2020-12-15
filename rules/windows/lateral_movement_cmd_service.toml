@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/09/02"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/09/02"
+updated_date = "2020/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -18,18 +17,21 @@ name = "Service Command Lateral Movement"
 risk_score = 21
 rule_id = "d61cbcf8-1bc1-4cff-85ba-e7b21c5beedc"
 severity = "low"
-tags = ["Elastic", "Windows"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
 type = "eql"
 
 query = '''
-/* dependent on a wildcard for remote path */
-
 sequence by process.entity_id with maxspan=1m
   [process where event.type in ("start", "process_started") and
-     (process.name == "sc.exe" or process.pe.original_file_name == "sc.exe") and
-     wildcard(process.args, "\\\\*") and wildcard(process.args, "binPath*", "binpath*") and
-     process.args in ("create", "config", "failure", "start")]
-  [network where event.type == "connection" and process.name == "sc.exe" and destination.address != "127.0.0.1"]
+                               /* uncomment once in winlogbeat */
+     (process.name == "sc.exe" /* or process.pe.original_file_name == "sc.exe" */ ) and
+                                                   /* case insensitive */
+      wildcard(process.args, "\\\\*") and wildcard(process.args, "binPath=*", "binpath=*") and
+      (process.args : "create" or
+       process.args : "config" or
+       process.args : "failure" or
+       process.args : "start")]
+  [network where process.name : "sc.exe" and destination.ip != "127.0.0.1"]
 '''
 
 
@@ -55,3 +57,4 @@ reference = "https://attack.mitre.org/techniques/T1035/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
+

@@ -16,9 +16,10 @@ from . import ecs, beats
 from .attack import tactics, build_threat_map_entry, technique_lookup
 from .rule_formatter import nested_normalize, toml_write
 from .schemas import CurrentSchema, TomlMetadata  # RULE_TYPES, metadata_schema, schema_validate, get_schema
-from .utils import ROOT_DIR, clear_caches, cached
+from .utils import get_path, clear_caches, cached
 
-RULES_DIR = ROOT_DIR / "rules"
+
+RULES_DIR = get_path("rules")
 _META_SCHEMA_REQ_DEFAULTS = {}
 
 
@@ -29,7 +30,7 @@ class Rule(object):
         """Create a Rule from a toml management format."""
         self.path = os.path.abspath(path)
         self.contents = contents.get('rule', contents)
-        self.metadata = self.set_metadata(contents.get('metadata', contents))
+        self.metadata = contents.get('metadata', self.set_metadata(contents))
 
         self.formatted_rule = copy.deepcopy(self.contents).get('query', None)
 
@@ -75,7 +76,9 @@ class Rule(object):
             if self.contents['language'] == 'kuery':
                 return kql.parse(self.query)
             elif self.contents['language'] == 'eql':
-                return eql.parse_query(self.query)
+                # TODO: remove once py-eql supports ipv6 for cidrmatch
+                with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+                    return eql.parse_query(self.query)
 
     @property
     def filters(self):
@@ -109,13 +112,30 @@ class Rule(object):
         tactic_ids = []
         technique_ids = set()
         technique_names = set()
+        sub_technique_ids = set()
+        sub_technique_names = set()
+
         for entry in self.contents.get('threat', []):
             tactic_names.append(entry['tactic']['name'])
             tactic_ids.append(entry['tactic']['id'])
-            technique_names.update([t['name'] for t in entry['technique']])
-            technique_ids.update([t['id'] for t in entry['technique']])
 
-        return sorted(tactic_names), sorted(tactic_ids), sorted(technique_names), sorted(technique_ids)
+            for technique in entry['technique']:
+                technique_names.add(technique['name'])
+                technique_ids.add(technique['id'])
+                sub_technique = technique.get('subtechnique', [])
+
+                sub_technique_ids.update(st['id'] for st in sub_technique)
+                sub_technique_names.update(st['name'] for st in sub_technique)
+
+        flat = {
+            'tactic_names': sorted(tactic_names),
+            'tactic_ids': sorted(tactic_ids),
+            'technique_names': sorted(technique_names),
+            'technique_ids': sorted(technique_ids),
+            'sub_technique_names': sorted(sub_technique_names),
+            'sub_technique_ids': sorted(sub_technique_ids)
+        }
+        return flat
 
     @classmethod
     def get_unique_query_fields(cls, rule_contents):
@@ -123,7 +143,10 @@ class Rule(object):
         query = rule_contents.get('query')
         language = rule_contents.get('language')
         if language in ('kuery', 'eql'):
-            parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
+            # TODO: remove once py-eql supports ipv6 for cidrmatch
+            with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+                parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
+
             return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
 
     @staticmethod
@@ -184,26 +207,30 @@ class Rule(object):
 
         schema_cls.validate(contents, role=self.type)
 
-        skip_query_validation = self.metadata['maturity'] == 'development' and \
+        skip_query_validation = self.metadata['maturity'] in ('experimental', 'development') and \
             self.metadata.get('query_schema_validation') is False
 
         if query and self.query is not None and not skip_query_validation:
-            ecs_versions = self.metadata.get('ecs_version')
+            ecs_versions = self.metadata.get('ecs_version', [ecs.get_max_version()])
+            beats_version = self.metadata.get('beats_version', beats.get_max_version())
             indexes = self.contents.get("index", [])
 
             if self.contents['language'] == 'kuery':
-                self._validate_kql(ecs_versions, indexes, self.query, self.name)
+                self._validate_kql(ecs_versions, beats_version, indexes, self.query, self.name)
 
             if self.contents['language'] == 'eql':
-                self._validate_eql(ecs_versions, indexes, self.query, self.name)
+                self._validate_eql(ecs_versions, beats_version, indexes, self.query, self.name)
 
     @staticmethod
     @cached
-    def _validate_eql(ecs_versions, indexes, query, name):
+    def _validate_eql(ecs_versions, beats_version, indexes, query, name):
         # validate against all specified schemas or the latest if none specified
-        parsed = eql.parse_query(query)
+        # TODO: remove once py-eql supports ipv6 for cidrmatch
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+            parsed = eql.parse_query(query)
+
         beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
-        beat_schema = beats.get_schema_from_eql(parsed, beat_types) if beat_types else None
+        beat_schema = beats.get_schema_from_eql(parsed, beat_types, version=beats_version) if beat_types else None
 
         ecs_versions = ecs_versions or [ecs_versions]
         schemas = []
@@ -217,7 +244,8 @@ class Rule(object):
 
         for schema in schemas:
             try:
-                with ecs.KqlSchema2Eql(schema):
+                # TODO: remove once py-eql supports ipv6 for cidrmatch
+                with ecs.KqlSchema2Eql(schema), eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
                     eql.parse_query(query)
 
             except eql.EqlTypeMismatchError:
@@ -234,11 +262,11 @@ class Rule(object):
 
     @staticmethod
     @cached
-    def _validate_kql(ecs_versions, indexes, query, name):
+    def _validate_kql(ecs_versions, beats_version, indexes, query, name):
         # validate against all specified schemas or the latest if none specified
         parsed = kql.parse(query)
         beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
-        beat_schema = beats.get_schema_from_kql(parsed, beat_types) if beat_types else None
+        beat_schema = beats.get_schema_from_kql(parsed, beat_types, version=beats_version) if beat_types else None
 
         if not ecs_versions:
             kql.parse(query, schema=ecs.get_kql_schema(indexes=indexes, beat_schema=beat_schema))
@@ -333,8 +361,8 @@ class Rule(object):
 
                 while click.confirm('add mitre tactic?'):
                     tactic = schema_prompt('mitre tactic name', type='string', enum=tactics, required=True)
-                    technique_ids = schema_prompt(f'technique IDs for {tactic}', type='array', required=True,
-                                                  enum=list(technique_lookup))
+                    technique_ids = schema_prompt(f'technique or sub-technique IDs for {tactic}', type='array',
+                                                  required=True, enum=list(technique_lookup))
 
                     try:
                         threat_map.append(build_threat_map_entry(tactic, *technique_ids))
@@ -364,21 +392,13 @@ class Rule(object):
 
                 contents[name] = result
 
-        metadata = {}
-
-        if not required_only:
-            ecs_version = schema_prompt('ecs_version', required=False, value=None,
-                                        **TomlMetadata.get_schema()['properties']['ecs_version'])
-            if ecs_version:
-                metadata['ecs_version'] = ecs_version
-
-        suggested_path = RULES_DIR / contents['name']  # TODO: UPDATE BASED ON RULE STRUCTURE
+        suggested_path = os.path.join(RULES_DIR, contents['name'])  # TODO: UPDATE BASED ON RULE STRUCTURE
         path = os.path.realpath(path or input('File path for rule [{}]: '.format(suggested_path)) or suggested_path)
 
         rule = None
 
         try:
-            rule = cls(path, {'rule': contents, 'metadata': metadata})
+            rule = cls(path, {'rule': contents})
         except kql.KqlParseError as e:
             if e.error_msg == 'Unknown field':
                 warning = ('If using a non-ECS field, you must update "ecs{}.non-ecs-schema.json" under `beats` or '
@@ -391,7 +411,7 @@ class Rule(object):
             while True:
                 try:
                     contents['query'] = click.edit(contents['query'], extension='.eql')
-                    rule = cls(path, {'rule': contents, 'metadata': metadata})
+                    rule = cls(path, {'rule': contents})
                 except kql.KqlParseError as e:
                     click.secho(e.args[0], fg='red', err=True)
                     click.pause()
@@ -413,5 +433,9 @@ class Rule(object):
 
         # rta_mappings.add_rule_to_mapping_file(rule)
         # click.echo('Placeholder added to rule-mapping.yml')
+
+        click.echo('Rule will validate against the latest ECS schema available (and beats if necessary)')
+        click.echo('    - to have a rule validate against specific ECS schemas, add them to metadata->ecs_versions')
+        click.echo('    - to have a rule validate against a specific beats schema, add it to metadata->beats_version')
 
         return rule

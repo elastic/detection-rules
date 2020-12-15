@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/07/02"
+updated_date = "2020/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -21,20 +20,34 @@ false_positives = [
     unexpected. Usage that is unfamiliar to server or network owners can be unexpected and suspicious.
     """,
 ]
-index = ["filebeat-*", "packetbeat-*"]
+index = ["filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License"
 name = "RDP (Remote Desktop Protocol) to the Internet"
 risk_score = 21
 rule_id = "e56993d2-759c-4120-984c-9ec9bb940fd5"
 severity = "low"
-tags = ["Elastic", "Network"]
+tags = ["Elastic", "Host", "Network", "Threat Detection", "Initial Access"]
 type = "query"
 
 query = '''
 event.category:(network or network_traffic) and network.transport:tcp and (destination.port:3389 or event.dataset:zeek.rdp) and
-  source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16) and
-  not destination.ip:(10.0.0.0/8 or 127.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16 or "::1")
+  source.ip:(
+    10.0.0.0/8 or
+    172.16.0.0/12 or
+    192.168.0.0/16
+  ) and
+  not destination.ip:(
+    10.0.0.0/8 or
+    127.0.0.0/8 or
+    169.254.0.0/16 or
+    172.16.0.0/12 or
+    192.168.0.0/16 or
+    224.0.0.0/4 or
+    "::1" or
+    "FE80::/10" or
+    "FF00::/8"
+  )
 '''
 
 

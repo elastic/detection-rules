@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/09/02"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/09/02"
+updated_date = "2020/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -18,19 +17,22 @@ name = "Execution of File Written or Modified by PDF Reader"
 risk_score = 21
 rule_id = "1defdd62-cd8d-426e-a246-81a37751bb2b"
 severity = "high"
-tags = ["Elastic", "Windows"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
 type = "eql"
 
 query = '''
 sequence with maxspan=2h
-  [file where event.type != "delete" and file.extension == "exe" and
-     process.name in ("acrord32.exe", "rdrcef.exe", "foxitphantomPDF.exe", "foxitreader.exe") and
-     file.name not in ("foxitphantomPDF.exe",
-                       "FoxitPhantomPDFUpdater.exe",
-                       "foxitreader.exe",
-                       "FoxitReaderUpdater.exe",
-                       "acrord32.exe",
-                       "rdrcef.exe")
+  [file where event.type != "deletion" and file.extension : "exe" and
+     (process.name : "AcroRd32.exe" or
+      process.name : "rdrcef.exe" or
+      process.name : "FoxitPhantomPDF.exe" or
+      process.name : "FoxitReader.exe") and
+     not (file.name : "FoxitPhantomPDF.exe" or
+          file.name : "FoxitPhantomPDFUpdater.exe" or
+          file.name : "FoxitReader.exe" or
+          file.name : "FoxitReaderUpdater.exe" or
+          file.name : "AcroRd32.exe" or
+          file.name : "rdrcef.exe")
   ] by host.id, file.path
   [process where event.type in ("start", "process_started")] by host.id, process.executable
 '''
@@ -58,3 +60,4 @@ reference = "https://attack.mitre.org/techniques/T1193/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+

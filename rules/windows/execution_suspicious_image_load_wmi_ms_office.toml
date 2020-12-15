@@ -1,0 +1,46 @@
+[metadata]
+creation_date = "2020/11/17"
+maturity = "production"
+updated_date = "2020/11/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a suspicious image load (wmiutils.dll) from Microsoft Office processes. This behavior may indicate
+adversarial activity where child processes are spawned via Windows Management Instrumentation (WMI). This technique can
+be used to execute code and evade traditional parent/child processes spawned from MS Office products.
+"""
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Suspicious WMI Image Load from MS Office"
+references = [
+    "https://medium.com/threatpunter/detecting-adversary-tradecraft-with-image-load-event-logging-and-eql-8de93338c16",
+]
+risk_score = 21
+rule_id = "891cb88e-441a-4c3e-be2d-120d99fe7b0d"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+type = "eql"
+
+query = '''
+library where process.name in ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSPUB.EXE", "MSACCESS.EXE") and
+  event.action == "load" and
+  event.category == "library" and
+  file.name == "wmiutils.dll"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1047"
+name = "Windows Management Instrumentation"
+reference = "https://attack.mitre.org/techniques/T1047/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/07/02"
+updated_date = "2020/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -21,20 +20,34 @@ false_positives = [
     and usually only appears in local traffic using private IPs, which does not match this rule's conditions.
     """,
 ]
-index = ["filebeat-*", "packetbeat-*"]
+index = ["filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License"
 name = "IRC (Internet Relay Chat) Protocol Activity to the Internet"
 risk_score = 47
 rule_id = "c6474c34-4953-447a-903e-9fcb7b6661aa"
 severity = "medium"
-tags = ["Elastic", "Network"]
+tags = ["Elastic", "Host", "Network", "Threat Detection", "Command and Control"]
 type = "query"
 
 query = '''
 event.category:(network or network_traffic) and network.transport:tcp and (destination.port:(6667 or 6697) or event.dataset:zeek.irc) and
-   source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16) and
-   not destination.ip:(10.0.0.0/8 or 127.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16 or "::1")
+  source.ip:(
+    10.0.0.0/8 or
+    172.16.0.0/12 or
+    192.168.0.0/16
+  ) and
+  not destination.ip:(
+    10.0.0.0/8 or
+    127.0.0.0/8 or
+    169.254.0.0/16 or
+    172.16.0.0/12 or
+    192.168.0.0/16 or
+    224.0.0.0/4 or
+    "::1" or
+    "FE80::/10" or
+    "FF00::/8"
+  )
 '''
 
 

@@ -27,9 +27,9 @@ class Kibana(object):
         self.session.verify = verify
 
         self.cloud_id = cloud_id
-        self.kibana_url = kibana_url
+        self.kibana_url = kibana_url.rstrip('/')
         self.elastic_url = None
-        self.space = space
+        self.space = space if space and space.lower() != 'default' else None
         self.status = None
 
         if self.cloud_id:
@@ -37,7 +37,12 @@ class Kibana(object):
             self.domain, self.es_uuid, self.kibana_uuid = \
                 base64.b64decode(cloud_info.encode("utf-8")).decode("utf-8").split("$")
 
-            self.kibana_url = f"https://{self.kibana_uuid}.{self.domain}:9243"
+            kibana_url_from_cloud = f"https://{self.kibana_uuid}.{self.domain}:9243"
+            if self.kibana_url and self.kibana_url != kibana_url_from_cloud:
+                raise ValueError(f'kibana_url provided ({self.kibana_url}) does not match url derived from cloud_id '
+                                 f'{kibana_url_from_cloud}')
+            self.kibana_url = kibana_url_from_cloud
+
             self.elastic_url = f"https://{self.es_uuid}.{self.domain}:9243"
 
         self.session.headers.update({'Content-Type': "application/json", "kbn-xsrf": str(uuid.uuid4())})
@@ -62,7 +67,7 @@ class Kibana(object):
             uri = "s/{}/{}".format(self.space, uri)
         return f"{self.kibana_url}/{uri}"
 
-    def request(self, method, uri, params=None, data=None, error=True):
+    def request(self, method, uri, params=None, data=None, error=True, verbose=True, raw=False, **kwargs):
         """Perform a RESTful HTTP request with JSON responses."""
         params = params or {}
         url = self.url(uri)
@@ -71,45 +76,59 @@ class Kibana(object):
         if data is not None:
             body = json.dumps(data)
 
-        response = self.session.request(method, url, params=params, data=body)
+        response = self.session.request(method, url, params=params, data=body, **kwargs)
         if error:
             try:
                 response.raise_for_status()
             except requests.exceptions.HTTPError:
-                print(response.content.decode("utf-8"), file=sys.stderr)
+                if verbose:
+                    print(response.content.decode("utf-8"), file=sys.stderr)
                 raise
 
         if not response.content:
             return
 
-        return response.json()
+        return response.content if raw else response.json()
 
-    def get(self, uri, params=None, data=None, error=True):
+    def get(self, uri, params=None, data=None, error=True, **kwargs):
         """Perform an HTTP GET."""
-        return self.request('GET', uri, data=data, params=params, error=error)
+        return self.request('GET', uri, data=data, params=params, error=error, **kwargs)
 
-    def put(self, uri, params=None, data=None, error=True):
+    def put(self, uri, params=None, data=None, error=True, **kwargs):
         """Perform an HTTP PUT."""
-        return self.request('PUT', uri, params=params, data=data, error=error)
+        return self.request('PUT', uri, params=params, data=data, error=error, **kwargs)
 
-    def post(self, uri, params=None, data=None, error=True):
+    def post(self, uri, params=None, data=None, error=True, **kwargs):
         """Perform an HTTP POST."""
-        return self.request('POST', uri, params=params, data=data, error=error)
+        return self.request('POST', uri, params=params, data=data, error=error, **kwargs)
 
-    def patch(self, uri, params=None, data=None, error=True):
+    def patch(self, uri, params=None, data=None, error=True, **kwargs):
         """Perform an HTTP PATCH."""
-        return self.request('PATCH', uri, params=params, data=data, error=error)
+        return self.request('PATCH', uri, params=params, data=data, error=error, **kwargs)
 
-    def delete(self, uri, params=None, error=True):
+    def delete(self, uri, params=None, error=True, **kwargs):
         """Perform an HTTP DELETE."""
-        return self.request('DELETE', uri, params=params, error=error)
+        return self.request('DELETE', uri, params=params, error=error, **kwargs)
 
     def login(self, kibana_username, kibana_password):
         """Authenticate to Kibana using the API to update our cookies."""
         payload = {'username': kibana_username, 'password': kibana_password}
         path = '/internal/security/login'
 
-        self.post(path, data=payload, error=True)
+        try:
+            self.post(path, data=payload, error=True, verbose=False)
+        except requests.HTTPError as e:
+            # 7.10 changed the structure of the auth data
+            if e.response.status_code == 400 and '[undefined]' in e.response.text:
+                payload = {'params': payload, 'currentURL': '', 'providerType': 'basic', 'providerName': 'cloud-basic'}
+                self.post(path, data=payload, error=True)
+            else:
+                raise
+
+        # Kibana will authenticate against URLs which contain invalid spaces
+        if self.space:
+            self.verify_space(self.space)
+
         self.authenticated = True
         self.status = self.get("/api/status")
 
@@ -121,9 +140,23 @@ class Kibana(object):
         # make chaining easier
         return self
 
+    def add_cookie(self, cookie):
+        """Add cookie to be used for auth (such as from an SSO session)."""
+        # the request to /api/status will also add the cookie to the cookie jar upon a successful response
+        self.session.headers['cookie'] = cookie
+        self.status = self.get('/api/status')
+        self.authenticated = True
+
     def logout(self):
         """Quit the current session."""
-        # TODO: implement session logout
+        try:
+            self.get('/logout', raw=True, error=False)
+        except requests.exceptions.ConnectionError:
+            # for really short scoping from buildup to teardown, ES will cause a Max retry error
+            pass
+        self.status = None
+        self.authenticated = False
+        self.session = requests.Session()
         self.elasticsearch = None
 
     def __del__(self):
@@ -151,3 +184,15 @@ class Kibana(object):
             raise RuntimeError("No Kibana connector in scope!")
 
         return stack[-1]
+
+    def verify_space(self, space):
+        """Verify a space is valid."""
+        spaces = self.get('/api/spaces/space')
+        space_names = [s['name'] for s in spaces]
+        if space not in space_names:
+            raise ValueError(f'Unknown Kibana space: {space}')
+
+    def current_user(self):
+        """Retrieve info for currently authenticated user."""
+        if self.authenticated:
+            return self.get('/internal/security/me')
