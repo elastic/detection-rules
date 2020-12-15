@@ -15,7 +15,7 @@ import requests
 import yaml
 
 from .semver import Version
-from .utils import DateTimeEncoder, unzip, get_etc_path, gzip_compress, read_gzip, cached
+from .utils import ETC_DIR, DateTimeEncoder, unzip, gzip_compress, read_gzip, cached
 
 
 def _decompress_and_save_schema(url, release_name):
@@ -60,7 +60,7 @@ def _decompress_and_save_schema(url, release_name):
     print(f"Saving etc/beats_schema/{release_name}.json")
 
     compressed = gzip_compress(json.dumps(fs, sort_keys=True, cls=DateTimeEncoder))
-    path = get_etc_path("beats_schemas", release_name + ".json.gz")
+    path = ETC_DIR / "beats_schemas" / release_name / ".json.gz"
     with open(path, 'wb') as f:
         f.write(compressed)
 
@@ -162,8 +162,8 @@ def get_beats_sub_schema(schema: dict, beat: str, module: str, *datasets: str):
 @cached
 def get_versions() -> List[Version]:
     versions = []
-    for filename in os.listdir(get_etc_path("beats_schemas")):
-        version_match = re.match(r'v(.+)\.json\.gz', filename)
+    for filename in (ETC_DIR / "beats_schemas").iterdir():
+        version_match = re.match(r'v(.+)\.json\.gz', filename.name)
         if version_match:
             versions.append(Version(version_match.groups()[0]))
 
@@ -178,7 +178,7 @@ def get_max_version() -> str:
 @cached
 def read_beats_schema(version: str = None):
     if version and version.lower() == 'master':
-        return json.loads(read_gzip(get_etc_path('beats_schemas', 'master.json.gz')))
+        return json.loads(read_gzip(ETC_DIR / 'beats_schemas' / 'master.json.gz'))
 
     version = Version(version) if version else None
     beats_schemas = get_versions()
@@ -188,7 +188,7 @@ def read_beats_schema(version: str = None):
 
     version = version or get_max_version()
 
-    return json.loads(read_gzip(get_etc_path('beats_schemas', f'v{version}.json.gz')))
+    return json.loads(read_gzip(ETC_DIR / 'beats_schemas' / f'v{version}.json.gz'))
 
 
 def get_schema_from_datasets(beats, modules, datasets, version=None):

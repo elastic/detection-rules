@@ -27,7 +27,7 @@ class TestMappings(unittest.TestCase):
     def test_true_positives(self):
         """Test that expected results return against true positives."""
         mismatched_ecs = []
-        mappings = load_dump(ETC_DIR / 'rule-mapping.yml')
+        mappings = load_dump(str(ETC_DIR / 'rule-mapping.yml'))
 
         for rule in rule_loader.get_production_rules():
             if rule.type == 'query' and rule.contents['language'] == 'kuery':

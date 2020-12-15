@@ -16,10 +16,9 @@ from . import ecs, beats
 from .attack import tactics, build_threat_map_entry, technique_lookup
 from .rule_formatter import nested_normalize, toml_write
 from .schemas import CurrentSchema, TomlMetadata  # RULE_TYPES, metadata_schema, schema_validate, get_schema
-from .utils import get_path, clear_caches, cached
+from .utils import RULES_DIR, clear_caches, cached
 
 
-RULES_DIR = get_path("rules")
 _META_SCHEMA_REQ_DEFAULTS = {}
 
 

@@ -15,10 +15,11 @@ import eql.types
 import yaml
 
 from .semver import Version
-from .utils import DateTimeEncoder, cached, load_etc_dump, get_etc_path, gzip_compress, read_gzip, unzip
+from eql.utils import load_dump
+from .utils import ETC_DIR, DateTimeEncoder, cached, gzip_compress, read_gzip, unzip
 
 ETC_NAME = "ecs_schemas"
-ECS_SCHEMAS_DIR = get_etc_path(ETC_NAME)
+ECS_SCHEMAS_DIR = ETC_DIR / ETC_NAME
 
 
 def add_field(schema, name, info):
@@ -147,7 +148,8 @@ def flatten(schema):
 @cached
 def get_non_ecs_schema():
     """Load non-ecs schema."""
-    return load_etc_dump('non-ecs-schema.json')
+    # TODO Remove str when eql.utils.load_dump takes a Path object as input
+    return load_dump(str(ETC_DIR / 'non-ecs-schema.json'))
 
 
 @cached
@@ -241,7 +243,7 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
                 out_file = file_name.replace(".yml", ".json.gz")
 
                 compressed = gzip_compress(json.dumps(contents, sort_keys=True, cls=DateTimeEncoder))
-                new_path = get_etc_path(ETC_NAME, str(version), out_file)
+                new_path = ETC_DIR / ETC_NAME / str(version) / out_file
                 with open(new_path, 'wb') as f:
                     f.write(compressed)
 
@@ -264,10 +266,10 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
             shutil.rmtree(m, ignore_errors=True)
 
         master_dir = "master_{}".format(master_ver)
-        os.makedirs(get_etc_path(ETC_NAME, master_dir), exist_ok=True)
+        (ETC_DIR / ETC_NAME / master_dir).mkdir(exist_ok=True)
 
         compressed = gzip_compress(json.dumps(master_schema, sort_keys=True, cls=DateTimeEncoder))
-        new_path = get_etc_path(ETC_NAME, master_dir, "ecs_flat.json.gz")
+        new_path = ETC_DIR / ETC_NAME / master_dir / "ecs_flat.json.gz"
         with open(new_path, 'wb') as f:
             f.write(compressed)
 

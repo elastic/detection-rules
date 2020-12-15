@@ -36,7 +36,7 @@ except ImportError:
     GitRelease = None  # noqa: N806
     GitReleaseAsset = None  # noqa: N806
 
-from .utils import add_params, cached, get_path
+from .utils import ROOT_DIR, add_params, cached
 
 _CONFIG = {}
 
@@ -543,7 +543,7 @@ def get_kibana_rules(*rule_paths, branch='master', verbose=True, threads=50):
 @cached
 def parse_config():
     """Parse a default config file."""
-    config_file = get_path('.detection-rules-cfg.json')
+    config_file = ROOT_DIR / '.detection-rules-cfg.json'
     config = {}
 
     if os.path.exists(config_file):

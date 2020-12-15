@@ -3,7 +3,6 @@
 # you may not use this file except in compliance with the Elastic License.
 
 """CLI commands for internal detection_rules dev team."""
-import glob
 import hashlib
 import io
 import json
@@ -24,10 +23,6 @@ from .misc import PYTHON_LICENSE, add_client, GithubClient, Manifest, client_err
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
 from .rule import Rule
 from .rule_loader import get_rule
-from .utils import get_path
-
-
-RULES_DIR = get_path('rules')
 from .utils import ROOT_DIR
 
 
@@ -290,7 +285,7 @@ def rule_event_search(ctx, rule_file, rule_id, date_range, count, max_results, v
 @click.argument('query', required=False)
 @click.option('--date-range', '-d', type=(str, str), default=('now-7d', 'now'), help='Date range to scope search')
 @click.option('--dump-file', type=click.Path(dir_okay=False),
-              default=get_path('surveys', f'{time.strftime("%Y%m%dT%H%M%SL")}.json'),
+              default=ROOT_DIR / 'surveys' / f'{time.strftime("%Y%m%dT%H%M%SL")}.json',
               help='Save details of results (capped at 1000 results/rule)')
 @click.option('--hide-zero-counts', '-z', is_flag=True, help='Exclude rules with zero hits from printing')
 @click.option('--hide-errors', '-e', is_flag=True, help='Exclude rules with errors from printing')
@@ -349,7 +344,7 @@ def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_coun
     else:
         click.echo(table)
 
-    os.makedirs(get_path('surveys'), exist_ok=True)
+    (ROOT_DIR / 'surveys').mkdir(exist_ok=True)
     with open(dump_file, 'w') as f:
         json.dump(details, f, indent=2, sort_keys=True)
 

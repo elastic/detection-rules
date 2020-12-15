@@ -19,11 +19,11 @@ from elasticsearch.client import AsyncSearchClient, IngestClient, LicenseClient,
 import kql
 from .main import root
 from .misc import add_params, client_error, elasticsearch_options
-from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
+from .utils import ROOT_DIR, format_command_options, normalize_timing_and_sort, unix_time_to_formatted
 from .rule import Rule
 from .rule_loader import get_rule, rta_mappings
 
-COLLECTION_DIR = get_path('collections')
+COLLECTION_DIR = ROOT_DIR / 'collections'
 MATCH_ALL = {'bool': {'filter': [{'match_all': {}}]}}
 
 
@@ -73,7 +73,7 @@ class RtaEvents(object):
     def _get_dump_dir(rta_name=None, host_id=None):
         """Prepare and get the dump path."""
         if rta_name:
-            dump_dir = get_path('unit_tests', 'data', 'true_positives', rta_name)
+            dump_dir = ROOT_DIR / 'unit_tests' / 'data' / 'true_positives' / rta_name
             os.makedirs(dump_dir, exist_ok=True)
             return dump_dir
         else:
@@ -540,7 +540,7 @@ def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
         zipped = requests.get(zipped_url)
         z = zipfile.ZipFile(io.BytesIO(zipped.content))
 
-        dga_dir = get_path('ML-models', 'DGA')
+        dga_dir = ROOT_DIR / 'ML-models' / 'DGA'
         model_dir = os.path.join(dga_dir, model_tag)
         os.makedirs(dga_dir, exist_ok=True)
         shutil.rmtree(model_dir, ignore_errors=True)

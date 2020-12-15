@@ -19,7 +19,7 @@ import pytoml
 from rta import get_ttp_names
 
 from detection_rules import attack, beats, ecs, rule_loader
-from detection_rules.utils import load_etc_dump
+from detection_rules.utils import ETC_DIR, load_dump
 from detection_rules.rule import Rule
 
 
@@ -101,7 +101,8 @@ class TestValidRules(unittest.TestCase):
     @rule_loader.mock_loader
     def test_production_rules_have_rta(self):
         """Ensure that all production rules have RTAs."""
-        mappings = load_etc_dump('rule-mapping.yml')
+        # TODO Remove str when eql.utils.load_dump takes a Path object as input
+        mappings = load_dump(str(ETC_DIR / 'rule-mapping.yml'))
 
         ttp_names = get_ttp_names()
 
