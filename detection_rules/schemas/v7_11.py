@@ -24,7 +24,7 @@ class Threat711(Threat78):
         subtechnique = jsl.ArrayField(jsl.DocumentField(ThreatSubTechnique), required=False)
 
     # override the `technique` field definition
-    technique = jsl.ArrayField(jsl.DocumentField(ThreatTechnique), required=True)
+    technique = jsl.ArrayField(jsl.DocumentField(ThreatTechnique), required=False)
 
 
 class ApiSchema711(ApiSchema710):
