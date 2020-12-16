@@ -7,6 +7,7 @@ import copy
 import hashlib
 import json
 import os
+from pathlib import Path
 
 import click
 import kql
@@ -27,7 +28,7 @@ class Rule(object):
 
     def __init__(self, path, contents):
         """Create a Rule from a toml management format."""
-        self.path = os.path.abspath(path)
+        self.path = Path(path).resolve
         self.contents = contents.get('rule', contents)
         self.metadata = contents.get('metadata', self.set_metadata(contents))
 
@@ -391,7 +392,7 @@ class Rule(object):
 
                 contents[name] = result
 
-        suggested_path = os.path.join(RULES_DIR, contents['name'])  # TODO: UPDATE BASED ON RULE STRUCTURE
+        suggested_path = RULES_DIR / contents['name']  # TODO: UPDATE BASED ON RULE STRUCTURE
         path = os.path.realpath(path or input('File path for rule [{}]: '.format(suggested_path)) or suggested_path)
 
         rule = None

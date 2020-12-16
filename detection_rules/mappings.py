@@ -3,7 +3,7 @@
 # you may not use this file except in compliance with the Elastic License.
 
 """RTA to rule mappings."""
-import os
+from pathlib import Path
 from collections import defaultdict
 
 from .schemas import validate_rta_mapping
@@ -64,9 +64,9 @@ class RtaMappings(object):
 
         for rta_name in rta_list:
             # rip off the extension and add .py
-            rta_name, _ = os.path.splitext(os.path.basename(rta_name))
-            rta_path = os.path.abspath(os.path.join(RTA_DIR, rta_name + ".py"))
-            if os.path.exists(rta_path):
+            rta_name, _ = Path(rta_name).stem
+            rta_path = (RTA_DIR / rta_name / ".py").resolve()
+            if rta_path.exists():
                 rta_files.add(rta_path)
 
         return list(sorted(rta_files))

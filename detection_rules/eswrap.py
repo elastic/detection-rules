@@ -79,7 +79,7 @@ class RtaEvents(object):
         else:
             time_str = time.strftime('%Y%m%dT%H%M%SL')
             dump_dir = os.path.join(COLLECTION_DIR, host_id or 'unknown_host', time_str)
-            os.makedirs(dump_dir, exist_ok=True)
+            Path(dump_dir).mkdir(parents=True, exist_ok=True)
             return dump_dir
 
     def evaluate_against_rule_and_update_mapping(self, rule_id, rta_name, verbose=True):
@@ -335,9 +335,9 @@ class CollectRtaEvents(CollectEvents):
 @click.argument('events-file', type=click.File('r'))
 def normalize_data(events_file):
     """Normalize Elasticsearch data timestamps and sort."""
-    file_name = os.path.splitext(os.path.basename(events_file.name))[0]
+    file_name = Path(events_file).name
     events = RtaEvents({file_name: [json.loads(e) for e in events_file.readlines()]})
-    events.save(dump_dir=os.path.dirname(events_file.name))
+    events.save(dump_dir=Path(events_file).parent)
 
 
 @root.group('es')
@@ -541,8 +541,8 @@ def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
         z = zipfile.ZipFile(io.BytesIO(zipped.content))
 
         dga_dir = ROOT_DIR / 'ML-models' / 'DGA'
-        model_dir = os.path.join(dga_dir, model_tag)
-        os.makedirs(dga_dir, exist_ok=True)
+        model_dir = dga_dir / model_tag
+        dga_dir.mkdir(parents=True, exist_ok=True)
         shutil.rmtree(model_dir, ignore_errors=True)
         z.extractall(dga_dir)
         click.echo(f'files saved to {model_dir}')

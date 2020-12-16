@@ -546,7 +546,7 @@ def parse_config():
     config_file = ROOT_DIR / '.detection-rules-cfg.json'
     config = {}
 
-    if os.path.exists(config_file):
+    if config_file.exists():
         with open(config_file) as f:
             config = json.load(f)
 

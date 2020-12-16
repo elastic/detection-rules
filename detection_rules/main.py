@@ -140,7 +140,7 @@ def view_rule(ctx, rule_id, rule_file, api_format):
         try:
             rule = Rule(rule_file, contents)
         except jsonschema.ValidationError as e:
-            client_error(f'Rule: {rule_id or os.path.basename(rule_file)} failed validation', e, ctx=ctx)
+            client_error(f'Rule: {rule_id or Path(rule_file).name} failed validation', e, ctx=ctx)
     else:
         client_error('Unknown rule!')
 

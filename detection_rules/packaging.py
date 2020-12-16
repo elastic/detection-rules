@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 from collections import defaultdict, OrderedDict
+from pathlib import Path
 
 import click
 
@@ -161,7 +162,7 @@ class Package(object):
         with open(NOTICE_FILE, 'rt') as f:
             notice_txt = f.read()
 
-        with open(os.path.join(save_dir, 'notice.ts'), 'wt') as f:
+        with open((save_dir / 'notice.ts'), 'wt') as f:
             commented_notice = [f' * {line}'.rstrip() for line in notice_txt.splitlines()]
             lines = ['/* eslint-disable @kbn/eslint/require-license-header */', '', '/* @notice']
             lines = lines + commented_notice + [' */', '']
@@ -169,7 +170,7 @@ class Package(object):
 
     def _package_index_file(self, save_dir):
         """Convert and save index file with package."""
-        sorted_rules = sorted(self.rules, key=lambda k: (k.metadata['creation_date'], os.path.basename(k.path)))
+        sorted_rules = sorted(self.rules, key=lambda k: (k.metadata['creation_date'], Path(k.path).name))
         comments = [
             '// Auto generated file from either:',
             '// - scripts/regen_prepackage_rules_index.sh',
@@ -190,20 +191,20 @@ class Package(object):
         index_ts.append("")
         index_ts.extend(const_exports)
 
-        with open(os.path.join(save_dir, 'index.ts'), 'wt') as f:
+        with open((save_dir / 'index.ts'), 'wt') as f:
             f.write('\n'.join(index_ts))
 
     def save_release_files(self, directory, changed_rules, new_rules, removed_rules):
         """Release a package."""
         summary, changelog = self.generate_summary_and_changelog(changed_rules, new_rules, removed_rules)
 
-        with open(os.path.join(directory, f'{self.name}-summary.txt'), 'w') as f:
+        with open((directory / f'{self.name}-summary.txt'), 'w') as f:
             f.write(summary)
-        with open(os.path.join(directory, f'{self.name}-changelog-entry.md'), 'w') as f:
+        with open((directory / f'{self.name}-changelog-entry.md'), 'w') as f:
             f.write(changelog)
-        with open(os.path.join(directory, f'{self.name}-consolidated.json'), 'w') as f:
+        with open((directory / f'{self.name}-consolidated.json'), 'w') as f:
             json.dump(json.loads(self.get_consolidated()), f, sort_keys=True, indent=2)
-        self.generate_xslx(os.path.join(directory, f'{self.name}-summary.xlsx'))
+        self.generate_xslx((directory / f'{self.name}-summary.xlsx'))
 
     def get_consolidated(self, as_api=True):
         """Get a consolidated package of the rules in a single file."""
@@ -215,17 +216,17 @@ class Package(object):
 
     def save(self, verbose=True):
         """Save a package and all artifacts."""
-        save_dir = os.path.join(RELEASE_DIR, self.name)
-        rules_dir = os.path.join(save_dir, 'rules')
-        extras_dir = os.path.join(save_dir, 'extras')
+        save_dir = RELEASE_DIR / self.name
+        rules_dir = save_dir / 'rules'
+        extras_dir = save_dir / 'extras'
 
         # remove anything that existed before
         shutil.rmtree(save_dir, ignore_errors=True)
-        os.makedirs(rules_dir, exist_ok=True)
-        os.makedirs(extras_dir, exist_ok=True)
+        rules_dir.mkdir(parents=True, exist_ok=True)
+        extras_dir.mkdir(parents=True, exist_ok=True)
 
         for rule in self.rules:
-            rule.save(new_path=os.path.join(rules_dir, os.path.basename(rule.path)))
+            rule.save(new_path=(rules_dir / Path(rule.path).name))
 
         self._package_notice_file(rules_dir)
         self._package_index_file(rules_dir)
@@ -234,12 +235,12 @@ class Package(object):
             self.save_release_files(extras_dir, self.changed_rule_ids, self.new_rules_ids, self.removed_rule_ids)
 
             # zip all rules only and place in extras
-            shutil.make_archive(os.path.join(extras_dir, self.name), 'zip', root_dir=os.path.dirname(rules_dir),
-                                base_dir=os.path.basename(rules_dir))
+            shutil.make_archive((extras_dir / self.name), 'zip', root_dir=rules_dir.parent,
+                                base_dir=rules_dir.name)
 
             # zip everything and place in release root
-            shutil.make_archive(os.path.join(save_dir, '{}-all'.format(self.name)), 'zip',
-                                root_dir=os.path.dirname(extras_dir), base_dir=os.path.basename(extras_dir))
+            shutil.make_archive((save_dir / '{}-all'.format(self.name)), 'zip',
+                                root_dir=extras_dir.parent, base_dir=extras_dir.name)
 
         if verbose:
             click.echo('Package saved to: {}'.format(save_dir))
@@ -320,7 +321,7 @@ class Package(object):
             # lookup the rule in the GitHub tag v{major.minor.patch}
             rules_dir_link = f'https://github.com/elastic/detection-rules/tree/v{self.name}/rules/{sd}/'
             rule_type = r.contents['language'] if r.type in ('query', 'eql') else r.type
-            return f'`{r.id}` **[{r.name}]({rules_dir_link + os.path.basename(r.path)})** (_{rule_type}_)'
+            return f'`{r.id}` **[{r.name}]({rules_dir_link + Path(r.path).name})** (_{rule_type}_)'
 
         for rule in self.rules:
             sub_dir = os.path.basename(os.path.dirname(rule.path))

@@ -4,9 +4,8 @@
 
 """Load rule metadata transform between rule and api formats."""
 import functools
-import glob
 import io
-import os
+from pathlib import Path
 import re
 from collections import OrderedDict
 
@@ -50,7 +49,7 @@ def load_rule_files(verbose=True, paths=None):
         print("Loading rules from {}".format(RULES_DIR))
 
     if paths is None:
-        paths = sorted(glob.glob(os.path.join(RULES_DIR, '**', '*.toml'), recursive=True))
+        paths = sorted(RULES_DIR.rglob('*.toml'))
 
     for rule_file in paths:
         try:
@@ -106,7 +105,7 @@ def load_rules(file_lookup=None, verbose=True, error=True):
 
                 queries.append(duplicate_key)
 
-            if not re.match(FILE_PATTERN, os.path.basename(rule.path)):
+            if not re.match(FILE_PATTERN, Path(rule.path).name):
                 raise ValueError(f'{rule.path} does not meet rule name standard of {FILE_PATTERN}')
 
             rules.append(rule)
