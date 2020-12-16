@@ -89,7 +89,7 @@ class TestValidRules(unittest.TestCase):
 
         for file_name, contents in rule_loader.load_rule_files().items():
             rule = Rule(file_name, contents)
-            default_matches = rule_loader.find_unneeded_defaults(rule)
+            default_matches = rule_loader.find_unneeded_defaults_from_rule(rule)
 
             if default_matches:
                 rules_with_hits['{} - {}'.format(rule.name, rule.id)] = default_matches

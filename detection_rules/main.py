@@ -83,7 +83,7 @@ def toml_lint(rule_file):
         rule = Rule(path=rule_file.name, contents=contents)
 
         # removed unneeded defaults
-        for field in rule_loader.find_unneeded_defaults(rule):
+        for field in rule_loader.find_unneeded_defaults_from_rule(rule):
             rule.contents.pop(field, None)
 
         rule.save(as_rule=True)
@@ -91,7 +91,7 @@ def toml_lint(rule_file):
         for rule in rule_loader.load_rules().values():
 
             # removed unneeded defaults
-            for field in rule_loader.find_unneeded_defaults(rule):
+            for field in rule_loader.find_unneeded_defaults_from_rule(rule):
                 rule.contents.pop(field, None)
 
             rule.save(as_rule=True)

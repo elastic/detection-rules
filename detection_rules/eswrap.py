@@ -23,6 +23,7 @@ from .utils import format_command_options, normalize_timing_and_sort, unix_time_
 from .rule import Rule
 from .rule_loader import get_rule, rta_mappings
 
+
 COLLECTION_DIR = get_path('collections')
 MATCH_ALL = {'bool': {'filter': [{'match_all': {}}]}}
 
@@ -366,7 +367,7 @@ def es_group(ctx: click.Context, **kwargs):
 @click.pass_context
 def collect_events(ctx, host_id, query, index, rta_name, rule_id, view_events):
     """Collect events from Elasticsearch."""
-    client = ctx.obj['es']
+    client: Elasticsearch = ctx.obj['es']
     dsl = kql.to_dsl(query) if query else MATCH_ALL
     dsl['bool'].setdefault('filter', []).append({'bool': {'should': [{'match_phrase': {'host.id': host_id}}]}})
 
@@ -388,6 +389,48 @@ def collect_events(ctx, host_id, query, index, rta_name, rule_id, view_events):
     except AssertionError as e:
         error_msg = 'No events collected! Verify events are streaming and that the agent-hostname is correct'
         client_error(error_msg, e, ctx=ctx)
+
+
+@es_group.command('index-rules')
+@click.option('--query', '-q', help='Optional KQL query to limit to specific rules')
+@click.option('--from-file', '-f', type=click.File('r'), help='Load a previously saved bulk file')
+@click.option('--outfile', '-o', type=click.File('w'), help='Optionally save the bulk request to a file')
+@click.pass_context
+def index_repo(ctx: click.Context, query, from_file, outfile):
+    """Index rules based on KQL search results to an elasticsearch instance."""
+    from . import rule_loader
+    from .main import search_rules
+    from .packaging import CURRENT_PACKAGE_VERSION, Package
+
+    es_client: Elasticsearch = ctx.obj['es']
+
+    if from_file:
+        bulk_index_body = from_file.read()
+
+        # light validation only
+        try:
+            index_body = [json.loads(line) for line in bulk_index_body.splitlines()]
+            rule_count = len([r for r in index_body if 'rule' in r])
+        except json.JSONDecodeError:
+            client_error(f'Improperly formatted bulk request file: {from_file.name}')
+    else:
+        if query:
+            rule_paths = [r['file'] for r in ctx.invoke(search_rules, query=query, verbose=False)]
+            rules = rule_loader.load_rules(rule_loader.load_rule_files(paths=rule_paths, verbose=False), verbose=False)
+            rules = rules.values()
+        else:
+            rules = rule_loader.load_rules(verbose=False).values()
+
+        rule_count = len(rules)
+        package = Package(rules, CURRENT_PACKAGE_VERSION, verbose=False)
+        bulk_index_body = package.create_bulk_index_body()
+
+        if outfile:
+            outfile.write(bulk_index_body)
+
+    click.echo(f'{rule_count} rules included')
+
+    es_client.bulk(bulk_index_body)
 
 
 @es_group.group('experimental')

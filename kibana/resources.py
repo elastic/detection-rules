@@ -43,7 +43,7 @@ class BaseResource(dict):
 
     @classmethod
     def from_id(cls, resource_id) -> 'BaseResource':
-        return Kibana.current().get(cls.BASE_URI, params={self.ID_FIELD: resource_id})
+        return Kibana.current().get(cls.BASE_URI, params={cls.ID_FIELD: resource_id})
 
     def put(self):
         response = Kibana.current().put(self.BASE_URI, data=self.to_dict())

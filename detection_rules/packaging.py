@@ -12,6 +12,7 @@ import shutil
 from collections import defaultdict, OrderedDict
 
 import click
+from eql import load_dump
 
 from . import rule_loader
 from .misc import JS_LICENSE
@@ -21,6 +22,8 @@ from .utils import get_path, get_etc_path, load_etc_dump, save_etc_dump
 RELEASE_DIR = get_path("releases")
 PACKAGE_FILE = get_etc_path('packages.yml')
 NOTICE_FILE = get_path('NOTICE.txt')
+
+CURRENT_PACKAGE_VERSION = load_dump(PACKAGE_FILE)['package']['name']
 
 
 def filter_rule(rule: Rule, config_filter: dict, exclude_fields: dict) -> bool:
@@ -137,7 +140,7 @@ class Package(object):
     """Packaging object for siem rules and releases."""
 
     def __init__(self, rules, name, deprecated_rules=None, release=False, current_versions=None, min_version=None,
-                 max_version=None, update_version_lock=False):
+                 max_version=None, update_version_lock=False, verbose=True):
         """Initialize a package."""
         self.rules = [r.copy() for r in rules]  # type: list[Rule]
         self.name = name
@@ -145,16 +148,17 @@ class Package(object):
         self.release = release
 
         self.changed_rule_ids, self.new_rules_ids, self.removed_rule_ids = self._add_versions(current_versions,
-                                                                                              update_version_lock)
+                                                                                              update_version_lock,
+                                                                                              verbose=verbose)
 
         if min_version or max_version:
             self.rules = [r for r in self.rules
                           if (min_version or 0) <= r.contents['version'] <= (max_version or r.contents['version'])]
 
-    def _add_versions(self, current_versions, update_versions_lock=False):
+    def _add_versions(self, current_versions, update_versions_lock=False, verbose=True):
         """Add versions to rules at load time."""
         return manage_versions(self.rules, deprecated_rules=self.deprecated_rules, current_versions=current_versions,
-                               save_changes=update_versions_lock)
+                               save_changes=update_versions_lock, verbose=verbose)
 
     @staticmethod
     def _package_notice_file(save_dir):
@@ -197,6 +201,7 @@ class Package(object):
     def save_release_files(self, directory, changed_rules, new_rules, removed_rules):
         """Release a package."""
         summary, changelog = self.generate_summary_and_changelog(changed_rules, new_rules, removed_rules)
+        rules_index = self.create_bulk_index_body()
 
         with open(os.path.join(directory, f'{self.name}-summary.txt'), 'w') as f:
             f.write(summary)
@@ -204,6 +209,8 @@ class Package(object):
             f.write(changelog)
         with open(os.path.join(directory, f'{self.name}-consolidated.json'), 'w') as f:
             json.dump(json.loads(self.get_consolidated()), f, sort_keys=True, indent=2)
+        with open(os.path.join(directory, f'{self.name}-rules-index.ndjson'), 'w') as f:
+            f.write(rules_index)
         self.generate_xslx(os.path.join(directory, f'{self.name}-summary.xlsx'))
 
     def get_consolidated(self, as_api=True):
@@ -406,3 +413,33 @@ class Package(object):
     def bump_versions(self, save_changes=False, current_versions=None):
         """Bump the versions of all production rules included in a release and optionally save changes."""
         return manage_versions(self.rules, current_versions=current_versions, save_changes=save_changes)
+
+    def create_bulk_index_body(self, source='repo') -> str:
+        """Create a body to bulk index into a stack."""
+        package_hash = self.get_package_hash(verbose=False)
+        now = datetime.datetime.isoformat(datetime.datetime.now())
+        create = {'create': {'_index': f'rules-{source}-{self.name}-{package_hash}'}}
+
+        # first doc is summary stats
+        summary_doc = {
+            'group_hash': package_hash,
+            'package_version': self.name,
+            'rule_count': len(self.rules),
+            'rule_ids': [],
+            'rule_names': [],
+            'rule_hashes': [],
+            'source': source,
+            'details': {'datetime_uploaded': now}
+        }
+        rule_docs = [create, summary_doc]
+
+        for rule in self.rules:
+            summary_doc['rule_ids'].append(rule.id)
+            summary_doc['rule_names'].append(rule.name)
+            summary_doc['rule_hashes'].append(rule.get_hash())
+
+            rule_docs.append(create)
+            rule_docs.append(rule.detailed_format(hash=rule.get_hash(), source=source, datetime_uploaded=now,
+                                                  package_version=self.name).copy())
+
+        return '\n'.join(json.dumps(d, sort_keys=True) for d in rule_docs) + '\n'
