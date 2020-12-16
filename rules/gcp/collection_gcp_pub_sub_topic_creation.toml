@@ -17,7 +17,7 @@ false_positives = [
     be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License"
 name = "GCP Pub/Sub Topic Creation"
@@ -30,7 +30,7 @@ tags = ["Elastic", "Cloud", "GCP", "Continuous Monitoring", "SecOps", "Log Audit
 type = "query"
 
 query = '''
-event.dataset:googlecloud.audit and event.action:google.pubsub.v*.Publisher.CreateTopic and event.outcome:success
+event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.pubsub.v*.Publisher.CreateTopic and event.outcome:success
 '''
 
 
