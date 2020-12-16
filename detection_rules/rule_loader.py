@@ -5,7 +5,6 @@
 """Load rule metadata transform between rule and api formats."""
 import functools
 import io
-from pathlib import Path
 import re
 from collections import OrderedDict
 
@@ -105,7 +104,7 @@ def load_rules(file_lookup=None, verbose=True, error=True):
 
                 queries.append(duplicate_key)
 
-            if not re.match(FILE_PATTERN, Path(rule.path).name):
+            if not re.match(FILE_PATTERN, rule.path.name):
                 raise ValueError(f'{rule.path} does not meet rule name standard of {FILE_PATTERN}')
 
             rules.append(rule)
