@@ -27,7 +27,7 @@ class Rule(object):
 
     def __init__(self, path, contents):
         """Create a Rule from a toml management format."""
-        self.path = path.resolve()
+        self.path = path
         self.contents = contents.get('rule', contents)
         self.metadata = contents.get('metadata', self.set_metadata(contents))
 
