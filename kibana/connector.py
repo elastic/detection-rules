@@ -27,7 +27,7 @@ class Kibana(object):
         self.session.verify = verify
 
         self.cloud_id = cloud_id
-        self.kibana_url = kibana_url.rstrip('/')
+        self.kibana_url = kibana_url.rstrip('/') if kibana_url else None
         self.elastic_url = None
         self.space = space if space and space.lower() != 'default' else None
         self.status = None
