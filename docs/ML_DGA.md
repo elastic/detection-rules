@@ -28,22 +28,28 @@ python -m detection_rules es experimental setup-dga-model -h
 
 Elasticsearch client:
 Options:
-  -u, --elasticsearch-url TEXT
+  -et, --timeout INTEGER    Timeout for elasticsearch client
+  -ep, --es-password TEXT
+  -eu, --es-user TEXT
   --cloud-id TEXT
-  -u, --user TEXT
-  -p, --es-password TEXT
-  -t, --timeout INTEGER         Timeout for elasticsearch client
+  --elasticsearch-url TEXT
+
+
+* experimental commands are use at your own risk and may change without warning *
 
 Usage: detection_rules es experimental setup-dga-model [OPTIONS]
 
-  Upload DGA model and enrich DNS data.
+  Upload ML DGA model and dependencies and enrich DNS data.
 
 Options:
   -t, --model-tag TEXT       Release tag for model files staged in detection-
                              rules (required to download files)
+  -r, --repo TEXT            GitHub repository hosting the model file releases
+                             (owner/repo)
   -d, --model-dir DIRECTORY  Directory containing local model files
   --overwrite                Overwrite all files if already in the stack
   -h, --help                 Show this message and exit.
+
 ```
 
 ### Detailed steps
@@ -155,8 +161,8 @@ Job files are checked if they are valid toml and contain the following top level
 #### Validation
 
 All of these checks are automated and can be called with:
-`python -m detection-rules dev gh-release validate-ml-dga-asset` - for model bundles
-`python -m detection-rules dev gh-release validate-ml-detections-asset` for rule/job bundles
+`python -m detection_rules dev gh-release validate-ml-dga-asset` - for model bundles
+`python -m detection_rules dev gh-release validate-ml-detections-asset` for rule/job bundles
 
 Pay attention to the output to determine any necessary changes. This may not be all inclusive and actual testing on a 
 live stack should always occur even with passing validation before saving to a GitHub release
@@ -165,7 +171,7 @@ live stack should always occur even with passing validation before saving to a G
 
 Install dependencies with `pip install -r requirements-dev.txt`
 
-A release can be created via the cli using `python -m detection-rules dev gh-release create-ml`
+A release can be created via the cli using `python -m detection_rules dev gh-release create-ml`
 
 * you can only use a github token
 * the base directory name and release name must match

@@ -1,0 +1,69 @@
+[metadata]
+creation_date = "2020/12/14"
+maturity = "production"
+updated_date = "2020/12/14"
+
+[rule]
+author = ["Elastic"]
+description = "A suspicious SolarWinds child process (Cmd.exe or Powershell.exe) was detected."
+false_positives = [
+    "Trusted SolarWinds child processes. Verify process details such as network connections and file writes.",
+]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Command Execution via SolarWinds Process"
+references = [
+    "https://www.fireeye.com/blog/threat-research/2020/12/evasive-attacker-leverages-solarwinds-supply-chain-compromises-with-sunburst-backdoor.html",
+    "https://github.com/fireeye/sunburst_countermeasures/blob/main/rules/SUNBURST/hxioc/SOLARWINDS%20SUSPICIOUS%20FILEWRITES%20(METHODOLOGY).ioc",
+]
+risk_score = 47
+rule_id = "d72e33fc-6e91-42ff-ac8b-e573268c5a87"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and process.name: ("cmd.exe", "powershell.exe") and
+process.parent.name: (
+     "ConfigurationWizard*.exe",
+     "NetflowDatabaseMaintenance*.exe",
+     "NetFlowService*.exe",
+     "SolarWinds.Administration*.exe",
+     "SolarWinds.Collector.Service*.exe",
+     "SolarwindsDiagnostics*.exe"
+     )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
