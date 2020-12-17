@@ -437,9 +437,11 @@ class Package(object):
             summary_doc['rule_ids'].append(rule.id)
             summary_doc['rule_names'].append(rule.name)
             summary_doc['rule_hashes'].append(rule.get_hash())
+            status = 'new' if rule.id in self.new_rules_ids else 'modified' if rule.id in self.changed_rule_ids \
+                else 'unmodified'
 
             rule_docs.append(create)
             rule_docs.append(rule.detailed_format(hash=rule.get_hash(), source=source, datetime_uploaded=now,
-                                                  package_version=self.name).copy())
+                                                  status=status, package_version=self.name).copy())
 
         return '\n'.join(json.dumps(d, sort_keys=True) for d in rule_docs) + '\n'
