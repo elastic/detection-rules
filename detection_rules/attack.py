@@ -137,13 +137,15 @@ def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict:
 
     entry = {
         'framework': 'MITRE ATT&CK',
-        'technique': sorted(tech_entries.values(), key=lambda x: x['id']),
         'tactic': {
             'id': tactic_id,
             'name': tactic,
             'reference': url_base.format(type='tactics', id=tactic_id)
         }
     }
+
+    if tech_entries:
+        entry['technique'] = sorted(tech_entries.values(), key=lambda x: x['id'])
 
     return entry
 
