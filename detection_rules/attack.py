@@ -40,6 +40,7 @@ attack = load_attack_gz()
 
 technique_lookup = {}
 revoked = {}
+deprecated = {}
 
 for item in attack["objects"]:
     if item["type"] == "x-mitre-tactic":
@@ -52,6 +53,11 @@ for item in attack["objects"]:
         if item.get('revoked'):
             revoked[technique_id] = item
 
+        if item.get('x_mitre_deprecated'):
+            deprecated[technique_id] = item
+
+revoked = dict(sorted(revoked.items(), key=lambda x: x[0]))
+deprecated = dict(sorted(deprecated.items(), key=lambda x: x[0]))
 tactics = list(tactics_map)
 matrix = {tactic: [] for tactic in tactics}
 no_tactic = []
@@ -132,8 +138,10 @@ def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict:
         return e
 
     for tid in technique_ids:
-        # convert if it has been replaced
-        if tid in SUB_TECHNIQUE_REDIRECT_MAP:
+        # fail if deprecated or else convert if it has been replaced
+        if tid in revoked:
+            raise ValueError(f'Technique ID: {tid} has been deprecated and should not be used')
+        elif tid in SUB_TECHNIQUE_REDIRECT_MAP:
             tid = SUB_TECHNIQUE_REDIRECT_MAP[tid]
 
         # sub-techniques
