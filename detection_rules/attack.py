@@ -16,7 +16,7 @@ from .utils import get_etc_path, get_etc_glob_path, read_gzip, gzip_compress
 
 PLATFORMS = ['Windows', 'macOS', 'Linux']
 CROSSWALK_FILE = get_etc_path('attack-crosswalk.json')
-TECHNIQUES_REDIRECT_FILE = get_etc_path('attack-replacement-map.json')
+TECHNIQUES_REDIRECT_FILE = get_etc_path('attack-technique-redirects.json')
 
 with open(TECHNIQUES_REDIRECT_FILE, 'r') as f:
     techniques_redirect_map = json.load(f)['mapping']
