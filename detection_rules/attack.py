@@ -15,7 +15,12 @@ from .semver import Version
 from .utils import get_etc_path, get_etc_glob_path, read_gzip, gzip_compress
 
 PLATFORMS = ['Windows', 'macOS', 'Linux']
+CROSSWALK_FILE = get_etc_path('attack-crosswalk.json')
 SUB_TECHNIQUE_REDIRECT_MAP_FILE = get_etc_path('attack-replacement-map.json')
+
+with open(SUB_TECHNIQUE_REDIRECT_MAP_FILE, 'r') as f:
+    SUB_TECHNIQUE_REDIRECT_MAP = json.load(f)['mapping']
+
 tactics_map = {}
 
 
@@ -127,6 +132,10 @@ def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict:
         return e
 
     for tid in technique_ids:
+        # convert if it has been replaced
+        if tid in SUB_TECHNIQUE_REDIRECT_MAP:
+            tid = SUB_TECHNIQUE_REDIRECT_MAP[tid]
+
         # sub-techniques
         if '.' in tid:
             parent_technique, _ = tid.split('.', 1)
@@ -195,16 +204,20 @@ def build_redirected_techniques_map(threads=50):
 
 def refresh_redirected_techniques_map(threads=50):
     """Refresh the locally saved copy of the mapping."""
+    global SUB_TECHNIQUE_REDIRECT_MAP
+
     replacement_map = build_redirected_techniques_map(threads)
     mapping = {'saved_date': time.asctime(), 'mapping': replacement_map}
 
     with open(SUB_TECHNIQUE_REDIRECT_MAP_FILE, 'w') as f:
         json.dump(mapping, f, sort_keys=True, indent=2)
 
+    SUB_TECHNIQUE_REDIRECT_MAP = mapping
+
     print(f'refreshed mapping file: {SUB_TECHNIQUE_REDIRECT_MAP_FILE}')
 
 
 def load_crosswalk_map():
     """Retrieve the replacement mapping."""
-    with open(SUB_TECHNIQUE_REDIRECT_MAP_FILE, 'r') as f:
+    with open(CROSSWALK_FILE, 'r') as f:
         return json.load(f)['mapping']

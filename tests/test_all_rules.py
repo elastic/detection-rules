@@ -129,6 +129,27 @@ class TestValidRules(unittest.TestCase):
 class TestThreatMappings(unittest.TestCase):
     """Test threat mapping data for rules."""
 
+    def test_technique_deprecations(self):
+        """Check for use of any ATT&CK techniques that have been deprecated."""
+        crosswalk_map = attack.load_crosswalk_map()
+        rules = rule_loader.load_rules().values()
+
+        for rule in rules:
+            revoked_techniques = {}
+            rule_info = f'{rule.id} - {rule.name}'
+            threat_mapping = rule.contents.get('threat')
+
+            if threat_mapping:
+                for entry in threat_mapping:
+                    techniques = entry.get('technique', [])
+                    for technique in techniques:
+                        if technique['id'] in list(crosswalk_map):
+                            revoked_techniques[technique['id']] = crosswalk_map[technique['id']]
+
+            if revoked_techniques:
+                old_new_mapping = "\n".join(f'Actual: {k} -> Expected {v}' for k, v in revoked_techniques.items())
+                self.fail(f'{rule_info} -> Using deprecated ATT&CK techniques: \n{old_new_mapping}')
+
     def test_tactic_to_technique_correlations(self):
         """Ensure rule threat info is properly related to a single tactic and technique."""
         rules = rule_loader.load_rules().values()
@@ -139,6 +160,11 @@ class TestThreatMappings(unittest.TestCase):
                 for entry in threat_mapping:
                     tactic = entry.get('tactic')
                     techniques = entry.get('technique', [])
+
+                    mismatched = [t['id'] for t in techniques if t['id'] not in attack.matrix[tactic['name']]]
+                    if mismatched:
+                        self.fail(f'mismatched ATT&CK techniques for rule: {rule.id} - {rule.name} -> '
+                                  f'{", ".join(mismatched)} not under: {tactic["name"]}')
 
                     # tactic
                     expected_tactic = attack.tactics_map[tactic['name']]
@@ -197,27 +223,6 @@ class TestThreatMappings(unittest.TestCase):
             if duplicates:
                 self.fail(f'{rule_info} -> duplicate tactics defined for {duplicates}. '
                           f'Flatten to a single entry per tactic')
-
-    def test_technique_deprecations(self):
-        """Check for use of any ATT&CK techniques that have been deprecated."""
-        crosswalk_map = attack.load_crosswalk_map()
-        rules = rule_loader.load_rules().values()
-
-        for rule in rules:
-            revoked_techniques = {}
-            rule_info = f'{rule.id} - {rule.name}'
-            threat_mapping = rule.contents.get('threat')
-
-            if threat_mapping:
-                for entry in threat_mapping:
-                    techniques = entry.get('technique', [])
-                    for technique in techniques:
-                        if technique['id'] in list(crosswalk_map):
-                            revoked_techniques[technique['id']] = crosswalk_map[technique['id']]
-
-            if revoked_techniques:
-                old_new_mapping = "\n".join(f'Actual: {k} -> Expected {v}' for k, v in revoked_techniques.items())
-                self.fail(f'{rule_info} -> Using deprecated ATT&CK techniques: \n{old_new_mapping}')
 
 
 class TestRuleTags(unittest.TestCase):
@@ -339,6 +344,7 @@ class TestRuleFiles(unittest.TestCase):
     def test_rule_file_names_by_tactic(self):
         """Test to ensure rule files have the primary tactic prepended to the filename."""
         rules = rule_loader.load_rules().values()
+        bad_name_rules = []
 
         for rule in rules:
             rule_path = Path(rule.path).resolve()
@@ -354,8 +360,13 @@ class TestRuleFiles(unittest.TestCase):
                 primary_tactic = threat[0]['tactic']['name']
                 tactic_str = primary_tactic.lower().replace(' ', '_')
 
-                error_msg = 'filename does not start with the primary tactic - update the tactic or the rule filename'
-                self.assertEqual(tactic_str, filename[:len(tactic_str)], f'{rule.id} - {rule.name} -> {error_msg}')
+                if tactic_str != filename[:len(tactic_str)]:
+                    bad_name_rules.append(f'{rule.id} - {Path(rule.path).name} -> expected: {tactic_str}')
+
+        if bad_name_rules:
+            error_msg = 'filename does not start with the primary tactic - update the tactic or the rule filename'
+            rule_err_str = '\n'.join(bad_name_rules)
+            self.fail(f'{error_msg}:\n{rule_err_str}')
 
 
 class TestRuleMetadata(unittest.TestCase):

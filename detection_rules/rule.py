@@ -119,7 +119,7 @@ class Rule(object):
             tactic_names.append(entry['tactic']['name'])
             tactic_ids.append(entry['tactic']['id'])
 
-            for technique in entry['technique']:
+            for technique in entry.get('technique', []):
                 technique_names.add(technique['name'])
                 technique_ids.add(technique['id'])
                 sub_technique = technique.get('subtechnique', [])
