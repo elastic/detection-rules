@@ -1,6 +1,5 @@
 [metadata]
 creation_date = "2020/08/18"
-ecs_version = ["1.6.0"]
 maturity = "production"
 updated_date = "2020/10/26"
 
@@ -12,7 +11,7 @@ file overwrite and rename operations.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
-language = "lucene"
+language = "eql"
 license = "Elastic License"
 name = "Potential Secure File Deletion via SDelete Utility"
 note = "Verify process details such as command line and hash to confirm this activity legitimacy."
@@ -20,10 +19,11 @@ risk_score = 21
 rule_id = "5aee924b-6ceb-4633-980e-1bde8cdb40c5"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
-type = "query"
+type = "eql"
+
 
 query = '''
-event.category:file AND event.type:change AND file.name:/.+A+\.AAA/
+file where event.type == "change" and wildcard(file.name,"*AAA.AAA")
 '''
 
 
