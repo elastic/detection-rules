@@ -53,6 +53,14 @@ class TestSchemas(unittest.TestCase):
             "name": "PowerShell",
             "reference": "https://attack.mitre.org/techniques/T1059/001/"
         }]
+        cls.v711_kql["threat"].append({
+            "framework": "MITRE ATT&CK",
+            "tactic": {
+                "id": "TA0008",
+                "name": "Lateral Movement",
+                "reference": "https://attack.mitre.org/tactics/TA0008/"
+            },
+        })
 
         cls.versioned_rule = Rule("test.toml", copy.deepcopy(cls.v79_kql))
         cls.versioned_rule.contents["version"] = 10
