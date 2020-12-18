@@ -208,7 +208,7 @@ def search_rules(query, columns, language, count, verbose=True):
         subtechnique_ids = []
 
         for entry in rule_doc['rule'].get('threat', []):
-            if not entry["framework"] == "MITRE ATT&CK":
+            if entry["framework"] != "MITRE ATT&CK":
                 continue
 
             techniques = entry.get('technique', [])
