@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/08/17"
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2020/12/15"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,7 @@ false_positives = [
     """,
 ]
 from = "now-25m"
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License"
 name = "Azure Resource Group Deletion"
@@ -34,7 +34,7 @@ tags = ["Elastic", "Cloud", "Azure", "Continuous Monitoring", "SecOps", "Log Aud
 type = "query"
 
 query = '''
-event.dataset:azure.activitylogs and azure.activitylogs.operation_name:MICROSOFT.RESOURCES/SUBSCRIPTIONS/RESOURCEGROUPS/DELETE and event.outcome:Success
+event.dataset:azure.activitylogs and azure.activitylogs.operation_name:MICROSOFT.RESOURCES/SUBSCRIPTIONS/RESOURCEGROUPS/DELETE and event.outcome:(Success or success)
 '''
 
 

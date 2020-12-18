@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/08/31"
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2020/12/15"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,7 @@ false_positives = [
     """,
 ]
 from = "now-25m"
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License"
 name = "Azure Network Watcher Deletion"
@@ -31,7 +31,7 @@ tags = ["Elastic", "Cloud", "Azure", "Continuous Monitoring", "SecOps", "Network
 type = "query"
 
 query = '''
-event.dataset:azure.activitylogs and azure.activitylogs.operation_name:MICROSOFT.NETWORK/NETWORKWATCHERS/DELETE and event.outcome:Success
+event.dataset:azure.activitylogs and azure.activitylogs.operation_name:MICROSOFT.NETWORK/NETWORKWATCHERS/DELETE and event.outcome:(Success or success)
 '''
 
 
