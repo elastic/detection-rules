@@ -13,7 +13,7 @@ import kql
 import eql
 
 from . import ecs, beats
-from .attack import tactics, build_threat_map_entry, technique_lookup
+from .attack import tactics, build_threat_map_entry, matrix
 from .rule_formatter import nested_normalize, toml_write
 from .schemas import CurrentSchema, TomlMetadata  # RULE_TYPES, metadata_schema, schema_validate, get_schema
 from .utils import get_path, clear_caches, cached
@@ -362,12 +362,15 @@ class Rule(object):
                 while click.confirm('add mitre tactic?'):
                     tactic = schema_prompt('mitre tactic name', type='string', enum=tactics, required=True)
                     technique_ids = schema_prompt(f'technique or sub-technique IDs for {tactic}', type='array',
-                                                  required=False, enum=list(technique_lookup)) or []
+                                                  required=False, enum=list(matrix[tactic])) or []
 
                     try:
                         threat_map.append(build_threat_map_entry(tactic, *technique_ids))
                     except KeyError as e:
-                        click.secho(f'Unknown ID: {e.args[0]}')
+                        click.secho(f'Unknown ID: {e.args[0]} - entry not saved for: {tactic}', fg='red', err=True)
+                        continue
+                    except ValueError as e:
+                        click.secho(f'{e} - entry not saved for: {tactic}', fg='red', err=True)
                         continue
 
                 if len(threat_map) > 0:

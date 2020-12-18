@@ -16,10 +16,10 @@ from .utils import get_etc_path, get_etc_glob_path, read_gzip, gzip_compress
 
 PLATFORMS = ['Windows', 'macOS', 'Linux']
 CROSSWALK_FILE = get_etc_path('attack-crosswalk.json')
-SUB_TECHNIQUE_REDIRECT_MAP_FILE = get_etc_path('attack-replacement-map.json')
+TECHNIQUES_REDIRECT_FILE = get_etc_path('attack-replacement-map.json')
 
-with open(SUB_TECHNIQUE_REDIRECT_MAP_FILE, 'r') as f:
-    SUB_TECHNIQUE_REDIRECT_MAP = json.load(f)['mapping']
+with open(TECHNIQUES_REDIRECT_FILE, 'r') as f:
+    techniques_redirect_map = json.load(f)['mapping']
 
 tactics_map = {}
 
@@ -56,8 +56,8 @@ for item in attack["objects"]:
         if item.get('x_mitre_deprecated'):
             deprecated[technique_id] = item
 
-revoked = dict(sorted(revoked.items(), key=lambda x: x[0]))
-deprecated = dict(sorted(deprecated.items(), key=lambda x: x[0]))
+revoked = dict(sorted(revoked.items()))
+deprecated = dict(sorted(deprecated.items()))
 tactics = list(tactics_map)
 matrix = {tactic: [] for tactic in tactics}
 no_tactic = []
@@ -139,10 +139,13 @@ def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict:
 
     for tid in technique_ids:
         # fail if deprecated or else convert if it has been replaced
-        if tid in revoked:
+        if tid in deprecated:
             raise ValueError(f'Technique ID: {tid} has been deprecated and should not be used')
-        elif tid in SUB_TECHNIQUE_REDIRECT_MAP:
-            tid = SUB_TECHNIQUE_REDIRECT_MAP[tid]
+        elif tid in techniques_redirect_map:
+            tid = techniques_redirect_map[tid]
+
+        if tid not in matrix[tactic]:
+            raise ValueError(f'Technique ID: {tid} does not fall under tactic: {tactic}')
 
         # sub-techniques
         if '.' in tid:
@@ -212,17 +215,17 @@ def build_redirected_techniques_map(threads=50):
 
 def refresh_redirected_techniques_map(threads=50):
     """Refresh the locally saved copy of the mapping."""
-    global SUB_TECHNIQUE_REDIRECT_MAP
+    global techniques_redirect_map
 
     replacement_map = build_redirected_techniques_map(threads)
     mapping = {'saved_date': time.asctime(), 'mapping': replacement_map}
 
-    with open(SUB_TECHNIQUE_REDIRECT_MAP_FILE, 'w') as f:
+    with open(TECHNIQUES_REDIRECT_FILE, 'w') as f:
         json.dump(mapping, f, sort_keys=True, indent=2)
 
-    SUB_TECHNIQUE_REDIRECT_MAP = mapping
+    techniques_redirect_map = mapping
 
-    print(f'refreshed mapping file: {SUB_TECHNIQUE_REDIRECT_MAP_FILE}')
+    print(f'refreshed mapping file: {TECHNIQUES_REDIRECT_FILE}')
 
 
 def load_crosswalk_map():
