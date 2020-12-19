@@ -17,15 +17,17 @@ __all__ = (
     "downgrade",
     "CurrentSchema",
     "validate_rta_mapping",
+    "schema_map",
     "TomlMetadata",
 )
 
-all_schemas = [
-    ApiSchema78,
-    ApiSchema79,
-    ApiSchema710,
-    ApiSchema711,
-]
+schema_map = {
+    '7.8': ApiSchema78,
+    '7.9': ApiSchema79,
+    '7.10': ApiSchema710,
+    '7.11': ApiSchema711
+}
+all_schemas = list(schema_map.values())
 
 CurrentSchema = all_schemas[-1]
 

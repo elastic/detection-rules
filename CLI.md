@@ -176,11 +176,17 @@ Usage: detection_rules export-rules [OPTIONS] [RULE_ID]...
   Export rule(s) into an importable ndjson file.
 
 Options:
-  -f, --rule-file FILE       Export specified rule files
-  -d, --directory DIRECTORY  Recursively export rules from a directory
-  -o, --outfile FILE         Name of file for exported rules
-  -r, --replace-id           Replace rule IDs with new IDs before export
-  -h, --help                 Show this message and exit.
+  -f, --rule-file FILE            Export specified rule files
+  -d, --directory DIRECTORY       Recursively export rules from a directory
+  -o, --outfile FILE              Name of file for exported rules
+  -r, --replace-id                Replace rule IDs with new IDs before export
+  --downgrade-version [7.8|7.9|7.10|7.11]
+                                  Downgrade a rule version to be compatible
+                                  with older instances of Kibana
+  -s, --skip-unsupported          If `--downgrade-version` is passed, skip
+                                  rule types which are unsupported (an error
+                                  will be raised otherwise)
+  -h, --help                      Show this message and exit.
 ```
 
 _*To load a custom rule, the proper index must be setup first. The simplest way to do this is to click 

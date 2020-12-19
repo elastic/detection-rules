@@ -16,7 +16,7 @@ import click
 
 from . import rule_loader
 from .misc import JS_LICENSE
-from .rule import Rule  # noqa: F401
+from .rule import Rule, downgrade_contents_from_rule  # noqa: F401
 from .utils import get_path, get_etc_path, load_etc_dump, save_etc_dump
 
 RELEASE_DIR = get_path("releases")
@@ -247,16 +247,38 @@ class Package(object):
         if verbose:
             click.echo('Package saved to: {}'.format(save_dir))
 
-    def export(self, outfile, verbose=True):
+    def export(self, outfile, downgrade_version=None, verbose=True, skip_unsupported=False):
         """Export rules into a consolidated ndjson file."""
         base, _ = os.path.splitext(outfile)
         outfile = base + '.ndjson'
+        unsupported = []
 
         with open(outfile, 'w') as f:
-            f.write('\n'.join(json.dumps(r.contents, sort_keys=True) for r in self.rules))
+            if downgrade_version:
+                if skip_unsupported:
+                    export_str = ''
+
+                    for rule in self.rules:
+                        try:
+                            export_str += json.dumps(downgrade_contents_from_rule(rule, downgrade_version),
+                                                     sort_keys=True) + '\n'
+                        except ValueError as e:
+                            unsupported.append(f'{e}: {rule.id} - {rule.name}')
+                            continue
+
+                    f.write(export_str)
+                else:
+                    f.write('\n'.join(json.dumps(downgrade_contents_from_rule(r, downgrade_version), sort_keys=True)
+                            for r in self.rules))
+            else:
+                f.write('\n'.join(json.dumps(r.contents, sort_keys=True) for r in self.rules))
 
         if verbose:
-            click.echo(f'Exported {len(self.rules)} rules into {outfile}')
+            click.echo(f'Exported {len(self.rules) - len(unsupported)} rules into {outfile}')
+
+            if skip_unsupported and unsupported:
+                unsupported_str = '\n- '.join(unsupported)
+                click.echo(f'Skipped {len(unsupported)} unsupported rules: \n- {unsupported_str}')
 
     def get_package_hash(self, as_api=True, verbose=True):
         """Get hash of package contents."""
