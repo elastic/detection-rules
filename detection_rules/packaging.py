@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 from collections import defaultdict, OrderedDict
+from pathlib import Path
 from typing import List
 
 import click
@@ -249,28 +250,29 @@ class Package(object):
 
     def export(self, outfile, downgrade_version=None, verbose=True, skip_unsupported=False):
         """Export rules into a consolidated ndjson file."""
-        base, _ = os.path.splitext(outfile)
-        outfile = base + '.ndjson'
+        outfile = Path(outfile).with_suffix('.ndjson')
         unsupported = []
 
-        with open(outfile, 'w') as f:
-            if downgrade_version:
-                if skip_unsupported:
-                    export_str = ''
+        if downgrade_version:
+            if skip_unsupported:
+                export_str = ''
 
-                    for rule in self.rules:
-                        try:
-                            export_str += json.dumps(downgrade_contents_from_rule(rule, downgrade_version),
-                                                     sort_keys=True) + '\n'
-                        except ValueError as e:
-                            unsupported.append(f'{e}: {rule.id} - {rule.name}')
-                            continue
+                for rule in self.rules:
+                    try:
+                        export_str += json.dumps(downgrade_contents_from_rule(rule, downgrade_version),
+                                                 sort_keys=True) + '\n'
+                    except ValueError as e:
+                        unsupported.append(f'{e}: {rule.id} - {rule.name}')
+                        continue
 
+                with open(outfile, 'w') as f:
                     f.write(export_str)
-                else:
+            else:
+                with open(outfile, 'w') as f:
                     f.write('\n'.join(json.dumps(downgrade_contents_from_rule(r, downgrade_version), sort_keys=True)
                             for r in self.rules))
-            else:
+        else:
+            with open(outfile, 'w') as f:
                 f.write('\n'.join(json.dumps(r.contents, sort_keys=True) for r in self.rules))
 
         if verbose:
