@@ -38,7 +38,7 @@ class ApiSchema711(ApiSchema710):
     def downgrade(cls, target_cls, document, role=None):
         """Remove 7.11 additions from the rule."""
         # ignore when this method is inherited by subclasses
-        if cls == ApiSchema711 and "threat" in document:
+        if cls in (ApiSchema711, ApiSchema711.versioned()) and "threat" in document:
             v711_threats = document.get("threat", [])
             v710_threats = []
 
