@@ -1,0 +1,40 @@
+[metadata]
+creation_date = "2020/12/20"
+maturity = "production"
+updated_date = "2020/12/20"
+
+[rule]
+author = ["Elastic"]
+description = "Identifies the use of grep command to discover known security process names such as AntiVirus or Host Firewall."
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*"]
+language = "eql"
+license = "Elastic License"
+name = "Security Software Discovery using Grep"
+risk_score = 47
+rule_id = "870aecc0-cea4-4110-af3f-e02e9b373655"
+severity = "medium"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Discovery"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+ process.name:"grep" and
+ /* update here with new known security related process names */
+ (process.args:"Little Snitch" or (process.args:"Little\\" and process.args:"Snitch"))
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1518"
+name = "Software Discovery"
+reference = "https://attack.mitre.org/techniques/T1518/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
