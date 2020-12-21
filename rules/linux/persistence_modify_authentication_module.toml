@@ -9,7 +9,7 @@ description = """
 Adversaries may modify the standard Unix authentication module for persistence via patching the normal authorization
 process to allow unauthorized access.
 """
-false_positives = ["Trused System Modules Updates"]
+false_positives = ["Trused System Modules Updates or SysAdmin allowed PAM Deamon configuration changes."]
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
@@ -17,6 +17,7 @@ license = "Elastic License"
 name = "Modification of Unix Standard Authentication Module"
 references = [
     "https://github.com/zephrax/linux-pam-backdoor",
+    "https://github.com/eurialo/pambd",
     "http://0x90909090.blogspot.com/2016/06/creating-backdoor-in-pam-in-5-line-of.html",
     "https://www.trendmicro.com/en_us/research/19/i/skidmap-linux-malware-uses-rootkit-capabilities-to-hide-cryptocurrency-mining-payload.html",
 ]
@@ -27,7 +28,8 @@ tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence"]
 type = "eql"
 
 query = '''
-file where event.type == "change" and file.name:"pam_unix.so"
+file where event.type == "change" and
+ (file.name:"pam_unix.so" or file.path in ("/etc/pam.d/sshd", "/etc/pam.d/common-auth", "/etc/pam.d/chpasswd"))
 '''
 
 
