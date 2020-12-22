@@ -1,0 +1,45 @@
+[metadata]
+creation_date = "2020/12/22"
+maturity = "production"
+updated_date = "2020/12/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+SSH Authorized keys file specify which users are allowed to log into a server using public key authentication.
+Adversaries may modify it to maintain persistence on a victim host by adding their own adversary-supplied public keys.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "SSH Authorized Keys File Modification"
+risk_score = 47
+rule_id = "2215b8bd-1759-4ffa-8ab8-55c8e6b32e7f"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "macOS", "Threat Detection", "Persistence"]
+type = "query"
+
+query = '''
+event.category:file and event.type:(change or creation) and file.name:"authorized_keys"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.004"
+name = "SSH Authorized Keys"
+reference = "https://attack.mitre.org/techniques/T1098/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
