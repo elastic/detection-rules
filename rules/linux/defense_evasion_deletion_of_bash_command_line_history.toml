@@ -1,28 +1,34 @@
 [metadata]
 creation_date = "2020/05/04"
 maturity = "production"
-updated_date = "2020/11/03"
+updated_date = "2020/12/22"
 
 [rule]
 author = ["Elastic"]
 description = """
-Adversaries may attempt to clear the bash command line history in an attempt to evade detection or forensic
+Adversaries may attempt to clear or disable the bash command line history in an attempt to evade detection or forensic
 investigations.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "lucene"
+language = "eql"
 license = "Elastic License"
-name = "Deletion of Bash Command Line History"
+name = "Tampering of Bash Command Line History"
 risk_score = 47
 rule_id = "7bcbb3ac-e533-41ad-a612-d6c3bf666aba"
 severity = "medium"
 tags = ["Elastic", "Host", "Linux", "Threat Detection", "Defense Evasion"]
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process AND event.type:(start or process_started) AND process.name:rm AND
-  process.args:/\/(home\/.{1,255}|root)\/\.bash_history/
+process where event.type in ("start", "process_started") and
+ (
+  (process.name in ("rm", "echo") and wildcard(process.args, "/root/.bash_history", "/home/*/.bash_history")) or
+  (process.name == "history" and process.args == "-c") or
+  (process.name == "export" and process.args in ("HISTFILE=/dev/null", "HISTFILESIZE=0")) or
+  (process.name == "unset" and process.args == "HISTFILE") or
+  (process.name == "set" and process.args == "history" and process.args == "+o")
+ )
 '''
 
 
