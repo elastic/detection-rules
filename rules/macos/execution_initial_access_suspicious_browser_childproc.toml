@@ -1,0 +1,60 @@
+[metadata]
+creation_date = "2020/12/23"
+maturity = "production"
+updated_date = "2020/12/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of a suspicious Browser child process. Adversaries may gain access to a system through a user
+visiting a website over the normal course of browsing. With this technique, the user's web browser is typically targeted
+for exploitation.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Suspicious Browser Child Process"
+references = [
+    "https://objective-see.com/blog/blog_0x43.html",
+    "https://fr.slideshare.net/codeblue_jp/cb19-recent-apt-attack-on-crypto-exchange-employees-by-heungsoo-kang",
+]
+risk_score = 73
+rule_id = "080bc66a-5d56-4d1f-8071-817671716db9"
+severity = "high"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Initial Access", "Execution"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+ process.parent.name in ("Google Chrome", "firefox", "Safari", "Opera") and
+ /* add suspicious child processes here */
+ process.name in ("sh", "bash", "dash", "ksh", "tcsh", "zsh", "curl", "wget")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1203"
+name = "Exploitation for Client Execution"
+reference = "https://attack.mitre.org/techniques/T1203/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1189"
+name = "Drive-by Compromise"
+reference = "https://attack.mitre.org/techniques/T1189/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
