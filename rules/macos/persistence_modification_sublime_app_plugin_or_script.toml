@@ -1,0 +1,44 @@
+[metadata]
+creation_date = "2020/12/23"
+maturity = "production"
+updated_date = "2020/12/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Adversaries may create or modify the Sublime application Plugins or Scripts to execute a malicious payload every time
+the Sublime application is started as part of their persistence mechanism.
+"""
+false_positives = ["Legit Sublime Plugins or Application Updates"]
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Sublime Plugin or Application Script Modification"
+references = ["https://posts.specterops.io/persistent-jxa-66e1c3cd1cf5"]
+risk_score = 21
+rule_id = "88817a33-60d3-411f-ba79-7c905d865b2a"
+severity = "low"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Persistence"]
+type = "eql"
+
+query = '''
+file where event.type in ("change", "creation") and file.extension == "py" and
+ wildcard(file.path, "/Users/*/Library/Application Support/Sublime Text*/Packages/*.py", "/Applications/Sublime Text.app/Contents/MacOS/sublime.py") and
+ process.executable != "/Applications/Sublime Text.app/Contents/MacOS/Sublime Text"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
