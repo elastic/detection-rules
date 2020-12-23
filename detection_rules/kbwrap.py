@@ -69,6 +69,7 @@ def upload_rule(ctx, preserve_id, force, toml_files):
     manage_versions(rules, verbose=False)
 
     api_payloads = []
+    api_payloads_update = []
 
     for rule in rules:
         payload = rule.contents.copy()
@@ -77,6 +78,7 @@ def upload_rule(ctx, preserve_id, force, toml_files):
 
         # Determine the rule id to use.
         # Github issue 612
+        update = False
         if preserve_id and not force:
             with kibana:
                 # determine if the rule already exists
@@ -97,20 +99,30 @@ def upload_rule(ctx, preserve_id, force, toml_files):
                     overwrite = input("Overwrite existing rule: [y/n]")
                     if overwrite in ["y", "Y"]:
                         payload["rule_id"] = rule.id
+                        update = True
                     else:
                         payload["rule_id"] = str(uuid4())
                         print("New rule id = {}".format(payload["rule_id"]))
         elif preserve_id and force:
             payload["rule_id"] = rule.id
+            update = True
         else:
             payload["rule_id"] = str(uuid4())
         payload = downgrade(payload, kibana.version)
         rule = RuleResource(payload)
-        api_payloads.append(rule)
+        if update:
+            api_payloads_update.append(rule)
+        else:
+            api_payloads.append(rule)
 
     with kibana:
-        rules = RuleResource.bulk_create(api_payloads)
-        click.echo(f"Successfully uploaded {len(rules)} rules")
+        # Create new rules:
+        created_rules = RuleResource.bulk_create(api_payloads)
+        # Update rules
+        if len(api_payloads_update) > 0:
+            updated_rules = RuleResource.bulk_update(api_payloads_update)
+        total = len(created_rules) + len(updated_rules)
+        click.echo(f"Successfully uploaded {len(total)} rules")
 
 
 @kibana_group.command('search-alerts')

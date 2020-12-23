@@ -26,6 +26,14 @@ class BaseResource(dict):
         responses = Kibana.current().post(cls.BASE_URI + "/_bulk_create", data=resources)
         return [cls(r) for r in responses]
 
+    @classmethod
+    def bulk_update(cls, resources: list):
+        for r in resources:
+            assert isinstance(r, cls)
+
+        responses = Kibana.current().patch(cls.BASE_URI + "/_bulk_update", data=resources)
+        return [cls(r) for r in responses]
+
     def create(self):
         response = Kibana.current().post(self.BASE_URI, data=self)
         self.update(response)
