@@ -1,0 +1,48 @@
+[metadata]
+creation_date = "2020/12/23"
+maturity = "production"
+updated_date = "2020/12/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the use of sqlite3 to directly modify TCC SQLite database, this may indicate attempts to bypass MacOS privacy
+controls such as access sensitive resources like system camera, microphone, address book and calendar.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Potential MacOS Privacy Controls Bypass"
+references = [
+    "https://applehelpwriter.com/2016/08/29/discovering-how-dropbox-hacks-your-mac/",
+    "https://github.com/bp88/JSS-Scripts/blob/master/TCC.db Modifier.sh",
+]
+risk_score = 43
+rule_id = "eea82229-b002-470e-a9e1-00be38b14d32"
+severity = "medium"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Defense Evasion"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and process.name == "sqlite3" and
+  wildcard(process.args,
+             "Library/Application Support/com.apple.TCC/TCC.db ",
+             "~/Library/Application Support/com.apple.TCC/TCC.db",
+             "/Users/*/Library/Application Support/com.apple.TCC/TCC.db")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1089"
+name = "Disabling Security Tools"
+reference = "https://attack.mitre.org/techniques/T1089/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
