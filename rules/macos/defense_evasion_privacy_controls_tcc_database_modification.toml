@@ -17,6 +17,7 @@ name = "Potential MacOS Privacy Controls Bypass"
 references = [
     "https://applehelpwriter.com/2016/08/29/discovering-how-dropbox-hacks-your-mac/",
     "https://github.com/bp88/JSS-Scripts/blob/master/TCC.db Modifier.sh",
+    "https://medium.com/@mattshockl/cve-2020-9934-bypassing-the-os-x-transparency-consent-and-control-tcc-framework-for-4e14806f1de8",
 ]
 risk_score = 43
 rule_id = "eea82229-b002-470e-a9e1-00be38b14d32"
@@ -27,6 +28,7 @@ type = "eql"
 query = '''
 process where event.type in ("start", "process_started") and process.name == "sqlite3" and
   wildcard(process.args,
+             "TCC.db",
              "Library/Application Support/com.apple.TCC/TCC.db ",
              "~/Library/Application Support/com.apple.TCC/TCC.db",
              "/Users/*/Library/Application Support/com.apple.TCC/TCC.db")
