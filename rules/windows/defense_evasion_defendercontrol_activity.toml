@@ -1,0 +1,51 @@
+[metadata]
+creation_date = "2020/12/23"
+maturity = "production"
+updated_date = "2020/12/23"
+
+[rule]
+author = ["Elastic"]
+description = "DefenderControl is a portable utility used to disable Windows Defender through the use of the command-line or a GUI."
+false_positives = [
+    "DefenderControl is a legitimate tool that could be used by administrators to perform specific functions.",
+]
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "DefenderControl Activity Detected"
+note = "Detections should be investigated to identify if the hosts and users are authorized to use this tool. As this rule detects post-exploitation process activity, investigations into this should be prioritized"
+references = ["https://thedfirreport.com/2020/12/13/defender-control/"]
+risk_score = 21
+rule_id = "2ffa1f1e-b6db-47fa-994b-1512743847eb"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+type = "query"
+
+query = '''
+event.category:process and event.type: start and process.name:DefenderControl.exe and process.args:(("/TI" and "1") or ("/SYS" and "1") or ("/D"))
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.006"
+name = "Indicator Blocking"
+reference = "https://attack.mitre.org/techniques/T1562/006/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
