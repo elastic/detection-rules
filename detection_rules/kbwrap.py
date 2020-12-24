@@ -122,7 +122,7 @@ def upload_rule(ctx, preserve_id, force, toml_files):
         if len(api_payloads_update) > 0:
             updated_rules = RuleResource.bulk_update(api_payloads_update)
         total = len(created_rules) + len(updated_rules)
-        click.echo(f"Successfully uploaded {len(total)} rules")
+        click.echo(f"Successfully uploaded {total} rules")
 
 
 @kibana_group.command('search-alerts')
