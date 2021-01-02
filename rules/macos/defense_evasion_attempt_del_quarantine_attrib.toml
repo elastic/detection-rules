@@ -17,6 +17,7 @@ license = "Elastic License"
 name = "Attempt to Remove File Quarantine Attribute"
 references = [
     "https://www.trendmicro.com/en_us/research/20/k/new-macos-backdoor-connected-to-oceanlotus-surfaces.html",
+    "https://ss64.com/osx/xattr.html",
 ]
 risk_score = 43
 rule_id = "f0b48bbc-549e-4bcf-8ee0-a7a72586c6a7"
@@ -26,7 +27,11 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
-  process.name == "xattr" and process.args == "com.apple.quarantine" and process.args == "-d"
+  process.name == "xattr" and
+  (
+   process.args == "-c" or
+   (process.args == "com.apple.quarantine" and process.args == "-d")
+  )
 '''
 
 
@@ -42,3 +47,4 @@ reference = "https://attack.mitre.org/techniques/T1089/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
