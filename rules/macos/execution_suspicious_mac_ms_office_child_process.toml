@@ -1,0 +1,44 @@
+[metadata]
+creation_date = "2021/01/04"
+maturity = "production"
+updated_date = "2021/01/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious child processes of frequently targeted Microsoft Office applications (Word, PowerPoint, Excel).
+These child processes are often launched during exploitation of Office applications or from documents with malicious
+macros.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Suspicious MacOS MS Office Child Process"
+risk_score = 47
+rule_id = "66da12b1-ac83-40eb-814c-07ed1d82b7b9"
+severity = "medium"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Execution"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+ process.parent.name in ("Microsoft Word", "Microsoft PowerPoint", "Microsoft Excel")  and
+ process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "python*", "perl*", "php*", "osascript",
+                 "pwsh", "curl", "wget", "cp", "mv", "touch", "echo", "base64")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1193"
+name = "Spearphishing Attachment"
+reference = "https://attack.mitre.org/techniques/T1193/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
