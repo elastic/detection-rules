@@ -1,0 +1,39 @@
+[metadata]
+creation_date = "2020/01/05"
+maturity = "production"
+updated_date = "2020/01/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies attempt to unload the Elastic Endpoint Security kernel extension via kextunload command.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Attempt to Unload Elastic Endpoint Security Kernel Extension"
+risk_score = 43
+rule_id = "70fa1af4-27fd-4f26-bd03-50b6af6b9e24"
+severity = "medium"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Defense Evasion"]
+type = "query"
+
+query = '''
+event.category:process and event.type:(start or process_started) and
+ process.name:kextunload and process.args:("/System/Library/Extensions/EndpointSecurity.kext" or "EndpointSecurity.kext")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1089"
+name = "Disabling Security Tools"
+reference = "https://attack.mitre.org/techniques/T1089/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
