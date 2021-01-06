@@ -164,8 +164,11 @@ def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict:
         }
     }
 
+    # 7.11 techniques became optional but still needs to be defined as an empty array
     if tech_entries:
         entry['technique'] = sorted(tech_entries.values(), key=lambda x: x['id'])
+    else:
+        entry['technique'] = []
 
     return entry
 

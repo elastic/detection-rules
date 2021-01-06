@@ -7,7 +7,7 @@
 import jsl
 from .v7_8 import Threat as Threat78, MITRE_URL_PATTERN
 from .v7_10 import ApiSchema710
-from ..attack import sub_technique_id_list
+from ..attack import sub_technique_id_list, technique_id_list
 
 
 class Threat711(Threat78):
@@ -21,6 +21,9 @@ class Threat711(Threat78):
             name = jsl.StringField(required=True)
             reference = jsl.StringField(MITRE_URL_PATTERN.format(type='techniques') + r"[0-9]+/")
 
+        id = jsl.StringField(enum=technique_id_list, required=False)
+        name = jsl.StringField(required=False)
+        reference = jsl.StringField(MITRE_URL_PATTERN.format(type='techniques'), required=False)
         subtechnique = jsl.ArrayField(jsl.DocumentField(ThreatSubTechnique), required=False)
 
     # override the `technique` field definition
