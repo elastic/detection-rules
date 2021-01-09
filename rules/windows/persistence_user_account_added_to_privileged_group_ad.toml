@@ -1,0 +1,42 @@
+[metadata]
+creation_date = "2021/01/09"
+maturity = "development"
+updated_date = "2021/01/09"
+
+[rule]
+author = ["Skoetting"]
+description = "User Added to Privileged Group in Active Directory"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "User Added to Privileged Group in Active Directory"
+risk_score = 21
+rule_id = "5cd8e1f7-0050-4afc-b2df-904e40b2f5ae"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+type = "eql"
+
+query = '''
+iam where event.action == "added-member-to-group"
+and group.name in ("Administrators","Local Administrators","Domain Admins","Enterprise Admins","Backup Admins","Schema Admins","DnsAdmins")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1136/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
