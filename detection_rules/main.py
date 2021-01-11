@@ -150,7 +150,7 @@ def view_rule(ctx, rule_id, rule_file, api_format):
         client_error('Unknown format!')
 
     click.echo(toml_write(rule.rule_format()) if not api_format else
-               json.dumps(rule.contents, indent=2, sort_keys=True))
+               json.dumps(rule.get_payload(), indent=2, sort_keys=True))
 
     return rule
 

@@ -164,6 +164,31 @@ class Rule(object):
         defaults.update(metadata)
         return defaults
 
+    @staticmethod
+    def _add_empty_attack_technique(contents: dict = None):
+        """Add empty array to ATT&CK technique threat mapping."""
+        threat = contents.get('threat', [])
+
+        if threat:
+            new_threat = []
+
+            for entry in contents.get('threat', []):
+                if 'technique' not in entry:
+                    new_entry = entry.copy()
+                    new_entry['technique'] = []
+                    new_threat.append(new_entry)
+                else:
+                    new_threat.append(entry)
+
+            contents['threat'] = new_threat
+
+        return contents
+
+    def _run_build_time_transforms(self, contents):
+        """Apply changes to rules at build time for rule payload."""
+        self._add_empty_attack_technique(contents)
+        return contents
+
     def rule_format(self, formatted_query=True):
         """Get the contents in rule format."""
         contents = self.contents.copy()
@@ -299,7 +324,7 @@ class Rule(object):
             toml_write(self.rule_format(), path)
         else:
             with open(path, 'w', newline='\n') as f:
-                json.dump(self.contents, f, sort_keys=True, indent=2)
+                json.dump(self.get_payload(), f, sort_keys=True, indent=2)
                 f.write('\n')
 
         if verbose:
@@ -316,7 +341,42 @@ class Rule(object):
 
     def get_hash(self):
         """Get a standardized hash of a rule to consistently check for changes."""
-        return self.dict_hash(self.contents)
+        return self.dict_hash(self.get_payload())
+
+    def get_version(self):
+        """Get the version of the rule."""
+        from .packaging import load_versions
+
+        rules_versions = load_versions
+
+        if self.id in rules_versions:
+            version_info = rules_versions[self.id]
+            version = version_info['version']
+            return version + 1 if self.get_hash() != version_info['sha256'] else version
+        else:
+            return 1
+
+    def get_payload(self, include_version=False, replace_id=False, embed_metadata=False, target_version=None):
+        """Get rule as uploadable/API-compatible payload."""
+        from uuid import uuid4
+        from .schemas import downgrade
+
+        payload = self._run_build_time_transforms(self.contents.copy())
+
+        if include_version:
+            payload['version'] = self.get_version()
+
+        if embed_metadata:
+            meta = payload.setdefault("meta", {})
+            meta["original"] = dict(id=self.id, **self.metadata)
+
+        if replace_id:
+            payload["rule_id"] = str(uuid4())
+
+        if target_version:
+            payload = downgrade(payload, target_version)
+
+        return payload
 
     @classmethod
     def build(cls, path=None, rule_type=None, required_only=True, save=True, verbose=False, **kwargs):
