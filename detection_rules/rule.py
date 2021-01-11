@@ -356,7 +356,7 @@ class Rule(object):
         else:
             return 1
 
-    def get_payload(self, include_version=False, randomize_id=False, embed_metadata=False, target_version=None):
+    def get_payload(self, include_version=False, replace_id=False, embed_metadata=False, target_version=None):
         """Get rule as uploadable/API-compatible payload."""
         from uuid import uuid4
         from .schemas import downgrade
@@ -370,7 +370,7 @@ class Rule(object):
             meta = payload.setdefault("meta", {})
             meta["original"] = dict(id=self.id, **self.metadata)
 
-        if randomize_id:
+        if replace_id:
             payload["rule_id"] = str(uuid4())
 
         if target_version:

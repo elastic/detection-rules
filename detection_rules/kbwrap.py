@@ -66,7 +66,7 @@ def upload_rule(ctx, toml_files):
     api_payloads = []
 
     for rule in rules:
-        payload = rule.get_payload(include_version=True, randomize_id=True, embed_metadata=True,
+        payload = rule.get_payload(include_version=True, replace_id=True, embed_metadata=True,
                                    target_version=kibana.version)
         rule = RuleResource(payload)
         api_payloads.append(rule)
