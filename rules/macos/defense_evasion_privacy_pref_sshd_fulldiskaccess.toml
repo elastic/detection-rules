@@ -1,0 +1,56 @@
+[metadata]
+creation_date = "2020/01/11"
+maturity = "production"
+updated_date = "2020/01/11"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the use of scp to copy files locally abusing the auto addition of SSHD to the authorized application for Full
+Disk Access. This may indicate attempts to bypass MacOS privacy controls to access sensitive files.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Potential Privacy Controls Bypass via Localhost Secure Copy"
+references = [
+    "https://blog.trendmicro.com/trendlabs-security-intelligence/xcsset-mac-malware-infects-xcode-projects-performs-uxss-attack-on-safari-other-browsers-leverages-zero-day-exploits/",
+]
+risk_score = 73
+rule_id = "c02c8b9f-5e1d-463c-a1b0-04edcdfe1a3d"
+severity = "high"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Privilege Escalation", "Defense Evasion"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and process.name:"scp" and
+ process.args : "StrictHostKeyChecking=no" and wildcard(process.command_line, "scp *localhost:/*", "scp *127.0.0.1:/*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
