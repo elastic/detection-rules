@@ -116,6 +116,7 @@ def upload_rule(ctx, preserve_id, force, toml_files):
             api_payloads.append(rule)
 
     with kibana:
+        updated_rules = []
         # Create new rules:
         created_rules = RuleResource.bulk_create(api_payloads)
         # Update rules
