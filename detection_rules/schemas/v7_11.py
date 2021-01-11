@@ -21,9 +21,9 @@ class Threat711(Threat78):
             name = jsl.StringField(required=True)
             reference = jsl.StringField(MITRE_URL_PATTERN.format(type='techniques') + r"[0-9]+/")
 
-        id = jsl.StringField(enum=technique_id_list, required=False)
-        name = jsl.StringField(required=False)
-        reference = jsl.StringField(MITRE_URL_PATTERN.format(type='techniques'), required=False)
+        id = jsl.StringField(enum=technique_id_list, required=True)
+        name = jsl.StringField(required=True)
+        reference = jsl.StringField(MITRE_URL_PATTERN.format(type='techniques'), required=True)
         subtechnique = jsl.ArrayField(jsl.DocumentField(ThreatSubTechnique), required=False)
 
     # override the `technique` field definition
