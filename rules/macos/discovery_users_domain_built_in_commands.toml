@@ -1,0 +1,46 @@
+[metadata]
+creation_date = "2021/01/12"
+maturity = "production"
+updated_date = "2021/01/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of macOS built-in command related to accounts or groups enumeration.
+"""
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Enumeration of Users or Groups using Built-In Commands"
+risk_score = 21
+rule_id = "6e9b351e-a531-4bdc-b73e-7034d6eed7ff"
+severity = "low"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Discovery"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+ (process.name in ("ldapsearch", "dsmemberutil")) or
+ (process.name == "dscl" and process.args:("read", "-read", "list", "-list", "ls") and process.args:("Active Directory/*", "/Users*", "/Groups*"))
+
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
+
+[[rule.threat.technique]]
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
