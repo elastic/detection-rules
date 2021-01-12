@@ -16,7 +16,7 @@ DATE_PATTERN = r'\d{4}/\d{2}/\d{2}'
 MATURITY_LEVELS = ['development', 'experimental', 'beta', 'production', 'deprecated']
 OS_OPTIONS = ['windows', 'linux', 'macos', 'solaris']
 UUID_PATTERN = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
-VERSION_PATTERN = r'\d+\.\d+\.\d+'
+VERSION_PATTERN = r'\d+\.\d+\.\d+|master'
 
 
 class MarkdownField(jsl.StringField):

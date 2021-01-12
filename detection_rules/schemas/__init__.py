@@ -10,6 +10,7 @@ from ..semver import Version
 from .v7_8 import ApiSchema78
 from .v7_9 import ApiSchema79
 from .v7_10 import ApiSchema710
+from .v7_11 import ApiSchema711
 
 __all__ = (
     "all_schemas",
@@ -23,6 +24,7 @@ all_schemas = [
     ApiSchema78,
     ApiSchema79,
     ApiSchema710,
+    ApiSchema711,
 ]
 
 CurrentSchema = all_schemas[-1]

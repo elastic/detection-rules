@@ -612,10 +612,16 @@ def validate_ml_detections_asset(directory):
 
     now = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
 
-    job_paths = list(Path(directory).glob('*.json'))
-    rule_paths = list(Path(directory).glob('*.toml'))
+    all_files = list(Path(directory).glob('*'))
+    job_paths = [f for f in all_files if f.suffix == '.json']
+    rule_paths = [f for f in all_files if f.suffix == '.toml']
+    other_paths = [f for f in Path(directory).glob('*') if f.suffix not in ('.toml', '.json')]
     job_count = len(job_paths)
     rule_count = len(rule_paths)
+    other_count = len(other_paths)
+
+    if 'readme.md' not in [f.name.lower() for f in other_paths]:
+        client_error('Release is missing readme file')
 
     for job in job_paths:
         try:
@@ -648,8 +654,9 @@ def validate_ml_detections_asset(directory):
     click.secho('[!] run `es upload-ml-job` to test jobs on a live stack before releasing', fg='green')
 
     description = {
-        'Experimental ML rules': rule_count,
-        'Experimental ML jobs': str(job_count) + '\n\n----\n\n',
+        'Experimental rules': rule_count,
+        'Experimental ML jobs': job_count,
+        'Other files': str(other_count) + '\n\n----\n\n',
         'DGA release': '<add link to DGA release these detections were built on>',
         'date': now,
         'For details reference': 'https://github.com/elastic/detection-rules/blob/main/docs/ML_DGA.md'

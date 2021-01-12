@@ -66,6 +66,8 @@ for tactic in matrix:
 
 technique_lookup = OrderedDict(sorted(technique_lookup.items()))
 techniques = sorted({v['name'] for k, v in technique_lookup.items()})
+technique_id_list = [t for t in technique_lookup if '.' not in t]
+sub_technique_id_list = [t for t in technique_lookup if '.' in t]
 
 
 def refresh_attack_data(save=True):
@@ -111,21 +113,36 @@ def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict:
     """Build rule threat map from technique IDs."""
     url_base = 'https://attack.mitre.org/{type}/{id}/'
     tactic_id = tactics_map[tactic]
+    tech_entries = {}
+
+    def make_entry(_id):
+        e = {
+            'id': _id,
+            'name': technique_lookup[_id]['name'],
+            'reference': url_base.format(type='techniques', id=_id.replace('.', '/'))
+        }
+        return e
+
+    for tid in technique_ids:
+        # sub-techniques
+        if '.' in tid:
+            parent_technique, _ = tid.split('.', 1)
+            tech_entries.setdefault(parent_technique, make_entry(parent_technique))
+            tech_entries[parent_technique].setdefault('subtechnique', []).append(make_entry(tid))
+        else:
+            tech_entries.setdefault(tid, make_entry(tid))
+
     entry = {
         'framework': 'MITRE ATT&CK',
-        'technique': [
-            {
-                'id': tid,
-                'name': technique_lookup[tid]['name'],
-                'reference': url_base.format(type='techniques', id=tid)
-            } for tid in technique_ids
-        ],
         'tactic': {
             'id': tactic_id,
             'name': tactic,
             'reference': url_base.format(type='tactics', id=tactic_id)
         }
     }
+
+    if tech_entries:
+        entry['technique'] = sorted(tech_entries.values(), key=lambda x: x['id'])
 
     return entry
 
