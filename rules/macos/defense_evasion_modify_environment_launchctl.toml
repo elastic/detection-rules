@@ -1,0 +1,50 @@
+[metadata]
+creation_date = "2021/01/14"
+maturity = "production"
+updated_date = "2021/01/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies modification of an environment variable using launchctl built-in command. Adversaries may execute their own
+malicious payloads by hijacking certain environment variables to load arbitrary libraries or bypass certain
+restrictions.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Environment Variable Modification using Launchctl"
+references = [
+    "https://github.com/rapid7/metasploit-framework/blob/master//modules/post/osx/escalate/tccbypass.rb",
+]
+risk_score = 47
+rule_id = "7453e19e-3dbf-4e4e-9ae0-33d6c6ed15e1"
+severity = "medium"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Defense Evasion"]
+type = "query"
+
+query = '''
+event.category:process and event.type:(start or process_started) and
+  process.name:launchctl and process.args:setenv
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+[[rule.threat.technique.subtechnique]]
+id = "T1574.007"
+name = "Path Interception by PATH Environment Variable"
+reference = "https://attack.mitre.org/techniques/T1574/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
