@@ -1,0 +1,43 @@
+[metadata]
+creation_date = "2021/01/14"
+maturity = "production"
+updated_date = "2021/01/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies changes to Safari configuration using the built-in defaults command. Adversaries may attempt to enable or
+disable certain Safari settings such as enabling JavaScript from Apple Events or equivalent to ease users browsing
+hijack.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Safari Settings Modification using Defaults Command"
+references = ["https://objectivebythesea.com/v2/talks/OBTS_v2_Zohar.pdf"]
+risk_score = 43
+rule_id = "6482255d-f468-45ea-a5b3-d3a7de1331ae"
+severity = "medium"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Defense Evasion"]
+type = "query"
+
+query = '''
+event.category:process and event.type:(start or process_started) and
+ process.name:defaults and process.args:("com.apple.Safari" and write)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1089"
+name = "Disabling Security Tools"
+reference = "https://attack.mitre.org/techniques/T1089/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
