@@ -1,0 +1,48 @@
+[metadata]
+creation_date = "2021/01/15"
+maturity = "production"
+updated_date = "2021/01/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation or the execution of a cron task. Adversaries may abuse the cron jobs to perform task scheduling
+for initial or recurring execution of malicious code.
+"""
+false_positives = ["On macOS often only legacy legit software still uses cron."]
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Persistence via Cron Tasks"
+references = ["https://archive.f-secure.com/weblog/archives/00002576.html", "https://ss64.com/osx/crontab.html"]
+risk_score = 47
+rule_id = "b1c14366-f4f8-49a0-bcbb-51d2de8b0bb8"
+severity = "medium"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Persistence"]
+type = "query"
+
+query = '''
+event.category:process and event.type:(start or process_started or info) and
+  ((process.name:crontab and not process.args:("-l" or "-r")) or (process.parent.name:cron and not process.name:"running job"))
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+[[rule.threat.technique.subtechnique]]
+id = "T1053.003"
+name = "Cron"
+reference = "https://attack.mitre.org/techniques/T1053/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
