@@ -6,14 +6,14 @@ updated_date = "2020/12/23"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the execution of Automator Workflows process. Adversaries may drop a custom workflow template that host
+Identifies the execution of Automator Workflows process followed by a network connection from it's XPC service. Adversaries may drop a custom workflow template that host
 malicious JXA code as an alternative to using osascript.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License"
-name = "Script Execution via Automator Workflows"
+name = "Suspicious Workflows Automator Execution"
 references = ["https://posts.specterops.io/persistent-jxa-66e1c3cd1cf5"]
 risk_score = 47
 rule_id = "5d9f8cfc-0d03-443e-a167-2b0597ce0965"
@@ -23,8 +23,8 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan=30s
- [file where event.type in ("change", "creation") and file.extension == "wflow"]
  [process where event.type in ("start", "process_started") and process.name == "automator"]
+ [network where process.name:"com.apple.automator.runner"]
 '''
 
 
