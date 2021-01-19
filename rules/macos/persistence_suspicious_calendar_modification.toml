@@ -1,0 +1,51 @@
+[metadata]
+creation_date = "2021/01/19"
+maturity = "production"
+updated_date = "2021/01/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious modification of a Calendar file by an unusual process. Adversaries may create a custom Calendar
+notification procedure to execute a malicious program at recurrent interval for persistence.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Suspicious Calendar File Modification"
+references = [
+    "https://labs.f-secure.com/blog/operationalising-calendar-alerts-persistence-on-macos",
+    "https://github.com/FSecureLABS/CalendarPersist",
+    "https://github.com/D00MFist/PersistentJXA/blob/master/CalendarPersist.js",
+]
+risk_score = 47
+rule_id = "cb71aa62-55c8-42f0-b0dd-afb0bb0b1f51"
+severity = "medium"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Persistence"]
+type = "query"
+
+query = '''
+event.category:file and event.action:modification and
+ file.extension:ics and
+ file.path:/Users/*/Library/Calendars/*.calendar/Events/*.ics and
+ not process.executable:
+           (/System/Library/PrivateFrameworks/CalendarAgent.framework/Executables/* or
+            /System/Applications/Calendar.app/Contents/MacOS/* or
+            /usr/libexec/xpcproxy)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
