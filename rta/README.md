@@ -4,7 +4,7 @@
 
 ## Red Team Automation
 
-The repo comes with some red team automation([RTA](./)) python scripts that runs on Windows, Mac OS, and *nix. 
+The repo comes with some red team automation ([RTA](./)) python scripts that runs on Windows, Mac OS, and *nix. 
 
 ```console
 $   python -m rta -h
