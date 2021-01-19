@@ -1,0 +1,57 @@
+[metadata]
+creation_date = "2021/01/19"
+maturity = "production"
+updated_date = "2021/01/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Adversaries may establish persistence by executing malicious content triggered by a user’s shell. ~/.bash_profile and
+~/.bashrc are shell scripts that contain shell commands. These files are executed in a user's context when a new shell
+opens or when a user logs in so that their environment is set correctly.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Shell Profile Modification"
+references = ["https://www.anomali.com/blog/pulling-linux-rabbit-rabbot-malware-out-of-a-hat"]
+risk_score = 47
+rule_id = "e6c1a552-7776-44ad-ae0f-8746cc07773c"
+severity = "medium"
+tags = ["Elastic", "Host", "macOS", "Linux", "Threat Detection", "Execution", "Persistence"]
+type = "query"
+
+query = '''
+event.category:file and event.action:modification and
+ file.path:(
+    /private/etc/rc.local or
+    /etc/rc.local or
+	/home/*/.profile or
+	/home/*/.profile1 or
+	/home/*/.bash_profile or
+	/home/*/.bash_profile1 or
+	/home/*/.bashrc or
+	/Users/*/.bash_profile or
+	/Users/*/.zshenv)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+[[rule.threat.technique.subtechnique]]
+id = "T1546.004"
+name = ".bash_profile and .bashrc"
+reference = "https://attack.mitre.org/techniques/T1546/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
