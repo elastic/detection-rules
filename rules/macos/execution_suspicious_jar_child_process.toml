@@ -1,0 +1,48 @@
+[metadata]
+creation_date = "2021/01/19"
+maturity = "production"
+updated_date = "2021/01/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious child processes of a Java Archive (JAR) file. JARs may be used to deliver malware in order to
+evade detection.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Suspicious JAR Child Process"
+risk_score = 47
+rule_id = "8acb7614-1d92-4359-bfcf-478b6d9de150"
+severity = "medium"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Defense Evasion"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  process.parent.name:"java" and
+  process.name:("sh", "bash", "dash", "ksh", "tcsh", "zsh", "curl", "wget") and
+  process.args:"-jar" and process.args:"*.jar"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.007"
+name = "JavaScript/JScript"
+reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
