@@ -10,8 +10,6 @@ This repository was first announced on Elastic's blog post, [Elastic Security op
 
 
 ## Table of Contents
-- [Detection Rules](#detection-rules)
-  - [Table of Contents](#table-of-contents)
   - [Overview of this repository](#overview-of-this-repository)
   - [Getting started](#getting-started)
   - [Red Team Automation](#red-team-automation)
@@ -85,33 +83,6 @@ Commands:
 The [contribution guide](CONTRIBUTING.md) describes how to use the `create-rule` and `test` commands to create and test a new rule when contributing to Detection Rules.
 
 For more advanced command line interface (CLI) usage, refer to the [CLI guide](CLI.md).
-
-## Red Team Automation
-
-The repo comes with some red team automation([RTA](./rta)) python scripts that runs on Windows, Mac OS, and *nix. 
-
-```console
-$   python -m rta -h
-
-Monday, January 18, 2021 8:57:10 PM
-usage: rta [-h] ttp_name
-
-positional arguments:
-  ttp_name
-
-optional arguments:
-  -h, --help  show this help message and exit
-```
-ttp_name can be found in the [rta](./rta) directory. For example to execute ./rta/wevtutil_log_clear.py script, run command:
-
-```console
-$ python -m rta wevtutil_log_clear
-```
-
-Majority of the RTA scripts contain signal.rule.name info that maps to the Kibana Detection Signals - version 7.11 Beta
-
-
-
 
 ## How to contribute
 
