@@ -17,18 +17,18 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
 type = "eql"
 
 query = '''
-file where event.type != "deletion" and user.domain != "NT AUTHORITY"
-  and (
-    // detect shortcuts created by wscript.exe or cscript.exe
-      file.path : "C:\\*\\Programs\\Startup\\*.lnk" and
-      process.name : ("wscript.exe", "cscript.exe")
-      ) or
-     // detect vbs or js files created by any process
-     file.path : ("C:\\*\\Programs\\Startup\\*.vbs", 
-                  "C:\\*\\Programs\\Startup\\*.vbe", 
-                  "C:\\*\\Programs\\Startup\\*.wsh", 
-                  "C:\\*\\Programs\\Startup\\*.wsf", 
-                  "C:\\*\\Programs\\Startup\\*.js")
+file where event.type != "deletion" and user.domain != "NT AUTHORITY" and
+  
+  /* detect shortcuts created by wscript.exe or cscript.exe */
+  (file.path : "C:\\*\\Programs\\Startup\\*.lnk" and
+     process.name : ("wscript.exe", "cscript.exe")) or
+
+  /* detect vbs or js files created by any process */
+  file.path : ("C:\\*\\Programs\\Startup\\*.vbs", 
+               "C:\\*\\Programs\\Startup\\*.vbe", 
+               "C:\\*\\Programs\\Startup\\*.wsh", 
+               "C:\\*\\Programs\\Startup\\*.wsf", 
+               "C:\\*\\Programs\\Startup\\*.js")
 '''
 
 

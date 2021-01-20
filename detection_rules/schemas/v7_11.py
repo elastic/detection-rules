@@ -24,7 +24,7 @@ class Threat711(Threat78):
         subtechnique = jsl.ArrayField(jsl.DocumentField(ThreatSubTechnique), required=False)
 
     # override the `technique` field definition
-    technique = jsl.ArrayField(jsl.DocumentField(ThreatTechnique), required=True)
+    technique = jsl.ArrayField(jsl.DocumentField(ThreatTechnique), required=False)
 
 
 class ApiSchema711(ApiSchema710):
@@ -38,17 +38,30 @@ class ApiSchema711(ApiSchema710):
     def downgrade(cls, target_cls, document, role=None):
         """Remove 7.11 additions from the rule."""
         # ignore when this method is inherited by subclasses
-        if cls == ApiSchema711 and "threat" in document:
-            threat_field = list(document["threat"])
-            for threat in threat_field:
-                if "technique" in threat:
-                    threat["technique"] = [t.copy() for t in threat["technique"]]
+        if cls in (ApiSchema711, ApiSchema711.versioned()) and "threat" in document:
+            v711_threats = document.get("threat", [])
+            v710_threats = []
 
-                    for technique in threat["technique"]:
-                        technique.pop("subtechnique", None)
+            for threat in v711_threats:
+                # drop tactic without threat
+                if "technique" not in threat:
+                    continue
+
+                threat = threat.copy()
+                threat["technique"] = [t.copy() for t in threat["technique"]]
+
+                # drop subtechniques
+                for technique in threat["technique"]:
+                    technique.pop("subtechnique", None)
+
+                v710_threats.append(threat)
 
             document = document.copy()
-            document["threat"] = threat_field
+            document.pop("threat")
+
+            # only add if the array is not empty
+            if len(v710_threats) > 0:
+                document["threat"] = v710_threats
 
         # now strip any any unrecognized properties
         return target_cls.strip_additional_properties(document, role)
