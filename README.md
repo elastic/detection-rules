@@ -12,7 +12,7 @@ This repository was first announced on Elastic's blog post, [Elastic Security op
 ## Table of Contents
   - [Overview of this repository](#overview-of-this-repository)
   - [Getting started](#getting-started)
-  - [Red Team Automation](#red-team-automation)
+  - [Red Team Automation](rta)
   - [How to contribute](#how-to-contribute)
   - [Licensing](#licensing)
   - [Questions? Problems? Suggestions?](#questions-problems-suggestions)
