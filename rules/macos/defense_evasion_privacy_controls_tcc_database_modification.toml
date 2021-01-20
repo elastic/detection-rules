@@ -26,12 +26,8 @@ tags = ["Elastic", "Host", "macOS", "Threat Detection", "Defense Evasion"]
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and process.name == "sqlite3" and
-  wildcard(process.args,
-             "TCC.db",
-             "Library/Application Support/com.apple.TCC/TCC.db ",
-             "~/Library/Application Support/com.apple.TCC/TCC.db",
-             "/Users/*/Library/Application Support/com.apple.TCC/TCC.db")
+process where event.type in ("start", "process_started") and process.name : "sqlite*" and
+  wildcard(process.args, "/*/Application Support/com.apple.TCC/TCC.db")
 '''
 
 
