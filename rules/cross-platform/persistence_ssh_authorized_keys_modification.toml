@@ -21,7 +21,18 @@ tags = ["Elastic", "Host", "Linux", "macOS", "Threat Detection", "Persistence"]
 type = "query"
 
 query = '''
-event.category:file and event.type:(change or creation) and file.name:"authorized_keys"
+event.category:file and event.type:(change or creation) and file.name:"authorized_keys" and 
+ not process.executable:
+             (/Library/Developer/CommandLineTools/usr/bin/git or 
+              /usr/local/Cellar/maven/*/libexec/bin/mvn or 
+              /Library/Java/JavaVirtualMachines/jdk*.jdk/Contents/Home/bin/java or 
+              /usr/bin/vim or 
+              /usr/local/Cellar/coreutils/*/bin/gcat or 
+              /usr/bin/bsdtar or
+              /usr/bin/nautilus or 
+              /usr/bin/scp or
+              /usr/bin/touch or 
+              /var/lib/docker/*)
 '''
 
 
