@@ -12,7 +12,7 @@ user on the system as well as those protected by Apple’s privacy framework (TC
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License"
 name = "TCC Bypass via Mounted APFS Snapshot Access"
 references = ["https://theevilbit.github.io/posts/cve_2020_9771/"]
@@ -20,11 +20,11 @@ risk_score = 73
 rule_id = "b00bcd89-000c-4425-b94c-716ef67762f6"
 severity = "high"
 tags = ["Elastic", "Host", "macOS", "Threat Detection", "Defense Evasion"]
-type = "eql"
+type = "query"
 
 query = '''
-process where event.type in ("start", "process_started") and process.name == "mount_apfs" and
-  process.args : "/System/Volumes/Data" and process.args : "noowners"
+event.category : process and event.type : (start or process_started) and process.name : mount_apfs and
+  process.args : (/System/Volumes/Data and noowners)
 '''
 
 
