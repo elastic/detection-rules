@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/19"
 maturity = "production"
-updated_date = "2020/11/19"
+updated_date = "2021/01/20"
 
 [rule]
 author = ["Elastic"]
@@ -24,16 +24,19 @@ type = "eql"
 query = '''
 library where dll.name : "mstscax.dll" and
    /* depending on noise in your env add here extra paths  */
-   wildcard(process.executable, "C:\\Windows\\*",
-                                "C:\\Users\\Public\\*",
-                                "C:\\Users\\Default\\*",
-                                "C:\\Intel\\*",
-                                "C:\\PerfLogs\\*",
-                                "C:\\ProgramData\\*",
-                                "\\Device\\Mup\\*",
-                                "\\\\*") and
+  process.executable :
+    (
+    "C:\\Windows\\*",
+    "C:\\Users\\Public\\*",
+    "C:\\Users\\Default\\*",
+    "C:\\Intel\\*",
+    "C:\\PerfLogs\\*",
+    "C:\\ProgramData\\*",
+    "\\Device\\Mup\\*",
+    "\\\\*"
+    ) and
     /* add here FPs */
-   not process.executable in ("C:\\Windows\\System32\\mstsc.exe", "C:\\Windows\\SysWOW64\\mstsc.exe")
+   not process.executable : ("C:\\Windows\\System32\\mstsc.exe", "C:\\Windows\\SysWOW64\\mstsc.exe")
 '''
 
 
