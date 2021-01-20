@@ -8,20 +8,19 @@ author = ["Elastic"]
 description = "Identifies the use of grep command to discover known security process names such as AntiVirus or Host Firewall."
 from = "now-9m"
 index = ["logs-endpoint.events.*", "auditbeat-*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License"
 name = "Security Software Discovery using Grep"
 risk_score = 47
 rule_id = "870aecc0-cea4-4110-af3f-e02e9b373655"
 severity = "medium"
 tags = ["Elastic", "Host", "macOS", "Threat Detection", "Discovery"]
-type = "eql"
+type = "query"
 
 query = '''
-process where event.type in ("start", "process_started") and
- process.name:"grep" and
- /* update here with commonly probed security process names */
- (process.args : ("Little Snitch", "Snitch", "360|Keeper|MacMgr|Lemon|Malware|Avast|Avira*") or (process.args : "Little\\" and process.args : "Snitch"))
+event.category : process and event.type : (start or process_started) and
+ process.name : grep and
+ process.args : ("Little Snitch" or Avast* or Avira* or ESET* or esets_* or BlockBlock or 360* or LuLu or KnockKnock or kav or KIS or RTProtectionDaemon or Malware*)
 '''
 
 
