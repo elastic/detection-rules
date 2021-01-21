@@ -19,14 +19,14 @@ references = ["https://archive.f-secure.com/weblog/archives/00002576.html", "htt
 risk_score = 47
 rule_id = "b1c14366-f4f8-49a0-bcbb-51d2de8b0bb8"
 severity = "medium"
-tags = ["Elastic", "Host", "macOS", "Threat Detection", "Persistence"]
+tags = ["Elastic", "Host", "Linux", "macOS", "Threat Detection", "Persistence"]
 type = "query"
 
 query = '''
 event.category:process and event.type:(start or process_started or info) and
   (
    (process.name:crontab and not process.args:("-l" or "-r" or "-e" or "-help" or "-h") ) or 
-   (process.parent.name:cron and not process.name:"running job" and not user.name:"root" and 
+   (process.parent.name:cron and not process.name:"running job" and
     not process.executable:
                  (/Applications/Docker.app/Contents/Resources/bin/docker or 
                   /usr/bin/killall or 
