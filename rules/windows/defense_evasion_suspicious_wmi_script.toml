@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/02"
 maturity = "production"
-updated_date = "2020/11/03"
+updated_date = "2021/01/21"
 
 [rule]
 author = ["Elastic"]
@@ -23,10 +23,10 @@ type = "eql"
 query = '''
 sequence by process.entity_id with maxspan=2m
 [process where event.type in ("start", "process_started") and
-   (process.name : "WMIC.exe" or process.pe.original_file_name == "wmic.exe") and
-   wildcard(process.args, "format*:*", "/format*:*", "*-format*:*") and
-   not wildcard(process.command_line, "* /format:table *")]
-[library where event.type == "start" and file.name in ("jscript.dll", "vbscript.dll")]
+   (process.name:"WMIC.exe" or process.pe.original_file_name:"wmic.exe") and
+   process.args:("format*:*", "/format*:*", "*-format*:*") and
+   not process.command_line:"* /format:table *"]
+[library where event.type:"start" and file.name:("jscript.dll", "vbscript.dll")]
 '''
 
 

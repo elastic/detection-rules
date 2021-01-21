@@ -1,13 +1,13 @@
 [metadata]
 creation_date = "2020/10/19"
 maturity = "production"
-updated_date = "2020/10/19"
+updated_date = "2021/01/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies suspicious command execution (cmd) via Windows Management Instrumentation (WMI) on a remote host. This could be
-indicative of adversary lateral movement.
+Identifies suspicious command execution (cmd) via Windows Management Instrumentation (WMI) on a remote host. This could
+be indicative of adversary lateral movement.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "winlogbeat-*"]
@@ -22,8 +22,8 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
- process.parent.name == "WmiPrvSE.exe" and process.name == "cmd.exe" and
- wildcard(process.args, "\\\\127.0.0.1\\*") and process.args in ("2>&1", "1>")
+ process.parent.name:"WmiPrvSE.exe" and process.name:"cmd.exe" and
+ process.args:"\\\\127.0.0.1\\*" and process.args:("2>&1", "1>")
 '''
 
 
@@ -39,3 +39,4 @@ reference = "https://attack.mitre.org/techniques/T1047/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
+

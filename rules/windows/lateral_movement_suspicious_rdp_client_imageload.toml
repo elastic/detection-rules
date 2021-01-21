@@ -1,13 +1,13 @@
 [metadata]
 creation_date = "2020/11/19"
 maturity = "production"
-updated_date = "2020/11/19"
+updated_date = "2021/01/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies suspicious Image Loading of the Remote Desktop Services ActiveX Client (mstscax), this may indicate the presence
-of RDP lateral movement capability.
+Identifies suspicious Image Loading of the Remote Desktop Services ActiveX Client (mstscax), this may indicate the
+presence of RDP lateral movement capability.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "winlogbeat-*"]
@@ -24,16 +24,23 @@ type = "eql"
 query = '''
 library where file.name == "mstscax.dll" and
    /* depending on noise in your env add here extra paths  */
-   wildcard(process.executable, "C:\\Windows\\*",
-                                "C:\\Users\\Public\\*",
-                                "C:\\Users\\Default\\*",
-                                "C:\\Intel\\*",
-                                "C:\\PerfLogs\\*",
-                                "C:\\ProgramData\\*",
-                                "\\Device\\Mup\\*",
-                                "\\\\*") and
-    /* add here FPs */
-   not process.executable in ("C:\\Windows\\System32\\mstsc.exe", "C:\\Windows\\SysWOW64\\mstsc.exe")
+   process.executable:
+       (
+        "C:\\Windows\\*",
+        "C:\\Users\\Public\\*",
+        "C:\\Users\\Default\\*",
+        "C:\\Intel\\*",
+        "C:\\PerfLogs\\*",
+        "C:\\ProgramData\\*",
+        "\\Device\\Mup\\*",
+        "\\\\*"
+        ) and not
+   /* add FPs here */
+   process.executable:
+       (
+        "C:\\Windows\\System32\\mstsc.exe",
+        "C:\\Windows\\SysWOW64\\mstsc.exe"
+        )
 '''
 
 
@@ -49,3 +56,4 @@ reference = "https://attack.mitre.org/techniques/T1021/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
+
