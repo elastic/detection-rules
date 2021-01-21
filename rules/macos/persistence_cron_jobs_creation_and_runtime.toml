@@ -24,7 +24,17 @@ type = "query"
 
 query = '''
 event.category:process and event.type:(start or process_started or info) and
-  ((process.name:crontab and not process.args:("-l" or "-r")) or (process.parent.name:cron and not process.name:"running job"))
+  (
+   (process.name:crontab and not process.args:("-l" or "-r" or "-e" or "-help" or "-h") ) or 
+   (process.parent.name:cron and not process.name:"running job" and not user.name:"root" and 
+    not process.executable:
+                 (/Applications/Docker.app/Contents/Resources/bin/docker or 
+                  /usr/bin/killall or 
+                  /usr/sbin/sendmail or 
+                  /usr/bin/env or 
+                  /usr/bin/timeshift or
+                  /bin/rm))
+  )
 '''
 
 
