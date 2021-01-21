@@ -5,7 +5,10 @@ updated_date = "2020/12/20"
 
 [rule]
 author = ["Elastic"]
-description = "This rule identifies the use of the grep command to discover known third-party macOS security tools, such as AntiVirus or Host Firewall."
+description = """
+This rule identifies the use of the grep command to discover known third-party macOS and Linux security tools, such as
+AntiVirus or Host Firewall.
+"""
 from = "now-9m"
 index = ["logs-endpoint.events.*", "auditbeat-*"]
 language = "kuery"
@@ -14,7 +17,7 @@ name = "Security Software Discovery using Grep"
 risk_score = 47
 rule_id = "870aecc0-cea4-4110-af3f-e02e9b373655"
 severity = "medium"
-tags = ["Elastic", "Host", "macOS", "Threat Detection", "Discovery"]
+tags = ["Elastic", "Host", "macOS", "Linux", "Threat Detection", "Discovery"]
 type = "query"
 
 query = '''
@@ -37,7 +40,18 @@ event.category : process and event.type : (start or process_started) and
           VShieldScanner or 
           WebProtection or 
           webinspectord or 
-          McAfee*)
+          McAfee* or
+          isecespd* or
+          macmnsvc* or
+          masvc or
+          kesl or
+          avscan or
+          guard or
+          rtvscand or
+          symcfgd or
+          scmdaemon or
+          symantec
+          )
 '''
 
 
@@ -53,3 +67,4 @@ reference = "https://attack.mitre.org/techniques/T1518/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
