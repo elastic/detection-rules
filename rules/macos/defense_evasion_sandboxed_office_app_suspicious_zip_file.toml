@@ -6,15 +6,15 @@ updated_date = "2020/01/11"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the creation of suspicious zip file prepended with special chars. Sandboxed office applications are allowed
-to write file that start with special characters which can be combined with autostart location to achieve sandbox
-evasion.
+Identifies the creation of suspicious zip file prepended with special chars. Sandbox Microsoft Office applications are
+allowed to write files that start with special characters which can be combined with autostart location to achieve
+sandbox evasion.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License"
-name = "Potential Office Sandbox Evasion via LaunchAgent ZIP File"
+name = "Potential Office Sandbox Evasion via ZIP File"
 references = [
     "https://i.blackhat.com/USA-20/Wednesday/us-20-Wardle-Office-Drama-On-macOS.pdf",
     "https://www.mdsec.co.uk/2018/08/escaping-the-sandbox-microsoft-office-on-macos/",
@@ -23,24 +23,10 @@ references = [
 risk_score = 73
 rule_id = "d22a85c6-d2ad-4cc4-bf7b-54787473669a"
 severity = "high"
-tags = ["Elastic", "Host", "macOS", "Threat Detection", "Defense Evasion", "Persistence"]
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Defense Evasion"]
 type = "query"
 
 query = '''
 event.category:file and not event.type:deletion and file.name:~$*.zip
 '''
-
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1159"
-name = "Launch Agent"
-reference = "https://attack.mitre.org/techniques/T1159/"
-
-
-[rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
 
