@@ -12,7 +12,7 @@ time. An adversary may disable this attribute to evade defenses.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
 name = "Attempt to Remove File Quarantine Attribute"
 references = [
@@ -23,11 +23,15 @@ risk_score = 43
 rule_id = "f0b48bbc-549e-4bcf-8ee0-a7a72586c6a7"
 severity = "medium"
 tags = ["Elastic", "Host", "macOS", "Threat Detection", "Defense Evasion"]
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:("start" or "process_started") and 
- process.args:("xattr" and "com.apple.quarantine" and ("-d" or "-w"))
+ process where event.type in ("start", "process_started") and 
+  process.args:"xattr" and 
+   (
+    (process.args == "com.apple.quarantine" and process.args in ("-d", "-w")) or 
+    (process.args:"-c" and wildcard(process.command_line, "/bin/bash -c xattr -c *", "/bin/zsh -c xattr -c *", "/bin/sh -c xattr -c *"))
+   )
 '''
 
 
