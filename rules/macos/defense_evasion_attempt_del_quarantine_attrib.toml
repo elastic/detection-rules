@@ -26,12 +26,18 @@ tags = ["Elastic", "Host", "macOS", "Threat Detection", "Defense Evasion"]
 type = "eql"
 
 query = '''
- process where event.type in ("start", "process_started") and 
-  process.args:"xattr" and 
-   (
-    (process.args == "com.apple.quarantine" and process.args in ("-d", "-w")) or 
-    (process.args:"-c" and wildcard(process.command_line, "/bin/bash -c xattr -c *", "/bin/zsh -c xattr -c *", "/bin/sh -c xattr -c *"))
-   )
+process where event.type in ("start", "process_started") and
+  process.args:"xattr" and
+  (
+    (process.args:"com.apple.quarantine" and process.args in ("-d", "-w")) or
+    (process.args:"-c" and process.command_line:
+      (
+        "/bin/bash -c xattr -c *",
+        "/bin/zsh -c xattr -c *",
+        "/bin/sh -c xattr -c *"
+      )
+    )
+  )
 '''
 
 
