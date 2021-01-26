@@ -23,6 +23,7 @@ type = "query"
 
 query = '''
 event.category:process and event.type:(start or process_started or info) and
+not user.name:root and
   (
    (process.name:crontab and not process.args:("-l" or "-r" or "-e" or "-help" or "-h") ) or 
    (process.parent.name:cron and not process.name:"running job" and
