@@ -24,9 +24,11 @@ tags = ["Elastic", "Host", "macOS", "Threat Detection", "Privilege Escalation", 
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and process.name:"scp" and
- process.args : "StrictHostKeyChecking=no" and wildcard(process.command_line, "scp *localhost:/*", "scp *127.0.0.1:/*") and
- not wildcard(process.args, "vagrant@*127.0.0.1*")
+process where event.type in ("start", "process_started") and 
+ process.name:"scp" and
+ process.args:"StrictHostKeyChecking=no" and 
+ process.command_line:("scp *localhost:/*", "scp *127.0.0.1:/*") and
+ not process.args:"vagrant@*127.0.0.1*"
 '''
 
 
