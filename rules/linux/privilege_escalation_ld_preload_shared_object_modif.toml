@@ -1,0 +1,48 @@
+[metadata]
+creation_date = "2021/01/27"
+maturity = "production"
+updated_date = "2021/01/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the modification of the dynamic linker Preload shared object (ld.so.preload). Adversaries may execute their
+own malicious payloads by hijacking the dynamic linker used to load libraries.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Modification of the Dynamic Linker Preload Shared Object"
+references = [
+    "https://www.anomali.com/blog/rocke-evolves-its-arsenal-with-a-new-malware-family-written-in-golang",
+]
+risk_score = 47
+rule_id = "717f82c2-7741-4f9b-85b8-d06aeb853f4f"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Privilege Escalation", "Persistence"]
+type = "query"
+
+query = '''
+event.category:file and not event.type:deletion and file.path:/etc/ld.so.preload
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+[[rule.threat.technique.subtechnique]]
+id = "T1574.006"
+name = "LD_PRELOAD"
+reference = "https://attack.mitre.org/techniques/T1574/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
