@@ -27,9 +27,13 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
- process.pe.original_file_name:"xwizard.exe" and
- process.args:"RunWizard" and
- process.args:"{*}"
+ process.pe.original_file_name : "xwizard.exe" and
+ (
+   (process.args : "RunWizard" and process.args : "{*}") or
+   (process.executable != null and
+     not process.executable : ("C:\\Windows\\SysWOW64\\xwizard.exe", "C:\\Windows\\System32\\xwizard.exe")
+   )
+ )
 '''
 
 
