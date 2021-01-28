@@ -26,16 +26,17 @@ query = '''
 sequence by process.entity_id with maxspan=2m
   [process where event.type in ("start", "process_started") and
      /* uncomment once in winlogbeat */
-     /* process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true and */
-     not (process.name : "cscript.exe" or
-          process.name : "iexplore.exe" or
-          process.name : "MicrosoftEdge.exe" or
-          process.name : "msiexec.exe" or
-          process.name : "smartscreen.exe" or
-          process.name : "taskhostw.exe" or
-          process.name : "w3wp.exe" or
-          process.name : "wscript.exe")]
-  [library where event.type == "start" and dll.name : "scrobj.dll"]
+     /* process.code_signature.subject_name:"Microsoft Corporation" and process.code_signature.trusted:true and */
+     not process.name:(
+       "cscript.exe",
+       "iexplore.exe",
+       "MicrosoftEdge.exe",
+       "msiexec.exe",
+       "smartscreen.exe",
+       "taskhostw.exe",
+       "w3wp.exe",
+       "wscript.exe")]
+  [library where event.type == "start" and dll.name:"scrobj.dll"]
 '''
 
 
