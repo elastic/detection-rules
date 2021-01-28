@@ -1,13 +1,13 @@
 [metadata]
 creation_date = "2020/10/28"
 maturity = "production"
-updated_date = "2020/10/28"
+updated_date = "2020/12/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies attempts to bypass User Account Control (UAC) by abusing an elevated COM Interface to launch a rogue
-Windows ClipUp program. Attackers may attempt to bypass UAC to stealthily execute code with elevated permissions.
+Identifies attempts to bypass User Account Control (UAC) by abusing an elevated COM Interface to launch a rogue Windows
+ClipUp program. Attackers may attempt to bypass UAC to stealthily execute code with elevated permissions.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*"]
@@ -32,12 +32,17 @@ process.executable != "C:\\Windows\\System32\\ClipUp.exe" and process.parent.nam
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1088"
-name = "Bypass User Account Control"
-reference = "https://attack.mitre.org/techniques/T1088/"
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+[[rule.threat.technique.subtechnique]]
+id = "T1548.002"
+name = "Bypass User Access Control"
+reference = "https://attack.mitre.org/techniques/T1548/002/"
 
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
