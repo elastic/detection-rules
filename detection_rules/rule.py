@@ -382,7 +382,7 @@ class Rule(object):
                 while click.confirm('add mitre tactic?'):
                     tactic = schema_prompt('mitre tactic name', type='string', enum=tactics, required=True)
                     technique_ids = schema_prompt(f'technique or sub-technique IDs for {tactic}', type='array',
-                                                  required=True, enum=list(technique_lookup))
+                                                  required=False, enum=list(technique_lookup)) or []
 
                     try:
                         threat_map.append(build_threat_map_entry(tactic, *technique_ids))
