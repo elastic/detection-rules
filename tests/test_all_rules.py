@@ -268,6 +268,7 @@ class TestRuleTags(unittest.TestCase):
             'logs-endpoint.alerts-*': {'all': ['Endpoint Security']},
             'logs-endpoint.events.*': {'any': ['Windows', 'macOS', 'Linux', 'Host']},
             'logs-okta*': {'all': ['Okta']},
+            'logs-windows.*': {'all': ['Windows']},
             'packetbeat-*': {'all': ['Network']},
             'winlogbeat-*': {'all': ['Windows']}
         }
