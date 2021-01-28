@@ -58,7 +58,7 @@ class Filters(jsl.Document):
     exists = jsl.DocumentField(FilterExists)
     meta = jsl.DocumentField(FilterMetadata)
     state = jsl.DocumentField(FilterState, name='$state')
-    query = jsl.DocumentField(FilterQuery)
+    query = jsl.DictField()
 
 
 class Threat(jsl.Document):
