@@ -92,7 +92,8 @@ Any packetbeat documents with the field `dns.question.registered_domain` should 
 
 Once packetbeat data is being enriched, there are some rules and ML jobs which can leverage the enriched fields. 
 The experimental rules and jobs will be staged separate from the model bundle under the [releases](https://github.com/elastic/detection-rules/releases) 
-as `ML-experimental-detections-YYYMMDD-N`.
+as `ML-experimental-detections-YYYMMDD-N`. These releases should be considered independent of each other. Any relation
+to previously released experimental detections will be mentioned in the accompanying readme (such as an update to a rule).
 
 Note that if a rule is of `type = "machine_learning"`, then it may be dependent on a uploading and running a machine
 learning job first. If this is the case, it will likely be annotated within the `note` field of the rule.
@@ -166,6 +167,10 @@ All of these checks are automated and can be called with:
 
 Pay attention to the output to determine any necessary changes. This may not be all inclusive and actual testing on a 
 live stack should always occur even with passing validation before saving to a GitHub release
+
+#### Including a readme for detections release
+
+`ML-experimental-detections-*` releases will need to include a readme to provide an overview of the included files
 
 #### Releasing
 
