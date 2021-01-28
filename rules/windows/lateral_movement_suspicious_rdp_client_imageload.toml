@@ -22,9 +22,9 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
 type = "eql"
 
 query = '''
-library where dll.name:"mstscax.dll" and
+library where dll.name : "mstscax.dll" and
    /* depending on noise in your env add here extra paths  */
-  process.executable:
+  process.executable :
     (
     "C:\\Windows\\*",
     "C:\\Users\\Public\\*",
@@ -34,9 +34,9 @@ library where dll.name:"mstscax.dll" and
     "C:\\ProgramData\\*",
     "\\Device\\Mup\\*",
     "\\\\*"
-    ) and
+    ) and not
     /* add here FPs */
-   not process.executable:("C:\\Windows\\System32\\mstsc.exe", "C:\\Windows\\SysWOW64\\mstsc.exe")
+  process.executable : ("C:\\Windows\\System32\\mstsc.exe", "C:\\Windows\\SysWOW64\\mstsc.exe")
 '''
 
 

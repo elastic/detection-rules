@@ -21,12 +21,12 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
 type = "eql"
 
 query = '''
-sequence by host.id with maxspan=5s
-    [library where dll.name:"wmiutils.dll" and process.name:("wscript.exe", "cscript.exe")]
+sequence by host.id with maxspan = 5s
+    [library where dll.name : "wmiutils.dll" and process.name : ("wscript.exe", "cscript.exe")]
     [process where event.type in ("start", "process_started") and
-     process.parent.name:"wmiprvse.exe" and
+     process.parent.name : "wmiprvse.exe" and
      user.domain != "NT AUTHORITY" and
-     (process.pe.original_file_name:
+     (process.pe.original_file_name :
         (
           "cscript.exe",
           "wscript.exe",
@@ -45,7 +45,7 @@ sequence by host.id with maxspan=5s
           "Microsoft.Workflow.Compiler.exe",
           "msiexec.exe"
         ) or
-      process.executable:("C:\\Users\\*.exe", "C:\\ProgramData\\*.exe")
+      process.executable : ("C:\\Users\\*.exe", "C:\\ProgramData\\*.exe")
      )
     ]
 '''
