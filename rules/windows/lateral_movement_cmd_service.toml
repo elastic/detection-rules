@@ -21,12 +21,12 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
 type = "eql"
 
 query = '''
-sequence by process.entity_id with maxspan=1m
+sequence by process.entity_id with maxspan = 1m
   [process where event.type in ("start", "process_started") and
-     (process.name:"sc.exe" or process.pe.original_file_name:"sc.exe") and
-      process.args:"\\\\*" and process.args:("binPath=*", "binpath=*") and
-      process.args:("create", "config", "failure", "start")]
-  [network where process.name:"sc.exe" and destination.ip != "127.0.0.1"]
+     (process.name : "sc.exe" or process.pe.original_file_name : "sc.exe") and
+      process.args : "\\\\*" and process.args : ("binPath=*", "binpath=*") and
+      process.args : ("create", "config", "failure", "start")]
+  [network where process.name : "sc.exe" and destination.ip != "127.0.0.1"]
 '''
 
 

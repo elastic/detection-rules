@@ -21,12 +21,12 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 type = "eql"
 
 query = '''
-sequence by process.entity_id with maxspan=2m
+sequence by process.entity_id with maxspan = 2m
 [process where event.type in ("start", "process_started") and
-   (process.name:"WMIC.exe" or process.pe.original_file_name:"wmic.exe") and
-   process.args:("format*:*", "/format*:*", "*-format*:*") and
-   not process.command_line:"* /format:table *"]
-[library where event.type:"start" and file.name:("jscript.dll", "vbscript.dll")]
+   (process.name : "WMIC.exe" or process.pe.original_file_name : "wmic.exe") and
+   process.args : ("format*:*", "/format*:*", "*-format*:*") and
+   not process.command_line : "* /format:table *"]
+[library where event.type : "start" and file.name : ("jscript.dll", "vbscript.dll")]
 '''
 
 
