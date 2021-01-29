@@ -1,0 +1,45 @@
+[metadata]
+creation_date = "2020/02/18"
+maturity = "production"
+updated_date = "2020/01/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a PowerShell process launched by either cscript.exe or wscript.exe. Observing Windows scripting processes
+executing a PowerShell script, may be indicative of malicious activity.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Windows Script Executing PowerShell"
+risk_score = 21
+rule_id = "f545ff26-3c94-4fd0-bd33-3c7f95a3a0fc"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+type = "query"
+
+query = '''
+event.category:process and event.type:(start or process_started) and process.parent.name:(cscript.exe or wscript.exe) and process.name:powershell.exe
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.001"
+name = "Spearphishing Attachment"
+reference = "https://attack.mitre.org/techniques/T1566/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
