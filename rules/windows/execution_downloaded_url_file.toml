@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 maturity = "development"
 query_schema_validation = false
-updated_date = "2020/11/03"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ Identifies .url shortcut files downloaded from outside the local network. These 
 phishing campaigns.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "Downloaded URL Files"
@@ -36,28 +36,35 @@ sequence by process.entity_id with maxspan=2s
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1193"
-name = "Spearphishing Attachment"
-reference = "https://attack.mitre.org/techniques/T1193/"
-
-[[rule.threat.technique]]
-id = "T1192"
-name = "Spearphishing Link"
-reference = "https://attack.mitre.org/techniques/T1192/"
-
-[[rule.threat.technique]]
 id = "T1204"
 name = "User Execution"
 reference = "https://attack.mitre.org/techniques/T1204/"
-
-[[rule.threat.technique]]
-id = "T1064"
-name = "Scripting"
-reference = "https://attack.mitre.org/techniques/T1064/"
 
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.001"
+name = "Spearphishing Attachment"
+reference = "https://attack.mitre.org/techniques/T1566/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
 
