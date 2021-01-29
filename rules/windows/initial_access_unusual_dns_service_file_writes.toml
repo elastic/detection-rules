@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/07/16"
 maturity = "production"
-updated_date = "2020/01/28"
+updated_date = "2020/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -9,7 +9,7 @@ description = """
 Identifies an unexpected file being modified by dns.exe, the process responsible for Windows DNS Server services, which
 may indicate activity related to remote code execution or other forms of exploitation.
 """
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License"
 name = "Unusual File Modification by dns.exe"
@@ -28,9 +28,7 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
 type = "query"
 
 query = '''
-event.category:file and process.name:dns.exe and 
-  event.type:(creation or deletion or change) and
-  not file.name:dns.log
+event.category:file and process.name:dns.exe and event.type:(creation or deletion or change) and not file.name:dns.log
 '''
 
 
@@ -43,7 +41,7 @@ reference = "https://attack.mitre.org/techniques/T1133/"
 
 
 [rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
 
