@@ -1,10 +1,10 @@
-[![Supported Python versions](https://img.shields.io/badge/python-3.7+-yellow.svg)](https://www.python.org/downloads/)
-[![Unit Tests](https://github.com/elastic/detection-rules/workflows/Unit%20Tests/badge.svg)](https://github.com/elastic/detection-rules/actions)
-[![Chat](https://img.shields.io/badge/chat-%23security--detection--rules-blueviolet)](https://ela.st/slack)
-
 ## Red Team Automation
 
-The repo comes with some red team automation ([RTA](./)) python scripts that runs on Windows, Mac OS, and *nix. 
+[![Supported Python versions](https://img.shields.io/badge/python-3.7+-yellow.svg)](https://www.python.org/downloads/)
+[![Chat](https://img.shields.io/badge/chat-%23security--detection--rules-blueviolet)](https://ela.st/slack)
+
+The repo comes with some red team automation ([RTA](./)) python scripts that run on Windows, Mac OS, and \*nix. 
+RTA scripts emulate known attacker behaviors and are an easy way too verify that your rules are active and working as expected.
 
 ```console
 $   python -m rta -h
@@ -16,10 +16,14 @@ positional arguments:
 optional arguments:
   -h, --help  show this help message and exit
 ```
+<<<<<<< HEAD
 ttp_name can be found in the [rta](./rta) directory. For example to execute `./rta/wevtutil_log_clear.py` script, run command:
+=======
+`ttp_name` is the name of a script that can be found in the [rta](./rta) directory. For example, to execute ./rta/wevtutil_log_clear.py script, run command:
+>>>>>>> 607d8cf06a298ec4edf8c0e326b3c1a9ace509ea
 
 ```console
 $ python -m rta wevtutil_log_clear
 ```
 
-Majority of the RTA scripts contain signal.rule.name info that maps to the Kibana Detection Signals - version 7.11 Beta
+Most of the RTA scripts contain a comment with the rule name, in `signal.rule.name`, that maps to the Kibana Detection Signals.
