@@ -25,7 +25,7 @@ query = '''
 sequence by host.id, process.entity_id with maxspan = 1s
   [process where event.type == "start" and process.parent.name : "iexplore.exe" and process.parent.args : "-Embedding"]
   /* IE started via COM in normal conditions makes few connections, mainly to Microsoft and OCSP related domains, add FPs here */
-  [network where network.protocol : "dns" and process.name : "iexplore.exe" and
+  [network where network.protocol == "dns" and process.name : "iexplore.exe" and
    not dns.question.name :
    (
     "*.microsoft.com",
