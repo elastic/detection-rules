@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/01"
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2020/12/15"
 
 [rule]
 author = ["Elastic"]
@@ -10,7 +10,7 @@ Identifies when an Azure Automation runbook is deleted. An adversary may delete 
 disrupt their target's automated business operations or to remove a malicious runbook that was used for persistence.
 """
 from = "now-25m"
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License"
 name = "Azure Automation Runbook Deleted"
@@ -28,6 +28,6 @@ tags = ["Elastic", "Cloud", "Azure", "Continuous Monitoring", "SecOps", "Configu
 type = "query"
 
 query = '''
-event.dataset:azure.activitylogs and azure.activitylogs.operation_name:MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/RUNBOOKS/DELETE and event.outcome:Success
+event.dataset:azure.activitylogs and azure.activitylogs.operation_name:MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/RUNBOOKS/DELETE and event.outcome:(Success or success)
 '''
 
