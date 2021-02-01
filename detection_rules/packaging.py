@@ -206,17 +206,22 @@ class Package(object):
     def save_release_files(self, directory, changed_rules, new_rules, removed_rules):
         """Release a package."""
         summary, changelog = self.generate_summary_and_changelog(changed_rules, new_rules, removed_rules)
-        rules_index = self.create_bulk_index_body()
-
         with open(os.path.join(directory, f'{self.name}-summary.txt'), 'w') as f:
             f.write(summary)
         with open(os.path.join(directory, f'{self.name}-changelog-entry.md'), 'w') as f:
             f.write(changelog)
+
+        consolidated = json.loads(self.get_consolidated())
         with open(os.path.join(directory, f'{self.name}-consolidated.json'), 'w') as f:
-            json.dump(json.loads(self.get_consolidated()), f, sort_keys=True, indent=2)
+            json.dump(consolidated, f, sort_keys=True, indent=2)
+        with open(os.path.join(directory, f'{self.name}-consolidated.ndjson'), 'w') as f:
+            f.write('\n'.join(json.dumps(r, sort_keys=True) for r in consolidated))
+
+        self.generate_xslx(os.path.join(directory, f'{self.name}-summary.xlsx'))
+
+        rules_index = self.create_bulk_index_body()
         with open(os.path.join(directory, f'{self.name}-rules-index.ndjson'), 'w') as f:
             f.write(rules_index)
-        self.generate_xslx(os.path.join(directory, f'{self.name}-summary.xlsx'))
 
     def get_consolidated(self, as_api=True):
         """Get a consolidated package of the rules in a single file."""
