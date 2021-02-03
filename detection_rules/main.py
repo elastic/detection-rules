@@ -7,6 +7,7 @@ import glob
 import json
 import os
 import re
+from pathlib import Path
 
 import click
 import jsonschema
@@ -47,6 +48,42 @@ def create_rule(path, config, required_only, rule_type):
         return Rule.build(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
     finally:
         rule_loader.reset()
+
+
+@root.command('generate-rules-index')
+@click.option('--query', '-q', help='Optional KQL query to limit to specific rules')
+@click.option('--overwrite', is_flag=True, help='Overwrite files in an existing folder')
+@click.pass_context
+def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
+    """Generate enriched indexes of rules, based on a KQL search, for indexing/importing into elasticsearch/kibana."""
+    from . import rule_loader
+    from .packaging import CURRENT_PACKAGE_VERSION, Package
+
+    if query:
+        rule_paths = [r['file'] for r in ctx.invoke(search_rules, query=query, verbose=False)]
+        rules = rule_loader.load_rules(rule_loader.load_rule_files(paths=rule_paths, verbose=False), verbose=False)
+        rules = rules.values()
+    else:
+        rules = rule_loader.load_rules(verbose=False).values()
+
+    rule_count = len(rules)
+    package = Package(rules, CURRENT_PACKAGE_VERSION, verbose=False)
+    package_hash = package.get_package_hash()
+    uploadable_bulk_index, importable_bulk_index = package.create_bulk_index_body()
+
+    if save_files:
+        path = Path(get_path('enriched-rule-indexes', package_hash))
+        path.mkdir(parents=True, exist_ok=overwrite)
+        with open(path.joinpath('enriched-rules-index-uploadable.ndjson'), 'w') as f:
+            f.write(uploadable_bulk_index)
+        with open(path.joinpath('enriched-rules-index-importable.ndjson'), 'w') as f:
+            f.write(importable_bulk_index)
+
+        click.echo(f'files saved to: {path}')
+
+    click.echo(f'{rule_count} rules included')
+
+    return uploadable_bulk_index, importable_bulk_index
 
 
 @root.command('import-rules')

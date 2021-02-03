@@ -393,44 +393,31 @@ def collect_events(ctx, host_id, query, index, rta_name, rule_id, view_events):
 
 @es_group.command('index-rules')
 @click.option('--query', '-q', help='Optional KQL query to limit to specific rules')
-@click.option('--from-file', '-f', type=click.File('r'), help='Load a previously saved bulk file')
-@click.option('--outfile', '-o', type=click.File('w'), help='Optionally save the bulk request to a file')
+@click.option('--from-file', '-f', type=click.File('r'), help='Load a previously saved uploadable bulk file')
+@click.option('--save_files', '-s', is_flag=True, help='Optionally save the bulk request to a file')
 @click.pass_context
-def index_repo(ctx: click.Context, query, from_file, outfile):
+def index_repo(ctx: click.Context, query, from_file, save_files):
     """Index rules based on KQL search results to an elasticsearch instance."""
-    from . import rule_loader
-    from .main import search_rules
-    from .packaging import CURRENT_PACKAGE_VERSION, Package
+    from .main import generate_rules_index
 
     es_client: Elasticsearch = ctx.obj['es']
 
     if from_file:
-        bulk_index_body = from_file.read()
+        uploadable_bulk_index = from_file.read()
 
         # light validation only
         try:
-            index_body = [json.loads(line) for line in bulk_index_body.splitlines()]
+            index_body = [json.loads(line) for line in uploadable_bulk_index.splitlines()]
             rule_count = len([r for r in index_body if 'rule' in r])
         except json.JSONDecodeError:
             client_error(f'Improperly formatted bulk request file: {from_file.name}')
     else:
-        if query:
-            rule_paths = [r['file'] for r in ctx.invoke(search_rules, query=query, verbose=False)]
-            rules = rule_loader.load_rules(rule_loader.load_rule_files(paths=rule_paths, verbose=False), verbose=False)
-            rules = rules.values()
-        else:
-            rules = rule_loader.load_rules(verbose=False).values()
-
-        rule_count = len(rules)
-        package = Package(rules, CURRENT_PACKAGE_VERSION, verbose=False)
-        bulk_index_body = package.create_bulk_index_body()
-
-        if outfile:
-            outfile.write(bulk_index_body)
+        uploadable_bulk_index, importable_bulk_index = ctx.invoke(generate_rules_index, query=query,
+                                                                  save_files=save_files)
 
     click.echo(f'{rule_count} rules included')
 
-    es_client.bulk(bulk_index_body)
+    es_client.bulk(uploadable_bulk_index)
 
 
 @es_group.group('experimental')

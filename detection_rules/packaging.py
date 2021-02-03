@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 from collections import defaultdict, OrderedDict
+from typing import Tuple
 
 import click
 from eql import load_dump
@@ -166,7 +167,7 @@ class Package(object):
                                save_changes=update_versions_lock, verbose=verbose)
 
     @staticmethod
-    def _package_notice_file(save_dir):
+    def _package_kibana_notice_file(save_dir):
         """Convert and save notice file with package."""
         with open(NOTICE_FILE, 'rt') as f:
             notice_txt = f.read()
@@ -177,7 +178,7 @@ class Package(object):
             lines = lines + commented_notice + [' */', '']
             f.write('\n'.join(lines))
 
-    def _package_index_file(self, save_dir):
+    def _package_kibana_index_file(self, save_dir):
         """Convert and save index file with package."""
         sorted_rules = sorted(self.rules, key=lambda k: (k.metadata['creation_date'], os.path.basename(k.path)))
         comments = [
@@ -212,16 +213,18 @@ class Package(object):
             f.write(changelog)
 
         consolidated = json.loads(self.get_consolidated())
-        with open(os.path.join(directory, f'{self.name}-consolidated.json'), 'w') as f:
+        with open(os.path.join(directory, f'{self.name}-consolidated-rules.json'), 'w') as f:
             json.dump(consolidated, f, sort_keys=True, indent=2)
-        with open(os.path.join(directory, f'{self.name}-consolidated.ndjson'), 'w') as f:
+        with open(os.path.join(directory, f'{self.name}-consolidated-rules.ndjson'), 'w') as f:
             f.write('\n'.join(json.dumps(r, sort_keys=True) for r in consolidated))
 
         self.generate_xslx(os.path.join(directory, f'{self.name}-summary.xlsx'))
 
-        rules_index = self.create_bulk_index_body()
-        with open(os.path.join(directory, f'{self.name}-rules-index.ndjson'), 'w') as f:
+        rules_index, ndjson_index = self.create_bulk_index_body()
+        with open(os.path.join(directory, f'{self.name}-enriched-rules-index-uploadable.ndjson'), 'w') as f:
             f.write(rules_index)
+        with open(os.path.join(directory, f'{self.name}-enriched-rules-index-importable.ndjson'), 'w') as f:
+            f.write(ndjson_index)
 
     def get_consolidated(self, as_api=True):
         """Get a consolidated package of the rules in a single file."""
@@ -245,8 +248,8 @@ class Package(object):
         for rule in self.rules:
             rule.save(new_path=os.path.join(rules_dir, os.path.basename(rule.path)))
 
-        self._package_notice_file(rules_dir)
-        self._package_index_file(rules_dir)
+        self._package_kibana_notice_file(rules_dir)
+        self._package_kibana_index_file(rules_dir)
 
         if self.release:
             self.save_release_files(extras_dir, self.changed_rule_ids, self.new_rules_ids, self.removed_rule_ids)
@@ -424,7 +427,7 @@ class Package(object):
         """Bump the versions of all production rules included in a release and optionally save changes."""
         return manage_versions(self.rules, current_versions=current_versions, save_changes=save_changes)
 
-    def create_bulk_index_body(self, source='repo') -> str:
+    def create_bulk_index_body(self, source='repo') -> Tuple[str, str]:
         """Create a body to bulk index into a stack."""
         package_hash = self.get_package_hash(verbose=False)
         now = datetime.datetime.isoformat(datetime.datetime.now())
@@ -442,6 +445,7 @@ class Package(object):
             'details': {'datetime_uploaded': now}
         }
         rule_docs = [create, summary_doc]
+        ndjson_docs = []
 
         for rule in self.rules:
             summary_doc['rule_ids'].append(rule.id)
@@ -451,7 +455,11 @@ class Package(object):
                 else 'unmodified'
 
             rule_docs.append(create)
-            rule_docs.append(rule.detailed_format(hash=rule.get_hash(), source=source, datetime_uploaded=now,
-                                                  status=status, package_version=self.name).copy())
+            rule_doc = rule.detailed_format(hash=rule.get_hash(), source=source, datetime_uploaded=now,
+                                            status=status, package_version=self.name).copy()
+            rule_docs.append(rule_doc)
+            ndjson_docs.append(rule_doc)
 
-        return '\n'.join(json.dumps(d, sort_keys=True) for d in rule_docs) + '\n'
+        rules_index = '\n'.join(json.dumps(d, sort_keys=True) for d in rule_docs) + '\n'
+        ndjson_index = '\n'.join(json.dumps(d, sort_keys=True) for d in ndjson_docs) + '\n'
+        return rules_index, ndjson_index
