@@ -1,0 +1,66 @@
+[metadata]
+creation_date = "2021/01/19"
+maturity = "production"
+updated_date = "2020/01/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies native Windows host and network enumeration commands spawned by the Windows Management Instrumentation
+Provider Service (WMIPrvSE).
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License"
+name = "Enumeration Command Spawned via WMIPrvSE"
+risk_score = 21
+rule_id = "770e0c4d-b998-41e5-a62e-c7901fd7f470"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  process.name:
+  (
+    "arp.exe",
+    "dsquery.exe",
+    "dsget.exe",
+    "gpresult.exe",
+    "hostname.exe",
+    "ipconfig.exe",
+    "nbtstat.exe",
+    "net.exe",
+    "net1.exe",
+    "netsh.exe",
+    "netstat.exe",
+    "nltest.exe",
+    "ping.exe",
+    "qprocess.exe",
+    "quser.exe",
+    "qwinsta.exe",
+    "reg.exe",
+    "sc.exe",
+    "systeminfo.exe",
+    "tasklist.exe",
+    "tracert.exe",
+    "whoami.exe"
+  ) and
+  process.parent.name:"wmiprvse.exe"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1047"
+name = "Windows Management Instrumentation"
+reference = "https://attack.mitre.org/techniques/T1047/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
