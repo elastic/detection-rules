@@ -53,7 +53,6 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
 def upload_rule(ctx, toml_files):
     """Upload a list of rule .toml files to Kibana."""
     from .packaging import manage_versions
-    from .rule import downgrade_contents_from_rule
 
     kibana = ctx.obj['kibana']
     file_lookup = load_rule_files(paths=toml_files)
@@ -68,10 +67,11 @@ def upload_rule(ctx, toml_files):
 
     for rule in rules:
         try:
-            rule = RuleResource(downgrade_contents_from_rule(rule, kibana.version))
+            payload = rule.get_payload(include_version=True, replace_id=True, embed_metadata=True,
+                                       target_version=kibana.version)
         except ValueError as e:
             client_error(f'{e} in version:{kibana.version}, for rule: {rule.name}', e, ctx=ctx)
-
+        rule = RuleResource(payload)
         api_payloads.append(rule)
 
     with kibana:

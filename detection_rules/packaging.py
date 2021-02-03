@@ -16,7 +16,7 @@ from typing import List
 import click
 
 from . import rule_loader
-from .misc import JS_LICENSE
+from .misc import JS_LICENSE, cached
 from .rule import Rule, downgrade_contents_from_rule  # noqa: F401
 from .utils import get_path, get_etc_path, load_etc_dump, save_etc_dump
 
@@ -51,14 +51,19 @@ def filter_rule(rule: Rule, config_filter: dict, exclude_fields: dict) -> bool:
     return True
 
 
+@cached
+def load_versions(current_versions: dict = None):
+    """Load the versions file."""
+    return current_versions or load_etc_dump('version.lock.json')
+
+
 def manage_versions(rules: list, deprecated_rules: list = None, current_versions: dict = None,
                     exclude_version_update=False, add_new=True, save_changes=False, verbose=True) -> (list, list, list):
     """Update the contents of the version.lock file and optionally save changes."""
     new_rules = {}
     changed_rules = []
 
-    if current_versions is None:
-        current_versions = load_etc_dump('version.lock.json')
+    current_versions = load_versions(current_versions)
 
     for rule in rules:
         # it is a new rule, so add it if specified, and add an initial version to the rule
@@ -213,7 +218,7 @@ class Package(object):
         """Get a consolidated package of the rules in a single file."""
         full_package = []
         for rule in self.rules:
-            full_package.append(rule.contents if as_api else rule.rule_format())
+            full_package.append(rule.get_payload() if as_api else rule.rule_format())
 
         return json.dumps(full_package, sort_keys=True)
 
