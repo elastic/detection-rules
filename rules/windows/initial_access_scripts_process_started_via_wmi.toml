@@ -21,30 +21,30 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
 type = "eql"
 
 query = '''
-sequence by host.id with maxspan=5s
-    [library where file.name : "wmiutils.dll" and process.name : ("wscript.exe", "cscript.exe")]
+sequence by host.id with maxspan = 5s
+    [library where dll.name : "wmiutils.dll" and process.name : ("wscript.exe", "cscript.exe")]
     [process where event.type in ("start", "process_started") and
      process.parent.name : "wmiprvse.exe" and
      user.domain != "NT AUTHORITY" and
-     (process.pe.original_file_name in
-                                (
-                                  "cscript.exe",
-                                  "wscript.exe",
-                                  "PowerShell.EXE",
-                                  "Cmd.Exe",
-                                  "MSHTA.EXE",
-                                  "RUNDLL32.EXE",
-                                  "REGSVR32.EXE",
-                                  "MSBuild.exe",
-                                  "InstallUtil.exe",
-                                  "RegAsm.exe",
-                                  "RegSvcs.exe",
-                                  "msxsl.exe",
-                                  "CONTROL.EXE",
-                                  "EXPLORER.EXE",
-                                  "Microsoft.Workflow.Compiler.exe",
-                                  "msiexec.exe"
-                                  ) or
+     (process.pe.original_file_name :
+        (
+          "cscript.exe",
+          "wscript.exe",
+          "PowerShell.EXE",
+          "Cmd.Exe",
+          "MSHTA.EXE",
+          "RUNDLL32.EXE",
+          "REGSVR32.EXE",
+          "MSBuild.exe",
+          "InstallUtil.exe",
+          "RegAsm.exe",
+          "RegSvcs.exe",
+          "msxsl.exe",
+          "CONTROL.EXE",
+          "EXPLORER.EXE",
+          "Microsoft.Workflow.Compiler.exe",
+          "msiexec.exe"
+        ) or
       process.executable : ("C:\\Users\\*.exe", "C:\\ProgramData\\*.exe")
      )
     ]
@@ -68,4 +68,3 @@ reference = "https://attack.mitre.org/techniques/T1566/001/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
