@@ -58,7 +58,7 @@ class Filters(jsl.Document):
     exists = jsl.DocumentField(FilterExists)
     meta = jsl.DocumentField(FilterMetadata)
     state = jsl.DocumentField(FilterState, name='$state')
-    query = jsl.DocumentField(FilterQuery)
+    query = jsl.DictField()
 
 
 class Threat(jsl.Document):
@@ -72,7 +72,7 @@ class Threat(jsl.Document):
     class ThreatTechnique(jsl.Document):
         id = jsl.StringField(enum=technique_id_list, required=True)
         name = jsl.StringField(required=True)
-        reference = jsl.StringField(MITRE_URL_PATTERN.format(type='techniques'))
+        reference = jsl.StringField(MITRE_URL_PATTERN.format(type='techniques'), required=True)
 
     framework = jsl.StringField(default='MITRE ATT&CK', required=True)
     tactic = jsl.DocumentField(ThreatTactic, required=True)
