@@ -4,7 +4,6 @@
 
 # Name: Suspicious PowerShell Download
 # RTA: suspicious_powershell_download.py
-# signal.rule.name: Suspicious MS Office Child Process
 # ATT&CK: T1086
 # Description: PowerShell using DownloadString or DownloadFile in suspicious context
 

@@ -4,9 +4,6 @@
 
 # Name: Overwrite Accessibiity Binaries
 # RTA: sticky_keys_write_execute.py
-# signal.rule.name: Potential Modification of Accessibility Binaries
-# signal.rule.name: Local Service Commands
-# signal.rule.name: Persistence via TelemetryController Scheduled Task Hijack
 # ATT&CK: T1015
 # Description: Writes different binaries into various accessibility locations.
 

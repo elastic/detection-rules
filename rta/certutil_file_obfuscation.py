@@ -5,7 +5,6 @@
 # Name: Certutil Encode / Decode
 # RTA: certutil_file_obfuscation.py
 # ATT&CK: T1140
-# signal.rule.name: Encoding or Decoding Files via CertUtil
 # Description: Uses certutil to create an encoded copy of cmd.exe. Then uses certutil to decode that copy.
 
 import os

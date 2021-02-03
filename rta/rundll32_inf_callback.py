@@ -4,8 +4,6 @@
 
 # Name: RunDll32 with .inf Callback
 # RTA: rundll32_inf_callback.py
-# signal.rule.name: Local Service Commands
-# signal.rule.name: Potential Modification of Accessibility Binaries
 # ATT&CK: T1105
 # Description: Loads RunDll32 with a suspicious .inf file that makes a local http GET
 

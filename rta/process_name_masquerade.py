@@ -4,7 +4,6 @@
 
 # Name: Windows Core Process Masquerade
 # RTA: process_name_masquerade.py
-# signal.rule.name: Unusual Parent-Child Relationship
 # ATT&CK: T1036
 # Description: Creates several processes which mimic core Windows process names but that are not those executables.
 

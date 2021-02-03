@@ -5,7 +5,6 @@
 # Name: Create User with net.exe
 # RTA: net_user_add.py
 # ATT&CK: T1136
-# signal.rule.name: User Account Creation
 # Description: Adds an account to the local host using the net.exe command
 
 from . import common

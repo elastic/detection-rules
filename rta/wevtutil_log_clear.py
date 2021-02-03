@@ -4,7 +4,6 @@
 
 # Name: Clearing Windows Event Logs
 # RTA: wevutil_log_clear.py
-# signal.rule.name: Clearing Windows Event Logs
 # ATT&CK: T1070
 # Description: Uses the native Windows Event utility to clear the Security, Application and System event logs.
 

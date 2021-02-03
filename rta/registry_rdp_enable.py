@@ -4,7 +4,6 @@
 
 # Name: Enable RDP Through Registry
 # RTA: registry_rdp_enable.py
-# signal.rule.name: Potential Modification of Accessibility Binaries
 # ATT&CK: T1076
 # Description: Identifies registry write modification to enable RDP access.
 

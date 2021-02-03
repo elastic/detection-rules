@@ -4,9 +4,6 @@
 
 # Name: Lateral Movement Commands
 # RTA: lateral_commands.py
-# Elatic Detection: Local Service Commands
-# signal.rule.name: Local Scheduled Task Commands
-# signal.rule.name: Whoami Process Activity
 # ATT&CK: T1021, T1047, T1077, T1124, T1126
 # Description: Runs various Windows commands typically used by attackers to move laterally from the local machine.
 

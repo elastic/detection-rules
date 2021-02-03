@@ -5,7 +5,6 @@
 # Name: Disable Windows Firewall
 # RTA: disable_windows_fw.py
 # ATT&CK: T1089
-# signal.rule.name: Disable Windows Firewall Rules via Netsh
 # Description: Uses netsh.exe to backup, disable and restore firewall rules.
 
 import os

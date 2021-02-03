@@ -4,8 +4,6 @@
 
 # Name: Abusing SettingContent-ms Files
 # RTA: settingcontentms_files.py
-# signal.rule.name: Potential Modification of Accessibility Binaries
-# signal.rule.name: Local Service Commands
 # ATT&CK: T1193, T1204, T1064
 # Description: SettingContent-ms file written to specific path or by risky process
 
