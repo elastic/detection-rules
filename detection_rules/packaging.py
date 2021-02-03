@@ -427,11 +427,11 @@ class Package(object):
         """Bump the versions of all production rules included in a release and optionally save changes."""
         return manage_versions(self.rules, current_versions=current_versions, save_changes=save_changes)
 
-    def create_bulk_index_body(self, source='repo') -> Tuple[str, str]:
+    def create_bulk_index_body(self) -> Tuple[str, str]:
         """Create a body to bulk index into a stack."""
         package_hash = self.get_package_hash(verbose=False)
         now = datetime.datetime.isoformat(datetime.datetime.now())
-        create = {'create': {'_index': f'rules-{source}-{self.name}-{package_hash}'}}
+        create = {'create': {'_index': f'rules-repo-{self.name}-{package_hash}'}}
 
         # first doc is summary stats
         summary_doc = {
@@ -441,7 +441,7 @@ class Package(object):
             'rule_ids': [],
             'rule_names': [],
             'rule_hashes': [],
-            'source': source,
+            'source': 'repo',
             'details': {'datetime_uploaded': now}
         }
         rule_docs = [create, summary_doc]
@@ -455,7 +455,7 @@ class Package(object):
                 else 'unmodified'
 
             rule_docs.append(create)
-            rule_doc = rule.detailed_format(hash=rule.get_hash(), source=source, datetime_uploaded=now,
+            rule_doc = rule.detailed_format(hash=rule.get_hash(), source='repo', datetime_uploaded=now,
                                             status=status, package_version=self.name).copy()
             rule_docs.append(rule_doc)
             ndjson_docs.append(rule_doc)
