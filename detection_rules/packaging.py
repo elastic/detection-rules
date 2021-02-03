@@ -270,15 +270,13 @@ class Package(object):
                         unsupported.append(f'{e}: {rule.id} - {rule.name}')
                         continue
 
-                with open(outfile, 'w') as f:
-                    f.write(export_str)
+                outfile.write_text(export_str)
             else:
-                with open(outfile, 'w') as f:
-                    f.write('\n'.join(json.dumps(downgrade_contents_from_rule(r, downgrade_version), sort_keys=True)
-                            for r in self.rules))
+                outfile.write_text(
+                    '\n'.join(json.dumps(downgrade_contents_from_rule(r, downgrade_version), sort_keys=True)
+                              for r in self.rules))
         else:
-            with open(outfile, 'w') as f:
-                f.write('\n'.join(json.dumps(r.contents, sort_keys=True) for r in self.rules))
+            outfile.write_text('\n'.join(json.dumps(r.contents, sort_keys=True) for r in self.rules))
 
         if verbose:
             click.echo(f'Exported {len(self.rules) - len(unsupported)} rules into {outfile}')

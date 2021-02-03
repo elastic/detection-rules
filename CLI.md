@@ -164,6 +164,7 @@ Usage: detection_rules kibana upload-rule [OPTIONS] TOML_FILES...
   Upload a list of rule .toml files to Kibana.
 
 Options:
+  -r, --replace-id  Replace rule IDs with new IDs before export
   -h, --help  Show this message and exit.
 ```
 
@@ -180,10 +181,10 @@ Options:
   -d, --directory DIRECTORY       Recursively export rules from a directory
   -o, --outfile FILE              Name of file for exported rules
   -r, --replace-id                Replace rule IDs with new IDs before export
-  --downgrade-version [7.8|7.9|7.10|7.11]
+  --stack-version [7.8|7.9|7.10|7.11]
                                   Downgrade a rule version to be compatible
                                   with older instances of Kibana
-  -s, --skip-unsupported          If `--downgrade-version` is passed, skip
+  -s, --skip-unsupported          If `--stack-version` is passed, skip
                                   rule types which are unsupported (an error
                                   will be raised otherwise)
   -h, --help                      Show this message and exit.

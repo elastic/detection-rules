@@ -18,7 +18,7 @@ from . import rule_loader
 from .misc import client_error, nested_set, parse_config
 from .rule import Rule
 from .rule_formatter import toml_write
-from .schemas import CurrentSchema, schema_map
+from .schemas import CurrentSchema, available_versions
 from .utils import get_path, clear_caches, load_rule_contents
 
 
@@ -166,12 +166,12 @@ def view_rule(ctx, rule_id, rule_file, api_format, verbose=True):
 @click.option('--outfile', '-o', default=get_path('exports', f'{time.strftime("%Y%m%dT%H%M%SL")}.ndjson'),
               type=click.Path(dir_okay=False), help='Name of file for exported rules')
 @click.option('--replace-id', '-r', is_flag=True, help='Replace rule IDs with new IDs before export')
-@click.option('--downgrade-version', type=click.Choice(list(schema_map)),
+@click.option('--stack-version', type=click.Choice(available_versions),
               help='Downgrade a rule version to be compatible with older instances of Kibana')
 @click.option('--skip-unsupported', '-s', is_flag=True,
-              help='If `--downgrade-version` is passed, skip rule types which are unsupported '
+              help='If `--stack-version` is passed, skip rule types which are unsupported '
                    '(an error will be raised otherwise)')
-def export_rules(rule_id, rule_file, directory, outfile, replace_id, downgrade_version, skip_unsupported):
+def export_rules(rule_id, rule_file, directory, outfile, replace_id, stack_version, skip_unsupported):
     """Export rule(s) into an importable ndjson file."""
     from .packaging import Package
 
@@ -214,7 +214,7 @@ def export_rules(rule_id, rule_file, directory, outfile, replace_id, downgrade_v
 
     Path(outfile).parent.mkdir(exist_ok=True)
     package = Package(rules, '_', verbose=False)
-    package.export(outfile, downgrade_version=downgrade_version, skip_unsupported=skip_unsupported)
+    package.export(outfile, downgrade_version=stack_version, skip_unsupported=skip_unsupported)
     return package.rules
 
 

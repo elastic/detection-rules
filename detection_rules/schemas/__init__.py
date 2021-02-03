@@ -14,22 +14,21 @@ from .v7_11 import ApiSchema711
 
 __all__ = (
     "all_schemas",
+    "available_versions",
     "downgrade",
     "CurrentSchema",
     "validate_rta_mapping",
-    "schema_map",
     "TomlMetadata",
 )
 
-schema_map = {
-    '7.8': ApiSchema78,
-    '7.9': ApiSchema79,
-    '7.10': ApiSchema710,
-    '7.11': ApiSchema711
-}
-all_schemas = list(schema_map.values())
-
+all_schemas = [
+    ApiSchema78,
+    ApiSchema79,
+    ApiSchema710,
+    ApiSchema711,
+]
 CurrentSchema = all_schemas[-1]
+available_versions = [cls.STACK_VERSION for cls in all_schemas]
 
 
 def downgrade(api_contents: dict, target_version: str):

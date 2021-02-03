@@ -49,8 +49,9 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
 
 @kibana_group.command("upload-rule")
 @click.argument("toml-files", nargs=-1, required=True)
+@click.option('--replace-id', '-r', is_flag=True, help='Replace rule IDs with new IDs before export')
 @click.pass_context
-def upload_rule(ctx, toml_files):
+def upload_rule(ctx, toml_files, replace_id):
     """Upload a list of rule .toml files to Kibana."""
     from .packaging import manage_versions
 
@@ -67,7 +68,7 @@ def upload_rule(ctx, toml_files):
 
     for rule in rules:
         try:
-            payload = rule.get_payload(include_version=True, replace_id=True, embed_metadata=True,
+            payload = rule.get_payload(include_version=True, replace_id=replace_id, embed_metadata=True,
                                        target_version=kibana.version)
         except ValueError as e:
             client_error(f'{e} in version:{kibana.version}, for rule: {rule.name}', e, ctx=ctx)
