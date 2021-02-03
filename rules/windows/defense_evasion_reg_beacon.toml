@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/02"
 maturity = "development"
-updated_date = "2020/11/03"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
@@ -10,7 +10,7 @@ Identifies registration utilities making outbound network connections. This incl
 may indicate adversarial activity as these tools are often leveraged by adversaries to execute code and evade detection.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "Registration Tool Making Network Connections"
@@ -37,9 +37,14 @@ until
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1121"
+id = "T1218"
+name = "Signed Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.009"
 name = "Regsvcs/Regasm"
-reference = "https://attack.mitre.org/techniques/T1121/"
+reference = "https://attack.mitre.org/techniques/T1218/009/"
+
 
 
 [rule.threat.tactic]
