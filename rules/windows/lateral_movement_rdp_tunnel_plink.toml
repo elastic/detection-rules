@@ -22,9 +22,10 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started", "info") and 
-/* RDP port and usual SSH tunneling related switches in commandline */
-wildcard(process.args, "*:3389") and wildcard(process.args,"-L", "-P", "-R", "-pw", "-ssh")
+process where event.type in ("start", "process_started") and
+  /* RDP port and usual SSH tunneling related switches in command line */
+  process.args : "*:3389" and
+  process.args : ("-L", "-P", "-R", "-pw", "-ssh")
 '''
 
 
@@ -40,4 +41,3 @@ reference = "https://attack.mitre.org/techniques/T1021/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-

@@ -22,9 +22,9 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started", "info") and
- wildcard(process.executable, "C:\\*\\AppData\\*\\Temp\\IDC*.tmp\\*.exe") and
- process.parent.name == "ieinstal.exe" and process.parent.args == "-Embedding"
+process where event.type in ("start", "process_started") and
+ process.executable : "C:\\*\\AppData\\*\\Temp\\IDC*.tmp\\*.exe" and
+ process.parent.name : "ieinstal.exe" and process.parent.args : "-Embedding"
 
  /* uncomment once in winlogbeat */
  /* and not (process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true) */
@@ -48,4 +48,3 @@ reference = "https://attack.mitre.org/techniques/T1548/002/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
