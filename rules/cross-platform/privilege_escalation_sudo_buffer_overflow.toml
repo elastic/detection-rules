@@ -6,8 +6,8 @@ updated_date = "2021/02/03"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the attempted use of a heap-based buffer overflow vulnerability for the Sudo binary in Unix-like
-systems (CVE-2021-3156). Successful exploitation allows an unprivileged user to escalate to the root user.
+Identifies the attempted use of a heap-based buffer overflow vulnerability for the Sudo binary in Unix-like systems
+(CVE-2021-3156). Successful exploitation allows an unprivileged user to escalate to the root user.
 """
 false_positives = [
     """
@@ -35,7 +35,7 @@ type = "query"
 query = '''
 event.category:process and event.type:start and
   process.name:(sudo or sudoedit) and
-  (process.args:*\\ and process.args:("-s" or "-i"))
+  process.args:(*\\ and (-i or -s))
 '''
 
 
@@ -51,3 +51,4 @@ reference = "https://attack.mitre.org/techniques/T1068/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
