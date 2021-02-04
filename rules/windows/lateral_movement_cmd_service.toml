@@ -21,16 +21,11 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
 type = "eql"
 
 query = '''
-sequence by process.entity_id with maxspan=1m
+sequence by process.entity_id with maxspan = 1m
   [process where event.type in ("start", "process_started") and
-                               /* uncomment once in winlogbeat */
-     (process.name == "sc.exe" /* or process.pe.original_file_name == "sc.exe" */ ) and
-                                                   /* case insensitive */
-      wildcard(process.args, "\\\\*") and wildcard(process.args, "binPath=*", "binpath=*") and
-      (process.args : "create" or
-       process.args : "config" or
-       process.args : "failure" or
-       process.args : "start")]
+     (process.name : "sc.exe" or process.pe.original_file_name : "sc.exe") and
+      process.args : "\\\\*" and process.args : ("binPath=*", "binpath=*") and
+      process.args : ("create", "config", "failure", "start")]
   [network where process.name : "sc.exe" and destination.ip != "127.0.0.1"]
 '''
 
@@ -81,4 +76,3 @@ reference = "https://attack.mitre.org/techniques/T1569/002/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
