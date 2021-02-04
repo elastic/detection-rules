@@ -12,7 +12,8 @@ systems (CVE-2021-3156). Successful exploitation allows an unprivileged user to 
 false_positives = [
     """
     This rule could generate false positives if the process arguments leveraged by the expoit are shared by custom
-    scripts using the Sudo or Sudoedit binaries.
+    scripts using the Sudo or Sudoedit binaries. Also, only Sudo versions 1.8.2 through 1.8.31p2 and 1.9.0 through
+    1.9.5p1 are affected; if those versions are not present on the endpoint, this could be a false positive.
     """,
 ]
 from = "now-9m"
@@ -20,7 +21,6 @@ index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License"
 name = "Possible Sudo Heap-based Buffer Overflow Vulnerability Attempt (CVE-2021-3156)"
-note = "The rule identifies attempted exploitation of a privilege escalation vulnerability for Sudo. Successful exploitation could allow arbitrary code to be run on the target system with elevated privileges. Alerts from this rule should be invested to identify the validility of the process executions."
 references = [
     "https://cve.mitre.org/cgi-bin/cvename.cgi?name=2021-3156",
     "https://blog.qualys.com/vulnerabilities-research/2021/01/26/cve-2021-3156-heap-based-buffer-overflow-in-sudo-baron-samedit",
@@ -51,37 +51,3 @@ reference = "https://attack.mitre.org/techniques/T1068/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
-[[rule.threat.technique.subtechnique]]
-id = "T1059.004"
-name = "Unix Shell"
-reference = "https://attack.mitre.org/techniques/T1059/004/"
-
-
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1078"
-name = "Valid Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/"
-[[rule.threat.technique.subtechnique]]
-id = "T1078.003"
-name = "Local Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/003/"
-
-
-
-[rule.threat.tactic]
-id = "TA0001"
-name = "Initial Access"
-reference = "https://attack.mitre.org/tactics/TA0001/"
