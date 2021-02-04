@@ -430,7 +430,7 @@ class Package(object):
     def create_bulk_index_body(self) -> Tuple[str, str]:
         """Create a body to bulk index into a stack."""
         package_hash = self.get_package_hash(verbose=False)
-        now = datetime.datetime.isoformat(datetime.datetime.now())
+        now = datetime.datetime.isoformat(datetime.datetime.utcnow())
         create = {'create': {'_index': f'rules-repo-{self.name}-{package_hash}'}}
 
         # first doc is summary stats
