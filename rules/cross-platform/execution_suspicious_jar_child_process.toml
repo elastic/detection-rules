@@ -24,7 +24,10 @@ query = '''
 process where event.type in ("start", "process_started") and
   process.parent.name : "java" and
   process.name : ("sh", "bash", "dash", "ksh", "tcsh", "zsh", "curl", "wget") and
-  process.args : "-jar" and process.args : "*.jar"
+  process.args : "-jar" and process.args : "*.jar" and
+  /* Add any FP's here */
+  not process.executable : "/Users/*/.sdkman/*" and
+  not process.args : ("/usr/local/*", "/Users/*/github.com/*", "/Users/*/src/*")
 '''
 
 
