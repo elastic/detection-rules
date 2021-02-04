@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/02/03"
 maturity = "production"
-updated_date = "2021/02/03"
+updated_date = "2021/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ Identifies the attempted use of a heap-based buffer overflow vulnerability for t
 false_positives = [
     """
     This rule could generate false positives if the process arguments leveraged by the expoit are shared by custom
-    scripts using the Sudo or Sudoedit binaries. Also, only Sudo versions 1.8.2 through 1.8.31p2 and 1.9.0 through
+    scripts using the Sudo or Sudoedit binaries. Only Sudo versions 1.8.2 through 1.8.31p2 and 1.9.0 through
     1.9.5p1 are affected; if those versions are not present on the endpoint, this could be a false positive.
     """,
 ]
@@ -31,7 +31,7 @@ risk_score = 73
 rule_id = "f37f3054-d40b-49ac-aa9b-a786c74c58b8"
 severity = "high"
 tags = ["Elastic", "Host", "Linux", "macOS", "Threat Detection", "Privilege Escalation"]
-type = "query"
+type = "threshold"
 
 query = '''
 event.category:process and event.type:start and
@@ -53,3 +53,6 @@ id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
 
+[rule.threshold]
+field = "host.hostname"
+value = 100
