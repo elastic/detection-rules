@@ -1,15 +1,15 @@
 [metadata]
 creation_date = "2020/12/04"
 maturity = "production"
-updated_date = "2020/12/04"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
 description = """
-Enumeration of files and directories using built-in tools. Adversaries may use the information discovered
-to plan follow-on activity.
+Enumeration of files and directories using built-in tools. Adversaries may use the information discovered to plan
+follow-on activity.
 """
-index = ["logs-endpoint.events.*", "winlogbeat-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "File and Directory Discovery"
@@ -23,7 +23,6 @@ query = '''
 process where event.type in ("start", "process_started") and
   (process.name : "cmd.exe" or process.pe.original_file_name == "Cmd.Exe") and
   process.args : ("dir", "tree")
-
 '''
 
 

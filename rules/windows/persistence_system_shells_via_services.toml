@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2020/11/03"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
@@ -10,7 +10,7 @@ Windows services typically run as SYSTEM and can be used as a privilege escalati
 testers may run a shell as a service to gain SYSTEM permissions.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License"
 name = "System Shells via Services"
@@ -30,9 +30,14 @@ event.category:process and event.type:(start or process_started) and
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1050"
-name = "New Service"
-reference = "https://attack.mitre.org/techniques/T1050/"
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+[[rule.threat.technique.subtechnique]]
+id = "T1543.003"
+name = "Windows Service"
+reference = "https://attack.mitre.org/techniques/T1543/003/"
+
 
 
 [rule.threat.tactic]
