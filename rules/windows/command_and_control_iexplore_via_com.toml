@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/28"
 maturity = "production"
-updated_date = "2020/11/28"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ unusual network connections. Adversaries could abuse Internet Explorer via COM t
 network connections and bypass host-based firewall restrictions.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "Potential Command and Control via Internet Explorer"
@@ -23,15 +23,18 @@ type = "eql"
 
 query = '''
 sequence by host.id, process.entity_id with maxspan = 1s
-  [process where event.type:"start" and process.parent.name:"iexplore.exe" and process.parent.args:"-Embedding"]
+  [process where event.type == "start" and process.parent.name : "iexplore.exe" and process.parent.args : "-Embedding"]
   /* IE started via COM in normal conditions makes few connections, mainly to Microsoft and OCSP related domains, add FPs here */
-  [network where network.protocol : "dns" and process.name:"iexplore.exe" and
-   not wildcard(dns.question.name, "*.microsoft.com", 
-                                   "*.digicert.com", 
-                                   "*.msocsp.com", 
-                                   "*.windowsupdate.com", 
-                                   "*.bing.com",
-                                   "*.identrust.com")
+  [network where network.protocol == "dns" and process.name : "iexplore.exe" and
+   not dns.question.name :
+   (
+    "*.microsoft.com",
+    "*.digicert.com",
+    "*.msocsp.com",
+    "*.windowsupdate.com",
+    "*.bing.com",
+    "*.identrust.com"
+    )
   ]
 '''
 
@@ -48,4 +51,3 @@ reference = "https://attack.mitre.org/techniques/T1071/"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
