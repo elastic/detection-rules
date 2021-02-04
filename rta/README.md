@@ -16,7 +16,7 @@ positional arguments:
 optional arguments:
   -h, --help  show this help message and exit
 ```
-`ttp_name` is the name of a script that can be found in the [rta](./rta) directory. For example, to execute ./rta/wevtutil_log_clear.py script, run command:
+`ttp_name` can be found in the [rta](.) directory. For example to execute `./rta/wevtutil_log_clear.py` script, run command:
 
 ```console
 $ python -m rta wevtutil_log_clear
