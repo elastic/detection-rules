@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/02"
 maturity = "production"
-updated_date = "2021/01/20"
+updated_date = "2021/01/21"
 
 [rule]
 author = ["Elastic"]
@@ -10,7 +10,7 @@ Identifies WMIC whitelisting bypass techniques by alerting on suspicious executi
 libraries it may be indicative of a whitelist bypass.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "Suspicious WMIC XSL Script Execution"
@@ -21,7 +21,7 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 type = "eql"
 
 query = '''
-sequence by process.entity_id with maxspan=2m
+sequence by process.entity_id with maxspan = 2m
 [process where event.type in ("start", "process_started") and
    (process.name : "WMIC.exe" or process.pe.original_file_name : "wmic.exe") and
    process.args : ("format*:*", "/format*:*", "*-format*:*") and
@@ -42,4 +42,3 @@ reference = "https://attack.mitre.org/techniques/T1220/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
