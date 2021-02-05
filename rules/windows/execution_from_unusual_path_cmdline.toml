@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2020/10/30"
 maturity = "production"
-updated_date = "2020/10/30"
+updated_date = "2020/01/28"
+
 
 [rule]
 author = ["Elastic"]
@@ -10,7 +11,7 @@ Identifies process execution from suspicious default Windows directories. This m
 malware in trusted paths.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "Execution from Unusual Directory - Command Line"
@@ -23,7 +24,7 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started", "info") and
- process.name : ("wscript.exe","cscript.exe","rundll32.exe","regsvr32.exe","cmstp.exe","RegAsm.exe","installutil.exe","mshta.exe","RegSvcs.exe") and
+ process.name : ("wscript.exe","cscript.exe","rundll32.exe","regsvr32.exe","cmstp.exe","RegAsm.exe","installutil.exe","mshta.exe","RegSvcs.exe", "powershell.exe", "pwsh.exe", "cmd.exe") and
  /* add suspicious execution paths here */
 process.args : ("C:\\PerfLogs\\*","C:\\Users\\Public\\*","C:\\Users\\Default\\*","C:\\Windows\\Tasks\\*","C:\\Intel\\*", "C:\\AMD\\Temp\\*", 
  "C:\\Windows\\AppReadiness\\*", "C:\\Windows\\ServiceState\\*","C:\\Windows\\security\\*","C:\\Windows\\IdentityCRL\\*","C:\\Windows\\Branding\\*","C:\\Windows\\csc\\*",
@@ -36,5 +37,7 @@ process.args : ("C:\\PerfLogs\\*","C:\\Users\\Public\\*","C:\\Users\\Default\\*"
  "C:\\Windows\\Migration\\*","C:\\Windows\\debug\\*","C:\\Windows\\Cursors\\*","C:\\Windows\\Containers\\*","C:\\Windows\\Boot\\*","C:\\Windows\\bcastdvr\\*",
  "C:\\Windows\\assembly\\*","C:\\Windows\\TextInput\\*","C:\\Windows\\security\\*","C:\\Windows\\schemas\\*","C:\\Windows\\SchCache\\*","C:\\Windows\\Resources\\*",
  "C:\\Windows\\rescache\\*","C:\\Windows\\Provisioning\\*","C:\\Windows\\PrintDialog\\*","C:\\Windows\\PolicyDefinitions\\*","C:\\Windows\\media\\*",
- "C:\\Windows\\Globalization\\*","C:\\Windows\\L2Schemas\\*","C:\\Windows\\LiveKernelReports\\*","C:\\Windows\\ModemLogs\\*","C:\\Windows\\ImmersiveControlPanel\\*")
+ "C:\\Windows\\Globalization\\*","C:\\Windows\\L2Schemas\\*","C:\\Windows\\LiveKernelReports\\*","C:\\Windows\\ModemLogs\\*","C:\\Windows\\ImmersiveControlPanel\\*",
+ "C:\\$Recycle.Bin\\*")
 '''
+

@@ -1,0 +1,71 @@
+[metadata]
+creation_date = "2021/01/11"
+maturity = "production"
+updated_date = "2021/01/11"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of a suspicious child process of the Event Monitor Daemon (emond). Adversaries may abuse this
+service by writing a rule to execute commands when a defined event occurs, such as system start up or user
+authentication.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Suspicious Emond Child Process"
+references = ["https://www.xorrior.com/emond-persistence/"]
+risk_score = 47
+rule_id = "3e3d15c6-1509-479a-b125-21718372157e"
+severity = "medium"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Execution", "Persistence"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+ process.parent.name : "emond" and
+ process.name : (
+   "bash",
+   "dash",
+   "sh",
+   "tcsh",
+   "csh",
+   "zsh",
+   "ksh",
+   "fish",
+   "Python",
+   "python*",
+   "perl*",
+   "php*",
+   "osascript",
+   "pwsh",
+   "curl",
+   "wget",
+   "cp",
+   "mv",
+   "touch",
+   "echo",
+   "base64",
+   "launchctl")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+[[rule.threat.technique.subtechnique]]
+id = "T1546.014"
+name = "Emond"
+reference = "https://attack.mitre.org/techniques/T1546/014/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

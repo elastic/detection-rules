@@ -1,15 +1,15 @@
 [metadata]
 creation_date = "2020/11/18"
 maturity = "production"
-updated_date = "2020/11/18"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects attempts to maintain persistence by creating registry keys using AppCert DLLs. AppCert DLLs are loaded by every process
-using the common API functions to create processes.
+Detects attempts to maintain persistence by creating registry keys using AppCert DLLs. AppCert DLLs are loaded by every
+process using the common API functions to create processes.
 """
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "Registry Persistence via AppCert DLL"
@@ -29,12 +29,18 @@ registry where
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1182"
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+[[rule.threat.technique.subtechnique]]
+id = "T1546.009"
 name = "AppCert DLLs"
-reference = "https://attack.mitre.org/techniques/T1182/"
+reference = "https://attack.mitre.org/techniques/T1546/009/"
+
 
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
