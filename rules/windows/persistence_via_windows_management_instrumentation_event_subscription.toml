@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/12/04"
 maturity = "production"
-updated_date = "2020/12/04"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
@@ -10,7 +10,7 @@ An adversary can use Windows Management Instrumentation (WMI) to install event f
 bindings that execute code when a defined event occurs. Adversaries may use the capabilities of WMI to subscribe to an
 event and execute arbitrary code when that event occurs, providing persistence on a system.
 """
-index = ["logs-endpoint.events.*", "winlogbeat-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "Persistence via WMI Event Subscription"
@@ -25,7 +25,6 @@ process where event.type in ("start", "process_started") and
   (process.name : "wmic.exe" or process.pe.original_file_name == "wmic.exe") and
   process.args : "create" and
   process.args : ("ActiveScriptEventConsumer", "CommandLineEventConsumer")
-
 '''
 
 
@@ -41,3 +40,4 @@ reference = "https://attack.mitre.org/techniques/T1546/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
