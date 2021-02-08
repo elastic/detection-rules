@@ -4,6 +4,7 @@
 
 # Name: WerFault.exe Persistence
 # RTA: werfault_persistence.py
+# signal.rule.name: Process Potentially Masquerading as WerFault
 # ATT&CK: T1112
 # Description: Sets an executable to run when WerFault is run with -rp flags and runs it
 
