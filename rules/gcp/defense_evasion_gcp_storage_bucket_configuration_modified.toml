@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/22"
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2020/12/16"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,7 @@ false_positives = [
     expected. Exceptions can be added to this rule to filter expected behavior.
     """,
 ]
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License"
 name = "GCP Storage Bucket Configuration Modification"
@@ -28,6 +28,6 @@ tags = ["Elastic", "Cloud", "GCP", "Continuous Monitoring", "SecOps", "Identity 
 type = "query"
 
 query = '''
-event.dataset:googlecloud.audit and event.action:storage.buckets.update and event.outcome:success
+event.dataset:(googlecloud.audit or gcp.audit) and event.action:storage.buckets.update and event.outcome:success
 '''
 

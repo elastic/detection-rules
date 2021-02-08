@@ -3,9 +3,11 @@
 # you may not use this file except in compliance with the Elastic License.
 
 """Mitre attack info."""
+import os
+import re
+import time
 
 import json
-import os
 import requests
 from collections import OrderedDict
 
@@ -13,6 +15,12 @@ from .semver import Version
 from .utils import get_etc_path, get_etc_glob_path, read_gzip, gzip_compress
 
 PLATFORMS = ['Windows', 'macOS', 'Linux']
+CROSSWALK_FILE = get_etc_path('attack-crosswalk.json')
+TECHNIQUES_REDIRECT_FILE = get_etc_path('attack-technique-redirects.json')
+
+with open(TECHNIQUES_REDIRECT_FILE, 'r') as f:
+    techniques_redirect_map = json.load(f)['mapping']
+
 tactics_map = {}
 
 
@@ -32,6 +40,7 @@ attack = load_attack_gz()
 
 technique_lookup = {}
 revoked = {}
+deprecated = {}
 
 for item in attack["objects"]:
     if item["type"] == "x-mitre-tactic":
@@ -44,6 +53,11 @@ for item in attack["objects"]:
         if item.get('revoked'):
             revoked[technique_id] = item
 
+        if item.get('x_mitre_deprecated'):
+            deprecated[technique_id] = item
+
+revoked = dict(sorted(revoked.items()))
+deprecated = dict(sorted(deprecated.items()))
 tactics = list(tactics_map)
 matrix = {tactic: [] for tactic in tactics}
 no_tactic = []
@@ -124,6 +138,15 @@ def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict:
         return e
 
     for tid in technique_ids:
+        # fail if deprecated or else convert if it has been replaced
+        if tid in deprecated:
+            raise ValueError(f'Technique ID: {tid} has been deprecated and should not be used')
+        elif tid in techniques_redirect_map:
+            tid = techniques_redirect_map[tid]
+
+        if tid not in matrix[tactic]:
+            raise ValueError(f'Technique ID: {tid} does not fall under tactic: {tactic}')
+
         # sub-techniques
         if '.' in tid:
             parent_technique, _ = tid.split('.', 1)
@@ -152,3 +175,60 @@ def update_threat_map(rule_threat_map):
     for entry in rule_threat_map:
         for tech in entry['technique']:
             tech['name'] = technique_lookup[tech['id']]['name']
+
+
+def retrieve_redirected_id(asset_id: str):
+    """Get the ID for a redirected ATT&CK asset."""
+    if asset_id in (tactics_map.values()):
+        attack_type = 'tactics'
+    elif asset_id in list(technique_lookup):
+        attack_type = 'techniques'
+    else:
+        raise ValueError(f'Unknown asset_id: {asset_id}')
+
+    response = requests.get(f'https://attack.mitre.org/{attack_type}/{asset_id.replace(".", "/")}')
+    text = response.text.strip().strip("'").lower()
+
+    if text.startswith('<meta http-equiv="refresh"'):
+        new_id = re.search(r'url=\/\w+\/(.+)"', text).group(1).replace('/', '.').upper()
+        return new_id
+
+
+def build_redirected_techniques_map(threads=50):
+    """Build a mapping of revoked technique IDs to new technique IDs."""
+    from multiprocessing.pool import ThreadPool
+
+    technique_map = {}
+
+    def download_worker(tech_id):
+        new = retrieve_redirected_id(tech_id)
+        if new:
+            technique_map[tech_id] = new
+
+    pool = ThreadPool(processes=threads)
+    pool.map(download_worker, list(technique_lookup))
+    pool.close()
+    pool.join()
+
+    return technique_map
+
+
+def refresh_redirected_techniques_map(threads=50):
+    """Refresh the locally saved copy of the mapping."""
+    global techniques_redirect_map
+
+    replacement_map = build_redirected_techniques_map(threads)
+    mapping = {'saved_date': time.asctime(), 'mapping': replacement_map}
+
+    with open(TECHNIQUES_REDIRECT_FILE, 'w') as f:
+        json.dump(mapping, f, sort_keys=True, indent=2)
+
+    techniques_redirect_map = mapping
+
+    print(f'refreshed mapping file: {TECHNIQUES_REDIRECT_FILE}')
+
+
+def load_crosswalk_map():
+    """Retrieve the replacement mapping."""
+    with open(CROSSWALK_FILE, 'r') as f:
+        return json.load(f)['mapping']
