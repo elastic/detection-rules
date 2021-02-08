@@ -4,6 +4,7 @@
 
 # Name: PowerShell Launched from Script
 # RTA: powershell_from_script.py
+# signal.rule.name: Windows Script Executing PowerShell
 # ATT&CK: T1064, T1192, T1193
 # Description: Creates a javascript file that will launch powershell.
 
