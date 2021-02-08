@@ -52,7 +52,7 @@ class PackageDocument(xlsxwriter.Workbook):
             if threat:
                 for entry in threat:
                     tactic = entry['tactic']
-                    techniques = entry['technique']
+                    techniques = entry.get('technique', [])
                     for technique in techniques:
                         if technique['id'] in matrix[tactic['name']]:
                             coverage[tactic['name']][technique['id']][sub_dir] += 1

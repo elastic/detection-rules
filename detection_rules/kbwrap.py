@@ -52,9 +52,7 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
 @click.pass_context
 def upload_rule(ctx, toml_files):
     """Upload a list of rule .toml files to Kibana."""
-    from uuid import uuid4
     from .packaging import manage_versions
-    from .schemas import downgrade
 
     kibana = ctx.obj['kibana']
     file_lookup = load_rule_files(paths=toml_files)
@@ -68,11 +66,8 @@ def upload_rule(ctx, toml_files):
     api_payloads = []
 
     for rule in rules:
-        payload = rule.contents.copy()
-        meta = payload.setdefault("meta", {})
-        meta["original"] = dict(id=rule.id, **rule.metadata)
-        payload["rule_id"] = str(uuid4())
-        payload = downgrade(payload, kibana.version)
+        payload = rule.get_payload(include_version=True, replace_id=True, embed_metadata=True,
+                                   target_version=kibana.version)
         rule = RuleResource(payload)
         api_payloads.append(rule)
 
