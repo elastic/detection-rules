@@ -1,16 +1,16 @@
 [metadata]
 creation_date = "2020/10/14"
 maturity = "production"
-updated_date = "2020/10/14"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies potential use of an SSH utility to establish RDP over a reverse SSH Tunnel. This could be indicative of adversary lateral
-movement to interactively access restricted networks.
+Identifies potential use of an SSH utility to establish RDP over a reverse SSH Tunnel. This could be indicative of
+adversary lateral movement to interactively access restricted networks.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "Potential Remote Desktop Tunneling Detected"
@@ -22,9 +22,10 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started", "info") and 
-/* RDP port and usual SSH tunneling related switches in commandline */
-wildcard(process.args, "*:3389") and wildcard(process.args,"-L", "-P", "-R", "-pw", "-ssh") 
+process where event.type in ("start", "process_started") and
+  /* RDP port and usual SSH tunneling related switches in command line */
+  process.args : "*:3389" and
+  process.args : ("-L", "-P", "-R", "-pw", "-ssh")
 '''
 
 
@@ -40,4 +41,3 @@ reference = "https://attack.mitre.org/techniques/T1021/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-

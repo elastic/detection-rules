@@ -4,6 +4,7 @@
 
 # Name: Emulate Suspect MS Office Child Processes
 # RTA: suspect_office_children.py
+# signal.rule.name: Suspicious MS Office Child Process
 # ATT&CK: T1064
 # Description: Generates network traffic various children processes from emulated Office processes.
 
