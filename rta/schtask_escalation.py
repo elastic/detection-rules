@@ -4,6 +4,10 @@
 
 # Name: Scheduled Task Privilege Escalation
 # RTA: schtask_escalation.py
+# signal.rule.name: Local Scheduled Task Commands
+# signal.rule.name: Whoami Process Activity
+# signal.rule.name: Svchost spawning Cmd
+# signal.rule.name: Net command via SYSTEM account
 # ATT&CK: T1053
 
 import os
