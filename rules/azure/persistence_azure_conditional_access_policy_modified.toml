@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/01"
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2020/12/15"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ such as using multi-factor authentication to access it. An adversary may modify 
 weaken their target's security controls.
 """
 from = "now-25m"
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License"
 name = "Azure Conditional Access Policy Modified"
@@ -30,7 +30,7 @@ event.dataset:(azure.activitylogs or azure.auditlogs) and
     azure.activitylogs.operation_name:"Update policy" or
     azure.auditlogs.operation_name:"Update policy"
   ) and
-  event.outcome:success
+  event.outcome:(Success or success)
 '''
 
 
