@@ -25,18 +25,20 @@ tags = ["Elastic", "Host", "macOS", "Threat Detection", "Persistence"]
 type = "eql"
 
 query = '''
-sequence by host.id, user.id with maxspan=5s
- [process where event.type in ("start", "process_started") and process.name == "pluginkit" and process.args == "-a"]
- [process where event.type in ("start", "process_started") and process.name == "pluginkit" and 
-   process.args : "-e" and process.args : "use" and process.args : "-i" and 
-   not process.args in 
-                    ("com.google.GoogleDrive.FinderSyncAPIExtension",
-                     "com.google.drivefs.findersync",
-                     "com.boxcryptor.osx.Rednif",
-                     "com.adobe.accmac.ACCFinderSync", 
-                     "com.microsoft.OneDrive.FinderSync", 
-                     "com.insynchq.Insync.Insync-Finder-Integration", 
-                     "com.box.desktop.findersyncext")
+sequence by host.id, user.id with maxspan = 5s
+  [process where event.type in ("start", "process_started") and process.name : "pluginkit" and process.args : "-a"]
+  [process where event.type in ("start", "process_started") and process.name : "pluginkit" and
+    process.args : "-e" and process.args : "use" and process.args : "-i" and
+    not process.args :
+    (
+      "com.google.GoogleDrive.FinderSyncAPIExtension",
+      "com.google.drivefs.findersync",
+      "com.boxcryptor.osx.Rednif",
+      "com.adobe.accmac.ACCFinderSync",
+      "com.microsoft.OneDrive.FinderSync",
+      "com.insynchq.Insync.Insync-Finder-Integration",
+      "com.box.desktop.findersyncext"
+    )
   ]
 '''
 
