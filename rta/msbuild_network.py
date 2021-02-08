@@ -5,6 +5,8 @@
 # Name: MsBuild with Network Activity
 # RTA: msbuild_network.py
 # ATT&CK: T1127
+# signal.rule.name: Microsoft Build Engine Started an Unusual Process
+# signal.rule.name: Trusted Developer Application Usage
 # Description: Generates network traffic from msbuild.exe
 
 from . import common
