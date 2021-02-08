@@ -1,15 +1,16 @@
 [metadata]
 creation_date = "2020/11/02"
 maturity = "production"
-updated_date = "2020/11/02"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the use of net.exe to mount a WebDav or hidden remote share. This may indicate lateral movement or preparation for data exfiltration.
+Identifies the use of net.exe to mount a WebDav or hidden remote share. This may indicate lateral movement or
+preparation for data exfiltration.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "Mounting Hidden or WebDav Remote Shares"
@@ -34,12 +35,18 @@ process where event.type in ("start", "process_started") and
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1077"
-name = "Windows Admin Shares"
-reference = "https://attack.mitre.org/techniques/T1077/"
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+[[rule.threat.technique.subtechnique]]
+id = "T1021.002"
+name = "SMB/Windows Admin Shares"
+reference = "https://attack.mitre.org/techniques/T1021/002/"
+
 
 
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
+

@@ -4,6 +4,8 @@
 
 # Name: RunDLL32 Javascript Callback
 # RTA: rundll32_javascript_callback.py
+# signal.rule.name: Local Service Commands
+# signal.rule.name: Potential Modification of Accessibility Binaries
 # ATT&CK: T1085
 # Description: Executes javascript code with an AJAX call via RunDll32.exe
 
