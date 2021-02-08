@@ -27,15 +27,22 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
- process.parent.name:("Google Chrome", "Google Chrome Helper*", "firefox", "Opera", "Safari", "com.apple.WebKit.WebContent", "Microsoft Edge") and
- process.name:("sh", "bash", "dash", "ksh", "tcsh", "zsh", "curl", "wget", "python*", "perl*", "php*", "osascript", "pwsh") and 
- process.command_line != null and not 
- process.args:( 
-                "/Library/Application Support/Microsoft/MAU*/Microsoft AutoUpdate.app/Contents/MacOS/msupdate", 
-                "hw.model", "IOPlatformExpertDevice", "/Volumes/Google Chrome/Google Chrome.app/Contents/Frameworks/*/Resources/install.sh",
-                "--defaults-torrc", "Chrome.app", "Framework.framework/Versions/*/Resources/keystone_promote_preflight.sh", 
-                "/Users/*/Library/Application Support/Google/Chrome/recovery/*/ChromeRecovery", "$DISPLAY", "GIO_LAUNCHED_DESKTOP_FILE_PID=$$"
-                )
+  process.parent.name : ("Google Chrome", "Google Chrome Helper*", "firefox", "Opera", "Safari", "com.apple.WebKit.WebContent", "Microsoft Edge") and
+  process.name : ("sh", "bash", "dash", "ksh", "tcsh", "zsh", "curl", "wget", "python*", "perl*", "php*", "osascript", "pwsh") and 
+  process.command_line != null and 
+  not process.args : 
+    ( 
+      "/Library/Application Support/Microsoft/MAU*/Microsoft AutoUpdate.app/Contents/MacOS/msupdate", 
+      "hw.model", 
+      "IOPlatformExpertDevice", 
+      "/Volumes/Google Chrome/Google Chrome.app/Contents/Frameworks/*/Resources/install.sh",
+      "--defaults-torrc", 
+      "Chrome.app", 
+      "Framework.framework/Versions/*/Resources/keystone_promote_preflight.sh", 
+      "/Users/*/Library/Application Support/Google/Chrome/recovery/*/ChromeRecovery", 
+      "$DISPLAY", 
+      "GIO_LAUNCHED_DESKTOP_FILE_PID=$$"
+    )
 '''
 
 
