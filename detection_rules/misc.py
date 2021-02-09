@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, NoReturn, Tuple
 from zipfile import ZipFile
 
 import click
@@ -359,7 +359,8 @@ class ClientError(click.ClickException):
         click.echo(msg, err=err, file=file)
 
 
-def client_error(message, exc: Exception = None, debug=None, ctx: click.Context = None, file=None, err=None):
+def client_error(message, exc: Exception = None, debug=None, ctx: click.Context = None, file=None,
+                 err=None) -> NoReturn:
     config_debug = True if ctx and ctx.ensure_object(dict) and ctx.obj.get('debug') is True else False
     debug = debug if debug is not None else config_debug
 
