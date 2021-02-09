@@ -196,7 +196,7 @@ def export_rules(rule_id, rule_file, directory, outfile, replace_id, stack_versi
         rule_files.extend(list(Path(dirpath).rglob('*.toml')))
 
     file_lookup = rule_loader.load_rule_files(verbose=False, paths=rule_files)
-    rules_from_files = rule_loader.load_rules(file_lookup=file_lookup).values()
+    rules_from_files = rule_loader.load_rules(file_lookup=file_lookup).values() if file_lookup else []
 
     # rule_loader.load_rules handles checks for duplicate rule IDs - this means rules loaded by ID are de-duped and
     #   rules loaded from files and directories are de-duped from each other, so this check is to ensure that there is

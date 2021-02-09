@@ -260,23 +260,23 @@ class Package(object):
 
         if downgrade_version:
             if skip_unsupported:
-                export_str = ''
+                output_lines = []
 
                 for rule in self.rules:
                     try:
-                        export_str += json.dumps(downgrade_contents_from_rule(rule, downgrade_version),
-                                                 sort_keys=True) + '\n'
+                        output_lines.append(json.dumps(downgrade_contents_from_rule(rule, downgrade_version),
+                                                       sort_keys=True))
                     except ValueError as e:
                         unsupported.append(f'{e}: {rule.id} - {rule.name}')
                         continue
 
-                outfile.write_text(export_str)
             else:
-                outfile.write_text(
-                    '\n'.join(json.dumps(downgrade_contents_from_rule(r, downgrade_version), sort_keys=True)
-                              for r in self.rules))
+                output_lines = [json.dumps(downgrade_contents_from_rule(r, downgrade_version), sort_keys=True)
+                                for r in self.rules]
         else:
-            outfile.write_text('\n'.join(json.dumps(r.contents, sort_keys=True) for r in self.rules))
+            output_lines = [json.dumps(r.contents, sort_keys=True) for r in self.rules]
+
+        outfile.write_text('\n'.join(output_lines) + '\n')
 
         if verbose:
             click.echo(f'Exported {len(self.rules) - len(unsupported)} rules into {outfile}')
