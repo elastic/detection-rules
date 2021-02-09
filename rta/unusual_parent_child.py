@@ -4,6 +4,7 @@
 
 # Name: Invalid Process Trees in Windows
 # RTA: unusual_parent_child.py
+# signal.rule.name: Unusual Parent-Child Relationship
 # ATT&CK: T1093
 # Description: Runs several Windows core processes directly, instead of from the proper parent in Windows.
 
