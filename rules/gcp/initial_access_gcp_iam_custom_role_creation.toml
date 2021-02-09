@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/21"
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2020/12/16"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,7 @@ false_positives = [
     should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License"
 name = "GCP IAM Custom Role Creation"
@@ -30,7 +30,7 @@ tags = ["Elastic", "Cloud", "GCP", "Continuous Monitoring", "SecOps", "Identity 
 type = "query"
 
 query = '''
-event.dataset:googlecloud.audit and event.action:google.iam.admin.v*.CreateRole and event.outcome:success
+event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin.v*.CreateRole and event.outcome:success
 '''
 
 
