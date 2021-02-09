@@ -74,14 +74,15 @@ class TomlMetadata(GenericSchema):
 
     # rule validated against each ecs schema contained
     beats_version = jsl.StringField(pattern=VERSION_PATTERN, required=False)
+    comments = jsl.StringField(required=False)
     ecs_versions = jsl.ArrayField(jsl.StringField(pattern=VERSION_PATTERN, required=True), required=False)
     maturity = jsl.StringField(enum=MATURITY_LEVELS, default='development', required=True)
 
     os_type_list = jsl.ArrayField(jsl.StringField(enum=OS_OPTIONS), required=False)
+    query_schema_validation = jsl.BooleanField(required=False)
     related_endpoint_rules = jsl.ArrayField(jsl.ArrayField(jsl.StringField(), min_items=2, max_items=2),
                                             required=False)
     updated_date = jsl.StringField(required=True, pattern=DATE_PATTERN, default=time.strftime('%Y/%m/%d'))
-    query_schema_validation = jsl.BooleanField(required=False)
 
 
 class BaseApiSchema(GenericSchema):
