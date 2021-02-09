@@ -24,8 +24,6 @@ RELEASE_DIR = get_path("releases")
 PACKAGE_FILE = get_etc_path('packages.yml')
 NOTICE_FILE = get_path('NOTICE.txt')
 
-CURRENT_PACKAGE_VERSION = load_dump(PACKAGE_FILE)['package']['name']
-
 
 def filter_rule(rule: Rule, config_filter: dict, exclude_fields: dict) -> bool:
     """Filter a rule based off metadata and a package configuration."""
@@ -51,6 +49,12 @@ def filter_rule(rule: Rule, config_filter: dict, exclude_fields: dict) -> bool:
                 return False
 
     return True
+
+
+@cached
+def load_current_package_version():
+    """Load the current package version from config file."""
+    return load_dump(PACKAGE_FILE)['package']['name']
 
 
 @cached
