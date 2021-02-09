@@ -10,12 +10,14 @@ import json
 import os
 import shutil
 from collections import defaultdict, OrderedDict
+from pathlib import Path
+from typing import List
 
 import click
 
 from . import rule_loader
 from .misc import JS_LICENSE, cached
-from .rule import Rule  # noqa: F401
+from .rule import Rule, downgrade_contents_from_rule  # noqa: F401
 from .utils import get_path, get_etc_path, load_etc_dump, save_etc_dump
 
 RELEASE_DIR = get_path("releases")
@@ -144,9 +146,9 @@ class Package(object):
     def __init__(self, rules, name, deprecated_rules=None, release=False, current_versions=None, min_version=None,
                  max_version=None, update_version_lock=False, verbose=True):
         """Initialize a package."""
-        self.rules = [r.copy() for r in rules]  # type: list[Rule]
+        self.rules: List[Rule] = [r.copy() for r in rules]
         self.name = name
-        self.deprecated_rules = [r.copy() for r in deprecated_rules or []]  # type: list[Rule]
+        self.deprecated_rules: List[Rule] = [r.copy() for r in deprecated_rules or []]
         self.release = release
 
         self.changed_rule_ids, self.new_rules_ids, self.removed_rule_ids = self._add_versions(current_versions,
@@ -250,6 +252,38 @@ class Package(object):
 
         if verbose:
             click.echo('Package saved to: {}'.format(save_dir))
+
+    def export(self, outfile, downgrade_version=None, verbose=True, skip_unsupported=False):
+        """Export rules into a consolidated ndjson file."""
+        outfile = Path(outfile).with_suffix('.ndjson')
+        unsupported = []
+
+        if downgrade_version:
+            if skip_unsupported:
+                output_lines = []
+
+                for rule in self.rules:
+                    try:
+                        output_lines.append(json.dumps(downgrade_contents_from_rule(rule, downgrade_version),
+                                                       sort_keys=True))
+                    except ValueError as e:
+                        unsupported.append(f'{e}: {rule.id} - {rule.name}')
+                        continue
+
+            else:
+                output_lines = [json.dumps(downgrade_contents_from_rule(r, downgrade_version), sort_keys=True)
+                                for r in self.rules]
+        else:
+            output_lines = [json.dumps(r.contents, sort_keys=True) for r in self.rules]
+
+        outfile.write_text('\n'.join(output_lines) + '\n')
+
+        if verbose:
+            click.echo(f'Exported {len(self.rules) - len(unsupported)} rules into {outfile}')
+
+            if skip_unsupported and unsupported:
+                unsupported_str = '\n- '.join(unsupported)
+                click.echo(f'Skipped {len(unsupported)} unsupported rules: \n- {unsupported_str}')
 
     def get_package_hash(self, as_api=True, verbose=True):
         """Get hash of package contents."""
