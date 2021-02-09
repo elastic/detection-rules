@@ -134,7 +134,8 @@ def load_rules(file_lookup=None, verbose=True, error=True):
 
 
 @cached
-def load_gh_pr_rules(labels: list = None, repo: str = 'elastic/detection-rules', token=None, threads=50, verbose=True):
+def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rules', token=None, threads=50,
+                         verbose=True):
     """Load all rules active as a GitHub PR."""
     import requests
     import pytoml
@@ -254,7 +255,7 @@ __all__ = (
     "load_rule_files",
     "load_rules",
     "load_rule_files",
-    "load_gh_pr_rules",
+    "load_github_pr_rules",
     "get_file_name",
     "get_production_rules",
     "get_rule",

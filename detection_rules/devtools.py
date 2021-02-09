@@ -225,9 +225,9 @@ def license_check(ctx):
 @click.pass_context
 def package_stats(ctx, token, threads):
     """Get statistics for current rule package."""
-    current_package: Package = ctx.invoke(build_release, verbose=False, release=False)
+    current_package: Package = ctx.invoke(build_release, verbose=False, release=None)
     release = f'v{current_package.name}.0'
-    new, modified, errors = rule_loader.load_gh_pr_rules(labels=[release], token=token, threads=threads)
+    new, modified, errors = rule_loader.load_github_pr_rules(labels=[release], token=token, threads=threads)
 
     click.echo(f'Total rules as of {release} package: {len(current_package.rules)}')
     click.echo(f'New rules: {len(current_package.new_rules_ids)}')
@@ -254,9 +254,9 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
     from .main import search_rules
 
     all_rules = {}
-    new, modified, errors = rule_loader.load_gh_pr_rules(token=token, threads=threads)
+    new, modified, errors = rule_loader.load_github_pr_rules(token=token, threads=threads)
 
-    def add_gh_meta(this_rule, status, original_rule_id=None):
+    def add_github_meta(this_rule, status, original_rule_id=None):
         pr = this_rule.gh_pr
         rule.metadata['status'] = status
         rule.metadata['github'] = {
@@ -281,11 +281,11 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
         all_rules[rule_path] = rule.rule_format()
 
     for rule_id, rule in new.items():
-        add_gh_meta(rule, 'new')
+        add_github_meta(rule, 'new')
 
     for rule_id, rules in modified.items():
         for rule in rules:
-            add_gh_meta(rule, 'modified', rule_id)
+            add_github_meta(rule, 'modified', rule_id)
 
     loop = not no_loop
     ctx.invoke(search_rules, query=query, columns=columns, language=language, rules=all_rules, pager=loop)
