@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+from uuid import uuid4
 
 import click
 import kql
@@ -16,7 +17,7 @@ import eql
 from . import ecs, beats
 from .attack import tactics, build_threat_map_entry, matrix
 from .rule_formatter import nested_normalize, toml_write
-from .schemas import CurrentSchema, TomlMetadata
+from .schemas import CurrentSchema, TomlMetadata, downgrade
 from .utils import get_path, clear_caches, cached
 
 
@@ -522,3 +523,13 @@ class Rule(object):
         click.echo('    - to have a rule validate against a specific beats schema, add it to metadata->beats_version')
 
         return rule
+
+
+def downgrade_contents_from_rule(rule: Rule, target_version: str) -> dict:
+    """Generate the downgraded contents from a rule."""
+    payload = rule.contents.copy()
+    meta = payload.setdefault("meta", {})
+    meta["original"] = dict(id=rule.id, **rule.metadata)
+    payload["rule_id"] = str(uuid4())
+    payload = downgrade(payload, target_version)
+    return payload
