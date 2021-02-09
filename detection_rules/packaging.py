@@ -311,7 +311,8 @@ class Package(object):
             click.echo(f' - {len(all_rules) - len(rules)} rules excluded from package')
 
         update = config.pop('update', {})
-        package = cls(rules, deprecated_rules=deprecated_rules, update_version_lock=update_version_lock, **config)
+        package = cls(rules, deprecated_rules=deprecated_rules, update_version_lock=update_version_lock,
+                      verbose=verbose, **config)
 
         # Allow for some fields to be overwritten
         if update.get('data', {}):

@@ -9,6 +9,7 @@ import os
 import re
 import time
 from pathlib import Path
+from typing import Dict
 
 import click
 import jsonschema
@@ -250,7 +251,7 @@ def validate_all(fail):
 @click.option('--columns', '-c', multiple=True, help='Specify columns to add the table')
 @click.option('--language', type=click.Choice(["eql", "kql"]), default="kql")
 @click.option('--count', is_flag=True, help='Return a count rather than table')
-def search_rules(query, columns, language, count, verbose=True):
+def search_rules(query, columns, language, count, verbose=True, rules: Dict[str, dict] = None, pager=False):
     """Use KQL or EQL to find matching rules."""
     from kql import get_evaluator
     from eql.table import Table
@@ -259,8 +260,9 @@ def search_rules(query, columns, language, count, verbose=True):
     from eql.pipes import CountPipe
 
     flattened_rules = []
+    rules = rules or rule_loader.load_rule_files(verbose=verbose)
 
-    for file_name, rule_doc in rule_loader.load_rule_files(verbose=verbose).items():
+    for file_name, rule_doc in rules.items():
         flat = {"file": os.path.relpath(file_name)}
         flat.update(rule_doc)
         flat.update(rule_doc["metadata"])
@@ -309,7 +311,7 @@ def search_rules(query, columns, language, count, verbose=True):
     table = Table.from_list(columns, filtered)
 
     if verbose:
-        click.echo(table)
+        click.echo_via_pager(table) if pager else click.echo(table)
 
     return filtered
 
