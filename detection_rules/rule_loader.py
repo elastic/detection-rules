@@ -244,7 +244,7 @@ def get_non_required_defaults_by_type(rule_type: str) -> dict:
     schema = CurrentSchema.get_schema(rule_type)
     properties = schema['properties']
     non_required_defaults = {prop: properties[prop].get('default') for prop in properties
-                             if prop not in schema['required'] and properties[prop].get('default')}
+                             if prop not in schema['required'] and 'default' in properties[prop]}
     return non_required_defaults
 
 
@@ -252,7 +252,7 @@ def find_unneeded_defaults_from_rule(rule: Rule) -> dict:
     """Remove values that are not required in the schema which are set with default values."""
     unrequired_defaults = get_non_required_defaults_by_type(rule.type)
     default_matches = {p: rule.contents[p] for p, v in unrequired_defaults.items()
-                       if rule.contents.get(p) and rule.contents[p] == v}
+                       if p in rule.contents and rule.contents[p] == v}
     return default_matches
 
 

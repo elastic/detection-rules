@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import List, Tuple
 
 import click
-from eql import load_dump
 
 from . import rule_loader
 from .misc import JS_LICENSE, cached
@@ -55,7 +54,7 @@ def filter_rule(rule: Rule, config_filter: dict, exclude_fields: dict) -> bool:
 @cached
 def load_current_package_version():
     """Load the current package version from config file."""
-    return load_dump(PACKAGE_FILE)['package']['name']
+    return load_etc_dump('packages.yml')['package']['name']
 
 
 @cached
@@ -489,8 +488,13 @@ class Package(object):
             summary_doc['rule_ids'].append(rule.id)
             summary_doc['rule_names'].append(rule.name)
             summary_doc['rule_hashes'].append(rule.get_hash())
-            status = 'new' if rule.id in self.new_rules_ids else 'modified' if rule.id in self.changed_rule_ids \
-                else 'unmodified'
+
+            if rule.id in self.new_rules_ids:
+                status = 'new'
+            elif rule.id in self.changed_rule_ids:
+                status = 'modified'
+            else:
+                status = 'unmodified'
 
             bulk_upload_docs.append(create)
             rule_doc = rule.detailed_format(hash=rule.get_hash(), source='repo', datetime_uploaded=now,
