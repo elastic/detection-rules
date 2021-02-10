@@ -23,6 +23,7 @@ from .utils import format_command_options, normalize_timing_and_sort, unix_time_
 from .rule import Rule
 from .rule_loader import get_rule, rta_mappings
 
+
 COLLECTION_DIR = get_path('collections')
 MATCH_ALL = {'bool': {'filter': [{'match_all': {}}]}}
 
@@ -366,7 +367,7 @@ def es_group(ctx: click.Context, **kwargs):
 @click.pass_context
 def collect_events(ctx, host_id, query, index, rta_name, rule_id, view_events):
     """Collect events from Elasticsearch."""
-    client = ctx.obj['es']
+    client: Elasticsearch = ctx.obj['es']
     dsl = kql.to_dsl(query) if query else MATCH_ALL
     dsl['bool'].setdefault('filter', []).append({'bool': {'should': [{'match_phrase': {'host.id': host_id}}]}})
 
@@ -388,6 +389,32 @@ def collect_events(ctx, host_id, query, index, rta_name, rule_id, view_events):
     except AssertionError as e:
         error_msg = 'No events collected! Verify events are streaming and that the agent-hostname is correct'
         client_error(error_msg, e, ctx=ctx)
+
+
+@es_group.command('index-rules')
+@click.option('--query', '-q', help='Optional KQL query to limit to specific rules')
+@click.option('--from-file', '-f', type=click.File('r'), help='Load a previously saved uploadable bulk file')
+@click.option('--save_files', '-s', is_flag=True, help='Optionally save the bulk request to a file')
+@click.pass_context
+def index_repo(ctx: click.Context, query, from_file, save_files):
+    """Index rules based on KQL search results to an elasticsearch instance."""
+    from .main import generate_rules_index
+
+    es_client: Elasticsearch = ctx.obj['es']
+
+    if from_file:
+        bulk_upload_docs = from_file.read()
+
+        # light validation only
+        try:
+            index_body = [json.loads(line) for line in bulk_upload_docs.splitlines()]
+            click.echo(f'{len([r for r in index_body if "rule" in r])} rules included')
+        except json.JSONDecodeError:
+            client_error(f'Improperly formatted bulk request file: {from_file.name}')
+    else:
+        bulk_upload_docs, importable_rules_docs = ctx.invoke(generate_rules_index, query=query, save_files=save_files)
+
+    es_client.bulk(bulk_upload_docs)
 
 
 @es_group.group('experimental')

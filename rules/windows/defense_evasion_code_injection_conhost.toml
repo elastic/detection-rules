@@ -1,13 +1,13 @@
 [metadata]
 creation_date = "2020/08/31"
 maturity = "production"
-updated_date = "2020/11/03"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
 description = "Identifies a suspicious Conhost child process which may be an indication of code injection activity."
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License"
 name = "Suspicious Process from Conhost"
@@ -23,7 +23,8 @@ type = "query"
 
 query = '''
 event.category:process and event.type:(start or process_started) and
-  process.parent.name:conhost.exe
+  process.parent.name:conhost.exe and 
+  not process.executable:("C:\Windows\splwow64.exe" or "C:\Windows\System32\WerFault.exe" or "C:\\Windows\System32\conhost.exe")
 '''
 
 
@@ -39,4 +40,3 @@ reference = "https://attack.mitre.org/techniques/T1055/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

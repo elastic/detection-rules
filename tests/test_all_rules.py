@@ -8,7 +8,6 @@ import os
 import re
 import sys
 import unittest
-import warnings
 from collections import defaultdict
 from pathlib import Path
 
@@ -89,7 +88,7 @@ class TestValidRules(unittest.TestCase):
 
         for file_name, contents in rule_loader.load_rule_files().items():
             rule = Rule(file_name, contents)
-            default_matches = rule_loader.find_unneeded_defaults(rule)
+            default_matches = rule_loader.find_unneeded_defaults_from_rule(rule)
 
             if default_matches:
                 rules_with_hits['{} - {}'.format(rule.name, rule.id)] = default_matches
@@ -130,6 +129,30 @@ class TestValidRules(unittest.TestCase):
 class TestThreatMappings(unittest.TestCase):
     """Test threat mapping data for rules."""
 
+    def test_technique_deprecations(self):
+        """Check for use of any ATT&CK techniques that have been deprecated."""
+        replacement_map = attack.techniques_redirect_map
+        revoked = list(attack.revoked)
+        deprecated = list(attack.deprecated)
+        rules = rule_loader.load_rules().values()
+
+        for rule in rules:
+            revoked_techniques = {}
+            rule_info = f'{rule.id} - {rule.name}'
+            threat_mapping = rule.contents.get('threat')
+
+            if threat_mapping:
+                for entry in threat_mapping:
+                    techniques = entry.get('technique', [])
+                    for technique in techniques:
+                        if technique['id'] in revoked + deprecated:
+                            revoked_techniques[technique['id']] = replacement_map.get(technique['id'],
+                                                                                      'DEPRECATED - DO NOT USE')
+
+            if revoked_techniques:
+                old_new_mapping = "\n".join(f'Actual: {k} -> Expected {v}' for k, v in revoked_techniques.items())
+                self.fail(f'{rule_info} -> Using deprecated ATT&CK techniques: \n{old_new_mapping}')
+
     def test_tactic_to_technique_correlations(self):
         """Ensure rule threat info is properly related to a single tactic and technique."""
         rules = rule_loader.load_rules().values()
@@ -140,6 +163,11 @@ class TestThreatMappings(unittest.TestCase):
                 for entry in threat_mapping:
                     tactic = entry.get('tactic')
                     techniques = entry.get('technique', [])
+
+                    mismatched = [t['id'] for t in techniques if t['id'] not in attack.matrix[tactic['name']]]
+                    if mismatched:
+                        self.fail(f'mismatched ATT&CK techniques for rule: {rule.id} - {rule.name} -> '
+                                  f'{", ".join(mismatched)} not under: {tactic["name"]}')
 
                     # tactic
                     expected_tactic = attack.tactics_map[tactic['name']]
@@ -199,29 +227,6 @@ class TestThreatMappings(unittest.TestCase):
                 self.fail(f'{rule_info} -> duplicate tactics defined for {duplicates}. '
                           f'Flatten to a single entry per tactic')
 
-    def test_technique_deprecations(self):
-        """Check and warn for use of any ATT&CK techniques that have been deprecated."""
-        deprecated = {}  # {technique: rules_using_them
-        rules = rule_loader.load_rules().values()
-
-        for rule in rules:
-            rule_info = f'{rule.id} - {rule.name}'
-            threat_mapping = rule.contents.get('threat')
-
-            if threat_mapping:
-                for entry in threat_mapping:
-                    techniques = entry.get('technique', [])
-                    for technique in techniques:
-                        if technique['id'] in attack.revoked:
-                            deprecated.setdefault(technique['id'], [])
-                            deprecated[technique['id']].append(rule_info)
-
-        if deprecated:
-            deprecated_str = json.dumps(deprecated, indent=2, sort_keys=True)
-            mitre_url = 'https://attack.mitre.org/resources/updates/'
-            warning_str = f'The following rules are using deprecated ATT&CK techniques ({mitre_url}):\n{deprecated_str}'
-            warnings.warn(warning_str)
-
 
 class TestRuleTags(unittest.TestCase):
     """Test tags data for rules."""
@@ -268,6 +273,7 @@ class TestRuleTags(unittest.TestCase):
             'logs-endpoint.alerts-*': {'all': ['Endpoint Security']},
             'logs-endpoint.events.*': {'any': ['Windows', 'macOS', 'Linux', 'Host']},
             'logs-okta*': {'all': ['Okta']},
+            'logs-windows.*': {'all': ['Windows']},
             'packetbeat-*': {'all': ['Network']},
             'winlogbeat-*': {'all': ['Windows']}
         }
@@ -342,6 +348,7 @@ class TestRuleFiles(unittest.TestCase):
     def test_rule_file_names_by_tactic(self):
         """Test to ensure rule files have the primary tactic prepended to the filename."""
         rules = rule_loader.load_rules().values()
+        bad_name_rules = []
 
         for rule in rules:
             rule_path = Path(rule.path).resolve()
@@ -357,8 +364,13 @@ class TestRuleFiles(unittest.TestCase):
                 primary_tactic = threat[0]['tactic']['name']
                 tactic_str = primary_tactic.lower().replace(' ', '_')
 
-                error_msg = 'filename does not start with the primary tactic - update the tactic or the rule filename'
-                self.assertEqual(tactic_str, filename[:len(tactic_str)], f'{rule.id} - {rule.name} -> {error_msg}')
+                if tactic_str != filename[:len(tactic_str)]:
+                    bad_name_rules.append(f'{rule.id} - {Path(rule.path).name} -> expected: {tactic_str}')
+
+        if bad_name_rules:
+            error_msg = 'filename does not start with the primary tactic - update the tactic or the rule filename'
+            rule_err_str = '\n'.join(bad_name_rules)
+            self.fail(f'{error_msg}:\n{rule_err_str}')
 
 
 class TestRuleMetadata(unittest.TestCase):
