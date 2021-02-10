@@ -1,14 +1,12 @@
 [metadata]
 creation_date = "2020/07/08"
-ecs_version = ["1.5.0"]
-maturity = "development"
+maturity = "production"
 updated_date = "2020/07/08"
 
 [rule]
 author = ["Elastic"]
 description = "Identifies that a login attempt has happened from a forbidden location."
 index = ["auditbeat-*"]
-interval = "10m"
 language = "kuery"
 license = "Elastic License"
 name = "Auditd Login from Forbidden Location"
@@ -16,11 +14,11 @@ references = ["https://github.com/linux-pam/linux-pam/blob/aac5a8fdc4aa3f7e56335
 risk_score = 73
 rule_id = "cab4f01c-793f-4a54-a03e-e5d85b96d7af"
 severity = "high"
-tags = ["Elastic","Linux"]
+tags = ["Elastic", "Linux", "Threat", "Initial Access"]
 type = "query"
 
 query = '''
-event.module:auditd and auditd.message_type:anom_login_location
+event.module:auditd and event.action:attempted-log-in-from-unusual-place-to
 '''
 
 
@@ -48,4 +46,3 @@ reference = "https://attack.mitre.org/techniques/T1078/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
