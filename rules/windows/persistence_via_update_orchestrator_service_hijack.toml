@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/08/17"
 maturity = "production"
-updated_date = "2020/01/28"
+updated_date = "2021/02/10"
 
 [rule]
 author = ["Elastic"]
@@ -23,9 +23,17 @@ type = "eql"
 
 query = '''
 process where event.type : "start" and
-  process.parent.name : "svchost.exe" and
+  process.parent.executable : "C:\\Windows\\System32\\svchost.exe" and
   process.parent.args : "UsoSvc" and
-  not process.name :("UsoClient.exe", "MusNotification.exe", "MusNotificationUx.exe", "MusNotifyIcon.exe", "WerFault.exe", "WerMgr.exe")
+  not process.executable :
+         (
+          "C:\\Windows\\System32\\UsoClient.exe",
+          "C:\\Windows\\System32\\MusNotification.exe",
+          "C:\\Windows\\System32\\MusNotificationUx.exe",
+          "C:\\Windows\\System32\\MusNotifyIcon.exe",
+          "C:\\Windows\\System32\\WerFault.exe",
+          "C:\\Windows\\System32\\WerMgr.exe"
+          )
 '''
 
 
