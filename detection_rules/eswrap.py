@@ -403,21 +403,18 @@ def index_repo(ctx: click.Context, query, from_file, save_files):
     es_client: Elasticsearch = ctx.obj['es']
 
     if from_file:
-        uploadable_bulk_index = from_file.read()
+        bulk_upload_docs = from_file.read()
 
         # light validation only
         try:
-            index_body = [json.loads(line) for line in uploadable_bulk_index.splitlines()]
-            rule_count = len([r for r in index_body if 'rule' in r])
+            index_body = [json.loads(line) for line in bulk_upload_docs.splitlines()]
+            click.echo(f'{len([r for r in index_body if "rule" in r])} rules included')
         except json.JSONDecodeError:
             client_error(f'Improperly formatted bulk request file: {from_file.name}')
     else:
-        uploadable_bulk_index, importable_bulk_index = ctx.invoke(generate_rules_index, query=query,
-                                                                  save_files=save_files)
+        bulk_upload_docs, importable_rules_docs = ctx.invoke(generate_rules_index, query=query, save_files=save_files)
 
-    click.echo(f'{rule_count} rules included')
-
-    es_client.bulk(uploadable_bulk_index)
+    es_client.bulk(bulk_upload_docs)
 
 
 @es_group.group('experimental')

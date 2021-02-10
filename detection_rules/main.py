@@ -69,23 +69,21 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
         rules = rule_loader.load_rules(verbose=False).values()
 
     rule_count = len(rules)
-    package = Package(rules, load_current_package_version, verbose=False)
+    package = Package(rules, load_current_package_version(), verbose=False)
     package_hash = package.get_package_hash()
-    uploadable_bulk_index, importable_bulk_index = package.create_bulk_index_body()
+    bulk_upload_docs, importable_rules_docs = package.create_bulk_index_body()
 
     if save_files:
         path = Path(get_path('enriched-rule-indexes', package_hash))
         path.mkdir(parents=True, exist_ok=overwrite)
-        with open(path.joinpath('enriched-rules-index-uploadable.ndjson'), 'w') as f:
-            f.write(uploadable_bulk_index)
-        with open(path.joinpath('enriched-rules-index-importable.ndjson'), 'w') as f:
-            f.write(importable_bulk_index)
+        bulk_upload_docs.dump(path.joinpath('enriched-rules-index-uploadable.ndjson'), sort_keys=True)
+        importable_rules_docs.dump(path.joinpath('enriched-rules-index-importable.ndjson'), sort_keys=True)
 
         click.echo(f'files saved to: {path}')
 
     click.echo(f'{rule_count} rules included')
 
-    return uploadable_bulk_index, importable_bulk_index
+    return bulk_upload_docs, importable_rules_docs
 
 
 @root.command('import-rules')

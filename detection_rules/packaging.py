@@ -19,7 +19,7 @@ from eql import load_dump
 from . import rule_loader
 from .misc import JS_LICENSE, cached
 from .rule import Rule, downgrade_contents_from_rule  # noqa: F401
-from .utils import get_path, get_etc_path, load_etc_dump, save_etc_dump
+from .utils import Ndjson, get_path, get_etc_path, load_etc_dump, save_etc_dump
 
 RELEASE_DIR = get_path("releases")
 PACKAGE_FILE = get_etc_path('packages.yml')
@@ -220,16 +220,16 @@ class Package(object):
         consolidated = json.loads(self.get_consolidated())
         with open(os.path.join(directory, f'{self.name}-consolidated-rules.json'), 'w') as f:
             json.dump(consolidated, f, sort_keys=True, indent=2)
-        with open(os.path.join(directory, f'{self.name}-consolidated-rules.ndjson'), 'w') as f:
-            f.write('\n'.join(json.dumps(r, sort_keys=True) for r in consolidated))
+        consolidated_rules = Ndjson(consolidated)
+        consolidated_rules.dump(Path(directory).joinpath(f'{self.name}-consolidated-rules.ndjson'), sort_keys=True)
 
         self.generate_xslx(os.path.join(directory, f'{self.name}-summary.xlsx'))
 
-        rules_index, ndjson_index = self.create_bulk_index_body()
-        with open(os.path.join(directory, f'{self.name}-enriched-rules-index-uploadable.ndjson'), 'w') as f:
-            f.write(rules_index)
-        with open(os.path.join(directory, f'{self.name}-enriched-rules-index-importable.ndjson'), 'w') as f:
-            f.write(ndjson_index)
+        bulk_upload, rules_ndjson = self.create_bulk_index_body()
+        bulk_upload.dump(Path(directory).joinpath(f'{self.name}-enriched-rules-index-uploadable.ndjson'),
+                         sort_keys=True)
+        rules_ndjson.dump(Path(directory).joinpath(f'{self.name}-enriched-rules-index-importable.ndjson'),
+                          sort_keys=True)
 
     def get_consolidated(self, as_api=True):
         """Get a consolidated package of the rules in a single file."""
@@ -465,7 +465,7 @@ class Package(object):
         """Bump the versions of all production rules included in a release and optionally save changes."""
         return manage_versions(self.rules, current_versions=current_versions, save_changes=save_changes)
 
-    def create_bulk_index_body(self) -> Tuple[str, str]:
+    def create_bulk_index_body(self) -> Tuple[Ndjson, Ndjson]:
         """Create a body to bulk index into a stack."""
         package_hash = self.get_package_hash(verbose=False)
         now = datetime.datetime.isoformat(datetime.datetime.utcnow())
@@ -482,8 +482,8 @@ class Package(object):
             'source': 'repo',
             'details': {'datetime_uploaded': now}
         }
-        rule_docs = [create, summary_doc]
-        ndjson_docs = []
+        bulk_upload_docs = Ndjson([create, summary_doc])
+        importable_rules_docs = Ndjson()
 
         for rule in self.rules:
             summary_doc['rule_ids'].append(rule.id)
@@ -492,12 +492,10 @@ class Package(object):
             status = 'new' if rule.id in self.new_rules_ids else 'modified' if rule.id in self.changed_rule_ids \
                 else 'unmodified'
 
-            rule_docs.append(create)
+            bulk_upload_docs.append(create)
             rule_doc = rule.detailed_format(hash=rule.get_hash(), source='repo', datetime_uploaded=now,
                                             status=status, package_version=self.name).copy()
-            rule_docs.append(rule_doc)
-            ndjson_docs.append(rule_doc)
+            bulk_upload_docs.append(rule_doc)
+            importable_rules_docs.append(rule_doc)
 
-        rules_index = '\n'.join(json.dumps(d, sort_keys=True) for d in rule_docs) + '\n'
-        ndjson_index = '\n'.join(json.dumps(d, sort_keys=True) for d in ndjson_docs) + '\n'
-        return rules_index, ndjson_index
+        return bulk_upload_docs, importable_rules_docs
