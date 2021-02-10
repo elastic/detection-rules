@@ -2,6 +2,8 @@
 
 Thank you for your interest in contributing to Detection Rules. We've crafted this document to make it simple and easy for you to contribute. We recommend that you read these contribution guidelines carefully so that you spend less time working on GitHub issues and PRs and can be more productive contributing to this repository.
 
+If you want to be rewarded for your contributions, sign up for the [Elastic Contributor Program](https://www.elastic.co/community/contributor). Each time you make a valid contribution, you’ll earn points that increase your chances of winning prizes and being recognized as a top contributor.
+
 These guidelines will also help you post meaningful issues that will be more easily understood, considered, and resolved. These guidelines are here to help you whether you are creating a new rule, opening an issue to report a false positive, or requesting a feature.
 
 ## Table of Contents
@@ -66,6 +68,8 @@ Of course, feel free to bump your issues if you think they've been neglected for
 ### "I want to help!"
 
 **Now we're talking**. If you have a bug fix or new rule that you would like to contribute to Detection Rules, please **find or open an issue about it before you start working on it.** Talk about what you would like to do. It may be that somebody is already working on it, or that there are particular issues that you should know about before implementing the change.
+
+We get asked from time-to-time if there are any rules that the community can help with, absolutely! Check out the rules with the ["help wanted" label](https://github.com/elastic/detection-rules/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22+). Don't feel like these are your only options, any issue is up for grabs by the community, but these are rules that are good ideas and we would love to have some additional hands on.
 
 We enjoy working with contributors to get their code accepted. There are many approaches to fixing a problem and it is important to find the best approach before writing too much code.
 
@@ -143,7 +147,7 @@ Some of the required metadata captured in a rule file:
 
 Our rules should be written generically when possible. We use [Elastic Common Schema (ECS)](https://www.elastic.co/guide/en/ecs/current/ecs-reference.html) to standardize data before ingesting into Elasticsearch. ECS gives a set of field sets, field names and categories to standardize events across various tools. By writing rules using ECS fields and values, you can reuse the same logic regardless of data source. ECS is an ongoing effort, and we may encounter fields that aren't present yet. If you need to make any requests to ECS, see the [elastic/ecs](https://github.com/elastic/ecs) GitHub repository.
 
-If the relevant [categorization values](https://www.elastic.co/guide/en/ecs/current/ecs-category-field-values-reference.html) are already defined for ECS, we use these to narrow down the event type before adding the query. Typically, the query starts with the broadest grouping possible and gets narrower for each clause. For example, we might write `event.category:process and event.type:start and process.name:net.exe and process.args:group`. First, we match process events with `event.category`, then narrow to creation events with `event.type`. Of the process creation events, we're looking for the process `net.exe` with `process.name` and finally we check the arguments `group` by looking at `process.args`. This flow has little effect on the generated Elasticsearch query, but is the most intuitive to read for rule developers. 
+If the relevant [categorization values](https://www.elastic.co/guide/en/ecs/current/ecs-category-field-values-reference.html) are already defined for ECS, we use these to narrow down the event type before adding the query. Typically, the query starts with the broadest grouping possible and gets narrower for each clause. For example, we might write `event.category:process and event.type:start and process.name:net.exe and process.args:group`. First, we match process events with `event.category`, then narrow to creation events with `event.type`. Of the process creation events, we're looking for the process `net.exe` with `process.name` and finally we check the arguments `group` by looking at `process.args`. This flow has little effect on the generated Elasticsearch query, but is the most intuitive to read for rule developers.
 
 Sometimes, it might not make sense for ECS to standardize a field, value, or category. Occasionally, we may encounter fields that specific to a single use-case or vendor. When that happens, we add an exception in [etc/non-ecs-schema.json](etc/non-ecs-schema.json). We automatically detect beats by looking at the index patterns used in a rule. If we see `winlogbeat-*`, for example, then we can validate the rule against ECS + Winlogbeat. When using a particular beat, please use `event.module` and `event.dataset` to make the rule more precise and to better nudge the validation logic. Similar to our logic flow for ECS categorization, we recommend searches progress from `event.module` → `event.dataset` → `event.action` → `<additional criteria>`.
 
@@ -164,28 +168,28 @@ $ python -m detection_rules create-rule rules/windows/defense_evasion_msbuild_ch
 The command will prompt you for each required field in the metadata
 ```
 Rule type (machine_learning, query, saved_id): query
-actions (multi, comma separated): 
+actions (multi, comma separated):
 description (required): Look for child processes of MsBuild
-enabled [false] ("n/a" to leave blank): 
-from [now-6m] ("n/a" to leave blank): 
-false_positives (multi, comma separated): 
-filters (multi, comma separated): 
-interval [5m] ("n/a" to leave blank): 
-exceptions_list (multi, comma separated): 
-max_signals [100] ("n/a" to leave blank): 
-meta: 
+enabled [false] ("n/a" to leave blank):
+from [now-6m] ("n/a" to leave blank):
+false_positives (multi, comma separated):
+filters (multi, comma separated):
+interval [5m] ("n/a" to leave blank):
+exceptions_list (multi, comma separated):
+max_signals [100] ("n/a" to leave blank):
+meta:
 name (required): Suspicious Child of MsBuild
-note: 
-references (multi, comma separated): 
-risk_score [21] ("n/a" to leave blank)  (required): 
-rule_id [90d0c543-e197-46d8-934d-0320b2c83486] ("n/a" to leave blank)  (required): 
+note:
+references (multi, comma separated):
+risk_score [21] ("n/a" to leave blank)  (required):
+rule_id [90d0c543-e197-46d8-934d-0320b2c83486] ("n/a" to leave blank)  (required):
 severity [low] ("n/a" to leave blank)  (required): medium
 tags (multi, comma separated): Windows  
-throttle: 
-timeline_id: 
-timeline_title: 
-to [now] ("n/a" to leave blank): 
-threat (multi, comma separated): 
+throttle:
+timeline_id:
+timeline_title:
+to [now] ("n/a" to leave blank):
+threat (multi, comma separated):
 index (multi, comma separated): winlogbeat-*
 language [kuery] ("n/a" to leave blank)  (required): kuery
 query (required): event.category:process and process.parent.name:msbuild.exe

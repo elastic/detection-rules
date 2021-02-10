@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/04/22"
-ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/06/25"
+updated_date = "2020/12/09"
 
 [rule]
 author = ["Elastic"]
@@ -11,14 +10,15 @@ Identifies potential attempts to disable Security-Enhanced Linux (SELinux), whic
 support access control policies. Adversaries may disable security tools to avoid possible detection of their tools and
 activities.
 """
-index = ["auditbeat-*"]
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License"
 name = "Potential Disabling of SELinux"
 risk_score = 47
 rule_id = "eb9eb8ba-a983-41d9-9c93-a1c05112ca5e"
 severity = "medium"
-tags = ["Elastic", "Linux"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Defense Evasion"]
 type = "query"
 
 query = '''
@@ -29,9 +29,13 @@ event.category:process and event.type:(start or process_started) and process.nam
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1089"
-name = "Disabling Security Tools"
-reference = "https://attack.mitre.org/techniques/T1089/"
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
 
 
 [rule.threat.tactic]

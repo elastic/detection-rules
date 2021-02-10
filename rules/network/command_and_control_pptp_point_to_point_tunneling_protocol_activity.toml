@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/07/02"
+updated_date = "2020/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -19,14 +18,14 @@ false_positives = [
     be excluded.
     """,
 ]
-index = ["filebeat-*", "packetbeat-*"]
+index = ["filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License"
 name = "PPTP (Point to Point Tunneling Protocol) Activity"
 risk_score = 21
 rule_id = "d2053495-8fe7-4168-b3df-dad844046be3"
 severity = "low"
-tags = ["Elastic", "Network"]
+tags = ["Elastic", "Host", "Network", "Threat Detection", "Command and Control"]
 type = "query"
 
 query = '''
@@ -36,13 +35,9 @@ event.category:(network or network_traffic) and network.transport:tcp and destin
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1043"
-name = "Commonly Used Port"
-reference = "https://attack.mitre.org/techniques/T1043/"
-
 
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+

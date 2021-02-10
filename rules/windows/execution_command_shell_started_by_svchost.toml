@@ -1,20 +1,20 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/06/24"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
 description = "Identifies a suspicious parent child process relationship with cmd.exe descending from svchost.exe"
-index = ["winlogbeat-*"]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License"
 name = "Svchost spawning Cmd"
 risk_score = 21
 rule_id = "fd7a6052-58fa-4397-93c3-4795249ccfa2"
 severity = "low"
-tags = ["Elastic", "Windows"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
 type = "query"
 
 query = '''
@@ -27,7 +27,7 @@ event.category:process and event.type:(start or process_started) and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1059"
-name = "Command-Line Interface"
+name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
 

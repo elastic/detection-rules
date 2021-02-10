@@ -4,24 +4,22 @@
 
 """ECS Schemas management."""
 import os
+import re
+from typing import List
 
 import kql
+import eql
+import json
 import requests
 import yaml
 
 from .semver import Version
-from .utils import unzip, load_etc_dump, save_etc_dump, get_etc_path
+from .utils import DateTimeEncoder, unzip, get_etc_path, gzip_compress, read_gzip, cached
 
 
-def download_latest_beats_schema():
-    """Download additional schemas from ecs releases."""
-    url = 'https://api.github.com/repos/elastic/beats/releases'
-    releases = requests.get(url)
-
-    latest_release = max(releases.json(), key=lambda release: Version(release["tag_name"].lstrip("v")))
-
-    print(f"Downloading beats {latest_release['tag_name']}")
-    response = requests.get(latest_release['zipball_url'])
+def _decompress_and_save_schema(url, release_name):
+    print(f"Downloading beats {release_name}")
+    response = requests.get(url)
 
     print(f"Downloaded {len(response.content) / 1024.0 / 1024.0:.2f} MB release.")
 
@@ -57,8 +55,29 @@ def download_latest_beats_schema():
 
     # remove all non-beat directories
     fs = {k: v for k, v in fs.get("folders", {}).items() if k.endswith("beat")}
-    print(f"Saving etc/beats_schema/{latest_release['tag_name']}.json")
-    save_etc_dump(fs, "beats_schemas", latest_release["tag_name"] + ".json")
+    print(f"Saving etc/beats_schema/{release_name}.json")
+
+    compressed = gzip_compress(json.dumps(fs, sort_keys=True, cls=DateTimeEncoder))
+    path = get_etc_path("beats_schemas", release_name + ".json.gz")
+    with open(path, 'wb') as f:
+        f.write(compressed)
+
+
+def download_latest_beats_schema():
+    """Download additional schemas from beats releases."""
+    url = 'https://api.github.com/repos/elastic/beats/releases'
+    releases = requests.get(url)
+
+    latest_release = max(releases.json(), key=lambda release: Version(release["tag_name"].lstrip("v")))
+    beats_url = latest_release['zipball_url']
+    name = latest_release['tag_name']
+
+    _decompress_and_save_schema(beats_url, name)
+
+
+def refresh_master_schema():
+    """Download and refresh beats schema from master."""
+    _decompress_and_save_schema('https://github.com/elastic/beats/archive/master.zip', 'master')
 
 
 def _flatten_schema(schema: list, prefix="") -> list:
@@ -69,10 +88,19 @@ def _flatten_schema(schema: list, prefix="") -> list:
     flattened = []
     for s in schema:
         if s.get("type") == "group":
-            flattened.extend(_flatten_schema(s["fields"], prefix=prefix + s["name"] + "."))
+            nested_prefix = prefix + s["name"] + "."
+            # beats is complicated. it seems lke we would expect a zoom.webhook.*, for the zoom.webhook dataset,
+            # but instead it's just at zoom.* directly.
+            #
+            # we have what looks like zoom.zoom.*, but should actually just be zoom.*.
+            # this is one quick heuristic to determine if a submodule nests fields at the parent.
+            # it's probably not perfect, but we can fix other bugs as we run into them later
+            if len(schema) == 1 and nested_prefix.startswith(prefix + prefix):
+                nested_prefix = s["name"] + "."
+            flattened.extend(_flatten_schema(s["fields"], prefix=nested_prefix))
         elif "fields" in s:
             flattened.extend(_flatten_schema(s["fields"], prefix=prefix))
-        elif "name" in s and "description" in s:
+        elif "name" in s:
             s = s.copy()
             # type is implicitly keyword if not defined
             # example: https://github.com/elastic/beats/blob/master/packetbeat/_meta/fields.common.yml#L7-L12
@@ -129,35 +157,41 @@ def get_beats_sub_schema(schema: dict, beat: str, module: str, *datasets: str):
     return {field["name"]: field for field in sorted(flattened, key=lambda f: f["name"])}
 
 
-SCHEMA = None
+@cached
+def get_versions() -> List[Version]:
+    versions = []
+    for filename in os.listdir(get_etc_path("beats_schemas")):
+        version_match = re.match(r'v(.+)\.json\.gz', filename)
+        if version_match:
+            versions.append(Version(version_match.groups()[0]))
+
+    return versions
 
 
-def read_beats_schema():
-    global SCHEMA
-
-    if SCHEMA is None:
-        beats_schemas = os.listdir(get_etc_path("beats_schemas"))
-        latest = max(beats_schemas, key=lambda b: Version(b.lstrip("v")))
-
-        SCHEMA = load_etc_dump("beats_schemas", latest)
-
-    return SCHEMA
+@cached
+def get_max_version() -> str:
+    return str(max(get_versions()))
 
 
-def get_schema_for_query(tree: kql.ast, beats: list) -> dict:
+@cached
+def read_beats_schema(version: str = None):
+    if version and version.lower() == 'master':
+        return json.loads(read_gzip(get_etc_path('beats_schemas', 'master.json.gz')))
+
+    version = Version(version) if version else None
+    beats_schemas = get_versions()
+
+    if version and version not in beats_schemas:
+        raise ValueError(f'Unknown beats schema: {version}')
+
+    version = version or get_max_version()
+
+    return json.loads(read_gzip(get_etc_path('beats_schemas', f'v{version}.json.gz')))
+
+
+def get_schema_from_datasets(beats, modules, datasets, version=None):
     filtered = {}
-    modules = set()
-    datasets = set()
-
-    # extract out event.module and event.dataset from the query's AST
-    for node in tree:
-        if isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.module"):
-            modules.update(child.value for child in node.value if isinstance(child, kql.ast.String))
-
-        if isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.dataset"):
-            datasets.update(child.value for child in node.value if isinstance(child, kql.ast.String))
-
-    beats_schema = read_beats_schema()
+    beats_schema = read_beats_schema(version=version)
 
     # infer the module if only a dataset are defined
     if not modules:
@@ -173,3 +207,39 @@ def get_schema_for_query(tree: kql.ast, beats: list) -> dict:
             filtered.update(get_beats_sub_schema(beats_schema, beat, module, *datasets))
 
     return filtered
+
+
+def get_schema_from_eql(tree: eql.ast.BaseNode, beats: list, version: str = None) -> dict:
+    modules = set()
+    datasets = set()
+
+    # extract out event.module and event.dataset from the query's AST
+    for node in tree:
+        if isinstance(node, eql.ast.Comparison) and node.comparator == node.EQ and \
+                isinstance(node.right, eql.ast.String):
+            if node.left == eql.ast.Field("event", ["module"]):
+                modules.add(node.right.render())
+            elif node.left == eql.ast.Field("event", ["dataset"]):
+                datasets.add(node.right.render())
+        elif isinstance(node, eql.ast.InSet):
+            if node.expression == eql.ast.Field("event", ["module"]):
+                modules.add(node.get_literals())
+            elif node.expression == eql.ast.Field("event", ["dataset"]):
+                datasets.add(node.get_literals())
+
+    return get_schema_from_datasets(beats, modules, datasets, version=version)
+
+
+def get_schema_from_kql(tree: kql.ast.BaseNode, beats: list, version: str = None) -> dict:
+    modules = set()
+    datasets = set()
+
+    # extract out event.module and event.dataset from the query's AST
+    for node in tree:
+        if isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.module"):
+            modules.update(child.value for child in node.value if isinstance(child, kql.ast.String))
+
+        if isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.dataset"):
+            datasets.update(child.value for child in node.value if isinstance(child, kql.ast.String))
+
+    return get_schema_from_datasets(beats, modules, datasets, version=version)

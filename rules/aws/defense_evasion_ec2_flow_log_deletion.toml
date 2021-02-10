@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/06/15"
-ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/07/07"
+updated_date = "2020/12/09"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +17,7 @@ false_positives = [
     """,
 ]
 from = "now-60m"
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-aws*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License"
@@ -31,7 +30,7 @@ references = [
 risk_score = 73
 rule_id = "9395fd2c-9947-4472-86ef-4aceb2f7e872"
 severity = "high"
-tags = ["AWS", "Elastic"]
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Log Auditing"]
 type = "query"
 
 query = '''
@@ -42,9 +41,13 @@ event.action:DeleteFlowLogs and event.dataset:aws.cloudtrail and event.provider:
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1089"
-name = "Disabling Security Tools"
-reference = "https://attack.mitre.org/techniques/T1089/"
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
 
 
 [rule.threat.tactic]

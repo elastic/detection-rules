@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/03/19"
-ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/06/24"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
@@ -10,19 +9,22 @@ description = """
 Identifies certutil.exe making a network connection. Adversaries could abuse certutil.exe to download a certificate, or
 malware, from a remote URL.
 """
-index = ["winlogbeat-*"]
-language = "kuery"
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
 license = "Elastic License"
 name = "Network Connection via Certutil"
 risk_score = 21
 rule_id = "3838e0e3-1850-4850-a411-2e8c5ba40ba8"
 severity = "low"
-tags = ["Elastic", "Windows"]
-type = "query"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control"]
+type = "eql"
 
 query = '''
-event.category:network and event.type:connection and process.name:certutil.exe and
-  not destination.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
+sequence by process.entity_id
+  [process where process.name : "certutil.exe" and event.type == "start"]
+  [network where process.name : "certutil.exe" and
+    not cidrmatch(destination.ip, "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")]
 '''
 
 
@@ -30,7 +32,7 @@ event.category:network and event.type:connection and process.name:certutil.exe a
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1105"
-name = "Remote File Copy"
+name = "Ingress Tool Transfer"
 reference = "https://attack.mitre.org/techniques/T1105/"
 
 

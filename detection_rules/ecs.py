@@ -10,10 +10,12 @@ import shutil
 import json
 
 import requests
+import eql
+import eql.types
 import yaml
 
 from .semver import Version
-from .utils import unzip, load_etc_dump, get_etc_path, cached, save_etc_dump
+from .utils import DateTimeEncoder, cached, load_etc_dump, get_etc_path, gzip_compress, read_gzip, unzip
 
 ETC_NAME = "ecs_schemas"
 ECS_SCHEMAS_DIR = get_etc_path(ETC_NAME)
@@ -63,7 +65,7 @@ def _recursive_merge(existing, new, depth=0):
 
 def get_schema_files():
     """Get schema files from ecs directory."""
-    return glob.glob(os.path.join(ECS_SCHEMAS_DIR, '*', '*.json'), recursive=True)
+    return glob.glob(os.path.join(ECS_SCHEMAS_DIR, '*', '*.json.gz'), recursive=True)
 
 
 def get_schema_map():
@@ -72,7 +74,7 @@ def get_schema_map():
 
     for file_name in get_schema_files():
         path, name = os.path.split(file_name)
-        name = os.path.splitext(name)[0]
+        name = name.split('.')[0]
         version = os.path.basename(path)
         schema_map.setdefault(version, {})[name] = file_name
 
@@ -86,8 +88,7 @@ def get_schemas():
 
     for version, values in schema_map.items():
         for name, file_name in values.items():
-            with open(file_name, 'r') as f:
-                schema_map[version][name] = json.load(f)
+            schema_map[version][name] = json.loads(read_gzip(file_name))
 
     return schema_map
 
@@ -105,7 +106,7 @@ def get_max_version(include_master=False):
 @cached
 def get_schema(version=None, name='ecs_flat'):
     """Get schema by version."""
-    return get_schemas()[version][name]
+    return get_schemas()[version or str(get_max_version())][name]
 
 
 @cached
@@ -164,6 +165,35 @@ def flatten_multi_fields(schema):
     return converted
 
 
+class KqlSchema2Eql(eql.Schema):
+    type_mapping = {
+        "keyword": eql.types.TypeHint.String,
+        "ip": eql.types.TypeHint.String,
+        "float": eql.types.TypeHint.Numeric,
+        "double": eql.types.TypeHint.Numeric,
+        "long": eql.types.TypeHint.Numeric,
+        "short": eql.types.TypeHint.Numeric,
+        "boolean": eql.types.TypeHint.Boolean,
+    }
+
+    def __init__(self, kql_schema):
+        self.kql_schema = kql_schema
+        eql.Schema.__init__(self, {}, allow_any=True, allow_generic=False, allow_missing=False)
+
+    def validate_event_type(self, event_type):
+        # allow all event types to fill in X:
+        #   `X` where ....
+        return True
+
+    def get_event_type_hint(self, event_type, path):
+        dotted = ".".join(path)
+        elasticsearch_type = self.kql_schema.get(dotted)
+        eql_hint = self.type_mapping.get(elasticsearch_type)
+
+        if eql_hint is not None:
+            return eql_hint, None
+
+
 @cached
 def get_kql_schema(version=None, indexes=None, beat_schema=None):
     """Get schema for KQL."""
@@ -208,8 +238,13 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
 
                 # load as yaml, save as json
                 contents = yaml.safe_load(archive.read(member))
-                out_file = file_name.replace(".yml", ".json")
-                save_etc_dump(contents, "schemas", out_file)
+                out_file = file_name.replace(".yml", ".json.gz")
+
+                compressed = gzip_compress(json.dumps(contents, sort_keys=True, cls=DateTimeEncoder))
+                new_path = get_etc_path(ETC_NAME, str(version), out_file)
+                with open(new_path, 'wb') as f:
+                    f.write(compressed)
+
                 saved.append(out_file)
 
             if verbose:
@@ -231,7 +266,10 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
         master_dir = "master_{}".format(master_ver)
         os.makedirs(get_etc_path(ETC_NAME, master_dir), exist_ok=True)
 
-        save_etc_dump(master_schema, ETC_NAME, master_dir, "ecs_flat.json")
+        compressed = gzip_compress(json.dumps(master_schema, sort_keys=True, cls=DateTimeEncoder))
+        new_path = get_etc_path(ETC_NAME, master_dir, "ecs_flat.json.gz")
+        with open(new_path, 'wb') as f:
+            f.write(compressed)
 
         if verbose:
-            print('Saved files to {}: \n\t- {}'.format(master_dir, 'ecs_flat.json'))
+            print('Saved files to {}: \n\t- {}'.format(master_dir, 'ecs_flat.json.gz'))

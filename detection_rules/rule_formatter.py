@@ -10,7 +10,7 @@ from collections import OrderedDict
 
 import toml
 
-from .schema import NONFORMATTED_FIELDS
+from .schemas import CurrentSchema
 
 SQ = "'"
 DQ = '"'
@@ -24,21 +24,25 @@ def cleanup_whitespace(val):
     return val
 
 
-def nested_normalize(d, skip_cleanup=False):
+def nested_normalize(d, skip_cleanup=False, eql_rule=False):
     if isinstance(d, str):
         return d if skip_cleanup else cleanup_whitespace(d)
     elif isinstance(d, list):
-        return [nested_normalize(val) for val in d]
+        return [nested_normalize(val, eql_rule=eql_rule) for val in d]
     elif isinstance(d, dict):
         for k, v in d.items():
             if k == 'query':
                 # TODO: the linter still needs some work, but once up to par, uncomment to implement - kql.lint(v)
-                d.update({k: nested_normalize(v)})
-            elif k in NONFORMATTED_FIELDS:
+                if eql_rule:
+                    # do not normalize eql queries
+                    d.update({k: v})
+                else:
+                    d.update({k: nested_normalize(v)})
+            elif k in CurrentSchema.markdown_fields():
                 # let these maintain newlines and whitespace for markdown support
-                d.update({k: nested_normalize(v, skip_cleanup=True)})
+                d.update({k: nested_normalize(v, skip_cleanup=True, eql_rule=eql_rule)})
             else:
-                d.update({k: nested_normalize(v)})
+                d.update({k: nested_normalize(v, eql_rule=eql_rule)})
         return d
     else:
         return d
@@ -142,10 +146,11 @@ def toml_write(rule_contents, outfile=None):
             #     but will at least purge extraneous white space
             query = contents['rule'].pop('query', '').strip()
 
-            tags = contents['rule'].get("tags", [])
-
-            if tags and isinstance(tags, list):
-                contents['rule']["tags"] = list(sorted(set(tags)))
+            # - As tags are expanding, we may want to reconsider the need to have them in alphabetical order
+            # tags = contents['rule'].get("tags", [])
+            #
+            # if tags and isinstance(tags, list):
+            #     contents['rule']["tags"] = list(sorted(set(tags)))
 
         top = OrderedDict()
         bottom = OrderedDict()
@@ -160,7 +165,7 @@ def toml_write(rule_contents, outfile=None):
                     bottom[k] = v
                 else:
                     top[k] = v
-            elif k in NONFORMATTED_FIELDS:
+            elif k in CurrentSchema.markdown_fields():
                 top[k] = NonformattedField(v)
             else:
                 top[k] = v

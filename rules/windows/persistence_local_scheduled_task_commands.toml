@@ -1,21 +1,21 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/06/24"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
 description = "A scheduled task can be used by an adversary to establish persistence, move laterally, and/or escalate privileges."
 false_positives = ["Legitimate scheduled tasks may be created during installation of new software."]
-index = ["winlogbeat-*"]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License"
 name = "Local Scheduled Task Commands"
 risk_score = 21
 rule_id = "afcce5ad-65de-4ed2-8516-5e093d3ac99a"
 severity = "low"
-tags = ["Elastic", "Windows"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
 type = "query"
 
 query = '''
@@ -29,7 +29,7 @@ event.category:process and event.type:(start or process_started) and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1053"
-name = "Scheduled Task"
+name = "Scheduled Task/Job"
 reference = "https://attack.mitre.org/techniques/T1053/"
 
 

@@ -6,7 +6,7 @@
 import os
 from collections import defaultdict
 
-from .schema import validate_rta_mapping
+from .schemas import validate_rta_mapping
 from .utils import load_etc_dump, save_etc_dump, get_path
 
 
@@ -50,7 +50,7 @@ class RtaMappings(object):
     def get_rta_mapping(self):
         """Build the rule<-->rta mapping based off the mapping file."""
         if not self._rta_mapping:
-            self._rta_mapping = {rule_id: data['rta'] for rule_id, data in self.mapping.items()}
+            self._rta_mapping = self.mapping.copy()
 
         return self._rta_mapping
 

@@ -9,13 +9,14 @@ import io
 import os
 import re
 from collections import OrderedDict
+from typing import Dict, List
 
 import click
 import pytoml
 
 from .mappings import RtaMappings
 from .rule import RULES_DIR, Rule
-from .schema import get_schema
+from .schemas import CurrentSchema
 from .utils import get_path, cached
 
 
@@ -76,9 +77,10 @@ def load_rules(file_lookup=None, verbose=True, error=True):
     file_lookup = file_lookup or load_rule_files(verbose=verbose)
 
     failed = False
-    rules = []  # type: list[Rule]
+    rules: List[Rule] = []
     errors = []
     queries = []
+    query_check_index = []
     rule_ids = set()
     rule_names = set()
 
@@ -87,21 +89,28 @@ def load_rules(file_lookup=None, verbose=True, error=True):
             rule = Rule(rule_file, rule_contents)
 
             if rule.id in rule_ids:
-                raise KeyError("Rule has duplicate ID to {}".format(next(r for r in rules if r.id == rule.id).path))
+                existing = next(r for r in rules if r.id == rule.id)
+                raise KeyError(f'{rule.path} has duplicate ID with \n{existing.path}')
 
             if rule.name in rule_names:
-                raise KeyError("Rule has duplicate name to {}".format(
-                    next(r for r in rules if r.name == rule.name).path))
+                existing = next(r for r in rules if r.name == rule.name)
+                raise KeyError(f'{rule.path} has duplicate name with \n{existing.path}')
 
-            if rule.parsed_kql:
-                if rule.parsed_kql in queries:
-                    raise KeyError("Rule has duplicate query with {}".format(
-                        next(r for r in rules if r.parsed_kql == rule.parsed_kql).path))
+            parsed_query = rule.parsed_query
+            if parsed_query is not None:
+                # duplicate logic is ok across query and threshold rules
+                threshold = rule.contents.get('threshold', {})
+                duplicate_key = (parsed_query, rule.type, threshold.get('field'), threshold.get('value'))
+                query_check_index.append(rule)
 
-                queries.append(rule.parsed_kql)
+                if duplicate_key in queries:
+                    existing = query_check_index[queries.index(duplicate_key)]
+                    raise KeyError(f'{rule.path} has duplicate query with \n{existing.path}')
+
+                queries.append(duplicate_key)
 
             if not re.match(FILE_PATTERN, os.path.basename(rule.path)):
-                raise ValueError(f"Rule {rule.path} does not meet rule name standard of {FILE_PATTERN}")
+                raise ValueError(f'{rule.path} does not meet rule name standard of {FILE_PATTERN}')
 
             rules.append(rule)
             rule_ids.add(rule.id)
@@ -112,7 +121,8 @@ def load_rules(file_lookup=None, verbose=True, error=True):
             err_msg = "Invalid rule file in {}\n{}".format(rule_file, click.style(e.args[0], fg='red'))
             errors.append(err_msg)
             if error:
-                print(err_msg)
+                if verbose:
+                    print(err_msg)
                 raise e
 
     if failed:
@@ -121,6 +131,65 @@ def load_rules(file_lookup=None, verbose=True, error=True):
                 print(e)
 
     return OrderedDict([(rule.id, rule) for rule in sorted(rules, key=lambda r: r.name)])
+
+
+@cached
+def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rules', token=None, threads=50,
+                         verbose=True):
+    """Load all rules active as a GitHub PR."""
+    import requests
+    import pytoml
+    from multiprocessing.pool import ThreadPool
+    from pathlib import Path
+    from .misc import GithubClient
+
+    github = GithubClient(token=token)
+    repo = github.client.get_repo(repo)
+    labels = set(labels or [])
+    open_prs = [r for r in repo.get_pulls() if not labels.difference(set(list(lbl.name for lbl in r.get_labels())))]
+
+    new_rules: List[Rule] = []
+    modified_rules: List[Rule] = []
+    errors: Dict[str, list] = {}
+
+    existing_rules = load_rules(verbose=False)
+    pr_rules = []
+
+    if verbose:
+        click.echo('Downloading rules from GitHub PRs')
+
+    def download_worker(pr_info):
+        pull, rule_file = pr_info
+        response = requests.get(rule_file.raw_url)
+        try:
+            raw_rule = pytoml.loads(response.text)
+            rule = Rule(rule_file.filename, raw_rule)
+            rule.gh_pr = pull
+
+            if rule.id in existing_rules:
+                modified_rules.append(rule)
+            else:
+                new_rules.append(rule)
+
+        except Exception as e:
+            errors.setdefault(Path(rule_file.filename).name, []).append(str(e))
+
+    for pr in open_prs:
+        pr_rules.extend([(pr, f) for f in pr.get_files()
+                         if f.filename.startswith('rules/') and f.filename.endswith('.toml')])
+
+    pool = ThreadPool(processes=threads)
+    pool.map(download_worker, pr_rules)
+    pool.close()
+    pool.join()
+
+    new = OrderedDict([(rule.id, rule) for rule in sorted(new_rules, key=lambda r: r.name)])
+    modified = OrderedDict()
+
+    for modified_rule in sorted(modified_rules, key=lambda r: r.name):
+        modified.setdefault(modified_rule.id, []).append(modified_rule)
+
+    return new, modified, errors
 
 
 @cached
@@ -161,17 +230,17 @@ def get_rule_contents(rule_id, verbose=True):
 @cached
 def filter_rules(rules, metadata_field, value):
     """Filter rules based on the metadata."""
-    return [rule for rule in rules if rule.metadata.get(metadata_field, {}) == value]
+    return [rule for rule in rules if rule.metadata.get(metadata_field, '') == value]
 
 
-def get_production_rules():
+def get_production_rules(verbose=False):
     """Get rules with a maturity of production."""
-    return filter_rules(load_rules().values(), 'maturity', 'production')
+    return filter_rules(load_rules(verbose=verbose).values(), 'maturity', 'production')
 
 
 def find_unneeded_defaults(rule):
     """Remove values that are not required in the schema which are set with default values."""
-    schema = get_schema(rule.contents['type'])
+    schema = CurrentSchema.get_schema(rule.type)
     props = schema['properties']
     unrequired_defaults = [p for p in props if p not in schema['required'] and props[p].get('default')]
     default_matches = {p: rule.contents[p] for p in unrequired_defaults
@@ -183,7 +252,10 @@ rta_mappings = RtaMappings()
 
 
 __all__ = (
+    "load_rule_files",
     "load_rules",
+    "load_rule_files",
+    "load_github_pr_rules",
     "get_file_name",
     "get_production_rules",
     "get_rule",

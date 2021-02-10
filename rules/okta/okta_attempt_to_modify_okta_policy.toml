@@ -1,15 +1,14 @@
 [metadata]
 creation_date = "2020/05/21"
-ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/05/21"
+updated_date = "2020/10/26"
 
 [rule]
 author = ["Elastic"]
 description = """
-An adversary may attempt to modify an Okta policy in order to weaken an organization's security controls. For example,
-an adversary may attempt to modify an Okta multi-factor authentication (MFA) policy in order to weaken the
-authentication requirements for user accounts.
+Detects attempts to modify an Okta policy. An adversary may attempt to modify an Okta policy in order to weaken an
+organization's security controls. For example, an adversary may attempt to modify an Okta multi-factor authentication
+(MFA) policy in order to weaken the authentication requirements for user accounts.
 """
 false_positives = [
     """
@@ -17,11 +16,11 @@ false_positives = [
     organization.
     """,
 ]
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License"
-name = "Attempt to Modify Okta Policy"
-note = "The Okta Filebeat module must be enabled to use this rule."
+name = "Attempt to Modify an Okta Policy"
+note = "The Okta Fleet integration or Filebeat module must be enabled to use this rule."
 references = [
     "https://developer.okta.com/docs/reference/api/system-log/",
     "https://developer.okta.com/docs/reference/api/event-types/",
@@ -29,9 +28,9 @@ references = [
 risk_score = 21
 rule_id = "6731fbf2-8f28-49ed-9ab9-9a918ceb5a45"
 severity = "low"
-tags = ["Elastic", "Okta"]
+tags = ["Elastic", "Identity", "Okta", "Continuous Monitoring", "SecOps", "Monitoring"]
 type = "query"
 
 query = '''
-event.module:okta and event.dataset:okta.system and event.action:policy.lifecycle.update
+event.dataset:okta.system and event.action:policy.lifecycle.update
 '''

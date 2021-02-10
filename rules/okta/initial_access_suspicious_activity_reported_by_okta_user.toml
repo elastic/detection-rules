@@ -1,21 +1,20 @@
 [metadata]
 creation_date = "2020/05/21"
-ecs_version = ["1.5.0"]
 maturity = "production"
-updated_date = "2020/05/21"
+updated_date = "2020/10/26"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects when a user reports suspicious activity for their Okta account. These events should be investigated,
-as they can help security teams identify when an adversary is attempting to gain access to their network.
+Detects when a user reports suspicious activity for their Okta account. These events should be investigated, as they can
+help security teams identify when an adversary is attempting to gain access to their network.
 """
 false_positives = ["A user may report suspicious activity on their Okta account in error."]
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License"
 name = "Suspicious Activity Reported by Okta User"
-note = "The Okta Filebeat module must be enabled to use this rule."
+note = "The Okta Fleet integration or Filebeat module must be enabled to use this rule."
 references = [
     "https://developer.okta.com/docs/reference/api/system-log/",
     "https://developer.okta.com/docs/reference/api/event-types/",
@@ -23,11 +22,11 @@ references = [
 risk_score = 47
 rule_id = "f994964f-6fce-4d75-8e79-e16ccc412588"
 severity = "medium"
-tags = ["Elastic", "Okta"]
+tags = ["Elastic", "Identity", "Okta", "Continuous Monitoring", "SecOps", "Monitoring"]
 type = "query"
 
 query = '''
-event.module:okta and event.dataset:okta.system and event.action:user.account.report_suspicious_activity_by_enduser
+event.dataset:okta.system and event.action:user.account.report_suspicious_activity_by_enduser
 '''
 
 
@@ -43,8 +42,6 @@ reference = "https://attack.mitre.org/techniques/T1078/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -57,8 +54,6 @@ reference = "https://attack.mitre.org/techniques/T1078/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -71,8 +66,6 @@ reference = "https://attack.mitre.org/techniques/T1078/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -85,3 +78,4 @@ reference = "https://attack.mitre.org/techniques/T1078/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

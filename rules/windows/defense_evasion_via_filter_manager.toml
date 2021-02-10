@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.4.0"]
 maturity = "production"
-updated_date = "2020/02/18"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
@@ -10,18 +9,18 @@ description = """
 The Filter Manager Control Program (fltMC.exe) binary may be abused by adversaries to unload a filter driver and evade
 defenses.
 """
-index = ["winlogbeat-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License"
 name = "Potential Evasion via Filter Manager"
 risk_score = 21
 rule_id = "06dceabf-adca-48af-ac79-ffdf4c3b1e9a"
 severity = "low"
-tags = ["Elastic", "Windows"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 type = "query"
 
 query = '''
-event.code:1 and process.name:fltMC.exe
+event.category:process and event.type:(start or process_started) and process.name:fltMC.exe
 '''
 
 
