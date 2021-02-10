@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2020/11/03"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
@@ -10,7 +10,7 @@ Identifies use of the netsh.exe to disable or weaken the local firewall. Attacke
 disable the firewall during troubleshooting or to enable network mobility.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License"
 name = "Disable Windows Firewall Rules via Netsh"
@@ -30,9 +30,13 @@ event.category:process and event.type:(start or process_started) and
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1089"
-name = "Disabling Security Tools"
-reference = "https://attack.mitre.org/techniques/T1089/"
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
 
 
 [rule.threat.tactic]
