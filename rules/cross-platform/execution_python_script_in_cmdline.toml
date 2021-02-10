@@ -12,18 +12,18 @@ malicious scripts and avoiding writing it to disk.
 false_positives = ["Legitimate Python scripting activity."]
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
 name = "Python Script Execution via Command Line"
 risk_score = 47
 rule_id = "ee9f08dc-cf80-4124-94ae-08c405f059ae"
 severity = "medium"
 tags = ["Elastic", "Host", "Linux", "macOS", "Windows", "Threat Detection", "Execution"]
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
- process.name:(Python* or python*) and process.args:("-c" and import*sys,*)
+process where event.type in ("start", "process_started") and
+ process.name : "python*" and process.args : "-c" and process.args : "*import*sys*"
 '''
 
 
