@@ -5,6 +5,7 @@
 # Name: Boot Config Deletion With bcdedit
 # RTA: delete_bootconf.py
 # ATT&CK: T1107
+# signal.rule.name: Modification of Boot Configuration
 # Description: Uses bcdedit.exe to backup the current boot configuration, and then to delete the current boot
 #  configuration, finally restoring the original.
 
