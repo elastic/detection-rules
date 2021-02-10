@@ -52,6 +52,40 @@ def create_rule(path, config, required_only, rule_type):
         rule_loader.reset()
 
 
+@root.command('generate-rules-index')
+@click.option('--query', '-q', help='Optional KQL query to limit to specific rules')
+@click.option('--overwrite', is_flag=True, help='Overwrite files in an existing folder')
+@click.pass_context
+def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
+    """Generate enriched indexes of rules, based on a KQL search, for indexing/importing into elasticsearch/kibana."""
+    from . import rule_loader
+    from .packaging import load_current_package_version, Package
+
+    if query:
+        rule_paths = [r['file'] for r in ctx.invoke(search_rules, query=query, verbose=False)]
+        rules = rule_loader.load_rules(rule_loader.load_rule_files(paths=rule_paths, verbose=False), verbose=False)
+        rules = rules.values()
+    else:
+        rules = rule_loader.load_rules(verbose=False).values()
+
+    rule_count = len(rules)
+    package = Package(rules, load_current_package_version(), verbose=False)
+    package_hash = package.get_package_hash()
+    bulk_upload_docs, importable_rules_docs = package.create_bulk_index_body()
+
+    if save_files:
+        path = Path(get_path('enriched-rule-indexes', package_hash))
+        path.mkdir(parents=True, exist_ok=overwrite)
+        bulk_upload_docs.dump(path.joinpath('enriched-rules-index-uploadable.ndjson'), sort_keys=True)
+        importable_rules_docs.dump(path.joinpath('enriched-rules-index-importable.ndjson'), sort_keys=True)
+
+        click.echo(f'files saved to: {path}')
+
+    click.echo(f'{rule_count} rules included')
+
+    return bulk_upload_docs, importable_rules_docs
+
+
 @root.command('import-rules')
 @click.argument('infile', type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
 @click.option('--directory', '-d', type=click.Path(file_okay=False, exists=True), help='Load files from a directory')
@@ -86,7 +120,7 @@ def toml_lint(rule_file):
         rule = Rule(path=rule_file.name, contents=contents)
 
         # removed unneeded defaults
-        for field in rule_loader.find_unneeded_defaults(rule):
+        for field in rule_loader.find_unneeded_defaults_from_rule(rule):
             rule.contents.pop(field, None)
 
         rule.save(as_rule=True)
@@ -94,7 +128,7 @@ def toml_lint(rule_file):
         for rule in rule_loader.load_rules().values():
 
             # removed unneeded defaults
-            for field in rule_loader.find_unneeded_defaults(rule):
+            for field in rule_loader.find_unneeded_defaults_from_rule(rule):
                 rule.contents.pop(field, None)
 
             rule.save(as_rule=True)

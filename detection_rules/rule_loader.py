@@ -238,13 +238,21 @@ def get_production_rules(verbose=False):
     return filter_rules(load_rules(verbose=verbose).values(), 'maturity', 'production')
 
 
-def find_unneeded_defaults(rule):
+@cached
+def get_non_required_defaults_by_type(rule_type: str) -> dict:
+    """Get list of fields which are not required for a specified rule type."""
+    schema = CurrentSchema.get_schema(rule_type)
+    properties = schema['properties']
+    non_required_defaults = {prop: properties[prop].get('default') for prop in properties
+                             if prop not in schema['required'] and 'default' in properties[prop]}
+    return non_required_defaults
+
+
+def find_unneeded_defaults_from_rule(rule: Rule) -> dict:
     """Remove values that are not required in the schema which are set with default values."""
-    schema = CurrentSchema.get_schema(rule.type)
-    props = schema['properties']
-    unrequired_defaults = [p for p in props if p not in schema['required'] and props[p].get('default')]
-    default_matches = {p: rule.contents[p] for p in unrequired_defaults
-                       if rule.contents.get(p) and rule.contents[p] == props[p]['default']}
+    unrequired_defaults = get_non_required_defaults_by_type(rule.type)
+    default_matches = {p: rule.contents[p] for p, v in unrequired_defaults.items()
+                       if p in rule.contents and rule.contents[p] == v}
     return default_matches
 
 
@@ -257,6 +265,7 @@ __all__ = (
     "load_rule_files",
     "load_github_pr_rules",
     "get_file_name",
+    "get_non_required_defaults_by_type",
     "get_production_rules",
     "get_rule",
     "filter_rules",
