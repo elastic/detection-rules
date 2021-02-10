@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/08/17"
 maturity = "production"
-updated_date = "2020/01/28"
+updated_date = "2021/02/10"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ level of SYSTEM.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
 name = "Persistence via Update Orchestrator Service Hijack"
 references = ["https://github.com/irsl/CVE-2020-1313"]
@@ -19,13 +19,21 @@ risk_score = 73
 rule_id = "265db8f5-fc73-4d0d-b434-6483b56372e2"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
-  process.parent.name:svchost.exe and
-  process.parent.args:(UsoSvc or usosvc) and
-  not process.name:(UsoClient.exe or usoclient.exe or MusNotification.exe or musnotification.exe or MusNotificationUx.exe or musnotificationux.exe)
+process where event.type == "start" and
+  process.parent.executable : "C:\\Windows\\System32\\svchost.exe" and
+  process.parent.args : "UsoSvc" and
+  not process.executable :
+         (
+          "C:\\Windows\\System32\\UsoClient.exe",
+          "C:\\Windows\\System32\\MusNotification.exe",
+          "C:\\Windows\\System32\\MusNotificationUx.exe",
+          "C:\\Windows\\System32\\MusNotifyIcon.exe",
+          "C:\\Windows\\System32\\WerFault.exe",
+          "C:\\Windows\\System32\\WerMgr.exe"
+          )
 '''
 
 
@@ -41,8 +49,8 @@ name = "Windows Service"
 reference = "https://attack.mitre.org/techniques/T1543/003/"
 
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
