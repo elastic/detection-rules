@@ -1,0 +1,47 @@
+[metadata]
+creation_date = "2021/01/13"
+maturity = "development"
+updated_date = "2021/01/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a Python script is executed using command line input and imports the sys module. Attackers often use
+this method to execute malicious scripts and avoiding writing it to disk.
+"""
+false_positives = ["Legitimate Python scripting activity."]
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "Python Script Execution via Command Line"
+risk_score = 47
+rule_id = "ee9f08dc-cf80-4124-94ae-08c405f059ae"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "macOS", "Windows", "Threat Detection", "Execution"]
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+ process.name : "python*" and process.args : "-c" and process.args : "*import*sys*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.006"
+name = "Python"
+reference = "https://attack.mitre.org/techniques/T1059/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

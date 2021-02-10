@@ -21,11 +21,11 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
 type = "eql"
 
 query = '''
-sequence by process.entity_id with maxspan=5m
+sequence by process.entity_id with maxspan = 5m
   [process where event.type in ("start", "process_started") and
-     not (process.name : "sdbinst.exe" and process.parent.name : "msiexec.exe")]
+    not (process.name : "sdbinst.exe" and process.parent.name : "msiexec.exe")]
   [registry where event.type in ("creation", "change") and
-     wildcard(registry.path, "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb")]
+    registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb"]
 '''
 
 
@@ -46,4 +46,3 @@ reference = "https://attack.mitre.org/techniques/T1546/011/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

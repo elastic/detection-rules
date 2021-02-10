@@ -24,41 +24,46 @@ type = "eql"
 
 query = '''
 network where network.protocol == "dns" and
-             /* Add new WebSvc domains here */
-              wildcard(dns.question.name, "*.githubusercontent.*",
-                                          "*.pastebin.*",
-                                          "*drive.google.*",
-                                          "*docs.live.*",
-                                          "*api.dropboxapi.*",
-                                          "*dropboxusercontent.*",
-                                          "*onedrive.*",
-                                          "*4shared.*",
-                                          "*.file.io",
-                                          "*filebin.net",
-                                          "*slack-files.com",
-                                          "*ghostbin.*",
-                                          "*ngrok.*",
-                                          "*portmap.*",
-                                          "*serveo.net",
-                                          "*localtunnel.me",
-                                          "*pagekite.me",
-                                          "*localxpose.io",
-                                          "*notabug.org"
-                      ) and
-                          /* Insert noisy false positives here */
-              not process.name in ("MicrosoftEdgeCP.exe",
-                                    "MicrosoftEdge.exe",
-                                    "iexplore.exe",
-                                    "chrome.exe",
-                                    "msedge.exe",
-                                    "opera.exe",
-                                    "firefox.exe",
-                                    "Dropbox.exe",
-                                    "slack.exe",
-                                    "svchost.exe",
-                                    "thunderbird.exe",
-                                    "outlook.exe",
-                                    "OneDrive.exe")
+    /* Add new WebSvc domains here */
+    dns.question.name :
+    (
+        "*.githubusercontent.*",
+        "*.pastebin.*",
+        "*drive.google.*",
+        "*docs.live.*",
+        "*api.dropboxapi.*",
+        "*dropboxusercontent.*",
+        "*onedrive.*",
+        "*4shared.*",
+        "*.file.io",
+        "*filebin.net",
+        "*slack-files.com",
+        "*ghostbin.*",
+        "*ngrok.*",
+        "*portmap.*",
+        "*serveo.net",
+        "*localtunnel.me",
+        "*pagekite.me",
+        "*localxpose.io",
+        "*notabug.org"
+    ) and
+    /* Insert noisy false positives here */
+    not process.name :
+    (
+        "MicrosoftEdgeCP.exe",
+        "MicrosoftEdge.exe",
+        "iexplore.exe",
+        "chrome.exe",
+        "msedge.exe",
+        "opera.exe",
+        "firefox.exe",
+        "Dropbox.exe",
+        "slack.exe",
+        "svchost.exe",
+        "thunderbird.exe",
+        "outlook.exe",
+        "OneDrive.exe"
+    )
 '''
 
 
@@ -74,4 +79,3 @@ reference = "https://attack.mitre.org/techniques/T1102/"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
