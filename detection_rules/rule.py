@@ -7,15 +7,16 @@ import copy
 import hashlib
 import json
 import os
+from uuid import uuid4
 
 import click
 import kql
 import eql
 
 from . import ecs, beats
-from .attack import tactics, build_threat_map_entry, technique_lookup
+from .attack import tactics, build_threat_map_entry, matrix
 from .rule_formatter import nested_normalize, toml_write
-from .schemas import CurrentSchema, TomlMetadata  # RULE_TYPES, metadata_schema, schema_validate, get_schema
+from .schemas import CurrentSchema, TomlMetadata, downgrade
 from .utils import get_path, clear_caches, cached
 
 
@@ -119,7 +120,7 @@ class Rule(object):
             tactic_names.append(entry['tactic']['name'])
             tactic_ids.append(entry['tactic']['id'])
 
-            for technique in entry['technique']:
+            for technique in entry.get('technique', []):
                 technique_names.add(technique['name'])
                 technique_ids.add(technique['id'])
                 sub_technique = technique.get('subtechnique', [])
@@ -163,6 +164,31 @@ class Rule(object):
         defaults = self.get_meta_schema_required_defaults().copy()
         defaults.update(metadata)
         return defaults
+
+    @staticmethod
+    def _add_empty_attack_technique(contents: dict = None):
+        """Add empty array to ATT&CK technique threat mapping."""
+        threat = contents.get('threat', [])
+
+        if threat:
+            new_threat = []
+
+            for entry in contents.get('threat', []):
+                if 'technique' not in entry:
+                    new_entry = entry.copy()
+                    new_entry['technique'] = []
+                    new_threat.append(new_entry)
+                else:
+                    new_threat.append(entry)
+
+            contents['threat'] = new_threat
+
+        return contents
+
+    def _run_build_time_transforms(self, contents):
+        """Apply changes to rules at build time for rule payload."""
+        self._add_empty_attack_technique(contents)
+        return contents
 
     def rule_format(self, formatted_query=True):
         """Get the contents in rule format."""
@@ -299,7 +325,7 @@ class Rule(object):
             toml_write(self.rule_format(), path)
         else:
             with open(path, 'w', newline='\n') as f:
-                json.dump(self.contents, f, sort_keys=True, indent=2)
+                json.dump(self.get_payload(), f, sort_keys=True, indent=2)
                 f.write('\n')
 
         if verbose:
@@ -316,7 +342,42 @@ class Rule(object):
 
     def get_hash(self):
         """Get a standardized hash of a rule to consistently check for changes."""
-        return self.dict_hash(self.contents)
+        return self.dict_hash(self.get_payload())
+
+    def get_version(self):
+        """Get the version of the rule."""
+        from .packaging import load_versions
+
+        rules_versions = load_versions
+
+        if self.id in rules_versions:
+            version_info = rules_versions[self.id]
+            version = version_info['version']
+            return version + 1 if self.get_hash() != version_info['sha256'] else version
+        else:
+            return 1
+
+    def get_payload(self, include_version=False, replace_id=False, embed_metadata=False, target_version=None):
+        """Get rule as uploadable/API-compatible payload."""
+        from uuid import uuid4
+        from .schemas import downgrade
+
+        payload = self._run_build_time_transforms(self.contents.copy())
+
+        if include_version:
+            payload['version'] = self.get_version()
+
+        if embed_metadata:
+            meta = payload.setdefault("meta", {})
+            meta["original"] = dict(id=self.id, **self.metadata)
+
+        if replace_id:
+            payload["rule_id"] = str(uuid4())
+
+        if target_version:
+            payload = downgrade(payload, target_version)
+
+        return payload
 
     @classmethod
     def build(cls, path=None, rule_type=None, required_only=True, save=True, verbose=False, **kwargs):
@@ -362,12 +423,15 @@ class Rule(object):
                 while click.confirm('add mitre tactic?'):
                     tactic = schema_prompt('mitre tactic name', type='string', enum=tactics, required=True)
                     technique_ids = schema_prompt(f'technique or sub-technique IDs for {tactic}', type='array',
-                                                  required=False, enum=list(technique_lookup)) or []
+                                                  required=False, enum=list(matrix[tactic])) or []
 
                     try:
                         threat_map.append(build_threat_map_entry(tactic, *technique_ids))
                     except KeyError as e:
-                        click.secho(f'Unknown ID: {e.args[0]}')
+                        click.secho(f'Unknown ID: {e.args[0]} - entry not saved for: {tactic}', fg='red', err=True)
+                        continue
+                    except ValueError as e:
+                        click.secho(f'{e} - entry not saved for: {tactic}', fg='red', err=True)
                         continue
 
                 if len(threat_map) > 0:
@@ -439,3 +503,13 @@ class Rule(object):
         click.echo('    - to have a rule validate against a specific beats schema, add it to metadata->beats_version')
 
         return rule
+
+
+def downgrade_contents_from_rule(rule: Rule, target_version: str) -> dict:
+    """Generate the downgraded contents from a rule."""
+    payload = rule.contents.copy()
+    meta = payload.setdefault("meta", {})
+    meta["original"] = dict(id=rule.id, **rule.metadata)
+    payload["rule_id"] = str(uuid4())
+    payload = downgrade(payload, target_version)
+    return payload

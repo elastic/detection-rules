@@ -1,19 +1,21 @@
 [metadata]
 creation_date = "2020/11/18"
 maturity = "production"
-updated_date = "2020/11/18"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies Component Object Model (COM) hijacking via registry modification. Adversaries may establish persistence by executing malicious content
-triggered by hijacked references to COM objects.
+Identifies Component Object Model (COM) hijacking via registry modification. Adversaries may establish persistence by
+executing malicious content triggered by hijacked references to COM objects.
 """
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "Component Object Model Hijacking"
-references = ["https://bohops.com/2018/08/18/abusing-the-com-registry-structure-part-2-loading-techniques-for-evasion-and-persistence/"]
+references = [
+    "https://bohops.com/2018/08/18/abusing-the-com-registry-structure-part-2-loading-techniques-for-evasion-and-persistence/",
+]
 risk_score = 47
 rule_id = "16a52c14-7883-47af-8745-9357803f0d4c"
 severity = "medium"
@@ -40,12 +42,18 @@ registry where
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1122"
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+[[rule.threat.technique.subtechnique]]
+id = "T1546.015"
 name = "Component Object Model Hijacking"
-reference = "https://attack.mitre.org/techniques/T1122/"
+reference = "https://attack.mitre.org/techniques/T1546/015/"
+
 
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+

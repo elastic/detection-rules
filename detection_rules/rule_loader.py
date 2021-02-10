@@ -9,6 +9,7 @@ import io
 import os
 import re
 from collections import OrderedDict
+from typing import Dict, List
 
 import click
 import pytoml
@@ -76,7 +77,7 @@ def load_rules(file_lookup=None, verbose=True, error=True):
     file_lookup = file_lookup or load_rule_files(verbose=verbose)
 
     failed = False
-    rules = []  # type: list[Rule]
+    rules: List[Rule] = []
     errors = []
     queries = []
     query_check_index = []
@@ -130,6 +131,65 @@ def load_rules(file_lookup=None, verbose=True, error=True):
                 print(e)
 
     return OrderedDict([(rule.id, rule) for rule in sorted(rules, key=lambda r: r.name)])
+
+
+@cached
+def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rules', token=None, threads=50,
+                         verbose=True):
+    """Load all rules active as a GitHub PR."""
+    import requests
+    import pytoml
+    from multiprocessing.pool import ThreadPool
+    from pathlib import Path
+    from .misc import GithubClient
+
+    github = GithubClient(token=token)
+    repo = github.client.get_repo(repo)
+    labels = set(labels or [])
+    open_prs = [r for r in repo.get_pulls() if not labels.difference(set(list(lbl.name for lbl in r.get_labels())))]
+
+    new_rules: List[Rule] = []
+    modified_rules: List[Rule] = []
+    errors: Dict[str, list] = {}
+
+    existing_rules = load_rules(verbose=False)
+    pr_rules = []
+
+    if verbose:
+        click.echo('Downloading rules from GitHub PRs')
+
+    def download_worker(pr_info):
+        pull, rule_file = pr_info
+        response = requests.get(rule_file.raw_url)
+        try:
+            raw_rule = pytoml.loads(response.text)
+            rule = Rule(rule_file.filename, raw_rule)
+            rule.gh_pr = pull
+
+            if rule.id in existing_rules:
+                modified_rules.append(rule)
+            else:
+                new_rules.append(rule)
+
+        except Exception as e:
+            errors.setdefault(Path(rule_file.filename).name, []).append(str(e))
+
+    for pr in open_prs:
+        pr_rules.extend([(pr, f) for f in pr.get_files()
+                         if f.filename.startswith('rules/') and f.filename.endswith('.toml')])
+
+    pool = ThreadPool(processes=threads)
+    pool.map(download_worker, pr_rules)
+    pool.close()
+    pool.join()
+
+    new = OrderedDict([(rule.id, rule) for rule in sorted(new_rules, key=lambda r: r.name)])
+    modified = OrderedDict()
+
+    for modified_rule in sorted(modified_rules, key=lambda r: r.name):
+        modified.setdefault(modified_rule.id, []).append(modified_rule)
+
+    return new, modified, errors
 
 
 @cached
@@ -195,6 +255,7 @@ __all__ = (
     "load_rule_files",
     "load_rules",
     "load_rule_files",
+    "load_github_pr_rules",
     "get_file_name",
     "get_production_rules",
     "get_rule",
