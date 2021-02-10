@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/12/18"
 maturity = "production"
-updated_date = "2020/12/18"
+updated_date = "2021/02/04"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ sometimes done by attackers to increase access to a system and avoid appearing i
 the net users command.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "Creation of a Hidden Local User Account"
@@ -26,7 +26,7 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Pe
 type = "eql"
 
 query = '''
-registry where wildcard(registry.path, "HKLM\\SAM\\SAM\\Domains\\Account\\Users\\Names\\*$\\")
+registry where registry.path : "HKLM\\SAM\\SAM\\Domains\\Account\\Users\\Names\\*$\\"
 '''
 
 
