@@ -27,7 +27,7 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery"]
 type = "eql"
 
 query = '''
-sequence by process.entity_id with maxspan=1m
+sequence by agent.id, user.name with maxspan=1m
 [process where event.type in ("start", "process_started") and
   ((process.name : "cmd.exe" or process.pe.original_file_name == "Cmd.Exe") and process.args : "dir") or
     process.name : "tree.com"]
@@ -52,4 +52,3 @@ reference = "https://attack.mitre.org/techniques/T1083/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
