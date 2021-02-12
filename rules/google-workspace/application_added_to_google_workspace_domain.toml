@@ -1,18 +1,19 @@
 [metadata]
 creation_date = "2020/11/17"
 maturity = "production"
-updated_date = "2020/12/16"
+updated_date = "2020/02/11"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when a Google marketplace application is added to the Google Workspace domain. An adversary may add a malicious application to
-an organization’s Google Workspace domain in order to maintain a presence in their target’s organization and steal data.
+Detects when a Google marketplace application is added to the Google Workspace domain. An adversary may add a malicious
+application to an organization’s Google Workspace domain in order to maintain a presence in their target’s organization
+and steal data.
 """
 false_positives = [
     """
-    Applications can be added to a Google Workspace domain by system administrators. Verify that the configuration change was
-    expected. Exceptions can be added to this rule to filter expected behavior.
+    Applications can be added to a Google Workspace domain by system administrators. Verify that the configuration
+    change was expected. Exceptions can be added to this rule to filter expected behavior.
     """,
 ]
 from = "now-130m"
@@ -34,8 +35,10 @@ risk_score = 47
 rule_id = "785a404b-75aa-4ffd-8be5-3334a5a544dd"
 severity = "medium"
 tags = ["Elastic", "Cloud", "Google Workspace", "Continuous Monitoring", "SecOps", "Configuration Audit"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
 event.dataset:(gsuite.admin or google_workspace.admin) and event.provider:admin and event.category:iam and event.action:ADD_APPLICATION
 '''
+
