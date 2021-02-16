@@ -1,13 +1,13 @@
 [metadata]
 creation_date = "2020/10/14"
 maturity = "production"
-updated_date = "2020/10/14"
+updated_date = "2020/02/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies potential use of an SSH utility to establish RDP over a reverse SSH Tunnel. This could be indicative of adversary lateral
-movement to interactively access restricted networks.
+Identifies potential use of an SSH utility to establish RDP over a reverse SSH Tunnel. This could be indicative of
+adversary lateral movement to interactively access restricted networks.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "winlogbeat-*"]
@@ -19,12 +19,13 @@ risk_score = 73
 rule_id = "76fd43b7-3480-4dd9-8ad7-8bd36bfad92f"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started", "info") and 
 /* RDP port and usual SSH tunneling related switches in commandline */
-wildcard(process.args, "*:3389") and wildcard(process.args,"-L", "-P", "-R", "-pw", "-ssh") 
+wildcard(process.args, "*:3389") and wildcard(process.args,"-L", "-P", "-R", "-pw", "-ssh")
 '''
 
 
