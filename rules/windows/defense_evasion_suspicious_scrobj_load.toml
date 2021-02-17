@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/02"
 maturity = "production"
-updated_date = "2020/11/03"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
@@ -10,7 +10,7 @@ Identifies scrobj.dll loaded into unusual Microsoft processes. This usually mean
 executed in the target process.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "Windows Suspicious Script Object Execution"
@@ -23,19 +23,20 @@ type = "eql"
 query = '''
 /* add winlogbeat-* when process.code_signature.* fields are populated */
 
-sequence by process.entity_id with maxspan=2m
+sequence by process.entity_id with maxspan = 2m
   [process where event.type in ("start", "process_started") and
      /* uncomment once in winlogbeat */
-     /* process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true and */
-     not (process.name : "cscript.exe" or
-          process.name : "iexplore.exe" or
-          process.name : "MicrosoftEdge.exe" or
-          process.name : "msiexec.exe" or
-          process.name : "smartscreen.exe" or
-          process.name : "taskhostw.exe" or
-          process.name : "w3wp.exe" or
-          process.name : "wscript.exe")]
-  [library where event.type == "start" and file.name : "scrobj.dll"]
+     /* process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted : true and */
+     not process.name : (
+       "cscript.exe",
+       "iexplore.exe",
+       "MicrosoftEdge.exe",
+       "msiexec.exe",
+       "smartscreen.exe",
+       "taskhostw.exe",
+       "w3wp.exe",
+       "wscript.exe")]
+  [library where event.type == "start" and dll.name : "scrobj.dll"]
 '''
 
 
@@ -46,4 +47,3 @@ framework = "MITRE ATT&CK"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

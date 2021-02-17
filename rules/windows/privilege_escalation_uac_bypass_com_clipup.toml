@@ -10,12 +10,12 @@ Identifies attempts to bypass User Account Control (UAC) by abusing an elevated 
 ClipUp program. Attackers may attempt to bypass UAC to stealthily execute code with elevated permissions.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "UAC Bypass Attempt with IEditionUpgradeManager Elevated COM Interface"
 references = ["https://github.com/hfiref0x/UACME"]
-risk_score = 71
+risk_score = 73
 rule_id = "b90cdde7-7e0d-4359-8bf0-2c112ce2008a"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
@@ -23,10 +23,10 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started", "info") and process.name == "Clipup.exe" and 
-process.executable != "C:\\Windows\\System32\\ClipUp.exe" and process.parent.name == "dllhost.exe" and
- /* CLSID of the Elevated COM Interface IEditionUpgradeManager */
- wildcard(process.parent.args,"/Processid:{BD54C901-076B-434E-B6C7-17C531F4AB41}")
+process where event.type in ("start", "process_started") and process.name : "Clipup.exe" and
+  not process.executable : "C:\\Windows\\System32\\ClipUp.exe" and process.parent.name : "dllhost.exe" and
+  /* CLSID of the Elevated COM Interface IEditionUpgradeManager */
+  process.parent.args : "/Processid:{BD54C901-076B-434E-B6C7-17C531F4AB41}"
 '''
 
 
@@ -47,4 +47,3 @@ reference = "https://attack.mitre.org/techniques/T1548/002/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

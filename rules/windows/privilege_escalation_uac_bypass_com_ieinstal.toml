@@ -10,7 +10,7 @@ Identifies User Account Control (UAC) bypass attempts by abusing an elevated COM
 program. Attackers may attempt to bypass UAC to stealthily execute code with elevated permissions.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "UAC Bypass Attempt via Elevated COM Internet Explorer Add-On Installer"
@@ -23,9 +23,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started", "info") and
- wildcard(process.executable, "C:\\*\\AppData\\*\\Temp\\IDC*.tmp\\*.exe") and
- process.parent.name == "ieinstal.exe" and process.parent.args == "-Embedding"
+process where event.type in ("start", "process_started") and
+ process.executable : "C:\\*\\AppData\\*\\Temp\\IDC*.tmp\\*.exe" and
+ process.parent.name : "ieinstal.exe" and process.parent.args : "-Embedding"
 
  /* uncomment once in winlogbeat */
  /* and not (process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true) */
@@ -49,4 +49,3 @@ reference = "https://attack.mitre.org/techniques/T1548/002/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

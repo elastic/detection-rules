@@ -7,12 +7,12 @@ updated_date = "2020/02/16"
 author = ["Elastic"]
 description = "Detects attempts to establish persistence on an endpoint by abusing Microsoft Office add-ins."
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "Persistence via Microsoft Office AddIns"
 references = ["https://labs.mwrinfosecurity.com/blog/add-in-opportunities-for-office-persistence/"]
-risk_score = 71
+risk_score = 73
 rule_id = "f44fa4b6-524c-4e87-8d9e-a32599e4fb7c"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
@@ -21,10 +21,13 @@ type = "eql"
 
 query = '''
 file where event.type != "deletion" and
- wildcard(file.extension,"wll","xll","ppa","ppam","xla","xlam") and
- wildcard(file.path, "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Word\\Startup\\*",
-                     "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\AddIns\\*",
-                     "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Excel\\XLSTART\\*")
+ file.extension : ("wll","xll","ppa","ppam","xla","xlam") and
+ file.path :
+    (
+    "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Word\\Startup\\*",
+    "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\AddIns\\*",
+    "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Excel\\XLSTART\\*"
+    )
 '''
 
 
