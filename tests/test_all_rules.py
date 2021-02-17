@@ -11,6 +11,7 @@ import unittest
 from collections import defaultdict
 from pathlib import Path
 
+import eql
 import jsonschema
 import kql
 import toml
@@ -394,3 +395,46 @@ class TestRuleMetadata(unittest.TestCase):
                 error_msg = f'{error_prefix} it is unnecessary to define the current latest ecs version if only ' \
                             f'one version is specified: {latest_ecs}'
                 self.assertNotIn(latest_ecs, ecs_versions, error_msg)
+
+
+class TestTuleTiming(unittest.TestCase):
+    """Test rule timing and timestamps."""
+
+    def test_event_override(self):
+        """Test that rules have defined an timestamp_override if needed."""
+        rules = rule_loader.load_rules()
+        missing = []
+
+        for rule in rules.values():
+            required = False
+
+            if rule.type == 'query':
+                required = True
+            elif rule.type == 'eql' and eql.utils.get_query_type(rule.parsed_query) != 'sequence':
+                required = True
+
+            if required and not rule.contents.get('timestamp_override', '') == 'event.ingested':
+                missing.append(rule)
+
+        if missing:
+            rules_str = '\n '.join(f'{r.id} - {r.name}' for r in missing)
+            err_msg = f'The following rules should have the `timestamp_override` set to `event.ingested`\n {rules_str}'
+            self.fail(err_msg)
+
+    def test_required_lookback(self):
+        """Ensure endpoint rules have the proper lookback time."""
+        rule_types = ('query', 'eql', 'threshold')
+        long_indexes = {'logs-endpoint.events.*'}
+        rules = rule_loader.load_rules()
+        missing = []
+
+        for rule in rules.values():
+            contents = rule.contents
+
+            if rule.type in rule_types and set(contents.get('index', [])) & long_indexes and not contents.get('from'):
+                missing.append(rule)
+
+        if missing:
+            rules_str = '\n '.join(f'{r.id} - {r.name}' for r in missing)
+            err_msg = f'The following rules should have a longer `from` defined, due to indexes used\n {rules_str}'
+            self.fail(err_msg)
