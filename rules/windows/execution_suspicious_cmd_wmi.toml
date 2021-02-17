@@ -10,7 +10,7 @@ Identifies suspicious command execution (cmd) via Windows Management Instrumenta
 be indicative of adversary lateral movement.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "Suspicious Cmd Execution via WMI"
@@ -23,8 +23,8 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
- process.parent.name == "WmiPrvSE.exe" and process.name == "cmd.exe" and
- wildcard(process.args, "\\\\127.0.0.1\\*") and process.args in ("2>&1", "1>")
+ process.parent.name : "WmiPrvSE.exe" and process.name : "cmd.exe" and
+ process.args : "\\\\127.0.0.1\\*" and process.args : ("2>&1", "1>")
 '''
 
 
@@ -40,4 +40,3 @@ reference = "https://attack.mitre.org/techniques/T1047/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

@@ -10,7 +10,7 @@ Identifies suspicious Image Loading of the Remote Desktop Services ActiveX Clien
 presence of RDP lateral movement capability.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "Suspicious RDP ActiveX Client Loaded"
@@ -23,18 +23,21 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-library where file.name == "mstscax.dll" and
+library where dll.name : "mstscax.dll" and
    /* depending on noise in your env add here extra paths  */
-   wildcard(process.executable, "C:\\Windows\\*",
-                                "C:\\Users\\Public\\*",
-                                "C:\\Users\\Default\\*",
-                                "C:\\Intel\\*",
-                                "C:\\PerfLogs\\*",
-                                "C:\\ProgramData\\*",
-                                "\\Device\\Mup\\*",
-                                "\\\\*") and
+  process.executable :
+    (
+    "C:\\Windows\\*",
+    "C:\\Users\\Public\\*",
+    "C:\\Users\\Default\\*",
+    "C:\\Intel\\*",
+    "C:\\PerfLogs\\*",
+    "C:\\ProgramData\\*",
+    "\\Device\\Mup\\*",
+    "\\\\*"
+    ) and
     /* add here FPs */
-   not process.executable in ("C:\\Windows\\System32\\mstsc.exe", "C:\\Windows\\SysWOW64\\mstsc.exe")
+  not process.executable : ("C:\\Windows\\System32\\mstsc.exe", "C:\\Windows\\SysWOW64\\mstsc.exe")
 '''
 
 

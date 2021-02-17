@@ -9,7 +9,14 @@ description = """
 Enumeration of files and directories using built-in tools. Adversaries may use the information discovered to plan
 follow-on activity.
 """
-index = ["logs-endpoint.events.*", "winlogbeat-*"]
+false_positives = [
+    """
+    Enumeration of files and directories may not be inherently malicious and noise may come from scripts, automation
+    tools, or normal command line usage. It's important to baseline your environment to determine the amount of expected
+    noise and exclude any known FP's from the rule.
+    """,
+]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "File and Directory Discovery"
@@ -21,9 +28,16 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
-  (process.name : "cmd.exe" or process.pe.original_file_name == "Cmd.Exe") and
-  process.args : ("dir", "tree")
+sequence by agent.id, user.name with maxspan=1m
+[process where event.type in ("start", "process_started") and
+  ((process.name : "cmd.exe" or process.pe.original_file_name == "Cmd.Exe") and process.args : "dir") or
+    process.name : "tree.com"]
+[process where event.type in ("start", "process_started") and
+  ((process.name : "cmd.exe" or process.pe.original_file_name == "Cmd.Exe") and process.args : "dir") or
+    process.name : "tree.com"]
+[process where event.type in ("start", "process_started") and
+  ((process.name : "cmd.exe" or process.pe.original_file_name == "Cmd.Exe") and process.args : "dir") or
+    process.name : "tree.com"]
 '''
 
 
@@ -39,4 +53,3 @@ reference = "https://attack.mitre.org/techniques/T1083/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-

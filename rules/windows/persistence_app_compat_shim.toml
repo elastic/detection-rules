@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/02"
 maturity = "production"
-updated_date = "2020/12/09"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
@@ -10,7 +10,7 @@ Identifies the installation of custom Application Compatibility Shim databases. 
 abused by attackers to stealthily gain persistence and arbitrary code execution in legitimate Windows processes.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "Installation of Custom Shim Databases"
@@ -21,11 +21,11 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
 type = "eql"
 
 query = '''
-sequence by process.entity_id with maxspan=5m
+sequence by process.entity_id with maxspan = 5m
   [process where event.type in ("start", "process_started") and
-     not (process.name : "sdbinst.exe" and process.parent.name : "msiexec.exe")]
+    not (process.name : "sdbinst.exe" and process.parent.name : "msiexec.exe")]
   [registry where event.type in ("creation", "change") and
-     wildcard(registry.path, "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb")]
+    registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb"]
 '''
 
 
@@ -41,8 +41,8 @@ name = "Application Shimming"
 reference = "https://attack.mitre.org/techniques/T1546/011/"
 
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

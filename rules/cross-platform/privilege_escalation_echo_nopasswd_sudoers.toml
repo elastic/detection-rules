@@ -1,28 +1,27 @@
 [metadata]
-creation_date = "2020/04/13"
+creation_date = "2021/01/26"
 maturity = "production"
-updated_date = "2020/02/16"
+updated_date = "2021/01/26"
 
 [rule]
 author = ["Elastic"]
 description = """
-A sudoers file specifies the commands that users or groups can run and from which terminals. Adversaries can take
-advantage of these configurations to execute commands as other users or spawn processes with higher privileges.
+A sudoers file specifies the commands users or groups can run and from which terminals. Adversaries can take advantage
+of these configurations to execute commands as other users or spawn processes with higher privileges.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License"
-name = "Sudoers File Modification"
-risk_score = 21
-rule_id = "931e25a5-0f5e-4ae0-ba0d-9e94eff7e3a4"
-severity = "low"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Privilege Escalation"]
-timestamp_override = "event.ingested"
+name = "Potential Privilege Escalation via Sudoers File Modification"
+risk_score = 73
+rule_id = "76152ca1-71d0-4003-9e37-0983e12832da"
+severity = "high"
+tags = ["Elastic", "Host", "Linux", "macOS", "Threat Detection", "Privilege Escalation"]
 type = "query"
 
 query = '''
-event.category:file and event.type:change and file.path:/etc/sudoers
+event.category:process and event.type:start and process.args:(echo and *NOPASSWD*ALL*)
 '''
 
 
@@ -36,7 +35,6 @@ reference = "https://attack.mitre.org/techniques/T1548/"
 id = "T1548.003"
 name = "Sudo and Sudo Caching"
 reference = "https://attack.mitre.org/techniques/T1548/003/"
-
 
 
 [rule.threat.tactic]

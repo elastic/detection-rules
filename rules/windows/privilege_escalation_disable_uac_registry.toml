@@ -1,0 +1,76 @@
+[metadata]
+creation_date = "2021/01/20"
+maturity = "production"
+updated_date = "2021/01/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+User Account Control (UAC) can help mitigate the impact of malware on Windows hosts. With UAC, apps and tasks always run
+in the security context of a non-administrator account, unless an administrator specifically authorizes
+administrator-level access to the system. This rule identifies registry value changes to bypass User Access Control
+(UAC) protection.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License"
+name = "Disabling User Account Control via Registry Modification"
+references = [
+    "https://www.greyhathacker.net/?p=796",
+    "https://docs.microsoft.com/en-us/windows/security/identity-protection/user-account-control/user-account-control-group-policy-and-registry-key-settings",
+    "https://docs.microsoft.com/en-us/windows/security/identity-protection/user-account-control/user-account-control-overview",
+]
+risk_score = 47
+rule_id = "d31f183a-e5b1-451b-8534-ba62bca0b404"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
+type = "eql"
+
+query = '''
+registry where event.type == "change" and
+  registry.path :
+    (
+      "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\EnableLUA",
+      "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\ConsentPromptBehaviorAdmin",
+      "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\PromptOnSecureDesktop"
+    ) and
+  registry.data.strings : "0"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+[[rule.threat.technique.subtechnique]]
+id = "T1548.002"
+name = "Bypass User Access Control"
+reference = "https://attack.mitre.org/techniques/T1548/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+[[rule.threat.technique.subtechnique]]
+id = "T1548.002"
+name = "Bypass User Access Control"
+reference = "https://attack.mitre.org/techniques/T1548/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

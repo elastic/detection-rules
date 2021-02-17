@@ -11,7 +11,7 @@ adversarial activity where a scheduled task is configured via Windows Component 
 be used to configure persistence and evade monitoring by avoiding the usage of the traditional Windows binary
 (schtasks.exe) used to manage scheduled tasks.
 """
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "Suspicious Image Load (taskschd.dll) from MS Office"
@@ -27,10 +27,10 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-library where process.name in ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSPUB.EXE", "MSACCESS.EXE") and
-  event.action == "load" and
-  event.category == "library" and
-  file.name == "taskschd.dll"
+library where process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSPUB.EXE", "MSACCESS.EXE") and
+  event.action : "load" and
+  event.category : "library" and
+  dll.name : "taskschd.dll"
 '''
 
 
@@ -46,4 +46,3 @@ reference = "https://attack.mitre.org/techniques/T1053/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
