@@ -408,6 +408,9 @@ class TestTuleTiming(unittest.TestCase):
         for rule in rules.values():
             required = False
 
+            if 'endgame-*' in rule.contents.get('index', []):
+                continue
+
             if rule.type == 'query':
                 required = True
             elif rule.type == 'eql' and eql.utils.get_query_type(rule.parsed_query) != 'sequence':
