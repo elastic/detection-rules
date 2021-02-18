@@ -490,13 +490,13 @@ def schema_prompt(name, value=None, required=False, **options):
             return
 
 
-def get_kibana_rules_map(repo='elastic', branch='master'):
+def get_kibana_rules_map(repo='elastic/kibana', branch='master'):
     """Get list of available rules from the Kibana repo and return a list of URLs."""
     # ensure branch exists
-    r = requests.get(f'https://api.github.com/repos/{repo}/kibana/branches/{branch}')
+    r = requests.get(f'https://api.github.com/repos/{repo}/branches/{branch}')
     r.raise_for_status()
 
-    url = ('https://api.github.com/repos/{repo}/kibana/contents/x-pack/{legacy}plugins/{app}/server/lib/'
+    url = ('https://api.github.com/repos/{repo}/contents/x-pack/{legacy}plugins/{app}/server/lib/'
            'detection_engine/rules/prepackaged_rules?ref={branch}')
 
     gh_rules = requests.get(url.format(legacy='', app='security_solution', branch=branch, repo=repo)).json()
@@ -515,7 +515,7 @@ def get_kibana_rules_map(repo='elastic', branch='master'):
     return {os.path.splitext(r['name'])[0]: r['download_url'] for r in gh_rules if r['name'].endswith('.json')}
 
 
-def get_kibana_rules(*rule_paths, repo='elastic', branch='master', verbose=True, threads=50):
+def get_kibana_rules(*rule_paths, repo='elastic/kibana', branch='master', verbose=True, threads=50):
     """Retrieve prepackaged rules from kibana repo."""
     from multiprocessing.pool import ThreadPool
 
@@ -523,7 +523,7 @@ def get_kibana_rules(*rule_paths, repo='elastic', branch='master', verbose=True,
 
     if verbose:
         thread_use = f' using {threads} threads' if threads > 1 else ''
-        click.echo(f'Downloading rules from {branch} branch in kibana repo{thread_use} ...')
+        click.echo(f'Downloading rules from {repo} {branch} branch in kibana repo{thread_use} ...')
 
     rule_paths = [os.path.splitext(os.path.basename(p))[0] for p in rule_paths]
     rules_mapping = [(n, u) for n, u in get_kibana_rules_map(repo=repo, branch=branch).items() if n in rule_paths] \

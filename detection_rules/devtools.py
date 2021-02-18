@@ -79,7 +79,7 @@ def update_lock_versions(rule_ids):
 
 @dev_group.command('kibana-diff')
 @click.option('--rule-id', '-r', multiple=True, help='Optionally specify rule ID')
-@click.option('--repo', default='elastic', help='Repository where branch is located')
+@click.option('--repo', default='elastic/kibana', help='Repository where branch is located')
 @click.option('--branch', '-b', default='master', help='Specify the kibana branch to diff against')
 @click.option('--threads', '-t', type=click.IntRange(1), default=50, help='Number of threads to use to download rules')
 def kibana_diff(rule_id, repo, branch, threads):
