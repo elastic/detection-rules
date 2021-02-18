@@ -396,6 +396,22 @@ class TestRuleMetadata(unittest.TestCase):
                             f'one version is specified: {latest_ecs}'
                 self.assertNotIn(latest_ecs, ecs_versions, error_msg)
 
+    def test_updated_date_newer_than_creation(self):
+        """Test that the updated_date is newer than the creation date."""
+        rules = rule_loader.load_rules()
+        invalid = []
+
+        for rule in rules.values():
+            created = tuple(rule.metadata['creation_date'].split('/'))
+            updated = tuple(rule.metadata['updated_date'].split('/'))
+            if updated < created:
+                invalid.append(rule)
+
+        if invalid:
+            rules_str = '\n '.join(f'{r.id} - {r.name}' for r in invalid)
+            err_msg = f'The following rules have an updated_date older than the creation_date\n {rules_str}'
+            self.fail(err_msg)
+
 
 class TestTuleTiming(unittest.TestCase):
     """Test rule timing and timestamps."""
