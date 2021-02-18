@@ -368,7 +368,7 @@ class Rule(object):
         """Get the version of the rule."""
         from .packaging import load_versions
 
-        rules_versions = load_versions
+        rules_versions = load_versions()
 
         if self.id in rules_versions:
             version_info = rules_versions[self.id]
