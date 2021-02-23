@@ -46,7 +46,6 @@ We have a few types of issue templates to [choose from](https://github.com/elast
 * **Bug report**: Create a report to help us improve (not pertaining to rules)
 * **Feature request**: Suggest an idea for this project (not pertaining to rules)
 * **New rule**: Suggestions and ideas for new rules for the Detection Engine
-* **Release package**: Used by the Elastic team to track a rules release
 * **Rule deprecation**: Recommend deprecating a rule that doesn't work or isn't useful anymore
 * **Tune existing rule**: Suggest changes to make to an existing rule to address false positives or negatives
 
