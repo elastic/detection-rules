@@ -1,30 +1,34 @@
 [metadata]
 creation_date = "2020/08/24"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/09/30"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
 description = """
-A suspicious Elastic endpoint agent parent process was detected. This may indicate a process hollowing or other form of
-code injection.
+A suspicious Endpoint Security parent process was detected. This may indicate a process hollowing or other form of code
+injection.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
 license = "Elastic License"
-name = "Suspicious Elastic Endpoint Parent Process"
+name = "Suspicious Endpoint Security Parent Process"
 risk_score = 47
 rule_id = "b41a13c6-ba45-4bab-a534-df53d0cfed6a"
 severity = "medium"
-tags = ["Elastic", "Windows"]
-type = "query"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
- process.name:(esensor.exe or "elastic-endpoint.exe" or "elastic-agent.exe") and
- not process.parent.executable:"C:\Windows\System32\services.exe"
+process where event.type in ("start", "process_started", "info") and
+ process.name : ("esensor.exe", "elastic-endpoint.exe") and
+ process.parent.executable != null and
+  /* add FPs here */
+ not process.parent.executable : ("C:\\Program Files\\Elastic\\*", 
+                                  "C:\\Windows\\System32\\services.exe", 
+                                  "C:\\Windows\\System32\\WerFault*.exe", 
+                                  "C:\\Windows\\System32\\wermgr.exe")
 '''
 
 

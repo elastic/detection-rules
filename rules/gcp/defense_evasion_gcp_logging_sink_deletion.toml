@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/09/18"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/09/18"
+updated_date = "2020/12/16"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +17,7 @@ false_positives = [
     hosts should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License"
 name = "GCP Logging Sink Deletion"
@@ -27,11 +26,11 @@ references = ["https://cloud.google.com/logging/docs/export"]
 risk_score = 47
 rule_id = "51859fa0-d86b-4214-bf48-ebb30ed91305"
 severity = "medium"
-tags = ["Elastic", "GCP", "Continuous Monitoring", "SecOps", "Logging"]
+tags = ["Elastic", "Cloud", "GCP", "Continuous Monitoring", "SecOps", "Log Auditing"]
 type = "query"
 
 query = '''
-event.dataset:googlecloud.audit and event.action:google.logging.v*.ConfigServiceV*.DeleteSink and event.outcome:success
+event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.logging.v*.ConfigServiceV*.DeleteSink and event.outcome:success
 '''
 
 

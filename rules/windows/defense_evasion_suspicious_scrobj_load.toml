@@ -1,0 +1,49 @@
+[metadata]
+creation_date = "2020/09/02"
+maturity = "production"
+updated_date = "2020/01/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies scrobj.dll loaded into unusual Microsoft processes. This usually means a malicious scriptlet is being
+executed in the target process.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License"
+name = "Windows Suspicious Script Object Execution"
+risk_score = 21
+rule_id = "4ed678a9-3a4f-41fb-9fea-f85a6e0a0dff"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+type = "eql"
+
+query = '''
+/* add winlogbeat-* when process.code_signature.* fields are populated */
+
+sequence by process.entity_id with maxspan = 2m
+  [process where event.type in ("start", "process_started") and
+     /* uncomment once in winlogbeat */
+     /* process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted : true and */
+     not process.name : (
+       "cscript.exe",
+       "iexplore.exe",
+       "MicrosoftEdge.exe",
+       "msiexec.exe",
+       "smartscreen.exe",
+       "taskhostw.exe",
+       "w3wp.exe",
+       "wscript.exe")]
+  [library where event.type == "start" and dll.name : "scrobj.dll"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

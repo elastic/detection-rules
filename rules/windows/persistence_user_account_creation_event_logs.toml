@@ -1,0 +1,45 @@
+[metadata]
+creation_date = "2021/01/04"
+maturity = "development"
+updated_date = "2021/01/04"
+
+[rule]
+author = ["Skoetting"]
+description = """
+Identifies attempts to create new local users. This is sometimes done by attackers to increase access to a system or
+domain.
+"""
+false_positives = [
+    """
+    Legitimate local user creations may be done by a system or network administrator. Verify whether this is known
+    behavior in your environment. Local user creations from unfamiliar users or hosts should be investigated. If known
+    behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
+index = ["winlogbeat-*", "logs-windows*"]
+language = "kuery"
+license = "Elastic License"
+name = "Creation of a local user account"
+risk_score = 21
+rule_id = "38e17753-f581-4644-84da-0d60a8318694"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+type = "query"
+
+query = '''
+event.module:security and event.code:4720
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

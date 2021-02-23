@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/03/25"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/08/03"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
@@ -12,14 +11,14 @@ RegSvcs.exe and RegAsm.exe are Windows command line utilities that are used to r
 utility.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License"
 name = "Execution via Regsvcs/Regasm"
 risk_score = 21
 rule_id = "47f09343-8d1f-4bb5-8bb0-00c9d18f5010"
 severity = "low"
-tags = ["Elastic", "Windows"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
 type = "query"
 
 query = '''
@@ -29,11 +28,6 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1121"
-name = "Regsvcs/Regasm"
-reference = "https://attack.mitre.org/techniques/T1121/"
-
 
 [rule.threat.tactic]
 id = "TA0002"
@@ -42,9 +36,14 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1121"
+id = "T1218"
+name = "Signed Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.009"
 name = "Regsvcs/Regasm"
-reference = "https://attack.mitre.org/techniques/T1121/"
+reference = "https://attack.mitre.org/techniques/T1218/009/"
+
 
 
 [rule.threat.tactic]

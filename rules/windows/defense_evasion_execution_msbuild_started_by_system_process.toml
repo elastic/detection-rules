@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/03/25"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/08/03"
+updated_date = "2020/01/28"
 
 [rule]
 author = ["Elastic"]
@@ -12,14 +11,14 @@ Instrumentation) subsystem. This behavior is unusual and is sometimes used by ma
 """
 false_positives = ["The Build Engine is commonly used by Windows developers but use by non-engineers is unusual."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License"
 name = "Microsoft Build Engine Started by a System Process"
 risk_score = 47
 rule_id = "9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae3"
 severity = "medium"
-tags = ["Elastic", "Windows"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 type = "query"
 
 query = '''
@@ -43,11 +42,6 @@ name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1127"
-name = "Trusted Developer Utilities Proxy Execution"
-reference = "https://attack.mitre.org/techniques/T1127/"
-
 
 [rule.threat.tactic]
 id = "TA0002"

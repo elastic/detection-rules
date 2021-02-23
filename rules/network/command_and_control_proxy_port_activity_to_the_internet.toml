@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/07/02"
+updated_date = "2020/11/03"
 
 [rule]
 author = ["Elastic"]
@@ -23,30 +22,39 @@ false_positives = [
     port in the range by coincidence. In this case, such servers can be excluded if desired.
     """,
 ]
-index = ["filebeat-*", "packetbeat-*"]
+index = ["filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License"
 name = "Proxy Port Activity to the Internet"
 risk_score = 47
 rule_id = "ad0e5e75-dd89-4875-8d0a-dfdc1828b5f3"
 severity = "medium"
-tags = ["Elastic", "Network"]
+tags = ["Elastic", "Host", "Network", "Threat Detection", "Command and Control"]
 type = "query"
 
 query = '''
 event.category:(network or network_traffic) and network.transport:tcp and (destination.port:(1080 or 3128 or 8080) or event.dataset:zeek.socks) and
-  source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16) and
-  not destination.ip:(10.0.0.0/8 or 127.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16 or "::1")
+  source.ip:(
+    10.0.0.0/8 or
+    172.16.0.0/12 or
+    192.168.0.0/16
+  ) and
+  not destination.ip:(
+    10.0.0.0/8 or
+    127.0.0.0/8 or
+    169.254.0.0/16 or
+    172.16.0.0/12 or
+    192.168.0.0/16 or
+    224.0.0.0/4 or
+    "::1" or
+    "FE80::/10" or
+    "FF00::/8"
+  )
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1043"
-name = "Commonly Used Port"
-reference = "https://attack.mitre.org/techniques/T1043/"
-
 
 [rule.threat.tactic]
 id = "TA0011"

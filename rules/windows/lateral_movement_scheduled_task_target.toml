@@ -1,0 +1,57 @@
+[metadata]
+creation_date = "2020/11/20"
+maturity = "production"
+updated_date = "2020/01/28"
+
+[rule]
+author = ["Elastic"]
+description = "Identifies remote scheduled task creations on a target host. This could be indicative of adversary lateral movement."
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License"
+name = "Remote Scheduled Task Creation"
+note = "Decode the base64 encoded tasks actions registry value to investigate the task configured action."
+risk_score = 47
+rule_id = "954ee7c8-5437-49ae-b2d6-2960883898e9"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+type = "eql"
+
+query = '''
+/* Task Scheduler service incoming connection followed by TaskCache registry modification  */
+
+sequence by host.id, process.entity_id with maxspan = 1m
+   [network where process.name : "svchost.exe" and
+   network.direction == "incoming" and source.port >= 49152 and destination.port >= 49152 and
+   source.address != "127.0.0.1" and source.address != "::1"
+   ]
+   [registry where registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\*\\Actions"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

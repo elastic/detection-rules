@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/09/23"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/09/23"
+updated_date = "2020/12/16"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +17,7 @@ false_positives = [
     hosts should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License"
 name = "GCP Pub/Sub Subscription Creation"
@@ -27,11 +26,11 @@ references = ["https://cloud.google.com/pubsub/docs/overview"]
 risk_score = 21
 rule_id = "d62b64a8-a7c9-43e5-aee3-15a725a794e7"
 severity = "low"
-tags = ["Elastic", "GCP", "Continuous Monitoring", "SecOps", "Logging"]
+tags = ["Elastic", "Cloud", "GCP", "Continuous Monitoring", "SecOps", "Log Auditing"]
 type = "query"
 
 query = '''
-event.dataset:googlecloud.audit and event.action:google.pubsub.v*.Subscriber.CreateSubscription and event.outcome:success
+event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.pubsub.v*.Subscriber.CreateSubscription and event.outcome:success
 '''
 
 

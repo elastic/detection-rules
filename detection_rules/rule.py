@@ -7,15 +7,17 @@ import copy
 import hashlib
 import json
 import os
+from pathlib import Path
+from uuid import uuid4
 
 import click
 import kql
 import eql
 
 from . import ecs, beats
-from .attack import tactics, build_threat_map_entry, technique_lookup
+from .attack import tactics, build_threat_map_entry, matrix
 from .rule_formatter import nested_normalize, toml_write
-from .schemas import CurrentSchema, TomlMetadata  # RULE_TYPES, metadata_schema, schema_validate, get_schema
+from .schemas import CurrentSchema, TomlMetadata, downgrade
 from .utils import get_path, clear_caches, cached
 
 
@@ -30,7 +32,7 @@ class Rule(object):
         """Create a Rule from a toml management format."""
         self.path = os.path.abspath(path)
         self.contents = contents.get('rule', contents)
-        self.metadata = self.set_metadata(contents.get('metadata', contents))
+        self.metadata = contents.get('metadata', self.set_metadata(contents))
 
         self.formatted_rule = copy.deepcopy(self.contents).get('query', None)
 
@@ -76,7 +78,9 @@ class Rule(object):
             if self.contents['language'] == 'kuery':
                 return kql.parse(self.query)
             elif self.contents['language'] == 'eql':
-                return eql.parse_query(self.query)
+                # TODO: remove once py-eql supports ipv6 for cidrmatch
+                with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+                    return eql.parse_query(self.query)
 
     @property
     def filters(self):
@@ -110,13 +114,30 @@ class Rule(object):
         tactic_ids = []
         technique_ids = set()
         technique_names = set()
+        sub_technique_ids = set()
+        sub_technique_names = set()
+
         for entry in self.contents.get('threat', []):
             tactic_names.append(entry['tactic']['name'])
             tactic_ids.append(entry['tactic']['id'])
-            technique_names.update([t['name'] for t in entry['technique']])
-            technique_ids.update([t['id'] for t in entry['technique']])
 
-        return sorted(tactic_names), sorted(tactic_ids), sorted(technique_names), sorted(technique_ids)
+            for technique in entry.get('technique', []):
+                technique_names.add(technique['name'])
+                technique_ids.add(technique['id'])
+                sub_technique = technique.get('subtechnique', [])
+
+                sub_technique_ids.update(st['id'] for st in sub_technique)
+                sub_technique_names.update(st['name'] for st in sub_technique)
+
+        flat = {
+            'tactic_names': sorted(tactic_names),
+            'tactic_ids': sorted(tactic_ids),
+            'technique_names': sorted(technique_names),
+            'technique_ids': sorted(technique_ids),
+            'sub_technique_names': sorted(sub_technique_names),
+            'sub_technique_ids': sorted(sub_technique_ids)
+        }
+        return flat
 
     @classmethod
     def get_unique_query_fields(cls, rule_contents):
@@ -124,7 +145,10 @@ class Rule(object):
         query = rule_contents.get('query')
         language = rule_contents.get('language')
         if language in ('kuery', 'eql'):
-            parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
+            # TODO: remove once py-eql supports ipv6 for cidrmatch
+            with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+                parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
+
             return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
 
     @staticmethod
@@ -142,13 +166,57 @@ class Rule(object):
         defaults.update(metadata)
         return defaults
 
+    @staticmethod
+    def _add_empty_attack_technique(contents: dict = None):
+        """Add empty array to ATT&CK technique threat mapping."""
+        threat = contents.get('threat', [])
+
+        if threat:
+            new_threat = []
+
+            for entry in contents.get('threat', []):
+                if 'technique' not in entry:
+                    new_entry = entry.copy()
+                    new_entry['technique'] = []
+                    new_threat.append(new_entry)
+                else:
+                    new_threat.append(entry)
+
+            contents['threat'] = new_threat
+
+        return contents
+
+    def _run_build_time_transforms(self, contents):
+        """Apply changes to rules at build time for rule payload."""
+        self._add_empty_attack_technique(contents)
+        return contents
+
     def rule_format(self, formatted_query=True):
-        """Get the contents in rule format."""
+        """Get the contents and metadata in rule format."""
         contents = self.contents.copy()
         if formatted_query:
             if self.formatted_rule:
                 contents['query'] = self.formatted_rule
         return {'metadata': self.metadata, 'rule': contents}
+
+    def detailed_format(self, add_missing_defaults=True, **additional_details):
+        """Get the rule with expanded details."""
+        from .rule_loader import get_non_required_defaults_by_type
+
+        rule = self.rule_format().copy()
+
+        if add_missing_defaults:
+            non_required_defaults = get_non_required_defaults_by_type(self.type)
+            rule['rule'].update({k: v for k, v in non_required_defaults.items() if k not in rule['rule']})
+
+        rule['details'] = {
+            'flat_mitre': self.get_flat_mitre(),
+            'relative_path': str(Path(self.path).resolve().relative_to(RULES_DIR)),
+            'unique_fields': self.unique_fields,
+
+        }
+        rule['details'].update(**additional_details)
+        return rule
 
     def normalize(self, indent=2):
         """Normalize the (api only) contents and return a serialized dump of it."""
@@ -185,26 +253,30 @@ class Rule(object):
 
         schema_cls.validate(contents, role=self.type)
 
-        skip_query_validation = self.metadata['maturity'] == 'development' and \
+        skip_query_validation = self.metadata['maturity'] in ('experimental', 'development') and \
             self.metadata.get('query_schema_validation') is False
 
         if query and self.query is not None and not skip_query_validation:
-            ecs_versions = self.metadata.get('ecs_version')
+            ecs_versions = self.metadata.get('ecs_version', [ecs.get_max_version()])
+            beats_version = self.metadata.get('beats_version', beats.get_max_version())
             indexes = self.contents.get("index", [])
 
             if self.contents['language'] == 'kuery':
-                self._validate_kql(ecs_versions, indexes, self.query, self.name)
+                self._validate_kql(ecs_versions, beats_version, indexes, self.query, self.name)
 
             if self.contents['language'] == 'eql':
-                self._validate_eql(ecs_versions, indexes, self.query, self.name)
+                self._validate_eql(ecs_versions, beats_version, indexes, self.query, self.name)
 
     @staticmethod
     @cached
-    def _validate_eql(ecs_versions, indexes, query, name):
+    def _validate_eql(ecs_versions, beats_version, indexes, query, name):
         # validate against all specified schemas or the latest if none specified
-        parsed = eql.parse_query(query)
+        # TODO: remove once py-eql supports ipv6 for cidrmatch
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+            parsed = eql.parse_query(query)
+
         beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
-        beat_schema = beats.get_schema_from_eql(parsed, beat_types) if beat_types else None
+        beat_schema = beats.get_schema_from_eql(parsed, beat_types, version=beats_version) if beat_types else None
 
         ecs_versions = ecs_versions or [ecs_versions]
         schemas = []
@@ -218,7 +290,8 @@ class Rule(object):
 
         for schema in schemas:
             try:
-                with ecs.KqlSchema2Eql(schema):
+                # TODO: remove once py-eql supports ipv6 for cidrmatch
+                with ecs.KqlSchema2Eql(schema), eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
                     eql.parse_query(query)
 
             except eql.EqlTypeMismatchError:
@@ -235,11 +308,11 @@ class Rule(object):
 
     @staticmethod
     @cached
-    def _validate_kql(ecs_versions, indexes, query, name):
+    def _validate_kql(ecs_versions, beats_version, indexes, query, name):
         # validate against all specified schemas or the latest if none specified
         parsed = kql.parse(query)
         beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
-        beat_schema = beats.get_schema_from_kql(parsed, beat_types) if beat_types else None
+        beat_schema = beats.get_schema_from_kql(parsed, beat_types, version=beats_version) if beat_types else None
 
         if not ecs_versions:
             kql.parse(query, schema=ecs.get_kql_schema(indexes=indexes, beat_schema=beat_schema))
@@ -272,7 +345,7 @@ class Rule(object):
             toml_write(self.rule_format(), path)
         else:
             with open(path, 'w', newline='\n') as f:
-                json.dump(self.contents, f, sort_keys=True, indent=2)
+                json.dump(self.get_payload(), f, sort_keys=True, indent=2)
                 f.write('\n')
 
         if verbose:
@@ -289,7 +362,42 @@ class Rule(object):
 
     def get_hash(self):
         """Get a standardized hash of a rule to consistently check for changes."""
-        return self.dict_hash(self.contents)
+        return self.dict_hash(self.get_payload())
+
+    def get_version(self):
+        """Get the version of the rule."""
+        from .packaging import load_versions
+
+        rules_versions = load_versions
+
+        if self.id in rules_versions:
+            version_info = rules_versions[self.id]
+            version = version_info['version']
+            return version + 1 if self.get_hash() != version_info['sha256'] else version
+        else:
+            return 1
+
+    def get_payload(self, include_version=False, replace_id=False, embed_metadata=False, target_version=None):
+        """Get rule as uploadable/API-compatible payload."""
+        from uuid import uuid4
+        from .schemas import downgrade
+
+        payload = self._run_build_time_transforms(self.contents.copy())
+
+        if include_version:
+            payload['version'] = self.get_version()
+
+        if embed_metadata:
+            meta = payload.setdefault("meta", {})
+            meta["original"] = dict(id=self.id, **self.metadata)
+
+        if replace_id:
+            payload["rule_id"] = str(uuid4())
+
+        if target_version:
+            payload = downgrade(payload, target_version)
+
+        return payload
 
     @classmethod
     def build(cls, path=None, rule_type=None, required_only=True, save=True, verbose=False, **kwargs):
@@ -334,13 +442,16 @@ class Rule(object):
 
                 while click.confirm('add mitre tactic?'):
                     tactic = schema_prompt('mitre tactic name', type='string', enum=tactics, required=True)
-                    technique_ids = schema_prompt(f'technique IDs for {tactic}', type='array', required=True,
-                                                  enum=list(technique_lookup))
+                    technique_ids = schema_prompt(f'technique or sub-technique IDs for {tactic}', type='array',
+                                                  required=False, enum=list(matrix[tactic])) or []
 
                     try:
                         threat_map.append(build_threat_map_entry(tactic, *technique_ids))
                     except KeyError as e:
-                        click.secho(f'Unknown ID: {e.args[0]}')
+                        click.secho(f'Unknown ID: {e.args[0]} - entry not saved for: {tactic}', fg='red', err=True)
+                        continue
+                    except ValueError as e:
+                        click.secho(f'{e} - entry not saved for: {tactic}', fg='red', err=True)
                         continue
 
                 if len(threat_map) > 0:
@@ -365,21 +476,13 @@ class Rule(object):
 
                 contents[name] = result
 
-        metadata = {}
-
-        if not required_only:
-            ecs_version = schema_prompt('ecs_version', required=False, value=None,
-                                        **TomlMetadata.get_schema()['properties']['ecs_version'])
-            if ecs_version:
-                metadata['ecs_version'] = ecs_version
-
         suggested_path = os.path.join(RULES_DIR, contents['name'])  # TODO: UPDATE BASED ON RULE STRUCTURE
         path = os.path.realpath(path or input('File path for rule [{}]: '.format(suggested_path)) or suggested_path)
 
         rule = None
 
         try:
-            rule = cls(path, {'rule': contents, 'metadata': metadata})
+            rule = cls(path, {'rule': contents})
         except kql.KqlParseError as e:
             if e.error_msg == 'Unknown field':
                 warning = ('If using a non-ECS field, you must update "ecs{}.non-ecs-schema.json" under `beats` or '
@@ -392,7 +495,7 @@ class Rule(object):
             while True:
                 try:
                     contents['query'] = click.edit(contents['query'], extension='.eql')
-                    rule = cls(path, {'rule': contents, 'metadata': metadata})
+                    rule = cls(path, {'rule': contents})
                 except kql.KqlParseError as e:
                     click.secho(e.args[0], fg='red', err=True)
                     click.pause()
@@ -415,4 +518,18 @@ class Rule(object):
         # rta_mappings.add_rule_to_mapping_file(rule)
         # click.echo('Placeholder added to rule-mapping.yml')
 
+        click.echo('Rule will validate against the latest ECS schema available (and beats if necessary)')
+        click.echo('    - to have a rule validate against specific ECS schemas, add them to metadata->ecs_versions')
+        click.echo('    - to have a rule validate against a specific beats schema, add it to metadata->beats_version')
+
         return rule
+
+
+def downgrade_contents_from_rule(rule: Rule, target_version: str) -> dict:
+    """Generate the downgraded contents from a rule."""
+    payload = rule.contents.copy()
+    meta = payload.setdefault("meta", {})
+    meta["original"] = dict(id=rule.id, **rule.metadata)
+    payload["rule_id"] = str(uuid4())
+    payload = downgrade(payload, target_version)
+    return payload

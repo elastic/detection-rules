@@ -1,3 +1,7 @@
+[![Supported Python versions](https://img.shields.io/badge/python-3.7+-yellow.svg)](https://www.python.org/downloads/)
+[![Unit Tests](https://github.com/elastic/detection-rules/workflows/Unit%20Tests/badge.svg)](https://github.com/elastic/detection-rules/actions)
+[![Chat](https://img.shields.io/badge/chat-%23security--detection--rules-blueviolet)](https://ela.st/slack)
+
 # Detection Rules
 
 Detection Rules is the home for rules used by Elastic Security. This repository is used for the development, maintenance, testing, validation, and release of rules for Elastic Security’s Detection Engine.
@@ -8,8 +12,10 @@ This repository was first announced on Elastic's blog post, [Elastic Security op
 ## Table of Contents
 - [Overview of this repository](#overview-of-this-repository)
 - [Getting started](#getting-started)
+- [Red Team Automation](rta)
 - [How to contribute](#how-to-contribute)
 - [Licensing](#licensing)
+- [Questions? Problems? Suggestions?](#questions-problems-suggestions)
 
 
 ## Overview of this repository

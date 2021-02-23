@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/09/21"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/09/21"
+updated_date = "2020/12/16"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +16,7 @@ false_positives = [
     be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License"
 name = "GCP Storage Bucket Deletion"
@@ -26,11 +25,11 @@ references = ["https://cloud.google.com/storage/docs/key-terms#buckets"]
 risk_score = 47
 rule_id = "bc0f2d83-32b8-4ae2-b0e6-6a45772e9331"
 severity = "medium"
-tags = ["Elastic", "GCP", "Continuous Monitoring", "SecOps", "Monitoring"]
+tags = ["Elastic", "Cloud", "GCP", "Continuous Monitoring", "SecOps", "Monitoring"]
 type = "query"
 
 query = '''
-event.dataset:googlecloud.audit and event.action:storage.buckets.delete
+event.dataset:(googlecloud.audit or gcp.audit) and event.action:storage.buckets.delete
 '''
 
 
@@ -46,3 +45,4 @@ reference = "https://attack.mitre.org/techniques/T1485/"
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+

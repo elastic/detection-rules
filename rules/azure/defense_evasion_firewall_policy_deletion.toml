@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/08/18"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/09/23"
+updated_date = "2020/12/15"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +17,7 @@ false_positives = [
     """,
 ]
 from = "now-25m"
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License"
 name = "Azure Firewall Policy Deletion"
@@ -27,20 +26,24 @@ references = ["https://docs.microsoft.com/en-us/azure/firewall-manager/policy-ov
 risk_score = 21
 rule_id = "e02bd3ea-72c6-4181-ac2b-0f83d17ad969"
 severity = "low"
-tags = ["Azure", "Elastic", "SecOps", "Continuous Monitoring", "Network"]
+tags = ["Elastic", "Cloud", "Azure", "Continuous Monitoring", "SecOps", "Network Security"]
 type = "query"
 
 query = '''
-event.dataset:azure.activitylogs and azure.activitylogs.operation_name:MICROSOFT.NETWORK/FIREWALLPOLICIES/DELETE and event.outcome:Success
+event.dataset:azure.activitylogs and azure.activitylogs.operation_name:MICROSOFT.NETWORK/FIREWALLPOLICIES/DELETE and event.outcome:(Success or success)
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1089"
-name = "Disabling Security Tools"
-reference = "https://attack.mitre.org/techniques/T1089/"
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
 
 
 [rule.threat.tactic]

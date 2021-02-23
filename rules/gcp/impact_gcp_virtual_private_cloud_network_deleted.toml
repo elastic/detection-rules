@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/09/22"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/09/22"
+updated_date = "2020/12/16"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +17,7 @@ false_positives = [
     expected. Exceptions can be added to this rule to filter expected behavior.
     """,
 ]
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License"
 name = "GCP Virtual Private Cloud Network Deletion"
@@ -27,9 +26,10 @@ references = ["https://cloud.google.com/vpc/docs/vpc"]
 risk_score = 47
 rule_id = "c58c3081-2e1d-4497-8491-e73a45d1a6d6"
 severity = "medium"
-tags = ["Elastic", "GCP", "Continuous Monitoring", "SecOps", "Configuration Audit"]
+tags = ["Elastic", "Cloud", "GCP", "Continuous Monitoring", "SecOps", "Configuration Audit"]
 type = "query"
 
 query = '''
-event.dataset:googlecloud.audit and event.action:v*.compute.networks.delete and event.outcome:success
+event.dataset:(googlecloud.audit or gcp.audit) and event.action:v*.compute.networks.delete and event.outcome:success
 '''
+

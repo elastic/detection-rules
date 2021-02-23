@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/09/21"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/09/21"
+updated_date = "2020/12/16"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +17,7 @@ false_positives = [
     Exceptions can be added to this rule to filter expected behavior.
     """,
 ]
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License"
 name = "GCP Firewall Rule Creation"
@@ -27,11 +26,11 @@ references = ["https://cloud.google.com/vpc/docs/firewalls"]
 risk_score = 21
 rule_id = "30562697-9859-4ae0-a8c5-dab45d664170"
 severity = "low"
-tags = ["Elastic", "GCP", "Continuous Monitoring", "SecOps", "Configuration Audit"]
+tags = ["Elastic", "Cloud", "GCP", "Continuous Monitoring", "SecOps", "Configuration Audit"]
 type = "query"
 
 query = '''
-event.dataset:googlecloud.audit and event.action:v*.compute.firewalls.insert
+event.dataset:(googlecloud.audit or gcp.audit) and event.action:v*.compute.firewalls.insert
 '''
 
 
@@ -47,3 +46,4 @@ reference = "https://attack.mitre.org/techniques/T1562/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

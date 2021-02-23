@@ -1,18 +1,17 @@
 [metadata]
 creation_date = "2020/09/01"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/09/01"
+updated_date = "2020/12/17"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when a user grants permissions to an Azure-registered application or when an administrator grants tenant-wide
+Detects when a user grants permissions to an Azure-registered application or when an administrator grants tenant-wide
 permissions to an application. An adversary may create an Azure-registered application that requests access to data such
 as contact information, email, or documents.
 """
 from = "now-25m"
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License"
 name = "Possible Consent Grant Attack via Azure-Registered Application"
@@ -27,25 +26,31 @@ references = [
 risk_score = 47
 rule_id = "1c6a8c7a-5cb6-4a82-ba27-d5a5b8a40a38"
 severity = "medium"
-tags = ["Elastic", "Azure", "Continuous Monitoring", "SecOps", "Identity and Access"]
+tags = ["Elastic", "Cloud", "Azure", "Continuous Monitoring", "SecOps", "Identity and Access"]
 type = "query"
 
 query = '''
-event.dataset:(azure.activitylogs or azure.auditlogs) and
+event.dataset:(azure.activitylogs or azure.auditlogs or o365.audit) and 
   (
-    azure.activitylogs.operation_name:"Consent to application" or 
-    azure.auditlogs.operation_name:"Consent to application"
+    azure.activitylogs.operation_name:"Consent to application" or
+    azure.auditlogs.operation_name:"Consent to application" or
+    o365.audit.Operation:"Consent to application."
   ) and
-  event.outcome:success
+  event.outcome:(Success or success)
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1192"
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
 name = "Spearphishing Link"
-reference = "https://attack.mitre.org/techniques/T1192/"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
 
 
 [rule.threat.tactic]

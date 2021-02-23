@@ -13,6 +13,7 @@ import os
 import time
 import zipfile
 from datetime import datetime, date
+from pathlib import Path
 
 import kql
 
@@ -252,3 +253,37 @@ def format_command_options(ctx):
             formatter.write_dl(opts)
 
     return formatter.getvalue()
+
+
+def add_params(*params):
+    """Add parameters to a click command."""
+    def decorator(f):
+        if not hasattr(f, '__click_params__'):
+            f.__click_params__ = []
+        f.__click_params__.extend(params)
+        return f
+
+    return decorator
+
+
+class Ndjson(list):
+    """Wrapper for ndjson data."""
+
+    def to_string(self, sort_keys: bool = False):
+        """Format contents list to ndjson string."""
+        return '\n'.join(json.dumps(c, sort_keys=sort_keys) for c in self) + '\n'
+
+    @classmethod
+    def from_string(cls, ndjson_string: str, **kwargs):
+        """Load ndjson string to a list."""
+        contents = [json.loads(line, **kwargs) for line in ndjson_string.strip().splitlines()]
+        return Ndjson(contents)
+
+    def dump(self, filename: Path, sort_keys=False):
+        """Save contents to an ndjson file."""
+        filename.write_text(self.to_string(sort_keys=sort_keys))
+
+    @classmethod
+    def load(cls, filename: Path, **kwargs):
+        """Load content from an ndjson file."""
+        return cls.from_string(filename.read_text(), **kwargs)

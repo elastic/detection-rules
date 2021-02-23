@@ -10,9 +10,11 @@ from ..semver import Version
 from .v7_8 import ApiSchema78
 from .v7_9 import ApiSchema79
 from .v7_10 import ApiSchema710
+from .v7_11 import ApiSchema711
 
 __all__ = (
     "all_schemas",
+    "available_versions",
     "downgrade",
     "CurrentSchema",
     "validate_rta_mapping",
@@ -23,9 +25,10 @@ all_schemas = [
     ApiSchema78,
     ApiSchema79,
     ApiSchema710,
+    ApiSchema711,
 ]
-
 CurrentSchema = all_schemas[-1]
+available_versions = [cls.STACK_VERSION for cls in all_schemas]
 
 
 def downgrade(api_contents: dict, target_version: str):

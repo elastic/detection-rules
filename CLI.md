@@ -111,11 +111,11 @@ Usage: detection_rules es [OPTIONS] COMMAND [ARGS]...
   Commands for integrating with Elasticsearch.
 
 Options:
-  -e, --elasticsearch-url TEXT
+  -et, --timeout INTEGER        Timeout for elasticsearch client
+  -ep, --es-password TEXT
+  -eu, --es-user TEXT
   --cloud-id TEXT
-  -u, --es-user TEXT
-  -p, --es-password TEXT
-  -t, --timeout INTEGER         Timeout for elasticsearch client
+  -e, --elasticsearch-url TEXT
   -h, --help                    Show this message and exit.
 
 Commands:
@@ -130,12 +130,12 @@ Usage: detection_rules kibana [OPTIONS] COMMAND [ARGS]...
   Commands for integrating with Kibana.
 
 Options:
-  -k, --kibana-url TEXT
+  --space TEXT                 Kibana space
+  -kp, --kibana-password TEXT
+  -ku, --kibana-user TEXT
   --cloud-id TEXT
-  -u, --kibana-user TEXT
-  -p, --kibana-password TEXT
-  -t, --timeout INTEGER       Timeout for kibana client
-  -h, --help                  Show this message and exit.
+  -k, --kibana-url TEXT
+  -h, --help                   Show this message and exit.
 
 Commands:
   upload-rule  Upload a list of rule .toml files to Kibana.
@@ -153,18 +153,41 @@ python -m detection_rules kibana upload-rule -h
 
 Kibana client:
 Options:
-  -k, --kibana-url TEXT
+  --space TEXT                 Kibana space
+  -kp, --kibana-password TEXT
+  -ku, --kibana-user TEXT
   --cloud-id TEXT
-  -u, --kibana-user TEXT
-  -p, --kibana-password TEXT
-  -t, --timeout INTEGER       Timeout for kibana client
+  -k, --kibana-url TEXT
 
 Usage: detection_rules kibana upload-rule [OPTIONS] TOML_FILES...
 
   Upload a list of rule .toml files to Kibana.
 
 Options:
+  -r, --replace-id  Replace rule IDs with new IDs before export
   -h, --help  Show this message and exit.
+```
+
+Alternatively, rules can be exported into a consolidated ndjson file which can be imported in the Kibana security app 
+directly.
+
+```console
+Usage: detection_rules export-rules [OPTIONS] [RULE_ID]...
+
+  Export rule(s) into an importable ndjson file.
+
+Options:
+  -f, --rule-file FILE            Export specified rule files
+  -d, --directory DIRECTORY       Recursively export rules from a directory
+  -o, --outfile FILE              Name of file for exported rules
+  -r, --replace-id                Replace rule IDs with new IDs before export
+  --stack-version [7.8|7.9|7.10|7.11]
+                                  Downgrade a rule version to be compatible
+                                  with older instances of Kibana
+  -s, --skip-unsupported          If `--stack-version` is passed, skip
+                                  rule types which are unsupported (an error
+                                  will be raised otherwise)
+  -h, --help                      Show this message and exit.
 ```
 
 _*To load a custom rule, the proper index must be setup first. The simplest way to do this is to click 
