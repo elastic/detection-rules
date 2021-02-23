@@ -23,26 +23,20 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Pr
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and process.parent.name=="svchost.exe" and
-
- /* Svchost services based on -s arg that spawn a limited number of known child processes */
-
- wildcard(process.parent.args,"Appinfo","dmwappushservice","PcaSvc",
-  "TabletInputService","UsoSvc","WerSvcGroup","lfsvc","wuauserv","utcsvc",
-  "DPS","DeviceAssociationService","TokenBroker","wscsvc","ClipSVC",
-  "WinHttpAutoProxySvc","LanmanServer","LocalServiceNetworkFirewall",
-   "UserManager","SessionEnv","SENS","NcbService","PlugPlay",
-   "Winmgmt","Themes","SysMain","AudioEndpointBuilder","iissvcs","AppXSvc",
-   "RPCSS","WaaSMedicSvc","GPSvcGroup","termsvcs","TermService","NcaSvc","LSM","SDRSVC") and
-
+process where event.type == "start" and process.parent.name=="svchost.exe" and
+ /* Svchost services based on -s arg that spawn a limited number of known child processes */ 
+ process.parent.args:("Appinfo","dmwappushservice","PcaSvc","TabletInputService","UsoSvc","WerSvcGroup","lfsvc","wuauserv","utcsvc",
+                      "DPS","DeviceAssociationService","TokenBroker","wscsvc","ClipSVC","WinHttpAutoProxySvc","LanmanServer","LocalServiceNetworkFirewall",
+                      "UserManager","SessionEnv","SENS","NcbService","PlugPlay","Winmgmt","Themes","SysMain","AudioEndpointBuilder","AppXSvc","RPCSS","WaaSMedicSvc",
+                      "GPSvcGroup","termsvcs","TermService","NcaSvc","LSM","SDRSVC") and
    /* FPs can be added below */
-
-  not wildcard(process.name,"WerFault.exe","WerFaultSecure.exe","rundll32.exe", "consent.exe","ctfmon.exe","deviceenroller.exe","omadmclient.exe","UsoClient.exe",
-   "MusNotificationUx.exe","wermgr.exe","Headlesshost.exe","sc.exe","srtasks.exe","wuauclt.exe", "dasHost.exe","UtcDecoderHost.exe","dtdump.exe","TTTracer.exe",
-   "dsregcmd.exe","RdrLeakDiag.exe", "TokenBrokerCookies.exe","mpcmdrun.exe","MsMpeng.exe","upgrade.exe","Clipup.exe","DeviceCensus.exe", "pacjsworker.exe",
-   "audiodg.exe","wlanext.exe","hotspothost.exe","dism.exe","sihost.exe","mobsync.exe", "RDVGHelper.exe","RdpSaUacHelper.exe","ntsd.exe","CheckPointVpnPluginApp.exe",
-   "wmidap.exe","audiodg.exe", "w3wp.exe","wwahost.exe","ByteCodeGenerator.exe","WaaSMedicAgent.exe","gpscript.exe","dllhost.exe","rdpclip.exe","mcrmgr.exe",
-   "ntsd.exe","sdclt.exe","srtasks.exe","WMIADAP.exe","MpCmdRun.exe","MusNotifyIcon.exe", "CompatTelRunner.exe")
+ not process.name : ("WerFault.exe","WerFaultSecure.exe","rundll32.exe","consent.exe","ctfmon.exe","deviceenroller.exe","omadmclient.exe","UsoClient.exe",
+                     "MusNotificationUx.exe","wermgr.exe","Headlesshost.exe","sc.exe","wuauclt.exe","dasHost.exe","UtcDecoderHost.exe","dtdump.exe","TTTracer.exe",
+                     "dsregcmd.exe","RdrLeakDiag.exe","TokenBrokerCookies.exe","MsMpeng.exe","upgrade.exe","ClipUp.exe","DeviceCensus.exe","pacjsworker.exe",
+                     "audiodg.exe","wlanext.exe","hotspothost.exe","dism.exe","sihost.exe","mobsync.exe","RDVGHelper.exe","RdpSaUacHelper.exe","ntsd.exe",
+                     "CheckPointVpnPluginApp.exe","wmidap.exe","w3wp.exe","wwahost.exe","ByteCodeGenerator.exe","WaaSMedicAgent.exe","gpscript.exe",
+                     "dllhost.exe","rdpclip.exe","mcrmgr.exe","sdclt.exe","WMIADAP.exe","MpCmdRun.exe","MusNotifyIcon.exe","CompatTelRunner.exe","Defrag.exe",
+                     "TabTip.exe","omadmprc.exe","DismHost.exe","WindowsUpdateBox.exe","SrTasks.exe","OfficeC2RClient.exe","winlogon.exe","csrss.exe","wininit.exe")
 '''
 
 
