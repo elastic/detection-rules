@@ -1,0 +1,69 @@
+[metadata]
+creation_date = "2021/02/23"
+maturity = "production"
+updated_date = "2021/02/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule identifies when the built in macOS Installer program is used to install a package that spawns a shell and runs
+the cURL command.
+"""
+false_positives = [
+    "Custom organization-specific macOS packages that use .pkg files to run cURL could trigger this rule.",
+]
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License"
+name = "Installer Spawning cURL from macOS Package"
+note = "This activity has been observed in the Silver Sparrow campaign. Leverage the Exclusion framework is recommended to tune this to your environment."
+references = ["https://redcanary.com/blog/clipping-silver-sparrows-wings"]
+risk_score = 47
+rule_id = "99239e7d-b0d4-46e3-8609-acafcf99f68c"
+severity = "medium"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Execution"]
+type = "query"
+
+query = '''
+event.category:process and event.type:start and
+ process.parent.executable: "/System/Library/CoreServices/Installer.app/Contents/MacOS/Installer" and
+ process.executable: (/bin/bash or /bin/zsh or /bin/sh) and
+ process.command_line.text: "/usr/bin/curl"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.007"
+name = "JavaScript/JScript"
+reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.001"
+name = "Web Protocols"
+reference = "https://attack.mitre.org/techniques/T1071/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
