@@ -29,20 +29,19 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by process.entity_id
-  [ process where host.os.family == "macos" and (
-    process.parent.executable == "/usr/sbin/installer" or
-    process.parent.executable == "/System/Library/CoreServices/Installer.app/Contents/MacOS/Installer") ]
+sequence by process.entity_id with maxspan=1m
+  [ process where event.type == "start" and host.os.family == "macos" and 
+      process.parent.executable in ("/usr/sbin/installer", "/System/Library/CoreServices/Installer.app/Contents/MacOS/Installer") ]
   [ network where not cidrmatch(destination.ip,
-    "192.168.0.0/16",
-    "10.0.0.0/8",
-    "172.16.0.0/12",
-    "224.0.0.0/8",
-    "127.0.0.0/8",
-    "169.254.0.0/16",
-    "::1",
-    "FE80::/10",
-    "FF00::/8") ]
+      "192.168.0.0/16",
+      "10.0.0.0/8",
+      "172.16.0.0/12",
+      "224.0.0.0/8",
+      "127.0.0.0/8",
+      "169.254.0.0/16",
+      "::1",
+      "FE80::/10",
+      "FF00::/8") ]
 '''
 
 
