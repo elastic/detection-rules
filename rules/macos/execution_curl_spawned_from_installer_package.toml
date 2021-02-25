@@ -26,10 +26,9 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and event.type:start and
- process.parent.executable: "/System/Library/CoreServices/Installer.app/Contents/MacOS/Installer" and
- process.executable: (/bin/bash or /bin/zsh or /bin/sh) and
- process.command_line.text: "/usr/bin/curl"
+sequence by process.entity_id
+  [ process where host.os.family == "macos" and (process.parent.executable == "/usr/sbin/installer" or process.parent.executable == "/System/Library/CoreServices/Installer.app/Contents/MacOS/Installer") ]
+  [ network where not cidrMatch(destination.ip, "192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12", "224.0.0.0/8") ]
 '''
 
 
