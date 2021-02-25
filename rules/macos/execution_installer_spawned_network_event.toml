@@ -6,29 +6,43 @@ updated_date = "2021/02/23"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when the built in macOS Installer program is used to install a package that spawns a shell and runs
-the cURL command. This activity has been observed being leveraged by malware.
+Identifies when the built in macOS Installer program generates a network event after attempting to install a .pkg file.
+This activity has been observed being leveraged by malware.
 """
 false_positives = [
-    "Custom organization-specific macOS packages that use .pkg files to run cURL could trigger this rule. If known behavior is causing false positives, it can be excluded from the rule.",
+    """
+    Custom organization-specific macOS packages that use .pkg files to run cURL could trigger this rule. If known
+    behavior is causing false positives, it can be excluded from the rule.
+    """,
 ]
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License"
-name = "Installer Spawning cURL from macOS Package"
+name = "macOS Installer Spawns Network Event"
 references = ["https://redcanary.com/blog/clipping-silver-sparrows-wings"]
 risk_score = 47
 rule_id = "99239e7d-b0d4-46e3-8609-acafcf99f68c"
 severity = "medium"
 tags = ["Elastic", "Host", "macOS", "Threat Detection", "Execution"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
 sequence by process.entity_id
-  [ process where host.os.family == "macos" and (process.parent.executable == "/usr/sbin/installer" or process.parent.executable == "/System/Library/CoreServices/Installer.app/Contents/MacOS/Installer") ]
-  [ network where not cidrMatch(destination.ip, "192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12", "224.0.0.0/8") ]
+  [ process where host.os.family == "macos" and (
+    process.parent.executable == "/usr/sbin/installer" or
+    process.parent.executable == "/System/Library/CoreServices/Installer.app/Contents/MacOS/Installer") ]
+  [ network where not cidrmatch(destination.ip,
+    "192.168.0.0/16",
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "224.0.0.0/8",
+    "127.0.0.0/8",
+    "169.254.0.0/16",
+    "::1",
+    "FE80::/10",
+    "FF00::/8") ]
 '''
 
 
