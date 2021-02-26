@@ -1,0 +1,81 @@
+[metadata]
+creation_date = "2021/02/23"
+maturity = "production"
+updated_date = "2021/02/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when the built in macOS Installer program generates a network event after attempting to install a .pkg file.
+This activity has been observed being leveraged by malware.
+"""
+false_positives = [
+    """
+    Custom organization-specific macOS packages that use .pkg files to run cURL could trigger this rule. If known
+    behavior is causing false positives, it can be excluded from the rule.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License"
+name = "macOS Installer Spawns Network Event"
+references = ["https://redcanary.com/blog/clipping-silver-sparrows-wings"]
+risk_score = 47
+rule_id = "99239e7d-b0d4-46e3-8609-acafcf99f68c"
+severity = "medium"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Execution"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by process.entity_id with maxspan=1m
+  [ process where event.type == "start" and host.os.family == "macos" and 
+      process.parent.executable in ("/usr/sbin/installer", "/System/Library/CoreServices/Installer.app/Contents/MacOS/Installer") ]
+  [ network where not cidrmatch(destination.ip,
+      "192.168.0.0/16",
+      "10.0.0.0/8",
+      "172.16.0.0/12",
+      "224.0.0.0/8",
+      "127.0.0.0/8",
+      "169.254.0.0/16",
+      "::1",
+      "FE80::/10",
+      "FF00::/8") ]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.007"
+name = "JavaScript/JScript"
+reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.001"
+name = "Web Protocols"
+reference = "https://attack.mitre.org/techniques/T1071/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
