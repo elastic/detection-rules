@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/04"
 maturity = "production"
-updated_date = "2020/01/28"
+updated_date = "2021/02/27"
 
 [rule]
 author = ["Elastic"]
@@ -11,11 +11,20 @@ activity. This attack technique is typically targeted to an organization and use
 network which allows the adversary to blend into legitimate traffic. activity. These popular services are typically
 targeted since they have most likely been used before a compromise and allow adversaries to blend in the network.
 """
+false_positives = [
+    """
+- User activity (e.g. developer that shared and copied code snippets and used the raw link instead of just copy & paste)
+    """,
+]
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License"
 name = "Connection to Commonly Abused Web Services"
+references = [
+    "https://www.echosec.net/blog/what-is-pastebin-and-why-do-hackers-love-it",
+    "https://www.virustotal.com/gui/domain/paste.ee/relations/",
+]
 risk_score = 21
 rule_id = "66883649-f908-4a5b-a1e0-54090a1d3a32"
 severity = "low"
@@ -29,6 +38,9 @@ network where network.protocol == "dns" and
     (
         "*.githubusercontent.*",
         "*.pastebin.*",
+        "*hastebin.*",
+        "*privatebin.*",
+        "*paste.ee",
         "*drive.google.*",
         "*docs.live.*",
         "*api.dropboxapi.*",
