@@ -1,0 +1,45 @@
+[metadata]
+creation_date = "2021/02/27"
+maturity = "development"
+updated_date = "2021/02/27"
+
+[rule]
+author = ["Austin Songer"]
+description = """
+This rule will identify for some suspicious behaviors when the attackers create inbox rules to delete emails that
+contain certain keywords. This behavior often occured after initial compromise victim.
+"""
+false_positives = ["Unknown"]
+index = ["filebeat-*", "logs-o365*"]
+language = "kuery"
+license = "Elastic License"
+name = "Microsoft 365 Exchange Malicious E-Mail Inbox Rule Detected"
+note = "The Microsoft 365 Fleet integration or Filebeat module must be enabled to use this rule."
+risk_score = 31
+rule_id = "e7f25dc8-6b67-4eb3-adda-8f59d3a2cbe8"
+severity = "medium"
+tags = ["Elastic", "Cloud", "Microsoft 365", "Continuous Monitoring", "SecOps", "Configuration Audit"]
+type = "query"
+
+query = '''
+event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:"New-InboxRule" and event.outcome:success
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
