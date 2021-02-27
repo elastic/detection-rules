@@ -11,14 +11,14 @@ import os
 import shutil
 from collections import defaultdict, OrderedDict
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 import click
 
 from . import rule_loader
 from .misc import JS_LICENSE, cached
 from .rule import Rule, downgrade_contents_from_rule  # noqa: F401
-from .utils import get_path, get_etc_path, load_etc_dump, save_etc_dump
+from .utils import Ndjson, get_path, get_etc_path, load_etc_dump, save_etc_dump
 
 RELEASE_DIR = get_path("releases")
 PACKAGE_FILE = get_etc_path('packages.yml')
@@ -49,6 +49,12 @@ def filter_rule(rule: Rule, config_filter: dict, exclude_fields: dict) -> bool:
                 return False
 
     return True
+
+
+@cached
+def load_current_package_version():
+    """Load the current package version from config file."""
+    return load_etc_dump('packages.yml')['package']['name']
 
 
 @cached
@@ -165,7 +171,7 @@ class Package(object):
                                save_changes=update_versions_lock, verbose=verbose)
 
     @staticmethod
-    def _package_notice_file(save_dir):
+    def _package_kibana_notice_file(save_dir):
         """Convert and save notice file with package."""
         with open(NOTICE_FILE, 'rt') as f:
             notice_txt = f.read()
@@ -176,7 +182,7 @@ class Package(object):
             lines = lines + commented_notice + [' */', '']
             f.write('\n'.join(lines))
 
-    def _package_index_file(self, save_dir):
+    def _package_kibana_index_file(self, save_dir):
         """Convert and save index file with package."""
         sorted_rules = sorted(self.rules, key=lambda k: (k.metadata['creation_date'], os.path.basename(k.path)))
         comments = [
@@ -205,14 +211,24 @@ class Package(object):
     def save_release_files(self, directory, changed_rules, new_rules, removed_rules):
         """Release a package."""
         summary, changelog = self.generate_summary_and_changelog(changed_rules, new_rules, removed_rules)
-
         with open(os.path.join(directory, f'{self.name}-summary.txt'), 'w') as f:
             f.write(summary)
         with open(os.path.join(directory, f'{self.name}-changelog-entry.md'), 'w') as f:
             f.write(changelog)
-        with open(os.path.join(directory, f'{self.name}-consolidated.json'), 'w') as f:
-            json.dump(json.loads(self.get_consolidated()), f, sort_keys=True, indent=2)
+
+        consolidated = json.loads(self.get_consolidated())
+        with open(os.path.join(directory, f'{self.name}-consolidated-rules.json'), 'w') as f:
+            json.dump(consolidated, f, sort_keys=True, indent=2)
+        consolidated_rules = Ndjson(consolidated)
+        consolidated_rules.dump(Path(directory).joinpath(f'{self.name}-consolidated-rules.ndjson'), sort_keys=True)
+
         self.generate_xslx(os.path.join(directory, f'{self.name}-summary.xlsx'))
+
+        bulk_upload, rules_ndjson = self.create_bulk_index_body()
+        bulk_upload.dump(Path(directory).joinpath(f'{self.name}-enriched-rules-index-uploadable.ndjson'),
+                         sort_keys=True)
+        rules_ndjson.dump(Path(directory).joinpath(f'{self.name}-enriched-rules-index-importable.ndjson'),
+                          sort_keys=True)
 
     def get_consolidated(self, as_api=True):
         """Get a consolidated package of the rules in a single file."""
@@ -236,8 +252,8 @@ class Package(object):
         for rule in self.rules:
             rule.save(new_path=os.path.join(rules_dir, os.path.basename(rule.path)))
 
-        self._package_notice_file(rules_dir)
-        self._package_index_file(rules_dir)
+        self._package_kibana_notice_file(rules_dir)
+        self._package_kibana_index_file(rules_dir)
 
         if self.release:
             self.save_release_files(extras_dir, self.changed_rule_ids, self.new_rules_ids, self.removed_rule_ids)
@@ -447,3 +463,43 @@ class Package(object):
     def bump_versions(self, save_changes=False, current_versions=None):
         """Bump the versions of all production rules included in a release and optionally save changes."""
         return manage_versions(self.rules, current_versions=current_versions, save_changes=save_changes)
+
+    def create_bulk_index_body(self) -> Tuple[Ndjson, Ndjson]:
+        """Create a body to bulk index into a stack."""
+        package_hash = self.get_package_hash(verbose=False)
+        now = datetime.datetime.isoformat(datetime.datetime.utcnow())
+        create = {'create': {'_index': f'rules-repo-{self.name}-{package_hash}'}}
+
+        # first doc is summary stats
+        summary_doc = {
+            'group_hash': package_hash,
+            'package_version': self.name,
+            'rule_count': len(self.rules),
+            'rule_ids': [],
+            'rule_names': [],
+            'rule_hashes': [],
+            'source': 'repo',
+            'details': {'datetime_uploaded': now}
+        }
+        bulk_upload_docs = Ndjson([create, summary_doc])
+        importable_rules_docs = Ndjson()
+
+        for rule in self.rules:
+            summary_doc['rule_ids'].append(rule.id)
+            summary_doc['rule_names'].append(rule.name)
+            summary_doc['rule_hashes'].append(rule.get_hash())
+
+            if rule.id in self.new_rules_ids:
+                status = 'new'
+            elif rule.id in self.changed_rule_ids:
+                status = 'modified'
+            else:
+                status = 'unmodified'
+
+            bulk_upload_docs.append(create)
+            rule_doc = rule.detailed_format(hash=rule.get_hash(), source='repo', datetime_uploaded=now,
+                                            status=status, package_version=self.name).copy()
+            bulk_upload_docs.append(rule_doc)
+            importable_rules_docs.append(rule_doc)
+
+        return bulk_upload_docs, importable_rules_docs

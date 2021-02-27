@@ -7,6 +7,7 @@ import copy
 import hashlib
 import json
 import os
+from pathlib import Path
 from uuid import uuid4
 
 import click
@@ -191,12 +192,31 @@ class Rule(object):
         return contents
 
     def rule_format(self, formatted_query=True):
-        """Get the contents in rule format."""
+        """Get the contents and metadata in rule format."""
         contents = self.contents.copy()
         if formatted_query:
             if self.formatted_rule:
                 contents['query'] = self.formatted_rule
         return {'metadata': self.metadata, 'rule': contents}
+
+    def detailed_format(self, add_missing_defaults=True, **additional_details):
+        """Get the rule with expanded details."""
+        from .rule_loader import get_non_required_defaults_by_type
+
+        rule = self.rule_format().copy()
+
+        if add_missing_defaults:
+            non_required_defaults = get_non_required_defaults_by_type(self.type)
+            rule['rule'].update({k: v for k, v in non_required_defaults.items() if k not in rule['rule']})
+
+        rule['details'] = {
+            'flat_mitre': self.get_flat_mitre(),
+            'relative_path': str(Path(self.path).resolve().relative_to(RULES_DIR)),
+            'unique_fields': self.unique_fields,
+
+        }
+        rule['details'].update(**additional_details)
+        return rule
 
     def normalize(self, indent=2):
         """Normalize the (api only) contents and return a serialized dump of it."""
