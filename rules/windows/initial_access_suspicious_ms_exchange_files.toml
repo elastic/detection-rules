@@ -10,7 +10,7 @@ This rule identifies suspicious files being written by the Microsoft Exchange Se
 activity has been observed from the CVE-2021-26858 exploit.
 """
 from = "now-9m"
-index = ["winlogbeat-*"]
+index = ["logs-*", "winlogbeat-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "name"
@@ -26,10 +26,9 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process
+event.type:start and winlog.channel:Security and winlog.event_id:4663 and process.executable:(UMWorkerProcess.exe or UMService.exe) and
+winlog.event_data.ObjectName:(*.php or *.jsp or *.js or *.aspx or *.asmx or *.asax or *.cfm or *.shtml) and winlog.event_data.AccessMask:(0x100 or 0x10 or 0x4)
 '''
-
-event.category:process and event.type:start and process.parent.executable:(UMWorkerProcess.exe and not (werfault.exe or wermgr.exe)) and winlog.event_id:(1 or 4688)
 
 
 [[rule.threat]]
