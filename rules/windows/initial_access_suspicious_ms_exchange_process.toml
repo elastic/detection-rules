@@ -9,6 +9,12 @@ description = """
 Identifies suspicious processes being spawned by the Microsoft Exchange Server Unified Messaging (UM) service. This
 activity has been observed exploiting CVE-2021-26857.
 """
+false_positives = [
+    """
+    Legitimate processes may be spawned from the Microsoft Exchange Server Unified Messaging (UM) service. If known
+    processes are causing false positives, they can be exempted from the rule.
+    """,
+]
 from = "now-9m"
 index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
@@ -28,7 +34,7 @@ type = "eql"
 query = '''
 process where event.type == "start" and
   process.parent.name : ("UMService.exe", "UMWorkerProcess.exe") and
-    not process.parent.name : ("werfault.exe", "wermgr.exe")
+    not process.name : ("werfault.exe", "wermgr.exe")
 '''
 
 
@@ -44,3 +50,4 @@ reference = "https://attack.mitre.org/techniques/T1190/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+
