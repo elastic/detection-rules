@@ -145,6 +145,10 @@ class TestSchemas(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unsupported rule type"):
             downgrade(v712_threshold_contents_single_field, "7.8")
 
+        v712_no_cardinality = copy.deepcopy(v712_threshold_contents_single_field)
+        v712_no_cardinality['threshold'].pop('cardinality')
+        self.assertEqual(downgrade(v712_no_cardinality, "7.9"), self.v79_threshold_contents)
+
     def test_eql_validation(self):
         base_fields = {
             "author": ["Elastic"],

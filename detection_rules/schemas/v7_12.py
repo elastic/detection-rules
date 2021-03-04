@@ -49,10 +49,10 @@ class ApiSchema712(ApiSchema711):
                 raise ValueError('Cannot downgrade a threshold rule that has multiple threshold fields defined')
 
             # drop cardinality
-    document = document.copy()
-    document["threshold"] = document["threshold"].copy()
-    document["threshold"]["field"] = document["threshold"]["field"][0]
-            document['threshold'] = threshold
+            document = document.copy()
+            document["threshold"] = document["threshold"].copy()
+            document['threshold'].pop('cardinality', None)
+            document["threshold"]["field"] = document["threshold"]["field"][0]
 
         # now strip any any unrecognized properties
         return target_cls.strip_additional_properties(document, role)
