@@ -1,18 +1,19 @@
 [metadata]
 creation_date = "2021/03/04"
-maturity = "development"
+maturity = "production"
 updated_date = "2021/03/04"
 
 [rule]
 author = ["Austin Songer"]
-description = "desc"
-false_positives = ["fp"]
+description = """
+This rule identifies suspicious files being written by the Microsoft Exchange Server Unified Messaging (UM) service. This
+activity has been observed from the CVE-2021-26858 exploit.
+"""
 from = "now-9m"
-index = ["index"]
+index = ["winlogbeat-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "name"
-note = "note"
 references = [
     "https://www.microsoft.com/security/blog/2021/03/02/hafnium-targeting-exchange-servers",
     "https://www.volexity.com/blog/2021/03/02/active-exploitation-of-microsoft-exchange-zero-day-vulnerabilities",
@@ -20,12 +21,15 @@ references = [
 risk_score = 47
 rule_id = "6cd1779c-560f-4b68-a8f1-11009b27fe63"
 severity = "medium"
-tags = ["tags"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
 event.category:process
 '''
+
+event.category:process and event.type:start and process.parent.executable:(UMWorkerProcess.exe and not (werfault.exe or wermgr.exe)) and winlog.event_id:(1 or 4688)
 
 
 [[rule.threat]]
