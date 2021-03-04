@@ -11,7 +11,7 @@ activity has been observed from the CVE-2021-26858 exploit.
 """
 from = "now-9m"
 index = ["logs-*", "winlogbeat-*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Microsoft Exchange Server UM Writing Suspicius Files"
 references = [
@@ -23,12 +23,16 @@ rule_id = "6cd1779c-560f-4b68-a8f1-11009b27fe63"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.type:start and winlog.channel:Security and winlog.event_id:4663 and process.executable:(UMWorkerProcess.exe or UMService.exe) and
-winlog.event_data.ObjectName:(*.php or *.jsp or *.js or *.aspx or *.asmx or *.asax or *.cfm or *.shtml) and winlog.event_data.AccessMask:(0x100 or 0x10 or 0x4)
+file where event.type in "start" and
+  process.parent.name in ("UMWorkerProcess.exe", "umservice.exe") and
+  file.extension in ("php", "jsp", "js", "aspx", "asmx", "asax", "cfm", "shtml")
 '''
+#event.type:start and winlog.channel:Security and winlog.event_id:4663 and process.executable:(UMWorkerProcess.exe or UMService.exe) and
+# winlog.event_data.ObjectName:(*.php or *.jsp or *.js or *.aspx or *.asmx or *.asax or *.cfm or *.shtml) and winlog.event_data.AccessMask:(0x100 or 0x10 or 0x4)
+# not sure how to reflect "winlog.event_data.AccessMask:(0x100 or 0x10 or 0x4)"
 
 
 [[rule.threat]]
