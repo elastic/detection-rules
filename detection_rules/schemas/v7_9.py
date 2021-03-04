@@ -51,7 +51,7 @@ class ApiSchema79(ApiSchema78):
     author = jsl.ArrayField(jsl.StringField(default="Elastic"), required=True, min_items=1)
     building_block_type = jsl.StringField(required=False)
     exceptions_list = jsl.ArrayField(required=False)
-    license = jsl.StringField(required=True, default="Elastic License")
+    license = jsl.StringField(required=True, default="Elastic License v2")
     risk_score_mapping = jsl.ArrayField(jsl.DocumentField(RiskScoreMapping), required=False, min_items=1)
     rule_name_override = jsl.StringField(required=False)
     severity_mapping = jsl.ArrayField(jsl.DocumentField(SeverityMapping), required=False, min_items=1)
