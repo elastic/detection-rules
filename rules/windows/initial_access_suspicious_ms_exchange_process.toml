@@ -11,7 +11,7 @@ activity has been observed exploiting CVE-2021-26857.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Microsoft Exchange Server UM Spawning Suspicious Processes"
 references = [
@@ -23,12 +23,12 @@ rule_id = "483c4daf-b0c6-49e0-adf3-0bfa93231d6b"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:start and
-  process.parent.executable:((UMService.exe or UMWorkerProcess.exe) and
-    not (WerFault.exe or wermgr.exe))
+process where event.type == "start" and
+  process.parent.name : ("UMService.exe", "UMWorkerProcess.exe") and
+    not process.parent.name : ("werfault.exe", "wermgr.exe")
 '''
 
 
