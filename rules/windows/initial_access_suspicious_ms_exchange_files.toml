@@ -6,11 +6,13 @@ updated_date = "2021/03/04"
 [rule]
 author = ["Elastic", "Austin Songer"]
 description = """
-This rule identifies suspicious files being written by the Microsoft Exchange Server Unified Messaging (UM) service. This
-activity has been observed exploiting CVE-2021-26858.
+This rule identifies suspicious files being written by the Microsoft Exchange Server Unified Messaging (UM) service.
+This activity has been observed exploiting CVE-2021-26858.
 """
 false_positives = [
-    ''"Files generated during installation will generate a lot of noise, so the rule should only be enabled after the fact"""    
+    """
+    Files generated during installation will generate a lot of noise, so the rule should only be enabled after the fact.
+    """,
 ]
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
@@ -34,7 +36,7 @@ file where event.type == "creation" and
   file.extension : ("php", "jsp", "js", "aspx", "asmx", "asax", "cfm", "shtml") and
   (
     file.path : ("C:\\inetpub\\wwwroot\\aspnet_client\\*",
-                 "C:\\*\\FrontEnd\\HttpProxy\\owa\\auth\\*") or           
+                 "C:\\*\\FrontEnd\\HttpProxy\\owa\\auth\\*") or
     (file.path : "C:\\*\\FrontEnd\\HttpProxy\\ecp\\auth\\*" and not file.name : "TimeoutLogoff.aspx")
   )
 '''
@@ -52,3 +54,4 @@ reference = "https://attack.mitre.org/techniques/T1190/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+
