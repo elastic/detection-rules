@@ -242,8 +242,9 @@ class TestRuleTags(unittest.TestCase):
 
         expected_tags = [
             'APM', 'AWS', 'Asset Visibility', 'Azure', 'Configuration Audit', 'Continuous Monitoring',
-            'Data Protection', 'Elastic', 'Endpoint Security', 'GCP', 'Identity and Access', 'Linux', 'Logging', 'ML',
-            'macOS', 'Monitoring', 'Network', 'Okta', 'Packetbeat', 'Post-Execution', 'SecOps', 'Windows'
+            'Data Protection', 'Elastic', 'Elastic Endgame', 'Endpoint Security', 'GCP', 'Identity and Access', 'Linux',
+            'Logging', 'ML', 'macOS', 'Monitoring', 'Network', 'Okta', 'Packetbeat', 'Post-Execution', 'SecOps',
+            'Windows'
         ]
         expected_case = {normalize(t): t for t in expected_tags}
 
@@ -270,7 +271,7 @@ class TestRuleTags(unittest.TestCase):
         required_tags_map = {
             'apm-*-transaction*': {'all': ['APM']},
             'auditbeat-*': {'any': ['Windows', 'macOS', 'Linux']},
-            'endgame-*': {'all': ['Endpoint Security']},
+            'endgame-*': {'all': ['Elastic Endgame']},
             'logs-aws*': {'all': ['AWS']},
             'logs-endpoint.alerts-*': {'all': ['Endpoint Security']},
             'logs-endpoint.events.*': {'any': ['Windows', 'macOS', 'Linux', 'Host']},
