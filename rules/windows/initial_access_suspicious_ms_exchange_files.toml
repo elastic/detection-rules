@@ -4,16 +4,16 @@ maturity = "production"
 updated_date = "2021/03/04"
 
 [rule]
-author = ["Austin Songer"]
+author = ["Elastic", "Austin Songer"]
 description = """
 This rule identifies suspicious files being written by the Microsoft Exchange Server Unified Messaging (UM) service. This
-activity has been observed from the CVE-2021-26858 exploit.
+activity has been observed exploiting CVE-2021-26858.
 """
 from = "now-9m"
-index = ["logs-*", "winlogbeat-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Microsoft Exchange Server UM Writing Suspicius Files"
+name = "Microsoft Exchange Server UM Writing Suspicious Files"
 references = [
     "https://www.microsoft.com/security/blog/2021/03/02/hafnium-targeting-exchange-servers",
     "https://www.volexity.com/blog/2021/03/02/active-exploitation-of-microsoft-exchange-zero-day-vulnerabilities",
@@ -37,9 +37,6 @@ file where event.type == "creation" and
     (file.path : "C:\\*\\FrontEnd\\HttpProxy\\ecp\\auth\\*" and not file.name : "TimeoutLogoff.aspx")
   )
 '''
-#event.type:start and winlog.channel:Security and winlog.event_id:4663 and process.executable:(UMWorkerProcess.exe or UMService.exe) and
-# winlog.event_data.ObjectName:(*.php or *.jsp or *.js or *.aspx or *.asmx or *.asax or *.cfm or *.shtml) and winlog.event_data.AccessMask:(0x100 or 0x10 or 0x4)
-# not sure how to reflect "winlog.event_data.AccessMask:(0x100 or 0x10 or 0x4)"
 
 
 [[rule.threat]]
