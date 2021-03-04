@@ -47,7 +47,7 @@ class TestSchemas(unittest.TestCase):
                 }
             ]
         }
-        cls.v79_kql = dict(cls.v78_kql, author=["Elastic"], license="Elastic License")
+        cls.v79_kql = dict(cls.v78_kql, author=["Elastic"], license="Elastic License v2")
         cls.v711_kql = copy.deepcopy(cls.v79_kql)
         cls.v711_kql["threat"][0]["technique"][0]["subtechnique"] = [{
             "id": "T1059.001",
@@ -70,7 +70,7 @@ class TestSchemas(unittest.TestCase):
             "author": ["Elastic"],
             "description": "test description",
             "language": "kuery",
-            "license": "Elastic License",
+            "license": "Elastic License v2",
             "name": "test rule",
             "query": "process.name:test.query",
             "risk_score": 21,
@@ -135,7 +135,7 @@ class TestSchemas(unittest.TestCase):
             "description": "test description",
             "index": ["filebeat-*"],
             "language": "eql",
-            "license": "Elastic License",
+            "license": "Elastic License v2",
             "name": "test rule",
             "risk_score": 21,
             "rule_id": str(uuid.uuid4()),

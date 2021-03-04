@@ -22,7 +22,7 @@ class TestPackages(unittest.TestCase):
                 "author": ["Elastic"],
                 "description": "test description",
                 "language": "kuery",
-                "license": "Elastic License",
+                "license": "Elastic License v2",
                 "name": "test rule",
                 "query": "process.name:test.query",
                 "risk_score": 21,
