@@ -26,9 +26,18 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.type in "start" and
-  process.parent.name in ("UMWorkerProcess.exe", "umservice.exe") and
-  file.extension in ("php", "jsp", "js", "aspx", "asmx", "asax", "cfm", "shtml")
+file where event.type == "creation" and
+  process.parent.name : ("UMWorkerProcess.exe", "umservice.exe") and
+  file.extension : ("php", "jsp", "js", "aspx", "asmx", "asax", "cfm", "shtml") and
+  (
+    file.path : ("C:\\inetpub\\wwwroot\\aspnet_client\\*",
+                  "C:\\*\\FrontEnd\\HttpProxy\\owa\\auth\\*",
+                  "C:\\*\\FrontEnd\\HttpProxy\\owa\\auth\\Current\\*",
+                  "C:\\*\\FrontEnd\\HttpProxy\\owa\\auth\\*") or           
+    (file.path : "C:\\*\\FrontEnd\\HttpProxy\\ecp\\auth\\*" and not file.name : "TimeoutLogoff.aspx")
+  )
+  
+
 '''
 #event.type:start and winlog.channel:Security and winlog.event_id:4663 and process.executable:(UMWorkerProcess.exe or UMService.exe) and
 # winlog.event_data.ObjectName:(*.php or *.jsp or *.js or *.aspx or *.asmx or *.asax or *.cfm or *.shtml) and winlog.event_data.AccessMask:(0x100 or 0x10 or 0x4)
