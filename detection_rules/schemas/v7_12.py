@@ -3,13 +3,12 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-"""Wrapper around Kibana APIs for the Security Application."""
+"""Definitions for rule metadata and schemas."""
 
-from .connector import Kibana
-from .resources import RuleResource, Signal
+from .v7_11 import ApiSchema711
 
-__all__ = (
-    "Kibana",
-    "RuleResource",
-    "Signal"
-)
+
+class ApiSchema712(ApiSchema711):
+    """Schema for siem rule in API format."""
+
+    STACK_VERSION = "7.12"
