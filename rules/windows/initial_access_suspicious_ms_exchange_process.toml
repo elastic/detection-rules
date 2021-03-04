@@ -7,7 +7,7 @@ updated_date = "2021/03/04"
 author = ["Elastic", "Austin Songer"]
 description = """
 Identifies suspicious processes being spawned by the Microsoft Exchange Server Unified Messaging (UM) service. This
-activity has been observed in CVE-2021-26857.
+activity has been observed exploiting CVE-2021-26857.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
@@ -26,7 +26,9 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and event.type:start and process.parent.executable:(UMWorkerProcess.exe and not (werfault.exe or wermgr.exe)) and winlog.event_id:(1 or 4688)
+event.category:process and event.type:start and
+  process.parent.executable:(UMWorkerProcess.exe and
+  not (werfault.exe or wermgr.exe))
 '''
 
 
