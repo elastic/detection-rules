@@ -1,17 +1,19 @@
 [metadata]
 creation_date = "2021/03/04"
-maturity = "development"
+maturity = "production"
 updated_date = "2021/03/04"
 
 [rule]
 author = ["Austin Songer"]
-description = "desc"
+description = """
+This rule identifies suspicious processes being spawned by the Microsoft Exchange Server Unified Messaging (UM). This
+activity has been observed from the CVE-2021-26857 exploit.
+"""
 from = "now-9m"
-index = ["filebeat"]
+index = ["winlogbeat-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "name"
-note = "note"
+name = "Microsoft Exchange Server UM Spawning Suspcious Processes"
 references = [
     "https://www.microsoft.com/security/blog/2021/03/02/hafnium-targeting-exchange-servers",
     "https://www.volexity.com/blog/2021/03/02/active-exploitation-of-microsoft-exchange-zero-day-vulnerabilities",
@@ -19,11 +21,12 @@ references = [
 risk_score = 47
 rule_id = "483c4daf-b0c6-49e0-adf3-0bfa93231d6b"
 severity = "medium"
-tags = ["tags"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process
+event.category:process and event.type:start and process.parent.executable:(UMWorkerProcess.exe and not (werfault.exe or wermgr.exe)) and winlog.event_id:(1 or 4688)
 '''
 
 
@@ -39,4 +42,3 @@ reference = "https://attack.mitre.org/techniques/T1190/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
