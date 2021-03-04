@@ -66,7 +66,7 @@ class TestSchemas(unittest.TestCase):
         cls.versioned_rule = Rule("test.toml", copy.deepcopy(cls.v79_kql))
         cls.versioned_rule.contents["version"] = 10
 
-        cls.threshold_rule = Rule("test.toml", {
+        cls.v79_threshold_contents = {
             "author": ["Elastic"],
             "description": "test description",
             "language": "kuery",
@@ -81,7 +81,15 @@ class TestSchemas(unittest.TestCase):
                 "value": 75,
             },
             "type": "threshold",
-        })
+        }
+        cls.v712_threshold_rule = Rule('test.toml', dict(copy.deepcopy(cls.v79_threshold_contents), threshold={
+            'field': ['destination.bytes', 'process.args'],
+            'value': 75,
+            'cardinality': {
+                'field': 'user.name',
+                'value': 2
+            }
+        }))
 
     def test_query_downgrade(self):
         """Downgrade a standard KQL rule."""
@@ -118,16 +126,24 @@ class TestSchemas(unittest.TestCase):
 
     def test_threshold_downgrade(self):
         """Downgrade a threshold rule that was first introduced in 7.9."""
-        api_contents = self.threshold_rule.contents
+        api_contents = self.v712_threshold_rule.contents
         self.assertDictEqual(downgrade(api_contents, CurrentSchema.STACK_VERSION), api_contents)
-        self.assertDictEqual(downgrade(api_contents, "7.9"), api_contents)
-        self.assertDictEqual(downgrade(api_contents, "7.9.2"), api_contents)
+        self.assertDictEqual(downgrade(api_contents, CurrentSchema.STACK_VERSION + '.1'), api_contents)
+
+        exc_msg = 'Cannot downgrade a threshold rule that has multiple threshold fields defined'
+        with self.assertRaisesRegex(ValueError, exc_msg):
+            downgrade(api_contents, '7.9')
+
+        v712_threshold_contents_single_field = copy.deepcopy(api_contents)
+        v712_threshold_contents_single_field['threshold']['field'].pop()
+        self.assertEqual(downgrade(v712_threshold_contents_single_field, "7.9"), self.v79_threshold_contents)
+        self.assertEqual(downgrade(v712_threshold_contents_single_field, "7.9.1"), self.v79_threshold_contents)
 
         with self.assertRaises(ValueError):
-            downgrade(api_contents, "7.7")
+            downgrade(v712_threshold_contents_single_field, "7.7")
 
         with self.assertRaisesRegex(ValueError, "Unsupported rule type"):
-            downgrade(api_contents, "7.8")
+            downgrade(v712_threshold_contents_single_field, "7.8")
 
     def test_eql_validation(self):
         base_fields = {
