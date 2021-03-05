@@ -23,6 +23,7 @@ from .utils import Ndjson, get_path, get_etc_path, load_etc_dump, save_etc_dump
 RELEASE_DIR = get_path("releases")
 PACKAGE_FILE = get_etc_path('packages.yml')
 NOTICE_FILE = get_path('NOTICE.txt')
+CHANGELOG_FILE = Path(get_etc_path('rules-changelog.json'))
 
 
 def filter_rule(rule: Rule, config_filter: dict, exclude_fields: dict) -> bool:
@@ -149,13 +150,15 @@ def manage_versions(rules: list, deprecated_rules: list = None, current_versions
 class Package(object):
     """Packaging object for siem rules and releases."""
 
-    def __init__(self, rules, name, deprecated_rules=None, release=False, current_versions=None, min_version=None,
-                 max_version=None, update_version_lock=False, verbose=True):
+    def __init__(self, rules: List[Rule], name, deprecated_rules: List[Rule] = None, release=False,
+                 current_versions: dict = None, min_version: int = None, max_version: int = None,
+                 update_version_lock=False, registry_data: dict = None, verbose=True):
         """Initialize a package."""
-        self.rules: List[Rule] = [r.copy() for r in rules]
+        self.rules = [r.copy() for r in rules]
         self.name = name
-        self.deprecated_rules: List[Rule] = [r.copy() for r in deprecated_rules or []]
+        self.deprecated_rules = [r.copy() for r in deprecated_rules or []]
         self.release = release
+        self.registry_data = registry_data or {}
 
         self.changed_rule_ids, self.new_rules_ids, self.removed_rule_ids = self._add_versions(current_versions,
                                                                                               update_version_lock,
@@ -256,6 +259,9 @@ class Package(object):
         self._package_kibana_index_file(rules_dir)
 
         if self.release:
+            if self.registry_data:
+                self._generate_registry_package(save_dir)
+
             self.save_release_files(extras_dir, self.changed_rule_ids, self.new_rules_ids, self.removed_rule_ids)
 
             # zip all rules only and place in extras
@@ -459,6 +465,39 @@ class Package(object):
         doc = PackageDocument(path, self)
         doc.populate()
         doc.close()
+
+    def _generate_registry_package(self, save_dir):
+        """Generate the artifact for the oob package-storage."""
+        from .schemas.registry_package import get_manifest
+
+        assert self.registry_data
+
+        registry_manifest = get_manifest(self.registry_data['format_version'])
+        manifest = registry_manifest.Schema().load(self.registry_data)
+
+        package_dir = Path(save_dir).joinpath(manifest.version)
+        docs_dir = package_dir.joinpath('docs')
+        rules_dir = package_dir.joinpath('kibana', 'rules')
+
+        docs_dir.mkdir(parents=True)
+        rules_dir.mkdir(parents=True)
+
+        manifest_file = package_dir.joinpath('manifest.yml')
+        readme_file = docs_dir.joinpath('README.md')
+
+        manifest_file.write_text(json.dumps(manifest.dump(), indent=2, sort_keys=True))
+        shutil.copyfile(CHANGELOG_FILE, str(rules_dir.joinpath('CHANGELOG.json')))
+
+        for rule in self.rules:
+            rule.save(new_path=str(rules_dir.joinpath(f'rule-{rule.id}.json')))
+
+        readme_text = '# Detection rules\n'
+        readme_text += '\n'
+        readme_text += 'The detection rules package is a non-integration package to store all the rules and '
+        readme_text += 'dependencies (e.g. ML jobs) for the detection engine within the Elastic Security application.\n'
+        readme_text += '\n'
+
+        readme_file.write_text(readme_text)
 
     def bump_versions(self, save_changes=False, current_versions=None):
         """Bump the versions of all production rules included in a release and optionally save changes."""

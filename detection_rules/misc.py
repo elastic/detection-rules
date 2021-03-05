@@ -480,7 +480,10 @@ def schema_prompt(name, value=None, required=False, **options):
                         break
                     else:
                         return []
-            return [_convert_type(r) for r in result_list]
+            if required and value is None:
+                continue
+            else:
+                return [_convert_type(r) for r in result_list]
         else:
             if _check_type(result):
                 return _convert_type(result)

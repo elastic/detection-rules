@@ -190,6 +190,10 @@ def cached(f):
 
     @functools.wraps(f)
     def wrapped(*args, **kwargs):
+        bypass_cache = kwargs.pop('bypass_cache', None)
+        if bypass_cache:
+            return f(*args, **kwargs)
+
         _cache.setdefault(func_key, {})
         cache_key = freeze(args), freeze(kwargs)
 
