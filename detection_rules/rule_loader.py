@@ -261,6 +261,7 @@ rta_mappings = RtaMappings()
 
 
 __all__ = (
+    "FILE_PATTERN",
     "load_rule_files",
     "load_rules",
     "load_rule_files",
@@ -270,6 +271,7 @@ __all__ = (
     "get_production_rules",
     "get_rule",
     "filter_rules",
+    "find_unneeded_defaults_from_rule",
     "get_rule_name",
     "get_rule_contents",
     "reset",
