@@ -23,10 +23,10 @@ from detection_rules.rule_loader import FILE_PATTERN, find_unneeded_defaults_fro
 from detection_rules.utils import load_etc_dump
 from detection_rules.rule import Rule
 
-from .base import RuleLoadTest
+from .base import BaseRuleTest
 
 
-class TestValidRules(RuleLoadTest):
+class TestValidRules(BaseRuleTest):
     """Test that all detection rules load properly without duplicates."""
 
     def test_schema_and_dupes(self):
@@ -118,7 +118,7 @@ class TestValidRules(RuleLoadTest):
             self.fail(f"Found duplicated file names {duplicates}")
 
 
-class TestThreatMappings(RuleLoadTest):
+class TestThreatMappings(BaseRuleTest):
     """Test threat mapping data for rules."""
 
     def test_technique_deprecations(self):
@@ -213,7 +213,7 @@ class TestThreatMappings(RuleLoadTest):
                           f'Flatten to a single entry per tactic')
 
 
-class TestRuleTags(RuleLoadTest):
+class TestRuleTags(BaseRuleTest):
     """Test tags data for rules."""
 
     def test_casing_and_spacing(self):
@@ -293,7 +293,7 @@ class TestRuleTags(RuleLoadTest):
                 self.fail(error_msg)
 
 
-class TestRuleTimelines(RuleLoadTest):
+class TestRuleTimelines(BaseRuleTest):
     """Test timelines in rules are valid."""
 
     TITLES = {
@@ -323,7 +323,7 @@ class TestRuleTimelines(RuleLoadTest):
                 self.assertEqual(timeline_title, self.TITLES[timeline_id], )
 
 
-class TestRuleFiles(RuleLoadTest):
+class TestRuleFiles(BaseRuleTest):
     """Test the expected file names."""
 
     def test_rule_file_names_by_tactic(self):
@@ -353,7 +353,7 @@ class TestRuleFiles(RuleLoadTest):
             self.fail(f'{error_msg}:\n{rule_err_str}')
 
 
-class TestRuleMetadata(RuleLoadTest):
+class TestRuleMetadata(BaseRuleTest):
     """Test the metadata of rules."""
 
     def test_ecs_and_beats_opt_in_not_latest_only(self):
@@ -389,7 +389,7 @@ class TestRuleMetadata(RuleLoadTest):
             self.fail(err_msg)
 
 
-class TestTuleTiming(RuleLoadTest):
+class TestTuleTiming(BaseRuleTest):
     """Test rule timing and timestamps."""
 
     def test_event_override(self):

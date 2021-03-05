@@ -11,7 +11,7 @@ from detection_rules import rule_loader
 from detection_rules.rule import Rule
 
 
-class RuleLoadTest(unittest.TestCase):
+class BaseRuleTest(unittest.TestCase):
     """Base class for shared test cases which need to load rules"""
 
     @classmethod
