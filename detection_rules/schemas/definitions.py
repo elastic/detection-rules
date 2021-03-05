@@ -28,7 +28,7 @@ ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDI
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
 Sha256 = NewType('Sha256', str, validate=validate.Regexp(SHA256_PATTERN))
-Uuid = NewType('Uuid', str, validate=validate.Regexp(UUID_PATTERN))
+UUIDString = NewType('UUIDString', str, validate=validate.Regexp(UUID_PATTERN))
 
 
 @marshmallow_dataclass.dataclass

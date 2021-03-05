@@ -136,7 +136,7 @@ def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_bran
     """Prep a commit and push to Kibana."""
     git_exe = shutil.which("git")
 
-    package_name = load_dump(PACKAGE_FILE)['package']["name"]
+    package_name = Package.load_configs()['package']["name"]
     release_dir = os.path.join(RELEASE_DIR, package_name)
     message = message or f"[Detection Rules] Add {package_name} rules"
 

@@ -4,50 +4,43 @@
 
 """Definitions for packages destined for the registry."""
 
-import dataclasses
-from typing import Dict, Union, Type
+from dataclasses import dataclass, field
+from typing import Dict, List, Type
 
-import marshmallow_dataclass
-from marshmallow import validate
+from marshmallow import Schema, validate
+from marshmallow_dataclass import class_schema
 
-from .definitions import BaseMarshmallowDataclass, ConditionSemVer, SemVer
+from .definitions import ConditionSemVer, SemVer
 
 
-@marshmallow_dataclass.dataclass
-class BaseManifest(BaseMarshmallowDataclass):
+@dataclass
+class RegistryPackageManifest:
     """Base class for registry packages."""
 
     conditions: Dict[str, ConditionSemVer]
     version: SemVer
-    format_version: SemVer
 
-    categories: list = dataclasses.field(default_factory=lambda: ['security'].copy())
+    categories: List[str] = field(default_factory=lambda: ['security'])
     description: str = 'Rules for the detection engine in the Security application.'
-    icons: list = dataclasses.field(default_factory=list)
+    format_version: SemVer = field(metadata=dict(validate=validate.Equal('1.0.0')), default='1.0.0')
+    icons: list = field(default_factory=list)
+    internal: bool = True
     license: str = 'basic'
     name: str = 'detection_rules'
-    owner: dict = dataclasses.field(default_factory=lambda: dict(github='elastic/protections').copy())
-    policy_templates: list = dataclasses.field(default_factory=list)
+    owner: Dict[str, str] = field(default_factory=lambda: dict(github='elastic/protections').copy())
+    policy_templates: list = field(default_factory=list)
     release: str = 'experimental'
-    screenshots: list = dataclasses.field(default_factory=list)
+    screenshots: list = field(default_factory=list)
     title: str = 'Detection rules'
-    type: str = 'rules'
+    type: str = 'integration'
 
+    @classmethod
+    def get_schema(cls) -> Type[Schema]:
+        return class_schema(cls)
 
-@marshmallow_dataclass.dataclass
-class ManifestV1Dot0(BaseManifest):
-    """Integrations registry package schema."""
+    @classmethod
+    def from_dict(cls, obj: dict) -> 'RegistryPackageManifest':
+        return cls.get_schema()().load(obj)
 
-    format_version: SemVer = dataclasses.field(metadata=dict(validate=validate.Equal('1.0.0')), default='1.0.0')
-
-
-manifests = [
-    ManifestV1Dot0
-]
-
-
-def get_manifest(format_version: str) -> Union[Type[ManifestV1Dot0]]:
-    """Retrieve a manifest class by format_version."""
-    for manifest in manifests:
-        if manifest.format_version == format_version:
-            return manifest
+    def dump(self) -> dict:
+        return self.get_schema()().dump(self)

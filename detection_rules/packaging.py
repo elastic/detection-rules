@@ -23,7 +23,7 @@ from .utils import Ndjson, get_path, get_etc_path, load_etc_dump, save_etc_dump
 RELEASE_DIR = get_path("releases")
 PACKAGE_FILE = get_etc_path('packages.yml')
 NOTICE_FILE = get_path('NOTICE.txt')
-CHANGELOG_FILE = Path(get_etc_path('rules-changelog.json'))
+# CHANGELOG_FILE = Path(get_etc_path('rules-changelog.json'))
 
 
 def filter_rule(rule: Rule, config_filter: dict, exclude_fields: dict) -> bool:
@@ -172,6 +172,11 @@ class Package(object):
         """Add versions to rules at load time."""
         return manage_versions(self.rules, deprecated_rules=self.deprecated_rules, current_versions=current_versions,
                                save_changes=update_versions_lock, verbose=verbose)
+
+    @classmethod
+    def load_configs(cls):
+        """Load configs from packages.yml."""
+        return load_etc_dump(PACKAGE_FILE)['package']
 
     @staticmethod
     def _package_kibana_notice_file(save_dir):
@@ -468,16 +473,15 @@ class Package(object):
 
     def _generate_registry_package(self, save_dir):
         """Generate the artifact for the oob package-storage."""
-        from .schemas.registry_package import get_manifest
+        from .schemas.registry_package import RegistryPackageManifest
 
         assert self.registry_data
 
-        registry_manifest = get_manifest(self.registry_data['format_version'])
-        manifest = registry_manifest.Schema().load(self.registry_data)
+        manifest = RegistryPackageManifest.from_dict(self.registry_data)
 
         package_dir = Path(save_dir).joinpath(manifest.version)
-        docs_dir = package_dir.joinpath('docs')
-        rules_dir = package_dir.joinpath('kibana', 'rules')
+        docs_dir = package_dir / 'docs'
+        rules_dir = package_dir / 'kibana' / 'rules'
 
         docs_dir.mkdir(parents=True)
         rules_dir.mkdir(parents=True)
@@ -486,14 +490,14 @@ class Package(object):
         readme_file = docs_dir.joinpath('README.md')
 
         manifest_file.write_text(json.dumps(manifest.dump(), indent=2, sort_keys=True))
-        shutil.copyfile(CHANGELOG_FILE, str(rules_dir.joinpath('CHANGELOG.json')))
+        # shutil.copyfile(CHANGELOG_FILE, str(rules_dir.joinpath('CHANGELOG.json')))
 
         for rule in self.rules:
             rule.save(new_path=str(rules_dir.joinpath(f'rule-{rule.id}.json')))
 
         readme_text = '# Detection rules\n'
         readme_text += '\n'
-        readme_text += 'The detection rules package is a non-integration package to store all the rules and '
+        readme_text += 'The detection rules package is package to store all the security rules and '
         readme_text += 'dependencies (e.g. ML jobs) for the detection engine within the Elastic Security application.\n'
         readme_text += '\n'
 

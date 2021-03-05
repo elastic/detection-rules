@@ -5,14 +5,12 @@
 """Test that the packages are built correctly."""
 import unittest
 import uuid
-import yaml
 
 from detection_rules import rule_loader
 from detection_rules.packaging import PACKAGE_FILE, Package
 
 
-with open(PACKAGE_FILE) as f:
-    package_configs = yaml.safe_load(f)['package']
+package_configs = Package.load_configs()
 
 
 class TestPackages(unittest.TestCase):
@@ -155,26 +153,19 @@ class TestRegistryPackage(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        from detection_rules.schemas.registry_package import get_manifest
+        from detection_rules.schemas.registry_package import RegistryPackageManifest
 
         assert 'registry_data' in package_configs, f'Missing registry_data in {PACKAGE_FILE}'
         cls.registry_config = package_configs['registry_data']
-        assert 'format_version' in cls.registry_config, f'format_version missing from registry_data in {PACKAGE_FILE}'
-
-        cls.format_version = cls.registry_config['format_version']
-        cls.registry_manifest = get_manifest(cls.format_version)
-        assert cls.registry_manifest is not None, f'No registry package schema available for {cls.format_version}'
-
-        cls.registry_manifest.Schema().load(cls.registry_config)
+        RegistryPackageManifest.from_dict(cls.registry_config)
 
     def test_registry_package_config(self):
         """Test that the registry package is validating properly."""
         from marshmallow import ValidationError
-        from detection_rules.schemas.registry_package import get_manifest
+        from detection_rules.schemas.registry_package import RegistryPackageManifest
 
-        registry_manifest = get_manifest('1.0.0')
         registry_config = self.registry_config.copy()
         registry_config['version'] += '7.1.1.'
 
         with self.assertRaises(ValidationError):
-            registry_manifest.Schema().load(registry_config)
+            RegistryPackageManifest.from_dict(registry_config)
