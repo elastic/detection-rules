@@ -17,7 +17,8 @@ class RuleLoadTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.rule_files = rule_loader.load_rule_files(verbose=False)
-        cls.rules = rule_loader.load_rules(verbose=False)
+        cls.rule_lookup = rule_loader.load_rules(verbose=False)
+        cls.rules = cls.rule_lookup.values()
         cls.production_rules = rule_loader.get_production_rules()
 
     @staticmethod

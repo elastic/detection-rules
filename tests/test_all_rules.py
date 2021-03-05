@@ -127,7 +127,7 @@ class TestThreatMappings(RuleLoadTest):
         revoked = list(attack.revoked)
         deprecated = list(attack.deprecated)
 
-        for rule in self.rules.values():
+        for rule in self.rules:
             revoked_techniques = {}
             threat_mapping = rule.contents.get('threat')
 
@@ -145,7 +145,7 @@ class TestThreatMappings(RuleLoadTest):
 
     def test_tactic_to_technique_correlations(self):
         """Ensure rule threat info is properly related to a single tactic and technique."""
-        for rule in self.rules.values():
+        for rule in self.rules:
             threat_mapping = rule.contents.get('threat')
             if threat_mapping:
                 for entry in threat_mapping:
@@ -203,7 +203,7 @@ class TestThreatMappings(RuleLoadTest):
 
     def test_duplicated_tactics(self):
         """Check that a tactic is only defined once."""
-        for rule in self.rules.values():
+        for rule in self.rules:
             threat_mapping = rule.contents.get('threat', [])
             tactics = [t['tactic']['name'] for t in threat_mapping]
             duplicates = sorted(set(t for t in tactics if tactics.count(t) > 1))
@@ -228,7 +228,7 @@ class TestRuleTags(RuleLoadTest):
         ]
         expected_case = {normalize(t): t for t in expected_tags}
 
-        for rule in self.rules.values():
+        for rule in self.rules:
             rule_tags = rule.contents.get('tags')
             if rule_tags:
                 invalid_tags = {t: expected_case[normalize(t)] for t in rule_tags
@@ -259,7 +259,7 @@ class TestRuleTags(RuleLoadTest):
             'winlogbeat-*': {'all': ['Windows']}
         }
 
-        for rule in self.rules.values():
+        for rule in self.rules:
             rule_tags = rule.contents.get('tags', [])
             indexes = rule.contents.get('index', [])
             error_msg = f'{self.rule_str(rule)} Missing tags:\nActual tags: {", ".join(rule_tags)}'
@@ -303,7 +303,7 @@ class TestRuleTimelines(RuleLoadTest):
 
     def test_timeline_has_title(self):
         """Ensure rules with timelines have a corresponding title."""
-        for rule in self.rules.values():
+        for rule in self.rules:
             timeline_id = rule.contents.get('timeline_id')
             timeline_title = rule.contents.get('timeline_title')
 
@@ -329,7 +329,7 @@ class TestRuleFiles(RuleLoadTest):
         """Test to ensure rule files have the primary tactic prepended to the filename."""
         bad_name_rules = []
 
-        for rule in self.rules.values():
+        for rule in self.rules:
             rule_path = Path(rule.path).resolve()
             filename = rule_path.name
 
@@ -357,7 +357,7 @@ class TestRuleMetadata(RuleLoadTest):
 
     def test_ecs_and_beats_opt_in_not_latest_only(self):
         """Test that explicitly defined opt-in validation is not only the latest versions to avoid stale tests."""
-        for rule in self.rules.values():
+        for rule in self.rules:
             beats_version = rule.metadata.get('beats_version')
             ecs_versions = rule.metadata.get('ecs_versions', [])
             latest_beats = str(beats.get_max_version())
@@ -376,7 +376,7 @@ class TestRuleMetadata(RuleLoadTest):
         """Test that the updated_date is newer than the creation date."""
         invalid = []
 
-        for rule in self.rules.values():
+        for rule in self.rules:
             created = tuple(rule.metadata['creation_date'].split('/'))
             updated = tuple(rule.metadata['updated_date'].split('/'))
             if updated < created:
@@ -395,7 +395,7 @@ class TestTuleTiming(RuleLoadTest):
         """Test that rules have defined an timestamp_override if needed."""
         missing = []
 
-        for rule in self.rules.values():
+        for rule in self.rules:
             required = False
 
             if 'endgame-*' in rule.contents.get('index', []):
@@ -420,7 +420,7 @@ class TestTuleTiming(RuleLoadTest):
         long_indexes = {'logs-endpoint.events.*'}
         missing = []
 
-        for rule in self.rules.values():
+        for rule in self.rules:
             contents = rule.contents
 
             if rule.type in rule_types and set(contents.get('index', [])) & long_indexes and not contents.get('from'):
