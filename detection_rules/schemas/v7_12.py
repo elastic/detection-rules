@@ -51,7 +51,6 @@ class ApiSchema712(ApiSchema711):
             if threshold.get('cardinality', {}).get('field') or threshold.get('cardinality', {}).get('value'):
                 raise ValueError('Cannot downgrade a threshold rule that has a defined cardinality')
 
-            # drop cardinality
             document = document.copy()
             document["threshold"] = document["threshold"].copy()
             # if cardinality was defined with no field or value
