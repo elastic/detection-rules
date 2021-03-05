@@ -44,10 +44,9 @@ class ManifestV1Dot0(BaseManifest):
 manifests = [
     ManifestV1Dot0
 ]
-MANIFESTS = [Type[t] for t in manifests]
 
 
-def get_manifest(format_version: str) -> Union[MANIFESTS]:
+def get_manifest(format_version: str) -> Union[Type[ManifestV1Dot0]]:
     """Retrieve a manifest class by format_version."""
     for manifest in manifests:
         if manifest.format_version == format_version:

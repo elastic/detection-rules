@@ -11,6 +11,10 @@ from detection_rules import rule_loader
 from detection_rules.packaging import PACKAGE_FILE, Package
 
 
+with open(PACKAGE_FILE) as f:
+    package_configs = yaml.safe_load(f)['package']
+
+
 class TestPackages(unittest.TestCase):
     """Test package building and saving."""
 
@@ -47,10 +51,7 @@ class TestPackages(unittest.TestCase):
 
     def test_package_loader_default_configs(self):
         """Test configs in etc/packages.yml."""
-        with open(PACKAGE_FILE) as f:
-            configs = yaml.safe_load(f)['package']
-
-        package = Package.from_config(configs)
+        package = Package.from_config(package_configs)
         for rule in package.rules:
             rule.contents.pop('version')
             rule.validate(as_rule=True)
@@ -147,3 +148,33 @@ class TestPackages(unittest.TestCase):
 
         package = Package(rules, 'test', current_versions=version_info, min_version=2, max_version=2)
         self.assertEqual(1, len(package.rules), msg)
+
+
+class TestRegistryPackage(unittest.TestCase):
+    """Test the OOB registry package."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        from detection_rules.schemas.registry_package import get_manifest
+
+        assert 'registry_data' in package_configs, f'Missing registry_data in {PACKAGE_FILE}'
+        cls.registry_config = package_configs['registry_data']
+        assert 'format_version' in cls.registry_config, f'format_version missing from registry_data in {PACKAGE_FILE}'
+
+        cls.format_version = cls.registry_config['format_version']
+        cls.registry_manifest = get_manifest(cls.format_version)
+        assert cls.registry_manifest is not None, f'No registry package schema available for {cls.format_version}'
+
+        cls.registry_manifest.Schema().load(cls.registry_config)
+
+    def test_registry_package_config(self):
+        """Test that the registry package is validating properly."""
+        from marshmallow import ValidationError
+        from detection_rules.schemas.registry_package import get_manifest
+
+        registry_manifest = get_manifest('1.0.0')
+        registry_config = self.registry_config.copy()
+        registry_config['version'] += '7.1.1.'
+
+        with self.assertRaises(ValidationError):
+            registry_manifest.Schema().load(registry_config)
