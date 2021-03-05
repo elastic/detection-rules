@@ -42,15 +42,19 @@ class ApiSchema712(ApiSchema711):
         """Remove 7.12 additions from the rule."""
         # ignore when this method is inherited by subclasses
         if cls in (ApiSchema712, ApiSchema712.versioned()) and 'threshold' in document:
-            threshold_field = document['threshold']['field'].copy()
+            threshold = document['threshold']
+            threshold_field = threshold['field']
 
             # attempt to convert threshold field to a string
             if len(threshold_field) > 1:
                 raise ValueError('Cannot downgrade a threshold rule that has multiple threshold fields defined')
+            if threshold.get('cardinality', {}).get('field') or threshold.get('cardinality', {}).get('value'):
+                raise ValueError('Cannot downgrade a threshold rule that has a defined cardinality')
 
             # drop cardinality
             document = document.copy()
             document["threshold"] = document["threshold"].copy()
+            # if cardinality was defined with no field or value
             document['threshold'].pop('cardinality', None)
             document["threshold"]["field"] = document["threshold"]["field"][0]
 

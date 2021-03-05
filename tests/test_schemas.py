@@ -136,18 +136,19 @@ class TestSchemas(unittest.TestCase):
 
         v712_threshold_contents_single_field = copy.deepcopy(api_contents)
         v712_threshold_contents_single_field['threshold']['field'].pop()
-        self.assertEqual(downgrade(v712_threshold_contents_single_field, "7.9"), self.v79_threshold_contents)
-        self.assertEqual(downgrade(v712_threshold_contents_single_field, "7.9.1"), self.v79_threshold_contents)
 
-        with self.assertRaises(ValueError):
-            downgrade(v712_threshold_contents_single_field, "7.7")
-
-        with self.assertRaisesRegex(ValueError, "Unsupported rule type"):
-            downgrade(v712_threshold_contents_single_field, "7.8")
+        with self.assertRaisesRegex(ValueError, "Cannot downgrade a threshold rule that has a defined cardinality"):
+            downgrade(v712_threshold_contents_single_field, "7.9")
 
         v712_no_cardinality = copy.deepcopy(v712_threshold_contents_single_field)
         v712_no_cardinality['threshold'].pop('cardinality')
         self.assertEqual(downgrade(v712_no_cardinality, "7.9"), self.v79_threshold_contents)
+
+        with self.assertRaises(ValueError):
+            downgrade(v712_no_cardinality, "7.7")
+
+        with self.assertRaisesRegex(ValueError, "Unsupported rule type"):
+            downgrade(v712_no_cardinality, "7.8")
 
     def test_eql_validation(self):
         base_fields = {
