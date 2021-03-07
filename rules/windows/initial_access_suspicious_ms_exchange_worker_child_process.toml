@@ -1,0 +1,48 @@
+[metadata]
+creation_date = "2021/03/08"
+maturity = "production"
+updated_date = "2021/03/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious processes being spawned by the Microsoft Exchange Server worker process (w3wp). This activity may
+indicate exploitation activity or access to an existing WebShell backdoor.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Microsoft Exchange Worker Spawning Suspicious Processes"
+references = [
+    "https://www.microsoft.com/security/blog/2021/03/02/hafnium-targeting-exchange-servers",
+    "https://www.volexity.com/blog/2021/03/02/active-exploitation-of-microsoft-exchange-zero-day-vulnerabilities",
+    "https://discuss.elastic.co/t/detection-and-response-for-hafnium-activity/266289",
+]
+risk_score = 73
+rule_id = "697f5c9c-3c33-4741-a8ca-905a1c256703"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and
+  process.parent.name : "w3wp.exe" and process.parent.args : "MSExchange*AppPool" and
+  process.name : ("cmd.exe", "powershell.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
