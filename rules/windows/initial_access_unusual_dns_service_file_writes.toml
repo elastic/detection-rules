@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/07/16"
 maturity = "production"
-updated_date = "2020/01/28"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -9,9 +9,10 @@ description = """
 Identifies an unexpected file being modified by dns.exe, the process responsible for Windows DNS Server services, which
 may indicate activity related to remote code execution or other forms of exploitation.
 """
+from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Unusual File Modification by dns.exe"
 note = """### Investigating Unusual File Write
 Detection alerts from this rule indicate potential unusual/abnormal file writes from the DNS Server service process (`dns.exe`) after exploitation from CVE-2020-1350 (SigRed) has occurred. Here are some possible avenues of investigation:
@@ -25,6 +26,7 @@ risk_score = 73
 rule_id = "c7ce36c0-32ff-4f9a-bfc2-dcb242bf99f9"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''

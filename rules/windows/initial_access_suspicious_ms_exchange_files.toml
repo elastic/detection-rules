@@ -1,0 +1,57 @@
+[metadata]
+creation_date = "2021/03/04"
+maturity = "production"
+updated_date = "2021/03/04"
+
+[rule]
+author = ["Elastic", "Austin Songer"]
+description = """
+Identifies suspicious files being written by the Microsoft Exchange Server Unified Messaging (UM) service. This activity
+has been observed exploiting CVE-2021-26858.
+"""
+false_positives = [
+    """
+    Files generated during installation will generate a lot of noise, so the rule should only be enabled after the fact.
+    """,
+]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Microsoft Exchange Server UM Writing Suspicious Files"
+references = [
+    "https://www.microsoft.com/security/blog/2021/03/02/hafnium-targeting-exchange-servers",
+    "https://www.volexity.com/blog/2021/03/02/active-exploitation-of-microsoft-exchange-zero-day-vulnerabilities",
+]
+risk_score = 47
+rule_id = "6cd1779c-560f-4b68-a8f1-11009b27fe63"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where event.type == "creation" and
+  process.parent.name : ("UMWorkerProcess.exe", "umservice.exe") and
+  file.extension : ("php", "jsp", "js", "aspx", "asmx", "asax", "cfm", "shtml") and
+  (
+    file.path : ("C:\\inetpub\\wwwroot\\aspnet_client\\*",
+                 "C:\\*\\FrontEnd\\HttpProxy\\owa\\auth\\*") or
+    (file.path : "C:\\*\\FrontEnd\\HttpProxy\\ecp\\auth\\*" and not file.name : "TimeoutLogoff.aspx")
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
