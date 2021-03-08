@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/08/24"
 maturity = "production"
-updated_date = "2020/01/28"
+updated_date = "2021/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -9,7 +9,7 @@ description = """
 A suspicious WerFault child process was detected, which may indicate an attempt to run unnoticed. Verify process details
 such as command line, network connections, file writes and parent process details as well.
 """
-false_positives = ["Custom Windows Error Reporting Debugger"]
+false_positives = ["Custom Windows errors reporting debugger or applications restarted by WerFault after a crash."]
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "kuery"
@@ -29,7 +29,8 @@ type = "query"
 query = '''
 event.category:process and event.type:(start or process_started) and
  process.parent.name:WerFault.exe and
- not process.name:(cofire.exe or psr.exe or VsJITDebugger.exe or TTTracer.exe or rundll32.exe)
+ not process.name:(cofire.exe or psr.exe or VsJITDebugger.exe or TTTracer.exe or rundll32.exe) and
+ not process.args:("/LOADSAVEDWINDOWS" or "/restore" or RestartByRestartManager* or "--restarted" or createdump or dontsend or /watson)
 '''
 
 
