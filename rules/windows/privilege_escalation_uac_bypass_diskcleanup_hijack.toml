@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/08/18"
 maturity = "production"
-updated_date = "2020/01/28"
+updated_date = "2021/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -22,8 +22,10 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
-process.args:"/autoclean" and process.args:"/d" and
-not process.executable : ("C:\\Windows\\System32\\cleanmgr.exe", "C:\\Windows\\SysWOW64\\cleanmgr.exe")
+ process.args:"/autoclean" and process.args:"/d" and
+ not process.executable : ("C:\\Windows\\System32\\cleanmgr.exe",
+                           "C:\\Windows\\SysWOW64\\cleanmgr.exe",
+                           "C:\\Windows\\System32\\taskhostw.exe")
 '''
 
 
