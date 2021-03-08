@@ -318,7 +318,7 @@ class TestRuleTags(BaseRuleTest):
                     missing.append(primary_tactic)
 
                 # listed tactic that is not in threat mapping
-                tag_tactics = set(rule_tags) & tactics
+                tag_tactics = set(rule_tags).intersection(tactics)
                 missing_from_threat = list(tag_tactics.difference(threat_tactic_names))
 
                 if missing or missing_from_threat:
