@@ -6,6 +6,7 @@ updated_date = "2020/01/28"
 [rule]
 author = ["Elastic"]
 description = "Identifies command shell activity started via RunDLL32, which is commonly abused by attackers to host malicious code."
+false_positives = ["Microsoft Windows Installers Leveraging Rundll32 for installation."]
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
@@ -23,7 +24,7 @@ process where event.type in ("start", "process_started") and
   process.parent.name : "rundll32.exe" and process.parent.command_line != null and
   /* common FPs can be added here */
   not process.parent.args : ("C:\\Windows\\System32\\SHELL32.dll,RunAsNewUser_RunDLL",
-                              "C:\\WINDOWS\\*.tmp,zzzzInvokeManagedCustomActionOutOfProc") and
+                             "C:\\WINDOWS\\*.tmp,zzzzInvokeManagedCustomActionOutOfProc")
 '''
 
 
