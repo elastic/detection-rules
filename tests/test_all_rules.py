@@ -292,6 +292,48 @@ class TestRuleTags(BaseRuleTest):
             if missing_required_tags or is_missing_any_tags:
                 self.fail(error_msg)
 
+    def test_primary_tactic_as_tag(self):
+        from detection_rules.attack import tactics
+
+        invalid = []
+        tactics = set(tactics)
+
+        for rule in self.rules:
+            rule_tags = rule.contents['tags']
+
+            if 'Continuous Monitoring' in rule_tags or rule.type == 'machine_learning':
+                continue
+
+            threat = rule.contents.get('threat')
+            if threat:
+                missing = []
+                threat_tactic_names = [e['tactic']['name'] for e in threat]
+                primary_tactic = threat_tactic_names[0]
+
+                if 'Threat Detection' not in rule_tags:
+                    missing.append('Threat Detection')
+
+                # missing primary tactic
+                if primary_tactic not in rule.contents['tags']:
+                    missing.append(primary_tactic)
+
+                # listed tactic that is not in threat mapping
+                tag_tactics = set(rule_tags) & tactics
+                missing_from_threat = list(tag_tactics.difference(threat_tactic_names))
+
+                if missing or missing_from_threat:
+                    err_msg = self.rule_str(rule)
+                    if missing:
+                        err_msg += f'\n    expected: {missing}'
+                    if missing_from_threat:
+                        err_msg += f'\n    unexpected (or missing from threat mapping): {missing_from_threat}'
+
+                    invalid.append(err_msg)
+
+        if invalid:
+            err_msg = '\n'.join(invalid)
+            self.fail(f'Rules with misaligned tags and tactics:\n{err_msg}')
+
 
 class TestRuleTimelines(BaseRuleTest):
     """Test timelines in rules are valid."""
