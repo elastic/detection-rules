@@ -23,7 +23,9 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
- process.name : "touch" and process.args : ("-r", "-t", "-a*","-m*")
+ process.name : "touch" and and user.id != 0 and
+ process.args : ("-r", "-t", "-a*","-m*") and
+ not process.args:("/usr/lib/go-*/bin/go", "/usr/lib/dracut/dracut-functions.sh", "/tmp/KSInstallAction.*/m/.patch/*")
 '''
 
 
