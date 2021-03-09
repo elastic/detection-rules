@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/10/30"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/03/09"
 
 [rule]
 author = ["Elastic"]
@@ -38,6 +38,10 @@ process.args : ("C:\\PerfLogs\\*","C:\\Users\\Public\\*","C:\\Users\\Default\\*"
  "C:\\Windows\\assembly\\*","C:\\Windows\\TextInput\\*","C:\\Windows\\security\\*","C:\\Windows\\schemas\\*","C:\\Windows\\SchCache\\*","C:\\Windows\\Resources\\*",
  "C:\\Windows\\rescache\\*","C:\\Windows\\Provisioning\\*","C:\\Windows\\PrintDialog\\*","C:\\Windows\\PolicyDefinitions\\*","C:\\Windows\\media\\*",
  "C:\\Windows\\Globalization\\*","C:\\Windows\\L2Schemas\\*","C:\\Windows\\LiveKernelReports\\*","C:\\Windows\\ModemLogs\\*","C:\\Windows\\ImmersiveControlPanel\\*",
- "C:\\$Recycle.Bin\\*")
+ "C:\\$Recycle.Bin\\*") and
+  not process.parent.executable : ("C:\\WINDOWS\\System32\\DriverStore\\FileRepository\\*\\igfxCUIService*.exe",
+                                   "C:\\Windows\\System32\\spacedeskService.exe",
+                                   "C:\\Program Files\\Dell\\SupportAssistAgent\\SRE\\SRE.exe") and
+  not (process.name : "rundll32.exe" and process.args : ("uxtheme.dll,#64", "PRINTUI.DLL,PrintUIEntry"))
 '''
 
