@@ -27,7 +27,14 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
- process.name == "defaults" and process.args == "write" and process.args in ("LoginHook", "LogoutHook")
+ process.name == "defaults" and process.args == "write" and process.args in ("LoginHook", "LogoutHook") and
+ not process.args :
+       (
+         "Support/JAMF/ManagementFrameworkScripts/logouthook.sh",
+         "Support/JAMF/ManagementFrameworkScripts/loginhook.sh",
+         "/Library/Application Support/JAMF/ManagementFrameworkScripts/logouthook.sh",
+         "/Library/Application Support/JAMF/ManagementFrameworkScripts/loginhook.sh"
+       )
 '''
 
 
