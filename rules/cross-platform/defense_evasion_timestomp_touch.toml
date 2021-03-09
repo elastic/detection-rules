@@ -22,8 +22,8 @@ tags = ["Elastic", "Host", "Linux", "macOS", "Threat Detection", "Defense Evasio
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
- process.name : "touch" and and user.id != 0 and
+process where event.type == "start" and
+ process.name : "touch" and user.id != "0" and
  process.args : ("-r", "-t", "-a*","-m*") and
  not process.args:("/usr/lib/go-*/bin/go", "/usr/lib/dracut/dracut-functions.sh", "/tmp/KSInstallAction.*/m/.patch/*")
 '''
@@ -41,7 +41,9 @@ name = "Timestomp"
 reference = "https://attack.mitre.org/techniques/T1070/006/"
 
 
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
