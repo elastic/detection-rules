@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """Load rule metadata transform between rule and api formats."""
 import functools
@@ -260,6 +261,7 @@ rta_mappings = RtaMappings()
 
 
 __all__ = (
+    "FILE_PATTERN",
     "load_rule_files",
     "load_rules",
     "load_rule_files",
@@ -269,6 +271,7 @@ __all__ = (
     "get_production_rules",
     "get_rule",
     "filter_rules",
+    "find_unneeded_defaults_from_rule",
     "get_rule_name",
     "get_rule_contents",
     "reset",
