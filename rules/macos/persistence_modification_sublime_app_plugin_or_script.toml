@@ -1,25 +1,25 @@
 [metadata]
 creation_date = "2020/12/23"
 maturity = "production"
-updated_date = "2020/12/23"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-Adversaries may create or modify the Sublime application plugins or scripts to execute a malicious payload each time
-the Sublime application is started.
+Adversaries may create or modify the Sublime application plugins or scripts to execute a malicious payload each time the
+Sublime application is started.
 """
-false_positives = ["Legitimate Sublime plugins or application updates"]
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Sublime Plugin or Application Script Modification"
 references = ["https://posts.specterops.io/persistent-jxa-66e1c3cd1cf5"]
 risk_score = 21
 rule_id = "88817a33-60d3-411f-ba79-7c905d865b2a"
 severity = "low"
 tags = ["Elastic", "Host", "macOS", "Threat Detection", "Persistence"]
+timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
@@ -37,7 +37,6 @@ file where event.type in ("change", "creation") and file.extension : "py" and
       "/System/Library/PrivateFrameworks/DesktopServicesPriv.framework/Versions/A/Resources/DesktopServicesHelper", 
       "/Applications/Sublime Text.app/Contents/MacOS/plugin_host"
     )
-                 
 '''
 
 
@@ -53,3 +52,4 @@ reference = "https://attack.mitre.org/techniques/T1554/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+

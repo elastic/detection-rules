@@ -1,22 +1,21 @@
 [metadata]
 creation_date = "2021/01/12"
 maturity = "production"
-updated_date = "2021/01/12"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
-description = """
-Identifies the execution of macOS built-in commands related to account or group enumeration.
-"""
+description = "Identifies the execution of macOS built-in commands related to account or group enumeration."
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Enumeration of Users or Groups via Built-in Commands"
 risk_score = 21
 rule_id = "6e9b351e-a531-4bdc-b73e-7034d6eed7ff"
 severity = "low"
 tags = ["Elastic", "Host", "macOS", "Threat Detection", "Discovery"]
+timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
@@ -27,7 +26,6 @@ process where event.type in ("start", "process_started") and
   (process.name : "dscl" and 
      process.args : ("read", "-read", "list", "-list", "ls", "search", "-search") and 
      process.args : ("/Active Directory/*", "/Users*", "/Groups*"))
-
 '''
 
 
@@ -48,3 +46,4 @@ reference = "https://attack.mitre.org/techniques/T1087/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
