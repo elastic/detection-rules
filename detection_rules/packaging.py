@@ -11,7 +11,7 @@ import os
 import shutil
 from collections import defaultdict, OrderedDict
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import click
 
@@ -150,9 +150,11 @@ def manage_versions(rules: list, deprecated_rules: list = None, current_versions
 class Package(object):
     """Packaging object for siem rules and releases."""
 
-    def __init__(self, rules: List[Rule], name, deprecated_rules: List[Rule] = None, release=False,
-                 current_versions: dict = None, min_version: int = None, max_version: int = None,
-                 update_version_lock=False, registry_data: dict = None, verbose=True):
+    def __init__(self, rules: List[Rule], name: str, deprecated_rules: Optional[List[Rule]] = None,
+                 release: Optional[bool] = False, current_versions: Optional[dict] = None,
+                 min_version: Optional[int] = None, max_version: Optional[int] = None,
+                 update_version_lock: Optional[bool] = False, registry_data: Optional[dict] = None,
+                 verbose: Optional[bool] = True):
         """Initialize a package."""
         self.rules = [r.copy() for r in rules]
         self.name = name
@@ -264,9 +266,7 @@ class Package(object):
         self._package_kibana_index_file(rules_dir)
 
         if self.release:
-            if self.registry_data:
-                self._generate_registry_package(save_dir)
-
+            self._generate_registry_package(save_dir)
             self.save_release_files(extras_dir, self.changed_rule_ids, self.new_rules_ids, self.removed_rule_ids)
 
             # zip all rules only and place in extras
@@ -475,8 +475,6 @@ class Package(object):
         """Generate the artifact for the oob package-storage."""
         from .schemas.registry_package import RegistryPackageManifest
 
-        assert self.registry_data
-
         manifest = RegistryPackageManifest.from_dict(self.registry_data)
 
         package_dir = Path(save_dir).joinpath(manifest.version)
@@ -489,7 +487,7 @@ class Package(object):
         manifest_file = package_dir.joinpath('manifest.yml')
         readme_file = docs_dir.joinpath('README.md')
 
-        manifest_file.write_text(json.dumps(manifest.dump(), indent=2, sort_keys=True))
+        manifest_file.write_text(json.dumps(manifest.asdict(), indent=2, sort_keys=True))
         # shutil.copyfile(CHANGELOG_FILE, str(rules_dir.joinpath('CHANGELOG.json')))
 
         for rule in self.rules:

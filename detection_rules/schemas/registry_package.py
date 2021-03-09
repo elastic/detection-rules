@@ -27,7 +27,7 @@ class RegistryPackageManifest:
     internal: bool = True
     license: str = 'basic'
     name: str = 'detection_rules'
-    owner: Dict[str, str] = field(default_factory=lambda: dict(github='elastic/protections').copy())
+    owner: Dict[str, str] = field(default_factory=lambda: dict(github='elastic/protections'))
     policy_templates: list = field(default_factory=list)
     release: str = 'experimental'
     screenshots: list = field(default_factory=list)
@@ -42,5 +42,5 @@ class RegistryPackageManifest:
     def from_dict(cls, obj: dict) -> 'RegistryPackageManifest':
         return cls.get_schema()().load(obj)
 
-    def dump(self) -> dict:
+    def asdict(self) -> dict:
         return self.get_schema()().dump(self)

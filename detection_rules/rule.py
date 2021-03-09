@@ -57,7 +57,7 @@ class Rule(object):
     def __hash__(self):
         return hash(self.get_hash())
 
-    def copy(self):
+    def copy(self) -> 'Rule':
         return Rule(path=self.path, contents={'rule': self.contents.copy(), 'metadata': self.metadata.copy()})
 
     @property
