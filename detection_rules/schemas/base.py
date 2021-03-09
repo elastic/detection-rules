@@ -11,7 +11,7 @@ import jsl
 import jsonschema
 
 from .definitions import (
-    DATE_PATTERN, MATURITY_LEVELS, OS_OPTIONS, UUID_PATTERN, VERSION_PATTERN, VERSION_W_MASTER_PATTERN
+    DATE_PATTERN, MATURITY_LEVELS, OS_OPTIONS, UUID_PATTERN, VERSION_PATTERN, BRANCH_PATTERN
 )
 from ..utils import cached
 
@@ -72,7 +72,7 @@ class TomlMetadata(GenericSchema):
     # rule validated against each ecs schema contained
     beats_version = jsl.StringField(pattern=VERSION_PATTERN, required=False)
     comments = jsl.StringField(required=False)
-    ecs_versions = jsl.ArrayField(jsl.StringField(pattern=VERSION_W_MASTER_PATTERN, required=True), required=False)
+    ecs_versions = jsl.ArrayField(jsl.StringField(pattern=BRANCH_PATTERN, required=True), required=False)
     maturity = jsl.StringField(enum=MATURITY_LEVELS, default='development', required=True)
 
     os_type_list = jsl.ArrayField(jsl.StringField(enum=OS_OPTIONS), required=False)

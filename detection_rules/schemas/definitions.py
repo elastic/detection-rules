@@ -23,7 +23,7 @@ UUID_PATTERN = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 _version = r'\d+\.\d+(\.\d+[\w-]*)*'
 CONDITION_VERSION_PATTERN = rf'^\^{_version}$'
 VERSION_PATTERN = f'^{_version}$'
-VERSION_W_MASTER_PATTERN = f'{VERSION_PATTERN}|^master$'
+BRANCH_PATTERN = f'{VERSION_PATTERN}|^master$'
 
 ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))

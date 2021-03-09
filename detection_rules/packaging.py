@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import click
+import yaml
 
 from . import rule_loader
 from .misc import JS_LICENSE, cached
@@ -488,7 +489,7 @@ class Package(object):
         manifest_file = package_dir.joinpath('manifest.yml')
         readme_file = docs_dir.joinpath('README.md')
 
-        manifest_file.write_text(json.dumps(manifest.asdict(), indent=2, sort_keys=True))
+        manifest_file.write_text(yaml.safe_dump(manifest.asdict()))
         # shutil.copyfile(CHANGELOG_FILE, str(rules_dir.joinpath('CHANGELOG.json')))
 
         for rule in self.rules:
