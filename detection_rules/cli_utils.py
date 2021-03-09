@@ -5,7 +5,7 @@ import click
 
 import kql
 from . import ecs
-from .attack import matrix, tactics
+from .attack import matrix, tactics, build_threat_map_entry
 from .rule import Rule
 from .schemas import CurrentSchema
 from .utils import clear_caches, get_path
