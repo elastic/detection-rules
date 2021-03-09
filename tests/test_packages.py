@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """Test that the packages are built correctly."""
 import unittest
@@ -23,7 +24,7 @@ class TestPackages(unittest.TestCase):
                 "author": ["Elastic"],
                 "description": "test description",
                 "language": "kuery",
-                "license": "Elastic License",
+                "license": "Elastic License v2",
                 "name": "test rule",
                 "query": "process.name:test.query",
                 "risk_score": 21,
