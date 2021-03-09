@@ -495,11 +495,9 @@ class Package(object):
         for rule in self.rules:
             rule.save(new_path=str(rules_dir.joinpath(f'rule-{rule.id}.json')))
 
-        readme_text = '# Detection rules\n'
-        readme_text += '\n'
-        readme_text += 'The detection rules package is package to store all the security rules and '
-        readme_text += 'dependencies (e.g. ML jobs) for the detection engine within the Elastic Security application.\n'
-        readme_text += '\n'
+        readme_text = ('# Detection rules\n\n'
+                       'The detection rules package stores all the security rules '
+                       'for the detection engine within the Elastic Security application.\n\n')
 
         readme_file.write_text(readme_text)
 
