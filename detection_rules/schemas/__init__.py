@@ -6,6 +6,7 @@
 from .base import TomlMetadata
 from .rta_schema import validate_rta_mapping
 from ..semver import Version
+from . import definitions
 
 # import all of the schema versions
 from .v7_8 import ApiSchema78

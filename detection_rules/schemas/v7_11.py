@@ -6,7 +6,8 @@
 """Definitions for rule metadata and schemas."""
 
 import jsl
-from .v7_8 import Threat as Threat78, MITRE_URL_PATTERN
+from .v7_8 import Threat as Threat78
+from .definitions import MITRE_URL_PATTERN
 from .v7_10 import ApiSchema710
 from ..attack import sub_technique_id_list
 

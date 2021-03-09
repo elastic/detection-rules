@@ -8,11 +8,8 @@
 import jsl
 
 from .base import BaseApiSchema, MarkdownField
+from .definitions import INTERVAL_PATTERN, MITRE_URL_PATTERN, MACHINE_LEARNING, SAVED_QUERY, QUERY
 from ..attack import tactics, tactics_map, technique_id_list
-
-
-INTERVAL_PATTERN = r'\d+[mshd]'
-MITRE_URL_PATTERN = r'https://attack.mitre.org/{type}/T[A-Z0-9]+/'
 
 
 # kibana/.../siem/server/lib/detection_engine/routes/schemas/add_prepackaged_rules_schema.ts
@@ -24,9 +21,6 @@ MITRE_URL_PATTERN = r'https://attack.mitre.org/{type}/T[A-Z0-9]+/'
 # version is a required field that must exist
 
 # rule types
-MACHINE_LEARNING = 'machine_learning'
-SAVED_QUERY = 'saved_query'
-QUERY = 'query'
 
 
 class Filters(jsl.Document):

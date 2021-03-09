@@ -10,6 +10,9 @@ import json
 import os
 from pathlib import Path
 from uuid import uuid4
+from dataclasses import dataclass, field
+from typing import Literal, Union, Callable, Optional, List, Dict
+from marshmallow_dataclass import NewType
 
 import click
 import kql
@@ -18,12 +21,136 @@ import eql
 from . import ecs, beats
 from .attack import tactics, build_threat_map_entry, matrix
 from .rule_formatter import nested_normalize, toml_write
-from .schemas import CurrentSchema, TomlMetadata, downgrade
+from .schemas import CurrentSchema, TomlMetadata, downgrade, definitions
 from .utils import get_path, clear_caches, cached
 
 
 RULES_DIR = get_path("rules")
 _META_SCHEMA_REQ_DEFAULTS = {}
+
+
+@dataclass(frozen=True)
+class RuleMeta:
+    """Data stored in a rule's [metadata] section of TOML."""
+    creation_date: str
+    updated_date: str
+
+    # Optional fields
+    beats_version: Optional[definitions.SemVer]
+    comments: Optional[str]
+    maturity: Optional[definitions.Maturity]
+    os_type_list: Optional[List[definitions.OSType]]
+    query_schema_validation: bool
+    related_endpoint_rules: Optional[List[str]]
+
+
+@dataclass(frozen=True)
+class BaseThreatEntry:
+    id: str
+    name: str
+    reference: str
+
+
+class SubTechnique(BaseThreatEntry):
+    """Mapping to threat subtechnique."""
+
+
+class Technique(BaseThreatEntry):
+    """Mapping to threat subtechnique."""
+    # subtechniques are stored at threat[].technique.subtechnique[]
+    subtechnique: Optional[List[SubTechnique]]
+
+
+class Tactic(BaseThreatEntry):
+    """Mapping to a threat tactic."""
+
+
+@dataclass(frozen=True)
+class ThreatMapping:
+    """Mapping to a threat framework."""
+    framework: Literal["MITRE ATT&CK"]
+    tactic: Tactic
+    technique: Optional[List[Technique]]
+
+
+@dataclass(frozen=True)
+class BaseRuleData:
+    actions: List
+    author: List[str]
+    description: Optional[str]
+    enabled: Optional[bool]
+    false_positives: Optional[List[str]]
+    filters: Optional[List[Dict]]
+    # trailing `_` required since `from` is a reserved word in python
+    from_: str = field(metadata=dict(data_key="from"))
+
+    interval: Optional[definitions.Interval]
+    max_signals = Optional[definitions.MaxSignals]
+    meta: Optional[dict]
+    name: str
+    note = Optional[definitions.Markdown]
+    # can we remove this comment?
+    # explicitly NOT allowed!
+    # output_index: Optional[str]
+    references: Optional[List[str]]
+    risk_score: definitions.RiskScore
+    rule_id: definitions.UUIDString
+    severity: Literal['low', 'medium', 'high', 'critical']
+    tags: Optional[List[str]]
+    throttle: Optional[str]
+    timeline_id: Optional[str]
+    timeline_title: Optional[str]
+    to: Optional[str]
+    type: Literal[definitions.RuleType]
+    threat = Optional[List[ThreatMapping]]
+
+
+@dataclass(frozen=True)
+class QueryRuleData(BaseRuleData):
+    """Specific fields for query event types."""
+    type: Literal["query"]
+
+    index: List[str]
+    query: str
+    language: str
+
+
+@dataclass(frozen=True)
+class MachineLearningRuleData(BaseRuleData):
+    type: Literal["machine_learning"]
+
+    index: List[str]
+    query: str
+    language: str
+
+
+@dataclass(frozen=True)
+class EQLRuleData(QueryRuleData):
+    """EQL rules are a special case of query rules."""
+    type: Literal["eql"]
+
+
+# All of the possible rule types
+AnyRuleData = Union[QueryRuleData, MachineLearningRuleData, EQLRuleData]
+
+
+@dataclass(frozen=True)
+class TOMLRule:
+    """Rule object which maps directly to the TOML layout."""
+    path: Path
+    metadata: RuleMeta
+    data: AnyRuleData = field(metadata=dict(data_key="rule"))
+
+    def latest_version(self) -> Optional[str]:
+        """Retrieve the latest known version of the rule."""
+
+    def autobumped_version(self) -> Optional[str]:
+        """Retrieve the current version of the rule, accounting for automatic increments."""
+
+    @cached_property
+    def sha256(self) -> str:
+        """Get the latest hash of the rule."""
+        return compute_sha256_hash(self.data)
 
 
 class Rule(object):
