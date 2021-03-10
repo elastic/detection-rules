@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/03/04"
 maturity = "production"
-updated_date = "2021/03/08"
+updated_date = "2021/03/09"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -13,12 +13,25 @@ false_positives = [
     """
     Files generated during installation will generate a lot of noise, so the rule should only be enabled after the fact.
     """,
+    """
+    This rule was tuned using the following baseline:
+    https://raw.githubusercontent.com/microsoft/CSS-Exchange/main/Security/Baselines/baseline_15.2.792.5.csv from
+    Microsoft. Depending on version, consult https://github.com/microsoft/CSS-Exchange/tree/main/Security/Baselines to
+    help determine normalcy.
+    """,
 ]
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Microsoft Exchange Server UM Writing Suspicious Files"
+note = """## Triage and analysis
+Positive hits can be checked against the established Microsoft [baselines](https://github.com/microsoft/CSS-Exchange/tree/main/Security/Baselines).
+
+Microsoft highly recommends that the best course of action is patching, but this may not protect already compromised systems
+from existing intrusions. Other tools for detecting an mitigation can be found within their Exchange support
+[repository](https://github.com/microsoft/CSS-Exchange/tree/main/Security)
+"""
 references = [
     "https://www.microsoft.com/security/blog/2021/03/02/hafnium-targeting-exchange-servers",
     "https://www.volexity.com/blog/2021/03/02/active-exploitation-of-microsoft-exchange-zero-day-vulnerabilities",
@@ -35,8 +48,13 @@ file where event.type == "creation" and
   process.parent.name : ("UMWorkerProcess.exe", "umservice.exe") and
   file.extension : ("php", "jsp", "js", "aspx", "asmx", "asax", "cfm", "shtml") and
   (
-    file.path : ("C:\\inetpub\\wwwroot\\aspnet_client\\*",
-                 "C:\\*\\FrontEnd\\HttpProxy\\owa\\auth\\*") or
+    file.path : ("C:\\inetpub\\wwwroot\\aspnet_client\\*") or
+
+    (file.path : "C:\\*\\FrontEnd\\HttpProxy\\owa\\auth\\*" and
+       not (file.path : "C:\\*\\FrontEnd\\HttpProxy\\owa\\auth\\version\\*" or
+            file.name : ("errorFE.aspx", "expiredpassword.aspx", "frowny.aspx", "GetIdToken.htm", "logoff.aspx",
+                        "logon.aspx", "OutlookCN.aspx", "RedirSuiteServiceProxy.aspx", "signout.aspx"))) or
+
     (file.path : "C:\\*\\FrontEnd\\HttpProxy\\ecp\\auth\\*" and not file.name : "TimeoutLogoff.aspx")
   )
 '''
