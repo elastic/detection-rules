@@ -26,8 +26,30 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process AND event.type:(start OR process_started) AND process.name:chmod AND
-  process.args:("+s" OR "u+s" OR /4[0-9]{3}/ OR g+s OR /2[0-9]{3}/)
+event.category:process AND event.type:(start OR process_started) AND
+ process.name:chmod AND process.args:("+s" OR "u+s" OR /4[0-9]{3}/ OR g+s OR /2[0-9]{3}/) AND
+ NOT process.args:
+           (
+             /.*\/Applications\/VirtualBox.app\/.+/ OR
+             /\/usr\/local\/lib\/python.+/ OR
+             /\/var\/folders\/.+\/FP.*nstallHelper/ OR
+             /\/Library\/Filesystems\/.+/ OR
+             /\/usr\/lib\/virtualbox\/.+/ OR
+             /\/Library\/Application.*/ OR
+             "/run/postgresql" OR
+             "/var/crash" OR
+             "/var/run/postgresql" OR
+             /\/usr\/bin\/.+/ OR /\/usr\/local\/share\/.+/ OR
+             /\/Applications\/.+/ OR /\/usr\/libexec\/.+/ OR
+             "/var/metrics" OR /\/var\/lib\/dpkg\/.+/ OR
+             /\/run\/log\/journal\/.*/
+           ) AND
+ NOT process.parent.executable:
+           (
+             /\/var\/lib\/docker\/.+/ OR
+             "/System/Library/PrivateFrameworks/PackageKit.framework/Versions/A/XPCServices/package_script_service.xpc/Contents/MacOS/package_script_service" OR
+             "/var/lib/dpkg/info/whoopsie.postinst"
+           )
 '''
 
 
