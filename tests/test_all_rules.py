@@ -83,7 +83,7 @@ class TestValidRules(BaseRuleTest):
             default_matches = find_unneeded_defaults_from_rule(contents)
 
             if default_matches:
-                rules_with_hits[self.rule_str(rule)] = default_matches
+                rules_with_hits[f'{contents["rule"]["rule_id"]} - {contents["rule"]["name"]}'] = default_matches
 
         error_msg = f'The following rules have unnecessary default values set: ' \
                     f'\n{json.dumps(rules_with_hits, indent=2)}'

@@ -15,7 +15,7 @@ from marshmallow import validates_schema
 import kql
 from . import ecs, beats, utils
 from .rule_formatter import toml_write
-from .schemas import TomlMetadata, downgrade
+from .schemas import downgrade
 from .schemas import definitions
 from .utils import get_path, cached
 
