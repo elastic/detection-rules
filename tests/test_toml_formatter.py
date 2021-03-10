@@ -6,14 +6,12 @@
 import copy
 import json
 import os
-import pytoml
 import unittest
 
-from detection_rules.rule import EQLRuleData
-from detection_rules.utils import get_etc_path
-from detection_rules import rule_loader
-from detection_rules.rule_formatter import nested_normalize, toml_write
+import pytoml
 
+from detection_rules.rule_formatter import nested_normalize, toml_write
+from detection_rules.utils import get_etc_path
 
 tmp_file = 'tmp_file.toml'
 

@@ -4,7 +4,6 @@
 # 2.0.
 """Rule object."""
 import json
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Union, Optional, List
@@ -15,8 +14,8 @@ from marshmallow import validates_schema
 
 import kql
 from . import ecs, beats, utils
-from .rule_formatter import nested_normalize, toml_write
-from .schemas import CurrentSchema, TomlMetadata, downgrade
+from .rule_formatter import toml_write
+from .schemas import TomlMetadata, downgrade
 from .schemas import definitions
 from .utils import get_path, cached
 

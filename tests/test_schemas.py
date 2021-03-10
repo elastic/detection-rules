@@ -4,16 +4,14 @@
 # 2.0.
 
 """Test stack versioned schemas."""
-import functools
+import copy
 import unittest
 import uuid
-from pathlib import Path
 
 import eql
-import copy
 
 from detection_rules import utils
-from detection_rules.rule import TOMLRule, TOMLRuleContents
+from detection_rules.rule import TOMLRuleContents
 from detection_rules.schemas import downgrade, CurrentSchema
 
 

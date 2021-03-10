@@ -13,16 +13,15 @@ from pathlib import Path
 
 import eql
 import jsonschema
-import kql
-import toml
 import pytoml
-from rta import get_ttp_names
+import toml
 
+import kql
 from detection_rules import attack, beats, ecs
+from detection_rules.rule import TOMLRule, BaseQueryRuleData
 from detection_rules.rule_loader import FILE_PATTERN, find_unneeded_defaults_from_rule
 from detection_rules.utils import load_etc_dump
-from detection_rules.rule import TOMLRule, BaseQueryRuleData, KQLRuleData
-
+from rta import get_ttp_names
 from .base import BaseRuleTest
 
 

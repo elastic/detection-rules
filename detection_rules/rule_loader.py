@@ -18,10 +18,9 @@ import pytoml
 
 from . import utils
 from .mappings import RtaMappings
-from .rule import RULES_DIR, TOMLRule, TOMLRuleContents, BaseQueryRuleData, EQLRuleData, KQLRuleData
+from .rule import RULES_DIR, TOMLRule, TOMLRuleContents, EQLRuleData, KQLRuleData
 from .schemas import CurrentSchema
 from .utils import get_path, cached
-
 
 RTA_DIR = get_path("rta")
 FILE_PATTERN = r'^([a-z0-9_])+\.(json|toml)$'
