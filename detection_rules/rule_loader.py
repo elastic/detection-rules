@@ -119,7 +119,7 @@ def load_rules(file_lookup=None, verbose=True, error=True):
 
         except Exception as e:
             failed = True
-            err_msg = "Invalid rule file in {}\n{}".format(rule_file, click.style(e.args[0], fg='red'))
+            err_msg = "Invalid rule file in {}\n{}".format(rule_file, click.style(str(e), fg='red'))
             errors.append(err_msg)
             if error:
                 if verbose:
