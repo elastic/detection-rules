@@ -10,13 +10,15 @@ import io
 import os
 import re
 from collections import OrderedDict
+from pathlib import Path
 from typing import Dict, List
 
 import click
 import pytoml
 
+from . import utils
 from .mappings import RtaMappings
-from .rule import RULES_DIR, Rule
+from .rule import RULES_DIR, TOMLRule, TOMLRuleContents, BaseQueryRuleData
 from .schemas import CurrentSchema
 from .utils import get_path, cached
 
@@ -78,7 +80,7 @@ def load_rules(file_lookup=None, verbose=True, error=True):
     file_lookup = file_lookup or load_rule_files(verbose=verbose)
 
     failed = False
-    rules: List[Rule] = []
+    rules: List[TOMLRule] = []
     errors = []
     queries = []
     query_check_index = []
@@ -87,7 +89,8 @@ def load_rules(file_lookup=None, verbose=True, error=True):
 
     for rule_file, rule_contents in file_lookup.items():
         try:
-            rule = Rule(rule_file, rule_contents)
+            contents = utils.from_dict(TOMLRuleContents, rule_contents)
+            rule = TOMLRule(path=Path(rule_file), contents=contents)
 
             if rule.id in rule_ids:
                 existing = next(r for r in rules if r.id == rule.id)
@@ -97,11 +100,8 @@ def load_rules(file_lookup=None, verbose=True, error=True):
                 existing = next(r for r in rules if r.name == rule.name)
                 raise KeyError(f'{rule.path} has duplicate name with \n{existing.path}')
 
-            parsed_query = rule.parsed_query
-            if parsed_query is not None:
-                # duplicate logic is ok across query and threshold rules
-                threshold = rule.contents.get('threshold', {})
-                duplicate_key = (parsed_query, rule.type, threshold.get('field'), threshold.get('value'))
+            if isinstance(contents.data, BaseQueryRuleData):
+                duplicate_key = (contents.data.parsed_query, contents.data.type)
                 query_check_index.append(rule)
 
                 if duplicate_key in queries:
@@ -149,8 +149,8 @@ def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rul
     labels = set(labels or [])
     open_prs = [r for r in repo.get_pulls() if not labels.difference(set(list(lbl.name for lbl in r.get_labels())))]
 
-    new_rules: List[Rule] = []
-    modified_rules: List[Rule] = []
+    new_rules: List[TOMLRule] = []
+    modified_rules: List[TOMLRule] = []
     errors: Dict[str, list] = {}
 
     existing_rules = load_rules(verbose=False)
@@ -164,7 +164,7 @@ def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rul
         response = requests.get(rule_file.raw_url)
         try:
             raw_rule = pytoml.loads(response.text)
-            rule = Rule(rule_file.filename, raw_rule)
+            rule = TOMLRule(rule_file.filename, raw_rule)
             rule.gh_pr = pull
 
             if rule.id in existing_rules:
@@ -200,7 +200,7 @@ def get_rule(rule_id=None, rule_name=None, file_name=None, verbose=True):
     if rule_id is not None:
         return rules_lookup.get(rule_id)
 
-    for rule in rules_lookup.values():  # type: Rule
+    for rule in rules_lookup.values():  # type: TOMLRule
         if rule.name == rule_name:
             return rule
         elif rule.path == file_name:
@@ -249,7 +249,7 @@ def get_non_required_defaults_by_type(rule_type: str) -> dict:
     return non_required_defaults
 
 
-def find_unneeded_defaults_from_rule(rule: Rule) -> dict:
+def find_unneeded_defaults_from_rule(rule: TOMLRule) -> dict:
     """Remove values that are not required in the schema which are set with default values."""
     unrequired_defaults = get_non_required_defaults_by_type(rule.type)
     default_matches = {p: rule.contents[p] for p, v in unrequired_defaults.items()

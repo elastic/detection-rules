@@ -17,8 +17,9 @@ import jsonschema
 import pytoml
 
 from . import rule_loader
+from .cli_utils import rule_prompt
 from .misc import client_error, nested_set, parse_config
-from .rule import Rule
+from .rule import TOMLRule
 from .rule_formatter import toml_write
 from .schemas import CurrentSchema, available_versions
 from .utils import get_path, clear_caches, load_rule_contents
@@ -48,7 +49,7 @@ def create_rule(path, config, required_only, rule_type):
     """Create a detection rule."""
     contents = load_rule_contents(config, single_only=True)[0] if config else {}
     try:
-        return Rule.build(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
+        return rule_prompt(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
     finally:
         rule_loader.reset()
 
@@ -109,7 +110,7 @@ def import_rules(infile, directory):
         base_path = contents.get('name') or contents.get('rule', {}).get('name')
         base_path = name_to_filename(base_path) if base_path else base_path
         rule_path = os.path.join(RULES_DIR, base_path) if base_path else None
-        Rule.build(rule_path, required_only=True, save=True, verbose=True, **contents)
+        rule_prompt(rule_path, required_only=True, save=True, verbose=True, **contents)
 
 
 @root.command('toml-lint')
@@ -118,7 +119,7 @@ def toml_lint(rule_file):
     """Cleanup files with some simple toml formatting."""
     if rule_file:
         contents = pytoml.load(rule_file)
-        rule = Rule(path=rule_file.name, contents=contents)
+        rule = TOMLRule(path=rule_file.name, contents=contents)
 
         # removed unneeded defaults
         for field in rule_loader.find_unneeded_defaults_from_rule(rule):
@@ -178,7 +179,7 @@ def view_rule(ctx, rule_id, rule_file, api_format, verbose=True):
         contents = {k: v for k, v in load_rule_contents(rule_file, single_only=True)[0].items() if v}
 
         try:
-            rule = Rule(rule_file, contents)
+            rule = TOMLRule(rule_file, contents)
         except jsonschema.ValidationError as e:
             client_error(f'Rule: {rule_id or os.path.basename(rule_file)} failed validation', e, ctx=ctx)
     else:
@@ -317,7 +318,7 @@ def search_rules(query, columns, language, count, verbose=True, rules: Dict[str,
             subtechnique_ids.extend([st['id'] for t in techniques for st in t.get('subtechnique', [])])
 
         flat.update(techniques=technique_ids, tactics=tactic_names, subtechniques=subtechnique_ids,
-                    unique_fields=Rule.get_unique_query_fields(rule_doc['rule']))
+                    unique_fields=TOMLRule.get_unique_query_fields(rule_doc['rule']))
         flattened_rules.append(flat)
 
     flattened_rules.sort(key=lambda dct: dct["name"])

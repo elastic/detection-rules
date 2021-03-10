@@ -18,6 +18,7 @@ from .v7_12 import ApiSchema712
 __all__ = (
     "all_schemas",
     "available_versions",
+    "definitions",
     "downgrade",
     "CurrentSchema",
     "validate_rta_mapping",

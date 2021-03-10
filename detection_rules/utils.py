@@ -4,10 +4,12 @@
 # 2.0.
 
 """Util functions."""
+import base64
 import contextlib
 import functools
 import glob
 import gzip
+import hashlib
 import io
 import json
 import os
@@ -15,6 +17,10 @@ import time
 import zipfile
 from datetime import datetime, date
 from pathlib import Path
+from dataclasses import dataclass, asdict, is_dataclass
+from typing import Type, TypeVar
+
+import marshmallow_dataclass
 
 import kql
 
@@ -26,10 +32,44 @@ ROOT_DIR = os.path.dirname(CURR_DIR)
 ETC_DIR = os.path.join(ROOT_DIR, "etc")
 
 
+class NonelessDict(dict):
+    """Wrapper around dict that doesn't populate None values."""
+
+    def __setitem__(self, key, value):
+        if value is not None:
+            dict.__setitem__(self, key, value)
+
+
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, (date, datetime)):
             return obj.isoformat()
+
+
+def dataclass_to_dict(obj: dataclass) -> dict:
+    """Wrapper around dataclasses.asdict that drops None values."""
+    return asdict(obj, dict_factory=NonelessDict)
+
+
+marshmallow_schemas = {}
+
+
+ClassT = TypeVar('ClassT')  # bound=dataclass?
+
+
+def from_dict(cls: Type[ClassT], obj: dict) -> ClassT:
+    """Load a dataclass from an unvalidated dictionary."""
+    if cls not in marshmallow_schemas:
+        assert is_dataclass(cls)
+        marshmallow_schemas[cls] = marshmallow_dataclass.class_schema(cls)
+
+    return marshmallow_schemas[cls]().load(obj)
+
+
+def dict_hash(obj: dict) -> str:
+    """Hash a dictionary deterministically."""
+    raw_bytes = base64.b64encode(json.dumps(obj, sort_keys=True).encode('utf-8'))
+    return hashlib.sha256(raw_bytes).hexdigest()
 
 
 def get_json_iter(f):

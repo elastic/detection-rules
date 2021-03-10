@@ -9,7 +9,7 @@ import uuid
 import eql
 import copy
 
-from detection_rules.rule import Rule
+from detection_rules.rule import TOMLRule
 from detection_rules.schemas import downgrade, CurrentSchema
 
 
@@ -49,11 +49,13 @@ class TestSchemas(unittest.TestCase):
         }
         cls.v79_kql = dict(cls.v78_kql, author=["Elastic"], license="Elastic License v2")
         cls.v711_kql = copy.deepcopy(cls.v79_kql)
+        # noinspection PyTypeChecker
         cls.v711_kql["threat"][0]["technique"][0]["subtechnique"] = [{
             "id": "T1059.001",
             "name": "PowerShell",
             "reference": "https://attack.mitre.org/techniques/T1059/001/"
         }]
+        # noinspection PyTypeChecker
         cls.v711_kql["threat"].append({
             "framework": "MITRE ATT&CK",
             "tactic": {
@@ -62,9 +64,6 @@ class TestSchemas(unittest.TestCase):
                 "reference": "https://attack.mitre.org/tactics/TA0008/"
             },
         })
-
-        cls.versioned_rule = Rule("test.toml", copy.deepcopy(cls.v79_kql))
-        cls.versioned_rule.contents["version"] = 10
 
         cls.v79_threshold_contents = {
             "author": ["Elastic"],
@@ -82,14 +81,14 @@ class TestSchemas(unittest.TestCase):
             },
             "type": "threshold",
         }
-        cls.v712_threshold_rule = Rule('test.toml', dict(copy.deepcopy(cls.v79_threshold_contents), threshold={
+        cls.v712_threshold_rule = dict(copy.deepcopy(cls.v79_threshold_contents), threshold={
             'field': ['destination.bytes', 'process.args'],
             'value': 75,
             'cardinality': {
                 'field': 'user.name',
                 'value': 2
             }
-        }))
+        })
 
     def test_query_downgrade(self):
         """Downgrade a standard KQL rule."""
@@ -111,7 +110,7 @@ class TestSchemas(unittest.TestCase):
 
     def test_versioned_downgrade(self):
         """Downgrade a KQL rule with version information"""
-        api_contents = self.versioned_rule.contents
+        api_contents = self.v79_kql
         self.assertDictEqual(downgrade(api_contents, "7.9"), api_contents)
         self.assertDictEqual(downgrade(api_contents, "7.9.2"), api_contents)
 
@@ -126,7 +125,7 @@ class TestSchemas(unittest.TestCase):
 
     def test_threshold_downgrade(self):
         """Downgrade a threshold rule that was first introduced in 7.9."""
-        api_contents = self.v712_threshold_rule.contents
+        api_contents = self.v712_threshold_rule
         self.assertDictEqual(downgrade(api_contents, CurrentSchema.STACK_VERSION), api_contents)
         self.assertDictEqual(downgrade(api_contents, CurrentSchema.STACK_VERSION + '.1'), api_contents)
 
@@ -164,21 +163,21 @@ class TestSchemas(unittest.TestCase):
             "type": "eql"
         }
 
-        Rule("test.toml", dict(base_fields, query="""
+        TOMLRule("test.toml", dict(base_fields, query="""
             process where process.name == "cmd.exe"
         """))
 
         with self.assertRaises(eql.EqlSyntaxError):
-            Rule("test.toml", dict(base_fields, query="""
+            TOMLRule("test.toml", dict(base_fields, query="""
                     process where process.name == this!is$not#v@lid
             """))
 
         with self.assertRaises(eql.EqlSemanticError):
-            Rule("test.toml", dict(base_fields, query="""
+            TOMLRule("test.toml", dict(base_fields, query="""
                     process where process.invalid_field == "hello world"
             """))
 
         with self.assertRaises(eql.EqlTypeMismatchError):
-            Rule("test.toml", dict(base_fields, query="""
+            TOMLRule("test.toml", dict(base_fields, query="""
                     process where process.pid == "some string field"
             """))

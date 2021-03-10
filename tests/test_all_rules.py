@@ -21,7 +21,7 @@ from rta import get_ttp_names
 from detection_rules import attack, beats, ecs
 from detection_rules.rule_loader import FILE_PATTERN, find_unneeded_defaults_from_rule
 from detection_rules.utils import load_etc_dump
-from detection_rules.rule import Rule
+from detection_rules.rule import TOMLRule
 
 from .base import BaseRuleTest
 
@@ -37,7 +37,7 @@ class TestValidRules(BaseRuleTest):
         """Ensure that every rule file can be loaded and validate against schema."""
         for file_name, contents in self.rule_files.items():
             try:
-                Rule(file_name, contents)
+                TOMLRule(file_name, contents)
             except (pytoml.TomlError, toml.TomlDecodeError) as e:
                 print("TOML error when parsing rule file \"{}\"".format(os.path.basename(file_name)), file=sys.stderr)
                 raise e
@@ -61,13 +61,13 @@ class TestValidRules(BaseRuleTest):
     def test_all_rules_as_rule_schema(self):
         """Ensure that every rule file validates against the rule schema."""
         for file_name, contents in self.rule_files.items():
-            rule = Rule(file_name, contents)
+            rule = TOMLRule(file_name, contents)
             rule.validate(as_rule=True)
 
     def test_all_rule_queries_optimized(self):
         """Ensure that every rule query is in optimized form."""
         for file_name, contents in self.rule_files.items():
-            rule = Rule(file_name, contents)
+            rule = TOMLRule(file_name, contents)
 
             if rule.query and rule.contents['language'] == 'kuery':
                 tree = kql.parse(rule.query, optimize=False)
@@ -81,7 +81,7 @@ class TestValidRules(BaseRuleTest):
         rules_with_hits = {}
 
         for file_name, contents in self.rule_files.items():
-            rule = Rule(file_name, contents)
+            rule = TOMLRule(file_name, contents)
             default_matches = find_unneeded_defaults_from_rule(rule)
 
             if default_matches:

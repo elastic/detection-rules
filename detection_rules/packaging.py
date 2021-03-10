@@ -19,7 +19,7 @@ import yaml
 
 from . import rule_loader
 from .misc import JS_LICENSE, cached
-from .rule import Rule, downgrade_contents_from_rule  # noqa: F401
+from .rule import TOMLRule, downgrade_contents_from_rule  # noqa: F401
 from .utils import Ndjson, get_path, get_etc_path, load_etc_dump, save_etc_dump
 
 RELEASE_DIR = get_path("releases")
@@ -28,9 +28,10 @@ NOTICE_FILE = get_path('NOTICE.txt')
 # CHANGELOG_FILE = Path(get_etc_path('rules-changelog.json'))
 
 
-def filter_rule(rule: Rule, config_filter: dict, exclude_fields: dict) -> bool:
+def filter_rule(rule: TOMLRule, config_filter: dict, exclude_fields: dict) -> bool:
     """Filter a rule based off metadata and a package configuration."""
-    flat_rule = rule.flattened_contents
+    flat_rule = rule.flattened_dict()
+
     for key, values in config_filter.items():
         if key not in flat_rule:
             return False
@@ -152,15 +153,15 @@ def manage_versions(rules: list, deprecated_rules: list = None, current_versions
 class Package(object):
     """Packaging object for siem rules and releases."""
 
-    def __init__(self, rules: List[Rule], name: str, deprecated_rules: Optional[List[Rule]] = None,
+    def __init__(self, rules: List[TOMLRule], name: str, deprecated_rules: Optional[List[TOMLRule]] = None,
                  release: Optional[bool] = False, current_versions: Optional[dict] = None,
                  min_version: Optional[int] = None, max_version: Optional[int] = None,
                  update_version_lock: Optional[bool] = False, registry_data: Optional[dict] = None,
                  verbose: Optional[bool] = True):
         """Initialize a package."""
-        self.rules = [r.copy() for r in rules]
         self.name = name
-        self.deprecated_rules = [r.copy() for r in deprecated_rules or []]
+        self.rules = rules
+        self.deprecated_rules: List[TOMLRule] = deprecated_rules or []
         self.release = release
         self.registry_data = registry_data or {}
 
@@ -380,14 +381,14 @@ class Package(object):
         letters = ascii_uppercase + ascii_lowercase
         index_map = {index: letters[i] for i, index in enumerate(sorted(indexes))}
 
-        def get_summary_rule_info(r: Rule):
+        def get_summary_rule_info(r: TOMLRule):
             rule_str = f'{r.name:<{longest_name}} (v:{r.contents.get("version")} t:{r.type}'
             rule_str += f'-{r.contents["language"]})' if r.contents.get('language') else ')'
             rule_str += f'(indexes:{"".join(index_map[i] for i in r.contents.get("index"))})' \
                 if r.contents.get('index') else ''
             return rule_str
 
-        def get_markdown_rule_info(r: Rule, sd):
+        def get_markdown_rule_info(r: TOMLRule, sd):
             # lookup the rule in the GitHub tag v{major.minor.patch}
             rules_dir_link = f'https://github.com/elastic/detection-rules/tree/v{self.name}/rules/{sd}/'
             rule_type = r.contents['language'] if r.type in ('query', 'eql') else r.type

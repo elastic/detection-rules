@@ -23,7 +23,7 @@ from .eswrap import CollectEvents, add_range_to_dsl
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, GithubClient, Manifest, client_error, getdefault
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
-from .rule import Rule
+from .rule import TOMLRule
 from .rule_loader import get_rule
 from .utils import get_path
 
@@ -96,7 +96,7 @@ def kibana_diff(rule_id, repo, branch, threads):
     repo_hashes = {r.id: r.get_hash() for r in rules.values()}
 
     kibana_rules = {r['rule_id']: r for r in get_kibana_rules(repo=repo, branch=branch, threads=threads).values()}
-    kibana_hashes = {r['rule_id']: Rule.dict_hash(r) for r in kibana_rules.values()}
+    kibana_hashes = {r['rule_id']: TOMLRule.dict_hash(r) for r in kibana_rules.values()}
 
     missing_from_repo = list(set(kibana_hashes).difference(set(repo_hashes)))
     missing_from_kibana = list(set(repo_hashes).difference(set(kibana_hashes)))
@@ -354,7 +354,7 @@ def rule_event_search(ctx, rule_file, rule_id, date_range, count, max_results, v
     if rule_id:
         rule = get_rule(rule_id, verbose=False)
     elif rule_file:
-        rule = Rule(rule_file, load_dump(rule_file))
+        rule = TOMLRule(rule_file, load_dump(rule_file))
     else:
         client_error('Must specify a rule file or rule ID')
 

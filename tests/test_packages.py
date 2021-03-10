@@ -34,7 +34,7 @@ class TestPackages(unittest.TestCase):
             }
             return contents
 
-        rules = [rule_loader.Rule('test.toml', get_rule_contents()) for i in range(count)]
+        rules = [rule_loader.TOMLRule('test.toml', get_rule_contents()) for i in range(count)]
         version_info = {
             rule.id: {
                 'rule_name': rule.name,
