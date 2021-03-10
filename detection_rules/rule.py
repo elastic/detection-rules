@@ -32,6 +32,7 @@ class RuleMeta:
 
     # Optional fields
     beats_version: Optional[definitions.SemVer]
+    ecs_versions: Optional[List[definitions.SemVer]]
     comments: Optional[str]
     maturity: Optional[definitions.Maturity]
     os_type_list: Optional[List[definitions.OSType]]
@@ -81,16 +82,16 @@ class ThreatMapping:
         sub_technique_names = set()
 
         for entry in (threat_mappings or []):
-            tactic_names.append(entry['tactic']['name'])
-            tactic_ids.append(entry['tactic']['id'])
+            tactic_names.append(entry.tactic.name)
+            tactic_ids.append(entry.tactic.id)
 
-            for technique in entry.get('technique', []):
-                technique_names.add(technique['name'])
-                technique_ids.add(technique['id'])
-                sub_technique = technique.get('subtechnique', [])
+            for technique in (entry.technique or []):
+                technique_names.add(technique.name)
+                technique_ids.add(technique.id)
 
-                sub_technique_ids.update(st['id'] for st in sub_technique)
-                sub_technique_names.update(st['name'] for st in sub_technique)
+                for subtechnique in (technique.subtechnique or []):
+                    sub_technique_ids.update(subtechnique.id)
+                    sub_technique_names.update(subtechnique.name)
 
         return FlatThreatMapping(
             tactic_names=sorted(tactic_names),
@@ -175,6 +176,7 @@ class BaseQueryRuleData(BaseRuleData):
     query: str
     language: str
 
+    @property
     def parsed_query(self) -> Optional[object]:
         return None
 
@@ -195,30 +197,22 @@ class KQLRuleData(BaseQueryRuleData):
     def to_eql(self) -> eql.ast.Expression:
         return kql.to_eql(self.query)
 
-    @staticmethod
-    def validate_query(data: dict, parent_data: dict):
+    def validate_query(self, beats_version: str, ecs_versions: List[str]):
         """Static method to validate the query, called from the parent which contains [metadata] information."""
-        query = data["query"]
-        indexes = data.get("index", [])
-        beats_version = parent_data["metadata"].get("beats_version", beats.get_max_version())
-        ecs_versions = parent_data["metadata"].get("ecs_version", [ecs.get_max_version()])
-
-        # TODO: remove once py-eql supports ipv6 for cidrmatch
-        # Or, unregister the cidrMatch function and replace it with one that doesn't validate against strict IPv4
-        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
-            parsed = eql.parse_query(data["query"])
+        indexes = self.index or []
+        parsed = self.parsed_query
 
         beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
-        beat_schema = beats.get_schema_from_eql(parsed, beat_types, version=beats_version) if beat_types else None
+        beat_schema = beats.get_schema_from_kql(parsed, beat_types, version=beats_version) if beat_types else None
 
         if not ecs_versions:
-            kql.parse(query, schema=ecs.get_kql_schema(indexes=indexes, beat_schema=beat_schema))
+            kql.parse(self.query, schema=ecs.get_kql_schema(indexes=indexes, beat_schema=beat_schema))
         else:
             for version in ecs_versions:
                 schema = ecs.get_kql_schema(version=version, indexes=indexes, beat_schema=beat_schema)
 
                 try:
-                    kql.parse(query, schema=schema)
+                    kql.parse(self.query, schema=schema)
                 except kql.KqlParseError as exc:
                     message = exc.error_msg
                     trailer = None
@@ -277,29 +271,23 @@ class EQLRuleData(BaseQueryRuleData):
     def unique_fields(self):
         return list(set(str(f) for f in self.parsed_query if isinstance(f, eql.ast.Field)))
 
-    @staticmethod
-    def validate_eql(data: dict, parent_data: dict):
+    def validate_query(self, beats_version: str, ecs_versions: List[str]):
         """Validate an EQL query while checking TOMLRule."""
-        query = data["query"]
-        indexes = data.get("index", [])
-        beats_version = parent_data["metadata"].get("beats_version", beats.get_max_version())
-        ecs_versions = parent_data["metadata"].get("ecs_version", [ecs.get_max_version()])
-
         # TODO: remove once py-eql supports ipv6 for cidrmatch
         # Or, unregister the cidrMatch function and replace it with one that doesn't validate against strict IPv4
         with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
-            parsed = eql.parse_query(data["query"])
+            parsed = eql.parse_query(self.query)
 
-        beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
+        beat_types = [index.split("-")[0] for index in self.index or [] if "beat-*" in index]
         beat_schema = beats.get_schema_from_eql(parsed, beat_types, version=beats_version) if beat_types else None
 
         for version in ecs_versions:
-            schema = ecs.get_kql_schema(indexes=indexes, beat_schema=beat_schema, version=version)
+            schema = ecs.get_kql_schema(indexes=self.index or [], beat_schema=beat_schema, version=version)
 
             try:
                 # TODO: switch to custom cidrmatch that allows ipv6
                 with ecs.KqlSchema2Eql(schema), eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
-                    eql.parse_query(query)
+                    eql.parse_query(self.query)
 
             except eql.EqlTypeMismatchError:
                 raise
@@ -310,8 +298,8 @@ class EQLRuleData(BaseQueryRuleData):
                 if "Unknown field" in message and beat_types:
                     trailer = "\nTry adding event.module or event.dataset to specify beats module"
 
-                raise type(exc)(exc.error_msg, exc.line, exc.column, exc.source,
-                                len(exc.caret.lstrip()), trailer=trailer) from None
+                raise exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
+                                    len(exc.caret.lstrip()), trailer=trailer) from None
 
 
 # All of the possible rule types
@@ -328,37 +316,9 @@ class TOMLRuleContents:
     def id(self) -> definitions.UUIDString:
         return self.data.rule_id
 
-    @validates_schema
-    def validate_query(self, data: dict, **kwargs):
-        """Validate queries by calling into the validator for the relevant method."""
-        if data.get("language") == "eql":
-            EQLRuleData.validate_eql(data["rule"], parent_data=data)
-
-    def flattened_dict(self) -> dict:
-        flattened = dict()
-        flattened.update(utils.dataclass_to_dict(self.data))
-        flattened.update(utils.dataclass_to_dict(self.metadata))
-        return flattened
-
-    @cached
-    def sha256(self) -> str:
-        # get the hash of the API dict with the version not included, otherwise it'll always be dirty.
-        hashable_contents = self.to_api_format(include_version=False)
-        return utils.dict_hash(hashable_contents)
-
-
-@dataclass(frozen=True)
-class TOMLRule:
-    contents: TOMLRuleContents
-    path: Path
-
     @property
-    def id(self):
-        return self.contents.id
-
-    @property
-    def name(self):
-        return self.contents.data.name
+    def name(self) -> str:
+        return self.data.name
 
     @property
     def is_dirty(self) -> Optional[bool]:
@@ -393,13 +353,57 @@ class TOMLRule:
 
         return version + 1 if self.is_dirty else version
 
+    @validates_schema
+    def validate_query(self, value: dict, **kwargs):
+        """Validate queries by calling into the validator for the relevant method."""
+        data: AnyRuleData = value["data"]
+        metadata: RuleMeta = value["metadata"]
+
+        beats_version = metadata.beats_version or beats.get_max_version()
+        ecs_versions = metadata.ecs_versions or [ecs.get_max_version()]
+
+        # call into these validate methods
+        if isinstance(data, (EQLRuleData, KQLRuleData)):
+            if metadata.query_schema_validation is False:
+                # Check the syntax only
+                _ = data.parsed_query
+            else:
+                # otherwise, do a full schema validation
+                data.validate_query(beats_version=beats_version, ecs_versions=ecs_versions)
+
+    def flattened_dict(self) -> dict:
+        flattened = dict()
+        flattened.update(utils.dataclass_to_dict(self.data))
+        flattened.update(utils.dataclass_to_dict(self.metadata))
+        return flattened
+
     def to_api_format(self, include_version=True) -> dict:
         """Convert the TOML rule to the API format."""
-        converted = utils.dataclass_to_dict(self.contents.data)
+        converted = utils.dataclass_to_dict(self.data)
         if include_version:
             converted["version"] = self.autobumped_version
 
         return converted
+
+    @cached
+    def sha256(self) -> str:
+        # get the hash of the API dict with the version not included, otherwise it'll always be dirty.
+        hashable_contents = self.to_api_format(include_version=False)
+        return utils.dict_hash(hashable_contents)
+
+
+@dataclass(frozen=True)
+class TOMLRule:
+    contents: TOMLRuleContents
+    path: Path
+
+    @property
+    def id(self):
+        return self.contents.id
+
+    @property
+    def name(self):
+        return self.contents.data.name
 
     def save_toml(self):
         converted = utils.dataclass_to_dict(self.contents)
@@ -408,7 +412,7 @@ class TOMLRule:
 
     def save_json(self, path: Path, include_version: bool = True):
         with open(str(path.absolute()), 'w', newline='\n') as f:
-            json.dump(self.to_api_format(include_version=include_version), f, sort_keys=True, indent=2)
+            json.dump(self.contents.to_api_format(include_version=include_version), f, sort_keys=True, indent=2)
             f.write('\n')
 
 
@@ -469,135 +473,135 @@ def _run_build_time_transforms(self, contents):
     """Apply changes to rules at build time for rule payload."""
     self._add_empty_attack_technique(contents)
     return contents
-
-
-def rule_format(self, formatted_query=True):
-    """Get the contents and metadata in rule format."""
-    contents = self.contents.copy()
-    if formatted_query:
-        if self.formatted_rule:
-            contents['query'] = self.formatted_rule
-    return {'metadata': self.metadata, 'rule': contents}
-
-
-def detailed_format(self, add_missing_defaults=True, **additional_details):
-    """Get the rule with expanded details."""
-    from .rule_loader import get_non_required_defaults_by_type
-
-    rule = self.rule_format().copy()
-
-    if add_missing_defaults:
-        non_required_defaults = get_non_required_defaults_by_type(self.type)
-        rule['rule'].update({k: v for k, v in non_required_defaults.items() if k not in rule['rule']})
-
-    rule['details'] = {
-        'flat_mitre': self.get_flat_mitre(),
-        'relative_path': str(Path(self.path).resolve().relative_to(RULES_DIR)),
-        'unique_fields': self.unique_fields,
-
-    }
-    rule['details'].update(**additional_details)
-    return rule
-
-
-def normalize(self, indent=2):
-    """Normalize the (api only) contents and return a serialized dump of it."""
-    return json.dumps(nested_normalize(self.contents, eql_rule=self.type == 'eql'), sort_keys=True, indent=indent)
-
-
-def get_path(self):
-    """Wrapper around getting path."""
-    if not self.path:
-        raise ValueError('path not set for rule: \n\t{}'.format(self))
-
-    return self.path
-
-
-def needs_save(self):
-    """Determines if the rule was changed from original or was never saved."""
-    return self._original_hash != self.get_hash()
-
-
-def bump_version(self):
-    """Bump the version of the rule."""
-    self.contents['version'] += 1
-
-
-def rule_validate(self, as_rule=False, versioned=False, query=True):
-    """Validate against a rule schema, query schema, and linting."""
-    self.normalize()
-
-    if as_rule:
-        schema_cls = CurrentSchema.toml_schema()
-        contents = self.rule_format()
-    elif versioned:
-        schema_cls = CurrentSchema.versioned()
-        contents = self.contents
-    else:
-        schema_cls = CurrentSchema
-        contents = self.contents
-
-    schema_cls.validate(contents, role=self.type)
-
-    skip_query_validation = self.metadata['maturity'] in ('experimental', 'development') and \
-        self.metadata.get('query_schema_validation') is False
-
-    if query and self.query is not None and not skip_query_validation:
-        ecs_versions = self.metadata.get('ecs_version', [ecs.get_max_version()])
-        beats_version = self.metadata.get('beats_version', beats.get_max_version())
-        indexes = self.contents.get("index", [])
-
-        if self.contents['language'] == 'kuery':
-            self._validate_kql(ecs_versions, beats_version, indexes, self.query, self.name)
-
-        if self.contents['language'] == 'eql':
-            self._validate_eql(ecs_versions, beats_version, indexes, self.query, self.name)
-
-
-def save(self, new_path=None, as_rule=False, verbose=False):
-    """Save as pretty toml rule file as toml."""
-    path, _ = os.path.splitext(new_path or self.get_path())
-    path += '.toml' if as_rule else '.json'
-
-    if as_rule:
-        toml_write(self.rule_format(), path)
-    else:
-        with open(path, 'w', newline='\n') as f:
-            json.dump(self.get_payload(), f, sort_keys=True, indent=2)
-            f.write('\n')
-
-    if verbose:
-        print('Rule {} saved to {}'.format(self.name, path))
-
-
-def get_payload(self: TOMLRule, include_version=False, replace_id=False, embed_metadata=False, target_version=None):
-    """Get rule as uploadable/API-compatible payload."""
-    from uuid import uuid4
-    from .schemas import downgrade
-
-    payload = self._run_build_time_transforms(self.contents.copy())
-
-    if include_version:
-        payload['version'] = self.get_version()
-
-    if embed_metadata:
-        meta = payload.setdefault("meta", {})
-        meta["original"] = dict(id=self.id, **self.metadata)
-
-    if replace_id:
-        payload["rule_id"] = str(uuid4())
-
-    if target_version:
-        payload = downgrade(payload, target_version)
-
-    return payload
+#
+#
+# def rule_format(self, formatted_query=True):
+#     """Get the contents and metadata in rule format."""
+#     contents = self.contents.copy()
+#     if formatted_query:
+#         if self.formatted_rule:
+#             contents['query'] = self.formatted_rule
+#     return {'metadata': self.metadata, 'rule': contents}
+#
+#
+# def detailed_format(self, add_missing_defaults=True, **additional_details):
+#     """Get the rule with expanded details."""
+#     from .rule_loader import get_non_required_defaults_by_type
+#
+#     rule = self.rule_format().copy()
+#
+#     if add_missing_defaults:
+#         non_required_defaults = get_non_required_defaults_by_type(self.type)
+#         rule['rule'].update({k: v for k, v in non_required_defaults.items() if k not in rule['rule']})
+#
+#     rule['details'] = {
+#         'flat_mitre': self.get_flat_mitre(),
+#         'relative_path': str(Path(self.path).resolve().relative_to(RULES_DIR)),
+#         'unique_fields': self.unique_fields,
+#
+#     }
+#     rule['details'].update(**additional_details)
+#     return rule
+# #
+# #
+# # def normalize(self, indent=2):
+# #     """Normalize the (api only) contents and return a serialized dump of it."""
+# #     return json.dumps(nested_normalize(self.contents, eql_rule=self.type == 'eql'), sort_keys=True, indent=indent)
+# #
+# #
+# # def get_path(self):
+# #     """Wrapper around getting path."""
+# #     if not self.path:
+# #         raise ValueError('path not set for rule: \n\t{}'.format(self))
+# #
+# #     return self.path
+# #
+# #
+# # def needs_save(self):
+# #     """Determines if the rule was changed from original or was never saved."""
+# #     return self._original_hash != self.get_hash()
+# #
+# #
+# # def bump_version(self):
+# #     """Bump the version of the rule."""
+# #     self.contents['version'] += 1
+# #
+# #
+# # def rule_validate(self, as_rule=False, versioned=False, query=True):
+# #     """Validate against a rule schema, query schema, and linting."""
+# #     self.normalize()
+# #
+# #     if as_rule:
+# #         schema_cls = CurrentSchema.toml_schema()
+# #         contents = self.rule_format()
+# #     elif versioned:
+# #         schema_cls = CurrentSchema.versioned()
+# #         contents = self.contents
+# #     else:
+# #         schema_cls = CurrentSchema
+# #         contents = self.contents
+# #
+# #     schema_cls.validate(contents, role=self.type)
+# #
+# #     skip_query_validation = self.metadata['maturity'] in ('experimental', 'development') and \
+# #         self.metadata.get('query_schema_validation') is False
+# #
+# #     if query and self.query is not None and not skip_query_validation:
+# #         ecs_versions = self.metadata.get('ecs_version', [ecs.get_max_version()])
+# #         beats_version = self.metadata.get('beats_version', beats.get_max_version())
+# #         indexes = self.contents.get("index", [])
+# #
+# #         if self.contents['language'] == 'kuery':
+# #             self._validate_kql(ecs_versions, beats_version, indexes, self.query, self.name)
+# #
+# #         if self.contents['language'] == 'eql':
+# #             self._validate_eql(ecs_versions, beats_version, indexes, self.query, self.name)
+# #
+# #
+# # def save(self, new_path=None, as_rule=False, verbose=False):
+# #     """Save as pretty toml rule file as toml."""
+# #     path, _ = os.path.splitext(new_path or self.get_path())
+# #     path += '.toml' if as_rule else '.json'
+# #
+# #     if as_rule:
+# #         toml_write(self.rule_format(), path)
+# #     else:
+# #         with open(path, 'w', newline='\n') as f:
+# #             json.dump(self.get_payload(), f, sort_keys=True, indent=2)
+# #             f.write('\n')
+# #
+# #     if verbose:
+# #         print('Rule {} saved to {}'.format(self.name, path))
+#
+#
+# def get_payload(self: TOMLRule, include_version=False, replace_id=False, embed_metadata=False, target_version=None):
+#     """Get rule as uploadable/API-compatible payload."""
+#     from uuid import uuid4
+#     from .schemas import downgrade
+#
+#     payload = self._run_build_time_transforms(self.contents.copy())
+#
+#     if include_version:
+#         payload['version'] = self.get_version()
+#
+#     if embed_metadata:
+#         meta = payload.setdefault("meta", {})
+#         meta["original"] = dict(id=self.id, **self.metadata)
+#
+#     if replace_id:
+#         payload["rule_id"] = str(uuid4())
+#
+#     if target_version:
+#         payload = downgrade(payload, target_version)
+#
+#     return payload
 
 
 def downgrade_contents_from_rule(rule: TOMLRule, target_version: str) -> dict:
     """Generate the downgraded contents from a rule."""
-    payload = rule.contents.copy()
+    payload = rule.contents.to_api_format()
     meta = payload.setdefault("meta", {})
-    meta["original"] = dict(id=rule.id, **rule.metadata)
+    meta["original"] = dict(id=rule.id, **utils.dataclass_to_dict(rule.contents.metadata))
     payload["rule_id"] = str(uuid4())
     payload = downgrade(payload, target_version)
     return payload

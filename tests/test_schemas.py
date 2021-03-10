@@ -4,12 +4,16 @@
 # 2.0.
 
 """Test stack versioned schemas."""
+import functools
 import unittest
 import uuid
+from pathlib import Path
+
 import eql
 import copy
 
-from detection_rules.rule import TOMLRule
+from detection_rules import utils
+from detection_rules.rule import TOMLRule, TOMLRuleContents
 from detection_rules.schemas import downgrade, CurrentSchema
 
 
@@ -163,21 +167,28 @@ class TestSchemas(unittest.TestCase):
             "type": "eql"
         }
 
-        TOMLRule("test.toml", dict(base_fields, query="""
+        def build_rule(query):
+            metadata = {"creation_date": "1970-01-01", "updated_date": "1970-01-01"}
+            data = base_fields.copy()
+            data["query"] = query
+            obj = {"metadata": metadata, "rule": data}
+            return utils.from_dict(TOMLRuleContents, obj)
+
+        build_rule("""
             process where process.name == "cmd.exe"
-        """))
+        """)
 
         with self.assertRaises(eql.EqlSyntaxError):
-            TOMLRule("test.toml", dict(base_fields, query="""
+            build_rule("""
                     process where process.name == this!is$not#v@lid
-            """))
+            """)
 
         with self.assertRaises(eql.EqlSemanticError):
-            TOMLRule("test.toml", dict(base_fields, query="""
+            build_rule("""
                     process where process.invalid_field == "hello world"
-            """))
+            """)
 
         with self.assertRaises(eql.EqlTypeMismatchError):
-            TOMLRule("test.toml", dict(base_fields, query="""
+            build_rule("""
                     process where process.pid == "some string field"
-            """))
+            """)

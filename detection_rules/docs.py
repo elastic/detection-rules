@@ -9,8 +9,10 @@ from pathlib import Path
 
 import xlsxwriter
 
+from . import utils
 from .attack import technique_lookup, matrix, attack_tm, tactics
 from .packaging import Package
+from .rule import ThreatMapping
 
 
 class PackageDocument(xlsxwriter.Workbook):
@@ -47,16 +49,16 @@ class PackageDocument(xlsxwriter.Workbook):
         coverage = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
 
         for rule in self.package.rules:
-            threat = rule.contents.get('threat')
+            threat = rule.contents.data.threat
             sub_dir = Path(rule.path).parent.name
 
             if threat:
                 for entry in threat:
-                    tactic = entry['tactic']
-                    techniques = entry.get('technique', [])
+                    tactic = entry.tactic
+                    techniques = entry.technique or []
                     for technique in techniques:
-                        if technique['id'] in matrix[tactic['name']]:
-                            coverage[tactic['name']][technique['id']][sub_dir] += 1
+                        if technique.id in matrix[tactic.name]:
+                            coverage[tactic.name][technique.id][sub_dir] += 1
 
         return coverage
 
@@ -85,10 +87,10 @@ class PackageDocument(xlsxwriter.Workbook):
 
         tactic_counts = defaultdict(int)
         for rule in self.package.rules:
-            threat = rule.contents.get('threat')
+            threat = rule.contents.data.threat
             if threat:
                 for entry in threat:
-                    tactic_counts[entry['tactic']['name']] += 1
+                    tactic_counts[entry.tactic.name] += 1
 
         worksheet.write(row, 0, "Total Production Rules")
         worksheet.write(row, 1, len(self.production_rules))
@@ -134,9 +136,9 @@ class PackageDocument(xlsxwriter.Workbook):
         )
 
         for row, rule in enumerate(rules, 1):
-            flat_mitre = rule.get_flat_mitre()
-            rule_contents = {'tactics': flat_mitre['tactic_names'], 'techniques': flat_mitre['technique_ids']}
-            rule_contents.update(rule.contents.copy())
+            flat_mitre = ThreatMapping.flatten(rule.contents.data.threat)
+            rule_contents = {'tactics': flat_mitre.tactic_names, 'techniques': flat_mitre.technique_ids}
+            rule_contents.update(utils.dataclass_to_dict(rule.contents.data))
 
             for column, field in enumerate(metadata_fields):
                 value = rule_contents.get(field)

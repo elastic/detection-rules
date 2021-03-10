@@ -17,7 +17,7 @@ import time
 import zipfile
 from datetime import datetime, date
 from pathlib import Path
-from dataclasses import dataclass, asdict, is_dataclass
+from dataclasses import dataclass, asdict, is_dataclass, astuple
 from typing import Type, TypeVar
 
 import marshmallow_dataclass
@@ -214,10 +214,13 @@ def normalize_timing_and_sort(events, timestamp='@timestamp', asc=True):
 
 def freeze(obj):
     """Helper function to make mutable objects immutable and hashable."""
+    if is_dataclass(obj):
+        obj = astuple(obj)
+
     if isinstance(obj, (list, tuple)):
         return tuple(freeze(o) for o in obj)
     elif isinstance(obj, dict):
-        return freeze(list(sorted(obj.items())))
+        return freeze(sorted(obj.items()))
     else:
         return obj
 

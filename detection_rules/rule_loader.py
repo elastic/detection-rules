@@ -11,14 +11,14 @@ import os
 import re
 from collections import OrderedDict
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Iterable
 
 import click
 import pytoml
 
 from . import utils
 from .mappings import RtaMappings
-from .rule import RULES_DIR, TOMLRule, TOMLRuleContents, BaseQueryRuleData
+from .rule import RULES_DIR, TOMLRule, TOMLRuleContents, BaseQueryRuleData, EQLRuleData, KQLRuleData
 from .schemas import CurrentSchema
 from .utils import get_path, cached
 
@@ -100,7 +100,7 @@ def load_rules(file_lookup=None, verbose=True, error=True):
                 existing = next(r for r in rules if r.name == rule.name)
                 raise KeyError(f'{rule.path} has duplicate name with \n{existing.path}')
 
-            if isinstance(contents.data, BaseQueryRuleData):
+            if isinstance(contents.data, (KQLRuleData, EQLRuleData)):
                 duplicate_key = (contents.data.parsed_query, contents.data.type)
                 query_check_index.append(rule)
 
@@ -229,9 +229,9 @@ def get_rule_contents(rule_id, verbose=True):
 
 
 @cached
-def filter_rules(rules, metadata_field, value):
+def filter_rules(rules: Iterable[TOMLRule], metadata_field: str, value) -> List[TOMLRule]:
     """Filter rules based on the metadata."""
-    return [rule for rule in rules if rule.metadata.get(metadata_field, '') == value]
+    return [rule for rule in rules if utils.dataclass_to_dict(rule.contents.metadata).get(metadata_field) == value]
 
 
 def get_production_rules(verbose=False):
@@ -249,11 +249,11 @@ def get_non_required_defaults_by_type(rule_type: str) -> dict:
     return non_required_defaults
 
 
-def find_unneeded_defaults_from_rule(rule: TOMLRule) -> dict:
+def find_unneeded_defaults_from_rule(toml_contents: dict) -> dict:
     """Remove values that are not required in the schema which are set with default values."""
-    unrequired_defaults = get_non_required_defaults_by_type(rule.type)
-    default_matches = {p: rule.contents[p] for p, v in unrequired_defaults.items()
-                       if p in rule.contents and rule.contents[p] == v}
+    unrequired_defaults = get_non_required_defaults_by_type(toml_contents['rule']['type'])
+    default_matches = {prop: toml_contents["rule"][prop] for prop, val in unrequired_defaults.items()
+                       if toml_contents["rule"].get(prop) == val}
     return default_matches
 
 

@@ -8,6 +8,7 @@ import copy
 import unittest
 import warnings
 
+from detection_rules.rule import KQLRuleData
 from . import get_data_files, get_fp_data_files
 from detection_rules import rule_loader
 from detection_rules.utils import combine_sources, evaluate, load_etc_dump
@@ -31,7 +32,7 @@ class TestMappings(unittest.TestCase):
         mappings = load_etc_dump('rule-mapping.yml')
 
         for rule in rule_loader.get_production_rules():
-            if rule.type == 'query' and rule.contents['language'] == 'kuery':
+            if isinstance(rule.contents.data, KQLRuleData):
                 if rule.id not in mappings:
                     continue
 
@@ -64,7 +65,7 @@ class TestMappings(unittest.TestCase):
     def test_false_positives(self):
         """Test that expected results return against false positives."""
         for rule in rule_loader.get_production_rules():
-            if rule.type == 'query' and rule.contents['language'] == 'kuery':
+            if isinstance(rule.contents.data, KQLRuleData):
                 for fp_name, merged_data in get_fp_data_files().items():
                     msg = 'Unexpected FP match for: {} - {}, against: {}'.format(rule.id, rule.name, fp_name)
                     self.evaluate(copy.deepcopy(merged_data), rule, 0, msg)

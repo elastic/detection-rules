@@ -21,7 +21,7 @@ from rta import get_ttp_names
 from detection_rules import attack, beats, ecs
 from detection_rules.rule_loader import FILE_PATTERN, find_unneeded_defaults_from_rule
 from detection_rules.utils import load_etc_dump
-from detection_rules.rule import TOMLRule
+from detection_rules.rule import TOMLRule, BaseQueryRuleData, KQLRuleData
 
 from .base import BaseRuleTest
 
@@ -61,19 +61,19 @@ class TestValidRules(BaseRuleTest):
     def test_all_rules_as_rule_schema(self):
         """Ensure that every rule file validates against the rule schema."""
         for file_name, contents in self.rule_files.items():
-            rule = TOMLRule(file_name, contents)
-            rule.validate(as_rule=True)
+            TOMLRule(file_name, contents)
 
     def test_all_rule_queries_optimized(self):
         """Ensure that every rule query is in optimized form."""
         for file_name, contents in self.rule_files.items():
             rule = TOMLRule(file_name, contents)
 
-            if rule.query and rule.contents['language'] == 'kuery':
-                tree = kql.parse(rule.query, optimize=False)
+            if contents["rule"].get("langauge") == "kql":
+                source = contents["rule"]["query"]
+                tree = kql.parse(source, optimize=False)
                 optimized = tree.optimize(recursive=True)
                 err_message = f'\n{self.rule_str(rule)} Query not optimized for rule\n' \
-                              f'Expected: {optimized}\nActual: {rule.query}'
+                              f'Expected: {optimized}\nActual: {source}'
                 self.assertEqual(tree, optimized, err_message)
 
     def test_no_unrequired_defaults(self):
@@ -81,8 +81,7 @@ class TestValidRules(BaseRuleTest):
         rules_with_hits = {}
 
         for file_name, contents in self.rule_files.items():
-            rule = TOMLRule(file_name, contents)
-            default_matches = find_unneeded_defaults_from_rule(rule)
+            default_matches = find_unneeded_defaults_from_rule(contents)
 
             if default_matches:
                 rules_with_hits[self.rule_str(rule)] = default_matches
@@ -97,7 +96,7 @@ class TestValidRules(BaseRuleTest):
         ttp_names = get_ttp_names()
 
         for rule in self.production_rules:
-            if rule.type == 'query' and rule.id in mappings:
+            if isinstance(rule.contents.data, BaseQueryRuleData) and rule.id in mappings:
                 matching_rta = mappings[rule.id].get('rta_name')
 
                 self.assertIsNotNone(matching_rta, f'{self.rule_str(rule)} does not have RTAs')
@@ -129,15 +128,14 @@ class TestThreatMappings(BaseRuleTest):
 
         for rule in self.rules:
             revoked_techniques = {}
-            threat_mapping = rule.contents.get('threat')
+            threat_mapping = rule.contents.data.threat
 
             if threat_mapping:
                 for entry in threat_mapping:
-                    techniques = entry.get('technique', [])
-                    for technique in techniques:
-                        if technique['id'] in revoked + deprecated:
-                            revoked_techniques[technique['id']] = replacement_map.get(technique['id'],
-                                                                                      'DEPRECATED - DO NOT USE')
+                    for technique in (entry.technique or []):
+                        if technique.id in revoked + deprecated:
+                            revoked_techniques[technique.id] = replacement_map.get(technique.id,
+                                                                                   'DEPRECATED - DO NOT USE')
 
             if revoked_techniques:
                 old_new_mapping = "\n".join(f'Actual: {k} -> Expected {v}' for k, v in revoked_techniques.items())
@@ -146,66 +144,66 @@ class TestThreatMappings(BaseRuleTest):
     def test_tactic_to_technique_correlations(self):
         """Ensure rule threat info is properly related to a single tactic and technique."""
         for rule in self.rules:
-            threat_mapping = rule.contents.get('threat')
+            threat_mapping = rule.contents.data.threat or []
             if threat_mapping:
                 for entry in threat_mapping:
-                    tactic = entry.get('tactic')
-                    techniques = entry.get('technique', [])
+                    tactic = entry.tactic
+                    techniques = entry.technique or []
 
-                    mismatched = [t['id'] for t in techniques if t['id'] not in attack.matrix[tactic['name']]]
+                    mismatched = [t.id for t in techniques if t.id not in attack.matrix[tactic.name]]
                     if mismatched:
                         self.fail(f'mismatched ATT&CK techniques for rule: {self.rule_str(rule)} '
                                   f'{", ".join(mismatched)} not under: {tactic["name"]}')
 
                     # tactic
-                    expected_tactic = attack.tactics_map[tactic['name']]
-                    self.assertEqual(expected_tactic, tactic['id'],
+                    expected_tactic = attack.tactics_map[tactic.name]
+                    self.assertEqual(expected_tactic, tactic.id,
                                      f'ATT&CK tactic mapping error for rule: {self.rule_str(rule)}\n'
-                                     f'expected:  {expected_tactic} for {tactic["name"]}\n'
-                                     f'actual: {tactic["id"]}')
+                                     f'expected:  {expected_tactic} for {tactic.name}\n'
+                                     f'actual: {tactic.id}')
 
-                    tactic_reference_id = tactic['reference'].rstrip('/').split('/')[-1]
-                    self.assertEqual(tactic['id'], tactic_reference_id,
+                    tactic_reference_id = tactic.reference.rstrip('/').split('/')[-1]
+                    self.assertEqual(tactic.id, tactic_reference_id,
                                      f'ATT&CK tactic mapping error for rule: {self.rule_str(rule)}\n'
-                                     f'tactic ID {tactic["id"]} does not match the reference URL ID '
-                                     f'{tactic["reference"]}')
+                                     f'tactic ID {tactic.id} does not match the reference URL ID '
+                                     f'{tactic.reference}')
 
                     # techniques
                     for technique in techniques:
-                        expected_technique = attack.technique_lookup[technique['id']]['name']
-                        self.assertEqual(expected_technique, technique['name'],
+                        expected_technique = attack.technique_lookup[technique.id]['name']
+                        self.assertEqual(expected_technique, technique.name,
                                          f'ATT&CK technique mapping error for rule: {self.rule_str(rule)}\n'
-                                         f'expected: {expected_technique} for {technique["id"]}\n'
-                                         f'actual: {technique["name"]}')
+                                         f'expected: {expected_technique} for {technique.id}\n'
+                                         f'actual: {technique.name}')
 
-                        technique_reference_id = technique['reference'].rstrip('/').split('/')[-1]
-                        self.assertEqual(technique['id'], technique_reference_id,
+                        technique_reference_id = technique.reference.rstrip('/').split('/')[-1]
+                        self.assertEqual(technique.id, technique_reference_id,
                                          f'ATT&CK technique mapping error for rule: {self.rule_str(rule)}\n'
-                                         f'technique ID {technique["id"]} does not match the reference URL ID '
-                                         f'{technique["reference"]}')
+                                         f'technique ID {technique.id} does not match the reference URL ID '
+                                         f'{technique.reference}')
 
                         # sub-techniques
-                        sub_techniques = technique.get('subtechnique')
+                        sub_techniques = technique.subtechnique or []
                         if sub_techniques:
                             for sub_technique in sub_techniques:
-                                expected_sub_technique = attack.technique_lookup[sub_technique['id']]['name']
-                                self.assertEqual(expected_sub_technique, sub_technique['name'],
+                                expected_sub_technique = attack.technique_lookup[sub_technique.id]['name']
+                                self.assertEqual(expected_sub_technique, sub_technique.name,
                                                  f'ATT&CK sub-technique mapping error for rule: {self.rule_str(rule)}\n'
-                                                 f'expected: {expected_sub_technique} for {sub_technique["id"]}\n'
-                                                 f'actual: {sub_technique["name"]}')
+                                                 f'expected: {expected_sub_technique} for {sub_technique.id}\n'
+                                                 f'actual: {sub_technique.name}')
 
                                 sub_technique_reference_id = '.'.join(
-                                    sub_technique['reference'].rstrip('/').split('/')[-2:])
-                                self.assertEqual(sub_technique['id'], sub_technique_reference_id,
+                                    sub_technique.reference.rstrip('/').split('/')[-2:])
+                                self.assertEqual(sub_technique.id, sub_technique_reference_id,
                                                  f'ATT&CK sub-technique mapping error for rule: {self.rule_str(rule)}\n'
-                                                 f'sub-technique ID {sub_technique["id"]} does not match the reference URL ID '  # noqa: E501
-                                                 f'{sub_technique["reference"]}')
+                                                 f'sub-technique ID {sub_technique.id} does not match the reference URL ID '  # noqa: E501
+                                                 f'{sub_technique.reference}')
 
     def test_duplicated_tactics(self):
         """Check that a tactic is only defined once."""
         for rule in self.rules:
-            threat_mapping = rule.contents.get('threat', [])
-            tactics = [t['tactic']['name'] for t in threat_mapping]
+            threat_mapping = rule.contents.data.threat
+            tactics = [t.tactic.name for t in threat_mapping or []]
             duplicates = sorted(set(t for t in tactics if tactics.count(t) > 1))
 
             if duplicates:
@@ -230,7 +228,8 @@ class TestRuleTags(BaseRuleTest):
         expected_case = {normalize(t): t for t in expected_tags}
 
         for rule in self.rules:
-            rule_tags = rule.contents.get('tags')
+            rule_tags = rule.contents.data.tags
+
             if rule_tags:
                 invalid_tags = {t: expected_case[normalize(t)] for t in rule_tags
                                 if normalize(t) in list(expected_case) and t != expected_case[normalize(t)]}
@@ -261,8 +260,7 @@ class TestRuleTags(BaseRuleTest):
         }
 
         for rule in self.rules:
-            rule_tags = rule.contents.get('tags', [])
-            indexes = rule.contents.get('index', [])
+            rule_tags = rule.contents.data.tags
             error_msg = f'{self.rule_str(rule)} Missing tags:\nActual tags: {", ".join(rule_tags)}'
 
             consolidated_optional_tags = []
@@ -272,18 +270,19 @@ class TestRuleTags(BaseRuleTest):
             if 'Elastic' not in rule_tags:
                 missing_required_tags.add('Elastic')
 
-            for index in indexes:
-                expected_tags = required_tags_map.get(index, {})
-                expected_all = expected_tags.get('all', [])
-                expected_any = expected_tags.get('any', [])
+            if isinstance(rule.contents.data, BaseQueryRuleData):
+                for index in rule.contents.data.index:
+                    expected_tags = required_tags_map.get(index, {})
+                    expected_all = expected_tags.get('all', [])
+                    expected_any = expected_tags.get('any', [])
 
-                existing_any_tags = [t for t in rule_tags if t in expected_any]
-                if expected_any:
-                    # consolidate optional any tags which are not in use
-                    consolidated_optional_tags.extend(t for t in expected_any if t not in existing_any_tags)
+                    existing_any_tags = [t for t in rule_tags if t in expected_any]
+                    if expected_any:
+                        # consolidate optional any tags which are not in use
+                        consolidated_optional_tags.extend(t for t in expected_any if t not in existing_any_tags)
 
-                missing_required_tags.update(set(expected_all).difference(set(rule_tags)))
-                is_missing_any_tags = expected_any and not set(expected_any) & set(existing_any_tags)
+                    missing_required_tags.update(set(expected_all).difference(set(rule_tags)))
+                    is_missing_any_tags = expected_any and not set(expected_any) & set(existing_any_tags)
 
             consolidated_optional_tags = [t for t in consolidated_optional_tags if t not in missing_required_tags]
             error_msg += f'\nMissing all of: {", ".join(missing_required_tags)}' if missing_required_tags else ''
@@ -299,22 +298,22 @@ class TestRuleTags(BaseRuleTest):
         tactics = set(tactics)
 
         for rule in self.rules:
-            rule_tags = rule.contents['tags']
+            rule_tags = rule.contents.data.tags
 
-            if 'Continuous Monitoring' in rule_tags or rule.type == 'machine_learning':
+            if 'Continuous Monitoring' in rule_tags or rule.contents.data.type == 'machine_learning':
                 continue
 
-            threat = rule.contents.get('threat')
+            threat = rule.contents.data.threat
             if threat:
                 missing = []
-                threat_tactic_names = [e['tactic']['name'] for e in threat]
+                threat_tactic_names = [e.tactic.name for e in threat]
                 primary_tactic = threat_tactic_names[0]
 
                 if 'Threat Detection' not in rule_tags:
                     missing.append('Threat Detection')
 
                 # missing primary tactic
-                if primary_tactic not in rule.contents['tags']:
+                if primary_tactic not in rule.contents.data.tags:
                     missing.append(primary_tactic)
 
                 # listed tactic that is not in threat mapping
@@ -347,8 +346,8 @@ class TestRuleTimelines(BaseRuleTest):
     def test_timeline_has_title(self):
         """Ensure rules with timelines have a corresponding title."""
         for rule in self.rules:
-            timeline_id = rule.contents.get('timeline_id')
-            timeline_title = rule.contents.get('timeline_title')
+            timeline_id = rule.contents.data.timeline_id
+            timeline_title = rule.contents.data.timeline_title
 
             if (timeline_title or timeline_id) and not (timeline_title and timeline_id):
                 missing_err = f'{self.rule_str(rule)} timeline "title" and "id" required when timelines are defined'
@@ -379,11 +378,11 @@ class TestRuleFiles(BaseRuleTest):
             if rule_path.parent.name == 'ml':
                 continue
 
-            threat = rule.contents.get('threat', [])
-            authors = rule.contents.get('author', [])
+            threat = rule.contents.data.threat
+            authors = rule.contents.data.author
 
             if threat and 'Elastic' in authors:
-                primary_tactic = threat[0]['tactic']['name']
+                primary_tactic = threat[0].tactic.name
                 tactic_str = primary_tactic.lower().replace(' ', '_')
 
                 if tactic_str != filename[:len(tactic_str)]:
@@ -401,8 +400,8 @@ class TestRuleMetadata(BaseRuleTest):
     def test_ecs_and_beats_opt_in_not_latest_only(self):
         """Test that explicitly defined opt-in validation is not only the latest versions to avoid stale tests."""
         for rule in self.rules:
-            beats_version = rule.metadata.get('beats_version')
-            ecs_versions = rule.metadata.get('ecs_versions', [])
+            beats_version = rule.contents.metadata.beats_version
+            ecs_versions = rule.contents.metadata.ecs_versions or []
             latest_beats = str(beats.get_max_version())
             latest_ecs = ecs.get_max_version()
 
@@ -420,8 +419,8 @@ class TestRuleMetadata(BaseRuleTest):
         invalid = []
 
         for rule in self.rules:
-            created = tuple(rule.metadata['creation_date'].split('/'))
-            updated = tuple(rule.metadata['updated_date'].split('/'))
+            created = rule.contents.metadata.creation_date.split('/')
+            updated = rule.contents.metadata.updated_date.split('/')
             if updated < created:
                 invalid.append(rule)
 
@@ -441,15 +440,16 @@ class TestTuleTiming(BaseRuleTest):
         for rule in self.rules:
             required = False
 
-            if 'endgame-*' in rule.contents.get('index', []):
+            if isinstance(rule.contents.data, BaseQueryRuleData) and 'endgame-*' in rule.contents.data.index:
                 continue
 
-            if rule.type == 'query':
+            if rule.contents.data.type == 'query':
                 required = True
-            elif rule.type == 'eql' and eql.utils.get_query_type(rule.parsed_query) != 'sequence':
+            elif rule.contents.data.type == 'eql' and \
+                    eql.utils.get_query_type(rule.contents.data.parsed_query) != 'sequence':
                 required = True
 
-            if required and not rule.contents.get('timestamp_override', '') == 'event.ingested':
+            if required and rule.contents.data.timestamp_override != 'event.ingested':
                 missing.append(rule)
 
         if missing:
@@ -459,15 +459,15 @@ class TestTuleTiming(BaseRuleTest):
 
     def test_required_lookback(self):
         """Ensure endpoint rules have the proper lookback time."""
-        rule_types = ('query', 'eql', 'threshold')
         long_indexes = {'logs-endpoint.events.*'}
         missing = []
 
         for rule in self.rules:
             contents = rule.contents
 
-            if rule.type in rule_types and set(contents.get('index', [])) & long_indexes and not contents.get('from'):
-                missing.append(rule)
+            if isinstance(contents.data, BaseQueryRuleData):
+                if set(getattr(contents.data, "index", None) or []) & long_indexes and not contents.data.from_:
+                    missing.append(rule)
 
         if missing:
             rules_str = '\n '.join(self.rule_str(r, trailer=None) for r in missing)
