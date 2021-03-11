@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/10/29"
 maturity = "production"
-updated_date = "2021/03/08"
+updated_date = "2021/03/11"
 
 [rule]
 author = ["Elastic"]
@@ -23,9 +23,17 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
-  process.name : ("cscript.exe", "wscript.exe", "powershell.exe", "rundll32.exe", "cmd.exe", "mshta.exe", "regsvr32.exe") and
+  (
+   process.name : ("cscript.exe", "wscript.exe", "powershell.exe", "rundll32.exe", "cmd.exe", "mshta.exe", "regsvr32.exe") or
+   process.pe.original_file_name : ("cscript.exe", "wscript.exe", "powershell.exe", "rundll32.exe", "cmd.exe", "mshta.exe", "regsvr32.exe")
+  ) and
   /* Explorer started via DCOM */
-  process.parent.name : "explorer.exe" and process.parent.args : "-Embedding"
+  process.parent.name : "explorer.exe" and process.parent.args : "-Embedding" and
+  not process.parent.args:
+          (
+            "/factory,{5BD95610-9434-43C2-886C-57852CC8A120}",
+            "/factory,{ceff45ee-c862-41de-aee2-a022c81eda92}"
+          )
 '''
 
 
