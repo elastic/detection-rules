@@ -1,0 +1,40 @@
+[metadata]
+creation_date = "2021/03/15"
+maturity = "production"
+updated_date = "2021/03/15"
+
+[rule]
+author = ["Elastic"]
+description = "A scheduled job can be used by an adversary to establish persistence."
+false_positives = ["Legitimate scheduled jobs may be created during installation of new software."]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Persistence via Scheduled Job Creation"
+risk_score = 47
+rule_id = "1327384f-00f3-44d5-9a8c-2373ba071e92"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where event.type != "deletion" and
+ file.path : ("C:\\Windows\\Tasks\\*.job", "D:\\Windows\\Tasks\\*.job", "E:\\Windows\\Tasks\\*.job")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
