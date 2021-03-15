@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/03/15"
 
 [rule]
 author = ["Elastic"]
@@ -9,7 +9,7 @@ description = "A scheduled task can be used by an adversary to establish persist
 false_positives = ["Legitimate scheduled tasks may be created during installation of new software."]
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Local Scheduled Task Commands"
 risk_score = 21
@@ -17,12 +17,17 @@ rule_id = "afcce5ad-65de-4ed2-8516-5e093d3ac99a"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
-  process.name:schtasks.exe and
-  process.args:(-change or -create or -run or -s or /S or /change or /create or /run)
+process where event.type == "start" and
+  (process.name : "schtasks.exe" or process.pe.original_file_name : "schtasks.exe") and
+  process.parent.name : ("cmd.exe", "wscript.exe", "rundll32.exe", "regsvr32.exe",
+                         "wmic.exe", "mshta.exe","powershell.exe", "pwsh.exe") and
+  process.args : "/create" and
+  process.args : ("*/RU*", "*/SC*", "*/TN*", "*/TR*", "*/F*") and
+  /* exclude SYSTEM SID - look for task creations by non-SYSTEM user */
+  not user.id : "S-1-5-18"
 '''
 
 
