@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/01/12"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/03/16"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,11 @@ type = "eql"
 query = '''
 process where event.type in ("start", "process_started") and
   not process.parent.executable : ("/Applications/NoMAD.app/Contents/MacOS/NoMAD", 
-    "/Applications/ZoomPresence.app/Contents/MacOS/ZoomPresence") and 
+    "/Applications/ZoomPresence.app/Contents/MacOS/ZoomPresence",
+	"/Applications/Sourcetree.app/Contents/MacOS/Sourcetree",
+  	"/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfDaemon.app/Contents/MacOS/JamfDaemon",
+  	"/usr/local/jamf/bin/jamf"
+    ) and 
   process.name : ("ldapsearch", "dsmemberutil") or
   (process.name : "dscl" and 
      process.args : ("read", "-read", "list", "-list", "ls", "search", "-search") and 
