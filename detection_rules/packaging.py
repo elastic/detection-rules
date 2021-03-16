@@ -481,7 +481,7 @@ class Package(object):
 
         package_dir = Path(save_dir).joinpath(manifest.version)
         docs_dir = package_dir / 'docs'
-        rules_dir = package_dir / 'kibana' / 'rules'
+        rules_dir = package_dir / 'kibana' / 'security-rule'
 
         docs_dir.mkdir(parents=True)
         rules_dir.mkdir(parents=True)
