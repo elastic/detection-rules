@@ -71,10 +71,10 @@ class TestValidRules(BaseRuleTest):
 
             try:
                 rule.validate(as_rule=True)
-            except jsonschema.ValidationError as e:
+            except jsonschema.ValidationError as exc:
                 rule_path = Path(rule.path).relative_to(rules_path)
-                e.message = f'{rule_path} -> {e}'
-                raise e
+                exc.message = f'{rule_path} -> {exc}'
+                raise exc
 
     def test_all_rule_queries_optimized(self):
         """Ensure that every rule query is in optimized form."""
@@ -453,8 +453,8 @@ class TestRuleMetadata(BaseRuleTest):
 
             if maturity == 'deprecated':
                 deprecated_rules[rule.id] = rule
-                err_msg = f'{self.rule_str(rule)} cannot be deprecated if it has not been version locked. Convert to ' \
-                          f'`development` or delete the rule file instead.'
+                err_msg = f'{self.rule_str(rule)} cannot be deprecated if it has not been version locked. ' \
+                          f'Convert to `development` or delete the rule file instead'
                 self.assertIn(rule.id, versions, err_msg)
 
                 rule_path = Path(rule.path).relative_to(get_path('rules'))
@@ -462,11 +462,17 @@ class TestRuleMetadata(BaseRuleTest):
                           f'"{get_path("rules", "_deprecated")}" folder'
                 self.assertEqual('_deprecated', rule_path.parts[0], err_msg)
 
+                err_msg = f'{self.rule_str(rule)} missing deprecation date'
+                self.assertIn('deprecation_date', rule.metadata, err_msg)
+
+                err_msg = f'{self.rule_str(rule)} deprecation_date and updated_date should match'
+                self.assertEqual(rule.metadata['deprecation_date'], rule.metadata['updated_date'], err_msg)
+
         missing_rules = sorted(set(versions).difference(set(self.rule_lookup)))
         missing_rule_strings = '\n '.join(f'{r} - {versions[r]["rule_name"]}' for r in missing_rules)
-        err_msg = f'Deprecated rules should not be removed, but moved to the rules/_deprecated folder instead. The ' \
-                  f'following rules have been version locked and are missing. Re-add to the deprecated folder and ' \
-                  f'update maturity to "deprecated": \n {missing_rule_strings}'
+        err_msg = f'Deprecated rules should not be removed, but moved to the rules/_deprecated folder instead. ' \
+                  f'The following rules have been version locked and are missing. ' \
+                  f'Re-add to the deprecated folder and update maturity to "deprecated": \n {missing_rule_strings}'
         self.assertEqual([], missing_rules, err_msg)
 
         for rule_id, entry in deprecations.items():

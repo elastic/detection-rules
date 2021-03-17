@@ -234,14 +234,14 @@ def filter_rules(rules, metadata_field, value):
     return [rule for rule in rules if rule.metadata.get(metadata_field, '') == value]
 
 
-def get_production_rules(verbose: bool = False, include_deprecated: bool = False) -> List[Rule]:
+def get_production_rules(verbose=False, include_deprecated=False) -> List[Rule]:
     """Get rules with a maturity of production."""
     from .packaging import filter_rule
 
     maturity = ['production']
     if include_deprecated:
         maturity.append('deprecated')
-    return list(filter(lambda rule: filter_rule(rule, dict(maturity=maturity)), load_rules(verbose=verbose).values()))
+    return [rule for rule in load_rules(verbose=verbose).values() if filter_rule(rule, {'maturity': maturity})]
 
 
 @cached

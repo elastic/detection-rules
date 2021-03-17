@@ -69,7 +69,8 @@ def load_versions(current_versions: dict = None):
 
 
 def manage_versions(rules: List[Rule], deprecated_rules: list = None, current_versions: dict = None,
-                    exclude_version_update=False, add_new=True, save_changes=False, verbose=True) -> (list, list, list):
+                    exclude_version_update=False, add_new=True, save_changes=False,
+                    verbose=True) -> (List[str], List[str], List[str]):
     """Update the contents of the version.lock file and optionally save changes."""
     new_rules = {}
     changed_rules = []

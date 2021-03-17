@@ -12,6 +12,7 @@ release package to Kibana.
 
 1. Update the `maturity` to `deprecated`
 2. Move the rule file to [rules/_deprecated](../rules/_deprecated)
+3. Add `deprecation_date` and update `updated_date` to match
 
 Next time the versions are locked, the rule will be added to the [deprecated_rules.json](../etc/deprecated_rules.json)
 file.
