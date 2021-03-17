@@ -298,6 +298,32 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
         ctx.invoke(search_rules, query=query, columns=columns, language=language, rules=all_rules, pager=True)
 
 
+@dev_group.command('deprecate-rule')
+@click.argument('rule-file', type=click.Path(dir_okay=False))
+@click.pass_context
+def deprecate_rule(ctx: click.Context, rule_file: str):
+    """Deprecate a rule."""
+    import pytoml
+    from .packaging import load_versions
+
+    version_info = load_versions()
+    rule_file = Path(rule_file)
+    contents = pytoml.loads(rule_file.read_text())
+    rule = Rule(path=rule_file, contents=contents)
+
+    if rule.id not in version_info:
+        click.echo('Rule has not been version locked and so does not need to be deprecated. '
+                   'Delete the file or update the maturity to `development` instead')
+        ctx.exit()
+
+    today = time.strftime('%Y/%m/%d')
+    rule.metadata.update(updated_date=today, deprecation_date=today, maturity='deprecated')
+    deprecated_path = get_path('rules', '_deprecated', rule_file.name)
+    rule.save(new_path=deprecated_path, as_rule=True)
+    rule_file.unlink()
+    click.echo(f'Rule moved to {deprecated_path} - remember to git add this file')
+
+
 @dev_group.group('test')
 def test_group():
     """Commands for testing against stack resources."""
