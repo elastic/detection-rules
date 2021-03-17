@@ -23,10 +23,10 @@ type = "eql"
 
 query = '''
 process where event.type == "start" and
-  (process.name : "sc.exe" or process.pe.original_file_name : "sc.exe") and
+  (process.name : "sc.exe" or process.pe.original_file_name == "sc.exe") and
   process.parent.name : ("cmd.exe", "wscript.exe", "rundll32.exe", "regsvr32.exe",
-                        "wmic.exe", "mshta.exe","powershell.exe", "pwsh.exe") and
-  process.args:("config", "create", "start") and
+                         "wmic.exe", "mshta.exe","powershell.exe", "pwsh.exe") and
+  process.args:("config", "create", "start", "delete", "stop", "pause") and
   /* exclude SYSTEM SID - look for service creations by non-SYSTEM user */
   not user.id : "S-1-5-18"
 '''
@@ -44,4 +44,3 @@ reference = "https://attack.mitre.org/techniques/T1021/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-
