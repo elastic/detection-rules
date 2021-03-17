@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/03/17"
 
 [rule]
 author = ["Elastic"]
@@ -28,7 +28,6 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id
-<<<<<<< HEAD
   [process where event.type == "start" and
    process.name : ("regsvr32.exe", "RegAsm.exe", "RegSvcs.exe") and
    not (
@@ -38,14 +37,6 @@ sequence by process.entity_id
    ]
   [network where process.name : ("regsvr32.exe", "RegAsm.exe", "RegSvcs.exe")  and
    not cidrmatch(destination.ip, "10.0.0.0/8", "169.254.169.254", "172.16.0.0/12", "192.168.0.0/16") and network.protocol != "dns"]
-=======
-  [process where (process.name : "regsvr32.exe" or process.name : "regsvr64.exe" or
-                  process.name : "RegAsm.exe" or process.name : "RegSvcs.exe") and
-     event.type == "start"]
-  [network where (process.name : "regsvr32.exe" or process.name : "regsvr64.exe" or
-                  process.name : "RegAsm.exe" or process.name : "RegSvcs.exe") and
-     not cidrmatch(destination.ip, "10.0.0.0/8", "169.254.169.254", "172.16.0.0/12", "192.168.0.0/16")]
->>>>>>> parent of ea88f091 ([Rule Tuning] Merge and Delete duplicate rules for Registration Utilities)
 '''
 
 
