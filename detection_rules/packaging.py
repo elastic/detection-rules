@@ -106,13 +106,11 @@ def manage_versions(rules: List[Rule], deprecated_rules: list = None, current_ve
     if deprecated_rules:
         rule_deprecations = load_etc_dump('deprecated_rules.json')
 
-        deprecation_date = str(datetime.date.today())
-
         for rule in deprecated_rules:
             if rule.id not in rule_deprecations:
                 rule_deprecations[rule.id] = {
                     'rule_name': rule.name,
-                    'deprecation_date': deprecation_date,
+                    'deprecation_date': rule.metadata['deprecation_date'],
                     'stack_version': CurrentSchema.STACK_VERSION
                 }
                 newly_deprecated.append(rule.id)

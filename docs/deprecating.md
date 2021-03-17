@@ -16,3 +16,8 @@ release package to Kibana.
 
 Next time the versions are locked, the rule will be added to the [deprecated_rules.json](../etc/deprecated_rules.json)
 file.
+
+
+### Using the deprecate-rule command
+
+Alternatively, you can run `python -m detection_rules dev deprecate-rule <rule-file>`, which will perform all the steps
