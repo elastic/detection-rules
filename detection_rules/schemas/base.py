@@ -10,14 +10,10 @@ import time
 import jsl
 import jsonschema
 
+from .definitions import (
+    DATE_PATTERN, MATURITY_LEVELS, OS_OPTIONS, UUID_PATTERN, VERSION_PATTERN, BRANCH_PATTERN
+)
 from ..utils import cached
-
-
-DATE_PATTERN = r'\d{4}/\d{2}/\d{2}'
-MATURITY_LEVELS = ['development', 'experimental', 'beta', 'production', 'deprecated']
-OS_OPTIONS = ['windows', 'linux', 'macos', 'solaris']
-UUID_PATTERN = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
-VERSION_PATTERN = r'\d+\.\d+\.\d+|master'
 
 
 class MarkdownField(jsl.StringField):
@@ -69,14 +65,15 @@ class GenericSchema(jsl.Document):
 
 
 class TomlMetadata(GenericSchema):
-    """Schema for siem rule toml metadata."""
+    """Schema for rule toml metadata."""
 
     creation_date = jsl.StringField(required=True, pattern=DATE_PATTERN, default=time.strftime('%Y/%m/%d'))
 
     # rule validated against each ecs schema contained
     beats_version = jsl.StringField(pattern=VERSION_PATTERN, required=False)
     comments = jsl.StringField(required=False)
-    ecs_versions = jsl.ArrayField(jsl.StringField(pattern=VERSION_PATTERN, required=True), required=False)
+    deprecation_date = jsl.StringField(required=False, pattern=DATE_PATTERN, default=time.strftime('%Y/%m/%d'))
+    ecs_versions = jsl.ArrayField(jsl.StringField(pattern=BRANCH_PATTERN, required=True), required=False)
     maturity = jsl.StringField(enum=MATURITY_LEVELS, default='development', required=True)
 
     os_type_list = jsl.ArrayField(jsl.StringField(enum=OS_OPTIONS), required=False)
