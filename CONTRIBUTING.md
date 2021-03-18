@@ -2,6 +2,8 @@
 
 Thank you for your interest in contributing to Detection Rules. We've crafted this document to make it simple and easy for you to contribute. We recommend that you read these contribution guidelines carefully so that you spend less time working on GitHub issues and PRs and can be more productive contributing to this repository.
 
+If you want to be rewarded for your contributions, sign up for the [Elastic Contributor Program](https://www.elastic.co/community/contributor). Each time you make a valid contribution, you’ll earn points that increase your chances of winning prizes and being recognized as a top contributor.
+
 These guidelines will also help you post meaningful issues that will be more easily understood, considered, and resolved. These guidelines are here to help you whether you are creating a new rule, opening an issue to report a false positive, or requesting a feature.
 
 ## Table of Contents
@@ -44,7 +46,6 @@ We have a few types of issue templates to [choose from](https://github.com/elast
 * **Bug report**: Create a report to help us improve (not pertaining to rules)
 * **Feature request**: Suggest an idea for this project (not pertaining to rules)
 * **New rule**: Suggestions and ideas for new rules for the Detection Engine
-* **Release package**: Used by the Elastic team to track a rules release
 * **Rule deprecation**: Recommend deprecating a rule that doesn't work or isn't useful anymore
 * **Tune existing rule**: Suggest changes to make to an existing rule to address false positives or negatives
 

@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/09/03"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/27"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -12,21 +11,20 @@ starting after being renamed or from a non-standard path. This is uncommon behav
 defenses via side loading a malicious DLL within the memory space of one of those processes.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Potential DLL SideLoading via Trusted Microsoft Programs"
 risk_score = 73
 rule_id = "1160dcdb-0a0a-4a79-91d8-9b84616edebd"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
-timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
 event.category:process and event.type:(start or process_started) and
-  (process.pe.original_file_name:(WinWord.exe or EXPLORER.EXE or w3wp.exe or DISM.EXE) or
-     winlog.event_data.OriginalFileName:(WinWord.exe or EXPLORER.EXE or w3wp.exe or DISM.EXE)) and
+  process.pe.original_file_name:(WinWord.exe or EXPLORER.EXE or w3wp.exe or DISM.EXE) and
   not (process.name:(winword.exe or WINWORD.EXE or explorer.exe or w3wp.exe or Dism.exe) or
              process.executable:("C:\Windows\explorer.exe" or
                                   C\:\\Program?Files\\Microsoft?Office\\root\\Office*\\WINWORD.EXE or

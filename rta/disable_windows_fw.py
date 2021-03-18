@@ -1,10 +1,12 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 # Name: Disable Windows Firewall
 # RTA: disable_windows_fw.py
 # ATT&CK: T1089
+# signal.rule.name: Disable Windows Firewall Rules via Netsh
 # Description: Uses netsh.exe to backup, disable and restore firewall rules.
 
 import os

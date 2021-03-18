@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 from .base import TomlMetadata
 from .rta_schema import validate_rta_mapping
@@ -10,9 +11,12 @@ from ..semver import Version
 from .v7_8 import ApiSchema78
 from .v7_9 import ApiSchema79
 from .v7_10 import ApiSchema710
+from .v7_11 import ApiSchema711
+from .v7_12 import ApiSchema712
 
 __all__ = (
     "all_schemas",
+    "available_versions",
     "downgrade",
     "CurrentSchema",
     "validate_rta_mapping",
@@ -23,9 +27,11 @@ all_schemas = [
     ApiSchema78,
     ApiSchema79,
     ApiSchema710,
+    ApiSchema711,
+    ApiSchema712,
 ]
-
 CurrentSchema = all_schemas[-1]
+available_versions = [cls.STACK_VERSION for cls in all_schemas]
 
 
 def downgrade(api_contents: dict, target_version: str):

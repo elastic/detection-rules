@@ -1,3 +1,7 @@
+[![Supported Python versions](https://img.shields.io/badge/python-3.7+-yellow.svg)](https://www.python.org/downloads/)
+[![Unit Tests](https://github.com/elastic/detection-rules/workflows/Unit%20Tests/badge.svg)](https://github.com/elastic/detection-rules/actions)
+[![Chat](https://img.shields.io/badge/chat-%23security--detection--rules-blueviolet)](https://ela.st/slack)
+
 # Detection Rules
 
 Detection Rules is the home for rules used by Elastic Security. This repository is used for the development, maintenance, testing, validation, and release of rules for Elastic Security’s Detection Engine.
@@ -8,8 +12,10 @@ This repository was first announced on Elastic's blog post, [Elastic Security op
 ## Table of Contents
 - [Overview of this repository](#overview-of-this-repository)
 - [Getting started](#getting-started)
+- [Red Team Automation](rta)
 - [How to contribute](#how-to-contribute)
 - [Licensing](#licensing)
+- [Questions? Problems? Suggestions?](#questions-problems-suggestions)
 
 
 ## Overview of this repository
@@ -84,9 +90,9 @@ We welcome your contributions to Detection Rules! Before contributing, please fa
 
 ## Licensing
 
-Everything in this repository — rules, code, RTA, etc. — is licensed under the [Elastic License](LICENSE.txt). These rules are designed to be used in the context of the Detection Engine within the Elastic Security application. If you’re using our [Elastic Cloud managed service](https://www.elastic.co/cloud/) or the default distribution of the Elastic Stack software that includes the [full set of free features](https://www.elastic.co/subscriptions), you’ll get the latest rules the first time you navigate to the detection engine.
+Everything in this repository — rules, code, RTA, etc. — is licensed under the [Elastic License v2](LICENSE.txt). These rules are designed to be used in the context of the Detection Engine within the Elastic Security application. If you’re using our [Elastic Cloud managed service](https://www.elastic.co/cloud/) or the default distribution of the Elastic Stack software that includes the [full set of free features](https://www.elastic.co/subscriptions), you’ll get the latest rules the first time you navigate to the detection engine.
 
-Occasionally, we may want to import rules from another repository that already have a license, such as MIT or Apache 2.0. This is welcome, as long as the license permits sublicensing under the Elastic License. We keep those license notices in `NOTICE.txt` and sublicense as the Elastic License with all other rules. We also require contributors to sign a [Contributor License Agreement](https://www.elastic.co/contributor-agreement) before contributing code to any Elastic repositories.
+Occasionally, we may want to import rules from another repository that already have a license, such as MIT or Apache 2.0. This is welcome, as long as the license permits sublicensing under the Elastic License v2. We keep those license notices in `NOTICE.txt` and sublicense as the Elastic License v2 with all other rules. We also require contributors to sign a [Contributor License Agreement](https://www.elastic.co/contributor-agreement) before contributing code to any Elastic repositories.
 
 ## Questions? Problems? Suggestions?
 

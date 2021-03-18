@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/09/03"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/27"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -11,22 +10,21 @@ Identifies the desktopimgdownldr utility being used to download a remote file. A
 download arbitrary files as an alternative to certutil.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Remote File Download via Desktopimgdownldr Utility"
 references = ["https://labs.sentinelone.com/living-off-windows-land-a-new-native-file-downldr/"]
 risk_score = 47
 rule_id = "15c0b7a7-9c34-4869-b25b-fa6518414899"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control"]
-timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
 event.category:process and event.type:(start or process_started) and
-  (process.name:desktopimgdownldr.exe or process.pe.original_file_name:desktopimgdownldr.exe or
-     winlog.event_data.OriginalFileName:desktopimgdownldr.exe) and
+  (process.name:desktopimgdownldr.exe or process.pe.original_file_name:desktopimgdownldr.exe) and
   process.args:/lockscreenurl\:http*
 '''
 

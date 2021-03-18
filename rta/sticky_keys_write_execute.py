@@ -1,9 +1,13 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 # Name: Overwrite Accessibiity Binaries
 # RTA: sticky_keys_write_execute.py
+# signal.rule.name: Potential Modification of Accessibility Binaries
+# signal.rule.name: Local Service Commands
+# signal.rule.name: Persistence via TelemetryController Scheduled Task Hijack
 # ATT&CK: T1015
 # Description: Writes different binaries into various accessibility locations.
 

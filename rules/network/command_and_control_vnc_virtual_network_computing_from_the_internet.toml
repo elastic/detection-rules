@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/27"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -20,21 +19,36 @@ false_positives = [
     that is unfamiliar to server or network owners can be unexpected and suspicious.
     """,
 ]
+from = "now-9m"
 index = ["filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "VNC (Virtual Network Computing) from the Internet"
 risk_score = 73
 rule_id = "5700cb81-df44-46aa-a5d7-337798f53eb8"
 severity = "high"
 tags = ["Elastic", "Host", "Network", "Threat Detection", "Command and Control"]
-timeline_id = "91832785-286d-4ebe-b884-1a208d111a70"
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
 event.category:(network or network_traffic) and network.transport:tcp and destination.port >= 5800 and destination.port <= 5810 and
-  not source.ip:(10.0.0.0/8 or 127.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16 or "::1") and
-  destination.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
+  not source.ip:(
+    10.0.0.0/8 or
+    127.0.0.0/8 or
+    169.254.0.0/16 or
+    172.16.0.0/12 or
+    192.168.0.0/16 or
+    224.0.0.0/4 or
+    "::1" or
+    "FE80::/10" or
+    "FF00::/8"
+  ) and
+  destination.ip:(
+    10.0.0.0/8 or
+    172.16.0.0/12 or
+    192.168.0.0/16
+  )
 '''
 
 

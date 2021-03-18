@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/09/02"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/27"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -11,24 +10,23 @@ Identifies WMIC whitelisting bypass techniques by alerting on suspicious executi
 libraries it may be indicative of a whitelist bypass.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Suspicious WMIC XSL Script Execution"
 risk_score = 21
 rule_id = "7f370d54-c0eb-4270-ac5a-9a6020585dc6"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
-timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
 type = "eql"
 
 query = '''
-sequence by process.entity_id with maxspan=2m
+sequence by process.entity_id with maxspan = 2m
 [process where event.type in ("start", "process_started") and
-   (process.name : "WMIC.exe" or process.pe.original_file_name == "wmic.exe") and
-   wildcard(process.args, "format*:*", "/format*:*", "*-format*:*") and
-   not wildcard(process.command_line, "* /format:table *")]
-[library where event.type == "start" and file.name in ("jscript.dll", "vbscript.dll")]
+   (process.name : "WMIC.exe" or process.pe.original_file_name : "wmic.exe") and
+   process.args : ("format*:*", "/format*:*", "*-format*:*") and
+   not process.command_line : "* /format:table *"]
+[library where event.type == "start" and dll.name : ("jscript.dll", "vbscript.dll")]
 '''
 
 

@@ -1,14 +1,17 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """Test that the packages are built correctly."""
 import unittest
 import uuid
-import yaml
 
 from detection_rules import rule_loader
 from detection_rules.packaging import PACKAGE_FILE, Package
+
+
+package_configs = Package.load_configs()
 
 
 class TestPackages(unittest.TestCase):
@@ -21,7 +24,7 @@ class TestPackages(unittest.TestCase):
                 "author": ["Elastic"],
                 "description": "test description",
                 "language": "kuery",
-                "license": "Elastic License",
+                "license": "Elastic License v2",
                 "name": "test rule",
                 "query": "process.name:test.query",
                 "risk_score": 21,
@@ -47,10 +50,7 @@ class TestPackages(unittest.TestCase):
 
     def test_package_loader_default_configs(self):
         """Test configs in etc/packages.yml."""
-        with open(PACKAGE_FILE) as f:
-            configs = yaml.safe_load(f)['package']
-
-        package = Package.from_config(configs)
+        package = Package.from_config(package_configs)
         for rule in package.rules:
             rule.contents.pop('version')
             rule.validate(as_rule=True)
@@ -147,3 +147,26 @@ class TestPackages(unittest.TestCase):
 
         package = Package(rules, 'test', current_versions=version_info, min_version=2, max_version=2)
         self.assertEqual(1, len(package.rules), msg)
+
+
+class TestRegistryPackage(unittest.TestCase):
+    """Test the OOB registry package."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        from detection_rules.schemas.registry_package import RegistryPackageManifest
+
+        assert 'registry_data' in package_configs, f'Missing registry_data in {PACKAGE_FILE}'
+        cls.registry_config = package_configs['registry_data']
+        RegistryPackageManifest.from_dict(cls.registry_config)
+
+    def test_registry_package_config(self):
+        """Test that the registry package is validating properly."""
+        from marshmallow import ValidationError
+        from detection_rules.schemas.registry_package import RegistryPackageManifest
+
+        registry_config = self.registry_config.copy()
+        registry_config['version'] += '7.1.1.'
+
+        with self.assertRaises(ValidationError):
+            RegistryPackageManifest.from_dict(registry_config)

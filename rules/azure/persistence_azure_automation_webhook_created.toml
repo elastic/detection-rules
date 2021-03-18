@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/08/18"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2021/03/04"
 
 [rule]
 author = ["Elastic"]
@@ -12,9 +11,9 @@ webhook. A webhook uses a custom URL passed to Azure Automation along with a dat
 adversary may create a webhook in order to trigger a runbook that contains malicious code.
 """
 from = "now-25m"
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Azure Automation Webhook Created"
 note = "The Azure Filebeat module must be enabled to use this rule."
 references = [
@@ -27,10 +26,17 @@ risk_score = 21
 rule_id = "e9ff9c1c-fe36-4d0d-b3fd-9e0bf4853a62"
 severity = "low"
 tags = ["Elastic", "Cloud", "Azure", "Continuous Monitoring", "SecOps", "Configuration Audit"]
+timestamp_override = "event.ingested"
 to = "now-25m"
 type = "query"
 
 query = '''
-event.dataset:azure.activitylogs and azure.activitylogs.operation_name:(MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/WEBHOOKS/ACTION or MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/WEBHOOKS/WRITE) and event.outcome:Success
+event.dataset:azure.activitylogs and
+  azure.activitylogs.operation_name:
+    (
+      "MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/WEBHOOKS/ACTION" or
+      "MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/WEBHOOKS/WRITE"
+    ) and
+  event.outcome:(Success or success)
 '''
 

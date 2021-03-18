@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/09/02"
-ecs_version = ["1.6.0"]
-maturity = "production"
-updated_date = "2020/10/27"
+maturity = "development"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -11,21 +10,22 @@ Identifies MsXsl.exe making outbound network connections. This may indicate adve
 leveraged by adversaries to execute malicious scripts and evade detection.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "MsXsl Making Network Connections"
 risk_score = 21
 rule_id = "870d1753-1078-403e-92d4-735f142edcca"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
-timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
 type = "eql"
 
 query = '''
+/* duplicate of Network Connection via MsXsl - b86afe07-0d98-4738-b15d-8d7465f95ff5 */
+
 sequence by process.entity_id
   [process where event.type in ("start", "process_started") and process.name : "msxsl.exe"]
-  [network where event.type == "connection" and process.name : "msxsl.exe" and network.direction == "outgoing"]
+  [network where process.name : "msxsl.exe" and network.direction == "outgoing"]
 '''
 
 

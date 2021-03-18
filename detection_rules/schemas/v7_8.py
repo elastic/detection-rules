@@ -1,13 +1,14 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """Definitions for rule metadata and schemas."""
 
 import jsl
 
 from .base import BaseApiSchema, MarkdownField
-from ..attack import tactics, tactics_map, technique_lookup
+from ..attack import tactics, tactics_map, technique_id_list
 
 
 INTERVAL_PATTERN = r'\d+[mshd]'
@@ -58,21 +59,21 @@ class Filters(jsl.Document):
     exists = jsl.DocumentField(FilterExists)
     meta = jsl.DocumentField(FilterMetadata)
     state = jsl.DocumentField(FilterState, name='$state')
-    query = jsl.DocumentField(FilterQuery)
+    query = jsl.DictField()
 
 
 class Threat(jsl.Document):
     """Threat framework mapping such as MITRE ATT&CK."""
 
     class ThreatTactic(jsl.Document):
-        id = jsl.StringField(enum=tactics_map.values())
-        name = jsl.StringField(enum=tactics)
+        id = jsl.StringField(enum=tactics_map.values(), required=True)
+        name = jsl.StringField(enum=tactics, required=True)
         reference = jsl.StringField(MITRE_URL_PATTERN.format(type='tactics'))
 
     class ThreatTechnique(jsl.Document):
-        id = jsl.StringField(enum=list(technique_lookup))
-        name = jsl.StringField()
-        reference = jsl.StringField(MITRE_URL_PATTERN.format(type='techniques'))
+        id = jsl.StringField(enum=technique_id_list, required=True)
+        name = jsl.StringField(required=True)
+        reference = jsl.StringField(MITRE_URL_PATTERN.format(type='techniques'), required=True)
 
     framework = jsl.StringField(default='MITRE ATT&CK', required=True)
     tactic = jsl.DocumentField(ThreatTactic, required=True)

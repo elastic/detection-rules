@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/06/10"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +21,7 @@ from = "now-60m"
 index = ["filebeat-*", "logs-aws*"]
 interval = "10m"
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "AWS CloudTrail Log Suspended"
 note = "The AWS Filebeat module must be enabled to use this rule."
 references = [
@@ -33,6 +32,7 @@ risk_score = 47
 rule_id = "1aa8fa52-44a7-4dae-b058-f3333b91c8d7"
 severity = "medium"
 tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Log Auditing"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
@@ -43,9 +43,14 @@ event.action:StopLogging and event.dataset:aws.cloudtrail and event.provider:clo
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1089"
-name = "Disabling Security Tools"
-reference = "https://attack.mitre.org/techniques/T1089/"
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
 
 
 [rule.threat.tactic]

@@ -1,10 +1,12 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 # Name: Boot Config Deletion With bcdedit
 # RTA: delete_bootconf.py
 # ATT&CK: T1107
+# signal.rule.name: Modification of Boot Configuration
 # Description: Uses bcdedit.exe to backup the current boot configuration, and then to delete the current boot
 #  configuration, finally restoring the original.
 

@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 import contextlib
 import os
@@ -55,7 +56,15 @@ class BaseKqlParser(Interpreter):
         self.text = text
         self.lines = [t.rstrip("\r\n") for t in self.text.splitlines(True)]
         self.scoped_field = None
-        self.schema = schema
+        self.mapping_schema = schema
+        self.star_fields = []
+
+        if schema:
+            for field, field_type in schema.items():
+                if "*" in field:
+                    parts = field.split("*")
+                    pattern = re.compile("^{regex}$".format(regex=".*?".join(re.escape(w) for w in parts)))
+                    self.star_fields.append(pattern)
 
     def assert_lower_token(self, *tokens):
         for token in tokens:
@@ -63,7 +72,7 @@ class BaseKqlParser(Interpreter):
                 raise self.error(token, "Expected '{lower}' but got '{token}'".format(token=token, lower=str(token).lower()))
 
     def error(self, node, message, end=False, cls=KqlParseError, width=None, **kwargs):
-        """Generate."""
+        """Generate an error exception but dont raise it."""
         if kwargs:
             message = message.format(**kwargs)
 
@@ -106,11 +115,13 @@ class BaseKqlParser(Interpreter):
         self.scoped_field = None
 
     def get_field_type(self, dotted_path, lark_tree=None):
-        if self.schema is not None:
-            if lark_tree is not None and dotted_path not in self.schema:
+        matches_pattern = any(regex.match(dotted_path) for regex in self.star_fields)
+
+        if self.mapping_schema is not None:
+            if lark_tree is not None and dotted_path not in self.mapping_schema and not matches_pattern:
                 raise self.error(lark_tree, "Unknown field")
 
-            return self.schema[dotted_path]
+            return self.mapping_schema.get(dotted_path)
 
     @staticmethod
     def get_literal_type(literal_value):
@@ -192,17 +203,17 @@ class KqlParser(BaseKqlParser):
 
     @contextlib.contextmanager
     def nest(self, lark_tree):
-        schema = self.schema
+        schema = self.mapping_schema
         dotted_path = self.visit(lark_tree)
 
         if self.get_field_type(dotted_path, lark_tree) != "nested":
             raise self.error(lark_tree, "Expected a nested field")
 
         try:
-            self.schema = self.schema[dotted_path]
+            self.mapping_schema = self.mapping_schema[dotted_path]
             yield
         finally:
-            self.schema = schema
+            self.mapping_schema = schema
 
     def nested_query(self, tree):
         # field_tree, query_tree = tree.child_trees

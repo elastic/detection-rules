@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/27"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -18,15 +17,16 @@ false_positives = [
     to conceal malicious code.
     """,
 ]
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Process Activity via Compiled HTML File"
 risk_score = 21
 rule_id = "e3343ab9-4245-4715-b344-e11c56b0a47f"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
-timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
@@ -36,11 +36,6 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1223"
-name = "Compiled HTML File"
-reference = "https://attack.mitre.org/techniques/T1223/"
-
 
 [rule.threat.tactic]
 id = "TA0002"
@@ -49,9 +44,14 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1223"
+id = "T1218"
+name = "Signed Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.001"
 name = "Compiled HTML File"
-reference = "https://attack.mitre.org/techniques/T1223/"
+reference = "https://attack.mitre.org/techniques/T1218/001/"
+
 
 
 [rule.threat.tactic]

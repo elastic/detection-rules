@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/04/14"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/27"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -11,22 +10,21 @@ Identifies when Internet Information Services (IIS) HTTP Logging is disabled on 
 access via a webshell or other mechanism can disable HTTP Logging as an effective anti-forensics measure.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 max_signals = 33
 name = "IIS HTTP Logging Disabled"
 risk_score = 73
 rule_id = "ebf1adea-ccf2-4943-8b96-7ab11ca173a5"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
-timeline_id = "76e52245-7519-4251-91ab-262fb1a1728c"
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
 event.category:process and event.type:(start or process_started) and
-  (process.name:appcmd.exe or process.pe.original_file_name:appcmd.exe or
-     winlog.event_data.OriginalFileName:appcmd.exe) and
+  (process.name:appcmd.exe or process.pe.original_file_name:appcmd.exe) and
   process.args:/dontLog\:\"True\" and
   not process.parent.name:iissetup.exe
 '''

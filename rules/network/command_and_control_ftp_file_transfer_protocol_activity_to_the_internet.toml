@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/10/27"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -22,31 +21,41 @@ false_positives = [
     server that has no known associated FTP workflow or business requirement is often suspicious.
     """,
 ]
+from = "now-9m"
 index = ["filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "FTP (File Transfer Protocol) Activity to the Internet"
 risk_score = 21
 rule_id = "87ec6396-9ac4-4706-bcf0-2ebb22002f43"
 severity = "low"
 tags = ["Elastic", "Host", "Network", "Threat Detection", "Command and Control"]
-timeline_id = "91832785-286d-4ebe-b884-1a208d111a70"
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
 event.category:(network or network_traffic) and network.transport:tcp and (destination.port:(20 or 21) or event.dataset:zeek.ftp) and
-   source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16) and
-   not destination.ip:(10.0.0.0/8 or 127.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16 or "::1")
+  source.ip:(
+    10.0.0.0/8 or
+    172.16.0.0/12 or
+    192.168.0.0/16
+  ) and
+  not destination.ip:(
+    10.0.0.0/8 or
+    127.0.0.0/8 or
+    169.254.0.0/16 or
+    172.16.0.0/12 or
+    192.168.0.0/16 or
+    224.0.0.0/4 or
+    "::1" or
+    "FE80::/10" or
+    "FF00::/8"
+  )
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1043"
-name = "Commonly Used Port"
-reference = "https://attack.mitre.org/techniques/T1043/"
-
 
 [rule.threat.tactic]
 id = "TA0011"

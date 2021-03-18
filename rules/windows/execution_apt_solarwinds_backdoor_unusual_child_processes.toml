@@ -1,0 +1,72 @@
+[metadata]
+creation_date = "2020/12/14"
+maturity = "production"
+updated_date = "2021/03/03"
+
+[rule]
+author = ["Elastic"]
+description = "A suspicious SolarWinds child process was detected, which may indicate an attempt to execute malicious programs."
+false_positives = [
+    "Trusted SolarWinds child processes, verify process details such as network connections and file writes.",
+]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious SolarWinds Child Process"
+references = [
+    "https://www.fireeye.com/blog/threat-research/2020/12/evasive-attacker-leverages-solarwinds-supply-chain-compromises-with-sunburst-backdoor.html",
+    "https://github.com/fireeye/sunburst_countermeasures/blob/main/rules/SUNBURST/hxioc/SOLARWINDS%20SUSPICIOUS%20CHILD%20PROCESSES%20(METHODOLOGY).ioc",
+]
+risk_score = 47
+rule_id = "93b22c0a-06a0-4131-b830-b10d5e166ff4"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+ process.parent.name: ("SolarWinds.BusinessLayerHost.exe", "SolarWinds.BusinessLayerHostx64.exe") and
+ not process.name : (
+        "APMServiceControl*.exe",
+        "ExportToPDFCmd*.Exe",
+        "SolarWinds.Credentials.Orion.WebApi*.exe",
+        "SolarWinds.Orion.Topology.Calculator*.exe",
+        "Database-Maint.exe",
+        "SolarWinds.Orion.ApiPoller.Service.exe",
+        "WerFault.exe",
+        "WerMgr.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1106"
+name = "Native API"
+reference = "https://attack.mitre.org/techniques/T1106/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

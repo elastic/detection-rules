@@ -1,0 +1,95 @@
+[metadata]
+creation_date = "2020/11/17"
+maturity = "production"
+updated_date = "2021/03/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the PowerShell engine being invoked by unexpected processes. Rather than executing PowerShell functionality
+with powershell.exe, some attackers do this to operate more stealthily.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious PowerShell Engine ImageLoad"
+risk_score = 47
+rule_id = "852c1f19-68e8-43a6-9dce-340771fe1be3"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+library where dll.name : ("System.Management.Automation.ni.dll", "System.Management.Automation.dll") and
+/* add false positives relevant to your environment here */
+not process.executable : ("C:\\Windows\\System32\\RemoteFXvGPUDisablement.exe", "C:\\Windows\\System32\\sdiagnhost.exe", "C:\\Program Files*\\*.exe") and
+  not process.name :
+  (
+    "Altaro.SubAgent.exe",
+    "AppV_Manage.exe",
+    "azureadconnect.exe",
+    "CcmExec.exe",
+    "configsyncrun.exe",
+    "choco.exe",
+    "ctxappvservice.exe",
+    "DVLS.Console.exe",
+    "edgetransport.exe",
+    "exsetup.exe",
+    "forefrontactivedirectoryconnector.exe",
+    "InstallUtil.exe",
+    "JenkinsOnDesktop.exe",
+    "Microsoft.EnterpriseManagement.ServiceManager.UI.Console.exe",
+    "mmc.exe",
+    "mscorsvw.exe",
+    "msexchangedelivery.exe",
+    "msexchangefrontendtransport.exe",
+    "msexchangehmworker.exe",
+    "msexchangesubmission.exe",
+    "msiexec.exe",
+    "MsiExec.exe",
+    "noderunner.exe",
+    "NServiceBus.Host.exe",
+    "NServiceBus.Host32.exe",
+    "NServiceBus.Hosting.Azure.HostProcess.exe",
+    "OuiGui.WPF.exe",
+    "powershell.exe",
+    "powershell_ise.exe",
+    "pwsh.exe",
+    "SCCMCliCtrWPF.exe",
+    "ScriptEditor.exe",
+    "ScriptRunner.exe",
+    "sdiagnhost.exe",
+    "servermanager.exe",
+    "setup100.exe",
+    "ServiceHub.VSDetouredHost.exe",
+    "SPCAF.Client.exe",
+    "SPCAF.SettingsEditor.exe",
+    "SQLPS.exe",
+    "telemetryservice.exe",
+    "UMWorkerProcess.exe",
+    "w3wp.exe",
+    "wsmprovhost.exe"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

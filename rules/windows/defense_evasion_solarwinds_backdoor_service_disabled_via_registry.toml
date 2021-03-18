@@ -1,0 +1,74 @@
+[metadata]
+creation_date = "2020/12/14"
+maturity = "production"
+updated_date = "2021/03/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a SolarWinds binary modifying the start type of a service to be disabled. An adversary may abuse this
+technique to manipulate relevant security services.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "SolarWinds Process Disabling Services via Registry"
+references = [
+    "https://www.fireeye.com/blog/threat-research/2020/12/evasive-attacker-leverages-solarwinds-supply-chain-compromises-with-sunburst-backdoor.html",
+]
+risk_score = 47
+rule_id = "b9960fef-82c6-4816-befa-44745030e917"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where registry.path : "HKLM\\SYSTEM\\*ControlSet*\\Services\\*\\Start" and registry.data.strings == "4" and
+ process.name : (
+     "SolarWinds.BusinessLayerHost*.exe", 
+     "ConfigurationWizard*.exe", 
+     "NetflowDatabaseMaintenance*.exe", 
+     "NetFlowService*.exe", 
+     "SolarWinds.Administration*.exe", 
+     "SolarWinds.Collector.Service*.exe" , 
+     "SolarwindsDiagnostics*.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

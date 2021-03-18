@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """Definitions for rule metadata and schemas."""
 
@@ -9,15 +10,10 @@ import time
 import jsl
 import jsonschema
 
-from .. import ecs
+from .definitions import (
+    DATE_PATTERN, MATURITY_LEVELS, OS_OPTIONS, UUID_PATTERN, VERSION_PATTERN, BRANCH_PATTERN
+)
 from ..utils import cached
-
-
-DATE_PATTERN = r'\d{4}/\d{2}/\d{2}'
-MATURITY_LEVELS = ['development', 'testing', 'staged', 'production', 'deprecated']
-OS_OPTIONS = ['windows', 'linux', 'macos', 'solaris']  # need to verify with ecs
-UUID_PATTERN = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
-VERSION_PATTERN = r'\d+\.\d+\.\d+'
 
 
 class MarkdownField(jsl.StringField):
@@ -69,20 +65,22 @@ class GenericSchema(jsl.Document):
 
 
 class TomlMetadata(GenericSchema):
-    """Schema for siem rule toml metadata."""
+    """Schema for rule toml metadata."""
 
     creation_date = jsl.StringField(required=True, pattern=DATE_PATTERN, default=time.strftime('%Y/%m/%d'))
 
     # rule validated against each ecs schema contained
-    ecs_version = jsl.ArrayField(
-        jsl.StringField(pattern=VERSION_PATTERN, required=True, default=ecs.get_max_version()), required=True)
+    beats_version = jsl.StringField(pattern=VERSION_PATTERN, required=False)
+    comments = jsl.StringField(required=False)
+    deprecation_date = jsl.StringField(required=False, pattern=DATE_PATTERN, default=time.strftime('%Y/%m/%d'))
+    ecs_versions = jsl.ArrayField(jsl.StringField(pattern=BRANCH_PATTERN, required=True), required=False)
     maturity = jsl.StringField(enum=MATURITY_LEVELS, default='development', required=True)
 
     os_type_list = jsl.ArrayField(jsl.StringField(enum=OS_OPTIONS), required=False)
+    query_schema_validation = jsl.BooleanField(required=False)
     related_endpoint_rules = jsl.ArrayField(jsl.ArrayField(jsl.StringField(), min_items=2, max_items=2),
                                             required=False)
     updated_date = jsl.StringField(required=True, pattern=DATE_PATTERN, default=time.strftime('%Y/%m/%d'))
-    query_schema_validation = jsl.BooleanField(required=False)
 
 
 class BaseApiSchema(GenericSchema):

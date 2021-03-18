@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 import datetime
 from typing import List, Type
@@ -43,7 +44,7 @@ class BaseResource(dict):
 
     @classmethod
     def from_id(cls, resource_id) -> 'BaseResource':
-        return Kibana.current().get(cls.BASE_URI, params={self.ID_FIELD: resource_id})
+        return Kibana.current().get(cls.BASE_URI, params={cls.ID_FIELD: resource_id})
 
     def put(self):
         response = Kibana.current().put(self.BASE_URI, data=self.to_dict())
