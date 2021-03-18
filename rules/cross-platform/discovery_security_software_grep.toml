@@ -23,7 +23,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where process.name : "grep" and user.id != "0" and
+process where event.type == "start" and
+process.name : "grep" and user.id != "0" and
  not process.parent.executable : "/Library/Application Support/*" and
    process.args :
          ("Little Snitch*",
