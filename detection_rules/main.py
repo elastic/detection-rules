@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """CLI commands for detection_rules."""
 import glob
@@ -16,6 +17,7 @@ import jsonschema
 import pytoml
 
 from . import rule_loader
+from .cli_utils import rule_prompt
 from .misc import client_error, nested_set, parse_config
 from .rule import Rule
 from .rule_formatter import toml_write
@@ -47,7 +49,7 @@ def create_rule(path, config, required_only, rule_type):
     """Create a detection rule."""
     contents = load_rule_contents(config, single_only=True)[0] if config else {}
     try:
-        return Rule.build(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
+        return rule_prompt(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
     finally:
         rule_loader.reset()
 
@@ -108,7 +110,7 @@ def import_rules(infile, directory):
         base_path = contents.get('name') or contents.get('rule', {}).get('name')
         base_path = name_to_filename(base_path) if base_path else base_path
         rule_path = os.path.join(RULES_DIR, base_path) if base_path else None
-        Rule.build(rule_path, required_only=True, save=True, verbose=True, **contents)
+        rule_prompt(rule_path, required_only=True, save=True, verbose=True, **contents)
 
 
 @root.command('toml-lint')

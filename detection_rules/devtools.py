@@ -1,9 +1,9 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """CLI commands for internal detection_rules dev team."""
-import glob
 import hashlib
 import io
 import json
@@ -79,9 +79,10 @@ def update_lock_versions(rule_ids):
 
 @dev_group.command('kibana-diff')
 @click.option('--rule-id', '-r', multiple=True, help='Optionally specify rule ID')
+@click.option('--repo', default='elastic/kibana', help='Repository where branch is located')
 @click.option('--branch', '-b', default='master', help='Specify the kibana branch to diff against')
 @click.option('--threads', '-t', type=click.IntRange(1), default=50, help='Number of threads to use to download rules')
-def kibana_diff(rule_id, branch, threads):
+def kibana_diff(rule_id, repo, branch, threads):
     """Diff rules against their version represented in kibana if exists."""
     from .misc import get_kibana_rules
 
@@ -94,7 +95,7 @@ def kibana_diff(rule_id, branch, threads):
     manage_versions(list(rules.values()), verbose=False)
     repo_hashes = {r.id: r.get_hash() for r in rules.values()}
 
-    kibana_rules = {r['rule_id']: r for r in get_kibana_rules(branch=branch, threads=threads).values()}
+    kibana_rules = {r['rule_id']: r for r in get_kibana_rules(repo=repo, branch=branch, threads=threads).values()}
     kibana_hashes = {r['rule_id']: Rule.dict_hash(r) for r in kibana_rules.values()}
 
     missing_from_repo = list(set(kibana_hashes).difference(set(repo_hashes)))
@@ -136,7 +137,7 @@ def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_bran
     """Prep a commit and push to Kibana."""
     git_exe = shutil.which("git")
 
-    package_name = load_dump(PACKAGE_FILE)['package']["name"]
+    package_name = Package.load_configs()['package']["name"]
     release_dir = os.path.join(RELEASE_DIR, package_name)
     message = message or f"[Detection Rules] Add {package_name} rules"
 
@@ -190,31 +191,32 @@ def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_bran
 
 
 @dev_group.command('license-check')
+@click.option('--ignore-directory', '-i', multiple=True, help='Directories to skip (relative to base)')
 @click.pass_context
-def license_check(ctx):
+def license_check(ctx, ignore_directory):
     """Check that all code files contain a valid license."""
-
+    ignore_directory += ("env",)
     failed = False
+    base_path = Path(get_path())
 
-    for path in glob.glob(get_path("**", "*.py"), recursive=True):
-        if path.startswith(get_path("env", "")):
+    for path in base_path.rglob('*.py'):
+        relative_path = path.relative_to(base_path)
+        if relative_path.parts[0] in ignore_directory:
             continue
-
-        relative_path = os.path.relpath(path)
 
         with io.open(path, "rt", encoding="utf-8") as f:
             contents = f.read()
 
-            # skip over shebang lines
-            if contents.startswith("#!/"):
-                _, _, contents = contents.partition("\n")
+        # skip over shebang lines
+        if contents.startswith("#!/"):
+            _, _, contents = contents.partition("\n")
 
-            if not contents.lstrip("\r\n").startswith(PYTHON_LICENSE):
-                if not failed:
-                    click.echo("Missing license headers for:", err=True)
+        if not contents.lstrip("\r\n").startswith(PYTHON_LICENSE):
+            if not failed:
+                click.echo("Missing license headers for:", err=True)
 
-                failed = True
-                click.echo(relative_path, err=True)
+            failed = True
+            click.echo(relative_path, err=True)
 
     ctx.exit(int(failed))
 
@@ -294,6 +296,32 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
         query = click.prompt(f'Search loop - enter new {language} query or ctrl-z to exit')
         columns = click.prompt('columns', default=','.join(columns)).split(',')
         ctx.invoke(search_rules, query=query, columns=columns, language=language, rules=all_rules, pager=True)
+
+
+@dev_group.command('deprecate-rule')
+@click.argument('rule-file', type=click.Path(dir_okay=False))
+@click.pass_context
+def deprecate_rule(ctx: click.Context, rule_file: str):
+    """Deprecate a rule."""
+    import pytoml
+    from .packaging import load_versions
+
+    version_info = load_versions()
+    rule_file = Path(rule_file)
+    contents = pytoml.loads(rule_file.read_text())
+    rule = Rule(path=rule_file, contents=contents)
+
+    if rule.id not in version_info:
+        click.echo('Rule has not been version locked and so does not need to be deprecated. '
+                   'Delete the file or update the maturity to `development` instead')
+        ctx.exit()
+
+    today = time.strftime('%Y/%m/%d')
+    rule.metadata.update(updated_date=today, deprecation_date=today, maturity='deprecated')
+    deprecated_path = get_path('rules', '_deprecated', rule_file.name)
+    rule.save(new_path=deprecated_path, as_rule=True)
+    rule_file.unlink()
+    click.echo(f'Rule moved to {deprecated_path} - remember to git add this file')
 
 
 @dev_group.group('test')

@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """Load rule metadata transform between rule and api formats."""
 import functools
@@ -118,7 +119,7 @@ def load_rules(file_lookup=None, verbose=True, error=True):
 
         except Exception as e:
             failed = True
-            err_msg = "Invalid rule file in {}\n{}".format(rule_file, click.style(e.args[0], fg='red'))
+            err_msg = "Invalid rule file in {}\n{}".format(rule_file, click.style(str(e), fg='red'))
             errors.append(err_msg)
             if error:
                 if verbose:
@@ -233,9 +234,14 @@ def filter_rules(rules, metadata_field, value):
     return [rule for rule in rules if rule.metadata.get(metadata_field, '') == value]
 
 
-def get_production_rules(verbose=False):
+def get_production_rules(verbose=False, include_deprecated=False) -> List[Rule]:
     """Get rules with a maturity of production."""
-    return filter_rules(load_rules(verbose=verbose).values(), 'maturity', 'production')
+    from .packaging import filter_rule
+
+    maturity = ['production']
+    if include_deprecated:
+        maturity.append('deprecated')
+    return [rule for rule in load_rules(verbose=verbose).values() if filter_rule(rule, {'maturity': maturity})]
 
 
 @cached
@@ -260,6 +266,7 @@ rta_mappings = RtaMappings()
 
 
 __all__ = (
+    "FILE_PATTERN",
     "load_rule_files",
     "load_rules",
     "load_rule_files",
@@ -269,6 +276,7 @@ __all__ = (
     "get_production_rules",
     "get_rule",
     "filter_rules",
+    "find_unneeded_defaults_from_rule",
     "get_rule_name",
     "get_rule_contents",
     "reset",
