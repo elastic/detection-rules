@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/03"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/03/09"
 
 [rule]
 author = ["Elastic"]
@@ -23,8 +23,10 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
- process.name : "touch" and process.args : ("-r", "-t", "-a*","-m*")
+process where event.type == "start" and
+ process.name : "touch" and user.id != "0" and
+ process.args : ("-r", "-t", "-a*","-m*") and
+ not process.args : ("/usr/lib/go-*/bin/go", "/usr/lib/dracut/dracut-functions.sh", "/tmp/KSInstallAction.*/m/.patch/*")
 '''
 
 
