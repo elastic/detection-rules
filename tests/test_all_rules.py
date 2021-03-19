@@ -19,8 +19,9 @@ import pytoml
 from rta import get_ttp_names
 
 from detection_rules import attack, beats, ecs
+from detection_rules.packaging import load_versions
 from detection_rules.rule_loader import FILE_PATTERN, find_unneeded_defaults_from_rule
-from detection_rules.utils import load_etc_dump
+from detection_rules.utils import get_path, load_etc_dump
 from detection_rules.rule import Rule
 
 from .base import BaseRuleTest
@@ -60,9 +61,20 @@ class TestValidRules(BaseRuleTest):
 
     def test_all_rules_as_rule_schema(self):
         """Ensure that every rule file validates against the rule schema."""
+        rules_path = get_path('rules')
+
         for file_name, contents in self.rule_files.items():
             rule = Rule(file_name, contents)
-            rule.validate(as_rule=True)
+
+            if rule.metadata['maturity'] == 'deprecated':
+                continue
+
+            try:
+                rule.validate(as_rule=True)
+            except jsonschema.ValidationError as exc:
+                rule_path = Path(rule.path).relative_to(rules_path)
+                exc.message = f'{rule_path} -> {exc}'
+                raise exc
 
     def test_all_rule_queries_optimized(self):
         """Ensure that every rule query is in optimized form."""
@@ -429,6 +441,43 @@ class TestRuleMetadata(BaseRuleTest):
             rules_str = '\n '.join(self.rule_str(r, trailer=None) for r in invalid)
             err_msg = f'The following rules have an updated_date older than the creation_date\n {rules_str}'
             self.fail(err_msg)
+
+    def test_deprecated_rules(self):
+        """Test that deprecated rules are properly handled."""
+        versions = load_versions()
+        deprecations = load_etc_dump('deprecated_rules.json')
+        deprecated_rules = {}
+
+        for rule in self.rules:
+            maturity = rule.metadata['maturity']
+
+            if maturity == 'deprecated':
+                deprecated_rules[rule.id] = rule
+                err_msg = f'{self.rule_str(rule)} cannot be deprecated if it has not been version locked. ' \
+                          f'Convert to `development` or delete the rule file instead'
+                self.assertIn(rule.id, versions, err_msg)
+
+                rule_path = Path(rule.path).relative_to(get_path('rules'))
+                err_msg = f'{self.rule_str(rule)} deprecated rules should be stored in ' \
+                          f'"{get_path("rules", "_deprecated")}" folder'
+                self.assertEqual('_deprecated', rule_path.parts[0], err_msg)
+
+                err_msg = f'{self.rule_str(rule)} missing deprecation date'
+                self.assertIn('deprecation_date', rule.metadata, err_msg)
+
+                err_msg = f'{self.rule_str(rule)} deprecation_date and updated_date should match'
+                self.assertEqual(rule.metadata['deprecation_date'], rule.metadata['updated_date'], err_msg)
+
+        missing_rules = sorted(set(versions).difference(set(self.rule_lookup)))
+        missing_rule_strings = '\n '.join(f'{r} - {versions[r]["rule_name"]}' for r in missing_rules)
+        err_msg = f'Deprecated rules should not be removed, but moved to the rules/_deprecated folder instead. ' \
+                  f'The following rules have been version locked and are missing. ' \
+                  f'Re-add to the deprecated folder and update maturity to "deprecated": \n {missing_rule_strings}'
+        self.assertEqual([], missing_rules, err_msg)
+
+        for rule_id, entry in deprecations.items():
+            rule_str = f'{rule_id} - {entry["rule_name"]} ->'
+            self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
 
 
 class TestTuleTiming(BaseRuleTest):
