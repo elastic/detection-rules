@@ -20,6 +20,7 @@ import yaml
 from . import rule_loader
 from .misc import JS_LICENSE, cached
 from .rule import Rule, downgrade_contents_from_rule  # noqa: F401
+from .schemas import CurrentSchema
 from .utils import Ndjson, get_path, get_etc_path, load_etc_dump, save_etc_dump
 
 RELEASE_DIR = get_path("releases")
@@ -28,7 +29,7 @@ NOTICE_FILE = get_path('NOTICE.txt')
 # CHANGELOG_FILE = Path(get_etc_path('rules-changelog.json'))
 
 
-def filter_rule(rule: Rule, config_filter: dict, exclude_fields: dict) -> bool:
+def filter_rule(rule: Rule, config_filter: dict, exclude_fields: Optional[dict] = None) -> bool:
     """Filter a rule based off metadata and a package configuration."""
     flat_rule = rule.flattened_contents
     for key, values in config_filter.items():
@@ -46,6 +47,7 @@ def filter_rule(rule: Rule, config_filter: dict, exclude_fields: dict) -> bool:
         if len(rule_values & values) == 0:
             return False
 
+    exclude_fields = exclude_fields or {}
     for index, fields in exclude_fields.items():
         if rule.unique_fields and (rule.contents['index'] == index or index == 'any'):
             if set(rule.unique_fields) & set(fields):
@@ -66,8 +68,9 @@ def load_versions(current_versions: dict = None):
     return current_versions or load_etc_dump('version.lock.json')
 
 
-def manage_versions(rules: list, deprecated_rules: list = None, current_versions: dict = None,
-                    exclude_version_update=False, add_new=True, save_changes=False, verbose=True) -> (list, list, list):
+def manage_versions(rules: List[Rule], deprecated_rules: list = None, current_versions: dict = None,
+                    exclude_version_update=False, add_new=True, save_changes=False,
+                    verbose=True) -> (List[str], List[str], List[str]):
     """Update the contents of the version.lock file and optionally save changes."""
     new_rules = {}
     changed_rules = []
@@ -103,13 +106,12 @@ def manage_versions(rules: list, deprecated_rules: list = None, current_versions
     if deprecated_rules:
         rule_deprecations = load_etc_dump('deprecated_rules.json')
 
-        deprecation_date = str(datetime.date.today())
-
         for rule in deprecated_rules:
             if rule.id not in rule_deprecations:
                 rule_deprecations[rule.id] = {
                     'rule_name': rule.name,
-                    'deprecation_date': deprecation_date
+                    'deprecation_date': rule.metadata['deprecation_date'],
+                    'stack_version': CurrentSchema.STACK_VERSION
                 }
                 newly_deprecated.append(rule.id)
 
@@ -129,7 +131,8 @@ def manage_versions(rules: list, deprecated_rules: list = None, current_versions
                     click.echo('Updated version.lock.json file')
 
             if newly_deprecated:
-                save_etc_dump(sorted(OrderedDict(rule_deprecations)), 'deprecated_rules.json')
+                save_etc_dump(OrderedDict(sorted(rule_deprecations.items(), key=lambda e: e[1]['rule_name'])),
+                              'deprecated_rules.json')
 
                 if verbose:
                     click.echo('Updated deprecated_rules.json file')
@@ -481,7 +484,7 @@ class Package(object):
 
         package_dir = Path(save_dir).joinpath(manifest.version)
         docs_dir = package_dir / 'docs'
-        rules_dir = package_dir / 'kibana' / 'rules'
+        rules_dir = package_dir / 'kibana' / 'security-rule'
 
         docs_dir.mkdir(parents=True)
         rules_dir.mkdir(parents=True)

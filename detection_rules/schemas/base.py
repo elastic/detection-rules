@@ -72,6 +72,7 @@ class TomlMetadata(GenericSchema):
     # rule validated against each ecs schema contained
     beats_version = jsl.StringField(pattern=VERSION_PATTERN, required=False)
     comments = jsl.StringField(required=False)
+    deprecation_date = jsl.StringField(required=False, pattern=DATE_PATTERN, default=time.strftime('%Y/%m/%d'))
     ecs_versions = jsl.ArrayField(jsl.StringField(pattern=BRANCH_PATTERN, required=True), required=False)
     maturity = jsl.StringField(enum=MATURITY_LEVELS, default='development', required=True)
 
