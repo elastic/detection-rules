@@ -484,13 +484,14 @@ class Package(object):
 
         package_dir = Path(save_dir).joinpath(manifest.version)
         docs_dir = package_dir / 'docs'
-        rules_dir = package_dir / 'kibana' / 'security-rule'
+        rules_dir = package_dir / 'kibana' / 'security_rule'
 
         docs_dir.mkdir(parents=True)
         rules_dir.mkdir(parents=True)
 
         manifest_file = package_dir.joinpath('manifest.yml')
         readme_file = docs_dir.joinpath('README.md')
+        notice_file = package_dir.joinpath('NOTICE.txt')
 
         manifest_file.write_text(yaml.safe_dump(manifest.asdict()))
         # shutil.copyfile(CHANGELOG_FILE, str(rules_dir.joinpath('CHANGELOG.json')))
@@ -503,6 +504,7 @@ class Package(object):
                        'for the detection engine within the Elastic Security application.\n\n')
 
         readme_file.write_text(readme_text)
+        notice_file.write_text(Path(NOTICE_FILE).read_text())
 
     def bump_versions(self, save_changes=False, current_versions=None):
         """Bump the versions of all production rules included in a release and optionally save changes."""
