@@ -137,7 +137,7 @@ def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_bran
     """Prep a commit and push to Kibana."""
     git_exe = shutil.which("git")
 
-    package_name = load_dump(PACKAGE_FILE)['package']["name"]
+    package_name = Package.load_configs()['package']["name"]
     release_dir = os.path.join(RELEASE_DIR, package_name)
     message = message or f"[Detection Rules] Add {package_name} rules"
 
@@ -296,6 +296,32 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
         query = click.prompt(f'Search loop - enter new {language} query or ctrl-z to exit')
         columns = click.prompt('columns', default=','.join(columns)).split(',')
         ctx.invoke(search_rules, query=query, columns=columns, language=language, rules=all_rules, pager=True)
+
+
+@dev_group.command('deprecate-rule')
+@click.argument('rule-file', type=click.Path(dir_okay=False))
+@click.pass_context
+def deprecate_rule(ctx: click.Context, rule_file: str):
+    """Deprecate a rule."""
+    import pytoml
+    from .packaging import load_versions
+
+    version_info = load_versions()
+    rule_file = Path(rule_file)
+    contents = pytoml.loads(rule_file.read_text())
+    rule = Rule(path=rule_file, contents=contents)
+
+    if rule.id not in version_info:
+        click.echo('Rule has not been version locked and so does not need to be deprecated. '
+                   'Delete the file or update the maturity to `development` instead')
+        ctx.exit()
+
+    today = time.strftime('%Y/%m/%d')
+    rule.metadata.update(updated_date=today, deprecation_date=today, maturity='deprecated')
+    deprecated_path = get_path('rules', '_deprecated', rule_file.name)
+    rule.save(new_path=deprecated_path, as_rule=True)
+    rule_file.unlink()
+    click.echo(f'Rule moved to {deprecated_path} - remember to git add this file')
 
 
 @dev_group.group('test')
