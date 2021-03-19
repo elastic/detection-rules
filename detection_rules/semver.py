@@ -5,14 +5,14 @@
 
 """Helper functionality for comparing semantic versions."""
 import re
+from typing import Iterable, Union
 
 
 class Version(tuple):
 
-    def __new__(cls, version):
+    def __new__(cls, version: Union[Iterable, str]) -> 'Version':
         if not isinstance(version, (int, list, tuple)):
             version = tuple(int(a) if a.isdigit() else a for a in re.split(r'[.-]', version))
-
         return version if isinstance(version, int) else tuple.__new__(cls, version)
 
     def bump(self):
