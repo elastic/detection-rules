@@ -25,8 +25,7 @@ from .misc import PYTHON_LICENSE, add_client, GithubClient, Manifest, client_err
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
 from .rule import TOMLRule
 from .rule_loader import get_rule
-from .utils import get_path
-
+from .utils import get_path, dict_hash
 
 RULES_DIR = get_path('rules')
 
@@ -96,7 +95,7 @@ def kibana_diff(rule_id, repo, branch, threads):
     repo_hashes = {r.id: r.get_hash() for r in rules.values()}
 
     kibana_rules = {r['rule_id']: r for r in get_kibana_rules(repo=repo, branch=branch, threads=threads).values()}
-    kibana_hashes = {r['rule_id']: TOMLRule.dict_hash(r) for r in kibana_rules.values()}
+    kibana_hashes = {r['rule_id']: dict_hash(r) for r in kibana_rules.values()}
 
     missing_from_repo = list(set(kibana_hashes).difference(set(repo_hashes)))
     missing_from_kibana = list(set(repo_hashes).difference(set(kibana_hashes)))
