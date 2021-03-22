@@ -328,8 +328,8 @@ class TOMLRuleContents:
 
         if self.id in rules_versions:
             version_info = rules_versions[self.id]
-            version = version_info['version']
-            return version
+            version: str = version_info['version']
+            return version != self.sha256()
 
     @property
     def latest_version(self) -> Optional[int]:
