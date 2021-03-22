@@ -119,21 +119,19 @@ def toml_lint(rule_file):
     """Cleanup files with some simple toml formatting."""
     if rule_file:
         contents = pytoml.load(rule_file)
-        rule = TOMLRule(path=rule_file.name, contents=contents)
-
-        # removed unneeded defaults
-        for field in rule_loader.find_unneeded_defaults_from_rule(rule):
-            rule.contents.pop(field, None)
-
-        rule.save(as_rule=True)
+        rules = [TOMLRule(path=rule_file.name, contents=contents)]
     else:
-        for rule in rule_loader.load_rules().values():
+        rules = list(rule_loader.load_rules().values())
 
-            # removed unneeded defaults
-            for field in rule_loader.find_unneeded_defaults_from_rule(rule):
-                rule.contents.pop(field, None)
+    # removed unneeded defaults
+    # TODO: we used to remove "unneeded" defaults, but this is a potentially tricky thing.
+    #       we need to figure out if a default is Kibana-imposed or detection-rules imposed.
+    #       ideally, we can explicitly mention default in TOML if desired and have a concept
+    #       of build-time defaults, so that defaults are filled in as late as possible
 
-            rule.save(as_rule=True)
+    # re-save the rules to force TOML reformatting
+    for rule in rules:
+        rule.save_toml()
 
     rule_loader.reset()
     click.echo('Toml file linting complete')

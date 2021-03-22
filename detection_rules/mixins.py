@@ -1,3 +1,8 @@
+# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
+
 """Generic mixin classes."""
 from typing import TypeVar, Type
 
@@ -12,7 +17,7 @@ ClassT = TypeVar('ClassT')  # bound=dataclass?
 def _strip_none_from_dict(obj: T) -> T:
     """Strip none values from a dict recursively."""
     if isinstance(obj, dict):
-        return {key: _strip_none_from_dict(value) for key, value in obj if value is not None}
+        return {key: _strip_none_from_dict(value) for key, value in obj.items() if value is not None}
     if isinstance(obj, list):
         return [_strip_none_from_dict(o) for o in obj]
     if isinstance(obj, tuple):
@@ -35,7 +40,7 @@ class MarshmallowDataclassMixin:
         schema = cls.__schema()
         return schema.load(obj)
 
-    def to_dict(self, strip_none_values=False) -> dict:
+    def to_dict(self, strip_none_values=True) -> dict:
         """Serialize a dataclass to a dictionary using marshmallow."""
         schema = self.__schema()
         serialized: dict = schema.dump(self)
