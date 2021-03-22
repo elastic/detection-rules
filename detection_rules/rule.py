@@ -406,7 +406,6 @@ class TOMLRule:
 
     def save_toml(self):
         converted = utils.dataclass_to_dict(self.contents)
-        converted.pop("path")
         toml_write(converted, str(self.path.absolute()))
 
     def save_json(self, path: Path, include_version: bool = True):
