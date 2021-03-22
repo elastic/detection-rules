@@ -27,9 +27,9 @@ _META_SCHEMA_REQ_DEFAULTS = {}
 @dataclass(frozen=True)
 class RuleMeta(MarshmallowDataclassMixin):
     """Data stored in a rule's [metadata] section of TOML."""
-    creation_date: str
-    updated_date: str
-    deprecation_date: Optional[str]
+    creation_date: definitions.Date
+    updated_date: definitions.Date
+    deprecation_date: Optional[definitions.Date]
 
     # Optional fields
     beats_version: Optional[definitions.SemVer]
