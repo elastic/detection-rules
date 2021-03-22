@@ -1,0 +1,64 @@
+[metadata]
+creation_date = "2021/03/22"
+maturity = "production"
+updated_date = "2021/03/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies AT Protocol EnableAt registry modification to enable the deprecated Scheduled Jobs AT Protocol. This could be
+indicative of adversary lateral movement preparation.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "AT Protocol Enabled via Registry Modification"
+references = [
+    "https://github.com/mez-0/MoveScheduler",
+    "https://docs.microsoft.com/en-us/windows/win32/cimwin32prov/win32-scheduledjob",
+]
+risk_score = 47
+rule_id = "2a00022f-106c-4091-9ea6-0a607086e1cc"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where
+ registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\Configuration\\EnableAt" and
+ registry.data.strings == "1"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
