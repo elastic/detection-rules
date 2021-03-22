@@ -23,7 +23,7 @@ from .eswrap import CollectEvents, add_range_to_dsl
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, GithubClient, Manifest, client_error, getdefault
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
-from .rule import TOMLRule
+from .rule import TOMLRule, TOMLRuleContents, BaseQueryRuleData
 from .rule_loader import get_rule
 from .utils import get_path, dict_hash
 
@@ -348,27 +348,31 @@ def event_search(query, index, language, date_range, count, max_results, verbose
 def rule_event_search(ctx, rule_file, rule_id, date_range, count, max_results, verbose,
                       elasticsearch_client: Elasticsearch = None):
     """Search using a rule file against an Elasticsearch instance."""
-    rule = None
+    rule: TOMLRule
 
     if rule_id:
         rule = get_rule(rule_id, verbose=False)
     elif rule_file:
-        rule = TOMLRule(rule_file, load_dump(rule_file))
+        rule = TOMLRule(path=rule_file, contents=TOMLRuleContents.from_dict(load_dump(rule_file)))
     else:
         client_error('Must specify a rule file or rule ID')
 
-    if rule.query and rule.contents.get('language'):
+    if isinstance(rule.contents.data, BaseQueryRuleData):
         if verbose:
             click.echo(f'Searching rule: {rule.name}')
 
-        rule_lang = rule.contents.get('language')
+        data = rule.contents.data
+        rule_lang = data.language
+
         if rule_lang == 'kuery':
-            language = None
+            language_flag = None
         elif rule_lang == 'eql':
-            language = True
+            language_flag = True
         else:
-            language = False
-        ctx.invoke(event_search, query=rule.query, index=rule.contents.get('index', ['*']), language=language,
+            language_flag = False
+
+        index = data.index or ['*']
+        ctx.invoke(event_search, query=data.query, index=index, language=language_flag,
                    date_range=date_range, count=count, max_results=max_results, verbose=verbose,
                    elasticsearch_client=elasticsearch_client)
     else:
