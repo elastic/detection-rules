@@ -5,10 +5,8 @@
 
 """Custom shared definitions for schemas."""
 
-from typing import ClassVar, Type, Literal
+from typing import Literal
 
-import marshmallow
-import marshmallow_dataclass
 from marshmallow import validate
 from marshmallow_dataclass import NewType
 

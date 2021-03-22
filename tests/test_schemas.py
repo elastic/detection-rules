@@ -165,7 +165,7 @@ class TestSchemas(unittest.TestCase):
         }
 
         def build_rule(query):
-            metadata = {"creation_date": "1970-01-01", "updated_date": "1970-01-01"}
+            metadata = {"creation_date": "1970/01/01", "updated_date": "1970/01/01"}
             data = base_fields.copy()
             data["query"] = query
             obj = {"metadata": metadata, "rule": data}
