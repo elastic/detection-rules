@@ -17,11 +17,11 @@ from typing import List, Optional, Tuple
 import click
 import yaml
 
-from . import rule_loader, utils
+from . import rule_loader
 from .misc import JS_LICENSE, cached
-from .rule import TOMLRule, downgrade_contents_from_rule, BaseQueryRuleData, TOMLRuleContents, RULES_DIR, \
-    ThreatMapping  # noqa: F401
-from .utils import Ndjson, get_path, get_etc_path, load_etc_dump, save_etc_dump, dataclass_to_dict
+from .rule import TOMLRule, downgrade_contents_from_rule, BaseQueryRuleData, RULES_DIR, \
+    ThreatMapping
+from .utils import Ndjson, get_path, get_etc_path, load_etc_dump, save_etc_dump
 
 RELEASE_DIR = get_path("releases")
 PACKAGE_FILE = get_etc_path('packages.yml')
@@ -234,7 +234,7 @@ class Package(object):
         """Get a consolidated package of the rules in a single file."""
         full_package = []
         for rule in self.rules:
-            full_package.append(rule.contents.to_api_format() if as_api else dataclass_to_dict(rule.contents))
+            full_package.append(rule.contents.to_api_format() if as_api else rule.contents.to_dict())
 
         return json.dumps(full_package, sort_keys=True)
 
@@ -537,7 +537,7 @@ class Package(object):
                             datetime_uploaded=now,
                             status=status,
                             package_version=self.name,
-                            flat_mitre=utils.dataclass_to_dict(ThreatMapping.flatten(rule.contents.data.threat)),
+                            flat_mitre=ThreatMapping.flatten(rule.contents.data.threat).to_dict(),
                             relative_path=str(rule.path.resolve().relative_to(RULES_DIR)))
             bulk_upload_docs.append(rule_doc)
             importable_rules_docs.append(rule_doc)

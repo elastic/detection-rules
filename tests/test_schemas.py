@@ -10,7 +10,6 @@ import uuid
 
 import eql
 
-from detection_rules import utils
 from detection_rules.rule import TOMLRuleContents
 from detection_rules.schemas import downgrade, CurrentSchema
 
@@ -170,7 +169,7 @@ class TestSchemas(unittest.TestCase):
             data = base_fields.copy()
             data["query"] = query
             obj = {"metadata": metadata, "rule": data}
-            return utils.from_dict(TOMLRuleContents, obj)
+            return TOMLRuleContents.from_dict(obj)
 
         build_rule("""
             process where process.name == "cmd.exe"

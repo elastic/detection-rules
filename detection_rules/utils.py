@@ -15,17 +15,14 @@ import json
 import os
 import time
 import zipfile
+from dataclasses import is_dataclass, astuple
 from datetime import datetime, date
 from pathlib import Path
-from dataclasses import dataclass, asdict, is_dataclass, astuple
-from typing import Type, TypeVar
-
-import marshmallow_dataclass
-
-import kql
 
 import eql.utils
 from eql.utils import load_dump, stream_json_lines
+
+import kql
 
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(CURR_DIR)
@@ -46,24 +43,7 @@ class DateTimeEncoder(json.JSONEncoder):
             return obj.isoformat()
 
 
-def dataclass_to_dict(obj: dataclass) -> dict:
-    """Wrapper around dataclasses.asdict that drops None values."""
-    return asdict(obj, dict_factory=NonelessDict)
-
-
 marshmallow_schemas = {}
-
-
-ClassT = TypeVar('ClassT')  # bound=dataclass?
-
-
-def from_dict(cls: Type[ClassT], obj: dict) -> ClassT:
-    """Load a dataclass from an unvalidated dictionary."""
-    if cls not in marshmallow_schemas:
-        assert is_dataclass(cls)
-        marshmallow_schemas[cls] = marshmallow_dataclass.class_schema(cls)
-
-    return marshmallow_schemas[cls]().load(obj)
 
 
 def dict_hash(obj: dict) -> str:
@@ -170,6 +150,7 @@ def unzip_and_save(contents, path, member=None, verbose=True):
 
 def event_sort(events, timestamp='@timestamp', date_format='%Y-%m-%dT%H:%M:%S.%f%z', asc=True):
     """Sort events from elasticsearch by timestamp."""
+
     def _event_sort(event):
         t = event[timestamp]
         return (time.mktime(time.strptime(t, date_format)) + int(t.split('.')[-1][:-1]) / 1000) * 1000
@@ -214,7 +195,7 @@ def normalize_timing_and_sort(events, timestamp='@timestamp', asc=True):
 
 def freeze(obj):
     """Helper function to make mutable objects immutable and hashable."""
-    if is_dataclass(obj):
+    if not isinstance(obj, type) and is_dataclass(obj):
         obj = astuple(obj)
 
     if isinstance(obj, (list, tuple)):
@@ -301,6 +282,7 @@ def format_command_options(ctx):
 
 def add_params(*params):
     """Add parameters to a click command."""
+
     def decorator(f):
         if not hasattr(f, '__click_params__'):
             f.__click_params__ = []

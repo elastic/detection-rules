@@ -14,6 +14,7 @@ from marshmallow import validates_schema
 
 import kql
 from . import ecs, beats, utils
+from .mixins import MarshmallowDataclassMixin
 from .rule_formatter import toml_write
 from .schemas import downgrade
 from .schemas import definitions
@@ -24,7 +25,7 @@ _META_SCHEMA_REQ_DEFAULTS = {}
 
 
 @dataclass(frozen=True)
-class RuleMeta:
+class RuleMeta(MarshmallowDataclassMixin):
     """Data stored in a rule's [metadata] section of TOML."""
     creation_date: str
     updated_date: str
@@ -64,7 +65,7 @@ class Tactic(BaseThreatEntry):
 
 
 @dataclass(frozen=True)
-class ThreatMapping:
+class ThreatMapping(MarshmallowDataclassMixin):
     """Mapping to a threat framework."""
     framework: Literal["MITRE ATT&CK"]
     tactic: Tactic
@@ -103,14 +104,14 @@ class ThreatMapping:
 
 
 @dataclass(frozen=True)
-class RiskScoreMapping:
+class RiskScoreMapping(MarshmallowDataclassMixin):
     field: str
     operator: Optional[definitions.Operator]
     value: Optional[str]
 
 
 @dataclass(frozen=True)
-class SeverityMapping:
+class SeverityMapping(MarshmallowDataclassMixin):
     field: str
     operator: Optional[definitions.Operator]
     value: Optional[str]
@@ -118,7 +119,7 @@ class SeverityMapping:
 
 
 @dataclass(frozen=True)
-class FlatThreatMapping:
+class FlatThreatMapping(MarshmallowDataclassMixin):
     tactic_names: List[str]
     tactic_ids: List[str]
     technique_names: List[str]
@@ -128,7 +129,7 @@ class FlatThreatMapping:
 
 
 @dataclass(frozen=True)
-class BaseRuleData:
+class BaseRuleData(MarshmallowDataclassMixin):
     actions: Optional[list]
     author: List[str]
     building_block_type: Optional[str]
@@ -241,7 +242,7 @@ class ThresholdQueryRuleData(BaseQueryRuleData):
     """Specific fields for query event types."""
 
     @dataclass(frozen=True)
-    class ThresholdMapping:
+    class ThresholdMapping(MarshmallowDataclassMixin):
         @dataclass(frozen=True)
         class ThresholdCardinality:
             field: str
@@ -306,7 +307,7 @@ AnyRuleData = Union[KQLRuleData, LuceneRuleData, MachineLearningRuleData, Thresh
 
 
 @dataclass(frozen=True)
-class TOMLRuleContents:
+class TOMLRuleContents(MarshmallowDataclassMixin):
     """Rule object which maps directly to the TOML layout."""
     metadata: RuleMeta
     data: AnyRuleData = field(metadata=dict(data_key="rule"))
@@ -372,13 +373,13 @@ class TOMLRuleContents:
 
     def flattened_dict(self) -> dict:
         flattened = dict()
-        flattened.update(utils.dataclass_to_dict(self.data))
-        flattened.update(utils.dataclass_to_dict(self.metadata))
+        flattened.update(self.data.to_dict())
+        flattened.update(self.metadata.to_dict())
         return flattened
 
     def to_api_format(self, include_version=True) -> dict:
         """Convert the TOML rule to the API format."""
-        converted = utils.dataclass_to_dict(self.data)
+        converted = self.data.to_dict()
         if include_version:
             converted["version"] = self.autobumped_version
 
@@ -405,7 +406,7 @@ class TOMLRule:
         return self.contents.data.name
 
     def save_toml(self):
-        converted = utils.dataclass_to_dict(self.contents)
+        converted = self.contents.to_dict()
         toml_write(converted, str(self.path.absolute()))
 
     def save_json(self, path: Path, include_version: bool = True):
@@ -418,7 +419,7 @@ def downgrade_contents_from_rule(rule: TOMLRule, target_version: str) -> dict:
     """Generate the downgraded contents from a rule."""
     payload = rule.contents.to_api_format()
     meta = payload.setdefault("meta", {})
-    meta["original"] = dict(id=rule.id, **utils.dataclass_to_dict(rule.contents.metadata))
+    meta["original"] = dict(id=rule.id, **rule.contents.metadata.to_dict())
     payload["rule_id"] = str(uuid4())
     payload = downgrade(payload, target_version)
     return payload

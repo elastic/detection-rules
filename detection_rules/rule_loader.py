@@ -16,7 +16,6 @@ from typing import Dict, List, Iterable
 import click
 import pytoml
 
-from . import utils
 from .mappings import RtaMappings
 from .rule import RULES_DIR, TOMLRule, TOMLRuleContents, EQLRuleData, KQLRuleData
 from .schemas import CurrentSchema
@@ -88,7 +87,7 @@ def load_rules(file_lookup=None, verbose=True, error=True):
 
     for rule_file, rule_contents in file_lookup.items():
         try:
-            contents = utils.from_dict(TOMLRuleContents, rule_contents)
+            contents = TOMLRuleContents.from_dict(rule_contents)
             rule = TOMLRule(path=Path(rule_file), contents=contents)
 
             if rule.id in rule_ids:
@@ -230,7 +229,7 @@ def get_rule_contents(rule_id, verbose=True):
 @cached
 def filter_rules(rules: Iterable[TOMLRule], metadata_field: str, value) -> List[TOMLRule]:
     """Filter rules based on the metadata."""
-    return [rule for rule in rules if utils.dataclass_to_dict(rule.contents.metadata).get(metadata_field) == value]
+    return [rule for rule in rules if rule.contents.metadata.to_dict().get(metadata_field) == value]
 
 
 def get_production_rules(verbose=False):
