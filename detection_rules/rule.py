@@ -364,7 +364,7 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
 
         # call into these validate methods
         if isinstance(data, (EQLRuleData, KQLRuleData)):
-            if metadata.query_schema_validation is False:
+            if metadata.query_schema_validation is False or metadata.maturity == "deprecated":
                 # Check the syntax only
                 _ = data.parsed_query
             else:
