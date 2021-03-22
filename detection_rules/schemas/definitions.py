@@ -47,16 +47,3 @@ Maturity = Literal['development', 'experimental', 'beta', 'production', 'depreca
 OSType = Literal['windows', 'linux', 'macos']
 RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql']
 ThresholdValue = NewType("ThresholdValue", int, validate=validate.Range(min=1))
-
-
-@marshmallow_dataclass.dataclass
-class BaseMarshmallowDataclass:
-    """Base marshmallow dataclass configs."""
-
-    class Meta:
-        ordered = True
-
-    Schema: ClassVar[Type[marshmallow.Schema]] = marshmallow.Schema
-
-    def dump(self) -> dict:
-        return self.Schema().dump(self)
