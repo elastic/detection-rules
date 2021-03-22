@@ -232,9 +232,14 @@ def filter_rules(rules: Iterable[TOMLRule], metadata_field: str, value) -> List[
     return [rule for rule in rules if rule.contents.metadata.to_dict().get(metadata_field) == value]
 
 
-def get_production_rules(verbose=False):
+def get_production_rules(verbose=False, include_deprecated=False) -> List[TOMLRule]:
     """Get rules with a maturity of production."""
-    return filter_rules(load_rules(verbose=verbose).values(), 'maturity', 'production')
+    from .packaging import filter_rule
+
+    maturity = ['production']
+    if include_deprecated:
+        maturity.append('deprecated')
+    return [rule for rule in load_rules(verbose=verbose).values() if filter_rule(rule, {'maturity': maturity})]
 
 
 @cached

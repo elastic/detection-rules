@@ -4,8 +4,8 @@
 # 2.0.
 
 import copy
-import os
 import datetime
+import os
 from pathlib import Path
 
 import click
@@ -13,7 +13,7 @@ import click
 import kql
 from . import ecs
 from .attack import matrix, tactics, build_threat_map_entry
-from .rule import TOMLRule, RuleMeta, TOMLRuleContents
+from .rule import TOMLRule, TOMLRuleContents
 from .schemas import CurrentSchema
 from .utils import clear_caches, get_path
 
@@ -35,7 +35,7 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
         kwargs.update(kwargs.pop('rule'))
 
     rule_type = rule_type or kwargs.get('type') or \
-        click.prompt('Rule type ({})'.format(', '.join(CurrentSchema.RULE_TYPES)),
+        click.prompt(f'Rule type ({", ".join(CurrentSchema.RULE_TYPES)})',
                      type=click.Choice(CurrentSchema.RULE_TYPES))
 
     schema = CurrentSchema.get_schema(role=rule_type)

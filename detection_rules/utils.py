@@ -64,7 +64,7 @@ def get_json_iter(f):
     return data
 
 
-def get_path(*paths):
+def get_path(*paths) -> str:
     """Get a file by relative path."""
     return os.path.join(ROOT_DIR, *paths)
 

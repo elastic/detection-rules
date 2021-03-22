@@ -4,6 +4,7 @@
 # 2.0.
 
 """CLI commands for internal detection_rules dev team."""
+import dataclasses
 import hashlib
 import io
 import json
@@ -295,6 +296,42 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
         query = click.prompt(f'Search loop - enter new {language} query or ctrl-z to exit')
         columns = click.prompt('columns', default=','.join(columns)).split(',')
         ctx.invoke(search_rules, query=query, columns=columns, language=language, rules=all_rules, pager=True)
+
+
+@dev_group.command('deprecate-rule')
+@click.argument('rule-file', type=click.Path(dir_okay=False))
+@click.pass_context
+def deprecate_rule(ctx: click.Context, rule_file: str):
+    """Deprecate a rule."""
+    import pytoml
+    from .packaging import load_versions
+
+    version_info = load_versions()
+    rule_file = Path(rule_file)
+    contents = pytoml.loads(rule_file.read_text())
+    rule = TOMLRule(path=rule_file, contents=contents)
+
+    if rule.id not in version_info:
+        click.echo('Rule has not been version locked and so does not need to be deprecated. '
+                   'Delete the file or update the maturity to `development` instead')
+        ctx.exit()
+
+    today = time.strftime('%Y/%m/%d')
+
+    new_meta = dataclasses.replace(rule.contents.metadata,
+                                   updated_date=today,
+                                   deprecation_date=today,
+                                   maturity='deprecated')
+    contents = dataclasses.replace(rule.contents, metadata=new_meta)
+    deprecated_path = get_path('rules', '_deprecated', rule_file.name)
+
+    # create the new rule and save it
+    new_rule = TOMLRule(contents=contents, path=Path(deprecated_path))
+    new_rule.save_toml()
+
+    # remove the old rul
+    rule_file.unlink()
+    click.echo(f'Rule moved to {deprecated_path} - remember to git add this file')
 
 
 @dev_group.group('test')

@@ -29,6 +29,7 @@ class RuleMeta(MarshmallowDataclassMixin):
     """Data stored in a rule's [metadata] section of TOML."""
     creation_date: str
     updated_date: str
+    deprecation_date: Optional[str]
 
     # Optional fields
     beats_version: Optional[definitions.SemVer]

@@ -19,17 +19,20 @@ import yaml
 
 from . import rule_loader
 from .misc import JS_LICENSE, cached
-from .rule import TOMLRule, downgrade_contents_from_rule, BaseQueryRuleData, RULES_DIR, \
-    ThreatMapping
+from .rule import TOMLRule, BaseQueryRuleData, RULES_DIR, ThreatMapping
+from .rule import downgrade_contents_from_rule
+from .schemas import CurrentSchema
 from .utils import Ndjson, get_path, get_etc_path, load_etc_dump, save_etc_dump
 
 RELEASE_DIR = get_path("releases")
 PACKAGE_FILE = get_etc_path('packages.yml')
 NOTICE_FILE = get_path('NOTICE.txt')
+
+
 # CHANGELOG_FILE = Path(get_etc_path('rules-changelog.json'))
 
 
-def filter_rule(rule: TOMLRule, config_filter: dict, exclude_fields: dict) -> bool:
+def filter_rule(rule: TOMLRule, config_filter: dict, exclude_fields: Optional[dict] = None) -> bool:
     """Filter a rule based off metadata and a package configuration."""
     flat_rule = rule.contents.flattened_dict()
 
@@ -48,6 +51,7 @@ def filter_rule(rule: TOMLRule, config_filter: dict, exclude_fields: dict) -> bo
         if len(rule_values & values) == 0:
             return False
 
+    exclude_fields = exclude_fields or {}
     for index, fields in exclude_fields.items():
         if rule.contents.data.unique_fields and (rule.contents.data.index == index or index == 'any'):
             if set(rule.contents.data.unique_fields) & set(fields):
@@ -69,7 +73,8 @@ def load_versions(current_versions: dict = None):
 
 
 def manage_versions(rules: List[TOMLRule], deprecated_rules: list = None, current_versions: dict = None,
-                    exclude_version_update=False, add_new=True, save_changes=False, verbose=True) -> (list, list, list):
+                    exclude_version_update=False, add_new=True, save_changes=False,
+                    verbose=True) -> (List[str], List[str], List[str]):
     """Update the contents of the version.lock file and optionally save changes."""
     current_versions = load_versions(current_versions)
     new_versions = {}
@@ -90,13 +95,12 @@ def manage_versions(rules: List[TOMLRule], deprecated_rules: list = None, curren
     if deprecated_rules:
         rule_deprecations = load_etc_dump('deprecated_rules.json')
 
-        deprecation_date = str(datetime.date.today())
-
         for rule in deprecated_rules:
             if rule.id not in rule_deprecations:
                 rule_deprecations[rule.id] = {
                     'rule_name': rule.name,
-                    'deprecation_date': deprecation_date
+                    'deprecation_date': rule.contents.metadata.deprecation_date,
+                    'stack_version': CurrentSchema.STACK_VERSION
                 }
                 newly_deprecated.append(rule.id)
 
@@ -117,7 +121,8 @@ def manage_versions(rules: List[TOMLRule], deprecated_rules: list = None, curren
                     click.echo('Updated version.lock.json file')
 
             if newly_deprecated:
-                save_etc_dump(sorted(OrderedDict(rule_deprecations)), 'deprecated_rules.json')
+                save_etc_dump(OrderedDict(sorted(rule_deprecations.items(), key=lambda e: e[1]['rule_name'])),
+                              'deprecated_rules.json')
 
                 if verbose:
                     click.echo('Updated deprecated_rules.json file')
@@ -475,13 +480,14 @@ class Package(object):
 
         package_dir = Path(save_dir).joinpath(manifest.version)
         docs_dir = package_dir / 'docs'
-        rules_dir = package_dir / 'kibana' / 'rules'
+        rules_dir = package_dir / 'kibana' / 'security_rule'
 
         docs_dir.mkdir(parents=True)
         rules_dir.mkdir(parents=True)
 
         manifest_file = package_dir.joinpath('manifest.yml')
         readme_file = docs_dir.joinpath('README.md')
+        notice_file = package_dir.joinpath('NOTICE.txt')
 
         manifest_file.write_text(yaml.safe_dump(manifest.asdict()))
         # shutil.copyfile(CHANGELOG_FILE, str(rules_dir.joinpath('CHANGELOG.json')))
@@ -494,6 +500,7 @@ class Package(object):
                        'for the detection engine within the Elastic Security application.\n\n')
 
         readme_file.write_text(readme_text)
+        notice_file.write_text(Path(NOTICE_FILE).read_text())
 
     def bump_versions(self, save_changes=False, current_versions=None):
         """Bump the versions of all production rules included in a release and optionally save changes."""
