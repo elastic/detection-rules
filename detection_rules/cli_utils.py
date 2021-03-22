@@ -5,13 +5,15 @@
 
 import copy
 import os
+import datetime
+from pathlib import Path
 
 import click
 
 import kql
 from . import ecs
 from .attack import matrix, tactics, build_threat_map_entry
-from .rule import TOMLRule
+from .rule import TOMLRule, RuleMeta, TOMLRuleContents
 from .schemas import CurrentSchema
 from .utils import clear_caches, get_path
 
@@ -22,6 +24,7 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
     """Prompt loop to build a rule."""
     from .misc import schema_prompt
 
+    creation_date = datetime.date.today().strftime("%Y/%m/%d")
     if verbose and path:
         click.echo(f'[+] Building rule for {path}')
 
@@ -96,11 +99,10 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
 
     suggested_path = os.path.join(RULES_DIR, contents['name'])  # TODO: UPDATE BASED ON RULE STRUCTURE
     path = os.path.realpath(path or input('File path for rule [{}]: '.format(suggested_path)) or suggested_path)
-
-    rule = None
+    meta = {'creation_date': creation_date, 'updated_date': creation_date}
 
     try:
-        rule = TOMLRule(path, {'rule': contents})
+        rule = TOMLRule(path=Path(path), contents=TOMLRuleContents.from_dict({'rule': contents, 'metadata': meta}))
     except kql.KqlParseError as e:
         if e.error_msg == 'Unknown field':
             warning = ('If using a non-ECS field, you must update "ecs{}.non-ecs-schema.json" under `beats` or '
@@ -113,7 +115,8 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
         while True:
             try:
                 contents['query'] = click.edit(contents['query'], extension='.eql')
-                rule = TOMLRule(path, {'rule': contents})
+                rule = TOMLRule(path=Path(path),
+                                contents=TOMLRuleContents.from_dict({'rule': contents, 'metadata': meta}))
             except kql.KqlParseError as e:
                 click.secho(e.args[0], fg='red', err=True)
                 click.pause()
@@ -127,7 +130,7 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
             break
 
     if save:
-        rule.save(verbose=True, as_rule=True)
+        rule.save_toml()
 
     if skipped:
         print('Did not set the following values because they are un-required when set to the default value')
