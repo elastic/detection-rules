@@ -40,6 +40,7 @@ Markdown = NewType("MarkdownField", str)
 Operator = Literal['equals']
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
+Severity = Literal['low', 'medium', 'high', 'critical']
 Sha256 = NewType('Sha256', str, validate=validate.Regexp(SHA256_PATTERN))
 UUIDString = NewType('UUIDString', str, validate=validate.Regexp(UUID_PATTERN))
 Maturity = Literal['development', 'experimental', 'beta', 'production', 'deprecated']

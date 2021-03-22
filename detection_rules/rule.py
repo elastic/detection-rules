@@ -157,7 +157,7 @@ class BaseRuleData(MarshmallowDataclassMixin):
     rule_id: definitions.UUIDString
     rule_name_override: Optional[str]
     severity_mapping: Optional[List[SeverityMapping]]
-    severity: Literal['low', 'medium', 'high', 'critical']
+    severity: definitions.Severity
     tags: Optional[List[str]]
     throttle: Optional[str]
     timeline_id: Optional[str]
