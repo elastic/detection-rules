@@ -114,12 +114,11 @@ def import_rules(infile, directory):
 
 
 @root.command('toml-lint')
-@click.option('--rule-file', '-f', type=click.File('r'), help='Optionally specify a specific rule file only')
+@click.option('--rule-file', '-f', type=click.Path('r'), help='Optionally specify a specific rule file only')
 def toml_lint(rule_file):
     """Cleanup files with some simple toml formatting."""
     if rule_file:
-        contents = pytoml.load(rule_file)
-        rules = [TOMLRule(path=rule_file.name, contents=contents)]
+        rules = list(rule_loader.load_rules(rule_loader.load_rule_files(paths=[rule_file])).values())
     else:
         rules = list(rule_loader.load_rules().values())
 
