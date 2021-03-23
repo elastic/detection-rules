@@ -7,6 +7,7 @@
 from typing import TypeVar, Type
 
 import marshmallow_dataclass
+from marshmallow import Schema
 
 from .utils import cached
 
@@ -30,7 +31,7 @@ class MarshmallowDataclassMixin:
 
     @classmethod
     @cached
-    def __schema(cls):
+    def __schema(cls: ClassT) -> Schema[ClassT]:
         """Get the marshmallow schema for the data class"""
         return marshmallow_dataclass.class_schema(cls)()
 
