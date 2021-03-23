@@ -333,8 +333,8 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
 
         if self.id in rules_versions:
             version_info = rules_versions[self.id]
-            version: str = version_info['version']
-            return version != self.sha256()
+            existing_sha256: str = version_info['sha256']
+            return existing_sha256 != self.sha256()
 
     @property
     def latest_version(self) -> Optional[int]:
