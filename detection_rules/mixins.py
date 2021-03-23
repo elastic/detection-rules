@@ -36,7 +36,7 @@ class MarshmallowDataclassMixin:
 
     @classmethod
     def from_dict(cls: Type[ClassT], obj: dict) -> ClassT:
-        """Deserialize a dataclass from a dict using marshmallow."""
+        """Deserialize and validate a dataclass from a dict using marshmallow."""
         schema = cls.__schema()
         return schema.load(obj)
 
