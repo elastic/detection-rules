@@ -329,7 +329,7 @@ def deprecate_rule(ctx: click.Context, rule_file: str):
     new_rule = TOMLRule(contents=contents, path=Path(deprecated_path))
     new_rule.save_toml()
 
-    # remove the old rul
+    # remove the old rule
     rule_file.unlink()
     click.echo(f'Rule moved to {deprecated_path} - remember to git add this file')
 
