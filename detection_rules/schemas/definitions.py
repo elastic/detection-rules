@@ -32,6 +32,8 @@ QUERY = 'query'
 
 OPERATORS = ['equals']
 
+
+CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
 Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
@@ -39,7 +41,7 @@ MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
 TacticURL = NewType('TacticURL', str, validate=validate.Regexp(TACTIC_URL))
 SubTechniqueURL = NewType('SubTechniqueURL', str, validate=validate.Regexp(SUBTECHNIQUE_URL))
 TechniqueURL = NewType('TechniqueURL', str, validate=validate.Regexp(TECHNIQUE_URL))
-Markdown = NewType("MarkdownField", str)
+Markdown = NewType("MarkdownField", CodeString)
 Operator = Literal['equals']
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))

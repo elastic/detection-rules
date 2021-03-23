@@ -35,8 +35,7 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
         kwargs.update(kwargs.pop('rule'))
 
     rule_type = rule_type or kwargs.get('type') or \
-        click.prompt(f'Rule type ({", ".join(CurrentSchema.RULE_TYPES)})',
-                     type=click.Choice(CurrentSchema.RULE_TYPES))
+        click.prompt('Rule type', type=click.Choice(CurrentSchema.RULE_TYPES))
 
     schema = CurrentSchema.get_schema(role=rule_type)
     props = schema['properties']

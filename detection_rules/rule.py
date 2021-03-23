@@ -15,7 +15,7 @@ from marshmallow import validates_schema
 import kql
 from . import ecs, beats, utils
 from .mixins import MarshmallowDataclassMixin
-from .rule_formatter import toml_write
+from .rule_formatter import toml_write, nested_normalize
 from .schemas import downgrade
 from .schemas import definitions
 from .utils import get_path, cached
@@ -140,7 +140,7 @@ class BaseRuleData(MarshmallowDataclassMixin):
     description: Optional[str]
     enabled: Optional[bool]
     exceptions_list: Optional[list]
-    license: str
+    license: Optional[str]
     false_positives: Optional[List[str]]
     filters: Optional[List[dict]]
     # trailing `_` required since `from` is a reserved word in python
@@ -169,6 +169,10 @@ class BaseRuleData(MarshmallowDataclassMixin):
     to: Optional[str]
     type: Literal[definitions.RuleType]
     threat: Optional[List[ThreatMapping]]
+
+    def to_dict(self, strip_none_values=True) -> dict:
+        dict_obj = super(BaseRuleData, self).to_dict(strip_none_values=strip_none_values)
+        return nested_normalize(dict_obj)
 
 
 @dataclass(frozen=True)
@@ -374,6 +378,10 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
             else:
                 # otherwise, do a full schema validation
                 data.validate_query(beats_version=beats_version, ecs_versions=ecs_versions)
+
+    def to_dict(self, strip_none_values=True) -> dict:
+        dict_obj = super(TOMLRuleContents, self).to_dict(strip_none_values=strip_none_values)
+        return nested_normalize(dict_obj)
 
     def flattened_dict(self) -> dict:
         flattened = dict()
