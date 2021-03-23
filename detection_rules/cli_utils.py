@@ -99,7 +99,7 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
 
     suggested_path = os.path.join(RULES_DIR, contents['name'])  # TODO: UPDATE BASED ON RULE STRUCTURE
     path = os.path.realpath(path or input('File path for rule [{}]: '.format(suggested_path)) or suggested_path)
-    meta = {'creation_date': creation_date, 'updated_date': creation_date}
+    meta = {'creation_date': creation_date, 'updated_date': creation_date, 'maturity': 'development'}
 
     try:
         rule = TOMLRule(path=Path(path), contents=TOMLRuleContents.from_dict({'rule': contents, 'metadata': meta}))
