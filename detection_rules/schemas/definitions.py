@@ -23,7 +23,9 @@ VERSION_PATTERN = f'^{_version}$'
 BRANCH_PATTERN = f'{VERSION_PATTERN}|^master$'
 
 INTERVAL_PATTERN = r'\d+[mshd]'
-MITRE_URL_PATTERN = r'https://attack.mitre.org/{type}/T[A-Z0-9]+/'
+TACTIC_URL = r'https://attack.mitre.org/tactics/TA[0-9]+/'
+TECHNIQUE_URL = r'https://attack.mitre.org/techniques/T[0-9]+/'
+SUBTECHNIQUE_URL = r'https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/'
 MACHINE_LEARNING = 'machine_learning'
 SAVED_QUERY = 'saved_query'
 QUERY = 'query'
@@ -34,6 +36,9 @@ ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDI
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
 Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
 MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
+TacticURL = NewType('TacticURL', str, validate=validate.Regexp(TACTIC_URL))
+SubTechniqueURL = NewType('SubTechniqueURL', str, validate=validate.Regexp(SUBTECHNIQUE_URL))
+TechniqueURL = NewType('TechniqueURL', str, validate=validate.Regexp(TECHNIQUE_URL))
 Markdown = NewType("MarkdownField", str)
 Operator = Literal['equals']
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))

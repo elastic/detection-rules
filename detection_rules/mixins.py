@@ -31,7 +31,7 @@ class MarshmallowDataclassMixin:
 
     @classmethod
     @cached
-    def __schema(cls: ClassT) -> Schema[ClassT]:
+    def __schema(cls: ClassT) -> Schema:
         """Get the marshmallow schema for the data class"""
         return marshmallow_dataclass.class_schema(cls)()
 

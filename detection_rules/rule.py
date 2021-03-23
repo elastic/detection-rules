@@ -51,18 +51,21 @@ class BaseThreatEntry:
 @dataclass(frozen=True)
 class SubTechnique(BaseThreatEntry):
     """Mapping to threat subtechnique."""
+    reference: definitions.SubTechniqueURL
 
 
 @dataclass(frozen=True)
 class Technique(BaseThreatEntry):
     """Mapping to threat subtechnique."""
     # subtechniques are stored at threat[].technique.subtechnique[]
+    reference: definitions.TechniqueURL
     subtechnique: Optional[List[SubTechnique]]
 
 
 @dataclass(frozen=True)
 class Tactic(BaseThreatEntry):
     """Mapping to a threat tactic."""
+    reference: definitions.TacticURL
 
 
 @dataclass(frozen=True)

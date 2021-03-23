@@ -14,7 +14,6 @@ from typing import Dict
 
 import click
 import jsonschema
-import pytoml
 
 from . import rule_loader
 from .cli_utils import rule_prompt

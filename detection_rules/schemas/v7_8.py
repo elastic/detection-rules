@@ -8,7 +8,7 @@
 import jsl
 
 from .base import BaseApiSchema, MarkdownField
-from .definitions import INTERVAL_PATTERN, MITRE_URL_PATTERN, MACHINE_LEARNING, SAVED_QUERY, QUERY
+from .definitions import INTERVAL_PATTERN, TACTIC_URL, TECHNIQUE_URL, MACHINE_LEARNING, SAVED_QUERY, QUERY
 from ..attack import tactics, tactics_map, technique_id_list
 
 
@@ -62,12 +62,12 @@ class Threat(jsl.Document):
     class ThreatTactic(jsl.Document):
         id = jsl.StringField(enum=tactics_map.values(), required=True)
         name = jsl.StringField(enum=tactics, required=True)
-        reference = jsl.StringField(MITRE_URL_PATTERN.format(type='tactics'))
+        reference = jsl.StringField(pattern=TACTIC_URL, required=True)
 
     class ThreatTechnique(jsl.Document):
         id = jsl.StringField(enum=technique_id_list, required=True)
         name = jsl.StringField(required=True)
-        reference = jsl.StringField(MITRE_URL_PATTERN.format(type='techniques'), required=True)
+        reference = jsl.StringField(pattern=TECHNIQUE_URL, required=True)
 
     framework = jsl.StringField(default='MITRE ATT&CK', required=True)
     tactic = jsl.DocumentField(ThreatTactic, required=True)
