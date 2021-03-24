@@ -21,7 +21,7 @@ import kql
 from .main import root
 from .misc import add_params, client_error, elasticsearch_options
 from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
-from .rule import Rule
+from .rule import TOMLRule
 from .rule_loader import get_rule, rta_mappings
 
 
@@ -195,7 +195,7 @@ class CollectEvents(object):
 
         return results
 
-    def search_from_rule(self, *rules: Rule, start_time=None, end_time='now', size=None):
+    def search_from_rule(self, *rules: TOMLRule, start_time=None, end_time='now', size=None):
         """Search an elasticsearch instance using a rule."""
         from .misc import nested_get
 

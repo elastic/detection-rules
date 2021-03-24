@@ -8,7 +8,7 @@
 import unittest
 
 from detection_rules import rule_loader
-from detection_rules.rule import Rule
+from detection_rules.rule import TOMLRule
 
 
 class BaseRuleTest(unittest.TestCase):
@@ -22,5 +22,5 @@ class BaseRuleTest(unittest.TestCase):
         cls.production_rules = rule_loader.get_production_rules()
 
     @staticmethod
-    def rule_str(rule: Rule, trailer=' ->'):
+    def rule_str(rule: TOMLRule, trailer=' ->'):
         return f'{rule.id} - {rule.name}{trailer or ""}'

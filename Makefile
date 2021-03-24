@@ -14,7 +14,7 @@ all: release
 
 $(VENV):
 	pip install virtualenv
-	virtualenv $(VENV) --python=python3.7
+	virtualenv $(VENV) --python=python3.8
 	$(PIP) install -r requirements.txt
 	$(PIP) install setuptools -U
 
