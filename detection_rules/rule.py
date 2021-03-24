@@ -170,10 +170,6 @@ class BaseRuleData(MarshmallowDataclassMixin):
     type: Literal[definitions.RuleType]
     threat: Optional[List[ThreatMapping]]
 
-    def to_dict(self, strip_none_values=True) -> dict:
-        dict_obj = super(BaseRuleData, self).to_dict(strip_none_values=strip_none_values)
-        return nested_normalize(dict_obj)
-
 
 @dataclass(frozen=True)
 class BaseQueryRuleData(BaseRuleData):
@@ -389,11 +385,26 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
         flattened.update(self.metadata.to_dict())
         return flattened
 
+    @staticmethod
+    def _post_dict_transform(obj: dict) -> dict:
+        """Transform the converted API in place before sending to Kibana."""
+
+        # cleanup the whitespace in the rule
+        obj = nested_normalize(obj, eql_rule=obj.get("language") == "eql")
+
+        # fill in threat.technique so it's never missing
+        for threat_entry in obj.get("threat", []):
+            threat_entry.setdefault("technique", [])
+
+        return obj
+
     def to_api_format(self, include_version=True) -> dict:
         """Convert the TOML rule to the API format."""
         converted = self.data.to_dict()
         if include_version:
             converted["version"] = self.autobumped_version
+
+        converted = self._post_dict_transform(converted)
 
         return converted
 
