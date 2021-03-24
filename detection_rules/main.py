@@ -60,15 +60,14 @@ def create_rule(path, config, required_only, rule_type):
 @click.pass_context
 def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
     """Generate enriched indexes of rules, based on a KQL search, for indexing/importing into elasticsearch/kibana."""
-    from . import rule_loader
     from .packaging import load_current_package_version, Package
 
     if query:
         rule_paths = [r['file'] for r in ctx.invoke(search_rules, query=query, verbose=False)]
-        rules = rule_loader.load_rules(rule_loader.load_rule_files(paths=rule_paths, verbose=False), verbose=False)
-        rules = rules.values()
+        rules = RuleCollection()
+        rules.load_files(Path(p) for p in rule_paths)
     else:
-        rules = rule_loader.load_rules(verbose=False).values()
+        rules = RuleCollection.default()
 
     rule_count = len(rules)
     package = Package(rules, load_current_package_version(), verbose=False)

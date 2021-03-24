@@ -356,22 +356,6 @@ def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rul
 
 
 @cached
-def filter_rules(rules: Iterable[TOMLRule], metadata_field: str, value) -> List[TOMLRule]:
-    """Filter rules based on the metadata."""
-    return [rule for rule in rules if rule.contents.metadata.to_dict().get(metadata_field) == value]
-
-
-def get_production_rules(verbose=False, include_deprecated=False) -> List[TOMLRule]:
-    """Get rules with a maturity of production."""
-    from .packaging import filter_rule
-
-    maturity = ['production']
-    if include_deprecated:
-        maturity.append('deprecated')
-    return [rule for rule in load_rules(verbose=verbose).values() if filter_rule(rule, {'maturity': maturity})]
-
-
-@cached
 def get_non_required_defaults_by_type(rule_type: str) -> dict:
     """Get list of fields which are not required for a specified rule type."""
     schema = CurrentSchema.get_schema(rule_type)
@@ -399,12 +383,10 @@ __all__ = (
     "load_rule_files",
     "load_github_pr_rules",
     "get_non_required_defaults_by_type",
-    "get_production_rules",
     "RuleCollection",
     "metadata_filter",
     "production_filter",
     "dict_filter",
-    "filter_rules",
     "find_unneeded_defaults_from_rule",
     "rta_mappings"
 )

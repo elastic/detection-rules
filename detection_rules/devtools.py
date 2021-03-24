@@ -68,7 +68,7 @@ def update_lock_versions(rule_ids):
     if not click.confirm('Are you sure you want to update hashes without a version bump?'):
         return
 
-    rules = [r for r in rule_loader.load_rules(verbose=False).values() if r.id in rule_ids]
+    rules = RuleCollection.default().filter(lambda r: r.id in rule_ids)
     changed, new = manage_versions(rules, exclude_version_update=True, add_new=False, save_changes=True)
 
     if not changed:

@@ -10,11 +10,12 @@ import uuid
 from detection_rules import rule_loader
 from detection_rules.packaging import PACKAGE_FILE, Package
 from detection_rules.rule_loader import RuleCollection
+from tests.base import BaseRuleTest
 
 package_configs = Package.load_configs()
 
 
-class TestPackages(unittest.TestCase):
+class TestPackages(BaseRuleTest):
     """Test package building and saving."""
 
     @staticmethod
@@ -54,7 +55,7 @@ class TestPackages(unittest.TestCase):
 
     def test_package_summary(self):
         """Test the generation of the package summary."""
-        rules = rule_loader.get_production_rules()
+        rules = self.production_rules
         package = Package(rules, 'test-package')
         changed_rule_ids, new_rule_ids, deprecated_rule_ids = package.bump_versions(save_changes=False)
         package.generate_summary_and_changelog(changed_rule_ids, new_rule_ids, deprecated_rule_ids)

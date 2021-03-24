@@ -17,10 +17,10 @@ from typing import List, Optional, Tuple
 import click
 import yaml
 
-from . import rule_loader
 from .misc import JS_LICENSE, cached
 from .rule import TOMLRule, BaseQueryRuleData, RULES_DIR, ThreatMapping
 from .rule import downgrade_contents_from_rule
+from .rule_loader import RuleCollection
 from .schemas import CurrentSchema
 from .utils import Ndjson, get_path, get_etc_path, load_etc_dump, save_etc_dump
 
@@ -320,7 +320,7 @@ class Package(object):
     @classmethod
     def from_config(cls, config: dict = None, update_version_lock: bool = False, verbose: bool = False) -> 'Package':
         """Load a rules package given a config."""
-        all_rules = rule_loader.load_rules(verbose=False).values()
+        all_rules = RuleCollection.default()
         config = config or {}
         exclude_fields = config.pop('exclude_fields', {})
         log_deprecated = config.pop('log_deprecated', False)
@@ -330,20 +330,13 @@ class Package(object):
         if log_deprecated:
             deprecated_rules = [r for r in all_rules if r.contents.metadata.maturity == 'deprecated']
 
-        rules = list(filter(lambda rule: filter_rule(rule, rule_filter, exclude_fields), all_rules))
+        rules = all_rules.filter(lambda r: filter_rule(r, rule_filter, exclude_fields))
 
         if verbose:
             click.echo(f' - {len(all_rules) - len(rules)} rules excluded from package')
 
-        update = config.pop('update', {})
         package = cls(rules, deprecated_rules=deprecated_rules, update_version_lock=update_version_lock,
                       verbose=verbose, **config)
-
-        # Allow for some fields to be overwritten
-        if update.get('data', {}):
-            for rule in package.rules:
-                for sub_dict, values in update.items():
-                    rule.contents[sub_dict].update(values)
 
         return package
 
