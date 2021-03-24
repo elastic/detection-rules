@@ -6,8 +6,6 @@
 """Load rule metadata transform between rule and api formats."""
 import glob
 import io
-import os
-import re
 from collections import OrderedDict
 from pathlib import Path
 from typing import Dict, List, Iterable, Callable, Optional
@@ -16,7 +14,7 @@ import click
 import pytoml
 
 from .mappings import RtaMappings
-from .rule import RULES_DIR, TOMLRule, TOMLRuleContents, EQLRuleData, KQLRuleData
+from .rule import RULES_DIR, TOMLRule, TOMLRuleContents
 from .schemas import CurrentSchema, definitions
 from .utils import get_path, cached
 
@@ -210,93 +208,6 @@ class RuleCollection:
 
 
 @cached
-def load_rule_files(verbose=True, paths=None):
-    """Load the rule YAML files, but without parsing the EQL query portion."""
-    file_lookup = {}  # type: dict[str, dict]
-
-    if verbose:
-        print("Loading rules from {}".format(RULES_DIR))
-
-    if paths is None:
-        paths = sorted(glob.glob(os.path.join(RULES_DIR, '**', '*.toml'), recursive=True))
-
-    for rule_file in paths:
-        try:
-            # use pytoml instead of toml because of annoying bugs
-            # https://github.com/uiri/toml/issues/152
-            # might also be worth looking at https://github.com/sdispater/tomlkit
-            with io.open(rule_file, "r", encoding="utf-8") as f:
-                file_lookup[rule_file] = pytoml.load(f)
-        except Exception:
-            print(u"Error loading {}".format(rule_file))
-            raise
-
-    if verbose:
-        print("Loaded {} rules".format(len(file_lookup)))
-    return file_lookup
-
-
-@cached
-def load_rules(file_lookup=None, verbose=True, error=True):
-    """Load all the rules from toml files."""
-    file_lookup = file_lookup or load_rule_files(verbose=verbose)
-
-    failed = False
-    rules: List[TOMLRule] = []
-    errors = []
-    queries = []
-    query_check_index = []
-    rule_ids = set()
-    rule_names = set()
-
-    for rule_file, rule_contents in file_lookup.items():
-        try:
-            contents = TOMLRuleContents.from_dict(rule_contents)
-            rule = TOMLRule(path=Path(rule_file), contents=contents)
-
-            if rule.id in rule_ids:
-                existing = next(r for r in rules if r.id == rule.id)
-                raise KeyError(f'{rule.path} has duplicate ID with \n{existing.path}')
-
-            if rule.name in rule_names:
-                existing = next(r for r in rules if r.name == rule.name)
-                raise KeyError(f'{rule.path} has duplicate name with \n{existing.path}')
-
-            if isinstance(contents.data, (KQLRuleData, EQLRuleData)):
-                duplicate_key = (contents.data.parsed_query, contents.data.type)
-                query_check_index.append(rule)
-
-                if duplicate_key in queries:
-                    existing = query_check_index[queries.index(duplicate_key)]
-                    raise KeyError(f'{rule.path} has duplicate query with \n{existing.path}')
-
-                queries.append(duplicate_key)
-
-            if not re.match(FILE_PATTERN, os.path.basename(rule.path)):
-                raise ValueError(f'{rule.path} does not meet rule name standard of {FILE_PATTERN}')
-
-            rules.append(rule)
-            rule_ids.add(rule.id)
-            rule_names.add(rule.name)
-
-        except Exception as e:
-            failed = True
-            err_msg = "Invalid rule file in {}\n{}".format(rule_file, click.style(str(e), fg='red'))
-            errors.append(err_msg)
-            if error:
-                if verbose:
-                    print(err_msg)
-                raise e
-
-    if failed:
-        if verbose:
-            for e in errors:
-                print(e)
-
-    return OrderedDict([(rule.id, rule) for rule in sorted(rules, key=lambda r: r.name)])
-
-
-@cached
 def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rules', token=None, threads=50,
                          verbose=True):
     """Load all rules active as a GitHub PR."""
@@ -378,9 +289,6 @@ rta_mappings = RtaMappings()
 
 __all__ = (
     "FILE_PATTERN",
-    "load_rule_files",
-    "load_rules",
-    "load_rule_files",
     "load_github_pr_rules",
     "get_non_required_defaults_by_type",
     "RuleCollection",

@@ -117,9 +117,10 @@ def import_rules(infile, directory):
 def toml_lint(rule_file):
     """Cleanup files with some simple toml formatting."""
     if rule_file:
-        rules = list(rule_loader.load_rules(rule_loader.load_rule_files(paths=[rule_file])).values())
+        rules = RuleCollection()
+        rules.load_files(Path(p) for p in rule_file)
     else:
-        rules = list(rule_loader.load_rules().values())
+        rules = RuleCollection.default()
 
     # removed unneeded defaults
     # TODO: we used to remove "unneeded" defaults, but this is a potentially tricky thing.
@@ -131,7 +132,6 @@ def toml_lint(rule_file):
     for rule in rules:
         rule.save_toml()
 
-    rule_loader.reset()
     click.echo('Toml file linting complete')
 
 
@@ -263,7 +263,7 @@ def search_rules(query, columns, language, count, verbose=True, rules: Dict[str,
     from eql.pipes import CountPipe
 
     flattened_rules = []
-    rules = rules or rule_loader.load_rule_files(verbose=verbose)
+    rules = rules or {str(rule.path): rule for rule in RuleCollection.default()}
 
     for file_name, rule_doc in rules.items():
         flat = {"file": os.path.relpath(file_name)}

@@ -9,7 +9,6 @@ import warnings
 
 from detection_rules.rule import KQLRuleData
 from . import get_data_files, get_fp_data_files
-from detection_rules import rule_loader
 from detection_rules.utils import combine_sources, evaluate, load_etc_dump
 from .base import BaseRuleTest
 
@@ -18,7 +17,6 @@ class TestMappings(BaseRuleTest):
     """Test that all rules appropriately match against expected data sets."""
 
     FP_FILES = get_fp_data_files()
-    RULES = rule_loader.load_rules().values()
 
     def evaluate(self, documents, rule, expected, msg):
         """KQL engine to evaluate."""
