@@ -14,10 +14,11 @@ import click
 import pytoml
 
 from .mappings import RtaMappings
-from .rule import RULES_DIR, TOMLRule, TOMLRuleContents
+from .rule import TOMLRule, TOMLRuleContents
 from .schemas import CurrentSchema, definitions
 from .utils import get_path, cached
 
+DEFAULT_RULES_DIR = Path(get_path("rules"))
 RTA_DIR = get_path("rta")
 FILE_PATTERN = r'^([a-z0-9_])+\.(json|toml)$'
 
@@ -179,7 +180,7 @@ class RuleCollection:
         self.load_files(paths)
 
     def load_by_id(self, rule_id: definitions.UUIDString,
-                   directory: Path = Path(RULES_DIR), recursive=True) -> Optional[TOMLRule]:
+                   directory: Path = DEFAULT_RULES_DIR, recursive=True) -> Optional[TOMLRule]:
         """Search for a rule by ID and load it."""
         if rule_id in self.id_map:
             return self.id_map[rule_id]
@@ -201,7 +202,7 @@ class RuleCollection:
         """Return the default rule collection, which retrieves from rules/."""
         if cls.__default is None:
             collection = RuleCollection()
-            collection.load_directory(Path(RULES_DIR))
+            collection.load_directory(DEFAULT_RULES_DIR)
             cls.__default = collection
 
         return cls.__default
@@ -289,6 +290,7 @@ rta_mappings = RtaMappings()
 
 __all__ = (
     "FILE_PATTERN",
+    "DEFAULT_RULES_DIR",
     "load_github_pr_rules",
     "get_non_required_defaults_by_type",
     "RuleCollection",

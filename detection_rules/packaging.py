@@ -18,9 +18,9 @@ import click
 import yaml
 
 from .misc import JS_LICENSE, cached
-from .rule import TOMLRule, BaseQueryRuleData, RULES_DIR, ThreatMapping
+from .rule import TOMLRule, BaseQueryRuleData, ThreatMapping
 from .rule import downgrade_contents_from_rule
-from .rule_loader import RuleCollection
+from .rule_loader import RuleCollection, DEFAULT_RULES_DIR
 from .schemas import CurrentSchema
 from .utils import Ndjson, get_path, get_etc_path, load_etc_dump, save_etc_dump
 
@@ -538,7 +538,7 @@ class Package(object):
                             status=status,
                             package_version=self.name,
                             flat_mitre=ThreatMapping.flatten(rule.contents.data.threat).to_dict(),
-                            relative_path=str(rule.path.resolve().relative_to(RULES_DIR)))
+                            relative_path=str(rule.path.resolve().relative_to(DEFAULT_RULES_DIR)))
             bulk_upload_docs.append(rule_doc)
             importable_rules_docs.append(rule_doc)
 

@@ -18,9 +18,8 @@ from .mixins import MarshmallowDataclassMixin
 from .rule_formatter import toml_write, nested_normalize
 from .schemas import definitions
 from .schemas import downgrade
-from .utils import get_path, cached
+from .utils import cached
 
-RULES_DIR = get_path("rules")
 _META_SCHEMA_REQ_DEFAULTS = {}
 
 
