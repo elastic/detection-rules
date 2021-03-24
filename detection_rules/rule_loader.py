@@ -202,6 +202,7 @@ class RuleCollection:
         if cls.__default is None:
             collection = RuleCollection()
             collection.load_directory(Path(RULES_DIR))
+            collection.freeze()
             cls.__default = collection
 
         return cls.__default
