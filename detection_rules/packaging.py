@@ -114,15 +114,9 @@ def manage_versions(rules: List[TOMLRule], deprecated_rules: list = None, curren
             if changed_rules or (new_rules and add_new):
                 if add_new:
                     for rule in new_rules:
-                        current_versions[rule.id] = {"rule_name": rule.name,
-                                                     "sha256": rule.contents.sha256(),
-                                                     "version": rule.contents.autobumped_version,
-                                                     }
+                        current_versions[rule.id] = rule.contents.lock_info()
                 for rule in changed_rules:
-                    current_versions[rule.id] = {"rule_name": rule.name,
-                                                 "sha256": rule.contents.sha256(),
-                                                 "version": rule.contents.autobumped_version,
-                                                 }
+                    current_versions[rule.id] = rule.contents.lock_info()
 
                 current_versions = OrderedDict(sorted(current_versions.items(), key=lambda x: x[1]['rule_name']))
 
