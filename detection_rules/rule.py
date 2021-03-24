@@ -6,7 +6,7 @@
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Union, Optional, List
+from typing import Literal, Union, Optional, List, Any
 from uuid import uuid4
 
 import eql
@@ -415,10 +415,11 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
         return utils.dict_hash(hashable_contents)
 
 
-@dataclass(frozen=True)
+@dataclass
 class TOMLRule:
-    contents: TOMLRuleContents
+    contents: TOMLRuleContents = field(hash=True)
     path: Path
+    gh_pr: Any = field(hash=False, compare=False, default=None, repr=None)
 
     @property
     def id(self):
