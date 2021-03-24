@@ -86,7 +86,7 @@ class RuleCollection:
         self.rules: List[TOMLRule] = []
         self.frozen = False
 
-        self._toml_cache: Dict[Path, dict] = {}
+        self._toml_load_cache: Dict[Path, dict] = {}
 
         for rule in (rules or []):
             self.add_rule(rule)
@@ -143,7 +143,7 @@ class RuleCollection:
         # might also be worth looking at https://github.com/sdispater/tomlkit
         with io.open(str(path.resolve()), "r", encoding="utf-8") as f:
             toml_dict = pytoml.load(f)
-            self._toml_cache[path] = toml_dict
+            self._toml_load_cache[path] = toml_dict
             return toml_dict
 
     def _get_paths(self, directory: Path, recursive=True) -> List[Path]:
