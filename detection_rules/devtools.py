@@ -17,15 +17,15 @@ from pathlib import Path
 import click
 from elasticsearch import Elasticsearch
 from eql import load_dump
-from kibana.connector import Kibana
 
+from kibana.connector import Kibana
 from . import rule_loader
 from .eswrap import CollectEvents, add_range_to_dsl
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, GithubClient, Manifest, client_error, getdefault
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
-from .rule import TOMLRule, TOMLRuleContents, BaseQueryRuleData
-from .rule_loader import get_rule
+from .rule import TOMLRule, BaseQueryRuleData
+from .rule_loader import production_filter, RuleCollection
 from .utils import get_path, dict_hash
 
 RULES_DIR = get_path('rules')
@@ -86,10 +86,12 @@ def kibana_diff(rule_id, repo, branch, threads):
     """Diff rules against their version represented in kibana if exists."""
     from .misc import get_kibana_rules
 
+    rules = RuleCollection.default()
+
     if rule_id:
-        rules = {r.id: r for r in rule_loader.load_rules(verbose=False).values() if r.id in rule_id}
+        rules = rules.filter(lambda r: r.id in rule_id)
     else:
-        rules = {r.id: r for r in rule_loader.get_production_rules()}
+        rules = rules.filter(production_filter)
 
     # add versions to the rules
     manage_versions(list(rules.values()), verbose=False)
@@ -388,9 +390,11 @@ def rule_event_search(ctx, rule_file, rule_id, date_range, count, max_results, v
     rule: TOMLRule
 
     if rule_id:
-        rule = get_rule(rule_id, verbose=False)
+        rule = RuleCollection().load_by_id(rule_id)
+        if rule is None:
+            client_error(f"Unable to find rule with id {rule_id}")
     elif rule_file:
-        rule = TOMLRule(path=rule_file, contents=TOMLRuleContents.from_dict(load_dump(rule_file)))
+        rule = RuleCollection().load_file(rule_file)
     else:
         client_error('Must specify a rule file or rule ID')
 
@@ -431,18 +435,17 @@ def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_coun
     """Survey rule counts."""
     from eql.table import Table
     from kibana.resources import Signal
-    from . import rule_loader
     from .main import search_rules
 
     survey_results = []
     start_time, end_time = date_range
 
     if query:
-        rule_paths = [r['file'] for r in ctx.invoke(search_rules, query=query, verbose=False)]
-        rules = rule_loader.load_rules(rule_loader.load_rule_files(paths=rule_paths, verbose=False), verbose=False)
-        rules = rules.values()
+        rules = RuleCollection()
+        paths = [Path(r['file']) for r in ctx.invoke(search_rules, query=query, verbose=False)]
+        rules.load_files(paths)
     else:
-        rules = rule_loader.load_rules(verbose=False).values()
+        rules = RuleCollection.default().filter(production_filter)
 
     click.echo(f'Running survey against {len(rules)} rules')
     click.echo(f'Saving detailed dump to: {dump_file}')

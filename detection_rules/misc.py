@@ -4,6 +4,7 @@
 # 2.0.
 
 """Misc support."""
+import dataclasses
 import hashlib
 import io
 import json
@@ -12,8 +13,6 @@ import re
 import shutil
 import time
 import uuid
-import dataclasses
-
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import wraps

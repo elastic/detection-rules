@@ -4,6 +4,7 @@
 # 2.0.
 
 """CLI commands for detection_rules."""
+import dataclasses
 import glob
 import json
 import os
@@ -11,18 +12,18 @@ import re
 import time
 from pathlib import Path
 from typing import Dict
+from uuid import uuid4
 
 import click
-import jsonschema
 
 from . import rule_loader
 from .cli_utils import rule_prompt
 from .misc import client_error, nested_set, parse_config
 from .rule import TOMLRule
 from .rule_formatter import toml_write
+from .rule_loader import RuleCollection
 from .schemas import CurrentSchema, available_versions
 from .utils import get_path, clear_caches, load_rule_contents
-
 
 RULES_DIR = get_path('rules')
 
@@ -146,8 +147,10 @@ def toml_lint(rule_file):
 @click.pass_context
 def mass_update(ctx, query, metadata, language, field):
     """Update multiple rules based on eql results."""
+    rules = RuleCollection().default()
     results = ctx.invoke(search_rules, query=query, language=language, verbose=False)
-    rules = [rule_loader.get_rule(r['rule_id'], verbose=False) for r in results]
+    matching_ids = set(r["rule_id"] for r in results)
+    rules = rules.filter(lambda r: r.id in matching_ids)
 
     for rule in rules:
         for key, value in field:
@@ -161,34 +164,17 @@ def mass_update(ctx, query, metadata, language, field):
 
 
 @root.command('view-rule')
-@click.argument('rule-id', required=False)
-@click.option('--rule-file', '-f', type=click.Path(dir_okay=False), help='Optionally view a rule from a specified file')
+@click.argument('rule-file')
 @click.option('--api-format/--rule-format', default=True, help='Print the rule in final api or rule format')
 @click.pass_context
-def view_rule(ctx, rule_id, rule_file, api_format, verbose=True):
+def view_rule(ctx, rule_file, api_format):
     """View an internal rule or specified rule file."""
-    rule = None
+    rule = RuleCollection().load_file(rule_file)
 
-    if rule_id:
-        rule = rule_loader.get_rule(rule_id, verbose=False)
-    elif rule_file:
-        contents = {k: v for k, v in load_rule_contents(rule_file, single_only=True)[0].items() if v}
-
-        try:
-            rule = TOMLRule(rule_file, contents)
-        except jsonschema.ValidationError as e:
-            client_error(f'Rule: {rule_id or os.path.basename(rule_file)} failed validation', e, ctx=ctx)
+    if api_format:
+        click.echo(json.dumps(rule.contents.to_api_format(), indent=2, sort_keys=True))
     else:
-        client_error('Unknown rule!')
-
-    if not rule:
-        client_error('Unknown format!')
-
-    if verbose:
-        click.echo(toml_write(rule.rule_format()) if not api_format else
-                   json.dumps(rule.get_payload(), indent=2, sort_keys=True))
-
-    return rule
+        click.echo(toml_write(rule.contents.to_dict()))
 
 
 @root.command('export-rules')
@@ -211,39 +197,35 @@ def export_rules(rule_id, rule_file, directory, outfile, replace_id, stack_versi
     if not (rule_id or rule_file or directory):
         client_error('Required: at least one of --rule-id, --rule-file, or --directory')
 
+    rules = RuleCollection()
+
     if rule_id:
-        all_rules = {r.id: r for r in rule_loader.load_rules(verbose=False).values()}
-        missing = [rid for rid in rule_id if rid not in all_rules]
+        rule_id = set(rule_id)
+        rules = RuleCollection.default().filter(lambda r: r.id in rule_id)
+        found_ids = {rule.id for rule in rules}
+        missing = rule_id.difference(found_ids)
 
         if missing:
             client_error(f'Unknown rules for rule IDs: {", ".join(missing)}')
 
-        rules = [r for r in all_rules.values() if r.id in rule_id]
-        rule_ids = [r.id for r in rules]
-    else:
-        rules = []
-        rule_ids = []
+    if rule_file:
+        rules.load_files(Path(path) for path in rule_file)
 
-    rule_files = list(rule_file)
-    for dirpath in directory:
-        rule_files.extend(list(Path(dirpath).rglob('*.toml')))
+    for directory in directory:
+        rules.load_directory(Path(directory))
 
-    file_lookup = rule_loader.load_rule_files(verbose=False, paths=rule_files)
-    rules_from_files = rule_loader.load_rules(file_lookup=file_lookup).values() if file_lookup else []
-
-    # rule_loader.load_rules handles checks for duplicate rule IDs - this means rules loaded by ID are de-duped and
-    #   rules loaded from files and directories are de-duped from each other, so this check is to ensure that there is
-    #   no overlap between the two sets of rules
-    duplicates = [r.id for r in rules_from_files if r.id in rule_ids]
-    if duplicates:
-        client_error(f'Duplicate rules for rule IDs: {", ".join(duplicates)}')
-
-    rules.extend(rules_from_files)
+    assert len(rules) > 0, "No rules found"
 
     if replace_id:
-        from uuid import uuid4
-        for rule in rules:
-            rule.contents['rule_id'] = str(uuid4())
+        # if we need to replace the id, take each rule object and create a copy
+        # of it, with only the rule_id field changed
+        old_rules = rules
+        rules = RuleCollection()
+
+        for rule in old_rules:
+            new_data = dataclasses.replace(rule.contents.data, rule_id=str(uuid4()))
+            new_contents = dataclasses.replace(rule.contents, data=new_data)
+            rules.add_rule(TOMLRule(contents=new_contents))
 
     Path(outfile).parent.mkdir(exist_ok=True)
     package = Package(rules, '_', verbose=False)
@@ -252,29 +234,19 @@ def export_rules(rule_id, rule_file, directory, outfile, replace_id, stack_versi
 
 
 @root.command('validate-rule')
-@click.argument('rule-id', required=False)
-@click.option('--rule-name', '-n')
-@click.option('--path', '-p', type=click.Path(dir_okay=False))
+@click.argument('path')
 @click.pass_context
-def validate_rule(ctx, rule_id, rule_name, path):
+def validate_rule(ctx, path):
     """Check if a rule staged in rules dir validates against a schema."""
-    try:
-        rule = rule_loader.get_rule(rule_id, rule_name, path, verbose=False)
-        if not rule:
-            client_error('Rule not found!')
-
-        rule.validate(as_rule=True)
-        click.echo('Rule validation successful')
-        return rule
-    except jsonschema.ValidationError as e:
-        client_error(e.args[0], e, ctx=ctx)
+    rule = RuleCollection().load_file(Path(path))
+    click.echo('Rule validation successful')
+    return rule
 
 
 @root.command('validate-all')
-@click.option('--fail/--no-fail', default=True, help='Fail on first failure or process through all printing errors.')
 def validate_all(fail):
     """Check if all rules validates against a schema."""
-    rule_loader.load_rules(verbose=True, error=fail)
+    RuleCollection.default()
     click.echo('Rule validation successful')
 
 

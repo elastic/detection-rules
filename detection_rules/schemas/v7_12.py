@@ -7,8 +7,8 @@
 
 import jsl
 
-from .v7_9 import ThresholdMapping
 from .v7_11 import ApiSchema711
+from .v7_9 import ThresholdMapping
 
 
 class ApiSchema712(ApiSchema711):

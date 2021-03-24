@@ -4,16 +4,16 @@
 # 2.0.
 
 """ECS Schemas management."""
+import json
 import os
 import re
 from typing import List
 
-import kql
 import eql
-import json
 import requests
 import yaml
 
+import kql
 from .semver import Version
 from .utils import DateTimeEncoder, unzip, get_etc_path, gzip_compress, read_gzip, cached
 

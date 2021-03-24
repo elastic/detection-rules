@@ -9,7 +9,7 @@ import uuid
 
 from detection_rules import rule_loader
 from detection_rules.packaging import PACKAGE_FILE, Package
-
+from detection_rules.rule_loader import RuleCollection
 
 package_configs = Package.load_configs()
 
@@ -52,7 +52,6 @@ class TestPackages(unittest.TestCase):
         """Test configs in etc/packages.yml."""
         Package.from_config(package_configs)
 
-    @rule_loader.mock_loader
     def test_package_summary(self):
         """Test the generation of the package summary."""
         rules = rule_loader.get_production_rules()
@@ -90,11 +89,10 @@ class TestPackages(unittest.TestCase):
     #     self.assertEqual(0, len(new_rules), 'Package version bumping is improperly detecting new rules')
     #     self.assertEqual(2, package.rules[0].contents['version'], 'Package version not bumping on changes')
 
-    @rule_loader.mock_loader
     def test_rule_versioning(self):
         """Test that all rules are properly versioned and tracked"""
         self.maxDiff = None
-        rules = rule_loader.load_rules().values()
+        rules = RuleCollection.default()
         original_hashes = []
         post_bump_hashes = []
 

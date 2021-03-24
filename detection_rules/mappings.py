@@ -10,7 +10,6 @@ from collections import defaultdict
 from .schemas import validate_rta_mapping
 from .utils import load_etc_dump, save_etc_dump, get_path
 
-
 RTA_DIR = get_path("rta")
 
 

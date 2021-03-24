@@ -16,8 +16,8 @@ import kql
 from . import ecs, beats, utils
 from .mixins import MarshmallowDataclassMixin
 from .rule_formatter import toml_write, nested_normalize
-from .schemas import downgrade
 from .schemas import definitions
+from .schemas import downgrade
 from .utils import get_path, cached
 
 RULES_DIR = get_path("rules")
@@ -418,7 +418,7 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
 @dataclass
 class TOMLRule:
     contents: TOMLRuleContents = field(hash=True)
-    path: Path
+    path: Optional[Path] = None
     gh_pr: Any = field(hash=False, compare=False, default=None, repr=None)
 
     @property
@@ -430,6 +430,7 @@ class TOMLRule:
         return self.contents.data.name
 
     def save_toml(self):
+        assert self.path is not None, f"Can't save rule {self.name} (self.id) without a path"
         converted = self.contents.to_dict()
         toml_write(converted, str(self.path.absolute()))
 

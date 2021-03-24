@@ -4,13 +4,13 @@
 # 2.0.
 
 """Mitre attack info."""
+import json
 import os
 import re
 import time
-
-import json
-import requests
 from collections import OrderedDict
+
+import requests
 
 from .semver import Version
 from .utils import get_etc_path, get_etc_glob_path, read_gzip, gzip_compress

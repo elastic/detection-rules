@@ -6,8 +6,8 @@
 """Definitions for rule metadata and schemas."""
 
 import jsl
-from .v7_9 import ApiSchema79
 
+from .v7_9 import ApiSchema79
 
 # rule types
 EQL = "eql"

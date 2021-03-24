@@ -4,45 +4,209 @@
 # 2.0.
 
 """Load rule metadata transform between rule and api formats."""
-import functools
 import glob
 import io
 import os
 import re
 from collections import OrderedDict
 from pathlib import Path
-from typing import Dict, List, Iterable
+from typing import Dict, List, Iterable, Callable, Optional
 
 import click
 import pytoml
 
 from .mappings import RtaMappings
 from .rule import RULES_DIR, TOMLRule, TOMLRuleContents, EQLRuleData, KQLRuleData
-from .schemas import CurrentSchema
+from .schemas import CurrentSchema, definitions
 from .utils import get_path, cached
 
 RTA_DIR = get_path("rta")
 FILE_PATTERN = r'^([a-z0-9_])+\.(json|toml)$'
 
 
-def mock_loader(f):
-    """Mock rule loader."""
-    @functools.wraps(f)
-    def wrapped(*args, **kwargs):
+def path_getter(value: str) -> Callable[[dict], bool]:
+    """Get the path from a Python object."""
+    path = value.replace("__", ".").split(".")
+
+    def callback(obj: dict):
+        for p in path:
+            if isinstance(obj, dict) and p in path:
+                obj = obj[p]
+            else:
+                return None
+
+        return obj
+
+    return callback
+
+
+def dict_filter(_obj: Optional[dict] = None, **critieria) -> Callable[[dict], bool]:
+    """Get a callable that will return true if a dictionary matches a set of criteria.
+
+    * each key is a dotted (or __ delimited) path into a dictionary to check
+    * each value is a value or list of values to match
+    """
+    critieria.update(_obj or {})
+    checkers = [(path_getter(k), set(v) if isinstance(v, (list, set, tuple)) else {v}) for k, v in critieria.items()]
+
+    def callback(obj: dict) -> bool:
+        for getter, expected in checkers:
+            target_values = getter(obj)
+            target_values = set(target_values) if isinstance(target_values, (list, set, tuple)) else {target_values}
+
+            return bool(expected.intersection(target_values))
+
+        return False
+
+    return callback
+
+
+def metadata_filter(**metadata) -> Callable[[TOMLRule], bool]:
+    """Get a filter callback based off rule metadata"""
+    flt = dict_filter(metadata)
+
+    def callback(rule: TOMLRule) -> bool:
+        target_dict = rule.contents.metadata.to_dict()
+        return flt(target_dict)
+
+    return callback
+
+
+production_filter = metadata_filter(maturity="production")
+deprecate_filter = metadata_filter(maturity="deprecated")
+
+
+class RuleCollection:
+    """Collection of rule objects."""
+
+    __default = None
+
+    def __init__(self, rules: Optional[List[TOMLRule]] = None):
+        self.id_map: Dict[definitions.UUIDString, TOMLRule] = {}
+        self.file_map: Dict[Path, TOMLRule] = {}
+        self.rules: List[TOMLRule] = []
+        self.frozen = False
+
+        self._toml_cache: Dict[Path, dict] = {}
+
+        for rule in (rules or []):
+            self.add_rule(rule)
+
+    def __len__(self):
+        """Get the total amount of rules in the collection."""
+        return len(self.rules)
+
+    def __iter__(self):
+        """Iterate over all rules in the collection."""
+        return iter(self.rules)
+
+    def __contains__(self, rule: TOMLRule):
+        """Check if a rule is in the map by comparing IDs."""
+        return rule.id in self.id_map
+
+    def filter(self, cb: Callable[[TOMLRule], bool]) -> 'RuleCollection':
+        """Retrieve a filtered collection of rules."""
+        filtered_collection = RuleCollection()
+
+        for rule in filter(cb, self.rules):
+            filtered_collection.add_rule(rule)
+
+        return filtered_collection
+
+    def add_rule(self, rule: TOMLRule):
+        assert not self.frozen, f"Unable to add rule {rule.name} {rule.id} to a frozen collection"
+        assert rule.id not in self.id_map, \
+            f"Rule ID {rule.id} for {rule.name} collides with rule {self.id_map.get(rule.id).name}"
+
+        if rule.path is not None:
+            rule.path = rule.path.resolve()
+            assert rule.path not in self.file_map, f"Rule file {rule.path} already loaded"
+            self.file_map[rule.path] = rule
+
+        self.id_map[rule.id] = rule
+        self.rules.append(rule)
+
+    def load_dict(self, obj: dict, path: Optional[Path] = None):
+        contents = TOMLRuleContents.from_dict(obj)
+        rule = TOMLRule(path=path, contents=contents)
+        self.add_rule(rule)
+
+        return rule
+
+    def load_files(self, paths: Iterable[Path]):
+        """Load multiple files into the collection."""
+        for path in paths:
+            self.load_file(path)
+
+    def _deserialize_toml(self, path: Path) -> dict:
+        # use pytoml instead of toml because of annoying bugs
+        # https://github.com/uiri/toml/issues/152
+        # might also be worth looking at https://github.com/sdispater/tomlkit
+        with io.open(str(path.resolve()), "r", encoding="utf-8") as f:
+            toml_dict = pytoml.load(f)
+            self._toml_cache[path] = toml_dict
+            return toml_dict
+
+    def _get_paths(self, directory: Path, recursive=True) -> List[Path]:
+        if recursive:
+            paths = glob.glob(str(directory / "**" / "*.toml"), recursive=True)
+        else:
+            paths = glob.glob(str(directory / "*.toml"))
+
+        return [Path(path) for path in paths]
+
+    def load_file(self, path: Path) -> TOMLRule:
         try:
-            return f(*args, **kwargs)
-        finally:
-            load_rules.clear()
+            path = path.resolve()
 
-    return wrapped
+            # use the default rule loader as a cache.
+            # if it already loaded the rule, then we can just use it from that
+            if self.__default is not None and self is not self.__default and path in self.__default.file_map:
+                rule = self.__default.file_map[path]
+                self.add_rule(rule)
+                return rule
 
+            obj = self._deserialize_toml(path)
+            return self.load_dict(obj, path=path)
+        except Exception:
+            print(f"Error loading rule in {path}")
+            raise
 
-def reset():
-    """Clear all rule caches."""
-    load_rule_files.clear()
-    load_rules.clear()
-    get_rule.clear()
-    filter_rules.clear()
+    # noinspection PyShadowingBuiltins
+    def load_directory(self, directory: Path, recursive=True, toml_filter: Optional[Callable[[dict], bool]] = None):
+        paths = self._get_paths(directory, recursive=recursive)
+        if toml_filter is not None:
+            paths = [path for path in paths if toml_filter(self._deserialize_toml(path))]
+
+        self.load_files(paths)
+
+    def load_by_id(self, rule_id: definitions.UUIDString,
+                   directory: Path = Path(RULES_DIR), recursive=True) -> Optional[TOMLRule]:
+        """Search for a rule by ID and load it."""
+        if rule_id in self.id_map:
+            return self.id_map[rule_id]
+        elif self.__default is not None and rule_id in self.id_map:
+            return self.__default.id_map[rule_id]
+
+        # otherwise, go looking
+        self.load_directory(directory, toml_filter=dict_filter(rule__rule_id=rule_id), recursive=recursive)
+
+        # now check if it was found
+        return self.id_map.get(rule_id)
+
+    def freeze(self):
+        """Freeze the rule collection and make it immutable going forward."""
+        self.frozen = True
+
+    @classmethod
+    def default(cls):
+        """Return the default rule collection, which retrieves from rules/."""
+        if cls.__default is None:
+            collection = RuleCollection()
+            collection.load_directory(Path(RULES_DIR))
+            cls.__default = collection
+
+        return cls.__default
 
 
 @cached
@@ -151,7 +315,7 @@ def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rul
     modified_rules: List[TOMLRule] = []
     errors: Dict[str, list] = {}
 
-    existing_rules = load_rules(verbose=False)
+    existing_rules = RuleCollection.default()
     pr_rules = []
 
     if verbose:
@@ -165,7 +329,7 @@ def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rul
             rule = TOMLRule(rule_file.filename, raw_rule)
             rule.gh_pr = pull
 
-            if rule.id in existing_rules:
+            if rule in existing_rules:
                 modified_rules.append(rule)
             else:
                 new_rules.append(rule)
@@ -189,41 +353,6 @@ def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rul
         modified.setdefault(modified_rule.id, []).append(modified_rule)
 
     return new, modified, errors
-
-
-@cached
-def get_rule(rule_id=None, rule_name=None, file_name=None, verbose=True):
-    """Get a rule based on its id."""
-    rules_lookup = load_rules(verbose=verbose)
-    if rule_id is not None:
-        return rules_lookup.get(rule_id)
-
-    for rule in rules_lookup.values():  # type: TOMLRule
-        if rule.name == rule_name:
-            return rule
-        elif rule.path == file_name:
-            return rule
-
-
-def get_rule_name(rule_id, verbose=True):
-    """Get the name of a rule given the rule id."""
-    rule = get_rule(rule_id, verbose=verbose)
-    if rule:
-        return rule.name
-
-
-def get_file_name(rule_id, verbose=True):
-    """Get the file path that corresponds to a rule."""
-    rule = get_rule(rule_id, verbose=verbose)
-    if rule:
-        return rule.path
-
-
-def get_rule_contents(rule_id, verbose=True):
-    """Get the full contents for a rule_id."""
-    rule = get_rule(rule_id, verbose=verbose)
-    if rule:
-        return rule.contents
 
 
 @cached
@@ -269,14 +398,13 @@ __all__ = (
     "load_rules",
     "load_rule_files",
     "load_github_pr_rules",
-    "get_file_name",
     "get_non_required_defaults_by_type",
     "get_production_rules",
-    "get_rule",
+    "RuleCollection",
+    "metadata_filter",
+    "production_filter",
+    "dict_filter",
     "filter_rules",
     "find_unneeded_defaults_from_rule",
-    "get_rule_name",
-    "get_rule_contents",
-    "reset",
     "rta_mappings"
 )

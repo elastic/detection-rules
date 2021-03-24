@@ -4,23 +4,18 @@
 # 2.0.
 
 """Test that all rules have valid metadata and syntax."""
-import json
 import os
 import re
-import sys
 from collections import defaultdict
 from pathlib import Path
 
 import eql
-import jsonschema
-import pytoml
-import toml
 
 import kql
 from detection_rules import attack, beats, ecs
 from detection_rules.packaging import load_versions
-from detection_rules.rule import TOMLRule, BaseQueryRuleData
-from detection_rules.rule_loader import FILE_PATTERN, find_unneeded_defaults_from_rule
+from detection_rules.rule import BaseQueryRuleData
+from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.utils import get_path, load_etc_dump
 from rta import get_ttp_names
 from .base import BaseRuleTest
@@ -31,19 +26,7 @@ class TestValidRules(BaseRuleTest):
 
     def test_schema_and_dupes(self):
         """Ensure that every rule matches the schema and there are no duplicates."""
-        self.assertGreaterEqual(len(self.rule_files), 1, 'No rules were loaded from rules directory!')
-
-    def test_all_rule_files(self):
-        """Ensure that every rule file can be loaded and validate against schema."""
-        for file_name, contents in self.rule_files.items():
-            try:
-                TOMLRule(file_name, contents)
-            except (pytoml.TomlError, toml.TomlDecodeError) as e:
-                print("TOML error when parsing rule file \"{}\"".format(os.path.basename(file_name)), file=sys.stderr)
-                raise e
-            except jsonschema.ValidationError as e:
-                print("Schema error when parsing rule file \"{}\"".format(os.path.basename(file_name)), file=sys.stderr)
-                raise e
+        self.assertGreaterEqual(len(self.all_rules), 1, 'No rules were loaded from rules directory!')
 
     def test_file_names(self):
         """Test that the file names meet the requirement."""
@@ -54,36 +37,20 @@ class TestValidRules(BaseRuleTest):
         self.assertIsNone(re.match(file_pattern, 'still_not_a_valid_file_name.not_json'),
                           f'Incorrect pattern for verifying rule names: {file_pattern}')
 
-        for rule_file in self.rule_files.keys():
-            self.assertIsNotNone(re.match(file_pattern, os.path.basename(rule_file)),
-                                 f'Invalid file name for {rule_file}')
+        for rule in self.all_rules:
+            file_name = str(rule.path.name)
+            self.assertIsNotNone(re.match(file_pattern, file_name), f'Invalid file name for {rule.path}')
 
     def test_all_rule_queries_optimized(self):
         """Ensure that every rule query is in optimized form."""
-        for file_name, contents in self.rule_files.items():
-            rule = TOMLRule(file_name, contents)
-
-            if contents["rule"].get("langauge") == "kql":
-                source = contents["rule"]["query"]
+        for rule in self.production_rules:
+            if rule.contents.data.get("language") == "kql":
+                source = rule.contents.data.query
                 tree = kql.parse(source, optimize=False)
                 optimized = tree.optimize(recursive=True)
                 err_message = f'\n{self.rule_str(rule)} Query not optimized for rule\n' \
                               f'Expected: {optimized}\nActual: {source}'
                 self.assertEqual(tree, optimized, err_message)
-
-    def test_no_unrequired_defaults(self):
-        """Test that values that are not required in the schema are not set with default values."""
-        rules_with_hits = {}
-
-        for file_name, contents in self.rule_files.items():
-            default_matches = find_unneeded_defaults_from_rule(contents)
-
-            if default_matches:
-                rules_with_hits[f'{contents["rule"]["rule_id"]} - {contents["rule"]["name"]}'] = default_matches
-
-        error_msg = f'The following rules have unnecessary default values set: ' \
-                    f'\n{json.dumps(rules_with_hits, indent=2)}'
-        self.assertDictEqual(rules_with_hits, {}, error_msg)
 
     def test_production_rules_have_rta(self):
         """Ensure that all production rules have RTAs."""
@@ -103,9 +70,9 @@ class TestValidRules(BaseRuleTest):
     def test_duplicate_file_names(self):
         """Test that no file names are duplicated."""
         name_map = defaultdict(list)
-        for file_path in self.rule_files:
-            base_name = os.path.basename(file_path)
-            name_map[base_name].append(file_path)
+
+        for rule in self.all_rules:
+            name_map[rule.path.name].append(rule.path.name)
 
         duplicates = {name: paths for name, paths in name_map.items() if len(paths) > 1}
         if duplicates:
@@ -121,7 +88,7 @@ class TestThreatMappings(BaseRuleTest):
         revoked = list(attack.revoked)
         deprecated = list(attack.deprecated)
 
-        for rule in self.rules:
+        for rule in self.all_rules:
             revoked_techniques = {}
             threat_mapping = rule.contents.data.threat
 
@@ -138,7 +105,7 @@ class TestThreatMappings(BaseRuleTest):
 
     def test_tactic_to_technique_correlations(self):
         """Ensure rule threat info is properly related to a single tactic and technique."""
-        for rule in self.rules:
+        for rule in self.all_rules:
             threat_mapping = rule.contents.data.threat or []
             if threat_mapping:
                 for entry in threat_mapping:
@@ -196,7 +163,7 @@ class TestThreatMappings(BaseRuleTest):
 
     def test_duplicated_tactics(self):
         """Check that a tactic is only defined once."""
-        for rule in self.rules:
+        for rule in self.all_rules:
             threat_mapping = rule.contents.data.threat
             tactics = [t.tactic.name for t in threat_mapping or []]
             duplicates = sorted(set(t for t in tactics if tactics.count(t) > 1))
@@ -222,7 +189,7 @@ class TestRuleTags(BaseRuleTest):
         ]
         expected_case = {normalize(t): t for t in expected_tags}
 
-        for rule in self.rules:
+        for rule in self.all_rules:
             rule_tags = rule.contents.data.tags
 
             if rule_tags:
@@ -254,7 +221,7 @@ class TestRuleTags(BaseRuleTest):
             'winlogbeat-*': {'all': ['Windows']}
         }
 
-        for rule in self.rules:
+        for rule in self.all_rules:
             rule_tags = rule.contents.data.tags
             error_msg = f'{self.rule_str(rule)} Missing tags:\nActual tags: {", ".join(rule_tags)}'
 
@@ -292,7 +259,7 @@ class TestRuleTags(BaseRuleTest):
         invalid = []
         tactics = set(tactics)
 
-        for rule in self.rules:
+        for rule in self.all_rules:
             rule_tags = rule.contents.data.tags
 
             if 'Continuous Monitoring' in rule_tags or rule.contents.data.type == 'machine_learning':
@@ -340,7 +307,7 @@ class TestRuleTimelines(BaseRuleTest):
 
     def test_timeline_has_title(self):
         """Ensure rules with timelines have a corresponding title."""
-        for rule in self.rules:
+        for rule in self.all_rules:
             timeline_id = rule.contents.data.timeline_id
             timeline_title = rule.contents.data.timeline_title
 
@@ -366,8 +333,8 @@ class TestRuleFiles(BaseRuleTest):
         """Test to ensure rule files have the primary tactic prepended to the filename."""
         bad_name_rules = []
 
-        for rule in self.rules:
-            rule_path = Path(rule.path).resolve()
+        for rule in self.all_rules:
+            rule_path = rule.path.resolve()
             filename = rule_path.name
 
             if rule_path.parent.name == 'ml':
@@ -394,7 +361,7 @@ class TestRuleMetadata(BaseRuleTest):
 
     def test_ecs_and_beats_opt_in_not_latest_only(self):
         """Test that explicitly defined opt-in validation is not only the latest versions to avoid stale tests."""
-        for rule in self.rules:
+        for rule in self.all_rules:
             beats_version = rule.contents.metadata.beats_version
             ecs_versions = rule.contents.metadata.ecs_versions or []
             latest_beats = str(beats.get_max_version())
@@ -413,7 +380,7 @@ class TestRuleMetadata(BaseRuleTest):
         """Test that the updated_date is newer than the creation date."""
         invalid = []
 
-        for rule in self.rules:
+        for rule in self.all_rules:
             created = rule.contents.metadata.creation_date.split('/')
             updated = rule.contents.metadata.updated_date.split('/')
             if updated < created:
@@ -430,7 +397,7 @@ class TestRuleMetadata(BaseRuleTest):
         deprecations = load_etc_dump('deprecated_rules.json')
         deprecated_rules = {}
 
-        for rule in self.rules:
+        for rule in self.all_rules:
             meta = rule.contents.metadata
             maturity = meta.maturity
 
@@ -470,7 +437,7 @@ class TestTuleTiming(BaseRuleTest):
         """Test that rules have defined an timestamp_override if needed."""
         missing = []
 
-        for rule in self.rules:
+        for rule in self.all_rules:
             required = False
 
             if isinstance(rule.contents.data, BaseQueryRuleData) and 'endgame-*' in rule.contents.data.index:
@@ -495,7 +462,7 @@ class TestTuleTiming(BaseRuleTest):
         long_indexes = {'logs-endpoint.events.*'}
         missing = []
 
-        for rule in self.rules:
+        for rule in self.all_rules:
             contents = rule.contents
 
             if isinstance(contents.data, BaseQueryRuleData):

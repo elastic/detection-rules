@@ -6,13 +6,13 @@
 """ECS Schemas management."""
 import copy
 import glob
+import json
 import os
 import shutil
-import json
 
-import requests
 import eql
 import eql.types
+import requests
 import yaml
 
 from .semver import Version
