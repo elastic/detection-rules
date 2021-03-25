@@ -147,7 +147,7 @@ class RuleCollection:
             return toml_dict
 
     def _get_paths(self, directory: Path, recursive=True) -> List[Path]:
-        return sorted(directory.rglob(*.toml) if recursive else directory.glob(*.toml))
+        return sorted(directory.rglob('*.toml') if recursive else directory.glob('*.toml'))
 
     def load_file(self, path: Path) -> TOMLRule:
         try:
