@@ -6,12 +6,13 @@
 from . import definitions
 from .base import TomlMetadata
 from .rta_schema import validate_rta_mapping
-from .v7_10 import ApiSchema710
-from .v7_11 import ApiSchema711
-from .v7_12 import ApiSchema712
+
 # import all of the schema versions
 from .v7_8 import ApiSchema78
 from .v7_9 import ApiSchema79
+from .v7_10 import ApiSchema710
+from .v7_11 import ApiSchema711
+from .v7_12 import ApiSchema712
 from ..semver import Version
 
 __all__ = (
