@@ -498,7 +498,8 @@ class Package(object):
         # shutil.copyfile(CHANGELOG_FILE, str(rules_dir.joinpath('CHANGELOG.json')))
 
         for rule in self.rules:
-            rule.save_json(Path(rules_dir.joinpath(f'rule-{rule.id}.json')))
+            with Path(rules_dir.joinpath(f'rule-{rule.id}.json')).open("w", encoding="utf-8") as f:
+                json.dump(rule.get_asset(), f, indent=2, sort_keys=True)
 
         readme_text = ('# Detection rules\n\n'
                        'The detection rules package stores all the security rules '
