@@ -39,6 +39,7 @@ def get_elasticsearch_client(cloud_id=None, elasticsearch_url=None, es_user=None
     es_password = es_password or click.prompt("es_password", hide_input=True)
     hosts = [elasticsearch_url] if elasticsearch_url else None
     timeout = kwargs.pop('timeout', 60)
+    kwargs['verify_certs'] = not kwargs.pop('no_verify', False)
 
     try:
         client = Elasticsearch(hosts=hosts, cloud_id=cloud_id, http_auth=(es_user, es_password), timeout=timeout,

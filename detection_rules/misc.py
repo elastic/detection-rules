@@ -576,14 +576,16 @@ client_options = {
         'kibana_password': click.Option(['--kibana-password', '-kp'], default=getdefault('kibana_password')),
         'kibana_url': click.Option(['--kibana-url'], default=getdefault('kibana_url')),
         'kibana_user': click.Option(['--kibana-user', '-ku'], default=getdefault('kibana_user')),
-        'space': click.Option(['--space'], default=None, help='Kibana space')
+        'space': click.Option(['--space'], default=None, help='Kibana space'),
+        'no_verify': click.Option(['--no-verify'], default=getdefault('no_verify'))
     },
     'elasticsearch': {
         'cloud_id': click.Option(['--cloud-id'], default=getdefault("cloud_id")),
         'elasticsearch_url': click.Option(['--elasticsearch-url'], default=getdefault("elasticsearch_url")),
         'es_user': click.Option(['--es-user', '-eu'], default=getdefault("es_user")),
         'es_password': click.Option(['--es-password', '-ep'], default=getdefault("es_password")),
-        'timeout': click.Option(['--timeout', '-et'], default=60, help='Timeout for elasticsearch client')
+        'timeout': click.Option(['--timeout', '-et'], default=60, help='Timeout for elasticsearch client'),
+        'no_verify': click.Option(['--no-verify'], default=getdefault('no_verify'))
     }
 }
 kibana_options = list(client_options['kibana'].values())

@@ -26,6 +26,7 @@ class Kibana(object):
         self.authenticated = False
         self.session = requests.Session()
         self.session.verify = verify
+        self.verify = verify
 
         self.cloud_id = cloud_id
         self.kibana_url = kibana_url.rstrip('/') if kibana_url else None
@@ -135,7 +136,8 @@ class Kibana(object):
 
         # create ES and force authentication
         if self.elasticsearch is None and self.elastic_url is not None:
-            self.elasticsearch = Elasticsearch(hosts=[self.elastic_url], http_auth=(kibana_username, kibana_password))
+            self.elasticsearch = Elasticsearch(hosts=[self.elastic_url], http_auth=(kibana_username, kibana_password),
+                                               verify_certs=self.verify)
             self.elasticsearch.info()
 
         # make chaining easier
