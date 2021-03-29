@@ -4,6 +4,7 @@
 # 2.0.
 
 """CLI commands for internal detection_rules dev team."""
+import dataclasses
 import hashlib
 import io
 import json
@@ -23,10 +24,9 @@ from .eswrap import CollectEvents, add_range_to_dsl
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, GithubClient, Manifest, client_error, getdefault
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
-from .rule import Rule
+from .rule import TOMLRule, TOMLRuleContents, BaseQueryRuleData
 from .rule_loader import get_rule
-from .utils import get_path
-
+from .utils import get_path, dict_hash
 
 RULES_DIR = get_path('rules')
 
@@ -96,7 +96,7 @@ def kibana_diff(rule_id, repo, branch, threads):
     repo_hashes = {r.id: r.get_hash() for r in rules.values()}
 
     kibana_rules = {r['rule_id']: r for r in get_kibana_rules(repo=repo, branch=branch, threads=threads).values()}
-    kibana_hashes = {r['rule_id']: Rule.dict_hash(r) for r in kibana_rules.values()}
+    kibana_hashes = {r['rule_id']: dict_hash(r) for r in kibana_rules.values()}
 
     missing_from_repo = list(set(kibana_hashes).difference(set(repo_hashes)))
     missing_from_kibana = list(set(repo_hashes).difference(set(kibana_hashes)))
@@ -298,6 +298,42 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
         ctx.invoke(search_rules, query=query, columns=columns, language=language, rules=all_rules, pager=True)
 
 
+@dev_group.command('deprecate-rule')
+@click.argument('rule-file', type=click.Path(dir_okay=False))
+@click.pass_context
+def deprecate_rule(ctx: click.Context, rule_file: str):
+    """Deprecate a rule."""
+    import pytoml
+    from .packaging import load_versions
+
+    version_info = load_versions()
+    rule_file = Path(rule_file)
+    contents = pytoml.loads(rule_file.read_text())
+    rule = TOMLRule(path=rule_file, contents=contents)
+
+    if rule.id not in version_info:
+        click.echo('Rule has not been version locked and so does not need to be deprecated. '
+                   'Delete the file or update the maturity to `development` instead')
+        ctx.exit()
+
+    today = time.strftime('%Y/%m/%d')
+
+    new_meta = dataclasses.replace(rule.contents.metadata,
+                                   updated_date=today,
+                                   deprecation_date=today,
+                                   maturity='deprecated')
+    contents = dataclasses.replace(rule.contents, metadata=new_meta)
+    deprecated_path = get_path('rules', '_deprecated', rule_file.name)
+
+    # create the new rule and save it
+    new_rule = TOMLRule(contents=contents, path=Path(deprecated_path))
+    new_rule.save_toml()
+
+    # remove the old rule
+    rule_file.unlink()
+    click.echo(f'Rule moved to {deprecated_path} - remember to git add this file')
+
+
 @dev_group.group('test')
 def test_group():
     """Commands for testing against stack resources."""
@@ -349,27 +385,31 @@ def event_search(query, index, language, date_range, count, max_results, verbose
 def rule_event_search(ctx, rule_file, rule_id, date_range, count, max_results, verbose,
                       elasticsearch_client: Elasticsearch = None):
     """Search using a rule file against an Elasticsearch instance."""
-    rule = None
+    rule: TOMLRule
 
     if rule_id:
         rule = get_rule(rule_id, verbose=False)
     elif rule_file:
-        rule = Rule(rule_file, load_dump(rule_file))
+        rule = TOMLRule(path=rule_file, contents=TOMLRuleContents.from_dict(load_dump(rule_file)))
     else:
         client_error('Must specify a rule file or rule ID')
 
-    if rule.query and rule.contents.get('language'):
+    if isinstance(rule.contents.data, BaseQueryRuleData):
         if verbose:
             click.echo(f'Searching rule: {rule.name}')
 
-        rule_lang = rule.contents.get('language')
+        data = rule.contents.data
+        rule_lang = data.language
+
         if rule_lang == 'kuery':
-            language = None
+            language_flag = None
         elif rule_lang == 'eql':
-            language = True
+            language_flag = True
         else:
-            language = False
-        ctx.invoke(event_search, query=rule.query, index=rule.contents.get('index', ['*']), language=language,
+            language_flag = False
+
+        index = data.index or ['*']
+        ctx.invoke(event_search, query=data.query, index=index, language=language_flag,
                    date_range=date_range, count=count, max_results=max_results, verbose=verbose,
                    elasticsearch_client=elasticsearch_client)
     else:
