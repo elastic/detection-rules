@@ -4,7 +4,6 @@
 # 2.0.
 
 """CLI commands for internal detection_rules dev team."""
-import dataclasses
 import hashlib
 import io
 import json
@@ -318,25 +317,25 @@ def deprecate_rule(ctx: click.Context, rule_file: str):
 
     version_info = load_versions()
     rule_file = Path(rule_file)
-    contents = pytoml.loads(rule_file.read_text())
+    contents = TOMLRuleContents.from_dict(pytoml.loads(rule_file.read_text()))
     rule = TOMLRule(path=rule_file, contents=contents)
 
-    if rule.id not in version_info:
+    if rule.contents.id not in version_info:
         click.echo('Rule has not been version locked and so does not need to be deprecated. '
                    'Delete the file or update the maturity to `development` instead')
         ctx.exit()
 
     today = time.strftime('%Y/%m/%d')
 
-    new_meta = dataclasses.replace(rule.contents.metadata,
-                                   updated_date=today,
-                                   deprecation_date=today,
-                                   maturity='deprecated')
-    contents = dataclasses.replace(rule.contents, metadata=new_meta)
+    new_meta = {
+        'updated_date': today,
+        'deprecation_date': today,
+        'maturity': 'deprecated'
+    }
     deprecated_path = get_path('rules', '_deprecated', rule_file.name)
 
     # create the new rule and save it
-    new_rule = TOMLRule(contents=contents, path=Path(deprecated_path))
+    new_rule = rule.new(path=Path(deprecated_path), metadata=new_meta)
     new_rule.save_toml()
 
     # remove the old rule
