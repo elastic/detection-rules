@@ -303,7 +303,6 @@ def validate_rule(ctx, rule_id, rule_name, path):
         if not rule:
             client_error('Rule not found!')
 
-        rule.validate(as_rule=True)
         click.echo('Rule validation successful')
         return rule
     except jsonschema.ValidationError as e:
