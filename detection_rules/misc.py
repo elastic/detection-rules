@@ -576,6 +576,8 @@ client_options = {
         'kibana_password': click.Option(['--kibana-password', '-kp'], default=getdefault('kibana_password')),
         'kibana_url': click.Option(['--kibana-url'], default=getdefault('kibana_url')),
         'kibana_user': click.Option(['--kibana-user', '-ku'], default=getdefault('kibana_user')),
+        'provider_type': click.Option(['--provider-type'], default=getdefault('provider_type')),
+        'provider_name': click.Option(['--provider-name'], default=getdefault('provider_name')),
         'space': click.Option(['--space'], default=None, help='Kibana space'),
         'no_verify': click.Option(['--no-verify'], default=getdefault('no_verify'))
     },

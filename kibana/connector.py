@@ -34,6 +34,9 @@ class Kibana(object):
         self.space = space if space and space.lower() != 'default' else None
         self.status = None
 
+        self.provider_name = None
+        self.provider_type = None
+
         if self.cloud_id:
             self.cluster_name, cloud_info = self.cloud_id.split(":")
             self.domain, self.es_uuid, self.kibana_uuid = \
@@ -46,6 +49,9 @@ class Kibana(object):
             self.kibana_url = kibana_url_from_cloud
 
             self.elastic_url = f"https://{self.es_uuid}.{self.domain}:9243"
+
+            self.provider_name = 'cloud-basic'
+            self.provider_type = 'basic'
 
         self.session.headers.update({'Content-Type': "application/json", "kbn-xsrf": str(uuid.uuid4())})
         self.elasticsearch = elasticsearch
@@ -112,7 +118,7 @@ class Kibana(object):
         """Perform an HTTP DELETE."""
         return self.request('DELETE', uri, params=params, error=error, **kwargs)
 
-    def login(self, kibana_username, kibana_password):
+    def login(self, kibana_username, kibana_password, provider_type=None, provider_name=None):
         """Authenticate to Kibana using the API to update our cookies."""
         payload = {'username': kibana_username, 'password': kibana_password}
         path = '/internal/security/login'
@@ -121,8 +127,19 @@ class Kibana(object):
             self.post(path, data=payload, error=True, verbose=False)
         except requests.HTTPError as e:
             # 7.10 changed the structure of the auth data
+            # providers dictated by Kibana configs in:
+            # https://www.elastic.co/guide/en/kibana/current/security-settings-kb.html#authentication-security-settings
+            # more details: https://discuss.elastic.co/t/kibana-7-10-login-issues/255201/2
             if e.response.status_code == 400 and '[undefined]' in e.response.text:
-                payload = {'params': payload, 'currentURL': '', 'providerType': 'basic', 'providerName': 'cloud-basic'}
+                provider_type = provider_type or self.provider_type or 'basic'
+                provider_name = provider_name or self.provider_name or 'basic'
+
+                payload = {
+                    'params': payload,
+                    'currentURL': '',
+                    'providerType': provider_type,
+                    'providerName': provider_name
+                }
                 self.post(path, data=payload, error=True)
             else:
                 raise
