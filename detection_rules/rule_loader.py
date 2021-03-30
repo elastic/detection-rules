@@ -162,10 +162,11 @@ def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rul
         response = requests.get(rule_file.raw_url)
         try:
             raw_rule = pytoml.loads(response.text)
-            rule = TOMLRule(rule_file.filename, raw_rule)
+            contents = TOMLRuleContents.from_dict(raw_rule)
+            rule = TOMLRule(path=rule_file.filename, contents=contents)
             rule.gh_pr = pull
 
-            if rule.id in existing_rules:
+            if rule.contents.id in existing_rules:
                 modified_rules.append(rule)
             else:
                 new_rules.append(rule)
@@ -182,11 +183,11 @@ def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rul
     pool.close()
     pool.join()
 
-    new = OrderedDict([(rule.id, rule) for rule in sorted(new_rules, key=lambda r: r.name)])
+    new = OrderedDict([(rule.contents.id, rule) for rule in sorted(new_rules, key=lambda r: r.contents.name)])
     modified = OrderedDict()
 
-    for modified_rule in sorted(modified_rules, key=lambda r: r.name):
-        modified.setdefault(modified_rule.id, []).append(modified_rule)
+    for modified_rule in sorted(modified_rules, key=lambda r: r.contents.name):
+        modified.setdefault(modified_rule.contents.id, []).append(modified_rule)
 
     return new, modified, errors
 
