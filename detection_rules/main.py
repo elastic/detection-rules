@@ -18,7 +18,7 @@ import jsonschema
 from . import rule_loader
 from .cli_utils import rule_prompt
 from .misc import client_error, nested_set, parse_config
-from .rule import TOMLRule
+from .rule import TOMLRule, TOMLRuleContents
 from .rule_formatter import toml_write
 from .schemas import CurrentSchema, available_versions, definitions
 from .utils import get_path, clear_caches, load_rule_contents
@@ -175,7 +175,8 @@ def view_rule(ctx, rule_id, rule_file, api_format, verbose=True):
         contents = {k: v for k, v in load_rule_contents(rule_file, single_only=True)[0].items() if v}
 
         try:
-            rule = TOMLRule(rule_file, contents)
+            contents = TOMLRuleContents.from_dict(contents)
+            rule = TOMLRule(path=Path(rule_file), contents=contents)
         except jsonschema.ValidationError as e:
             client_error(f'Rule: {rule_id or os.path.basename(rule_file)} failed validation', e, ctx=ctx)
     else:
@@ -185,8 +186,8 @@ def view_rule(ctx, rule_id, rule_file, api_format, verbose=True):
         client_error('Unknown format!')
 
     if verbose:
-        click.echo(toml_write(rule.rule_format()) if not api_format else
-                   json.dumps(rule.get_payload(), indent=2, sort_keys=True))
+        click.echo(toml_write(rule.contents.to_dict()) if not api_format else
+                   json.dumps(rule.contents.to_api_format(), indent=2, sort_keys=True))
 
     return rule
 
