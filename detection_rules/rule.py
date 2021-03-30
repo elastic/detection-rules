@@ -413,9 +413,9 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
         return converted
 
     @cached
-    def sha256(self) -> str:
-        # get the hash of the API dict with the version not included, otherwise it'll always be dirty.
-        hashable_contents = self.to_api_format(include_version=False)
+    def sha256(self, include_version=False) -> str:
+        # get the hash of the API dict without the version by default, otherwise it'll always be dirty.
+        hashable_contents = self.to_api_format(include_version=include_version)
         return utils.dict_hash(hashable_contents)
 
 

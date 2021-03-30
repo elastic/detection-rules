@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
+from typing import Dict
 
 import click
 from elasticsearch import Elasticsearch
@@ -85,7 +86,9 @@ def update_lock_versions(rule_ids):
 def kibana_diff(rule_id, repo, branch, threads):
     """Diff rules against their version represented in kibana if exists."""
     from .misc import get_kibana_rules
+    from .schemas import definitions
 
+    rules: Dict[definitions.UUIDString, TOMLRule]
     if rule_id:
         rules = {r.id: r for r in rule_loader.load_rules(verbose=False).values() if r.id in rule_id}
     else:
@@ -93,7 +96,7 @@ def kibana_diff(rule_id, repo, branch, threads):
 
     # add versions to the rules
     manage_versions(list(rules.values()), verbose=False)
-    repo_hashes = {r.id: r.get_hash() for r in rules.values()}
+    repo_hashes = {r.id: r.contents.sha256(include_version=True) for r in rules.values()}
 
     kibana_rules = {r['rule_id']: r for r in get_kibana_rules(repo=repo, branch=branch, threads=threads).values()}
     kibana_hashes = {r['rule_id']: dict_hash(r) for r in kibana_rules.values()}
@@ -107,7 +110,7 @@ def kibana_diff(rule_id, repo, branch, threads):
             continue
         if rhash != kibana_hashes[rid]:
             rule_diff.append(
-                f'versions - repo: {rules[rid].contents["version"]}, kibana: {kibana_rules[rid]["version"]} -> '
+                f'versions - repo: {rules[rid].contents.autobumped_version}, kibana: {kibana_rules[rid]["version"]} -> '
                 f'{rid} - {rules[rid].name}'
             )
 
