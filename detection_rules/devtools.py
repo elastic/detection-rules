@@ -13,7 +13,7 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 import click
 from elasticsearch import Elasticsearch
@@ -27,6 +27,7 @@ from .misc import PYTHON_LICENSE, add_client, GithubClient, Manifest, client_err
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
 from .rule import TOMLRule, TOMLRuleContents, BaseQueryRuleData
 from .rule_loader import get_rule
+from .schemas import definitions
 from .utils import get_path, dict_hash
 
 RULES_DIR = get_path('rules')
@@ -86,7 +87,6 @@ def update_lock_versions(rule_ids):
 def kibana_diff(rule_id, repo, branch, threads):
     """Diff rules against their version represented in kibana if exists."""
     from .misc import get_kibana_rules
-    from .schemas import definitions
 
     rules: Dict[definitions.UUIDString, TOMLRule]
     if rule_id:
@@ -261,29 +261,36 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
     all_rules = {}
     new, modified, errors = rule_loader.load_github_pr_rules(token=token, threads=threads)
 
-    def add_github_meta(this_rule, status, original_rule_id=None):
+    def add_github_meta(this_rule: TOMLRule, status: str, original_rule_id: Optional[definitions.UUIDString] = None):
         pr = this_rule.gh_pr
-        rule.metadata['status'] = status
-        rule.metadata['github'] = {
-            'base': pr.base.label,
-            'comments': [c.body for c in pr.get_comments()],
-            'commits': pr.commits,
-            'created_at': str(pr.created_at),
-            'head': pr.head.label,
-            'is_draft': pr.draft,
-            'labels': [lbl.name for lbl in pr.get_labels()],
-            'last_modified': str(pr.last_modified),
-            'title': pr.title,
-            'url': pr.html_url,
-            'user': pr.user.login
+        new_data = {}
+        new_meta = {
+            'status': status,
+            'github': {
+                'base': pr.base.label,
+                'comments': [c.body for c in pr.get_comments()],
+                'commits': pr.commits,
+                'created_at': str(pr.created_at),
+                'head': pr.head.label,
+                'is_draft': pr.draft,
+                'labels': [lbl.name for lbl in pr.get_labels()],
+                'last_modified': str(pr.last_modified),
+                'title': pr.title,
+                'url': pr.html_url,
+                'user': pr.user.login
+            }
         }
 
         if original_rule_id:
-            rule.metadata['original_rule_id'] = original_rule_id
-            rule.contents['rule_id'] = str(uuid4())
+            new_meta['original_rule_id'] = original_rule_id
+            new_data = {'rule_id': str(uuid4())}
 
-        rule_path = f'pr-{pr.number}-{rule.path}'
-        all_rules[rule_path] = rule.rule_format()
+        rule_path = Path(f'pr-{pr.number}-{rule.path}')
+
+        new_rule = this_rule.new(path=rule_path, data=dict(meta=new_meta, **new_data))
+
+        rule_dict = {'metadata': new_rule.contents.metadata.to_dict(), 'rule': new_rule.contents.to_api_format()}
+        all_rules[rule_path] = rule_dict
 
     for rule_id, rule in new.items():
         add_github_meta(rule, 'new')

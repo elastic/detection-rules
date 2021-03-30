@@ -433,7 +433,7 @@ class TOMLRule:
     def name(self):
         return self.contents.data.name
 
-    def new(self, data: Optional[dict] = None, metadata: Optional[dict] = None):
+    def new(self, path: Optional[Path] = None, data: Optional[dict] = None, metadata: Optional[dict] = None):
         """Return a new, updated rule object."""
         data = data or {}
         metadata = metadata or {}
@@ -441,7 +441,7 @@ class TOMLRule:
         new_meta = dataclasses.replace(self.contents.metadata, **metadata)
 
         contents = TOMLRuleContents(data=new_data, metadata=new_meta)
-        new_rule = TOMLRule(path=self.path, contents=contents)
+        new_rule = TOMLRule(path=path or self.path, contents=contents)
         return new_rule
 
     def save_toml(self):
