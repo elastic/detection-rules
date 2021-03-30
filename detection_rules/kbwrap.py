@@ -65,31 +65,42 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
 @click.pass_context
 def upload_rule(ctx, toml_files, replace_id):
     """Upload a list of rule .toml files to Kibana."""
-    from .packaging import manage_versions
+    from uuid import uuid4
 
     kibana = ctx.obj['kibana']
     file_lookup = load_rule_files(paths=toml_files)
     rules = list(load_rules(file_lookup=file_lookup).values())
 
-    # assign the versions from etc/versions.lock.json
-    # rules that have changed in hash get incremented, others stay as-is.
-    # rules that aren't in the lookup default to version 1
-    manage_versions(rules, verbose=False)
-
     api_payloads = []
 
     for rule in rules:
         try:
-            payload = rule.get_payload(include_version=True, replace_id=replace_id, embed_metadata=True,
-                                       target_version=kibana.version)
+            payload = rule.contents.to_api_format()
+            if replace_id:
+                payload['rule_id'] = str(uuid4())
         except ValueError as e:
             client_error(f'{e} in version:{kibana.version}, for rule: {rule.name}', e, ctx=ctx)
+
         rule = RuleResource(payload)
         api_payloads.append(rule)
 
     with kibana:
-        rules = RuleResource.bulk_create(api_payloads)
-        click.echo(f"Successfully uploaded {len(rules)} rules")
+        results = RuleResource.bulk_create(api_payloads)
+
+    success = []
+    errors = []
+    for result in results:
+        if 'error' in result:
+            errors.append(f'{result["rule_id"]} - {result["error"]["message"]}')
+        else:
+            success.append(result['rule_id'])
+
+    if success:
+        click.echo('Successful uploads:\n  - ' + '\n  - '.join(success))
+    if errors:
+        click.echo('Failed uploads:\n  - ' + '\n  - '.join(errors))
+
+    return results
 
 
 @kibana_group.command('search-alerts')
