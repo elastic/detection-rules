@@ -329,6 +329,7 @@ def search_rules(query, columns, language, count, verbose=True, rules: Dict[str,
     from eql.build import get_engine
     from eql import parse_query
     from eql.pipes import CountPipe
+    from .rule import get_unique_query_fields
 
     flattened_rules = []
     rules = rules or rule_loader.load_rule_files(verbose=verbose)
@@ -353,7 +354,7 @@ def search_rules(query, columns, language, count, verbose=True, rules: Dict[str,
             subtechnique_ids.extend([st['id'] for t in techniques for st in t.get('subtechnique', [])])
 
         flat.update(techniques=technique_ids, tactics=tactic_names, subtechniques=subtechnique_ids,
-                    unique_fields=TOMLRule.get_unique_query_fields(rule_doc['rule']))
+                    unique_fields=get_unique_query_fields(rule_doc['rule']))
         flattened_rules.append(flat)
 
     flattened_rules.sort(key=lambda dct: dct["name"])
