@@ -20,7 +20,6 @@ import yaml
 from . import rule_loader
 from .misc import JS_LICENSE, cached
 from .rule import TOMLRule, BaseQueryRuleData, RULES_DIR, ThreatMapping
-from .rule import downgrade_contents_from_rule
 from .schemas import CurrentSchema
 from .utils import Ndjson, get_path, get_etc_path, load_etc_dump, save_etc_dump
 
@@ -282,35 +281,10 @@ class Package(object):
 
     def export(self, outfile, downgrade_version=None, verbose=True, skip_unsupported=False):
         """Export rules into a consolidated ndjson file."""
-        outfile = Path(outfile).with_suffix('.ndjson')
-        unsupported = []
+        from .main import _export_rules
 
-        if downgrade_version:
-            if skip_unsupported:
-                output_lines = []
-
-                for rule in self.rules:
-                    try:
-                        output_lines.append(json.dumps(downgrade_contents_from_rule(rule, downgrade_version),
-                                                       sort_keys=True))
-                    except ValueError as e:
-                        unsupported.append(f'{e}: {rule.id} - {rule.name}')
-                        continue
-
-            else:
-                output_lines = [json.dumps(downgrade_contents_from_rule(r, downgrade_version), sort_keys=True)
-                                for r in self.rules]
-        else:
-            output_lines = [json.dumps(r.contents, sort_keys=True) for r in self.rules]
-
-        outfile.write_text('\n'.join(output_lines) + '\n')
-
-        if verbose:
-            click.echo(f'Exported {len(self.rules) - len(unsupported)} rules into {outfile}')
-
-            if skip_unsupported and unsupported:
-                unsupported_str = '\n- '.join(unsupported)
-                click.echo(f'Skipped {len(unsupported)} unsupported rules: \n- {unsupported_str}')
+        _export_rules(self.rules, outfile=outfile, downgrade_version=downgrade_version, verbose=verbose,
+                      skip_unsupported=skip_unsupported)
 
     def get_package_hash(self, as_api=True, verbose=True):
         """Get hash of package contents."""

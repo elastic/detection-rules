@@ -10,7 +10,7 @@ import os
 import re
 import time
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Optional
 
 import click
 import jsonschema
@@ -20,7 +20,7 @@ from .cli_utils import rule_prompt
 from .misc import client_error, nested_set, parse_config
 from .rule import TOMLRule
 from .rule_formatter import toml_write
-from .schemas import CurrentSchema, available_versions
+from .schemas import CurrentSchema, available_versions, definitions
 from .utils import get_path, clear_caches, load_rule_contents
 
 
@@ -191,6 +191,42 @@ def view_rule(ctx, rule_id, rule_file, api_format, verbose=True):
     return rule
 
 
+def _export_rules(rules: List[TOMLRule], outfile: Path, downgrade_version: Optional[definitions.SemVer] = None,
+                  verbose=True, skip_unsupported=False):
+    """Export rules into a consolidated ndjson file."""
+    from .rule import downgrade_contents_from_rule
+
+    outfile = outfile.with_suffix('.ndjson')
+    unsupported = []
+
+    if downgrade_version:
+        if skip_unsupported:
+            output_lines = []
+
+            for rule in rules:
+                try:
+                    output_lines.append(json.dumps(downgrade_contents_from_rule(rule, downgrade_version),
+                                                   sort_keys=True))
+                except ValueError as e:
+                    unsupported.append(f'{e}: {rule.id} - {rule.name}')
+                    continue
+
+        else:
+            output_lines = [json.dumps(downgrade_contents_from_rule(r, downgrade_version), sort_keys=True)
+                            for r in rules]
+    else:
+        output_lines = [json.dumps(r.contents.to_api_format(), sort_keys=True) for r in rules]
+
+    outfile.write_text('\n'.join(output_lines) + '\n')
+
+    if verbose:
+        click.echo(f'Exported {len(rules) - len(unsupported)} rules into {outfile}')
+
+        if skip_unsupported and unsupported:
+            unsupported_str = '\n- '.join(unsupported)
+            click.echo(f'Skipped {len(unsupported)} unsupported rules: \n- {unsupported_str}')
+
+
 @root.command('export-rules')
 @click.argument('rule-id', nargs=-1, required=False)
 @click.option('--rule-file', '-f', multiple=True, type=click.Path(dir_okay=False), help='Export specified rule files')
@@ -206,8 +242,6 @@ def view_rule(ctx, rule_id, rule_file, api_format, verbose=True):
                    '(an error will be raised otherwise)')
 def export_rules(rule_id, rule_file, directory, outfile, replace_id, stack_version, skip_unsupported):
     """Export rule(s) into an importable ndjson file."""
-    from .packaging import Package
-
     if not (rule_id or rule_file or directory):
         client_error('Required: at least one of --rule-id, --rule-file, or --directory')
 
@@ -242,13 +276,18 @@ def export_rules(rule_id, rule_file, directory, outfile, replace_id, stack_versi
 
     if replace_id:
         from uuid import uuid4
+
+        new_rules = []
         for rule in rules:
-            rule.contents['rule_id'] = str(uuid4())
+            new_rules.append(rule.new(data=dict(rule_id=str(uuid4()))))
+
+        rules = new_rules
+
+    _export_rules(rules=rules, outfile=Path(outfile), downgrade_version=stack_version,
+                  skip_unsupported=skip_unsupported)
 
     Path(outfile).parent.mkdir(exist_ok=True)
-    package = Package(rules, '_', verbose=False)
-    package.export(outfile, downgrade_version=stack_version, skip_unsupported=skip_unsupported)
-    return package.rules
+    return rules
 
 
 @root.command('validate-rule')

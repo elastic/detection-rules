@@ -3,6 +3,7 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 """Rule object."""
+import dataclasses
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -431,6 +432,17 @@ class TOMLRule:
     @property
     def name(self):
         return self.contents.data.name
+
+    def new(self, data: Optional[dict] = None, metadata: Optional[dict] = None):
+        """Return a new, updated rule object."""
+        data = data or {}
+        metadata = metadata or {}
+        new_data = dataclasses.replace(self.contents.data, **data)
+        new_meta = dataclasses.replace(self.contents.metadata, **metadata)
+
+        contents = TOMLRuleContents(data=new_data, metadata=new_meta)
+        new_rule = TOMLRule(path=self.path, contents=contents)
+        return new_rule
 
     def save_toml(self):
         converted = self.contents.to_dict()
