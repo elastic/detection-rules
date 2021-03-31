@@ -20,7 +20,8 @@ import yaml
 from . import rule_loader
 from .misc import JS_LICENSE, cached
 from .rule import TOMLRule, BaseQueryRuleData, RULES_DIR, ThreatMapping
-from .schemas import CurrentSchema
+from .rule import downgrade_contents_from_rule
+from .schemas import CurrentSchema, definitions
 from .utils import Ndjson, get_path, get_etc_path, load_etc_dump, save_etc_dump
 
 RELEASE_DIR = get_path("releases")
@@ -459,7 +460,7 @@ class Package(object):
 
         package_dir = Path(save_dir).joinpath(manifest.version)
         docs_dir = package_dir / 'docs'
-        rules_dir = package_dir / 'kibana' / 'security_rule'
+        rules_dir = package_dir / 'kibana' / definitions.ASSET_TYPE
 
         docs_dir.mkdir(parents=True)
         rules_dir.mkdir(parents=True)
@@ -472,7 +473,8 @@ class Package(object):
         # shutil.copyfile(CHANGELOG_FILE, str(rules_dir.joinpath('CHANGELOG.json')))
 
         for rule in self.rules:
-            rule.save_json(Path(rules_dir.joinpath(f'rule-{rule.id}.json')))
+            with Path(rules_dir.joinpath(f'rule-{rule.id}.json')).open("w", encoding="utf-8") as f:
+                json.dump(rule.get_asset(), f, indent=2, sort_keys=True)
 
         readme_text = ('# Detection rules\n\n'
                        'The detection rules package stores all the security rules '

@@ -433,6 +433,10 @@ class TOMLRule:
     def name(self):
         return self.contents.data.name
 
+    def get_asset(self) -> dict:
+        """Generate the relevant fleet compatible asset."""
+        return {"id": self.id, "attributes": self.contents.to_api_format(), "type": definitions.ASSET_TYPE}
+
     def new(self, path: Optional[Path] = None, data: Optional[dict] = None, metadata: Optional[dict] = None):
         """Return a new, updated rule object."""
         data = data or {}
