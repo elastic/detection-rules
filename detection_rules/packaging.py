@@ -20,7 +20,6 @@ import yaml
 from . import rule_loader
 from .misc import JS_LICENSE, cached
 from .rule import TOMLRule, BaseQueryRuleData, RULES_DIR, ThreatMapping
-from .rule import downgrade_contents_from_rule
 from .schemas import CurrentSchema, definitions
 from .utils import Ndjson, get_path, get_etc_path, load_etc_dump, save_etc_dump
 
