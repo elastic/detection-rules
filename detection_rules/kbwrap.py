@@ -14,8 +14,8 @@ from .rule_loader import load_rule_files, load_rules
 from .utils import format_command_options
 
 
-def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, kibana_cookie, space, verify, provider_type,
-                      provider_name, **kwargs):
+def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, kibana_cookie, space, no_verify,
+                      provider_type, provider_name, **kwargs):
     """Get an authenticated Kibana client."""
     from requests import HTTPError
 
@@ -27,7 +27,7 @@ def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, kibana
         kibana_user = kibana_user or click.prompt("kibana_user")
         kibana_password = kibana_password or click.prompt("kibana_password", hide_input=True)
 
-    with Kibana(cloud_id=cloud_id, kibana_url=kibana_url, space=space, verify=verify, **kwargs) as kibana:
+    with Kibana(cloud_id=cloud_id, kibana_url=kibana_url, space=space, verify=not no_verify, **kwargs) as kibana:
         if kibana_cookie:
             kibana.add_cookie(kibana_cookie)
         else:
