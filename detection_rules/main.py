@@ -46,7 +46,7 @@ def root(ctx, debug):
 @click.option('--rule-type', '-t', type=click.Choice(CurrentSchema.RULE_TYPES), help='Type of rule to create')
 def create_rule(path, config, required_only, rule_type):
     """Create a detection rule."""
-    contents = load_rule_contents(config, single_only=True)[0] if config else {}
+    contents = load_rule_contents(Path(config), single_only=True)[0] if config else {}
     try:
         return rule_prompt(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
     finally:
@@ -97,7 +97,7 @@ def import_rules(infile, directory):
 
     rule_contents = []
     for rule_file in rule_files:
-        rule_contents.extend(load_rule_contents(rule_file))
+        rule_contents.extend(load_rule_contents(Path(rule_file)))
 
     if not rule_contents:
         click.echo('Must specify at least one file!')
@@ -172,7 +172,7 @@ def view_rule(ctx, rule_id, rule_file, api_format, verbose=True):
     if rule_id:
         rule = rule_loader.get_rule(rule_id, verbose=False)
     elif rule_file:
-        contents = {k: v for k, v in load_rule_contents(rule_file, single_only=True)[0].items() if v}
+        contents = {k: v for k, v in load_rule_contents(Path(rule_file), single_only=True)[0].items() if v}
 
         try:
             contents = TOMLRuleContents.from_dict(contents)
