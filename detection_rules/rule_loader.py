@@ -137,6 +137,9 @@ class RuleCollection:
             self.load_file(path)
 
     def _deserialize_toml(self, path: Path) -> dict:
+        if path in self._toml_load_cache:
+            return self._toml_load_cache[path]
+
         # use pytoml instead of toml because of annoying bugs
         # https://github.com/uiri/toml/issues/152
         # might also be worth looking at https://github.com/sdispater/tomlkit
