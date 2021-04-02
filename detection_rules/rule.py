@@ -434,7 +434,7 @@ class TOMLRule:
 
     def get_asset(self) -> dict:
         """Generate the relevant fleet compatible asset."""
-        return {"id": self.id, "attributes": self.contents.to_api_format(), "type": definitions.ASSET_TYPE}
+        return {"id": self.id, "attributes": self.contents.to_api_format(), "type": definitions.SAVED_OBJECT_TYPE}
 
     def save_toml(self):
         converted = self.contents.to_dict()
