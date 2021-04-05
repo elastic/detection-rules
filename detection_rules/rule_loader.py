@@ -102,40 +102,6 @@ class RuleCollection:
         """Check if a rule is in the map by comparing IDs."""
         return rule.id in self.id_map
 
-    def filter(self, cb: Callable[[TOMLRule], bool]) -> 'RuleCollection':
-        """Retrieve a filtered collection of rules."""
-        filtered_collection = RuleCollection()
-
-        for rule in filter(cb, self.rules):
-            filtered_collection.add_rule(rule)
-
-        return filtered_collection
-
-    def add_rule(self, rule: TOMLRule):
-        assert not self.frozen, f"Unable to add rule {rule.name} {rule.id} to a frozen collection"
-        assert rule.id not in self.id_map, \
-            f"Rule ID {rule.id} for {rule.name} collides with rule {self.id_map.get(rule.id).name}"
-
-        if rule.path is not None:
-            rule.path = rule.path.resolve()
-            assert rule.path not in self.file_map, f"Rule file {rule.path} already loaded"
-            self.file_map[rule.path] = rule
-
-        self.id_map[rule.id] = rule
-        self.rules.append(rule)
-
-    def load_dict(self, obj: dict, path: Optional[Path] = None):
-        contents = TOMLRuleContents.from_dict(obj)
-        rule = TOMLRule(path=path, contents=contents)
-        self.add_rule(rule)
-
-        return rule
-
-    def load_files(self, paths: Iterable[Path]):
-        """Load multiple files into the collection."""
-        for path in paths:
-            self.load_file(path)
-
     def _deserialize_toml(self, path: Path) -> dict:
         if path in self._toml_load_cache:
             return self._toml_load_cache[path]
@@ -150,6 +116,35 @@ class RuleCollection:
 
     def _get_paths(self, directory: Path, recursive=True) -> List[Path]:
         return sorted(directory.rglob('*.toml') if recursive else directory.glob('*.toml'))
+
+    def add_rule(self, rule: TOMLRule):
+        assert not self.frozen, f"Unable to add rule {rule.name} {rule.id} to a frozen collection"
+        assert rule.id not in self.id_map, \
+            f"Rule ID {rule.id} for {rule.name} collides with rule {self.id_map.get(rule.id).name}"
+
+        if rule.path is not None:
+            rule.path = rule.path.resolve()
+            assert rule.path not in self.file_map, f"Rule file {rule.path} already loaded"
+            self.file_map[rule.path] = rule
+
+        self.id_map[rule.id] = rule
+        self.rules.append(rule)
+
+    def filter(self, cb: Callable[[TOMLRule], bool]) -> 'RuleCollection':
+        """Retrieve a filtered collection of rules."""
+        filtered_collection = RuleCollection()
+
+        for rule in filter(cb, self.rules):
+            filtered_collection.add_rule(rule)
+
+        return filtered_collection
+
+    def load_dict(self, obj: dict, path: Optional[Path] = None):
+        contents = TOMLRuleContents.from_dict(obj)
+        rule = TOMLRule(path=path, contents=contents)
+        self.add_rule(rule)
+
+        return rule
 
     def load_file(self, path: Path) -> TOMLRule:
         try:
@@ -167,6 +162,11 @@ class RuleCollection:
         except Exception:
             print(f"Error loading rule in {path}")
             raise
+
+    def load_files(self, paths: Iterable[Path]):
+        """Load multiple files into the collection."""
+        for path in paths:
+            self.load_file(path)
 
     def load_directory(self, directory: Path, recursive=True, toml_filter: Optional[Callable[[dict], bool]] = None):
         paths = self._get_paths(directory, recursive=recursive)
