@@ -168,7 +168,6 @@ class RuleCollection:
             print(f"Error loading rule in {path}")
             raise
 
-    # noinspection PyShadowingBuiltins
     def load_directory(self, directory: Path, recursive=True, toml_filter: Optional[Callable[[dict], bool]] = None):
         paths = self._get_paths(directory, recursive=recursive)
         if toml_filter is not None:
@@ -176,19 +175,10 @@ class RuleCollection:
 
         self.load_files(paths)
 
-    def load_by_id(self, rule_id: definitions.UUIDString,
-                   directory: Path = DEFAULT_RULES_DIR, recursive=True) -> Optional[TOMLRule]:
-        """Search for a rule by ID and load it."""
-        if rule_id in self.id_map:
-            return self.id_map[rule_id]
-        elif self.__default is not None and rule_id in self.id_map:
-            return self.__default.id_map[rule_id]
-
-        # otherwise, go looking
-        self.load_directory(directory, toml_filter=dict_filter(rule__rule_id=rule_id), recursive=recursive)
-
-        # now check if it was found
-        return self.id_map.get(rule_id)
+    def load_directories(self, directories: Iterable[Path], recursive=True,
+                         toml_filter: Optional[Callable[[dict], bool]] = None):
+        for path in directories:
+            self.load_directory(path, recursive=recursive, toml_filter=toml_filter)
 
     def freeze(self):
         """Freeze the rule collection and make it immutable going forward."""

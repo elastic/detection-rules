@@ -20,6 +20,7 @@ from eql import load_dump
 
 from kibana.connector import Kibana
 from . import rule_loader
+from .cli_utils import single_collection
 from .eswrap import CollectEvents, add_range_to_dsl
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, GithubClient, Manifest, client_error, getdefault
@@ -104,13 +105,13 @@ def kibana_diff(rule_id, repo, branch, threads):
     missing_from_kibana = list(set(repo_hashes).difference(set(kibana_hashes)))
 
     rule_diff = []
-    for rid, rhash in repo_hashes.items():
-        if rid in missing_from_kibana:
+    for rule_id, rule_hash in repo_hashes.items():
+        if rule_id in missing_from_kibana:
             continue
-        if rhash != kibana_hashes[rid]:
+        if rule_hash != kibana_hashes[rule_id]:
             rule_diff.append(
-                f'versions - repo: {rules[rid].contents["version"]}, kibana: {kibana_rules[rid]["version"]} -> '
-                f'{rid} - {rules[rid].name}'
+                f'versions - repo: {rules[rule_id].contents["version"]}, kibana: {kibana_rules[rule_id]["version"]} -> '
+                f'{rule_id} - {rules[rule_id].name}'
             )
 
     diff = {
@@ -375,8 +376,7 @@ def event_search(query, index, language, date_range, count, max_results, verbose
 
 
 @test_group.command('rule-event-search')
-@click.argument('rule-file', type=click.Path(dir_okay=False), required=False)
-@click.option('--rule-id', '-id')
+@single_collection
 @click.option('--date-range', '-d', type=(str, str), default=('now-7d', 'now'), help='Date range to scope search')
 @click.option('--count', '-c', is_flag=True, help='Return count of results only')
 @click.option('--max-results', '-m', type=click.IntRange(1, 1000), default=100,
@@ -384,19 +384,9 @@ def event_search(query, index, language, date_range, count, max_results, verbose
 @click.option('--verbose', '-v', is_flag=True)
 @click.pass_context
 @add_client('elasticsearch')
-def rule_event_search(ctx, rule_file, rule_id, date_range, count, max_results, verbose,
+def rule_event_search(ctx, rule, date_range, count, max_results, verbose,
                       elasticsearch_client: Elasticsearch = None):
     """Search using a rule file against an Elasticsearch instance."""
-    rule: TOMLRule
-
-    if rule_id:
-        rule = RuleCollection().load_by_id(rule_id)
-        if rule is None:
-            client_error(f"Unable to find rule with id {rule_id}")
-    elif rule_file:
-        rule = RuleCollection().load_file(rule_file)
-    else:
-        client_error('Must specify a rule file or rule ID')
 
     if isinstance(rule.contents.data, BaseQueryRuleData):
         if verbose:

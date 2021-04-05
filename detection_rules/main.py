@@ -17,8 +17,8 @@ from uuid import uuid4
 import click
 
 from . import rule_loader
-from .cli_utils import rule_prompt
-from .misc import client_error, nested_set, parse_config
+from .cli_utils import rule_prompt, multi_collection
+from .misc import nested_set, parse_config
 from .rule import TOMLRule
 from .rule_formatter import toml_write
 from .rule_loader import RuleCollection
@@ -88,12 +88,12 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
 
 
 @root.command('import-rules')
-@click.argument('infile', type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
+@click.argument('input-file', type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
 @click.option('--directory', '-d', type=click.Path(file_okay=False, exists=True), help='Load files from a directory')
-def import_rules(infile, directory):
+def import_rules(input_file, directory):
     """Import rules from json, toml, or Kibana exported rule file(s)."""
     rule_files = glob.glob(os.path.join(directory, '**', '*.*'), recursive=True) if directory else []
-    rule_files = sorted(set(rule_files + list(infile)))
+    rule_files = sorted(set(rule_files + list(input_file)))
 
     rule_contents = []
     for rule_file in rule_files:
@@ -122,17 +122,11 @@ def toml_lint(rule_file):
     else:
         rules = RuleCollection.default()
 
-    # removed unneeded defaults
-    # TODO: we used to remove "unneeded" defaults, but this is a potentially tricky thing.
-    #       we need to figure out if a default is Kibana-imposed or detection-rules imposed.
-    #       ideally, we can explicitly mention default in TOML if desired and have a concept
-    #       of build-time defaults, so that defaults are filled in as late as possible
-
     # re-save the rules to force TOML reformatting
     for rule in rules:
         rule.save_toml()
 
-    click.echo('Toml file linting complete')
+    click.echo('TOML file linting complete')
 
 
 @root.command('mass-update')
@@ -177,10 +171,7 @@ def view_rule(ctx, rule_file, api_format):
 
 
 @root.command('export-rules')
-@click.argument('rule-id', nargs=-1, required=False)
-@click.option('--rule-file', '-f', multiple=True, type=click.Path(dir_okay=False), help='Export specified rule files')
-@click.option('--directory', '-d', multiple=True, type=click.Path(file_okay=False),
-              help='Recursively export rules from a directory')
+@multi_collection
 @click.option('--outfile', '-o', default=get_path('exports', f'{time.strftime("%Y%m%dT%H%M%SL")}.ndjson'),
               type=click.Path(dir_okay=False), help='Name of file for exported rules')
 @click.option('--replace-id', '-r', is_flag=True, help='Replace rule IDs with new IDs before export')
@@ -189,29 +180,9 @@ def view_rule(ctx, rule_file, api_format):
 @click.option('--skip-unsupported', '-s', is_flag=True,
               help='If `--stack-version` is passed, skip rule types which are unsupported '
                    '(an error will be raised otherwise)')
-def export_rules(rule_id, rule_file, directory, outfile, replace_id, stack_version, skip_unsupported):
+def export_rules(rules, outfile, replace_id, stack_version, skip_unsupported):
     """Export rule(s) into an importable ndjson file."""
     from .packaging import Package
-
-    if not (rule_id or rule_file or directory):
-        client_error('Required: at least one of --rule-id, --rule-file, or --directory')
-
-    rules = RuleCollection()
-
-    if rule_id:
-        rule_id = set(rule_id)
-        rules = RuleCollection.default().filter(lambda r: r.id in rule_id)
-        found_ids = {rule.id for rule in rules}
-        missing = rule_id.difference(found_ids)
-
-        if missing:
-            client_error(f'Unknown rules for rule IDs: {", ".join(missing)}')
-
-    if rule_file:
-        rules.load_files(Path(path) for path in rule_file)
-
-    for directory in directory:
-        rules.load_directory(Path(directory))
 
     assert len(rules) > 0, "No rules found"
 

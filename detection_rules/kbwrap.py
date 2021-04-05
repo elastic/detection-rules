@@ -5,15 +5,14 @@
 
 """Kibana cli commands."""
 import uuid
-from pathlib import Path
 
 import click
 
 import kql
 from kibana import Kibana, Signal, RuleResource
+from .cli_utils import multi_collection
 from .main import root
 from .misc import add_params, client_error, kibana_options
-from .rule_loader import RuleCollection
 from .schemas import downgrade
 from .utils import format_command_options
 
@@ -53,16 +52,13 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
 
 
 @kibana_group.command("upload-rule")
-@click.argument("toml-files", nargs=-1, required=True)
+@multi_collection
 @click.option('--replace-id', '-r', is_flag=True, help='Replace rule IDs with new IDs before export')
 @click.pass_context
-def upload_rule(ctx, toml_files, replace_id):
+def upload_rule(ctx, rules, replace_id):
     """Upload a list of rule .toml files to Kibana."""
 
     kibana = ctx.obj['kibana']
-    rules = RuleCollection()
-    rules.load_files(Path(p) for p in toml_files)
-
     api_payloads = []
 
     for rule in rules:

@@ -87,7 +87,7 @@ class RtaEvents(object):
         """Evaluate a rule against collected events and update mapping."""
         from .utils import combine_sources, evaluate
 
-        rule = RuleCollection.load_by_id(rule_id)
+        rule = next((rule for rule in RuleCollection.default() if rule.id == rule_id), None)
         assert rule is not None, f"Unable to find rule with ID {rule_id}"
         merged_events = combine_sources(*self.events.values())
         filtered = evaluate(rule, merged_events)
