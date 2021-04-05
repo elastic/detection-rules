@@ -14,7 +14,7 @@ import pytoml
 
 from .mappings import RtaMappings
 from .rule import TOMLRule, TOMLRuleContents
-from .schemas import CurrentSchema, definitions
+from .schemas import definitions
 from .utils import get_path, cached
 
 DEFAULT_RULES_DIR = Path(get_path("rules"))
@@ -255,24 +255,6 @@ def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rul
     return new, modified, errors
 
 
-@cached
-def get_non_required_defaults_by_type(rule_type: str) -> dict:
-    """Get list of fields which are not required for a specified rule type."""
-    schema = CurrentSchema.get_schema(rule_type)
-    properties = schema['properties']
-    non_required_defaults = {prop: properties[prop].get('default') for prop in properties
-                             if prop not in schema['required'] and 'default' in properties[prop]}
-    return non_required_defaults
-
-
-def find_unneeded_defaults_from_rule(toml_contents: dict) -> dict:
-    """Remove values that are not required in the schema which are set with default values."""
-    unrequired_defaults = get_non_required_defaults_by_type(toml_contents['rule']['type'])
-    default_matches = {prop: toml_contents["rule"][prop] for prop, val in unrequired_defaults.items()
-                       if toml_contents["rule"].get(prop) == val}
-    return default_matches
-
-
 rta_mappings = RtaMappings()
 
 
@@ -280,11 +262,9 @@ __all__ = (
     "FILE_PATTERN",
     "DEFAULT_RULES_DIR",
     "load_github_pr_rules",
-    "get_non_required_defaults_by_type",
     "RuleCollection",
     "metadata_filter",
     "production_filter",
     "dict_filter",
-    "find_unneeded_defaults_from_rule",
     "rta_mappings"
 )
