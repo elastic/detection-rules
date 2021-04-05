@@ -102,6 +102,15 @@ class RuleCollection:
         """Check if a rule is in the map by comparing IDs."""
         return rule.id in self.id_map
 
+    def filter(self, cb: Callable[[TOMLRule], bool]) -> 'RuleCollection':
+        """Retrieve a filtered collection of rules."""
+        filtered_collection = RuleCollection()
+
+        for rule in filter(cb, self.rules):
+            filtered_collection.add_rule(rule)
+
+        return filtered_collection
+
     def _deserialize_toml(self, path: Path) -> dict:
         if path in self._toml_load_cache:
             return self._toml_load_cache[path]
@@ -129,15 +138,6 @@ class RuleCollection:
 
         self.id_map[rule.id] = rule
         self.rules.append(rule)
-
-    def filter(self, cb: Callable[[TOMLRule], bool]) -> 'RuleCollection':
-        """Retrieve a filtered collection of rules."""
-        filtered_collection = RuleCollection()
-
-        for rule in filter(cb, self.rules):
-            filtered_collection.add_rule(rule)
-
-        return filtered_collection
 
     def load_dict(self, obj: dict, path: Optional[Path] = None):
         contents = TOMLRuleContents.from_dict(obj)
