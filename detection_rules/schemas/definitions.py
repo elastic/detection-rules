@@ -10,6 +10,8 @@ from typing import Literal
 from marshmallow import validate
 from marshmallow_dataclass import NewType
 
+CURRENT_STACK_VERSION = "7.13.0"
+
 ASSET_TYPE = "security_rule"
 SAVED_OBJECT_TYPE = "security-rule"
 
@@ -32,6 +34,7 @@ SUBTECHNIQUE_URL = r'https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/'
 MACHINE_LEARNING = 'machine_learning'
 SAVED_QUERY = 'saved_query'
 QUERY = 'query'
+
 
 OPERATORS = ['equals']
 

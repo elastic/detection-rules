@@ -3,7 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 """Rule object."""
+import dataclasses
 import json
+import typing
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Union, Optional, List, Any
@@ -16,7 +18,7 @@ import kql
 from . import ecs, beats, utils
 from .mixins import MarshmallowDataclassMixin
 from .rule_formatter import toml_write, nested_normalize
-from .schemas import definitions
+from .schemas import definitions, SCHEMA_DIR
 from .schemas import downgrade
 from .utils import cached
 
@@ -136,7 +138,7 @@ class BaseRuleData(MarshmallowDataclassMixin):
     actions: Optional[list]
     author: List[str]
     building_block_type: Optional[str]
-    description: Optional[str]
+    description: str
     enabled: Optional[bool]
     exceptions_list: Optional[list]
     license: Optional[str]
@@ -166,8 +168,22 @@ class BaseRuleData(MarshmallowDataclassMixin):
     timeline_title: Optional[str]
     timestamp_override: Optional[str]
     to: Optional[str]
-    type: Literal[definitions.RuleType]
+    type: definitions.RuleType
     threat: Optional[List[ThreatMapping]]
+
+    @classmethod
+    def save_schema(cls):
+        """Save the schema as a jsonschema."""
+        fields: List[dataclasses.Field] = dataclasses.fields(cls)
+        type_field = next(field for field in fields if field.name == "type")
+        rule_type = typing.get_args(type_field.type)[0] if cls != BaseRuleData else "base"
+        schema = cls.jsonschema()
+        version_dir = SCHEMA_DIR / "master"
+        version_dir.mkdir(exist_ok=True, parents=True)
+
+        # expand out the jsonschema definitions
+        with (version_dir / f"master.{rule_type}.json").open("w") as f:
+            json.dump(schema, f, indent=2, sort_keys=True)
 
 
 @dataclass(frozen=True)
@@ -307,6 +323,7 @@ class EQLRuleData(BaseQueryRuleData):
 
 # All of the possible rule types
 AnyRuleData = Union[KQLRuleData, LuceneRuleData, MachineLearningRuleData, ThresholdQueryRuleData, EQLRuleData]
+all_rule_types = {}
 
 
 @dataclass(frozen=True)
@@ -314,6 +331,25 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
     """Rule object which maps directly to the TOML layout."""
     metadata: RuleMeta
     data: AnyRuleData = field(metadata=dict(data_key="rule"))
+
+    @classmethod
+    def all_rule_types(cls):
+        types = set()
+        for subclass in typing.get_args(AnyRuleData):
+            field = next(field for field in dataclasses.fields(subclass) if field.name == "type")
+            types.update(typing.get_args(field.type))
+
+        return types
+
+    @classmethod
+    def get_data_subclass(cls, rule_type):
+        """Get the proper subclass depending on the rule type"""
+        for subclass in typing.get_args(AnyRuleData):
+            field = next(field for field in dataclasses.fields(subclass) if field.name == "type")
+            if (rule_type, ) == typing.get_args(field.type):
+                return subclass
+
+        raise ValueError(f"Unknown rule type {rule_type}")
 
     @property
     def id(self) -> definitions.UUIDString:

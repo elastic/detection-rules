@@ -5,18 +5,32 @@
 
 """Helper functions for managing rules in the repository."""
 import copy
+import dataclasses
 import io
 import textwrap
+import typing
 from collections import OrderedDict
 
 import toml
 
-from .schemas import CurrentSchema
+from .schemas import definitions
+from .utils import cached
 
 SQ = "'"
 DQ = '"'
 TRIPLE_SQ = SQ * 3
 TRIPLE_DQ = DQ * 3
+
+
+@cached
+def get_preserved_fmt_fields():
+    from .rule import BaseRuleData
+    preserved_keys = set()
+
+    for field in dataclasses.fields(BaseRuleData):  # type: dataclasses.Field
+        if field.type in (definitions.Markdown, typing.Optional[definitions.Markdown]):
+            preserved_keys.add(field.metadata.get("data_key", field.name))
+    return preserved_keys
 
 
 def cleanup_whitespace(val):
@@ -39,7 +53,7 @@ def nested_normalize(d, skip_cleanup=False, eql_rule=False):
                     d.update({k: v})
                 else:
                     d.update({k: nested_normalize(v)})
-            elif k in CurrentSchema.markdown_fields():
+            elif k in get_preserved_fmt_fields():
                 # let these maintain newlines and whitespace for markdown support
                 d.update({k: nested_normalize(v, skip_cleanup=True, eql_rule=eql_rule)})
             else:
@@ -166,7 +180,7 @@ def toml_write(rule_contents, outfile=None):
                     bottom[k] = v
                 else:
                     top[k] = v
-            elif k in CurrentSchema.markdown_fields():
+            elif k in get_preserved_fmt_fields():
                 top[k] = NonformattedField(v)
             else:
                 top[k] = v

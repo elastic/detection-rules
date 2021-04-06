@@ -19,10 +19,10 @@ import click
 from . import rule_loader
 from .cli_utils import rule_prompt, multi_collection
 from .misc import nested_set, parse_config
-from .rule import TOMLRule
+from .rule import TOMLRule, TOMLRuleContents
 from .rule_formatter import toml_write
 from .rule_loader import RuleCollection
-from .schemas import CurrentSchema, available_versions
+from .schemas import all_versions
 from .utils import get_path, clear_caches, load_rule_contents
 
 RULES_DIR = get_path('rules')
@@ -44,7 +44,8 @@ def root(ctx, debug):
 @click.argument('path', type=click.Path(dir_okay=False))
 @click.option('--config', '-c', type=click.Path(exists=True, dir_okay=False), help='Rule or config file')
 @click.option('--required-only', is_flag=True, help='Only prompt for required fields')
-@click.option('--rule-type', '-t', type=click.Choice(CurrentSchema.RULE_TYPES), help='Type of rule to create')
+@click.option('--rule-type', '-t', type=click.Choice(sorted(TOMLRuleContents.all_rule_types())),
+              help='Type of rule to create')
 def create_rule(path, config, required_only, rule_type):
     """Create a detection rule."""
     contents = load_rule_contents(config, single_only=True)[0] if config else {}
@@ -175,7 +176,7 @@ def view_rule(ctx, rule_file, api_format):
 @click.option('--outfile', '-o', default=get_path('exports', f'{time.strftime("%Y%m%dT%H%M%SL")}.ndjson'),
               type=click.Path(dir_okay=False), help='Name of file for exported rules')
 @click.option('--replace-id', '-r', is_flag=True, help='Replace rule IDs with new IDs before export')
-@click.option('--stack-version', type=click.Choice(available_versions),
+@click.option('--stack-version', type=click.Choice(all_versions()),
               help='Downgrade a rule version to be compatible with older instances of Kibana')
 @click.option('--skip-unsupported', '-s', is_flag=True,
               help='If `--stack-version` is passed, skip rule types which are unsupported '
