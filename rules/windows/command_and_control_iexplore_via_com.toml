@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/28"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/03/30"
 
 [rule]
 author = ["Elastic"]
@@ -10,6 +10,7 @@ Identifies instances of Internet Explorer (iexplore.exe) being started via the C
 unusual network connections. Adversaries could abuse Internet Explorer via COM to avoid suspicious processes making
 network connections and bypass host-based firewall restrictions.
 """
+false_positives = ["Processes such as MS Office using IEproxy to render HTML content."]
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
@@ -22,7 +23,8 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control"]
 type = "eql"
 
 query = '''
-sequence by host.id, process.entity_id with maxspan = 1s
+sequence by host.id, user.id with maxspan = 5s
+  [library where dll.name : "IEProxy.dll" and process.name : ("rundll32.exe", "regsvr32.exe")]
   [process where event.type == "start" and process.parent.name : "iexplore.exe" and process.parent.args : "-Embedding"]
   /* IE started via COM in normal conditions makes few connections, mainly to Microsoft and OCSP related domains, add FPs here */
   [network where network.protocol == "dns" and process.name : "iexplore.exe" and
@@ -33,7 +35,10 @@ sequence by host.id, process.entity_id with maxspan = 1s
     "*.msocsp.com",
     "*.windowsupdate.com",
     "*.bing.com",
-    "*.identrust.com"
+    "*.identrust.com",
+    "*.sharepoint.com",
+    "*.office365.com",
+    "*.office.com"
     )
   ]
 '''
