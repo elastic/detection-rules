@@ -17,11 +17,11 @@ from typing import List, Optional, Tuple
 import click
 import yaml
 
-from . import rule_loader
 from .misc import JS_LICENSE, cached
-from .rule import TOMLRule, BaseQueryRuleData, RULES_DIR, ThreatMapping
+from .rule import TOMLRule, BaseQueryRuleData, ThreatMapping
 from .rule import downgrade_contents_from_rule
-from .schemas import CurrentSchema
+from .rule_loader import RuleCollection, DEFAULT_RULES_DIR
+from .schemas import CurrentSchema, definitions
 from .utils import Ndjson, get_path, get_etc_path, load_etc_dump, save_etc_dump
 
 RELEASE_DIR = get_path("releases")
@@ -325,7 +325,7 @@ class Package(object):
     @classmethod
     def from_config(cls, config: dict = None, update_version_lock: bool = False, verbose: bool = False) -> 'Package':
         """Load a rules package given a config."""
-        all_rules = rule_loader.load_rules(verbose=False).values()
+        all_rules = RuleCollection.default()
         config = config or {}
         exclude_fields = config.pop('exclude_fields', {})
         log_deprecated = config.pop('log_deprecated', False)
@@ -335,20 +335,13 @@ class Package(object):
         if log_deprecated:
             deprecated_rules = [r for r in all_rules if r.contents.metadata.maturity == 'deprecated']
 
-        rules = list(filter(lambda rule: filter_rule(rule, rule_filter, exclude_fields), all_rules))
+        rules = all_rules.filter(lambda r: filter_rule(r, rule_filter, exclude_fields))
 
         if verbose:
             click.echo(f' - {len(all_rules) - len(rules)} rules excluded from package')
 
-        update = config.pop('update', {})
         package = cls(rules, deprecated_rules=deprecated_rules, update_version_lock=update_version_lock,
                       verbose=verbose, **config)
-
-        # Allow for some fields to be overwritten
-        if update.get('data', {}):
-            for rule in package.rules:
-                for sub_dict, values in update.items():
-                    rule.contents[sub_dict].update(values)
 
         return package
 
@@ -485,7 +478,7 @@ class Package(object):
 
         package_dir = Path(save_dir).joinpath(manifest.version)
         docs_dir = package_dir / 'docs'
-        rules_dir = package_dir / 'kibana' / 'security_rule'
+        rules_dir = package_dir / 'kibana' / definitions.ASSET_TYPE
 
         docs_dir.mkdir(parents=True)
         rules_dir.mkdir(parents=True)
@@ -498,7 +491,8 @@ class Package(object):
         # shutil.copyfile(CHANGELOG_FILE, str(rules_dir.joinpath('CHANGELOG.json')))
 
         for rule in self.rules:
-            rule.save_json(Path(rules_dir.joinpath(f'rule-{rule.id}.json')))
+            asset_path = rules_dir / f'rule-{rule.id}.json'
+            asset_path.write_text(json.dumps(rule.get_asset(), indent=4, sort_keys=True), encoding="utf-8")
 
         readme_text = ('# Detection rules\n\n'
                        'The detection rules package stores all the security rules '
@@ -550,7 +544,7 @@ class Package(object):
                             status=status,
                             package_version=self.name,
                             flat_mitre=ThreatMapping.flatten(rule.contents.data.threat).to_dict(),
-                            relative_path=str(rule.path.resolve().relative_to(RULES_DIR)))
+                            relative_path=str(rule.path.resolve().relative_to(DEFAULT_RULES_DIR)))
             bulk_upload_docs.append(rule_doc)
             importable_rules_docs.append(rule_doc)
 

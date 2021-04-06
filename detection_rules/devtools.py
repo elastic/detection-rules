@@ -17,15 +17,16 @@ from pathlib import Path
 import click
 from elasticsearch import Elasticsearch
 from eql import load_dump
-from kibana.connector import Kibana
 
+from kibana.connector import Kibana
 from . import rule_loader
+from .cli_utils import single_collection
 from .eswrap import CollectEvents, add_range_to_dsl
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, GithubClient, Manifest, client_error, getdefault
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
-from .rule import TOMLRule, TOMLRuleContents, BaseQueryRuleData
-from .rule_loader import get_rule
+from .rule import TOMLRule, BaseQueryRuleData
+from .rule_loader import production_filter, RuleCollection
 from .utils import get_path, dict_hash
 
 RULES_DIR = get_path('rules')
@@ -68,7 +69,7 @@ def update_lock_versions(rule_ids):
     if not click.confirm('Are you sure you want to update hashes without a version bump?'):
         return
 
-    rules = [r for r in rule_loader.load_rules(verbose=False).values() if r.id in rule_ids]
+    rules = RuleCollection.default().filter(lambda r: r.id in rule_ids)
     changed, new = manage_versions(rules, exclude_version_update=True, add_new=False, save_changes=True)
 
     if not changed:
@@ -86,10 +87,12 @@ def kibana_diff(rule_id, repo, branch, threads):
     """Diff rules against their version represented in kibana if exists."""
     from .misc import get_kibana_rules
 
+    rules = RuleCollection.default()
+
     if rule_id:
-        rules = {r.id: r for r in rule_loader.load_rules(verbose=False).values() if r.id in rule_id}
+        rules = rules.filter(lambda r: r.id in rule_id)
     else:
-        rules = {r.id: r for r in rule_loader.get_production_rules()}
+        rules = rules.filter(production_filter)
 
     # add versions to the rules
     manage_versions(list(rules.values()), verbose=False)
@@ -102,13 +105,13 @@ def kibana_diff(rule_id, repo, branch, threads):
     missing_from_kibana = list(set(repo_hashes).difference(set(kibana_hashes)))
 
     rule_diff = []
-    for rid, rhash in repo_hashes.items():
-        if rid in missing_from_kibana:
+    for rule_id, rule_hash in repo_hashes.items():
+        if rule_id in missing_from_kibana:
             continue
-        if rhash != kibana_hashes[rid]:
+        if rule_hash != kibana_hashes[rule_id]:
             rule_diff.append(
-                f'versions - repo: {rules[rid].contents["version"]}, kibana: {kibana_rules[rid]["version"]} -> '
-                f'{rid} - {rules[rid].name}'
+                f'versions - repo: {rules[rule_id].contents["version"]}, kibana: {kibana_rules[rule_id]["version"]} -> '
+                f'{rule_id} - {rules[rule_id].name}'
             )
 
     diff = {
@@ -373,8 +376,7 @@ def event_search(query, index, language, date_range, count, max_results, verbose
 
 
 @test_group.command('rule-event-search')
-@click.argument('rule-file', type=click.Path(dir_okay=False), required=False)
-@click.option('--rule-id', '-id')
+@single_collection
 @click.option('--date-range', '-d', type=(str, str), default=('now-7d', 'now'), help='Date range to scope search')
 @click.option('--count', '-c', is_flag=True, help='Return count of results only')
 @click.option('--max-results', '-m', type=click.IntRange(1, 1000), default=100,
@@ -382,17 +384,9 @@ def event_search(query, index, language, date_range, count, max_results, verbose
 @click.option('--verbose', '-v', is_flag=True)
 @click.pass_context
 @add_client('elasticsearch')
-def rule_event_search(ctx, rule_file, rule_id, date_range, count, max_results, verbose,
+def rule_event_search(ctx, rule, date_range, count, max_results, verbose,
                       elasticsearch_client: Elasticsearch = None):
     """Search using a rule file against an Elasticsearch instance."""
-    rule: TOMLRule
-
-    if rule_id:
-        rule = get_rule(rule_id, verbose=False)
-    elif rule_file:
-        rule = TOMLRule(path=rule_file, contents=TOMLRuleContents.from_dict(load_dump(rule_file)))
-    else:
-        client_error('Must specify a rule file or rule ID')
 
     if isinstance(rule.contents.data, BaseQueryRuleData):
         if verbose:
@@ -431,18 +425,17 @@ def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_coun
     """Survey rule counts."""
     from eql.table import Table
     from kibana.resources import Signal
-    from . import rule_loader
     from .main import search_rules
 
     survey_results = []
     start_time, end_time = date_range
 
     if query:
-        rule_paths = [r['file'] for r in ctx.invoke(search_rules, query=query, verbose=False)]
-        rules = rule_loader.load_rules(rule_loader.load_rule_files(paths=rule_paths, verbose=False), verbose=False)
-        rules = rules.values()
+        rules = RuleCollection()
+        paths = [Path(r['file']) for r in ctx.invoke(search_rules, query=query, verbose=False)]
+        rules.load_files(paths)
     else:
-        rules = rule_loader.load_rules(verbose=False).values()
+        rules = RuleCollection.default().filter(production_filter)
 
     click.echo(f'Running survey against {len(rules)} rules')
     click.echo(f'Saving detailed dump to: {dump_file}')
