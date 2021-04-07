@@ -22,8 +22,10 @@ type = "eql"
 query = '''
 sequence with maxspan=1m
   [process where event.type != "end" and
-    (process.name : ("cmd.exe", "wscript.exe", "rundll32.exe", "regsvr32.exe", "wmic.exe", "mshta.exe","powershell.exe",
-                     "pwsh.exe", "WmiPrvSe.exe", "wsmprovhost.exe", "winrshost.exe") or
+    ((process.name : ("cmd.exe", "wscript.exe", "rundll32.exe", "regsvr32.exe", "wmic.exe", "mshta.exe","powershell.exe",
+      "pwsh.exe", "WmiPrvSe.exe", "wsmprovhost.exe", "winrshost.exe") or
+    process.pe.original_file_name : ("cmd.exe", "wscript.exe", "rundll32.exe", "regsvr32.exe", "wmic.exe", "mshta.exe",
+      "powershell.exe", "pwsh.exe", "WmiPrvSe.exe", "wsmprovhost.exe", "winrshost.exe")) or
     process.code_signature.trusted == false)] by process.entity_id
   [process where event.type == "start" and
     (process.name : "schtasks.exe" or process.pe.original_file_name == "schtasks.exe") and
