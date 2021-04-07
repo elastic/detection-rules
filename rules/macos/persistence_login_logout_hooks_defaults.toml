@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/12/07"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/03/09"
 
 [rule]
 author = ["Elastic"]
@@ -26,8 +26,15 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
- process.name == "defaults" and process.args == "write" and process.args in ("LoginHook", "LogoutHook")
+process where event.type == "start" and
+ process.name == "defaults" and process.args == "write" and process.args in ("LoginHook", "LogoutHook") and
+ not process.args :
+       (
+         "Support/JAMF/ManagementFrameworkScripts/logouthook.sh",
+         "Support/JAMF/ManagementFrameworkScripts/loginhook.sh",
+         "/Library/Application Support/JAMF/ManagementFrameworkScripts/logouthook.sh",
+         "/Library/Application Support/JAMF/ManagementFrameworkScripts/loginhook.sh"
+       )
 '''
 
 
@@ -43,4 +50,3 @@ reference = "https://attack.mitre.org/techniques/T1037/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
