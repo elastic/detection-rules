@@ -1,0 +1,45 @@
+[metadata]
+creation_date = "2021/04/12"
+maturity = "production"
+updated_date = "2021/04/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of the EarthWorm tunneler. Adversaries may tunnel network communications to and from a victim
+system within a separate protocol to avoid detection/network filtering and/or enable access to otherwise unreachable systems.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Protocol Tunneling via EarthWorm"
+references = [
+    "http://rootkiter.com/EarthWorm/",
+    "https://decoded.avast.io/luigicamastra/apt-group-targeting-governmental-agencies-in-east-asia/"
+]
+risk_score = 47
+rule_id = "717f82c2-7741-4f9b-85b8-d06aeb853f4f"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Command And Control"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and
+ process.args : "-s" and process.args : "-d" and process.args : "rssocks"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Command And Control"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
