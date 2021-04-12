@@ -10,9 +10,6 @@ from typing import Literal
 from marshmallow import validate
 from marshmallow_dataclass import NewType
 
-
-NON_EMPTY_STR_PATTERN = r'.+'
-
 ASSET_TYPE = "security_rule"
 SAVED_OBJECT_TYPE = "security-rule"
 
@@ -46,7 +43,7 @@ Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
 Markdown = NewType("MarkdownField", CodeString)
 Maturity = Literal['development', 'experimental', 'beta', 'production', 'deprecated']
 MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
-NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Regexp(NON_EMPTY_STR_PATTERN))
+NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
 Operator = Literal['equals']
 OSType = Literal['windows', 'linux', 'macos']
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
