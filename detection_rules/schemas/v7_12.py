@@ -7,7 +7,6 @@
 
 import jsl
 
-from .base import NON_EMPTY_STR
 from .v7_9 import ThresholdMapping
 from .v7_11 import ApiSchema711
 
@@ -32,7 +31,7 @@ class ApiSchema712(ApiSchema711):
             field = jsl.StringField(required=True)
             value = jsl.IntField(minimum=1, required=True)
 
-        field = jsl.ArrayField(jsl.StringField(required=False, pattern=NON_EMPTY_STR), required=True)
+        field = jsl.ArrayField(jsl.StringField(required=False, min_length=1), required=True)
         cardinality = jsl.DocumentField(ThresholdCardinality, required=False)
 
     threshold_scope = ApiSchema711.threshold_scope
