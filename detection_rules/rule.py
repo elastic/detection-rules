@@ -17,11 +17,10 @@ import kql
 from . import ecs, beats, utils
 from .mixins import MarshmallowDataclassMixin
 from .rule_formatter import toml_write, nested_normalize
-from .schemas import downgrade
 from .schemas import definitions
-from .utils import get_path, cached
+from .schemas import downgrade
+from .utils import cached
 
-RULES_DIR = get_path("rules")
 _META_SCHEMA_REQ_DEFAULTS = {}
 
 
@@ -422,7 +421,7 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
 @dataclass
 class TOMLRule:
     contents: TOMLRuleContents = field(hash=True)
-    path: Path
+    path: Optional[Path] = None
     gh_pr: Any = field(hash=False, compare=False, default=None, repr=None)
 
     @property
@@ -435,7 +434,7 @@ class TOMLRule:
 
     def get_asset(self) -> dict:
         """Generate the relevant fleet compatible asset."""
-        return {"id": self.id, "attributes": self.contents.to_api_format(), "type": definitions.ASSET_TYPE}
+        return {"id": self.id, "attributes": self.contents.to_api_format(), "type": definitions.SAVED_OBJECT_TYPE}
 
     def new(self, path: Optional[Path] = None, data: Optional[dict] = None, metadata: Optional[dict] = None):
         """Return a new, updated rule object."""
@@ -449,6 +448,7 @@ class TOMLRule:
         return new_rule
 
     def save_toml(self):
+        assert self.path is not None, f"Can't save rule {self.name} (self.id) without a path"
         converted = self.contents.to_dict()
         toml_write(converted, str(self.path.absolute()))
 

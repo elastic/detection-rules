@@ -35,6 +35,10 @@ class MarshmallowDataclassMixin:
         """Get the marshmallow schema for the data class"""
         return marshmallow_dataclass.class_schema(cls)()
 
+    def get(self, key: str):
+        """Get a key from the query data without raising attribute errors."""
+        return getattr(self, key, None)
+
     @classmethod
     def from_dict(cls: Type[ClassT], obj: dict) -> ClassT:
         """Deserialize and validate a dataclass from a dict using marshmallow."""

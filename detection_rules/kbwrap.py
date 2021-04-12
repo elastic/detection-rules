@@ -4,13 +4,16 @@
 # 2.0.
 
 """Kibana cli commands."""
+import uuid
+
 import click
+
 import kql
 from kibana import Kibana, Signal, RuleResource
-
+from .cli_utils import multi_collection
 from .main import root
 from .misc import add_params, client_error, kibana_options
-from .rule_loader import load_rule_files, load_rules
+from .schemas import downgrade
 from .utils import format_command_options
 
 
@@ -60,24 +63,26 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
 
 
 @kibana_group.command("upload-rule")
-@click.argument("toml-files", nargs=-1, required=True)
+@multi_collection
 @click.option('--replace-id', '-r', is_flag=True, help='Replace rule IDs with new IDs before export')
 @click.pass_context
-def upload_rule(ctx, toml_files, replace_id):
+def upload_rule(ctx, rules, replace_id):
     """Upload a list of rule .toml files to Kibana."""
     from uuid import uuid4
 
     kibana = ctx.obj['kibana']
-    file_lookup = load_rule_files(paths=toml_files)
-    rules = list(load_rules(file_lookup=file_lookup).values())
-
     api_payloads = []
 
     for rule in rules:
         try:
             payload = rule.contents.to_api_format()
+            payload.setdefault("meta", {}).update(rule.contents.metadata.to_dict())
+
             if replace_id:
-                payload['rule_id'] = str(uuid4())
+                payload["rule_id"] = str(uuid.uuid4())
+
+            payload = downgrade(payload, target_version=kibana.version)
+
         except ValueError as e:
             client_error(f'{e} in version:{kibana.version}, for rule: {rule.name}', e, ctx=ctx)
 

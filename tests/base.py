@@ -7,8 +7,8 @@
 
 import unittest
 
-from detection_rules import rule_loader
 from detection_rules.rule import TOMLRule
+from detection_rules.rule_loader import RuleCollection, production_filter
 
 
 class BaseRuleTest(unittest.TestCase):
@@ -16,10 +16,9 @@ class BaseRuleTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.rule_files = rule_loader.load_rule_files(verbose=False)
-        cls.rule_lookup = rule_loader.load_rules(verbose=False)
-        cls.rules = cls.rule_lookup.values()
-        cls.production_rules = rule_loader.get_production_rules()
+        cls.all_rules = RuleCollection.default()
+        cls.rule_lookup = {rule.id: rule for rule in cls.all_rules}
+        cls.production_rules = cls.all_rules.filter(production_filter)
 
     @staticmethod
     def rule_str(rule: TOMLRule, trailer=' ->'):
