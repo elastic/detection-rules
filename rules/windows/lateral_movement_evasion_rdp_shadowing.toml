@@ -1,0 +1,49 @@
+[metadata]
+creation_date = "2021/04/12"
+maturity = "production"
+updated_date = "2021/04/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the modification of the Remote Desktop Protocol (RDP) Shadow registry or the execution of processes
+indicative of active RDP shadowing session. An Adversary may abuse RDP Shadowing feature to spy on other users active
+RDP sessions or even control them.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Remote Desktop Shadowing Activity"
+references = [
+"https://bitsadm.in/blog/spying-on-users-using-rdp-shadowing",
+"https://swarm.ptsecurity.com/remote-desktop-services-shadowing/"]
+risk_score = 73
+rule_id = "c57f8579-e2a5-4804-847f-f2732edc5156"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+type = "eql"
+
+query = '''
+/* Identifies the modification of RDP Shadow registry or
+  the execution of processes indicative of active shadow RDP session */
+any where event.category : ("registry", "process") and
+  registry.path : "HKLM\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow" or
+  (process.name : ("RdpSaUacHelper.exe", "RdpSaProxy.exe") and process.parent.name : "svchost.exe") or
+  (process.pe.original_file_name : "mstsc.exe" and process.args : "/shadow:*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
