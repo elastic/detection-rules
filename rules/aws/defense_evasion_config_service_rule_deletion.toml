@@ -1,13 +1,13 @@
 [metadata]
 creation_date = "2020/06/26"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/04/13"
 
 [rule]
-author = ["Elastic"]
+author = ["Elastic", "Austin Songer"]
 description = """
-Identifies attempts to delete an AWS Config Service rule. An adversary may tamper with Config rules in order to reduce
-visibiltiy into the security posture of an account and / or its workload instances.
+Identifies attempts to delete an AWS Config Service resource. An adversary may tamper with Config services in order to
+reduce visibiltiy into the security posture of an account and / or its workload instances.
 """
 false_positives = [
     """
@@ -36,7 +36,10 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: aws.cloudtrail and event.action: DeleteConfigRule and event.provider: config.amazonaws.com
+event.dataset:aws.cloudtrail and event.provider:config.amazonaws.com and
+    event.action:(DeleteConfigRule or DeleteOrganizationConfigRule or DeleteConfigurationAggregator or
+    DeleteConfigurationRecorder or DeleteConformancePack or DeleteOrganizationConformancePack or
+    DeleteDeliveryChannel or DeleteRemediationConfiguration or DeleteRetentionConfiguration)
 '''
 
 
