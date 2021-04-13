@@ -6,11 +6,9 @@
 """Definitions for rule metadata and schemas."""
 
 import jsl
+
+from .definitions import OPERATORS
 from .v7_8 import ApiSchema78
-
-
-OPERATORS = ['equals']
-
 
 # kibana/.../siem/server/lib/detection_engine/routes/schemas/add_prepackaged_rules_schema.ts
 #                           /detection_engine/routes/schemas/schemas.ts

@@ -1,4 +1,4 @@
-[![Supported Python versions](https://img.shields.io/badge/python-3.7+-yellow.svg)](https://www.python.org/downloads/)
+[![Supported Python versions](https://img.shields.io/badge/python-3.8+-yellow.svg)](https://www.python.org/downloads/)
 [![Unit Tests](https://github.com/elastic/detection-rules/workflows/Unit%20Tests/badge.svg)](https://github.com/elastic/detection-rules/actions)
 [![Chat](https://img.shields.io/badge/chat-%23security--detection--rules-blueviolet)](https://ela.st/slack)
 
@@ -35,7 +35,7 @@ Detection Rules contains more than just static rule files. This repository also 
 
 ## Getting started
 
-Although rules can be added by manually creating `.toml` files, we don't recommend it. This repository also consists of a python module that aids rule creation and unit testing. Assuming you have Python 3.7+, run the below command to install the dependencies:
+Although rules can be added by manually creating `.toml` files, we don't recommend it. This repository also consists of a python module that aids rule creation and unit testing. Assuming you have Python 3.8+, run the below command to install the dependencies:
 ```console
 $ pip install -r requirements.txt
 Collecting jsl==0.2.4
