@@ -6,6 +6,10 @@ Several blogs were put out on how you can create and leverage supervised DGA ML 
 
 You can also find some supplementary and examples [here](https://github.com/elastic/examples/tree/master/Machine%20Learning/DGA%20Detection)
 
+We also released a blog on getting started with DGA using the CLI and Kibana, which also includes a case study of the process applied to the 2020 [SolarWinds supply chain attack](https://www.elastic.co/blog/elastic-security-provides-free-and-open-protections-for-sunburst):
+* [Combining supervised and unsupervised machine learning for DGA detection](https://www.elastic.co/blog/supervised-and-unsupervised-machine-learning-for-dga-detection)
+
+
 For questions, please reach out to the ML team in the #machine-learning channel of the 
 [Elastic public slack channel](https://www.elastic.co/blog/join-our-elastic-stack-workspace-on-slack)
 
