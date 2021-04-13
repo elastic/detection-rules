@@ -6,8 +6,13 @@
 # coding=utf-8
 """Shell for detection-rules."""
 import os
+import sys
+
 import click
-from .main import root
+
+assert (3, 8) <= sys.version_info < (4, 0), "Only Python 3.8+ supported"
+
+from .main import root  # noqa: E402
 
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 CLI_DIR = os.path.dirname(CURR_DIR)
