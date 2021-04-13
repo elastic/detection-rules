@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/12/20"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -9,9 +9,10 @@ description = """
 Identifies the use of the grep command to discover known third-party macOS and Linux security tools, such as Antivirus
 or Host Firewall details.
 """
+false_positives = ["Endpoint Security installers, updaters and post installation verification scripts."]
 from = "now-9m"
 index = ["logs-endpoint.events.*", "auditbeat-*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Security Software Discovery via Grep"
 risk_score = 47
@@ -19,41 +20,44 @@ rule_id = "870aecc0-cea4-4110-af3f-e02e9b373655"
 severity = "medium"
 tags = ["Elastic", "Host", "macOS", "Linux", "Threat Detection", "Discovery"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category : process and event.type : (start or process_started) and
- process.name : grep and
- process.args : 
-         ("Little Snitch" or 
-          Avast* or 
-          Avira* or 
-          ESET* or 
-          esets_* or 
-          BlockBlock or 
-          360* or 
-          LuLu or 
-          KnockKnock* or 
-          kav or 
-          KIS or 
-          RTProtectionDaemon or 
-          Malware* or 
-          VShieldScanner or 
-          WebProtection or 
-          webinspectord or 
-          McAfee* or
-          isecespd* or
-          macmnsvc* or
-          masvc or
-          kesl or
-          avscan or
-          guard or
-          rtvscand or
-          symcfgd or
-          scmdaemon or
-          symantec or
-          elastic-endpoint
-          )
+process where event.type == "start" and
+process.name : "grep" and user.id != "0" and
+ not process.parent.executable : "/Library/Application Support/*" and
+   process.args :
+         ("Little Snitch*",
+          "Avast*",
+          "Avira*",
+          "ESET*",
+          "BlockBlock*",
+          "360Sec*",
+          "LuLu*",
+          "KnockKnock*",
+          "kav",
+          "KIS",
+          "RTProtectionDaemon*",
+          "Malware*",
+          "VShieldScanner*",
+          "WebProtection*",
+          "webinspectord*",
+          "McAfee*",
+          "isecespd*",
+          "macmnsvc*",
+          "masvc*",
+          "kesl*",
+          "avscan*",
+          "guard*",
+          "rtvscand*",
+          "symcfgd*",
+          "scmdaemon*",
+          "symantec*",
+          "sophos*",
+          "osquery*",
+          "elastic-endpoint*"
+          ) and
+   not (process.args : "Avast" and process.args : "Passwords")
 '''
 
 
@@ -63,10 +67,14 @@ framework = "MITRE ATT&CK"
 id = "T1518"
 name = "Software Discovery"
 reference = "https://attack.mitre.org/techniques/T1518/"
+[[rule.threat.technique.subtechnique]]
+id = "T1518.001"
+name = "Security Software Discovery"
+reference = "https://attack.mitre.org/techniques/T1518/001/"
+
 
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
