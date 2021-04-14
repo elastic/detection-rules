@@ -22,8 +22,9 @@ from kibana.connector import Kibana
 from . import rule_loader
 from .cli_utils import single_collection
 from .eswrap import CollectEvents, add_range_to_dsl
+from .ghwrap import GithubClient, Manifest
 from .main import root
-from .misc import PYTHON_LICENSE, add_client, GithubClient, Manifest, client_error, getdefault
+from .misc import PYTHON_LICENSE, add_client, client_error, getdefault
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
 from .rule import TOMLRule, BaseQueryRuleData
 from .rule_loader import production_filter, RuleCollection
@@ -547,7 +548,7 @@ def create_ml_release(ctx, directory, gh_token, repo, release_name, description)
 @click.option('--repo', '-r', default='elastic/detection-rules', help='GitHub owner/repo')
 def validate_ml_dga_asset(directory, repo):
     """"Validate and prep an ML DGA bundle for release."""
-    from .eswrap import expected_ml_dga_patterns
+    from .ml import expected_ml_dga_patterns
 
     now = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
 
