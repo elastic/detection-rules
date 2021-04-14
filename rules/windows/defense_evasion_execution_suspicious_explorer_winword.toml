@@ -23,15 +23,15 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where event.type == "start" and
   process.pe.original_file_name in ( "WinWord.exe", "EXPLORER.EXE", "w3wp.exe", "DISM.EXE" ) and
   not (process.name : ( "winword.exe", "explorer.exe", "w3wp.exe", "Dism.exe" ) or
-         process.executable : ("C:\\Windows\\explorer.exe",
-                               "C:\\Program?Files\\Microsoft?Office\\root\\Office*\\WINWORD.EXE",
-                               "C:\\Program?Files?(x86)\\Microsoft?Office\\root\\Office*\\WINWORD.EXE",
-                               "C:\\Windows\\System32\\Dism.exe",
-                               "C:\\Windows\\SysWOW64\\Dism.exe",
-                               "C:\\Windows\\System32\\inetsrv\\w3wp.exe")
+         process.executable : ("?:\\Windows\\explorer.exe",
+                               "?:\\Program?Files\\Microsoft?Office\\root\\Office*\\WINWORD.EXE",
+                               "?:\\Program?Files?(x86)\\Microsoft?Office\\root\\Office*\\WINWORD.EXE",
+                               "?:\\Windows\\System32\\Dism.exe",
+                               "?:\\Windows\\SysWOW64\\Dism.exe",
+                               "?:\\Windows\\System32\\inetsrv\\w3wp.exe")
          )
 '''
 
