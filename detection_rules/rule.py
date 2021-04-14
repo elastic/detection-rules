@@ -251,7 +251,7 @@ class ThresholdQueryRuleData(BaseQueryRuleData):
             field: str
             value: definitions.ThresholdValue
 
-        field: List[Optional[definitions.NonEmptyStr]]
+        field: List[definitions.NonEmptyStr]
         value: definitions.ThresholdValue
         cardinality: Optional[ThresholdCardinality]
 
