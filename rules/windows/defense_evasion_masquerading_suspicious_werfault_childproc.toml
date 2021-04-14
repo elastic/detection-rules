@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/08/24"
 maturity = "production"
-updated_date = "2021/03/08"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ such as command line, network connections, file writes and parent process detail
 false_positives = ["Custom Windows error reporting debugger or applications restarted by WerFault after a crash."]
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Suspicious WerFault Child Process"
 references = [
@@ -25,13 +25,24 @@ rule_id = "ac5012b8-8da8-440b-aaaf-aedafdea2dff"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
- process.parent.name:WerFault.exe and
- not process.name:(cofire.exe or psr.exe or VsJITDebugger.exe or TTTracer.exe or rundll32.exe or LogiOptionsMgr.exe) and
- not process.args:("/LOADSAVEDWINDOWS" or "/restore" or RestartByRestartManager* or "--restarted" or createdump or dontsend or /watson)
+process where event.type in ("start", "process_started") and
+  process.parent.name : "WerFault.exe" and
+  not process.name : ("cofire.exe",
+                      "psr.exe",
+                      "VsJITDebugger.exe",
+                      "TTTracer.exe",
+                      "rundll32.exe",
+                      "LogiOptionsMgr.exe") and
+  not process.args : ("/LOADSAVEDWINDOWS",
+                      "/restore",
+                      "RestartByRestartManager*",
+                      "--restarted",
+                      "createdump",
+                      "dontsend",
+                      "/watson" )
 '''
 
 
@@ -39,11 +50,12 @@ event.category:process and event.type:(start or process_started) and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1036"
-name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
+name = "Masquerading"
 
 
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+name = "Defense Evasion"
+

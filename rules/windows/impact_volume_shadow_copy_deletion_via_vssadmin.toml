@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/03/08"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ other destructive attacks.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Volume Shadow Copy Deletion via VssAdmin"
 risk_score = 73
@@ -19,10 +19,12 @@ rule_id = "b5ea4bfe-a1b2-421f-9d47-22a75a6f2921"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Impact"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and process.name:vssadmin.exe and process.args:(delete and shadows)
+process where event.type in ("start", "process_started") and
+  process.name : "vssadmin.exe" and
+  process.args : "delete" and process.args : "shadows"
 '''
 
 
@@ -30,12 +32,12 @@ event.category:process and event.type:(start or process_started) and process.nam
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1490"
-name = "Inhibit System Recovery"
 reference = "https://attack.mitre.org/techniques/T1490/"
+name = "Inhibit System Recovery"
 
 
 [rule.threat.tactic]
 id = "TA0040"
-name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+name = "Impact"
 

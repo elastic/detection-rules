@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ control or exfiltration.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Encoding or Decoding Files via CertUtil"
 risk_score = 47
@@ -20,11 +20,11 @@ rule_id = "fd70c98a-c410-42dc-a2e3-761c71848acf"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
-  process.name:certutil.exe and process.args:(-decode or -encode or /decode or /encode)
+process where event.type in ("start", "process_started") and
+  process.name : "certutil.exe" and process.args : ("-decode", "-encode", "/decode", "/encode")
 '''
 
 
@@ -32,12 +32,12 @@ event.category:process and event.type:(start or process_started) and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1140"
-name = "Deobfuscate/Decode Files or Information"
 reference = "https://attack.mitre.org/techniques/T1140/"
+name = "Deobfuscate/Decode Files or Information"
 
 
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+name = "Defense Evasion"
 

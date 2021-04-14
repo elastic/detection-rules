@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/08/17"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ indicative of code injection.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Conhost Spawned By Suspicious Parent Process"
 references = [
@@ -22,12 +22,14 @@ rule_id = "05b358de-aa6d-4f6c-89e6-78f74018b43b"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
- process.name:conhost.exe and
- process.parent.name:(svchost.exe or lsass.exe or services.exe or smss.exe or winlogon.exe or explorer.exe or dllhost.exe or rundll32.exe or regsvr32.exe or userinit.exe or wininit.exe or spoolsv.exe or wermgr.exe or csrss.exe or ctfmon.exe)
+process where event.type in ("start", "process_started") and
+  process.name : "conhost.exe" and
+  process.parent.name : ("svchost.exe", "lsass.exe", "services.exe", "smss.exe", "winlogon.exe", "explorer.exe",
+                         "dllhost.exe", "rundll32.exe", "regsvr32.exe", "userinit.exe", "wininit.exe", "spoolsv.exe",
+                         "wermgr.exe", "csrss.exe", "ctfmon.exe" )
 '''
 
 
@@ -35,12 +37,12 @@ event.category:process and event.type:(start or process_started) and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1059"
-name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+name = "Command and Scripting Interpreter"
 
 
 [rule.threat.tactic]
 id = "TA0002"
-name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+name = "Execution"
 

@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ defenses.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Potential Evasion via Filter Manager"
 risk_score = 21
@@ -19,10 +19,10 @@ rule_id = "06dceabf-adca-48af-ac79-ffdf4c3b1e9a"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and process.name:fltMC.exe
+process where and event.type in ("start", "process_started") and process.name : "fltMC.exe"
 '''
 
 
@@ -30,12 +30,12 @@ event.category:process and event.type:(start or process_started) and process.nam
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1222"
-name = "File and Directory Permissions Modification"
 reference = "https://attack.mitre.org/techniques/T1222/"
+name = "File and Directory Permissions Modification"
 
 
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+name = "Defense Evasion"
 

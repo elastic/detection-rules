@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/07/07"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ RHEL) and macOS systems.
 """
 from = "now-9m"
 index = ["auditbeat-*", "winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Hosts File Modified"
 note = "For Windows systems using Auditbeat, this rule requires adding 'C:/Windows/System32/drivers/etc' as an additional path in the 'file_integrity' module of auditbeat.yml."
@@ -23,10 +23,11 @@ rule_id = "9c260313-c811-4ec8-ab89-8f6530e0246c"
 severity = "medium"
 tags = ["Elastic", "Host", "Linux", "Windows", "macOS", "Threat Detection", "Impact"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:file and event.type:(change or creation) and file.path:("/private/etc/hosts" or "/etc/hosts" or "C:\Windows\System32\drivers\etc\hosts")
+file where event.type in ("change", "creation") and
+  file.path : ("/private/etc/hosts", "/etc/hosts", "C:\\Windows\\System32\\drivers\\etc\\hosts")
 '''
 
 
@@ -34,17 +35,17 @@ event.category:file and event.type:(change or creation) and file.path:("/private
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1565"
-name = "Data Manipulation"
 reference = "https://attack.mitre.org/techniques/T1565/"
+name = "Data Manipulation"
 [[rule.threat.technique.subtechnique]]
 id = "T1565.001"
-name = "Stored Data Manipulation"
 reference = "https://attack.mitre.org/techniques/T1565/001/"
+name = "Stored Data Manipulation"
 
 
 
 [rule.threat.tactic]
 id = "TA0040"
-name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+name = "Impact"
 

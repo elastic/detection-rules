@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/08/19"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ indicate activity related to remote code execution or other forms of exploitatio
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Unusual Executable File Creation by a System Critical Process"
 risk_score = 73
@@ -19,12 +19,20 @@ rule_id = "e94262f2-c1e9-4d3f-a907-aeab16712e1a"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:file and not event.type:deletion and
-  file.extension:(exe or dll) and
-  process.name:(smss.exe or autochk.exe or csrss.exe or wininit.exe or services.exe or lsass.exe or winlogon.exe or userinit.exe or LogonUI.exe)
+file where event.type != "deletion" and
+  file.extension : ("exe", "dll") and
+  process.name : ("smss.exe",
+                  "autochk.exe",
+                  "csrss.exe",
+                  "wininit.exe",
+                  "services.exe",
+                  "lsass.exe",
+                  "winlogon.exe",
+                  "userinit.exe",
+                  "LogonUI.exe" )
 '''
 
 
@@ -32,12 +40,12 @@ event.category:file and not event.type:deletion and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1211"
-name = "Exploitation for Defense Evasion"
 reference = "https://attack.mitre.org/techniques/T1211/"
+name = "Exploitation for Defense Evasion"
 
 
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+name = "Defense Evasion"
 

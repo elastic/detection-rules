@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ domain.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "User Account Creation"
 risk_score = 21
@@ -19,13 +19,13 @@ rule_id = "1aa9181a-492b-4c01-8b16-fa0735786b2b"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
-  process.name:(net.exe or net1.exe) and
-  not process.parent.name:net.exe and
-  process.args:(user and (/ad or /add))
+process where event.type in ("start" or "process_started") and
+  process.name : ("net.exe", "net1.exe") and
+  not process.parent.name : "net.exe" and
+  (process.args : "user" and process.args : ("/ad" or "/add"))
 '''
 
 
@@ -33,12 +33,12 @@ event.category:process and event.type:(start or process_started) and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1136"
-name = "Create Account"
 reference = "https://attack.mitre.org/techniques/T1136/"
+name = "Create Account"
 
 
 [rule.threat.tactic]
 id = "TA0003"
-name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+name = "Persistence"
 
