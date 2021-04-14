@@ -23,8 +23,8 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
-  process.name : "bcdedit.exe" and
-  (process.args : "/set" and process.args == "bootstatuspolicy" and process.args == "ignoreallfailures") or
+  (process.name : "bcdedit.exe" or process.pe.original_file_name == "bcdedit.exe") and
+  (process.args : "/set" and process.args : "bootstatuspolicy" and process.args : "ignoreallfailures") or
   (process.args : "no" and process.args : "recoveryenabled")
 '''
 
