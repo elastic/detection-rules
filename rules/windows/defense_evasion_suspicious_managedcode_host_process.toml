@@ -23,14 +23,18 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.type != "deletion" and
+sequence by process.entity_id with maxspan=5m
+ [process where event.type == "start" and 
+  process.name : ("wscript.exe", "cscript.exe", "mshta.exe", "wmic.exe", "regsvr32.exe", "svchost.exe", "dllhost.exe", "cmstp.exe")]
+ [file where event.type != "deletion" and
   file.name : ("wscript.exe.log",
+               "cscript.exe",
                "mshta.exe.log",
                "wmic.exe.log",
                "svchost.exe.log",
                "dllhost.exe.log",
                "cmstp.exe.log",
-               "regsvr32.exe.log")
+               "regsvr32.exe.log")]
 '''
 
 
