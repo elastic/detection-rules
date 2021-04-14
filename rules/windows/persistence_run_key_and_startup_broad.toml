@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2020/11/18"
 maturity = "production"
-updated_date = "2021/03/15"
+updated_date = "2021/04/07"
+
 
 [rule]
 author = ["Elastic"]
@@ -22,8 +23,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-/* uncomment length once stable */
-registry where /* length(registry.data.strings) > 0 and */
+registry where registry.data.strings != null and
  registry.path : (
      /* Machine Hive */
      "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\*", 
@@ -38,12 +38,15 @@ registry where /* length(registry.data.strings) > 0 and */
      "HKEY_USERS\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run\\*", 
      "HKEY_USERS\\*\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Shell\\*"
      ) and
-  /* add here common legit changes without making too restrictive as this is one of the most abused AESPs */
+  /* add common legitimate changes without being too restrictive as this is one of the most abused AESPs */
   not registry.data.strings : "ctfmon.exe /n" and
   not (registry.value : "Application Restart #*" and process.name : "csrss.exe") and
-  user.domain != "NT AUTHORITY" and
-  not registry.data.strings : ("C:\\Program Files\\*.exe", "C:\\Program Files (x86)\\*.exe") and
-  not process.executable : ("C:\\Windows\\System32\\msiexec.exe", "C:\\Windows\\SysWOW64\\msiexec.exe")
+  user.id not in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
+  not registry.data.strings : ("?:\\Program Files\\*.exe", "?:\\Program Files (x86)\\*.exe") and
+  not process.executable : ("?:\\Windows\\System32\\msiexec.exe", "?:\\Windows\\SysWOW64\\msiexec.exe") and
+  not (process.name : "OneDriveSetup.exe" and
+       registry.value : ("Delete Cached Standalone Update Binary", "Delete Cached Update Binary", "amd64", "Uninstall *") and
+       registry.data.strings : "?:\\Windows\\system32\\cmd.exe /q /c * \"?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\*\"")
 '''
 
 
@@ -64,4 +67,3 @@ reference = "https://attack.mitre.org/techniques/T1547/001/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
