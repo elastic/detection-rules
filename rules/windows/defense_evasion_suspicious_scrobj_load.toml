@@ -10,7 +10,7 @@ Identifies scrobj.dll loaded into unusual Microsoft processes. This usually mean
 executed in the target process.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+index = ["logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Script Object Execution"
@@ -23,9 +23,8 @@ type = "eql"
 query = '''
 sequence by process.entity_id with maxspan = 2m
   [process where event.type == "start" 
-  /* uncomment once supported in winlogbeat */
-  /* and (process.code_signature.subject_name in ("Microsoft Corporation", "Microsoft Windows") and
-      process.code_signature.trusted == true) */ and
+   and (process.code_signature.subject_name in ("Microsoft Corporation", "Microsoft Windows") and 
+   process.code_signature.trusted == true) and
      not process.executable : (
        "?:\\Windows\\System32\\cscript.exe",
        "?:\\Windows\\SysWOW64\\cscript.exe",
