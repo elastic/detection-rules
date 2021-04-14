@@ -45,17 +45,17 @@ type = "eql"
 
 query = '''
 file where event.type == "creation" and
-  process.parent.name : ("UMWorkerProcess.exe", "umservice.exe") and
+  process.name : ("UMWorkerProcess.exe", "umservice.exe") and
   file.extension : ("php", "jsp", "js", "aspx", "asmx", "asax", "cfm", "shtml") and
   (
-    file.path : ("C:\\inetpub\\wwwroot\\aspnet_client\\*") or
+    file.path : "?:\\inetpub\\wwwroot\\aspnet_client\\*" or
 
-    (file.path : "C:\\*\\Microsoft\\Exchange Server*\\FrontEnd\\HttpProxy\\owa\\auth\\*" and
-       not (file.path : "C:\\*\\Microsoft\\Exchange Server*\\FrontEnd\\HttpProxy\\owa\\auth\\version\\*" or
+    (file.path : "?:\\*\\Microsoft\\Exchange Server*\\FrontEnd\\HttpProxy\\owa\\auth\\*" and
+       not (file.path : "?:\\*\\Microsoft\\Exchange Server*\\FrontEnd\\HttpProxy\\owa\\auth\\version\\*" or
             file.name : ("errorFE.aspx", "expiredpassword.aspx", "frowny.aspx", "GetIdToken.htm", "logoff.aspx",
                         "logon.aspx", "OutlookCN.aspx", "RedirSuiteServiceProxy.aspx", "signout.aspx"))) or
 
-    (file.path : "C:\\*\\Microsoft\\Exchange Server*\\FrontEnd\\HttpProxy\\ecp\\auth\\*" and
+    (file.path : "?:\\*\\Microsoft\\Exchange Server*\\FrontEnd\\HttpProxy\\ecp\\auth\\*" and
        not file.name : "TimeoutLogoff.aspx")
   )
 '''
