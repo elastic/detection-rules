@@ -4,17 +4,23 @@
 # 2.0.
 
 """Detection rules."""
-from . import devtools
-from . import docs
-from . import eswrap
-from . import kbwrap
-from . import main
-from . import mappings
-from . import misc
-from . import rule_formatter
-from . import rule_loader
-from . import schemas
-from . import utils
+import sys
+
+assert (3, 8) <= sys.version_info < (4, 0), "Only Python 3.8+ supported"
+
+from . import (  # noqa: E402
+    devtools,
+    docs,
+    eswrap,
+    kbwrap,
+    main,
+    mappings,
+    misc,
+    rule_formatter,
+    rule_loader,
+    schemas,
+    utils
+)
 
 __all__ = (
     'devtools',
