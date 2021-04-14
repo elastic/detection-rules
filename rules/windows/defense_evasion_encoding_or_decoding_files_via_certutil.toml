@@ -23,8 +23,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
-  process.name : "certutil.exe" and process.args : ("-decode", "-encode", "/decode", "/encode")
+process where event.type == "start" and
+  (process.name : "certutil.exe" or process.pe.original_file_name == "CertUtil.exe") and 
+  process.args : ("-decode", "-encode", "/decode", "/encode")
 '''
 
 
