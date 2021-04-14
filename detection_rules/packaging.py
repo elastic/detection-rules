@@ -17,21 +17,25 @@ from typing import List, Optional, Tuple
 import click
 import yaml
 
-from . import rule_loader
 from .misc import JS_LICENSE, cached
-from .rule import Rule, downgrade_contents_from_rule  # noqa: F401
-from .schemas import CurrentSchema
+from .rule import TOMLRule, BaseQueryRuleData, ThreatMapping
+from .rule import downgrade_contents_from_rule
+from .rule_loader import RuleCollection, DEFAULT_RULES_DIR
+from .schemas import CurrentSchema, definitions
 from .utils import Ndjson, get_path, get_etc_path, load_etc_dump, save_etc_dump
 
 RELEASE_DIR = get_path("releases")
 PACKAGE_FILE = get_etc_path('packages.yml')
 NOTICE_FILE = get_path('NOTICE.txt')
+
+
 # CHANGELOG_FILE = Path(get_etc_path('rules-changelog.json'))
 
 
-def filter_rule(rule: Rule, config_filter: dict, exclude_fields: Optional[dict] = None) -> bool:
+def filter_rule(rule: TOMLRule, config_filter: dict, exclude_fields: Optional[dict] = None) -> bool:
     """Filter a rule based off metadata and a package configuration."""
-    flat_rule = rule.flattened_contents
+    flat_rule = rule.contents.flattened_dict()
+
     for key, values in config_filter.items():
         if key not in flat_rule:
             return False
@@ -49,8 +53,8 @@ def filter_rule(rule: Rule, config_filter: dict, exclude_fields: Optional[dict] 
 
     exclude_fields = exclude_fields or {}
     for index, fields in exclude_fields.items():
-        if rule.unique_fields and (rule.contents['index'] == index or index == 'any'):
-            if set(rule.unique_fields) & set(fields):
+        if rule.contents.data.unique_fields and (rule.contents.data.index == index or index == 'any'):
+            if set(rule.contents.data.unique_fields) & set(fields):
                 return False
 
     return True
@@ -68,37 +72,22 @@ def load_versions(current_versions: dict = None):
     return current_versions or load_etc_dump('version.lock.json')
 
 
-def manage_versions(rules: List[Rule], deprecated_rules: list = None, current_versions: dict = None,
+def manage_versions(rules: List[TOMLRule], deprecated_rules: list = None, current_versions: dict = None,
                     exclude_version_update=False, add_new=True, save_changes=False,
                     verbose=True) -> (List[str], List[str], List[str]):
     """Update the contents of the version.lock file and optionally save changes."""
-    new_rules = {}
-    changed_rules = []
-
     current_versions = load_versions(current_versions)
+    new_versions = {}
 
     for rule in rules:
-        # it is a new rule, so add it if specified, and add an initial version to the rule
-        if rule.id not in current_versions:
-            new_rules[rule.id] = {'rule_name': rule.name, 'version': 1, 'sha256': rule.get_hash()}
-            rule.contents['version'] = 1
-        else:
-            version_lock_info = current_versions.get(rule.id)
-            version = version_lock_info['version']
-            rule_hash = rule.get_hash()
+        new_versions[rule.id] = {
+            'sha256': rule.contents.sha256(),
+            'rule_name': rule.name,
+            'version': rule.contents.autobumped_version
+        }
 
-            # if it has been updated, then we need to bump the version info and optionally save the changes later
-            if rule_hash != version_lock_info['sha256']:
-                rule.contents['version'] = version + 1
-
-                if not exclude_version_update:
-                    version_lock_info['version'] = rule.contents['version']
-
-                version_lock_info.update(sha256=rule_hash, rule_name=rule.name)
-                changed_rules.append(rule.id)
-            else:
-                rule.contents['version'] = version
-
+    new_rules = [rule for rule in rules if rule.contents.latest_version is None]
+    changed_rules = [rule for rule in rules if rule.contents.is_dirty]
     # manage deprecated rules
     newly_deprecated = []
     rule_deprecations = {}
@@ -110,19 +99,25 @@ def manage_versions(rules: List[Rule], deprecated_rules: list = None, current_ve
             if rule.id not in rule_deprecations:
                 rule_deprecations[rule.id] = {
                     'rule_name': rule.name,
-                    'deprecation_date': rule.metadata['deprecation_date'],
+                    'deprecation_date': rule.contents.metadata.deprecation_date,
                     'stack_version': CurrentSchema.STACK_VERSION
                 }
                 newly_deprecated.append(rule.id)
 
     # update the document with the new rules
+    # if current_versions != new_versions???
     if new_rules or changed_rules or newly_deprecated:
         if verbose:
             click.echo('Rule hash changes detected!')
 
         if save_changes:
             if changed_rules or (new_rules and add_new):
-                current_versions.update(new_rules if add_new else {})
+                if add_new:
+                    for rule in new_rules:
+                        current_versions[rule.id] = rule.contents.lock_info()
+                for rule in changed_rules:
+                    current_versions[rule.id] = rule.contents.lock_info()
+
                 current_versions = OrderedDict(sorted(current_versions.items(), key=lambda x: x[1]['rule_name']))
 
                 save_etc_dump(current_versions, 'version.lock.json')
@@ -155,15 +150,15 @@ def manage_versions(rules: List[Rule], deprecated_rules: list = None, current_ve
 class Package(object):
     """Packaging object for siem rules and releases."""
 
-    def __init__(self, rules: List[Rule], name: str, deprecated_rules: Optional[List[Rule]] = None,
+    def __init__(self, rules: List[TOMLRule], name: str, deprecated_rules: Optional[List[TOMLRule]] = None,
                  release: Optional[bool] = False, current_versions: Optional[dict] = None,
                  min_version: Optional[int] = None, max_version: Optional[int] = None,
                  update_version_lock: Optional[bool] = False, registry_data: Optional[dict] = None,
                  verbose: Optional[bool] = True):
         """Initialize a package."""
-        self.rules = [r.copy() for r in rules]
         self.name = name
-        self.deprecated_rules = [r.copy() for r in deprecated_rules or []]
+        self.rules = rules
+        self.deprecated_rules: List[TOMLRule] = deprecated_rules or []
         self.release = release
         self.registry_data = registry_data or {}
 
@@ -199,7 +194,7 @@ class Package(object):
 
     def _package_kibana_index_file(self, save_dir):
         """Convert and save index file with package."""
-        sorted_rules = sorted(self.rules, key=lambda k: (k.metadata['creation_date'], os.path.basename(k.path)))
+        sorted_rules = sorted(self.rules, key=lambda k: (k.contents.metadata.creation_date, os.path.basename(k.path)))
         comments = [
             '// Auto generated file from either:',
             '// - scripts/regen_prepackage_rules_index.sh',
@@ -249,7 +244,7 @@ class Package(object):
         """Get a consolidated package of the rules in a single file."""
         full_package = []
         for rule in self.rules:
-            full_package.append(rule.get_payload() if as_api else rule.rule_format())
+            full_package.append(rule.contents.to_api_format() if as_api else rule.contents.to_dict())
 
         return json.dumps(full_package, sort_keys=True)
 
@@ -265,7 +260,7 @@ class Package(object):
         os.makedirs(extras_dir, exist_ok=True)
 
         for rule in self.rules:
-            rule.save(new_path=os.path.join(rules_dir, os.path.basename(rule.path)))
+            rule.save_json(Path(os.path.join(rules_dir, os.path.basename(rule.path))))
 
         self._package_kibana_notice_file(rules_dir)
         self._package_kibana_index_file(rules_dir)
@@ -330,27 +325,23 @@ class Package(object):
     @classmethod
     def from_config(cls, config: dict = None, update_version_lock: bool = False, verbose: bool = False) -> 'Package':
         """Load a rules package given a config."""
-        all_rules = rule_loader.load_rules(verbose=False).values()
+        all_rules = RuleCollection.default()
         config = config or {}
         exclude_fields = config.pop('exclude_fields', {})
         log_deprecated = config.pop('log_deprecated', False)
         rule_filter = config.pop('filter', {})
+        deprecated_rules = []
 
-        deprecated_rules = [r for r in all_rules if r.metadata['maturity'] == 'deprecated'] if log_deprecated else []
-        rules = list(filter(lambda rule: filter_rule(rule, rule_filter, exclude_fields), all_rules))
+        if log_deprecated:
+            deprecated_rules = [r for r in all_rules if r.contents.metadata.maturity == 'deprecated']
+
+        rules = all_rules.filter(lambda r: filter_rule(r, rule_filter, exclude_fields))
 
         if verbose:
             click.echo(f' - {len(all_rules) - len(rules)} rules excluded from package')
 
-        update = config.pop('update', {})
         package = cls(rules, deprecated_rules=deprecated_rules, update_version_lock=update_version_lock,
                       verbose=verbose, **config)
-
-        # Allow for some fields to be overwritten
-        if update.get('data', {}):
-            for rule in package.rules:
-                for sub_dict, values in update.items():
-                    rule.contents[sub_dict].update(values)
 
         return package
 
@@ -376,25 +367,28 @@ class Package(object):
         indexes = set()
         for rule in self.rules:
             longest_name = max(longest_name, len(rule.name))
-            index_list = rule.contents.get('index')
+            index_list = getattr(rule.contents.data, "index", [])
             if index_list:
                 indexes.update(index_list)
 
         letters = ascii_uppercase + ascii_lowercase
         index_map = {index: letters[i] for i, index in enumerate(sorted(indexes))}
 
-        def get_summary_rule_info(r: Rule):
-            rule_str = f'{r.name:<{longest_name}} (v:{r.contents.get("version")} t:{r.type}'
-            rule_str += f'-{r.contents["language"]})' if r.contents.get('language') else ')'
-            rule_str += f'(indexes:{"".join(index_map[i] for i in r.contents.get("index"))})' \
-                if r.contents.get('index') else ''
+        def get_summary_rule_info(r: TOMLRule):
+            r = r.contents
+            rule_str = f'{r.name:<{longest_name}} (v:{r.autobumped_version} t:{r.data.type}'
+            if isinstance(rule.contents.data, BaseQueryRuleData):
+                rule_str += f'-{r.data.language}'
+                rule_str += f'(indexes:{"".join(index_map[idx] for idx in rule.contents.data.index) or "none"}'
+
             return rule_str
 
-        def get_markdown_rule_info(r: Rule, sd):
+        def get_markdown_rule_info(r: TOMLRule, sd):
             # lookup the rule in the GitHub tag v{major.minor.patch}
+            data = r.contents.data
             rules_dir_link = f'https://github.com/elastic/detection-rules/tree/v{self.name}/rules/{sd}/'
-            rule_type = r.contents['language'] if r.type in ('query', 'eql') else r.type
-            return f'`{r.id}` **[{r.name}]({rules_dir_link + os.path.basename(r.path)})** (_{rule_type}_)'
+            rule_type = data.language if isinstance(data, BaseQueryRuleData) else data.type
+            return f'`{r.id}` **[{r.name}]({rules_dir_link + os.path.basename(str(r.path))})** (_{rule_type}_)'
 
         for rule in self.rules:
             sub_dir = os.path.basename(os.path.dirname(rule.path))
@@ -484,25 +478,28 @@ class Package(object):
 
         package_dir = Path(save_dir).joinpath(manifest.version)
         docs_dir = package_dir / 'docs'
-        rules_dir = package_dir / 'kibana' / 'security-rule'
+        rules_dir = package_dir / 'kibana' / definitions.ASSET_TYPE
 
         docs_dir.mkdir(parents=True)
         rules_dir.mkdir(parents=True)
 
         manifest_file = package_dir.joinpath('manifest.yml')
         readme_file = docs_dir.joinpath('README.md')
+        notice_file = package_dir.joinpath('NOTICE.txt')
 
         manifest_file.write_text(yaml.safe_dump(manifest.asdict()))
         # shutil.copyfile(CHANGELOG_FILE, str(rules_dir.joinpath('CHANGELOG.json')))
 
         for rule in self.rules:
-            rule.save(new_path=str(rules_dir.joinpath(f'rule-{rule.id}.json')))
+            asset_path = rules_dir / f'rule-{rule.id}.json'
+            asset_path.write_text(json.dumps(rule.get_asset(), indent=4, sort_keys=True), encoding="utf-8")
 
         readme_text = ('# Detection rules\n\n'
                        'The detection rules package stores all the security rules '
                        'for the detection engine within the Elastic Security application.\n\n')
 
         readme_file.write_text(readme_text)
+        notice_file.write_text(Path(NOTICE_FILE).read_text())
 
     def bump_versions(self, save_changes=False, current_versions=None):
         """Bump the versions of all production rules included in a release and optionally save changes."""
@@ -531,7 +528,7 @@ class Package(object):
         for rule in self.rules:
             summary_doc['rule_ids'].append(rule.id)
             summary_doc['rule_names'].append(rule.name)
-            summary_doc['rule_hashes'].append(rule.get_hash())
+            summary_doc['rule_hashes'].append(rule.contents.sha256())
 
             if rule.id in self.new_rules_ids:
                 status = 'new'
@@ -541,8 +538,13 @@ class Package(object):
                 status = 'unmodified'
 
             bulk_upload_docs.append(create)
-            rule_doc = rule.detailed_format(hash=rule.get_hash(), source='repo', datetime_uploaded=now,
-                                            status=status, package_version=self.name).copy()
+            rule_doc = dict(hash=rule.contents.sha256(),
+                            source='repo',
+                            datetime_uploaded=now,
+                            status=status,
+                            package_version=self.name,
+                            flat_mitre=ThreatMapping.flatten(rule.contents.data.threat).to_dict(),
+                            relative_path=str(rule.path.resolve().relative_to(DEFAULT_RULES_DIR)))
             bulk_upload_docs.append(rule_doc)
             importable_rules_docs.append(rule_doc)
 
