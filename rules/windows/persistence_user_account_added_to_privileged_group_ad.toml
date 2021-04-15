@@ -11,29 +11,30 @@ Directory are those to which powerful rights, privileges, and permissions are gr
 any action in Active Directory and on domain-joined systems.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "User Added to Privileged Group in Active Directory"
 references = [
     "https://docs.microsoft.com/en-us/windows-server/identity/ad-ds/plan/security-best-practices/appendix-b--privileged-accounts-and-groups-in-active-directory",
 ]
-risk_score = 21
+risk_score = 47
 rule_id = "5cd8e1f7-0050-4afc-b2df-904e40b2f5ae"
-severity = "low"
+severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 iam where event.action == "added-member-to-group" and
-  group.name : ("Administrators",
+  group.name : ("Admin*",
                 "Local Administrators",
                 "Domain Admins",
                 "Enterprise Admins",
                 "Backup Admins",
                 "Schema Admins",
-                "DnsAdmins")
+                "DnsAdmins",
+                "Exchange Organization Administrators")
 '''
 
 
