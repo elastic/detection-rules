@@ -10,6 +10,9 @@ from typing import Literal
 from marshmallow import validate
 from marshmallow_dataclass import NewType
 
+ASSET_TYPE = "security_rule"
+SAVED_OBJECT_TYPE = "security-rule"
+
 DATE_PATTERN = r'\d{4}/\d{2}/\d{2}'
 MATURITY_LEVELS = ['development', 'experimental', 'beta', 'production', 'deprecated']
 OS_OPTIONS = ['windows', 'linux', 'macos']
