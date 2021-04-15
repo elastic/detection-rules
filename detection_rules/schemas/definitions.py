@@ -51,7 +51,7 @@ SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
 Severity = Literal['low', 'medium', 'high', 'critical']
 Sha256 = NewType('Sha256', str, validate=validate.Regexp(SHA256_PATTERN))
 UUIDString = NewType('UUIDString', str, validate=validate.Regexp(UUID_PATTERN))
-Maturity = Literal['development', 'experimental', 'beta', 'production', 'deprecated']
+Maturity = Literal['development', 'experimental', 'beta', 'production', 'deprecated', 'hunt']
 OSType = Literal['windows', 'linux', 'macos']
 RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql']
 ThresholdValue = NewType("ThresholdValue", int, validate=validate.Range(min=1))
