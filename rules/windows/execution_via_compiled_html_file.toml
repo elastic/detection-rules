@@ -30,7 +30,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and process.name : "hh.exe"
+process where event.type in ("start", "process_started") and 
+ process.parent.name : "hh.exe" and 
+ process.name : ("mshta.exe", "cmd.exe", "powershell.exe", "pwsh.exe", "cscript.exe", "wscript.exe")
 '''
 
 
