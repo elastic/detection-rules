@@ -14,7 +14,7 @@ ASSET_TYPE = "security_rule"
 SAVED_OBJECT_TYPE = "security-rule"
 
 DATE_PATTERN = r'\d{4}/\d{2}/\d{2}'
-MATURITY_LEVELS = ['development', 'experimental', 'beta', 'production', 'deprecated', 'hunt']
+MATURITY_LEVELS = ['development', 'experimental', 'beta', 'production', 'deprecated']
 OS_OPTIONS = ['windows', 'linux', 'macos']
 PR_PATTERN = r'^$|\d+'
 SHA256_PATTERN = r'[a-fA-F0-9]{64}'
@@ -51,7 +51,7 @@ SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
 Severity = Literal['low', 'medium', 'high', 'critical']
 Sha256 = NewType('Sha256', str, validate=validate.Regexp(SHA256_PATTERN))
 UUIDString = NewType('UUIDString', str, validate=validate.Regexp(UUID_PATTERN))
-Maturity = Literal['development', 'experimental', 'beta', 'production', 'deprecated', 'hunt']
+Maturity = Literal['development', 'experimental', 'beta', 'production', 'deprecated']
 OSType = Literal['windows', 'linux', 'macos']
 RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql']
 ThresholdValue = NewType("ThresholdValue", int, validate=validate.Range(min=1))
