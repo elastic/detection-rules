@@ -14,7 +14,7 @@ ASSET_TYPE = "security_rule"
 SAVED_OBJECT_TYPE = "security-rule"
 
 DATE_PATTERN = r'\d{4}/\d{2}/\d{2}'
-MATURITY_LEVELS = ['development', 'experimental', 'beta', 'production', 'deprecated']
+MATURITY_LEVELS = ['development', 'experimental', 'beta', 'production', 'deprecated', 'hunt']
 OS_OPTIONS = ['windows', 'linux', 'macos']
 PR_PATTERN = r'^$|\d+'
 SHA256_PATTERN = r'[a-fA-F0-9]{64}'
