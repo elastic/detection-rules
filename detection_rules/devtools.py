@@ -70,7 +70,7 @@ def update_lock_versions(rule_ids):
         return
 
     rules = RuleCollection.default().filter(lambda r: r.id in rule_ids)
-    changed, new = manage_versions(rules, exclude_version_update=True, add_new=False, save_changes=True)
+    changed, new, _ = manage_versions(rules, exclude_version_update=True, add_new=False, save_changes=True)
 
     if not changed:
         click.echo('No hashes updated')
