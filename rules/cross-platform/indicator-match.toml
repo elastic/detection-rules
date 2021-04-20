@@ -1,0 +1,140 @@
+author = ["Elastic"]
+created_at = "2021-03-17T16:07:18.075Z"
+updated_at = "2021-03-25T20:30:59.721Z"
+created_by = "elastic"
+description = "This rule is triggered when indicators from the Threat Intel Filebeat module has a match against local file or network observations."
+enabled = true
+from = "now-600s"
+id = "d8d59120-873a-11eb-ac13-d5ca87cb8fa2"
+immutable = false
+index = ["auditbeat-*", "endgame-*", "filebeat-*", "logs-*", "packetbeat-*", "winlogbeat-*"]
+interval = "9m"
+rule_id = "dc672cb7-d5df-4d1f-a6d7-0841b1caafb9"
+language = "kuery"
+license = "Elastic License v2"
+output_index = ".siem-signals-default"
+max_signals = 100
+risk_score = 99
+name = "Threat Intel Filebeat Module Indicator Match"
+query = "file.hash.*:* or file.pe.imphash:* or source.ip:* or destination.ip:* or url.full:* or registry.path:*"
+references = ["https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-threatintel.html"]
+severity = "critical"
+updated_by = "elastic"
+tags = ["Elastic", "Continuous Monitoring", "SecOps", "Monitoring"]
+to = "now"
+type = "threat_match"
+threat_index = ["filebeat-*"]
+threat_indicator_path = ""
+threat_query = "threatintel.indicator.file.hash.*:* or threatintel.indicator.file.pe.imphash:* or threatintel.indicator.domain:* or threatintel.indicator.ip:* or threatintel.indicator.registry.path:* or threatintel.indicator.url.full:*"
+threat_language = "kuery"
+throttle = "no_actions"
+note = "If an indicator matches a local observation, the following enriched fields will be generated to identify the indicator, field, and type matched.
+
+- `threatintel.indicator.matched.atomic` - this identifies the atomic indicator that matched the local observation
+- `threatintel.indicator.matched.field` - this identifies the indicator field that matched the local observation
+- `threatintel.indicator.matched.type` - this identifies the indicator type that matched the local observation"
+version = 5
+[meta]
+from = "1m"
+kibana_siem_app_url = "https://cc1bcd8d55a3455596e3e40314e6b320.us-central1.gcp.cloud.es.io:9243/app/security"
+[[threat_filters]]
+[threat_filters."$state"]
+store = "appState"
+[threat_filters.meta]
+negate = false
+#alias = null  # To use: uncomment and replace null with value
+disabled = false
+type = "phrase"
+key = "event.module"
+[threat_filters.meta.params]
+query = "threatintel"
+[threat_filters.query]
+[threat_filters.query.match_phrase]
+"event.module" = "threatintel"
+[[threat_filters]]
+[threat_filters."$state"]
+store = "appState"
+[threat_filters.meta]
+negate = false
+#alias = null  # To use: uncomment and replace null with value
+disabled = false
+type = "phrase"
+key = "event.category"
+[threat_filters.meta.params]
+query = "threat"
+[threat_filters.query]
+[threat_filters.query.match_phrase]
+"event.category" = "threat"
+[[threat_filters]]
+[threat_filters."$state"]
+store = "appState"
+[threat_filters.meta]
+negate = false
+#alias = null  # To use: uncomment and replace null with value
+disabled = false
+type = "phrase"
+key = "event.kind"
+[threat_filters.meta.params]
+query = "enrichment"
+[threat_filters.query]
+[threat_filters.query.match_phrase]
+"event.kind" = "enrichment"
+[[threat_filters]]
+[threat_filters."$state"]
+store = "appState"
+[threat_filters.meta]
+negate = false
+#alias = null  # To use: uncomment and replace null with value
+disabled = false
+type = "phrase"
+key = "event.type"
+[threat_filters.meta.params]
+query = "indicator"
+[threat_filters.query]
+[threat_filters.query.match_phrase]
+"event.type" = "indicator"
+[[threat_mapping]]
+[[threat_mapping.entries]]
+field = "file.hash.md5"
+type = "mapping"
+value = "threatintel.indicator.file.hash.md5"
+[[threat_mapping]]
+[[threat_mapping.entries]]
+field = "file.hash.sha1"
+type = "mapping"
+value = "threatintel.indicator.file.hash.sha1"
+[[threat_mapping]]
+[[threat_mapping.entries]]
+field = "file.hash.sha256"
+type = "mapping"
+value = "threatintel.indicator.file.hash.sha256"
+[[threat_mapping]]
+[[threat_mapping.entries]]
+field = "file.pe.imphash"
+type = "mapping"
+value = "threatintel.indicator.file.pe.imphash"
+[[threat_mapping]]
+[[threat_mapping.entries]]
+field = "source.ip"
+type = "mapping"
+value = "threatintel.indicator.ip"
+[[threat_mapping]]
+[[threat_mapping.entries]]
+field = "destination.ip"
+type = "mapping"
+value = "threatintel.indicator.ip"
+[[threat_mapping]]
+[[threat_mapping.entries]]
+field = "url.full"
+type = "mapping"
+value = "threatintel.indicator.url.full"
+[[threat_mapping]]
+[[threat_mapping.entries]]
+field = "registry.path"
+type = "mapping"
+value = "threatintel.indicator.registry.path"
+[[exceptions_list]]
+list_id = "ee1242d3-43df-41a4-8570-15d5e3c33d27"
+namespace_type = "single"
+id = "7b282b70-8747-11eb-ac13-d5ca87cb8fa2"
+type = "detection"
