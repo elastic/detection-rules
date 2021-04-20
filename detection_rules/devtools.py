@@ -1,9 +1,10 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """CLI commands for internal detection_rules dev team."""
-import glob
+import dataclasses
 import hashlib
 import io
 import json
@@ -16,17 +17,17 @@ from pathlib import Path
 import click
 from elasticsearch import Elasticsearch
 from eql import load_dump
-from kibana.connector import Kibana
 
+from kibana.connector import Kibana
 from . import rule_loader
+from .cli_utils import single_collection
 from .eswrap import CollectEvents, add_range_to_dsl
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, GithubClient, Manifest, client_error, getdefault
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
-from .rule import Rule
-from .rule_loader import get_rule
-from .utils import get_path
-
+from .rule import TOMLRule, BaseQueryRuleData
+from .rule_loader import production_filter, RuleCollection
+from .utils import get_path, dict_hash
 
 RULES_DIR = get_path('rules')
 
@@ -68,8 +69,8 @@ def update_lock_versions(rule_ids):
     if not click.confirm('Are you sure you want to update hashes without a version bump?'):
         return
 
-    rules = [r for r in rule_loader.load_rules(verbose=False).values() if r.id in rule_ids]
-    changed, new = manage_versions(rules, exclude_version_update=True, add_new=False, save_changes=True)
+    rules = RuleCollection.default().filter(lambda r: r.id in rule_ids)
+    changed, new, _ = manage_versions(rules, exclude_version_update=True, add_new=False, save_changes=True)
 
     if not changed:
         click.echo('No hashes updated')
@@ -79,35 +80,38 @@ def update_lock_versions(rule_ids):
 
 @dev_group.command('kibana-diff')
 @click.option('--rule-id', '-r', multiple=True, help='Optionally specify rule ID')
+@click.option('--repo', default='elastic/kibana', help='Repository where branch is located')
 @click.option('--branch', '-b', default='master', help='Specify the kibana branch to diff against')
 @click.option('--threads', '-t', type=click.IntRange(1), default=50, help='Number of threads to use to download rules')
-def kibana_diff(rule_id, branch, threads):
+def kibana_diff(rule_id, repo, branch, threads):
     """Diff rules against their version represented in kibana if exists."""
     from .misc import get_kibana_rules
 
+    rules = RuleCollection.default()
+
     if rule_id:
-        rules = {r.id: r for r in rule_loader.load_rules(verbose=False).values() if r.id in rule_id}
+        rules = rules.filter(lambda r: r.id in rule_id)
     else:
-        rules = {r.id: r for r in rule_loader.get_production_rules()}
+        rules = rules.filter(production_filter)
 
     # add versions to the rules
     manage_versions(list(rules.values()), verbose=False)
     repo_hashes = {r.id: r.get_hash() for r in rules.values()}
 
-    kibana_rules = {r['rule_id']: r for r in get_kibana_rules(branch=branch, threads=threads).values()}
-    kibana_hashes = {r['rule_id']: Rule.dict_hash(r) for r in kibana_rules.values()}
+    kibana_rules = {r['rule_id']: r for r in get_kibana_rules(repo=repo, branch=branch, threads=threads).values()}
+    kibana_hashes = {r['rule_id']: dict_hash(r) for r in kibana_rules.values()}
 
     missing_from_repo = list(set(kibana_hashes).difference(set(repo_hashes)))
     missing_from_kibana = list(set(repo_hashes).difference(set(kibana_hashes)))
 
     rule_diff = []
-    for rid, rhash in repo_hashes.items():
-        if rid in missing_from_kibana:
+    for rule_id, rule_hash in repo_hashes.items():
+        if rule_id in missing_from_kibana:
             continue
-        if rhash != kibana_hashes[rid]:
+        if rule_hash != kibana_hashes[rule_id]:
             rule_diff.append(
-                f'versions - repo: {rules[rid].contents["version"]}, kibana: {kibana_rules[rid]["version"]} -> '
-                f'{rid} - {rules[rid].name}'
+                f'versions - repo: {rules[rule_id].contents["version"]}, kibana: {kibana_rules[rule_id]["version"]} -> '
+                f'{rule_id} - {rules[rule_id].name}'
             )
 
     diff = {
@@ -128,15 +132,16 @@ def kibana_diff(rule_id, branch, threads):
 @click.option("--kibana-directory", "-d", help="Directory to overwrite in Kibana",
               default="x-pack/plugins/security_solution/server/lib/detection_engine/rules/prepackaged_rules")
 @click.option("--base-branch", "-b", help="Base branch in Kibana", default="master")
+@click.option("--branch-name", "-n", help="Head branch for rules (default: package name)")
 @click.option("--ssh/--http", is_flag=True, help="Method to use for cloning")
 @click.option("--github-repo", "-r", help="Repository to use for the branch", default="elastic/kibana")
 @click.option("--message", "-m", help="Override default commit message")
 @click.pass_context
-def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_branch, message):
+def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_branch, branch_name, message):
     """Prep a commit and push to Kibana."""
     git_exe = shutil.which("git")
 
-    package_name = load_dump(PACKAGE_FILE)['package']["name"]
+    package_name = Package.load_configs()['package']["name"]
     release_dir = os.path.join(RELEASE_DIR, package_name)
     message = message or f"[Detection Rules] Add {package_name} rules"
 
@@ -163,7 +168,7 @@ def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_bran
 
         git("checkout", base_branch)
         git("pull")
-        git("checkout", "-b", f"rules/{package_name}", show_output=True)
+        git("checkout", "-b", f"rules/{branch_name or package_name}", show_output=True)
         git("rm", "-r", kibana_directory)
 
         source_dir = os.path.join(release_dir, "rules")
@@ -190,31 +195,32 @@ def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_bran
 
 
 @dev_group.command('license-check')
+@click.option('--ignore-directory', '-i', multiple=True, help='Directories to skip (relative to base)')
 @click.pass_context
-def license_check(ctx):
+def license_check(ctx, ignore_directory):
     """Check that all code files contain a valid license."""
-
+    ignore_directory += ("env",)
     failed = False
+    base_path = Path(get_path())
 
-    for path in glob.glob(get_path("**", "*.py"), recursive=True):
-        if path.startswith(get_path("env", "")):
+    for path in base_path.rglob('*.py'):
+        relative_path = path.relative_to(base_path)
+        if relative_path.parts[0] in ignore_directory:
             continue
-
-        relative_path = os.path.relpath(path)
 
         with io.open(path, "rt", encoding="utf-8") as f:
             contents = f.read()
 
-            # skip over shebang lines
-            if contents.startswith("#!/"):
-                _, _, contents = contents.partition("\n")
+        # skip over shebang lines
+        if contents.startswith("#!/"):
+            _, _, contents = contents.partition("\n")
 
-            if not contents.lstrip("\r\n").startswith(PYTHON_LICENSE):
-                if not failed:
-                    click.echo("Missing license headers for:", err=True)
+        if not contents.lstrip("\r\n").startswith(PYTHON_LICENSE):
+            if not failed:
+                click.echo("Missing license headers for:", err=True)
 
-                failed = True
-                click.echo(relative_path, err=True)
+            failed = True
+            click.echo(relative_path, err=True)
 
     ctx.exit(int(failed))
 
@@ -296,6 +302,42 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
         ctx.invoke(search_rules, query=query, columns=columns, language=language, rules=all_rules, pager=True)
 
 
+@dev_group.command('deprecate-rule')
+@click.argument('rule-file', type=click.Path(dir_okay=False))
+@click.pass_context
+def deprecate_rule(ctx: click.Context, rule_file: str):
+    """Deprecate a rule."""
+    import pytoml
+    from .packaging import load_versions
+
+    version_info = load_versions()
+    rule_file = Path(rule_file)
+    contents = pytoml.loads(rule_file.read_text())
+    rule = TOMLRule(path=rule_file, contents=contents)
+
+    if rule.id not in version_info:
+        click.echo('Rule has not been version locked and so does not need to be deprecated. '
+                   'Delete the file or update the maturity to `development` instead')
+        ctx.exit()
+
+    today = time.strftime('%Y/%m/%d')
+
+    new_meta = dataclasses.replace(rule.contents.metadata,
+                                   updated_date=today,
+                                   deprecation_date=today,
+                                   maturity='deprecated')
+    contents = dataclasses.replace(rule.contents, metadata=new_meta)
+    deprecated_path = get_path('rules', '_deprecated', rule_file.name)
+
+    # create the new rule and save it
+    new_rule = TOMLRule(contents=contents, path=Path(deprecated_path))
+    new_rule.save_toml()
+
+    # remove the old rule
+    rule_file.unlink()
+    click.echo(f'Rule moved to {deprecated_path} - remember to git add this file')
+
+
 @dev_group.group('test')
 def test_group():
     """Commands for testing against stack resources."""
@@ -335,8 +377,7 @@ def event_search(query, index, language, date_range, count, max_results, verbose
 
 
 @test_group.command('rule-event-search')
-@click.argument('rule-file', type=click.Path(dir_okay=False), required=False)
-@click.option('--rule-id', '-id')
+@single_collection
 @click.option('--date-range', '-d', type=(str, str), default=('now-7d', 'now'), help='Date range to scope search')
 @click.option('--count', '-c', is_flag=True, help='Return count of results only')
 @click.option('--max-results', '-m', type=click.IntRange(1, 1000), default=100,
@@ -344,30 +385,26 @@ def event_search(query, index, language, date_range, count, max_results, verbose
 @click.option('--verbose', '-v', is_flag=True)
 @click.pass_context
 @add_client('elasticsearch')
-def rule_event_search(ctx, rule_file, rule_id, date_range, count, max_results, verbose,
+def rule_event_search(ctx, rule, date_range, count, max_results, verbose,
                       elasticsearch_client: Elasticsearch = None):
     """Search using a rule file against an Elasticsearch instance."""
-    rule = None
 
-    if rule_id:
-        rule = get_rule(rule_id, verbose=False)
-    elif rule_file:
-        rule = Rule(rule_file, load_dump(rule_file))
-    else:
-        client_error('Must specify a rule file or rule ID')
-
-    if rule.query and rule.contents.get('language'):
+    if isinstance(rule.contents.data, BaseQueryRuleData):
         if verbose:
             click.echo(f'Searching rule: {rule.name}')
 
-        rule_lang = rule.contents.get('language')
+        data = rule.contents.data
+        rule_lang = data.language
+
         if rule_lang == 'kuery':
-            language = None
+            language_flag = None
         elif rule_lang == 'eql':
-            language = True
+            language_flag = True
         else:
-            language = False
-        ctx.invoke(event_search, query=rule.query, index=rule.contents.get('index', ['*']), language=language,
+            language_flag = False
+
+        index = data.index or ['*']
+        ctx.invoke(event_search, query=data.query, index=index, language=language_flag,
                    date_range=date_range, count=count, max_results=max_results, verbose=verbose,
                    elasticsearch_client=elasticsearch_client)
     else:
@@ -389,18 +426,17 @@ def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_coun
     """Survey rule counts."""
     from eql.table import Table
     from kibana.resources import Signal
-    from . import rule_loader
     from .main import search_rules
 
     survey_results = []
     start_time, end_time = date_range
 
     if query:
-        rule_paths = [r['file'] for r in ctx.invoke(search_rules, query=query, verbose=False)]
-        rules = rule_loader.load_rules(rule_loader.load_rule_files(paths=rule_paths, verbose=False), verbose=False)
-        rules = rules.values()
+        rules = RuleCollection()
+        paths = [Path(r['file']) for r in ctx.invoke(search_rules, query=query, verbose=False)]
+        rules.load_files(paths)
     else:
-        rules = rule_loader.load_rules(verbose=False).values()
+        rules = RuleCollection.default().filter(production_filter)
 
     click.echo(f'Running survey against {len(rules)} rules')
     click.echo(f'Saving detailed dump to: {dump_file}')

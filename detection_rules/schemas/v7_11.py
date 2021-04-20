@@ -1,11 +1,13 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """Definitions for rule metadata and schemas."""
 
 import jsl
-from .v7_8 import Threat as Threat78, MITRE_URL_PATTERN
+from .v7_8 import Threat as Threat78
+from .definitions import SUBTECHNIQUE_URL
 from .v7_10 import ApiSchema710
 from ..attack import sub_technique_id_list
 
@@ -19,7 +21,7 @@ class Threat711(Threat78):
         class ThreatSubTechnique(jsl.Document):
             id = jsl.StringField(enum=sub_technique_id_list, required=True)
             name = jsl.StringField(required=True)
-            reference = jsl.StringField(MITRE_URL_PATTERN.format(type='techniques') + r"[0-9]+/")
+            reference = jsl.StringField(pattern=SUBTECHNIQUE_URL)
 
         subtechnique = jsl.ArrayField(jsl.DocumentField(ThreatSubTechnique), required=False)
 

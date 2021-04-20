@@ -1,28 +1,31 @@
 [metadata]
 creation_date = "2020/10/19"
 maturity = "production"
-updated_date = "2020/01/28"
+updated_date = "2021/03/08"
 
 [rule]
 author = ["Elastic"]
 description = "Identifies command shell activity started via RunDLL32, which is commonly abused by attackers to host malicious code."
+false_positives = ["Microsoft Windows installers leveraging RunDLL32 for installation."]
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Command Shell Activity Started via RunDLL32"
 risk_score = 21
 rule_id = "9ccf3ce0-0057-440a-91f5-870c6ad39093"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where event.type == "start" and
  process.name : ("cmd.exe", "powershell.exe") and
-  process.parent.name : "rundll32.exe" and 
+  process.parent.name : "rundll32.exe" and process.parent.command_line != null and
   /* common FPs can be added here */
-  not process.parent.args : "C:\\Windows\\System32\\SHELL32.dll,RunAsNewUser_RunDLL"
+  not process.parent.args : ("C:\\Windows\\System32\\SHELL32.dll,RunAsNewUser_RunDLL",
+                             "C:\\WINDOWS\\*.tmp,zzzzInvokeManagedCustomActionOutOfProc")
 '''
 
 
@@ -43,4 +46,3 @@ reference = "https://attack.mitre.org/techniques/T1059/001/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

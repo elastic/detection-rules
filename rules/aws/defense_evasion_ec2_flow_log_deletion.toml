@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/06/15"
 maturity = "production"
-updated_date = "2020/12/09"
+updated_date = "2021/03/22"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,7 @@ from = "now-60m"
 index = ["filebeat-*", "logs-aws*"]
 interval = "10m"
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "AWS EC2 Flow Log Deletion"
 note = "The AWS Filebeat module must be enabled to use this rule."
 references = [
@@ -31,10 +31,11 @@ risk_score = 73
 rule_id = "9395fd2c-9947-4472-86ef-4aceb2f7e872"
 severity = "high"
 tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Log Auditing"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.action:DeleteFlowLogs and event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.outcome:success
+event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.action:DeleteFlowLogs and event.outcome:success
 '''
 
 
@@ -48,6 +49,7 @@ reference = "https://attack.mitre.org/techniques/T1562/"
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
+
 
 
 [rule.threat.tactic]

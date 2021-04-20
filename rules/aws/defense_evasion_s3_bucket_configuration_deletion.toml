@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/05/27"
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2021/03/22"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,7 @@ from = "now-60m"
 index = ["filebeat-*", "logs-aws*"]
 interval = "10m"
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "AWS S3 Bucket Configuration Deletion"
 note = "The AWS Filebeat module must be enabled to use this rule."
 references = [
@@ -31,10 +31,14 @@ risk_score = 21
 rule_id = "227dc608-e558-43d9-b521-150772250bae"
 severity = "low"
 tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Asset Visibility"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.action:(DeleteBucketPolicy or DeleteBucketReplication or DeleteBucketCors or DeleteBucketEncryption or DeleteBucketLifecycle) and event.dataset:aws.cloudtrail and event.provider:s3.amazonaws.com and event.outcome:success
+event.dataset:aws.cloudtrail and event.provider:s3.amazonaws.com and
+  event.action:(DeleteBucketPolicy or DeleteBucketReplication or DeleteBucketCors or
+                DeleteBucketEncryption or DeleteBucketLifecycle)
+  and event.outcome:success
 '''
 
 

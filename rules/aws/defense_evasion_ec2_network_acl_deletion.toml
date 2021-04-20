@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/05/26"
 maturity = "production"
-updated_date = "2020/12/09"
+updated_date = "2021/03/22"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,7 @@ from = "now-60m"
 index = ["filebeat-*", "logs-aws*"]
 interval = "10m"
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "AWS EC2 Network Access Control List Deletion"
 note = "The AWS Filebeat module must be enabled to use this rule."
 references = [
@@ -33,10 +33,11 @@ risk_score = 47
 rule_id = "8623535c-1e17-44e1-aa97-7a0699c3037d"
 severity = "medium"
 tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Network Security"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.action:(DeleteNetworkAcl or DeleteNetworkAclEntry) and event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.outcome:success
+event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.action:(DeleteNetworkAcl or DeleteNetworkAclEntry) and event.outcome:success
 '''
 
 
@@ -50,6 +51,7 @@ reference = "https://attack.mitre.org/techniques/T1562/"
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
+
 
 
 [rule.threat.tactic]

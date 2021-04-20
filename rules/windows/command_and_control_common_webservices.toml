@@ -19,7 +19,7 @@ false_positives = [
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Connection to Commonly Abused Web Services"
 references = [
     "https://www.echosec.net/blog/what-is-pastebin-and-why-do-hackers-love-it",
@@ -29,14 +29,16 @@ risk_score = 21
 rule_id = "66883649-f908-4a5b-a1e0-54090a1d3a32"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control"]
+timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 network where network.protocol == "dns" and
+    process.name != null and user.id not in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
     /* Add new WebSvc domains here */
     dns.question.name :
     (
-        "*.githubusercontent.*",
+        "raw.githubusercontent.*",
         "*.pastebin.*",
         "*hastebin.*",
         "*privatebin.*",
@@ -57,24 +59,28 @@ network where network.protocol == "dns" and
         "*localtunnel.me",
         "*pagekite.me",
         "*localxpose.io",
-        "*notabug.org"
+        "*notabug.org",
+        "rawcdn.githack.*",
+        "paste.nrecom.net",
+        "zerobin.net",
+        "controlc.com",
+        "requestbin.net"
     ) and
     /* Insert noisy false positives here */
-    not process.name :
+    not process.executable :
     (
-        "MicrosoftEdgeCP.exe",
-        "MicrosoftEdge.exe",
-        "iexplore.exe",
-        "chrome.exe",
-        "msedge.exe",
-        "opera.exe",
-        "firefox.exe",
-        "Dropbox.exe",
-        "slack.exe",
-        "svchost.exe",
-        "thunderbird.exe",
-        "outlook.exe",
-        "OneDrive.exe"
+      "?:\\Program Files\\*.exe",
+      "?:\\Program Files (x86)\\*.exe",
+      "?:\\Windows\\System32\\WWAHost.exe",
+      "?:\\Windows\\System32\\smartscreen.exe",
+      "?:\\Windows\\System32\\MicrosoftEdgeCP.exe",
+      "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
+      "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
+      "?:\\Users\\*\\AppData\\Local\\Programs\\Fiddler\\Fiddler.exe",
+      "?:\\Users\\*\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
+      "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
+      "?:\\Windows\\system32\\mobsync.exe",
+      "?:\\Windows\\SysWOW64\\mobsync.exe"
     )
 '''
 
@@ -91,3 +97,4 @@ reference = "https://attack.mitre.org/techniques/T1102/"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+

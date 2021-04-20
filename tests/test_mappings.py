@@ -1,22 +1,22 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """Test that all rules appropriately match against expected data sets."""
 import copy
-import unittest
 import warnings
 
+from detection_rules.rule import KQLRuleData
 from . import get_data_files, get_fp_data_files
-from detection_rules import rule_loader
 from detection_rules.utils import combine_sources, evaluate, load_etc_dump
+from .base import BaseRuleTest
 
 
-class TestMappings(unittest.TestCase):
+class TestMappings(BaseRuleTest):
     """Test that all rules appropriately match against expected data sets."""
 
     FP_FILES = get_fp_data_files()
-    RULES = rule_loader.load_rules().values()
 
     def evaluate(self, documents, rule, expected, msg):
         """KQL engine to evaluate."""
@@ -29,8 +29,8 @@ class TestMappings(unittest.TestCase):
         mismatched_ecs = []
         mappings = load_etc_dump('rule-mapping.yml')
 
-        for rule in rule_loader.get_production_rules():
-            if rule.type == 'query' and rule.contents['language'] == 'kuery':
+        for rule in self.production_rules:
+            if isinstance(rule.contents.data, KQLRuleData):
                 if rule.id not in mappings:
                     continue
 
@@ -62,8 +62,8 @@ class TestMappings(unittest.TestCase):
 
     def test_false_positives(self):
         """Test that expected results return against false positives."""
-        for rule in rule_loader.get_production_rules():
-            if rule.type == 'query' and rule.contents['language'] == 'kuery':
+        for rule in self.production_rules:
+            if isinstance(rule.contents.data, KQLRuleData):
                 for fp_name, merged_data in get_fp_data_files().items():
                     msg = 'Unexpected FP match for: {} - {}, against: {}'.format(rule.id, rule.name, fp_name)
                     self.evaluate(copy.deepcopy(merged_data), rule, 0, msg)

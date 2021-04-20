@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/08/18"
 maturity = "production"
-updated_date = "2020/12/15"
+updated_date = "2021/03/04"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,7 @@ false_positives = [
 from = "now-25m"
 index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Azure Event Hub Deletion"
 note = "The Azure Filebeat module must be enabled to use this rule."
 references = [
@@ -31,10 +31,11 @@ risk_score = 47
 rule_id = "e0f36de1-0342-453d-95a9-a068b257b053"
 severity = "medium"
 tags = ["Elastic", "Cloud", "Azure", "Continuous Monitoring", "SecOps", "Log Auditing"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:azure.activitylogs and azure.activitylogs.operation_name:MICROSOFT.EVENTHUB/NAMESPACES/EVENTHUBS/DELETE and event.outcome:(Success or success)
+event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.EVENTHUB/NAMESPACES/EVENTHUBS/DELETE" and event.outcome:(Success or success)
 '''
 
 
@@ -48,6 +49,7 @@ reference = "https://attack.mitre.org/techniques/T1562/"
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
+
 
 
 [rule.threat.tactic]

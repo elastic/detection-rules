@@ -1,34 +1,55 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """Util functions."""
+import base64
 import contextlib
 import functools
 import glob
 import gzip
+import hashlib
 import io
 import json
 import os
 import time
 import zipfile
+from dataclasses import is_dataclass, astuple
 from datetime import datetime, date
 from pathlib import Path
 
-import kql
-
 import eql.utils
 from eql.utils import load_dump, stream_json_lines
+
+import kql
 
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(CURR_DIR)
 ETC_DIR = os.path.join(ROOT_DIR, "etc")
 
 
+class NonelessDict(dict):
+    """Wrapper around dict that doesn't populate None values."""
+
+    def __setitem__(self, key, value):
+        if value is not None:
+            dict.__setitem__(self, key, value)
+
+
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, (date, datetime)):
             return obj.isoformat()
+
+
+marshmallow_schemas = {}
+
+
+def dict_hash(obj: dict) -> str:
+    """Hash a dictionary deterministically."""
+    raw_bytes = base64.b64encode(json.dumps(obj, sort_keys=True).encode('utf-8'))
+    return hashlib.sha256(raw_bytes).hexdigest()
 
 
 def get_json_iter(f):
@@ -43,7 +64,7 @@ def get_json_iter(f):
     return data
 
 
-def get_path(*paths):
+def get_path(*paths) -> str:
     """Get a file by relative path."""
     return os.path.join(ROOT_DIR, *paths)
 
@@ -129,6 +150,7 @@ def unzip_and_save(contents, path, member=None, verbose=True):
 
 def event_sort(events, timestamp='@timestamp', date_format='%Y-%m-%dT%H:%M:%S.%f%z', asc=True):
     """Sort events from elasticsearch by timestamp."""
+
     def _event_sort(event):
         t = event[timestamp]
         return (time.mktime(time.strptime(t, date_format)) + int(t.split('.')[-1][:-1]) / 1000) * 1000
@@ -173,10 +195,13 @@ def normalize_timing_and_sort(events, timestamp='@timestamp', asc=True):
 
 def freeze(obj):
     """Helper function to make mutable objects immutable and hashable."""
+    if not isinstance(obj, type) and is_dataclass(obj):
+        obj = astuple(obj)
+
     if isinstance(obj, (list, tuple)):
         return tuple(freeze(o) for o in obj)
     elif isinstance(obj, dict):
-        return freeze(list(sorted(obj.items())))
+        return freeze(sorted(obj.items()))
     else:
         return obj
 
@@ -257,6 +282,7 @@ def format_command_options(ctx):
 
 def add_params(*params):
     """Add parameters to a click command."""
+
     def decorator(f):
         if not hasattr(f, '__click_params__'):
             f.__click_params__ = []

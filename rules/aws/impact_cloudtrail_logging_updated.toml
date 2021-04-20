@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/06/10"
 maturity = "production"
-updated_date = "2020/12/09"
+updated_date = "2021/03/22"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,7 @@ from = "now-60m"
 index = ["filebeat-*", "logs-aws*"]
 interval = "10m"
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "AWS CloudTrail Log Updated"
 note = "The AWS Filebeat module must be enabled to use this rule."
 references = [
@@ -28,10 +28,11 @@ risk_score = 21
 rule_id = "3e002465-876f-4f04-b016-84ef48ce7e5d"
 severity = "low"
 tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Log Auditing"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.action:UpdateTrail and event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and event.outcome:success
+event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and event.action:UpdateTrail and event.outcome:success
 '''
 
 
@@ -46,12 +47,12 @@ id = "T1565.001"
 name = "Stored Data Manipulation"
 reference = "https://attack.mitre.org/techniques/T1565/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]

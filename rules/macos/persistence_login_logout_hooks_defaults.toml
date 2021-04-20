@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/12/07"
 maturity = "production"
-updated_date = "2020/12/07"
+updated_date = "2021/03/09"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ capability to establish persistence in an environment by inserting code to be ex
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Persistence via Login or Logout Hook"
 references = [
     "https://www.virusbulletin.com/uploads/pdf/conference_slides/2014/Wardle-VB2014.pdf",
@@ -22,11 +22,19 @@ risk_score = 47
 rule_id = "5d0265bf-dea9-41a9-92ad-48a8dcd05080"
 severity = "medium"
 tags = ["Elastic", "Host", "macOS", "Threat Detection", "Persistence"]
+timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
- process.name == "defaults" and process.args == "write" and process.args in ("LoginHook", "LogoutHook")
+process where event.type == "start" and
+ process.name == "defaults" and process.args == "write" and process.args in ("LoginHook", "LogoutHook") and
+ not process.args :
+       (
+         "Support/JAMF/ManagementFrameworkScripts/logouthook.sh",
+         "Support/JAMF/ManagementFrameworkScripts/loginhook.sh",
+         "/Library/Application Support/JAMF/ManagementFrameworkScripts/logouthook.sh",
+         "/Library/Application Support/JAMF/ManagementFrameworkScripts/loginhook.sh"
+       )
 '''
 
 

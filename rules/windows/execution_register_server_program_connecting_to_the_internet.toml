@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2020/01/28"
+updated_date = "2021/03/17"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,7 @@ false_positives = [
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Network Connection via Registration Utility"
 risk_score = 21
 rule_id = "fb02b8d3-71ee-4af1-bacd-215d23f17efa"
@@ -28,12 +28,15 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id
-  [process where (process.name : "regsvr32.exe" or process.name : "regsvr64.exe" or
-                  process.name : "RegAsm.exe" or process.name : "RegSvcs.exe") and
-     event.type == "start"]
-  [network where (process.name : "regsvr32.exe" or process.name : "regsvr64.exe" or
-                  process.name : "RegAsm.exe" or process.name : "RegSvcs.exe") and
-     not cidrmatch(destination.ip, "10.0.0.0/8", "169.254.169.254", "172.16.0.0/12", "192.168.0.0/16")]
+  [process where event.type == "start" and
+   process.name : ("regsvr32.exe", "RegAsm.exe", "RegSvcs.exe") and
+   not (
+         user.id == "S-1-5-18" and
+         (process.parent.name : "msiexec.exe" or process.parent.executable : ("C:\\Program Files (x86)\\*.exe", "C:\\Program Files\\*.exe"))
+       )
+   ]
+  [network where process.name : ("regsvr32.exe", "RegAsm.exe", "RegSvcs.exe")  and
+   not cidrmatch(destination.ip, "10.0.0.0/8", "169.254.169.254", "172.16.0.0/12", "192.168.0.0/16") and network.protocol != "dns"]
 '''
 
 
@@ -61,4 +64,3 @@ reference = "https://attack.mitre.org/techniques/T1218/010/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

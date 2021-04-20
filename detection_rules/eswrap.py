@@ -1,13 +1,14 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """Elasticsearch cli commands."""
 import json
 import os
 import time
-from contextlib import contextmanager
 from collections import defaultdict
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Union
 
@@ -19,10 +20,9 @@ from elasticsearch.client import AsyncSearchClient, IngestClient, LicenseClient,
 import kql
 from .main import root
 from .misc import add_params, client_error, elasticsearch_options
+from .rule import TOMLRule
+from .rule_loader import rta_mappings, RuleCollection
 from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
-from .rule import Rule
-from .rule_loader import get_rule, rta_mappings
-
 
 COLLECTION_DIR = get_path('collections')
 MATCH_ALL = {'bool': {'filter': [{'match_all': {}}]}}
@@ -87,7 +87,8 @@ class RtaEvents(object):
         """Evaluate a rule against collected events and update mapping."""
         from .utils import combine_sources, evaluate
 
-        rule = get_rule(rule_id, verbose=False)
+        rule = next((rule for rule in RuleCollection.default() if rule.id == rule_id), None)
+        assert rule is not None, f"Unable to find rule with ID {rule_id}"
         merged_events = combine_sources(*self.events.values())
         filtered = evaluate(rule, merged_events)
 
@@ -194,7 +195,7 @@ class CollectEvents(object):
 
         return results
 
-    def search_from_rule(self, *rules: Rule, start_time=None, end_time='now', size=None):
+    def search_from_rule(self, *rules: TOMLRule, start_time=None, end_time='now', size=None):
         """Search an elasticsearch instance using a rule."""
         from .misc import nested_get
 

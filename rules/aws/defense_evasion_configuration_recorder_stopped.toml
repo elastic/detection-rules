@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/06/16"
 maturity = "production"
-updated_date = "2020/12/09"
+updated_date = "2021/03/22"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,7 @@ from = "now-60m"
 index = ["filebeat-*", "logs-aws*"]
 interval = "10m"
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "AWS Configuration Recorder Stopped"
 note = "The AWS Filebeat module must be enabled to use this rule."
 references = [
@@ -28,10 +28,11 @@ risk_score = 73
 rule_id = "fbd44836-0d69-4004-a0b4-03c20370c435"
 severity = "high"
 tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Monitoring"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.action:StopConfigurationRecorder and event.dataset:aws.cloudtrail and event.provider:config.amazonaws.com and event.outcome:success
+event.dataset:aws.cloudtrail and event.provider:config.amazonaws.com and event.action:StopConfigurationRecorder and event.outcome:success
 '''
 
 
@@ -45,6 +46,7 @@ reference = "https://attack.mitre.org/techniques/T1562/"
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
+
 
 
 [rule.threat.tactic]

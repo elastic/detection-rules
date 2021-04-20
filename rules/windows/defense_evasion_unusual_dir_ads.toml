@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/12/04"
 maturity = "production"
-updated_date = "2020/01/28"
+updated_date = "2021/03/09"
 
 [rule]
 author = ["Elastic"]
@@ -9,19 +9,21 @@ description = """
 Identifies processes running from an Alternate Data Stream. This is uncommon for legitimate processes and sometimes done
 by adversaries to hide malware.
 """
+from = "now-9m"
 index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Unusual Process Execution Path - Alternate Data Stream"
 risk_score = 47
 rule_id = "4bd1c1af-79d4-4d37-9efa-6e0240640242"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
-  process.args : "C:\\*:*"
+process where event.type == "start" and
+  process.args : "?:\\*:*" and process.args_count == 1
 '''
 
 
@@ -37,4 +39,3 @@ reference = "https://attack.mitre.org/techniques/T1564/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

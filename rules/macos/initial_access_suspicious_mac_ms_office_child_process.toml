@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/01/04"
 maturity = "production"
-updated_date = "2021/01/04"
+updated_date = "2021/03/09"
 
 [rule]
 author = ["Elastic"]
@@ -13,13 +13,14 @@ malicious macros.
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
 language = "eql"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Suspicious macOS MS Office Child Process"
 references = ["https://blog.malwarebytes.com/cybercrime/2017/02/microsoft-office-macro-malware-targets-macs/"]
 risk_score = 47
 rule_id = "66da12b1-ac83-40eb-814c-07ed1d82b7b9"
 severity = "medium"
-tags = ["Elastic", "Host", "macOS", "Threat Detection", "Execution"]
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Initial Access"]
+timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
@@ -46,7 +47,18 @@ process where event.type in ("start", "process_started") and
    "mv", 
    "base64", 
    "launchctl"
- )
+  ) and
+  /* noisy false positives related to product version discovery and office errors reporting */
+  not process.args:
+    (
+      "ProductVersion",
+      "hw.model",
+      "ioreg",
+      "ProductName",
+      "ProductUserVisibleVersion",
+      "ProductBuildVersion",
+      "/Library/Application Support/Microsoft/MERP*/Microsoft Error Reporting.app/Contents/MacOS/Microsoft Error Reporting"
+    )
 '''
 
 
@@ -60,6 +72,7 @@ reference = "https://attack.mitre.org/techniques/T1566/"
 id = "T1566.001"
 name = "Spearphishing Attachment"
 reference = "https://attack.mitre.org/techniques/T1566/001/"
+
 
 
 [rule.threat.tactic]

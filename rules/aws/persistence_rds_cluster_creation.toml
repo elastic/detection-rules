@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/05/20"
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2021/03/22"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,7 @@ from = "now-60m"
 index = ["filebeat-*", "logs-aws*"]
 interval = "10m"
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "AWS RDS Cluster Creation"
 note = "The AWS Filebeat module must be enabled to use this rule."
 references = [
@@ -33,10 +33,11 @@ risk_score = 21
 rule_id = "e14c5fd7-fdd7-49c2-9e5b-ec49d817bc8d"
 severity = "low"
 tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Asset Visibility"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.action:(CreateDBCluster or CreateGlobalCluster) and event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.outcome:success
+event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.action:(CreateDBCluster or CreateGlobalCluster) and event.outcome:success
 '''
 
 
@@ -52,9 +53,9 @@ reference = "https://attack.mitre.org/techniques/T1133/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
