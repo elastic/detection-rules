@@ -5,15 +5,14 @@
 """Rule object."""
 import json
 from dataclasses import dataclass, field
+from functools import cached_property
 from pathlib import Path
 from typing import Literal, Union, Optional, List, Any
 from uuid import uuid4
 
-import eql
 from marshmallow import validates_schema
 
-import kql
-from . import ecs, beats, utils
+from . import utils
 from .mixins import MarshmallowDataclassMixin
 from .rule_formatter import toml_write, nested_normalize
 from .schemas import definitions
@@ -169,67 +168,48 @@ class BaseRuleData(MarshmallowDataclassMixin):
     type: Literal[definitions.RuleType]
     threat: Optional[List[ThreatMapping]]
 
+    def validate_query(self, meta: RuleMeta) -> None:
+        pass
+
+
+@dataclass
+class QueryValidator:
+    query: str
+
+    @property
+    def ast(self) -> Any:
+        raise NotImplementedError
+
+    def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
+        raise NotImplementedError()
+
 
 @dataclass(frozen=True)
-class BaseQueryRuleData(BaseRuleData):
+class QueryRuleData(BaseRuleData):
     """Specific fields for query event types."""
     type: Literal["query"]
 
     index: Optional[List[str]]
     query: str
-    language: str
+    language: definitions.FilterLanguages
 
-    @property
-    def parsed_query(self) -> Optional[object]:
-        return None
+    @cached_property
+    def validator(self) -> Optional[QueryValidator]:
+        if self.language == "kuery":
+            return KQLValidator(self.query)
+        elif self.language == "eql":
+            return EQLValidator(self.query)
 
+    def validate_query(self, meta: RuleMeta) -> None:
+        validator = self.validator
+        if validator is not None:
+            return validator.validate(self, meta)
 
-@dataclass(frozen=True)
-class KQLRuleData(BaseQueryRuleData):
-    """Specific fields for query event types."""
-    language: Literal["kuery"]
-
-    @property
-    def parsed_query(self) -> kql.ast.Expression:
-        return kql.parse(self.query)
-
-    @property
-    def unique_fields(self):
-        return list(set(str(f) for f in self.parsed_query if isinstance(f, kql.ast.Field)))
-
-    def to_eql(self) -> eql.ast.Expression:
-        return kql.to_eql(self.query)
-
-    def validate_query(self, beats_version: str, ecs_versions: List[str]):
-        """Static method to validate the query, called from the parent which contains [metadata] information."""
-        indexes = self.index or []
-        parsed = self.parsed_query
-
-        beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
-        beat_schema = beats.get_schema_from_kql(parsed, beat_types, version=beats_version) if beat_types else None
-
-        if not ecs_versions:
-            kql.parse(self.query, schema=ecs.get_kql_schema(indexes=indexes, beat_schema=beat_schema))
-        else:
-            for version in ecs_versions:
-                schema = ecs.get_kql_schema(version=version, indexes=indexes, beat_schema=beat_schema)
-
-                try:
-                    kql.parse(self.query, schema=schema)
-                except kql.KqlParseError as exc:
-                    message = exc.error_msg
-                    trailer = None
-                    if "Unknown field" in message and beat_types:
-                        trailer = "\nTry adding event.module or event.dataset to specify beats module"
-
-                    raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
-                                            len(exc.caret.lstrip()), trailer=trailer) from None
-
-
-@dataclass(frozen=True)
-class LuceneRuleData(BaseQueryRuleData):
-    """Specific fields for query event types."""
-    language: Literal["lucene"]
+    @cached_property
+    def ast(self):
+        validator = self.validator
+        if validator is not None:
+            return validator.ast
 
 
 @dataclass(frozen=True)
@@ -241,7 +221,7 @@ class MachineLearningRuleData(BaseRuleData):
 
 
 @dataclass(frozen=True)
-class ThresholdQueryRuleData(BaseQueryRuleData):
+class ThresholdQueryRuleData(QueryRuleData):
     """Specific fields for query event types."""
 
     @dataclass(frozen=True)
@@ -256,57 +236,18 @@ class ThresholdQueryRuleData(BaseQueryRuleData):
         cardinality: Optional[ThresholdCardinality]
 
     type: Literal["threshold"]
-    language: Literal["kuery", "lucene"]
     threshold: ThresholdMapping
 
 
 @dataclass(frozen=True)
-class EQLRuleData(BaseQueryRuleData):
+class EQLRuleData(QueryRuleData):
     """EQL rules are a special case of query rules."""
     type: Literal["eql"]
-
-    @property
-    def parsed_query(self) -> kql.ast.Expression:
-        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
-            return eql.parse_query(self.query)
-
-    @property
-    def unique_fields(self):
-        return list(set(str(f) for f in self.parsed_query if isinstance(f, eql.ast.Field)))
-
-    def validate_query(self, beats_version: str, ecs_versions: List[str]):
-        """Validate an EQL query while checking TOMLRule."""
-        # TODO: remove once py-eql supports ipv6 for cidrmatch
-        # Or, unregister the cidrMatch function and replace it with one that doesn't validate against strict IPv4
-        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
-            parsed = eql.parse_query(self.query)
-
-        beat_types = [index.split("-")[0] for index in self.index or [] if "beat-*" in index]
-        beat_schema = beats.get_schema_from_eql(parsed, beat_types, version=beats_version) if beat_types else None
-
-        for version in ecs_versions:
-            schema = ecs.get_kql_schema(indexes=self.index or [], beat_schema=beat_schema, version=version)
-
-            try:
-                # TODO: switch to custom cidrmatch that allows ipv6
-                with ecs.KqlSchema2Eql(schema), eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
-                    eql.parse_query(self.query)
-
-            except eql.EqlTypeMismatchError:
-                raise
-
-            except eql.EqlParseError as exc:
-                message = exc.error_msg
-                trailer = None
-                if "Unknown field" in message and beat_types:
-                    trailer = "\nTry adding event.module or event.dataset to specify beats module"
-
-                raise exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
-                                    len(exc.caret.lstrip()), trailer=trailer) from None
+    language: Literal["eql"]
 
 
 # All of the possible rule types
-AnyRuleData = Union[KQLRuleData, LuceneRuleData, MachineLearningRuleData, ThresholdQueryRuleData, EQLRuleData]
+AnyRuleData = Union[QueryRuleData, EQLRuleData, MachineLearningRuleData, ThresholdQueryRuleData]
 
 
 @dataclass(frozen=True)
@@ -365,17 +306,7 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
         data: AnyRuleData = value["data"]
         metadata: RuleMeta = value["metadata"]
 
-        beats_version = metadata.beats_version or beats.get_max_version()
-        ecs_versions = metadata.ecs_versions or [ecs.get_max_version()]
-
-        # call into these validate methods
-        if isinstance(data, (EQLRuleData, KQLRuleData)):
-            if metadata.query_schema_validation is False or metadata.maturity == "deprecated":
-                # Check the syntax only
-                _ = data.parsed_query
-            else:
-                # otherwise, do a full schema validation
-                data.validate_query(beats_version=beats_version, ecs_versions=ecs_versions)
+        return data.validate_query(metadata)
 
     def to_dict(self, strip_none_values=True) -> dict:
         dict_obj = super(TOMLRuleContents, self).to_dict(strip_none_values=strip_none_values)
@@ -454,3 +385,7 @@ def downgrade_contents_from_rule(rule: TOMLRule, target_version: str) -> dict:
     payload["rule_id"] = str(uuid4())
     payload = downgrade(payload, target_version)
     return payload
+
+
+# avoid a circular import
+from .rule_validators import KQLValidator, EQLValidator  # noqa: E402
