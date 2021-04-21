@@ -10,10 +10,10 @@ import eql
 
 import kql
 from detection_rules import beats, ecs
-from detection_rules.rule import QueryValidator, QueryRule, RuleMeta
+from detection_rules.rule import QueryValidator, QueryRuleData, RuleMeta
 
 
-class KqlValidator(QueryValidator):
+class KQLValidator(QueryValidator):
     """Specific fields for query event types."""
 
     @cached_property
@@ -27,7 +27,7 @@ class KqlValidator(QueryValidator):
     def to_eql(self) -> eql.ast.Expression:
         return kql.to_eql(self.query)
 
-    def validate(self, data: QueryRule, meta: RuleMeta) -> None:
+    def validate(self, data: QueryRuleData, meta: RuleMeta) -> None:
         """Static method to validate the query, called from the parent which contains [metadata] information."""
         ast = self.ast
 
@@ -60,7 +60,7 @@ class KqlValidator(QueryValidator):
                                             len(exc.caret.lstrip()), trailer=trailer) from None
 
 
-class EqlValidator(QueryValidator):
+class EQLValidator(QueryValidator):
 
     @cached_property
     def ast(self) -> kql.ast.Expression:
@@ -71,7 +71,7 @@ class EqlValidator(QueryValidator):
     def unique_fields(self):
         return list(set(str(f) for f in self.ast if isinstance(f, eql.ast.Field)))
 
-    def validate(self, data: 'QueryRule', meta: RuleMeta) -> None:
+    def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
         """Validate an EQL query while checking TOMLRule."""
         _ = self.ast
 

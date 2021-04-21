@@ -180,12 +180,12 @@ class QueryValidator:
     def ast(self) -> Any:
         raise NotImplementedError
 
-    def validate(self, data: 'QueryRule', meta: RuleMeta) -> None:
+    def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
         raise NotImplementedError()
 
 
 @dataclass(frozen=True)
-class QueryRule(BaseRuleData):
+class QueryRuleData(BaseRuleData):
     """Specific fields for query event types."""
     type: Literal["query"]
 
@@ -196,9 +196,9 @@ class QueryRule(BaseRuleData):
     @cached_property
     def validator(self) -> Optional[QueryValidator]:
         if self.language == "kuery":
-            return KqlValidator(self.query)
+            return KQLValidator(self.query)
         elif self.language == "eql":
-            return EqlValidator(self.query)
+            return EQLValidator(self.query)
 
     def validate_query(self, meta: RuleMeta) -> None:
         validator = self.validator
@@ -221,7 +221,7 @@ class MachineLearningRuleData(BaseRuleData):
 
 
 @dataclass(frozen=True)
-class ThresholdQueryRule(QueryRule):
+class ThresholdQueryRuleData(QueryRuleData):
     """Specific fields for query event types."""
 
     @dataclass(frozen=True)
@@ -240,14 +240,14 @@ class ThresholdQueryRule(QueryRule):
 
 
 @dataclass(frozen=True)
-class EQLRule(QueryRule):
+class EQLRuleData(QueryRuleData):
     """EQL rules are a special case of query rules."""
     type: Literal["eql"]
     language: Literal["eql"]
 
 
 # All of the possible rule types
-AnyRuleData = Union[QueryRule, EQLRule, MachineLearningRuleData, ThresholdQueryRule]
+AnyRuleData = Union[QueryRuleData, EQLRuleData, MachineLearningRuleData, ThresholdQueryRuleData]
 
 
 @dataclass(frozen=True)
@@ -388,4 +388,4 @@ def downgrade_contents_from_rule(rule: TOMLRule, target_version: str) -> dict:
 
 
 # avoid a circular import
-from .rule_validators import KqlValidator, EqlValidator  # noqa: E402
+from .rule_validators import KQLValidator, EQLValidator  # noqa: E402

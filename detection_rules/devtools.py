@@ -25,7 +25,7 @@ from .eswrap import CollectEvents, add_range_to_dsl
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, GithubClient, Manifest, client_error, getdefault
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
-from .rule import TOMLRule, QueryRule
+from .rule import TOMLRule, QueryRuleData
 from .rule_loader import production_filter, RuleCollection
 from .utils import get_path, dict_hash
 
@@ -389,7 +389,7 @@ def rule_event_search(ctx, rule, date_range, count, max_results, verbose,
                       elasticsearch_client: Elasticsearch = None):
     """Search using a rule file against an Elasticsearch instance."""
 
-    if isinstance(rule.contents.data, QueryRule):
+    if isinstance(rule.contents.data, QueryRuleData):
         if verbose:
             click.echo(f'Searching rule: {rule.name}')
 

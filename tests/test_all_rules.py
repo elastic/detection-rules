@@ -14,7 +14,7 @@ import eql
 import kql
 from detection_rules import attack, beats, ecs
 from detection_rules.packaging import load_versions
-from detection_rules.rule import QueryRule
+from detection_rules.rule import QueryRuleData
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.utils import get_path, load_etc_dump
 from rta import get_ttp_names
@@ -58,7 +58,7 @@ class TestValidRules(BaseRuleTest):
         ttp_names = get_ttp_names()
 
         for rule in self.production_rules:
-            if isinstance(rule.contents.data, QueryRule) and rule.id in mappings:
+            if isinstance(rule.contents.data, QueryRuleData) and rule.id in mappings:
                 matching_rta = mappings[rule.id].get('rta_name')
 
                 self.assertIsNotNone(matching_rta, f'{self.rule_str(rule)} does not have RTAs')
@@ -232,7 +232,7 @@ class TestRuleTags(BaseRuleTest):
             if 'Elastic' not in rule_tags:
                 missing_required_tags.add('Elastic')
 
-            if isinstance(rule.contents.data, QueryRule):
+            if isinstance(rule.contents.data, QueryRuleData):
                 for index in rule.contents.data.index:
                     expected_tags = required_tags_map.get(index, {})
                     expected_all = expected_tags.get('all', [])
@@ -440,7 +440,7 @@ class TestTuleTiming(BaseRuleTest):
         for rule in self.all_rules:
             required = False
 
-            if isinstance(rule.contents.data, QueryRule) and 'endgame-*' in rule.contents.data.index:
+            if isinstance(rule.contents.data, QueryRuleData) and 'endgame-*' in rule.contents.data.index:
                 continue
 
             if rule.contents.data.type == 'query':
@@ -465,7 +465,7 @@ class TestTuleTiming(BaseRuleTest):
         for rule in self.all_rules:
             contents = rule.contents
 
-            if isinstance(contents.data, QueryRule):
+            if isinstance(contents.data, QueryRuleData):
                 if set(getattr(contents.data, "index", None) or []) & long_indexes and not contents.data.from_:
                     missing.append(rule)
 

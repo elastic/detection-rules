@@ -18,7 +18,7 @@ import click
 import yaml
 
 from .misc import JS_LICENSE, cached
-from .rule import TOMLRule, QueryRule, ThreatMapping
+from .rule import TOMLRule, QueryRuleData, ThreatMapping
 from .rule import downgrade_contents_from_rule
 from .rule_loader import RuleCollection, DEFAULT_RULES_DIR
 from .schemas import CurrentSchema, definitions
@@ -377,7 +377,7 @@ class Package(object):
         def get_summary_rule_info(r: TOMLRule):
             r = r.contents
             rule_str = f'{r.name:<{longest_name}} (v:{r.autobumped_version} t:{r.data.type}'
-            if isinstance(rule.contents.data, QueryRule):
+            if isinstance(rule.contents.data, QueryRuleData):
                 rule_str += f'-{r.data.language}'
                 rule_str += f'(indexes:{"".join(index_map[idx] for idx in rule.contents.data.index) or "none"}'
 
@@ -387,7 +387,7 @@ class Package(object):
             # lookup the rule in the GitHub tag v{major.minor.patch}
             data = r.contents.data
             rules_dir_link = f'https://github.com/elastic/detection-rules/tree/v{self.name}/rules/{sd}/'
-            rule_type = data.language if isinstance(data, QueryRule) else data.type
+            rule_type = data.language if isinstance(data, QueryRuleData) else data.type
             return f'`{r.id}` **[{r.name}]({rules_dir_link + os.path.basename(str(r.path))})** (_{rule_type}_)'
 
         for rule in self.rules:
