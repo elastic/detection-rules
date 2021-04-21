@@ -39,6 +39,7 @@ OPERATORS = ['equals']
 CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
+IntegerGreaterThanZero = NewType('IntegerGreaterThanZero', int, validate=validate.Range(min=1))
 Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
 FilterLanguages = Literal["kuery", "lucene"]
 Markdown = NewType("MarkdownField", CodeString)
