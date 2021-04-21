@@ -21,7 +21,7 @@ class KqlValidator(QueryValidator):
         return kql.parse(self.query)
 
     @property
-    def unique_fields(self):
+    def unique_fields(self) -> List[str]:
         return list(set(str(f) for f in self.ast if isinstance(f, kql.ast.Field)))
 
     def to_eql(self) -> eql.ast.Expression:
@@ -68,7 +68,7 @@ class EqlValidator(QueryValidator):
             return eql.parse_query(self.query)
 
     @property
-    def unique_fields(self):
+    def unique_fields(self) -> List[str]:
         return list(set(str(f) for f in self.ast if isinstance(f, eql.ast.Field)))
 
     def validate(self, data: 'QueryRule', meta: RuleMeta) -> None:
@@ -88,7 +88,7 @@ class EqlValidator(QueryValidator):
         with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
             parsed = eql.parse_query(self.query)
 
-        beat_types = [index.split("-")[0] for index in indexes or [] if "beat-*" in index]
+        beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
         beat_schema = beats.get_schema_from_eql(parsed, beat_types, version=beats_version) if beat_types else None
 
         for version in ecs_versions:
