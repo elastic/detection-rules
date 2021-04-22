@@ -64,16 +64,35 @@ def _decompress_and_save_schema(url, release_name):
         f.write(compressed)
 
 
+def download_beats_schema(version: str):
+    """Download a beats schema by version."""
+    url = 'https://api.github.com/repos/elastic/beats/releases'
+    releases = requests.get(url)
+
+    version = f'v{version.lstrip("v")}'
+    beats_release = None
+    for release in releases.json():
+        if release['tag_name'] == version:
+            beats_release = release
+            break
+
+    if not beats_release:
+        print(f'beats release {version} not found!')
+        return
+
+    beats_url = beats_release['zipball_url']
+    name = beats_release['tag_name']
+
+    _decompress_and_save_schema(beats_url, name)
+
+
 def download_latest_beats_schema():
     """Download additional schemas from beats releases."""
     url = 'https://api.github.com/repos/elastic/beats/releases'
     releases = requests.get(url)
 
     latest_release = max(releases.json(), key=lambda release: Version(release["tag_name"].lstrip("v")))
-    beats_url = latest_release['zipball_url']
-    name = latest_release['tag_name']
-
-    _decompress_and_save_schema(beats_url, name)
+    download_beats_schema(latest_release["tag_name"])
 
 
 def refresh_master_schema():
