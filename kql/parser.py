@@ -135,7 +135,7 @@ class BaseKqlParser(Interpreter):
             regex = wildcard2regex(wildcard_dotted_path)
             field_types = set()
 
-            for field, field_type in self.mapping_schema:
+            for field, field_type in self.mapping_schema.items():
                 if regex.fullmatch(field) is not None:
                     field_types.add(field_type)
 
@@ -165,11 +165,12 @@ class BaseKqlParser(Interpreter):
         field_types = self.get_field_types(field_name)
         value_type = self.get_literal_type(python_value)
 
-        if len(field_types) == 1:
-            field_type = list(field_types)[0]
-        elif len(field_types) > 1:
-            raise self.error(value_tree,
-                             f"{field_name} has multiple types {', '.join(field_types)}")
+        if field_types is not None:
+            if len(field_types) == 1:
+                field_type = list(field_types)[0]
+            elif len(field_types) > 1:
+                raise self.error(value_tree,
+                                 f"{field_name} has multiple types {', '.join(field_types)}")
 
         if field_type is not None and field_type != value_type:
             if field_type in STRING_FIELDS:
@@ -256,7 +257,7 @@ class KqlParser(BaseKqlParser):
 
         with self.scope(self.visit(field_tree)) as field:
             # check the field against the schema
-            self.get_field_type(field.name, field_tree)
+            self.get_field_types(field.name, field_tree)
             return FieldComparison(field, self.visit(expr))
 
     def field_range_expression(self, tree):
