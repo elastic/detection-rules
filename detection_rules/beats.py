@@ -65,7 +65,7 @@ def _decompress_and_save_schema(url, release_name):
 
 
 def download_beats_schema(version: str):
-    """Download a beats schema by version"""
+    """Download a beats schema by version."""
     url = 'https://api.github.com/repos/elastic/beats/releases'
     releases = requests.get(url)
 
