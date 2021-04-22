@@ -36,6 +36,7 @@ QUERY = 'query'
 OPERATORS = ['equals']
 
 
+BranchVer = NewType('BranchVer', str, validate=validate.Regexp(BRANCH_PATTERN))
 CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
