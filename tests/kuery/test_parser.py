@@ -54,6 +54,14 @@ class ParserTests(unittest.TestCase):
     def test_number_exists(self):
         self.assertEqual(kql.parse("foo:*", schema={"foo": "long"}), FieldComparison(Field("foo"), Exists()))
 
+    def test_multiple_types_success(self):
+        with self.assertRaises(kql.KqlParseError):
+            kql.parse("common.* : \"hello\"", schema={"common.a": "keyword", "common.b": "keyword"})
+
+    def test_multiple_types_fail(self):
+        with self.assertRaises(kql.KqlParseError):
+            kql.parse("common.* : \"hello\"", schema={"common.a": "keyword", "common.b": "ip"})
+
     def test_number_wildcard_fail(self):
         with self.assertRaises(kql.KqlParseError):
             kql.parse("foo:*wc", schema={"foo": "long"})
