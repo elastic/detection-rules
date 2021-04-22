@@ -280,14 +280,14 @@ class ThreatMatchRuleData(QueryRuleData):
             if not self.threat_language:
                 raise ValidationError('`threat_language` required when a `threat_query` is defined')
 
-        if self.threat_language == "kuery":
-            threat_query_validator = KQLValidator(self.threat_query)
-        elif self.threat_language == "eql":
-            threat_query_validator = EQLValidator(self.threat_query)
-        else:
-            return
+            if self.threat_language == "kuery":
+                threat_query_validator = KQLValidator(self.threat_query)
+            elif self.threat_language == "eql":
+                threat_query_validator = EQLValidator(self.threat_query)
+            else:
+                return
 
-        threat_query_validator.validate(self, meta)
+            threat_query_validator.validate(self, meta)
 
 
 # All of the possible rule types
