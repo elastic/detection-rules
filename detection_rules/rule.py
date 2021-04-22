@@ -263,8 +263,8 @@ class ThreatMatchRuleData(QueryRuleData):
 
     type: Literal["threat_match"]
 
-    concurrent_searches: Optional[definitions.IntegerGreaterThanZero]
-    items_per_search: Optional[definitions.IntegerGreaterThanZero]
+    concurrent_searches: Optional[definitions.PositiveInteger]
+    items_per_search: Optional[definitions.PositiveInteger]
 
     threat_mapping: List[Entries]
     threat_filters: Optional[List[dict]]
@@ -284,6 +284,8 @@ class ThreatMatchRuleData(QueryRuleData):
             threat_query_validator = KQLValidator(self.threat_query)
         elif self.threat_language == "eql":
             threat_query_validator = EQLValidator(self.threat_query)
+        else:
+            return
 
         threat_query_validator.validate(self, meta)
 
