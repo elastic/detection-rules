@@ -1,0 +1,43 @@
+[metadata]
+creation_date = "2021/04/22"
+maturity = "development"
+updated_date = "2021/04/22"
+
+[rule]
+author = ["Elastic", "Austin Songer"]
+description = """
+Detects threat actors making configuration change to EC2 security groups. Threat actors may be able to maintain
+persistence, exfiltrate, and pivot in a AWS environment.
+"""
+index = ["filebeat-*", "logs-aws*"]
+language = "kuery"
+license = "Elastic"
+name = "AWS EC2 Security Group Configuration Change Detection"
+references = ["https://docs.aws.amazon.com/ec2/index.html"]
+risk_score = 21
+rule_id = "300958f0-0e85-4f69-bc90-3e2672142d31"
+severity = "low"
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Network Security"]
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.action:(AuthorizeSecurityGroupIngress or AuthorizeSecurityGroupEgress or CreateSecurityGroup or ModifyInstanceAttribute) and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Persistence"
+id = "TA0003"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Defense Evasion"
+id = "TA0005"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
