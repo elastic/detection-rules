@@ -1,0 +1,48 @@
+[metadata]
+creation_date = "2021/04/22"
+maturity = "development"
+updated_date = "2021/04/22"
+
+[rule]
+author = ["Elastic", "Austin Songer"]
+description = "Detects threat actors tampering with S3 data management in Amazon Web Services"
+index = ["filebeat-*", "logs-aws*"]
+language = "kuery"
+license = "Elastic"
+name = "AWS S3 Data Management Tampering"
+references = ["https://docs.aws.amazon.com/AmazonS3/latest/API/API_Operations.html"]
+risk_score = 21
+rule_id = "e6512091-29c8-401f-a2ce-1700102349ff"
+severity = "low"
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Asset Visibility"]
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.action:(PutBucketLogging or PutBucketWebsite or PutEncryptionConfiguration or PutLifecycleConfiguration or PutReplicationConfiguration or ReplicateObject or RestoreObject) and event.dataset:aws.cloudtrail and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+name = "Transfer Data to Cloud Account"
+id = "T1537"
+reference = "https://attack.mitre.org/techniques/T1537/"
+
+
+[rule.threat.tactic]
+name = "Exfiltration"
+id = "TA0010"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+name = "Automated Exfiltration"
+id = "T1020"
+reference = "https://attack.mitre.org/techniques/T1020/"
+
+
+[rule.threat.tactic]
+name = "Exfiltration"
+id = "TA0010"
+reference = "https://attack.mitre.org/tactics/TA0010/"
