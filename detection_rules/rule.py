@@ -161,8 +161,8 @@ class BaseRuleData(MarshmallowDataclassMixin):
     severity: definitions.Severity
     tags: Optional[List[str]]
     throttle: Optional[str]
-    timeline_id: Optional[str]
-    timeline_title: Optional[str]
+    timeline_id: Optional[definitions.TimelineTemplateId]
+    timeline_title: Optional[definitions.TimelineTemplateTitle]
     timestamp_override: Optional[str]
     to: Optional[str]
     type: Literal[definitions.RuleType]

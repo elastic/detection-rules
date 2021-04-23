@@ -299,14 +299,10 @@ class TestRuleTags(BaseRuleTest):
 class TestRuleTimelines(BaseRuleTest):
     """Test timelines in rules are valid."""
 
-    TITLES = {
-        'db366523-f1c6-4c1f-8731-6ce5ed9e5717': 'Generic Endpoint Timeline',
-        '91832785-286d-4ebe-b884-1a208d111a70': 'Generic Network Timeline',
-        '76e52245-7519-4251-91ab-262fb1a1728c': 'Generic Process Timeline'
-    }
-
     def test_timeline_has_title(self):
         """Ensure rules with timelines have a corresponding title."""
+        from detection_rules.schemas.definitions import TIMELINE_TEMPLATES
+
         for rule in self.all_rules:
             timeline_id = rule.contents.data.timeline_id
             timeline_title = rule.contents.data.timeline_title
@@ -317,13 +313,14 @@ class TestRuleTimelines(BaseRuleTest):
 
             if timeline_id:
                 unknown_id = f'{self.rule_str(rule)} Unknown timeline_id: {timeline_id}.'
-                unknown_id += f' replace with {", ".join(self.TITLES)} or update this unit test with acceptable ids'
-                self.assertIn(timeline_id, list(self.TITLES), unknown_id)
+                unknown_id += f' replace with {", ".join(TIMELINE_TEMPLATES)} ' \
+                              f'or update this unit test with acceptable ids'
+                self.assertIn(timeline_id, list(TIMELINE_TEMPLATES), unknown_id)
 
                 unknown_title = f'{self.rule_str(rule)} unknown timeline_title: {timeline_title}'
-                unknown_title += f' replace with {", ".join(self.TITLES.values())}'
+                unknown_title += f' replace with {", ".join(TIMELINE_TEMPLATES.values())}'
                 unknown_title += ' or update this unit test with acceptable titles'
-                self.assertEqual(timeline_title, self.TITLES[timeline_id], )
+                self.assertEqual(timeline_title, TIMELINE_TEMPLATES[timeline_id], unknown_title)
 
 
 class TestRuleFiles(BaseRuleTest):
