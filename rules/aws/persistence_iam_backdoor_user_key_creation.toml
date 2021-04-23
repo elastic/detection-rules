@@ -1,0 +1,51 @@
+[metadata]
+creation_date = "2020/06/04"
+maturity = "production"
+updated_date = "2021/03/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detection of AWS API key creation for a user by another user. If there are Backdoored users in the environment, 
+then the user can be used to obtain persistence in the AWS environment.
+"""
+false_positives = [
+    """
+	Unknown
+    """,
+]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS IAM Backdoor User Key Creation"
+note = "The AWS Filebeat module must be enabled to use this rule."
+references = [
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateAccessKey.html",
+]
+risk_score = 21
+rule_id = "758dca01-0a25-408f-810f-7244eab892e2"
+severity = "low"
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Identity and Access"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.action:CreateAccessKey and
+(NOT (aws.cloudtrail.user_identity.arn.keyword:*responseElements.accessKey.userName*))
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation	"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
