@@ -1,0 +1,56 @@
+[metadata]
+creation_date = "2021/04/22"
+maturity = "production"
+updated_date = "2021/04/22"
+
+[rule]
+author = ["Elastic", "Austin Songer"]
+description = """
+An attempt to export an AWS EC2 instance has been detected and a VM Export might indicate an attempt to extract information from an instance.
+"""
+
+from = "now-60m"
+index = ["filebeat-*", "logs-aws*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EC2 VM Export Failure"
+note = "The AWS Filebeat module must be enabled to use this rule."
+references = [
+    "https://docs.aws.amazon.com/vm-import/latest/userguide/vmexport.html#export-instance",
+]
+risk_score = 21
+rule_id = "4ad8a9c3-2e15-4854-a3df-9cd095fd57f6"
+severity = "low"
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Asset Visibility"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and event.action:CreateInstanceExportTask and event.provider:ec2.amazonaws.com and event.outcome:failure
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1537"
+name = "Transfer Data to Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1537/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1005"
+name = "Data from Local System"
+reference = "https://attack.mitre.org/techniques/T1005/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
