@@ -174,6 +174,9 @@ def get_beats_sub_schema(schema: dict, beat: str, module: str, *datasets: str):
         dataset_dir = module_dir.get("folders", {}).get(dataset, {})
         flattened.extend(get_field_schema(dataset_dir, prefix=module + ".", include_common=True))
 
+    # we also need to capture (beta?) fields which are directly within the module _meta.files.fields
+    flattened.extend(get_field_schema(module_dir, include_common=True))
+
     return {field["name"]: field for field in sorted(flattened, key=lambda f: f["name"])}
 
 
