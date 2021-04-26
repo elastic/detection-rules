@@ -73,7 +73,7 @@ def multi_collection(f):
 
         rules = RuleCollection()
 
-        if not rule_name or rule_id or rule_files:
+        if not (rule_name or rule_id or rule_files):
             client_error('Required: at least one of --rule-id, --rule-file, or --directory')
 
         rules.load_files(Path(p) for p in rule_files)
