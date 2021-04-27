@@ -258,7 +258,7 @@ add mitre tactic? [y/N]:
 1. You will receive this output when successful:
 
 ```
-Rule saved to /PATH/TO/detection-rules/RULE.toml
+Rule saved to <path>.toml
 Did not set the following values because they are un-required when set to the default value
  - from
  - interval
@@ -341,6 +341,6 @@ We recognize that Git commit messages are a history of all changes to the reposi
 The exception to this rule is backport PRs. We want to maintain that commit history, because the commits within a release branch have already been squashed. If we were to squash again to a single commit, we would just see a commit "Backport changes from `{majorVersion.minorVersion}`" show up in main. This would obscure the changes. For backport pull requests, we will either "Create a Merge Commit" or "Rebase and Merge." For more information, see [Branching](#branching) for our branching strategy.
 
 
-## Signing the contributor license agreement
+### Signing the contributor license agreement
 
 Please make sure you've signed the [Contributor License Agreement](http://www.elastic.co/contributor-agreement/). We're not asking you to assign copyright to us, but to give us the right to distribute your code without restriction. We ask this of all contributors in order to assure our users of the origin and continuing existence of the code. You only need to sign the CLA once.
