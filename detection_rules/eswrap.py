@@ -1,13 +1,14 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """Elasticsearch cli commands."""
 import json
 import os
 import time
-from contextlib import contextmanager
 from collections import defaultdict
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Union
 
@@ -19,9 +20,9 @@ from elasticsearch.client import AsyncSearchClient, IngestClient, LicenseClient,
 import kql
 from .main import root
 from .misc import add_params, client_error, elasticsearch_options
+from .rule import TOMLRule
+from .rule_loader import rta_mappings, RuleCollection
 from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
-from .rule import Rule
-from .rule_loader import get_rule, rta_mappings
 
 COLLECTION_DIR = get_path('collections')
 MATCH_ALL = {'bool': {'filter': [{'match_all': {}}]}}
@@ -86,7 +87,8 @@ class RtaEvents(object):
         """Evaluate a rule against collected events and update mapping."""
         from .utils import combine_sources, evaluate
 
-        rule = get_rule(rule_id, verbose=False)
+        rule = next((rule for rule in RuleCollection.default() if rule.id == rule_id), None)
+        assert rule is not None, f"Unable to find rule with ID {rule_id}"
         merged_events = combine_sources(*self.events.values())
         filtered = evaluate(rule, merged_events)
 
@@ -193,7 +195,7 @@ class CollectEvents(object):
 
         return results
 
-    def search_from_rule(self, *rules: Rule, start_time=None, end_time='now', size=None):
+    def search_from_rule(self, *rules: TOMLRule, start_time=None, end_time='now', size=None):
         """Search an elasticsearch instance using a rule."""
         from .misc import nested_get
 
@@ -366,7 +368,7 @@ def es_group(ctx: click.Context, **kwargs):
 @click.pass_context
 def collect_events(ctx, host_id, query, index, rta_name, rule_id, view_events):
     """Collect events from Elasticsearch."""
-    client = ctx.obj['es']
+    client: Elasticsearch = ctx.obj['es']
     dsl = kql.to_dsl(query) if query else MATCH_ALL
     dsl['bool'].setdefault('filter', []).append({'bool': {'should': [{'match_phrase': {'host.id': host_id}}]}})
 
@@ -388,6 +390,32 @@ def collect_events(ctx, host_id, query, index, rta_name, rule_id, view_events):
     except AssertionError as e:
         error_msg = 'No events collected! Verify events are streaming and that the agent-hostname is correct'
         client_error(error_msg, e, ctx=ctx)
+
+
+@es_group.command('index-rules')
+@click.option('--query', '-q', help='Optional KQL query to limit to specific rules')
+@click.option('--from-file', '-f', type=click.File('r'), help='Load a previously saved uploadable bulk file')
+@click.option('--save_files', '-s', is_flag=True, help='Optionally save the bulk request to a file')
+@click.pass_context
+def index_repo(ctx: click.Context, query, from_file, save_files):
+    """Index rules based on KQL search results to an elasticsearch instance."""
+    from .main import generate_rules_index
+
+    es_client: Elasticsearch = ctx.obj['es']
+
+    if from_file:
+        bulk_upload_docs = from_file.read()
+
+        # light validation only
+        try:
+            index_body = [json.loads(line) for line in bulk_upload_docs.splitlines()]
+            click.echo(f'{len([r for r in index_body if "rule" in r])} rules included')
+        except json.JSONDecodeError:
+            client_error(f'Improperly formatted bulk request file: {from_file.name}')
+    else:
+        bulk_upload_docs, importable_rules_docs = ctx.invoke(generate_rules_index, query=query, save_files=save_files)
+
+    es_client.bulk(bulk_upload_docs)
 
 
 @es_group.group('experimental')
@@ -636,8 +664,9 @@ def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
 
     click.echo('Ensure that you have updated your packetbeat.yml config file.')
     click.echo('    - reference: ML_DGA.md #2-update-packetbeat-configuration')
-    click.echo('To upload rules, run: kibana upload-rule <dga-rule-files>')
-    click.echo('To upload ML jobs, run: es experimental upload-ml-job <dga-job-files>')
+    click.echo('Associated rules and jobs can be found under ML-experimental-detections releases in the repo')
+    click.echo('To upload rules, run: kibana upload-rule <ml-rule.toml>')
+    click.echo('To upload ML jobs, run: es experimental upload-ml-job <ml-job.json>')
 
 
 @es_experimental.command('upload-ml-job')

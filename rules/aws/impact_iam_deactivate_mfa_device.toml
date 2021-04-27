@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/05/26"
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2021/04/20"
 
 [rule]
-author = ["Elastic"]
+author = ["Elastic", "Austin Songer"]
 description = """
 Identifies the deactivation of a specified multi-factor authentication (MFA) device and removes it from association with
 the user name for which it was originally enabled. In AWS Identity and Access Management (IAM), a device must be
@@ -21,7 +21,7 @@ from = "now-60m"
 index = ["filebeat-*", "logs-aws*"]
 interval = "10m"
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "AWS IAM Deactivation of MFA Device"
 note = "The AWS Filebeat module must be enabled to use this rule."
 references = [
@@ -32,10 +32,11 @@ risk_score = 47
 rule_id = "d8fc1cca-93ed-43c1-bbb6-c0dd3eff2958"
 severity = "medium"
 tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Monitoring"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.action:DeactivateMFADevice and event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.outcome:success
+event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.action:(DeactivateMFADevice or DeleteVirtualMFADevice) and event.outcome:success
 '''
 
 
@@ -51,4 +52,3 @@ reference = "https://attack.mitre.org/techniques/T1531/"
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
-

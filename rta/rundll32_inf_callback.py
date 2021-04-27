@@ -1,9 +1,12 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 # Name: RunDll32 with .inf Callback
 # RTA: rundll32_inf_callback.py
+# signal.rule.name: Local Service Commands
+# signal.rule.name: Potential Modification of Accessibility Binaries
 # ATT&CK: T1105
 # Description: Loads RunDll32 with a suspicious .inf file that makes a local http GET
 

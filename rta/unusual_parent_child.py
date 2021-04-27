@@ -1,9 +1,11 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 # Name: Invalid Process Trees in Windows
 # RTA: unusual_parent_child.py
+# signal.rule.name: Unusual Parent-Child Relationship
 # ATT&CK: T1093
 # Description: Runs several Windows core processes directly, instead of from the proper parent in Windows.
 

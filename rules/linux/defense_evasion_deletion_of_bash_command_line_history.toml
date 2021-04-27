@@ -1,37 +1,49 @@
 [metadata]
 creation_date = "2020/05/04"
 maturity = "production"
-updated_date = "2020/11/03"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-Adversaries may attempt to clear the bash command line history in an attempt to evade detection or forensic
+Adversaries may attempt to clear or disable the Bash command-line history in an attempt to evade detection or forensic
 investigations.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "lucene"
-license = "Elastic License"
-name = "Deletion of Bash Command Line History"
+language = "eql"
+license = "Elastic License v2"
+name = "Tampering of Bash Command-Line History"
 risk_score = 47
 rule_id = "7bcbb3ac-e533-41ad-a612-d6c3bf666aba"
 severity = "medium"
 tags = ["Elastic", "Host", "Linux", "Threat Detection", "Defense Evasion"]
-type = "query"
+timestamp_override = "event.ingested"
+type = "eql"
 
 query = '''
-event.category:process AND event.type:(start or process_started) AND process.name:rm AND
-  process.args:/\/(home\/.{1,255}|root)\/\.bash_history/
+process where event.type in ("start", "process_started") and
+ (
+  (process.args : ("rm", "echo") and process.args : (".bash_history", "/root/.bash_history", "/home/*/.bash_history")) or
+  (process.name : "history" and process.args : "-c") or
+  (process.args : "export" and process.args : ("HISTFILE=/dev/null", "HISTFILESIZE=0")) or
+  (process.args : "unset" and process.args : "HISTFILE") or
+  (process.args : "set" and process.args : "history" and process.args : "+o")
+ )
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1146"
+id = "T1070"
+name = "Indicator Removal on Host"
+reference = "https://attack.mitre.org/techniques/T1070/"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.003"
 name = "Clear Command History"
-reference = "https://attack.mitre.org/techniques/T1146/"
+reference = "https://attack.mitre.org/techniques/T1070/003/"
+
 
 
 [rule.threat.tactic]

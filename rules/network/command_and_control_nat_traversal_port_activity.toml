@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2020/11/03"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -19,14 +19,16 @@ false_positives = [
     port in the range by coincidence. This is uncommon but such servers can be excluded.
     """,
 ]
+from = "now-9m"
 index = ["filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "IPSEC NAT Traversal Port Activity"
 risk_score = 21
 rule_id = "a9cb3641-ff4b-4cdc-a063-b4b8d02a67c7"
 severity = "low"
 tags = ["Elastic", "Host", "Network", "Threat Detection", "Command and Control"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
@@ -36,11 +38,6 @@ event.category:(network or network_traffic) and network.transport:udp and destin
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1043"
-name = "Commonly Used Port"
-reference = "https://attack.mitre.org/techniques/T1043/"
-
 
 [rule.threat.tactic]
 id = "TA0011"

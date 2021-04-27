@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """Misc support."""
 import hashlib
@@ -17,7 +18,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, NoReturn, Tuple
 from zipfile import ZipFile
 
 import click
@@ -42,8 +43,9 @@ _CONFIG = {}
 
 LICENSE_HEADER = """
 Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-or more contributor license agreements. Licensed under the Elastic License;
-you may not use this file except in compliance with the Elastic License.
+or more contributor license agreements. Licensed under the Elastic License
+2.0; you may not use this file except in compliance with the Elastic License
+2.0.
 """.strip()
 
 LICENSE_LINES = LICENSE_HEADER.splitlines()
@@ -359,7 +361,8 @@ class ClientError(click.ClickException):
         click.echo(msg, err=err, file=file)
 
 
-def client_error(message, exc: Exception = None, debug=None, ctx: click.Context = None, file=None, err=None):
+def client_error(message, exc: Exception = None, debug=None, ctx: click.Context = None, file=None,
+                 err=None) -> NoReturn:
     config_debug = True if ctx and ctx.ensure_object(dict) and ctx.obj.get('debug') is True else False
     debug = debug if debug is not None else config_debug
 
@@ -479,7 +482,10 @@ def schema_prompt(name, value=None, required=False, **options):
                         break
                     else:
                         return []
-            return [_convert_type(r) for r in result_list]
+            if required and value is None:
+                continue
+            else:
+                return [_convert_type(r) for r in result_list]
         else:
             if _check_type(result):
                 return _convert_type(result)
@@ -489,32 +495,32 @@ def schema_prompt(name, value=None, required=False, **options):
             return
 
 
-def get_kibana_rules_map(branch='master'):
+def get_kibana_rules_map(repo='elastic/kibana', branch='master'):
     """Get list of available rules from the Kibana repo and return a list of URLs."""
     # ensure branch exists
-    r = requests.get(f'https://api.github.com/repos/elastic/kibana/branches/{branch}')
+    r = requests.get(f'https://api.github.com/repos/{repo}/branches/{branch}')
     r.raise_for_status()
 
-    url = ('https://api.github.com/repos/elastic/kibana/contents/x-pack/{legacy}plugins/{app}/server/lib/'
+    url = ('https://api.github.com/repos/{repo}/contents/x-pack/{legacy}plugins/{app}/server/lib/'
            'detection_engine/rules/prepackaged_rules?ref={branch}')
 
-    gh_rules = requests.get(url.format(legacy='', app='security_solution', branch=branch)).json()
+    gh_rules = requests.get(url.format(legacy='', app='security_solution', branch=branch, repo=repo)).json()
 
     # pre-7.9 app was siem
     if isinstance(gh_rules, dict) and gh_rules.get('message', '') == 'Not Found':
-        gh_rules = requests.get(url.format(legacy='', app='siem', branch=branch)).json()
+        gh_rules = requests.get(url.format(legacy='', app='siem', branch=branch, repo=repo)).json()
 
     # pre-7.8 the siem was under the legacy directory
     if isinstance(gh_rules, dict) and gh_rules.get('message', '') == 'Not Found':
-        gh_rules = requests.get(url.format(legacy='legacy/', app='siem', branch=branch)).json()
+        gh_rules = requests.get(url.format(legacy='legacy/', app='siem', branch=branch, repo=repo)).json()
 
     if isinstance(gh_rules, dict) and gh_rules.get('message', '') == 'Not Found':
-        raise ValueError(f'rules directory does not exist for branch: {branch}')
+        raise ValueError(f'rules directory does not exist for {repo} branch: {branch}')
 
     return {os.path.splitext(r['name'])[0]: r['download_url'] for r in gh_rules if r['name'].endswith('.json')}
 
 
-def get_kibana_rules(*rule_paths, branch='master', verbose=True, threads=50):
+def get_kibana_rules(*rule_paths, repo='elastic/kibana', branch='master', verbose=True, threads=50):
     """Retrieve prepackaged rules from kibana repo."""
     from multiprocessing.pool import ThreadPool
 
@@ -522,11 +528,11 @@ def get_kibana_rules(*rule_paths, branch='master', verbose=True, threads=50):
 
     if verbose:
         thread_use = f' using {threads} threads' if threads > 1 else ''
-        click.echo(f'Downloading rules from {branch} branch in kibana repo{thread_use} ...')
+        click.echo(f'Downloading rules from {repo} {branch} branch in kibana repo{thread_use} ...')
 
     rule_paths = [os.path.splitext(os.path.basename(p))[0] for p in rule_paths]
-    rules_mapping = [(n, u) for n, u in get_kibana_rules_map(branch).items() if n in rule_paths] if rule_paths else \
-        get_kibana_rules_map(branch).items()
+    rules_mapping = [(n, u) for n, u in get_kibana_rules_map(repo=repo, branch=branch).items() if n in rule_paths] \
+        if rule_paths else get_kibana_rules_map(repo=repo, branch=branch).items()
 
     def download_worker(rule_info):
         n, u = rule_info
@@ -564,15 +570,17 @@ def getdefault(name):
 
 client_options = {
     'kibana': {
-        'kibana_url': click.Option(['--kibana-url'], default=getdefault('kibana_url')),
         'cloud_id': click.Option(['--cloud-id'], default=getdefault('cloud_id')),
-        'kibana_user': click.Option(['--kibana-user', '-ku'], default=getdefault('kibana_user')),
+        'kibana_cookie': click.Option(['--kibana-cookie', '-kc'], default=getdefault('kibana_cookie'),
+                                      help='Cookie from an authed session'),
         'kibana_password': click.Option(['--kibana-password', '-kp'], default=getdefault('kibana_password')),
+        'kibana_url': click.Option(['--kibana-url'], default=getdefault('kibana_url')),
+        'kibana_user': click.Option(['--kibana-user', '-ku'], default=getdefault('kibana_user')),
         'space': click.Option(['--space'], default=None, help='Kibana space')
     },
     'elasticsearch': {
-        'elasticsearch_url': click.Option(['--elasticsearch-url'], default=getdefault("elasticsearch_url")),
         'cloud_id': click.Option(['--cloud-id'], default=getdefault("cloud_id")),
+        'elasticsearch_url': click.Option(['--elasticsearch-url'], default=getdefault("elasticsearch_url")),
         'es_user': click.Option(['--es-user', '-eu'], default=getdefault("es_user")),
         'es_password': click.Option(['--es-password', '-ep'], default=getdefault("es_password")),
         'timeout': click.Option(['--timeout', '-et'], default=60, help='Timeout for elasticsearch client')

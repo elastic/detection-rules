@@ -1,16 +1,17 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 import copy
 import json
 import os
-import pytoml
 import unittest
-from detection_rules.utils import get_etc_path
-from detection_rules import rule_loader
-from detection_rules.rule_formatter import nested_normalize, toml_write
 
+import pytoml
+
+from detection_rules.rule_formatter import nested_normalize, toml_write
+from detection_rules.utils import get_etc_path
 
 tmp_file = 'tmp_file.toml'
 
@@ -66,12 +67,12 @@ class TestRuleTomlFormatter(unittest.TestCase):
     def test_formatter_deep(self):
         """Test that the data remains unchanged from formatting."""
         self.compare_test_data(self.test_data[1:])
-
-    def test_format_of_all_rules(self):
-        """Test all rules."""
-        rules = rule_loader.load_rules().values()
-
-        for rule in rules:
-            is_eql_rule = rule.type == 'eql'
-            self.compare_formatted(
-                rule.rule_format(formatted_query=False), callback=nested_normalize, kwargs={'eql_rule': is_eql_rule})
+    #
+    # def test_format_of_all_rules(self):
+    #     """Test all rules."""
+    #     rules = rule_loader.load_rules().values()
+    #
+    #     for rule in rules:
+    #         is_eql_rule = isinstance(rule.contents.data, EQLRuleData)
+    #         self.compare_formatted(
+    #             rule.rule_format(formatted_query=False), callback=nested_normalize, kwargs={'eql_rule': is_eql_rule})

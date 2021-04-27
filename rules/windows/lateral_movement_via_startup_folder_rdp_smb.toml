@@ -1,24 +1,25 @@
 [metadata]
 creation_date = "2020/10/19"
 maturity = "production"
-updated_date = "2020/10/19"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies suspicious file creations in the startup folder of a remote system. An adversary could abuse this
-to move laterally by dropping a malicious script or executable that will be executed after a reboot or user logon.
+Identifies suspicious file creations in the startup folder of a remote system. An adversary could abuse this to move
+laterally by dropping a malicious script or executable that will be executed after a reboot or user logon.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Lateral Movement via Startup Folder"
 references = ["https://www.mdsec.co.uk/2017/06/rdpinception/"]
 risk_score = 73
 rule_id = "25224a80-5a4a-4b8a-991e-6ab390465c4f"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
@@ -44,12 +45,18 @@ reference = "https://attack.mitre.org/tactics/TA0008/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1060"
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+[[rule.threat.technique.subtechnique]]
+id = "T1547.001"
 name = "Registry Run Keys / Startup Folder"
-reference = "https://attack.mitre.org/techniques/T1060/"
+reference = "https://attack.mitre.org/techniques/T1547/001/"
+
 
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+

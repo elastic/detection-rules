@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """Wrapper around requests.Session for HTTP requests to Kibana."""
 import json
@@ -27,7 +28,7 @@ class Kibana(object):
         self.session.verify = verify
 
         self.cloud_id = cloud_id
-        self.kibana_url = kibana_url
+        self.kibana_url = kibana_url.rstrip('/') if kibana_url else None
         self.elastic_url = None
         self.space = space if space and space.lower() != 'default' else None
         self.status = None
@@ -37,7 +38,12 @@ class Kibana(object):
             self.domain, self.es_uuid, self.kibana_uuid = \
                 base64.b64decode(cloud_info.encode("utf-8")).decode("utf-8").split("$")
 
-            self.kibana_url = f"https://{self.kibana_uuid}.{self.domain}:9243"
+            kibana_url_from_cloud = f"https://{self.kibana_uuid}.{self.domain}:9243"
+            if self.kibana_url and self.kibana_url != kibana_url_from_cloud:
+                raise ValueError(f'kibana_url provided ({self.kibana_url}) does not match url derived from cloud_id '
+                                 f'{kibana_url_from_cloud}')
+            self.kibana_url = kibana_url_from_cloud
+
             self.elastic_url = f"https://{self.es_uuid}.{self.domain}:9243"
 
         self.session.headers.update({'Content-Type': "application/json", "kbn-xsrf": str(uuid.uuid4())})
@@ -62,7 +68,7 @@ class Kibana(object):
             uri = "s/{}/{}".format(self.space, uri)
         return f"{self.kibana_url}/{uri}"
 
-    def request(self, method, uri, params=None, data=None, error=True, verbose=True, raw=False):
+    def request(self, method, uri, params=None, data=None, error=True, verbose=True, raw=False, **kwargs):
         """Perform a RESTful HTTP request with JSON responses."""
         params = params or {}
         url = self.url(uri)
@@ -71,7 +77,7 @@ class Kibana(object):
         if data is not None:
             body = json.dumps(data)
 
-        response = self.session.request(method, url, params=params, data=body)
+        response = self.session.request(method, url, params=params, data=body, **kwargs)
         if error:
             try:
                 response.raise_for_status()
@@ -135,6 +141,13 @@ class Kibana(object):
         # make chaining easier
         return self
 
+    def add_cookie(self, cookie):
+        """Add cookie to be used for auth (such as from an SSO session)."""
+        # the request to /api/status will also add the cookie to the cookie jar upon a successful response
+        self.session.headers['cookie'] = cookie
+        self.status = self.get('/api/status')
+        self.authenticated = True
+
     def logout(self):
         """Quit the current session."""
         try:
@@ -179,3 +192,8 @@ class Kibana(object):
         space_names = [s['name'] for s in spaces]
         if space not in space_names:
             raise ValueError(f'Unknown Kibana space: {space}')
+
+    def current_user(self):
+        """Retrieve info for currently authenticated user."""
+        if self.authenticated:
+            return self.get('/internal/security/me')

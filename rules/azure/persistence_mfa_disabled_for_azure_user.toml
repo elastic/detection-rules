@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/08/20"
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -10,19 +10,20 @@ Identifies when multi-factor authentication (MFA) is disabled for an Azure user 
 for a user account in order to weaken the authentication requirements for the account.
 """
 from = "now-25m"
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Multi-Factor Authentication Disabled for an Azure User"
 note = "The Azure Filebeat module must be enabled to use this rule."
 risk_score = 47
 rule_id = "dafa3235-76dc-40e2-9f71-1773b96d24cf"
 severity = "medium"
 tags = ["Elastic", "Cloud", "Azure", "Continuous Monitoring", "SecOps", "Identity and Access"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Disable Strong Authentication" and event.outcome:Success
+event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Disable Strong Authentication" and event.outcome:(Success or success)
 '''
 
 

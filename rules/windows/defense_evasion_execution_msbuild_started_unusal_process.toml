@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/03/25"
 maturity = "production"
-updated_date = "2020/11/03"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -16,15 +16,16 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Microsoft Build Engine Started an Unusual Process"
 references = ["https://blog.talosintelligence.com/2020/02/building-bypass-with-msbuild.html"]
 risk_score = 21
 rule_id = "9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae6"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
@@ -36,9 +37,14 @@ event.category:process and event.type:(start or process_started) and
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1500"
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+[[rule.threat.technique.subtechnique]]
+id = "T1027.004"
 name = "Compile After Delivery"
-reference = "https://attack.mitre.org/techniques/T1500/"
+reference = "https://attack.mitre.org/techniques/T1027/004/"
+
 
 
 [rule.threat.tactic]

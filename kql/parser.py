@@ -1,10 +1,12 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 import contextlib
 import os
 import re
+from typing import Optional, Set
 
 import eql
 from lark import Token  # noqa: F401
@@ -36,6 +38,10 @@ with open(grammar_file, "rt") as f:
 
 lark_parser = Lark(grammar, propagate_positions=True, tree_class=KvTree, start=['query'], parser='lalr')
 
+def wildcard2regex(wc: str) -> re.Pattern:
+    parts = wc.split("*")
+    return re.compile("^{regex}$".format(regex=".*?".join(re.escape(w) for w in parts)))
+
 
 class BaseKqlParser(Interpreter):
     NON_SPACE_WS = re.compile(r"[^\S ]+")
@@ -55,7 +61,13 @@ class BaseKqlParser(Interpreter):
         self.text = text
         self.lines = [t.rstrip("\r\n") for t in self.text.splitlines(True)]
         self.scoped_field = None
-        self.schema = schema
+        self.mapping_schema = schema
+        self.star_fields = []
+
+        if schema:
+            for field, field_type in schema.items():
+                if "*" in field:
+                    self.star_fields.append(wildcard2regex(field))
 
     def assert_lower_token(self, *tokens):
         for token in tokens:
@@ -63,7 +75,7 @@ class BaseKqlParser(Interpreter):
                 raise self.error(token, "Expected '{lower}' but got '{token}'".format(token=token, lower=str(token).lower()))
 
     def error(self, node, message, end=False, cls=KqlParseError, width=None, **kwargs):
-        """Generate."""
+        """Generate an error exception but dont raise it."""
         if kwargs:
             message = message.format(**kwargs)
 
@@ -106,11 +118,31 @@ class BaseKqlParser(Interpreter):
         self.scoped_field = None
 
     def get_field_type(self, dotted_path, lark_tree=None):
-        if self.schema is not None:
-            if lark_tree is not None and dotted_path not in self.schema:
+        matches_pattern = any(regex.match(dotted_path) for regex in self.star_fields)
+
+        if self.mapping_schema is not None:
+            if lark_tree is not None and dotted_path not in self.mapping_schema and not matches_pattern:
                 raise self.error(lark_tree, "Unknown field")
 
-            return self.schema[dotted_path]
+            return self.mapping_schema.get(dotted_path)
+
+    def get_field_types(self, wildcard_dotted_path, lark_tree=None) -> Optional[Set[str]]:
+        if "*" not in wildcard_dotted_path:
+            field_type = self.get_field_type(wildcard_dotted_path, lark_tree=lark_tree)
+            return {field_type} if field_type is not None else None
+
+        if self.mapping_schema is not None:
+            regex = wildcard2regex(wildcard_dotted_path)
+            field_types = set()
+
+            for field, field_type in self.mapping_schema.items():
+                if regex.fullmatch(field) is not None:
+                    field_types.add(field_type)
+
+            if len(field_types) == 0:
+                raise self.error(lark_tree, "Unknown field")
+
+            return field_types
 
     @staticmethod
     def get_literal_type(literal_value):
@@ -129,8 +161,16 @@ class BaseKqlParser(Interpreter):
             raise NotImplementedError("Unknown literal type: {}".format(type(literal_value).__name__))
 
     def convert_value(self, field_name, python_value, value_tree):
-        field_type = self.get_field_type(field_name)
+        field_type = None
+        field_types = self.get_field_types(field_name)
         value_type = self.get_literal_type(python_value)
+
+        if field_types is not None:
+            if len(field_types) == 1:
+                field_type = list(field_types)[0]
+            elif len(field_types) > 1:
+                raise self.error(value_tree,
+                                 f"{field_name} has multiple types {', '.join(field_types)}")
 
         if field_type is not None and field_type != value_type:
             if field_type in STRING_FIELDS:
@@ -192,17 +232,17 @@ class KqlParser(BaseKqlParser):
 
     @contextlib.contextmanager
     def nest(self, lark_tree):
-        schema = self.schema
+        schema = self.mapping_schema
         dotted_path = self.visit(lark_tree)
 
         if self.get_field_type(dotted_path, lark_tree) != "nested":
             raise self.error(lark_tree, "Expected a nested field")
 
         try:
-            self.schema = self.schema[dotted_path]
+            self.mapping_schema = self.mapping_schema[dotted_path]
             yield
         finally:
-            self.schema = schema
+            self.mapping_schema = schema
 
     def nested_query(self, tree):
         # field_tree, query_tree = tree.child_trees
@@ -217,7 +257,7 @@ class KqlParser(BaseKqlParser):
 
         with self.scope(self.visit(field_tree)) as field:
             # check the field against the schema
-            self.get_field_type(field.name, field_tree)
+            self.get_field_types(field.name, field_tree)
             return FieldComparison(field, self.visit(expr))
 
     def field_range_expression(self, tree):

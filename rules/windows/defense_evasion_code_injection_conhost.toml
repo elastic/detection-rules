@@ -1,15 +1,15 @@
 [metadata]
 creation_date = "2020/08/31"
 maturity = "production"
-updated_date = "2020/11/03"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
 description = "Identifies a suspicious Conhost child process which may be an indication of code injection activity."
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Suspicious Process from Conhost"
 references = [
     "https://modexp.wordpress.com/2018/09/12/process-injection-user-data/",
@@ -19,11 +19,13 @@ risk_score = 73
 rule_id = "28896382-7d4f-4d50-9b72-67091901fd26"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
 event.category:process and event.type:(start or process_started) and
-  process.parent.name:conhost.exe
+  process.parent.name:conhost.exe and
+  not process.executable:("C:\Windows\splwow64.exe" or "C:\Windows\System32\WerFault.exe" or "C:\\Windows\System32\conhost.exe")
 '''
 
 

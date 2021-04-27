@@ -1,24 +1,29 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """CLI commands for detection_rules."""
+import dataclasses
 import glob
 import json
 import os
 import re
+import time
+from pathlib import Path
+from typing import Dict
+from uuid import uuid4
 
 import click
-import jsonschema
-import pytoml
 
 from . import rule_loader
-from .misc import client_error, nested_set, parse_config
-from .rule import Rule
+from .cli_utils import rule_prompt, multi_collection
+from .misc import nested_set, parse_config
+from .rule import TOMLRule
 from .rule_formatter import toml_write
-from .schemas import CurrentSchema
+from .rule_loader import RuleCollection
+from .schemas import CurrentSchema, available_versions
 from .utils import get_path, clear_caches, load_rule_contents
-
 
 RULES_DIR = get_path('rules')
 
@@ -44,18 +49,51 @@ def create_rule(path, config, required_only, rule_type):
     """Create a detection rule."""
     contents = load_rule_contents(config, single_only=True)[0] if config else {}
     try:
-        return Rule.build(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
+        return rule_prompt(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
     finally:
         rule_loader.reset()
 
 
+@root.command('generate-rules-index')
+@click.option('--query', '-q', help='Optional KQL query to limit to specific rules')
+@click.option('--overwrite', is_flag=True, help='Overwrite files in an existing folder')
+@click.pass_context
+def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
+    """Generate enriched indexes of rules, based on a KQL search, for indexing/importing into elasticsearch/kibana."""
+    from .packaging import load_current_package_version, Package
+
+    if query:
+        rule_paths = [r['file'] for r in ctx.invoke(search_rules, query=query, verbose=False)]
+        rules = RuleCollection()
+        rules.load_files(Path(p) for p in rule_paths)
+    else:
+        rules = RuleCollection.default()
+
+    rule_count = len(rules)
+    package = Package(rules, load_current_package_version(), verbose=False)
+    package_hash = package.get_package_hash()
+    bulk_upload_docs, importable_rules_docs = package.create_bulk_index_body()
+
+    if save_files:
+        path = Path(get_path('enriched-rule-indexes', package_hash))
+        path.mkdir(parents=True, exist_ok=overwrite)
+        bulk_upload_docs.dump(path.joinpath('enriched-rules-index-uploadable.ndjson'), sort_keys=True)
+        importable_rules_docs.dump(path.joinpath('enriched-rules-index-importable.ndjson'), sort_keys=True)
+
+        click.echo(f'files saved to: {path}')
+
+    click.echo(f'{rule_count} rules included')
+
+    return bulk_upload_docs, importable_rules_docs
+
+
 @root.command('import-rules')
-@click.argument('infile', type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
+@click.argument('input-file', type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
 @click.option('--directory', '-d', type=click.Path(file_okay=False, exists=True), help='Load files from a directory')
-def import_rules(infile, directory):
+def import_rules(input_file, directory):
     """Import rules from json, toml, or Kibana exported rule file(s)."""
     rule_files = glob.glob(os.path.join(directory, '**', '*.*'), recursive=True) if directory else []
-    rule_files = sorted(set(rule_files + list(infile)))
+    rule_files = sorted(set(rule_files + list(input_file)))
 
     rule_contents = []
     for rule_file in rule_files:
@@ -71,33 +109,25 @@ def import_rules(infile, directory):
         base_path = contents.get('name') or contents.get('rule', {}).get('name')
         base_path = name_to_filename(base_path) if base_path else base_path
         rule_path = os.path.join(RULES_DIR, base_path) if base_path else None
-        Rule.build(rule_path, required_only=True, save=True, verbose=True, **contents)
+        rule_prompt(rule_path, required_only=True, save=True, verbose=True, **contents)
 
 
 @root.command('toml-lint')
-@click.option('--rule-file', '-f', type=click.File('r'), help='Optionally specify a specific rule file only')
+@click.option('--rule-file', '-f', type=click.Path(), multiple=True,
+              help='Optionally specify rule files')
 def toml_lint(rule_file):
     """Cleanup files with some simple toml formatting."""
     if rule_file:
-        contents = pytoml.load(rule_file)
-        rule = Rule(path=rule_file.name, contents=contents)
-
-        # removed unneeded defaults
-        for field in rule_loader.find_unneeded_defaults(rule):
-            rule.contents.pop(field, None)
-
-        rule.save(as_rule=True)
+        rules = RuleCollection()
+        rules.load_files(Path(p) for p in rule_file)
     else:
-        for rule in rule_loader.load_rules().values():
+        rules = RuleCollection.default()
 
-            # removed unneeded defaults
-            for field in rule_loader.find_unneeded_defaults(rule):
-                rule.contents.pop(field, None)
+    # re-save the rules to force TOML reformatting
+    for rule in rules:
+        rule.save_toml()
 
-            rule.save(as_rule=True)
-
-    rule_loader.reset()
-    click.echo('Toml file linting complete')
+    click.echo('TOML file linting complete')
 
 
 @root.command('mass-update')
@@ -111,8 +141,10 @@ def toml_lint(rule_file):
 @click.pass_context
 def mass_update(ctx, query, metadata, language, field):
     """Update multiple rules based on eql results."""
+    rules = RuleCollection().default()
     results = ctx.invoke(search_rules, query=query, language=language, verbose=False)
-    rules = [rule_loader.get_rule(r['rule_id'], verbose=False) for r in results]
+    matching_ids = set(r["rule_id"] for r in results)
+    rules = rules.filter(lambda r: r.id in matching_ids)
 
     for rule in rules:
         for key, value in field:
@@ -126,59 +158,66 @@ def mass_update(ctx, query, metadata, language, field):
 
 
 @root.command('view-rule')
-@click.argument('rule-id', required=False)
-@click.option('--rule-file', '-f', type=click.Path(dir_okay=False), help='Optionally view a rule from a specified file')
+@click.argument('rule-file')
 @click.option('--api-format/--rule-format', default=True, help='Print the rule in final api or rule format')
 @click.pass_context
-def view_rule(ctx, rule_id, rule_file, api_format):
+def view_rule(ctx, rule_file, api_format):
     """View an internal rule or specified rule file."""
-    rule = None
+    rule = RuleCollection().load_file(rule_file)
 
-    if rule_id:
-        rule = rule_loader.get_rule(rule_id, verbose=False)
-    elif rule_file:
-        contents = {k: v for k, v in load_rule_contents(rule_file, single_only=True)[0].items() if v}
-
-        try:
-            rule = Rule(rule_file, contents)
-        except jsonschema.ValidationError as e:
-            client_error(f'Rule: {rule_id or os.path.basename(rule_file)} failed validation', e, ctx=ctx)
+    if api_format:
+        click.echo(json.dumps(rule.contents.to_api_format(), indent=2, sort_keys=True))
     else:
-        client_error('Unknown rule!')
+        click.echo(toml_write(rule.contents.to_dict()))
 
-    if not rule:
-        client_error('Unknown format!')
 
-    click.echo(toml_write(rule.rule_format()) if not api_format else
-               json.dumps(rule.contents, indent=2, sort_keys=True))
+@root.command('export-rules')
+@multi_collection
+@click.option('--outfile', '-o', default=get_path('exports', f'{time.strftime("%Y%m%dT%H%M%SL")}.ndjson'),
+              type=click.Path(dir_okay=False), help='Name of file for exported rules')
+@click.option('--replace-id', '-r', is_flag=True, help='Replace rule IDs with new IDs before export')
+@click.option('--stack-version', type=click.Choice(available_versions),
+              help='Downgrade a rule version to be compatible with older instances of Kibana')
+@click.option('--skip-unsupported', '-s', is_flag=True,
+              help='If `--stack-version` is passed, skip rule types which are unsupported '
+                   '(an error will be raised otherwise)')
+def export_rules(rules, outfile, replace_id, stack_version, skip_unsupported):
+    """Export rule(s) into an importable ndjson file."""
+    from .packaging import Package
 
-    return rule
+    assert len(rules) > 0, "No rules found"
+
+    if replace_id:
+        # if we need to replace the id, take each rule object and create a copy
+        # of it, with only the rule_id field changed
+        old_rules = rules
+        rules = RuleCollection()
+
+        for rule in old_rules:
+            new_data = dataclasses.replace(rule.contents.data, rule_id=str(uuid4()))
+            new_contents = dataclasses.replace(rule.contents, data=new_data)
+            rules.add_rule(TOMLRule(contents=new_contents))
+
+    Path(outfile).parent.mkdir(exist_ok=True)
+    package = Package(rules, '_', verbose=False)
+    package.export(outfile, downgrade_version=stack_version, skip_unsupported=skip_unsupported)
+    return package.rules
 
 
 @root.command('validate-rule')
-@click.argument('rule-id', required=False)
-@click.option('--rule-name', '-n')
-@click.option('--path', '-p', type=click.Path(dir_okay=False))
+@click.argument('path')
 @click.pass_context
-def validate_rule(ctx, rule_id, rule_name, path):
+def validate_rule(ctx, path):
     """Check if a rule staged in rules dir validates against a schema."""
-    try:
-        rule = rule_loader.get_rule(rule_id, rule_name, path, verbose=False)
-        if not rule:
-            client_error('Rule not found!')
-
-        rule.validate(as_rule=True)
-        click.echo('Rule validation successful')
-        return rule
-    except jsonschema.ValidationError as e:
-        client_error(e.args[0], e, ctx=ctx)
+    rule = RuleCollection().load_file(Path(path))
+    click.echo('Rule validation successful')
+    return rule
 
 
 @root.command('validate-all')
-@click.option('--fail/--no-fail', default=True, help='Fail on first failure or process through all printing errors.')
 def validate_all(fail):
     """Check if all rules validates against a schema."""
-    rule_loader.load_rules(verbose=True, error=fail)
+    RuleCollection.default()
     click.echo('Rule validation successful')
 
 
@@ -186,7 +225,8 @@ def validate_all(fail):
 @click.argument('query', required=False)
 @click.option('--columns', '-c', multiple=True, help='Specify columns to add the table')
 @click.option('--language', type=click.Choice(["eql", "kql"]), default="kql")
-def search_rules(query, columns, language, verbose=True):
+@click.option('--count', is_flag=True, help='Return a count rather than table')
+def search_rules(query, columns, language, count, verbose=True, rules: Dict[str, dict] = None, pager=False):
     """Use KQL or EQL to find matching rules."""
     from kql import get_evaluator
     from eql.table import Table
@@ -195,17 +235,29 @@ def search_rules(query, columns, language, verbose=True):
     from eql.pipes import CountPipe
 
     flattened_rules = []
+    rules = rules or {str(rule.path): rule for rule in RuleCollection.default()}
 
-    for file_name, rule_doc in rule_loader.load_rule_files(verbose=verbose).items():
+    for file_name, rule_doc in rules.items():
         flat = {"file": os.path.relpath(file_name)}
         flat.update(rule_doc)
         flat.update(rule_doc["metadata"])
         flat.update(rule_doc["rule"])
-        attacks = [threat for threat in rule_doc["rule"].get("threat", []) if threat["framework"] == "MITRE ATT&CK"]
-        techniques = [t["id"] for threat in attacks for t in threat.get("technique", [])]
-        tactics = [threat["tactic"]["name"] for threat in attacks]
-        flat.update(techniques=techniques, tactics=tactics,
-                    unique_fields=Rule.get_unique_query_fields(rule_doc['rule']))
+
+        tactic_names = []
+        technique_ids = []
+        subtechnique_ids = []
+
+        for entry in rule_doc['rule'].get('threat', []):
+            if entry["framework"] != "MITRE ATT&CK":
+                continue
+
+            techniques = entry.get('technique', [])
+            tactic_names.append(entry['tactic']['name'])
+            technique_ids.extend([t['id'] for t in techniques])
+            subtechnique_ids.extend([st['id'] for t in techniques for st in t.get('subtechnique', [])])
+
+        flat.update(techniques=technique_ids, tactics=tactic_names, subtechniques=subtechnique_ids,
+                    unique_fields=TOMLRule.get_unique_query_fields(rule_doc['rule']))
         flattened_rules.append(flat)
 
     flattened_rules.sort(key=lambda dct: dct["name"])
@@ -222,6 +274,10 @@ def search_rules(query, columns, language, verbose=True):
         if not columns and any(isinstance(pipe, CountPipe) for pipe in parsed.pipes):
             columns = ["key", "count", "percent"]
 
+    if count:
+        click.echo(f'{len(filtered)} rules')
+        return filtered
+
     if columns:
         columns = ",".join(columns).split(",")
     else:
@@ -230,7 +286,7 @@ def search_rules(query, columns, language, verbose=True):
     table = Table.from_list(columns, filtered)
 
     if verbose:
-        click.echo(table)
+        click.echo_via_pager(table) if pager else click.echo(table)
 
     return filtered
 

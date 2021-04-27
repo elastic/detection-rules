@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/08/14"
 maturity = "production"
-updated_date = "2020/11/03"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -10,30 +10,34 @@ Identifies suspicious psexec activity which is executing from the psexec service
 evade detection.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
-license = "Elastic License"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
 name = "Suspicious Process Execution via Renamed PsExec Executable"
 risk_score = 47
 rule_id = "e2f9fdf5-8076-45ad-9427-41e0e03dc9c2"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
-type = "query"
+timestamp_override = "event.ingested"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
-  process.pe.original_file_name:(psexesvc.exe or PSEXESVC.exe) and
-  process.parent.name:services.exe and
-  not process.name:(psexesvc.exe or PSEXESVC.exe)
+process where event.type in ("start", "process_started", "info") and
+  process.pe.original_file_name : "psexesvc.exe" and not process.name : "PSEXESVC.exe"
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1035"
+id = "T1569"
+name = "System Services"
+reference = "https://attack.mitre.org/techniques/T1569/"
+[[rule.threat.technique.subtechnique]]
+id = "T1569.002"
 name = "Service Execution"
-reference = "https://attack.mitre.org/techniques/T1035/"
+reference = "https://attack.mitre.org/techniques/T1569/002/"
+
 
 
 [rule.threat.tactic]

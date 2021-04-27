@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/10/13"
 maturity = "production"
-updated_date = "2020/10/13"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -10,14 +10,15 @@ Identifies use of the network shell utility (netsh.exe) to enable inbound Remote
 the Windows Firewall.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Remote Desktop Enabled in Windows Firewall"
 risk_score = 47
 rule_id = "074464f9-f30d-4029-8c03-0ed237fffec7"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
@@ -31,12 +32,18 @@ process where event.type in ("start", "process_started") and
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1089"
-name = "Disabling Security Tools"
-reference = "https://attack.mitre.org/techniques/T1089/"
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
 
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

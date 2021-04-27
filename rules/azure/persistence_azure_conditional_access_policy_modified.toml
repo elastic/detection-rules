@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/01"
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -12,9 +12,9 @@ such as using multi-factor authentication to access it. An adversary may modify 
 weaken their target's security controls.
 """
 from = "now-25m"
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Azure Conditional Access Policy Modified"
 note = "The Azure Filebeat module must be enabled to use this rule."
 references = ["https://docs.microsoft.com/en-us/azure/active-directory/conditional-access/overview"]
@@ -22,6 +22,7 @@ risk_score = 47
 rule_id = "bc48bba7-4a23-4232-b551-eca3ca1e3f20"
 severity = "medium"
 tags = ["Elastic", "Cloud", "Azure", "Continuous Monitoring", "SecOps", "Configuration Audit"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
@@ -30,7 +31,7 @@ event.dataset:(azure.activitylogs or azure.auditlogs) and
     azure.activitylogs.operation_name:"Update policy" or
     azure.auditlogs.operation_name:"Update policy"
   ) and
-  event.outcome:success
+  event.outcome:(Success or success)
 '''
 
 

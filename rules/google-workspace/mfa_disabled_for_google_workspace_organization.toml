@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/17"
 maturity = "production"
-updated_date = "2020/11/17"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -16,10 +16,10 @@ false_positives = [
     """,
 ]
 from = "now-130m"
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-google_workspace*"]
 interval = "10m"
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "MFA Disabled for Google Workspace Organization"
 note = """### Important Information Regarding Google Workspace Event Lag Times
 - As per Google's documentation, Google Workspace administrators may observe lag times ranging from minutes up to 3 days between the time of an event's occurrence and the event being visible in the Google Workspace admin/audit logs.
@@ -33,9 +33,10 @@ risk_score = 47
 rule_id = "e555105c-ba6d-481f-82bb-9b633e7b4827"
 severity = "medium"
 tags = ["Elastic", "Cloud", "Google Workspace", "Continuous Monitoring", "SecOps", "Identity and Access"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:gsuite.admin and event.provider:admin and event.category:iam and event.action:(ENFORCE_STRONG_AUTHENTICATION or ALLOW_STRONG_AUTHENTICATION) and gsuite.admin.new_value:false
+event.dataset:(gsuite.admin or google_workspace.admin) and event.provider:admin and event.category:iam and event.action:(ENFORCE_STRONG_AUTHENTICATION or ALLOW_STRONG_AUTHENTICATION) and gsuite.admin.new_value:false
 '''
 

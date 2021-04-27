@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/17"
 maturity = "production"
-updated_date = "2020/11/17"
+updated_date = "2021/03/08"
 
 [rule]
 author = ["Elastic"]
@@ -11,9 +11,10 @@ adversarial activity where a scheduled task is configured via Windows Component 
 be used to configure persistence and evade monitoring by avoiding the usage of the traditional Windows binary
 (schtasks.exe) used to manage scheduled tasks.
 """
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Suspicious Image Load (taskschd.dll) from MS Office"
 references = [
     "https://medium.com/threatpunter/detecting-adversary-tradecraft-with-image-load-event-logging-and-eql-8de93338c16",
@@ -22,14 +23,15 @@ references = [
 risk_score = 21
 rule_id = "baa5d22c-5e1c-4f33-bfc9-efa73bb53022"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-library where process.name in ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSPUB.EXE", "MSACCESS.EXE") and
-  event.action == "load" and
-  event.category == "library" and
-  file.name == "taskschd.dll"
+library where process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSPUB.EXE", "MSACCESS.EXE") and
+  event.action : "load" and
+  event.category : "library" and
+  dll.name : "taskschd.dll"
 '''
 
 

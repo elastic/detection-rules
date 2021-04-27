@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/02"
 maturity = "production"
-updated_date = "2020/11/03"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -10,9 +10,9 @@ Identifies Mshta.exe making outbound network connections. This may indicate adve
 leveraged by adversaries to execute malicious scripts and evade detection.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Mshta Making Network Connections"
 risk_score = 21
 rule_id = "c2d90150-0133-451c-a783-533e736c12d7"
@@ -34,9 +34,14 @@ sequence by process.entity_id with maxspan=2h
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1170"
+id = "T1218"
+name = "Signed Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.005"
 name = "Mshta"
-reference = "https://attack.mitre.org/techniques/T1170/"
+reference = "https://attack.mitre.org/techniques/T1218/005/"
+
 
 
 [rule.threat.tactic]

@@ -1,0 +1,44 @@
+[metadata]
+creation_date = "2020/11/29"
+maturity = "production"
+updated_date = "2021/03/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies built-in Windows script interpreters (cscript.exe or wscript.exe) being used to download an executable file
+from a remote destination.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Remote File Download via Script Interpreter"
+risk_score = 47
+rule_id = "1d276579-3380-4095-ad38-e596a01bc64f"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control"]
+type = "eql"
+
+query = '''
+sequence by host.id, process.entity_id
+  [network where process.name : ("wscript.exe", "cscript.exe") and network.protocol != "dns" and
+   network.direction == "outgoing" and network.type == "ipv4" and destination.ip != "127.0.0.1"
+  ]
+  [file where event.type == "creation" and file.extension : ("exe", "dll")]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+

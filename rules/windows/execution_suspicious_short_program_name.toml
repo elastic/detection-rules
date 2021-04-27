@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/15"
 maturity = "production"
-updated_date = "2020/11/15"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -10,17 +10,19 @@ Identifies process execution with a single character process name. This is often
 executing temporary utilities.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Suspicious Execution - Short Program Name"
 risk_score = 47
 rule_id = "17c7f6a5-5bc9-4e1f-92bf-13632d24384d"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and length(process.name) > 0 and
  length(process.name) == 5 and host.os.name == "Windows" and length(process.pe.original_file_name) > 5
 '''
+

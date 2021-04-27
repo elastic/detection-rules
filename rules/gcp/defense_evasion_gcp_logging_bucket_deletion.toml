@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/21"
 maturity = "production"
-updated_date = "2020/10/26"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -19,9 +19,9 @@ false_positives = [
     or hosts should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-index = ["filebeat-*"]
+index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "GCP Logging Bucket Deletion"
 note = "The GCP Filebeat module must be enabled to use this rule."
 references = ["https://cloud.google.com/logging/docs/buckets", "https://cloud.google.com/logging/docs/storage"]
@@ -29,10 +29,11 @@ risk_score = 47
 rule_id = "5663b693-0dea-4f2e-8275-f1ae5ff2de8e"
 severity = "medium"
 tags = ["Elastic", "Cloud", "GCP", "Continuous Monitoring", "SecOps", "Log Auditing"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:googlecloud.audit and event.action:google.logging.v*.ConfigServiceV*.DeleteBucket and event.outcome:success
+event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.logging.v*.ConfigServiceV*.DeleteBucket and event.outcome:success
 '''
 
 

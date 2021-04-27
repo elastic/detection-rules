@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 import unittest
 import kql
@@ -52,6 +53,14 @@ class ParserTests(unittest.TestCase):
 
     def test_number_exists(self):
         self.assertEqual(kql.parse("foo:*", schema={"foo": "long"}), FieldComparison(Field("foo"), Exists()))
+
+    def test_multiple_types_success(self):
+        schema = {"common.a": "keyword", "common.b": "keyword"}
+        self.validate("common.* : \"hello\"", FieldComparison(Field("common.*"), String("hello")), schema=schema)
+
+    def test_multiple_types_fail(self):
+        with self.assertRaises(kql.KqlParseError):
+            kql.parse("common.* : \"hello\"", schema={"common.a": "keyword", "common.b": "ip"})
 
     def test_number_wildcard_fail(self):
         with self.assertRaises(kql.KqlParseError):

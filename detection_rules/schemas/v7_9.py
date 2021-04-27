@@ -1,15 +1,14 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """Definitions for rule metadata and schemas."""
 
 import jsl
+
+from .definitions import OPERATORS
 from .v7_8 import ApiSchema78
-
-
-OPERATORS = ['equals']
-
 
 # kibana/.../siem/server/lib/detection_engine/routes/schemas/add_prepackaged_rules_schema.ts
 #                           /detection_engine/routes/schemas/schemas.ts
@@ -50,7 +49,7 @@ class ApiSchema79(ApiSchema78):
     author = jsl.ArrayField(jsl.StringField(default="Elastic"), required=True, min_items=1)
     building_block_type = jsl.StringField(required=False)
     exceptions_list = jsl.ArrayField(required=False)
-    license = jsl.StringField(required=True, default="Elastic License")
+    license = jsl.StringField(required=True, default="Elastic License v2")
     risk_score_mapping = jsl.ArrayField(jsl.DocumentField(RiskScoreMapping), required=False, min_items=1)
     rule_name_override = jsl.StringField(required=False)
     severity_mapping = jsl.ArrayField(jsl.DocumentField(SeverityMapping), required=False, min_items=1)

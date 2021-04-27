@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/03"
 maturity = "production"
-updated_date = "2020/11/03"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -10,9 +10,9 @@ Identifies the execution of a file that was created by the virtual system proces
 via network file shares.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Remote Execution via File Shares"
 references = ["https://blog.menasec.net/2020/08/new-trick-to-detect-lateral-movement.html"]
 risk_score = 47
@@ -31,12 +31,18 @@ sequence with maxspan=1m
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1077"
-name = "Windows Admin Shares"
-reference = "https://attack.mitre.org/techniques/T1077/"
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+[[rule.threat.technique.subtechnique]]
+id = "T1021.002"
+name = "SMB/Windows Admin Shares"
+reference = "https://attack.mitre.org/techniques/T1021/002/"
+
 
 
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
+

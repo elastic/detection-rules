@@ -1,0 +1,65 @@
+[metadata]
+creation_date = "2020/02/18"
+maturity = "production"
+updated_date = "2021/03/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies network activity from unexpected system applications. This may indicate adversarial activity as these
+applications are often leveraged by adversaries to execute code and evade detection.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Unusual Process Network Connection"
+risk_score = 21
+rule_id = "610949a1-312f-4e04-bb55-3a79b8c95267"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+type = "eql"
+
+query = '''
+sequence by process.entity_id
+  [process where (process.name : "Microsoft.Workflow.Compiler.exe" or
+                  process.name : "bginfo.exe" or
+                  process.name : "cdb.exe" or
+                  process.name : "cmstp.exe" or
+                  process.name : "csi.exe" or
+                  process.name : "dnx.exe" or
+                  process.name : "fsi.exe" or
+                  process.name : "ieexec.exe" or
+                  process.name : "iexpress.exe" or
+                  process.name : "odbcconf.exe" or
+                  process.name : "rcsi.exe" or
+                  process.name : "xwizard.exe") and
+     event.type == "start"]
+  [network where (process.name : "Microsoft.Workflow.Compiler.exe" or
+                  process.name : "bginfo.exe" or
+                  process.name : "cdb.exe" or
+                  process.name : "cmstp.exe" or
+                  process.name : "csi.exe" or
+                  process.name : "dnx.exe" or
+                  process.name : "fsi.exe" or
+                  process.name : "ieexec.exe" or
+                  process.name : "iexpress.exe" or
+                  process.name : "odbcconf.exe" or
+                  process.name : "rcsi.exe" or
+                  process.name : "xwizard.exe")]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1127"
+name = "Trusted Developer Utilities Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1127/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

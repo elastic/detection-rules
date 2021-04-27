@@ -1,20 +1,21 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2020/11/03"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
 description = "Detects writing executable files that will be automatically launched by Adobe on launch."
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Adobe Hijack Persistence"
 risk_score = 21
 rule_id = "2bf78aa2-9c56-48de-b139-f169bf99cf86"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
@@ -28,9 +29,14 @@ event.category:file and event.type:creation and
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1044"
-name = "File System Permissions Weakness"
-reference = "https://attack.mitre.org/techniques/T1044/"
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+[[rule.threat.technique.subtechnique]]
+id = "T1574.010"
+name = "Services File Permissions Weakness"
+reference = "https://attack.mitre.org/techniques/T1574/010/"
+
 
 
 [rule.threat.tactic]
