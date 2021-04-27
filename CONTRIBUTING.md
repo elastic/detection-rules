@@ -194,12 +194,12 @@ In order to get starting contributing to this repo, you'll need to confirm you h
 
 1. Start by validating that your environment is configured correctly by running the detection_rules module with the --help argument.
 
-```shell
+```console
     python -m detection_rules --help
 ```
 
-1. This command will also show all of the sub-commands available.
-1. Rules are separated by major category within the [rules/](./rules) directory. You can use the `view-rule` sub-command to  see the overall structure.
+2. This command will also show all of the sub-commands available.
+3. Rules are separated by major category within the [rules/](./rules) directory. You can use the `view-rule` sub-command to  see the overall structure.
 
 
 ### Creating a rule
@@ -208,13 +208,13 @@ We manage our repository with a command line tool that automatically creates TOM
 
 1. To begin making a new rule, you will use the `create-rule` sub-command to walkthrough guided steps to populate the content of a new toml rule file (that matches your target behavior).
 
-1. For example, to create a new rule file for `rules/windows/defense_evasion_msbuild_child.toml`, run the command:
+2. For example, to create a new rule file for `rules/windows/defense_evasion_msbuild_child.toml`, run the command:
 
-```shell
-    python -m detection_rules create-rule rules/windows/defense_evasion_msbuild_child.toml
+```console
+    python -m detection_rules create-rule --required-only rules/windows/defense_evasion_msbuild_child.toml
 ```
 
-1. You will be prompted with a series of entries to build the content of your new rule. It will iterate through the required metadata, and prompt for each field. The command will prompt you for each required metadata field:  
+3. You will be prompted with a series of entries to build the content of your new rule. It will iterate through the required metadata, and prompt for each field. The command will prompt you for each required metadata field. The below example shows the level of granularity possible when creating rules (_--required-only fields noted):  
 
 ```
 Rule type (machine_learning, saved_query, query, threshold, eql) (machine_learning, saved_query, query, threshold, eql):
@@ -272,13 +272,7 @@ Rule will validate against the latest ECS schema available (and beats if necessa
 
 ### Importing rules
 
-1. As shown above, rules can be created in an appropriate directory with `rules/`. ***If*** rules are created outside of this structure, you can import them into the project repo with the `import-rules` sub-command.
-
-1. For example, this command will copy any newly-developed rule files into `rules/` directory:
-
-```shell
-    python -m detection_rules import-rules -d ~/dev-rules/
-```
+Details on how to import rules can be found in [this section of CLI.md](https://github.com/elastic/detection-rules/blob/main/CLI.md#importing-rules-into-the-repo).  
 
 ### Linting and validation
 
@@ -289,7 +283,7 @@ python -m detection_rules toml-lint -f rules/telnet_port_activity.toml
 
   > The CLI will highlight any syntax issues in your toml.
 
-1. After the rule’s syntax is checked, validate the rule by running the validate-rule command. Provide the path to the rule, followed by the rule UID.
+2. After the rule’s syntax is checked, validate the rule by running the validate-rule command. Provide the path to the rule, followed by the rule UID.
 python -m detection_rules validate-rule -p rules/telnet_port_activity.toml 4a4e23cf-78a2-449c-bac3-701924c269d3
 
 
@@ -299,7 +293,7 @@ When a rule is ready, it can be tested with unit tests. Detection Rules has seve
 
 To run tests, simply run the command `test` with the CLI
 
-```shell
+```console
 $ python -m detection_rules test
 
 ============================================================= test session starts ==============================================================
@@ -319,13 +313,8 @@ tests/kuery/test_parser.py::ParserTests::test_number_wildcard_fail PASSED       
 
 ### Uploading rules
 
-Once all of these steps are complete, you have the `upload-rule` can then upload your rule, whether that's part of your local infrastructure or the cloud.  
+Details on how to import rules can be found in [this section of CLI.md](https://github.com/elastic/detection-rules/blob/main/CLI.md#importing-rules-into-the-repo).  
 
-1. This command demonstrates the syntax to upload to an [Elastic Cloud](#) instance:  
-
-```shell
-    python -m detection_rules kibana --kibana-url '<URL>' --kibana-user '<USER>' --kibana-password '<PASSWORD' upload-rule rules/<RULE_NAME>.toml
-```
 
 ## Submitting a Pull Request
 
