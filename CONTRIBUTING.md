@@ -258,7 +258,7 @@ add mitre tactic? [y/N]:
 1. You will receive this output when successful:
 
 ```
-Rule saved to /PATH/TO/detection-rules/RULE.toml
+Rule saved to <path>.toml
 Did not set the following values because they are un-required when set to the default value
  - from
  - interval
