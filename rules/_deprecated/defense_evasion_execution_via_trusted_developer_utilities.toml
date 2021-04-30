@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-maturity = "production"
-updated_date = "2021/04/14"
+deprecation_date = "2021/04/15"
+maturity = "deprecated"
+updated_date = "2021/04/15"
 
 [rule]
 author = ["Elastic"]
@@ -9,7 +10,7 @@ description = "Identifies possibly suspicious activity using trusted Windows dev
 false_positives = ["These programs may be used by Windows developers but use by non-engineers is unusual."]
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "Trusted Developer Application Usage"
 risk_score = 21
@@ -17,10 +18,10 @@ rule_id = "9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae1"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "query"
 
 query = '''
-process where event.type in ("start", "process_started") and process.name : ("MSBuild.exe", "msxsl.exe")
+event.category:process and event.type:(start or process_started) and process.name:(MSBuild.exe or msxsl.exe)
 '''
 
 
@@ -28,19 +29,19 @@ process where event.type in ("start", "process_started") and process.name : ("MS
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1127"
-reference = "https://attack.mitre.org/techniques/T1127/"
 name = "Trusted Developer Utilities Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1127/"
 
 
 [rule.threat.tactic]
 id = "TA0005"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
 [rule.threat.tactic]
 id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
 name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 

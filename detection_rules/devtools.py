@@ -25,7 +25,7 @@ from .eswrap import CollectEvents, add_range_to_dsl
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, GithubClient, Manifest, client_error, getdefault
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
-from .rule import TOMLRule, BaseQueryRuleData
+from .rule import TOMLRule, QueryRuleData
 from .rule_loader import production_filter, RuleCollection
 from .utils import get_path, dict_hash
 
@@ -70,7 +70,7 @@ def update_lock_versions(rule_ids):
         return
 
     rules = RuleCollection.default().filter(lambda r: r.id in rule_ids)
-    changed, new = manage_versions(rules, exclude_version_update=True, add_new=False, save_changes=True)
+    changed, new, _ = manage_versions(rules, exclude_version_update=True, add_new=False, save_changes=True)
 
     if not changed:
         click.echo('No hashes updated')
@@ -132,11 +132,12 @@ def kibana_diff(rule_id, repo, branch, threads):
 @click.option("--kibana-directory", "-d", help="Directory to overwrite in Kibana",
               default="x-pack/plugins/security_solution/server/lib/detection_engine/rules/prepackaged_rules")
 @click.option("--base-branch", "-b", help="Base branch in Kibana", default="master")
+@click.option("--branch-name", "-n", help="Head branch for rules (default: package name)")
 @click.option("--ssh/--http", is_flag=True, help="Method to use for cloning")
 @click.option("--github-repo", "-r", help="Repository to use for the branch", default="elastic/kibana")
 @click.option("--message", "-m", help="Override default commit message")
 @click.pass_context
-def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_branch, message):
+def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_branch, branch_name, message):
     """Prep a commit and push to Kibana."""
     git_exe = shutil.which("git")
 
@@ -167,7 +168,7 @@ def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_bran
 
         git("checkout", base_branch)
         git("pull")
-        git("checkout", "-b", f"rules/{package_name}", show_output=True)
+        git("checkout", "-b", f"rules/{branch_name or package_name}", show_output=True)
         git("rm", "-r", kibana_directory)
 
         source_dir = os.path.join(release_dir, "rules")
@@ -388,7 +389,7 @@ def rule_event_search(ctx, rule, date_range, count, max_results, verbose,
                       elasticsearch_client: Elasticsearch = None):
     """Search using a rule file against an Elasticsearch instance."""
 
-    if isinstance(rule.contents.data, BaseQueryRuleData):
+    if isinstance(rule.contents.data, QueryRuleData):
         if verbose:
             click.echo(f'Searching rule: {rule.name}')
 
