@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Whoami Process Activity"
 risk_score = 21
@@ -25,10 +25,10 @@ rule_id = "ef862985-3f13-4262-a686-5f357bbb9bc2"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and process.name:whoami.exe
+process where event.type in ("start", "process_started") and process.name : "whoami.exe"
 '''
 
 
@@ -36,12 +36,12 @@ event.category:process and event.type:(start or process_started) and process.nam
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1033"
-name = "System Owner/User Discovery"
 reference = "https://attack.mitre.org/techniques/T1033/"
+name = "System Owner/User Discovery"
 
 
 [rule.threat.tactic]
 id = "TA0007"
-name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+name = "Discovery"
 

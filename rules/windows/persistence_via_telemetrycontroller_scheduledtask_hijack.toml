@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/08/17"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ integrity level of system.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Persistence via TelemetryController Scheduled Task Hijack"
 references = [
@@ -22,12 +22,17 @@ rule_id = "68921d85-d0dc-48b3-865f-43291ca2c4f2"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
-  process.parent.name:(CompatTelRunner.exe or compattelrunner.exe) and process.args:-cv* and
-  not process.name:(conhost.exe or DeviceCensus.exe or devicecensus.exe or CompatTelRunner.exe or compattelrunner.exe or DismHost.exe or dismhost.exe or rundll32.exe or powershell.exe)
+process where event.type in ("start", "process_started") and
+  process.parent.name : "CompatTelRunner.exe" and process.args : "-cv*" and
+  not process.name : ("conhost.exe",
+                      "DeviceCensus.exe",
+                      "CompatTelRunner.exe",
+                      "DismHost.exe",
+                      "rundll32.exe",
+                      "powershell.exe")
 '''
 
 
@@ -35,12 +40,12 @@ event.category:process and event.type:(start or process_started) and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1053"
-name = "Scheduled Task/Job"
 reference = "https://attack.mitre.org/techniques/T1053/"
+name = "Scheduled Task/Job"
 
 
 [rule.threat.tactic]
 id = "TA0003"
-name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+name = "Persistence"
 
