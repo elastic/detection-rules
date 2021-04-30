@@ -24,7 +24,10 @@ type = "eql"
 query = '''
 process where event.type in ("start", "process_started") and
   process.parent.name : "services.exe" and
-  process.name : ("cmd.exe", "powershell.exe")
+  process.name : ("cmd.exe", "powershell.exe") and
+  
+  /* Third party FP's */
+  not process.args : "NVDisplay.ContainerLocalSystem"
 '''
 
 
@@ -45,4 +48,3 @@ name = "Windows Service"
 id = "TA0003"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 name = "Persistence"
-

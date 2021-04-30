@@ -21,7 +21,7 @@ type = "eql"
 query = '''
 process where event.type in ("start", "process_started") and
   process.parent.name : "svchost.exe" and process.name : "cmd.exe" and 
-  not process.command_line : "?:\\Windows\\SYSTEM32\\cmd.exe /c \"\"?:\\Program Files\\Npcap\\CheckStatus.bat\"\""
+  not (process.pe.original_file_name == "Cmd.Exe" and process.args : "?:\\Program Files\\Npcap\\CheckStatus.bat??")
 '''
 
 
@@ -37,4 +37,3 @@ name = "Command and Scripting Interpreter"
 id = "TA0002"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 name = "Execution"
-
