@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ testers may run a shell as a service to gain SYSTEM permissions.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "System Shells via Services"
 risk_score = 47
@@ -19,12 +19,15 @@ rule_id = "0022d47d-39c7-4f69-a232-4fe9dc7a3acd"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
-  process.parent.name:services.exe and
-  process.name:(cmd.exe or powershell.exe)
+process where event.type in ("start", "process_started") and
+  process.parent.name : "services.exe" and
+  process.name : ("cmd.exe", "powershell.exe") and
+  
+  /* Third party FP's */
+  not process.args : "NVDisplay.ContainerLocalSystem"
 '''
 
 
@@ -32,17 +35,16 @@ event.category:process and event.type:(start or process_started) and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1543"
-name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
+name = "Create or Modify System Process"
 [[rule.threat.technique.subtechnique]]
 id = "T1543.003"
-name = "Windows Service"
 reference = "https://attack.mitre.org/techniques/T1543/003/"
+name = "Windows Service"
 
 
 
 [rule.threat.tactic]
 id = "TA0003"
-name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
+name = "Persistence"

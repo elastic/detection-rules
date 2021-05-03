@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Literal, Union, Optional, List, Any
 from uuid import uuid4
 
-from marshmallow import validates_schema
+from marshmallow import ValidationError, validates_schema
 
 from . import utils
 from .mixins import MarshmallowDataclassMixin
@@ -32,8 +32,8 @@ class RuleMeta(MarshmallowDataclassMixin):
     deprecation_date: Optional[definitions.Date]
 
     # Optional fields
-    beats_version: Optional[definitions.SemVer]
-    ecs_versions: Optional[List[definitions.SemVer]]
+    beats_version: Optional[definitions.BranchVer]
+    ecs_versions: Optional[List[definitions.BranchVer]]
     comments: Optional[str]
     maturity: Optional[definitions.Maturity]
     os_type_list: Optional[List[definitions.OSType]]
@@ -163,8 +163,8 @@ class BaseRuleData(MarshmallowDataclassMixin):
     severity: definitions.Severity
     tags: Optional[List[str]]
     throttle: Optional[str]
-    timeline_id: Optional[str]
-    timeline_title: Optional[str]
+    timeline_id: Optional[definitions.TimelineTemplateId]
+    timeline_title: Optional[definitions.TimelineTemplateTitle]
     timestamp_override: Optional[str]
     to: Optional[str]
     type: definitions.RuleType
@@ -262,10 +262,52 @@ class EQLRuleData(QueryRuleData):
     language: Literal["eql"]
 
 
-# All of the possible rule types
-all_rule_types = {}
-AnyRuleData = Union[QueryRuleData, EQLRuleData, MachineLearningRuleData, ThresholdQueryRuleData]
+@dataclass(frozen=True)
+class ThreatMatchRuleData(QueryRuleData):
+    """Specific fields for indicator (threat) match rule."""
 
+    @dataclass(frozen=True)
+    class Entries:
+
+        @dataclass(frozen=True)
+        class ThreatMapEntry:
+            field: definitions.NonEmptyStr
+            type: Literal["mapping"]
+            value: definitions.NonEmptyStr
+
+        entries: List[ThreatMapEntry]
+
+    type: Literal["threat_match"]
+
+    concurrent_searches: Optional[definitions.PositiveInteger]
+    items_per_search: Optional[definitions.PositiveInteger]
+
+    threat_mapping: List[Entries]
+    threat_filters: Optional[List[dict]]
+    threat_query: Optional[str]
+    threat_language: Optional[definitions.FilterLanguages]
+    threat_index: List[str]
+    threat_indicator_path: Optional[str]
+
+    def validate_query(self, meta: RuleMeta) -> None:
+        super(ThreatMatchRuleData, self).validate_query(meta)
+
+        if self.threat_query:
+            if not self.threat_language:
+                raise ValidationError('`threat_language` required when a `threat_query` is defined')
+
+            if self.threat_language == "kuery":
+                threat_query_validator = KQLValidator(self.threat_query)
+            elif self.threat_language == "eql":
+                threat_query_validator = EQLValidator(self.threat_query)
+            else:
+                return
+
+            threat_query_validator.validate(self, meta)
+
+
+# All of the possible rule types
+AnyRuleData = Union[QueryRuleData, EQLRuleData, MachineLearningRuleData, ThresholdQueryRuleData]
 
 @dataclass(frozen=True)
 class TOMLRuleContents(MarshmallowDataclassMixin):

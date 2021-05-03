@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/08/21"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ code execution.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Managed Code Hosting Process"
 references = ["https://blog.menasec.net/2019/07/interesting-difr-traces-of-net-clr.html"]
@@ -20,11 +20,21 @@ rule_id = "acf738b5-b5b2-4acc-bad9-1e18ee234f40"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:file and not event.type:deletion and
-  file.name:(wscript.exe.log or mshta.exe.log or wscript.exe.log or wmic.exe.log or svchost.exe.log or dllhost.exe.log or cmstp.exe.log or regsvr32.exe.log)
+sequence by process.entity_id with maxspan=5m
+ [process where event.type == "start" and 
+  process.name : ("wscript.exe", "cscript.exe", "mshta.exe", "wmic.exe", "regsvr32.exe", "svchost.exe", "dllhost.exe", "cmstp.exe")]
+ [file where event.type != "deletion" and
+  file.name : ("wscript.exe.log",
+               "cscript.exe",
+               "mshta.exe.log",
+               "wmic.exe.log",
+               "svchost.exe.log",
+               "dllhost.exe.log",
+               "cmstp.exe.log",
+               "regsvr32.exe.log")]
 '''
 
 
@@ -32,12 +42,12 @@ event.category:file and not event.type:deletion and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1055"
-name = "Process Injection"
 reference = "https://attack.mitre.org/techniques/T1055/"
+name = "Process Injection"
 
 
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+name = "Defense Evasion"
 
