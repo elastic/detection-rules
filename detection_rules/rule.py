@@ -309,6 +309,7 @@ class ThreatMatchRuleData(QueryRuleData):
 # All of the possible rule types
 AnyRuleData = Union[QueryRuleData, EQLRuleData, MachineLearningRuleData, ThresholdQueryRuleData]
 
+
 @dataclass(frozen=True)
 class TOMLRuleContents(MarshmallowDataclassMixin):
     """Rule object which maps directly to the TOML layout."""
