@@ -307,7 +307,7 @@ class ThreatMatchRuleData(QueryRuleData):
 
 
 # All of the possible rule types
-AnyRuleData = Union[QueryRuleData, EQLRuleData, MachineLearningRuleData, ThresholdQueryRuleData]
+AnyRuleData = Union[QueryRuleData, EQLRuleData, MachineLearningRuleData, ThresholdQueryRuleData, ThreatMatchRuleData]
 
 
 @dataclass(frozen=True)

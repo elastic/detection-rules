@@ -60,7 +60,7 @@ NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
 Operator = Literal['equals']
 OSType = Literal['windows', 'linux', 'macos']
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
-RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql']
+RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'threshold', 'threat_match']
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
 Severity = Literal['low', 'medium', 'high', 'critical']
 Sha256 = NewType('Sha256', str, validate=validate.Regexp(SHA256_PATTERN))

@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 
 import click
+import typing
 from elasticsearch import Elasticsearch
 from eql import load_dump
 
@@ -706,8 +707,8 @@ def validate_ml_detections_asset(directory):
 
 @dev_group.command("update-schemas")
 def update_schemas():
-    from . import rule
-    classes = [rule.BaseQueryRuleData, rule.MachineLearningRuleData, rule.ThresholdQueryRuleData, rule.EQLRuleData]
+    from . rule import BaseRuleData, AnyRuleData
+    classes = [BaseRuleData] + typing.get_args(AnyRuleData)
 
     for cls in classes:
         cls.save_schema()
