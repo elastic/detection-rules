@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/08/14"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ using xp_cmdshell, which is disabled by default, thus, it's important to review 
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Execution via MSSQL xp_cmdshell Stored Procedure"
 risk_score = 73
@@ -19,12 +19,11 @@ rule_id = "4ed493fc-d637-4a36-80ff-ac84937e5461"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
-  process.name:cmd.exe and
-  process.parent.name:sqlservr.exe
+process where event.type in ("start", "process_started") and
+  process.name : "cmd.exe" and process.parent.name : "sqlservr.exe"
 '''
 
 
@@ -32,12 +31,12 @@ event.category:process and event.type:(start or process_started) and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1059"
-name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+name = "Command and Scripting Interpreter"
 
 
 [rule.threat.tactic]
 id = "TA0002"
-name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+name = "Execution"
 
