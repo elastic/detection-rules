@@ -9,7 +9,7 @@ import jsonschema
 
 from .rta_schema import validate_rta_mapping
 from ..semver import Version
-from ..utils import get_etc_path
+from ..utils import cached, get_etc_path
 from . import definitions
 from pathlib import Path
 
@@ -43,21 +43,24 @@ def migrate(version: str):
     return wrapper
 
 
+@cached
+def get_schema_file(version: Version, rule_type: str) -> dict:
+    path = Path(SCHEMA_DIR) / str(version) / f"{version}.{rule_type}.json"
+
+    if not path.exists():
+        raise ValueError(f"Unsupported rule type {rule_type}. Unable to downgrade to {version}")
+
+    return json.loads(path.read_text(encoding="utf8"))
+
+
 @migrate("7.8")
 @migrate("7.9")
 @migrate("7.12")
 @migrate("7.13")
 def strip_additional_properties(version: Version, api_contents: dict) -> dict:
     """Remove all fields that the target schema doesn't recognize."""
-    rule_type = api_contents["type"]
-    stack_dir = Path(SCHEMA_DIR) / str(version)
-    schema_file = stack_dir / f"{version}.{rule_type}.json"
-
-    if not schema_file.exists():
-        raise ValueError(f"Unsupported rule type {rule_type}. Unable to downgrade to {version}")
-
-    target_schema = json.loads(schema_file.read_text(encoding="utf8"))
     stripped = {}
+    target_schema = get_schema_file(version, api_contents["type"])
 
     for field, field_schema in target_schema["properties"].items():
         if field in api_contents:
