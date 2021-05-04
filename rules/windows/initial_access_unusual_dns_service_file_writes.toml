@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/07/16"
 maturity = "production"
-updated_date = "2021/03/08"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ may indicate activity related to remote code execution or other forms of exploit
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Unusual File Modification by dns.exe"
 note = """### Investigating Unusual File Write
@@ -27,10 +27,11 @@ rule_id = "c7ce36c0-32ff-4f9a-bfc2-dcb242bf99f9"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:file and process.name:dns.exe and event.type:(creation or deletion or change) and not file.name:dns.log
+file where process.name : "dns.exe" and event.type in ("creation", "deletion", "change") and
+  not file.name : "dns.log"
 '''
 
 
@@ -38,12 +39,12 @@ event.category:file and process.name:dns.exe and event.type:(creation or deletio
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1133"
-name = "External Remote Services"
 reference = "https://attack.mitre.org/techniques/T1133/"
+name = "External Remote Services"
 
 
 [rule.threat.tactic]
 id = "TA0001"
-name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+name = "Initial Access"
 

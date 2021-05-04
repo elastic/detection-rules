@@ -1,14 +1,14 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
 description = "Detects writing executable files that will be automatically launched by Adobe on launch."
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Adobe Hijack Persistence"
 risk_score = 21
@@ -16,13 +16,13 @@ rule_id = "2bf78aa2-9c56-48de-b139-f169bf99cf86"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:file and event.type:creation and
-  file.path:("C:\Program Files (x86)\Adobe\Acrobat Reader DC\Reader\AcroCEF\RdrCEF.exe" or
-             "C:\Program Files\Adobe\Acrobat Reader DC\Reader\AcroCEF\RdrCEF.exe") and
-  not process.name:msiexec.exe
+file where event.type == "creation" and
+  file.path : ("?:\\Program Files (x86)\\Adobe\\Acrobat Reader DC\\Reader\\AcroCEF\\RdrCEF.exe",
+               "?:\\Program Files\\Adobe\\Acrobat Reader DC\\Reader\\AcroCEF\\RdrCEF.exe") and
+  not process.name : "msiexec.exe"
 '''
 
 
@@ -30,17 +30,17 @@ event.category:file and event.type:creation and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1574"
-name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
+name = "Hijack Execution Flow"
 [[rule.threat.technique.subtechnique]]
 id = "T1574.010"
-name = "Services File Permissions Weakness"
 reference = "https://attack.mitre.org/techniques/T1574/010/"
+name = "Services File Permissions Weakness"
 
 
 
 [rule.threat.tactic]
 id = "TA0003"
-name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+name = "Persistence"
 

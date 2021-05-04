@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/03/25"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Microsoft Build Engine Started by an Office Application"
 references = ["https://blog.talosintelligence.com/2020/02/building-bypass-with-msbuild.html"]
@@ -26,13 +26,19 @@ rule_id = "c5dc3223-13a2-44a2-946c-e9dc0aa0449c"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
-  process.name:MSBuild.exe and
-  process.parent.name:(eqnedt32.exe or excel.exe or fltldr.exe or msaccess.exe or
-                       mspub.exe or outlook.exe or powerpnt.exe or winword.exe)
+process where event.type in ("start", "process_started") and
+  process.name : "MSBuild.exe" and
+  process.parent.name : ("eqnedt32.exe",
+                         "excel.exe",
+                         "fltldr.exe",
+                         "msaccess.exe",
+                         "mspub.exe",
+                         "outlook.exe",
+                         "powerpnt.exe",
+                         "winword.exe" )
 '''
 
 
@@ -40,19 +46,18 @@ event.category:process and event.type:(start or process_started) and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1127"
-name = "Trusted Developer Utilities Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1127/"
+name = "Trusted Developer Utilities Proxy Execution"
 
 
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+name = "Defense Evasion"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
 [rule.threat.tactic]
 id = "TA0002"
-name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
+name = "Execution"
