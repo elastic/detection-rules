@@ -7,6 +7,7 @@ import jsonschema
 
 from .rta_schema import validate_rta_mapping
 from ..semver import Version
+from ..utils import get_etc_path
 from . import definitions
 from pathlib import Path
 
@@ -19,7 +20,7 @@ __all__ = (
     "all_versions",
 )
 
-SCHEMA_DIR = Path(__file__).absolute().parent.parent.parent / "etc" / "api_schemas"
+SCHEMA_DIR = Path(get_etc_path("api_schemas"))
 migrations = {}
 
 
@@ -28,7 +29,7 @@ def all_versions():
     return [str(v) for v in sorted(migrations)]
 
 
-def migrate(version):
+def migrate(version: str):
     """Decorator to set a migration."""
     version = Version(version)
 

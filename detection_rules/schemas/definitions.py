@@ -10,8 +10,6 @@ from typing import Literal, Final
 from marshmallow import validate
 from marshmallow_dataclass import NewType
 
-CURRENT_STACK_VERSION = "7.13.0"
-
 ASSET_TYPE = "security_rule"
 SAVED_OBJECT_TYPE = "security-rule"
 

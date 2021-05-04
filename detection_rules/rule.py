@@ -317,7 +317,7 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
     data: AnyRuleData = field(metadata=dict(data_key="rule"))
 
     @classmethod
-    def all_rule_types(cls):
+    def all_rule_types(cls) -> set:
         types = set()
         for subclass in typing.get_args(AnyRuleData):
             field = next(field for field in dataclasses.fields(subclass) if field.name == "type")
@@ -326,7 +326,7 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
         return types
 
     @classmethod
-    def get_data_subclass(cls, rule_type):
+    def get_data_subclass(cls, rule_type: str) -> typing.Type[BaseRuleData]:
         """Get the proper subclass depending on the rule type"""
         for subclass in typing.get_args(AnyRuleData):
             field = next(field for field in dataclasses.fields(subclass) if field.name == "type")
