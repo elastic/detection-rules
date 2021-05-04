@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/05/26"
 maturity = "production"
-updated_date = "2021/03/22"
+updated_date = "2021/04/20"
 
 [rule]
-author = ["Elastic"]
+author = ["Elastic", "Austin Songer"]
 description = """
 Identifies the deactivation of a specified multi-factor authentication (MFA) device and removes it from association with
 the user name for which it was originally enabled. In AWS Identity and Access Management (IAM), a device must be
@@ -36,7 +36,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.action:DeactivateMFADevice and event.outcome:success
+event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.action:(DeactivateMFADevice or DeleteVirtualMFADevice) and event.outcome:success
 '''
 
 
@@ -52,4 +52,3 @@ reference = "https://attack.mitre.org/techniques/T1531/"
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
-

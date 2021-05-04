@@ -1,14 +1,14 @@
 [metadata]
 creation_date = "2020/08/31"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
 description = "Identifies a suspicious Conhost child process which may be an indication of code injection activity."
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Process from Conhost"
 references = [
@@ -20,12 +20,12 @@ rule_id = "28896382-7d4f-4d50-9b72-67091901fd26"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
-  process.parent.name:conhost.exe and
-  not process.executable:("C:\Windows\splwow64.exe" or "C:\Windows\System32\WerFault.exe" or "C:\\Windows\System32\conhost.exe")
+process where event.type in ("start", "process_started") and
+  process.parent.name : "conhost.exe" and
+  not process.executable : ("?:\\Windows\\splwow64.exe", "?:\\Windows\\System32\\WerFault.exe", "?:\\Windows\\System32\\conhost.exe")
 '''
 
 
@@ -33,12 +33,12 @@ event.category:process and event.type:(start or process_started) and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1055"
-name = "Process Injection"
 reference = "https://attack.mitre.org/techniques/T1055/"
+name = "Process Injection"
 
 
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+name = "Defense Evasion"
 

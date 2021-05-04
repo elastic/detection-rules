@@ -301,7 +301,7 @@ class Package(object):
                 output_lines = [json.dumps(downgrade_contents_from_rule(r, downgrade_version), sort_keys=True)
                                 for r in self.rules]
         else:
-            output_lines = [json.dumps(r.contents, sort_keys=True) for r in self.rules]
+            output_lines = [json.dumps(r.contents.data.to_dict(), sort_keys=True) for r in self.rules]
 
         outfile.write_text('\n'.join(output_lines) + '\n')
 

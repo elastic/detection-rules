@@ -30,8 +30,8 @@ class RuleMeta(MarshmallowDataclassMixin):
     deprecation_date: Optional[definitions.Date]
 
     # Optional fields
-    beats_version: Optional[definitions.SemVer]
-    ecs_versions: Optional[List[definitions.SemVer]]
+    beats_version: Optional[definitions.BranchVer]
+    ecs_versions: Optional[List[definitions.BranchVer]]
     comments: Optional[str]
     maturity: Optional[definitions.Maturity]
     os_type_list: Optional[List[definitions.OSType]]
@@ -161,8 +161,8 @@ class BaseRuleData(MarshmallowDataclassMixin):
     severity: definitions.Severity
     tags: Optional[List[str]]
     throttle: Optional[str]
-    timeline_id: Optional[str]
-    timeline_title: Optional[str]
+    timeline_id: Optional[definitions.TimelineTemplateId]
+    timeline_title: Optional[definitions.TimelineTemplateTitle]
     timestamp_override: Optional[str]
     to: Optional[str]
     type: Literal[definitions.RuleType]
