@@ -3,6 +3,8 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 import json
+from typing import List
+
 import jsonschema
 
 from .rta_schema import validate_rta_mapping
@@ -24,7 +26,7 @@ SCHEMA_DIR = Path(get_etc_path("api_schemas"))
 migrations = {}
 
 
-def all_versions():
+def all_versions() -> List[str]:
     """Get all known stack versions."""
     return [str(v) for v in sorted(migrations)]
 
@@ -124,10 +126,12 @@ def downgrade_threshold_to_7_11(version: Version, api_contents: dict) -> dict:
 
 def downgrade(api_contents: dict, target_version: str):
     """Downgrade a rule to a target stack version."""
+    from ..packaging import current_stack_version
+
     target_semver = Version(target_version)[:2]
 
     # nothing to do
-    if target_semver == Version(definitions.CURRENT_STACK_VERSION)[:2]:
+    if target_semver == Version(current_stack_version())[:2]:
         return api_contents
 
     # truncate to (major, minor)

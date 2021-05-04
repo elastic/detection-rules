@@ -100,7 +100,7 @@ def manage_versions(rules: List[TOMLRule], deprecated_rules: list = None, curren
                 rule_deprecations[rule.id] = {
                     'rule_name': rule.name,
                     'deprecation_date': rule.contents.metadata.deprecation_date,
-                    'stack_version': definitions.CURRENT_STACK_VERSION
+                    'stack_version': current_stack_version() + ".0"
                 }
                 newly_deprecated.append(rule.id)
 
@@ -549,3 +549,8 @@ class Package(object):
             importable_rules_docs.append(rule_doc)
 
         return bulk_upload_docs, importable_rules_docs
+
+
+@cached
+def current_stack_version() -> str:
+    return Package.load_configs()['package']['name']
