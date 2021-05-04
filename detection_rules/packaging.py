@@ -553,4 +553,4 @@ class Package(object):
 
 @cached
 def current_stack_version() -> str:
-    return Package.load_configs()['package']['name']
+    return Package.load_configs()['name']

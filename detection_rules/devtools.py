@@ -708,7 +708,7 @@ def validate_ml_detections_asset(directory):
 @dev_group.command("update-schemas")
 def update_schemas():
     from . rule import BaseRuleData, AnyRuleData
-    classes = [BaseRuleData] + typing.get_args(AnyRuleData)
+    classes = [BaseRuleData] + list(typing.get_args(AnyRuleData))
 
     for cls in classes:
         cls.save_schema()

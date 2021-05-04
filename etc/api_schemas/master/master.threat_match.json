@@ -8,10 +8,6 @@
       },
       "type": "array"
     },
-    "anomaly_threshold": {
-      "format": "integer",
-      "type": "number"
-    },
     "author": {
       "items": {
         "type": "string"
@@ -20,6 +16,12 @@
     },
     "building_block_type": {
       "type": "string"
+    },
+    "concurrent_searches": {
+      "description": "PositiveInteger",
+      "format": "integer",
+      "minimum": 1,
+      "type": "number"
     },
     "description": {
       "type": "string"
@@ -51,15 +53,32 @@
     "from": {
       "type": "string"
     },
+    "index": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
     "interval": {
       "description": "Interval",
       "pattern": "\\d+[mshd]",
       "type": "string"
     },
-    "license": {
+    "items_per_search": {
+      "description": "PositiveInteger",
+      "format": "integer",
+      "minimum": 1,
+      "type": "number"
+    },
+    "language": {
+      "enum": [
+        "kuery",
+        "lucene"
+      ],
+      "enumNames": [],
       "type": "string"
     },
-    "machine_learning_job_id": {
+    "license": {
       "type": "string"
     },
     "max_signals": {
@@ -79,6 +98,9 @@
     },
     "note": {
       "description": "MarkdownField",
+      "type": "string"
+    },
+    "query": {
       "type": "string"
     },
     "references": {
@@ -251,6 +273,74 @@
       },
       "type": "array"
     },
+    "threat_filters": {
+      "items": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "threat_index": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "threat_indicator_path": {
+      "type": "string"
+    },
+    "threat_language": {
+      "enum": [
+        "kuery",
+        "lucene"
+      ],
+      "enumNames": [],
+      "type": "string"
+    },
+    "threat_mapping": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "field": {
+                  "description": "NonEmptyStr",
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "value": {
+                  "description": "NonEmptyStr",
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field",
+                "type",
+                "value"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "threat_query": {
+      "type": "string"
+    },
     "throttle": {
       "type": "string"
     },
@@ -287,14 +377,16 @@
     }
   },
   "required": [
-    "anomaly_threshold",
     "author",
     "description",
-    "machine_learning_job_id",
+    "language",
     "name",
+    "query",
     "risk_score",
     "rule_id",
     "severity",
+    "threat_index",
+    "threat_mapping",
     "type"
   ],
   "type": "object"

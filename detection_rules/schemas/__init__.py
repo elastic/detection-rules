@@ -46,6 +46,7 @@ def migrate(version: str):
 @migrate("7.8")
 @migrate("7.9")
 @migrate("7.12")
+@migrate("7.13")
 def strip_additional_properties(version: Version, api_contents: dict) -> dict:
     """Remove all fields that the target schema doesn't recognize."""
     rule_type = api_contents["type"]
@@ -53,7 +54,7 @@ def strip_additional_properties(version: Version, api_contents: dict) -> dict:
     schema_file = stack_dir / f"{version}.{rule_type}.json"
 
     if not schema_file.exists():
-        raise ValueError(f"Unsupported rule type {rule_type}")
+        raise ValueError(f"Unsupported rule type {rule_type}. Unable to downgrade to {version}")
 
     target_schema = json.loads(schema_file.read_text(encoding="utf8"))
     stripped = {}
