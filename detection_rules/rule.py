@@ -217,7 +217,7 @@ class MachineLearningRuleData(BaseRuleData):
     type: Literal["machine_learning"]
 
     anomaly_threshold: int
-    machine_learning_job_id: str
+    machine_learning_job_id: Union[str, List[str]]
 
 
 @dataclass(frozen=True)
