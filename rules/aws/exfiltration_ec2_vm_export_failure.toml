@@ -6,58 +6,49 @@ updated_date = "2021/04/22"
 [rule]
 author = ["Elastic", "Austin Songer"]
 description = """
-An attempt to export an AWS EC2 instance has been detected and a VM Export might indicate an attempt to extract information from an instance.
+An attempt to export an AWS EC2 instance has been detected and a VM Export might indicate an attempt to extract
+information from an instance.
 """
-
-false_positives = [
-    """
-    Adding User Keys to their own Accounts
-    """,
-]
-
+false_positives = ["Adding User Keys to their own Accounts"]
 from = "now-60m"
 index = ["filebeat-*", "logs-aws*"]
-interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EC2 VM Export Failure"
-note = "The AWS Filebeat module must be enabled to use this rule."
-references = [
-    "https://docs.aws.amazon.com/vm-import/latest/userguide/vmexport.html#export-instance",
-]
+references = ["https://docs.aws.amazon.com/vm-import/latest/userguide/vmexport.html#export-instance"]
 risk_score = 21
-rule_id = "81c7506f-7d86-4865-be83-d29c86eba90b"
+rule_id = "e919611d-6b6f-493b-8314-7ed6ac2e413b"
 severity = "low"
 tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Asset Visibility"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and 
-event.action:CreateInstanceExportTask and event.provider:ec2.amazonaws.com and event.outcome:failure
+event.dataset:aws.cloudtrail and  event.action:CreateInstanceExportTask and event.provider:ec2.amazonaws.com and event.outcome:failure
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
+reference = "https://attack.mitre.org/techniques/T1537/"
 id = "T1537"
 name = "Transfer Data to Cloud Account"
-reference = "https://attack.mitre.org/techniques/T1537/"
 
 
 [rule.threat.tactic]
+reference = "https://attack.mitre.org/tactics/TA0010/"
 id = "TA0010"
 name = "Exfiltration"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
+reference = "https://attack.mitre.org/techniques/T1005/"
 id = "T1005"
 name = "Data from Local System"
-reference = "https://attack.mitre.org/techniques/T1005/"
 
 
 [rule.threat.tactic]
+reference = "https://attack.mitre.org/tactics/TA0009/"
 id = "TA0009"
 name = "Collection"
