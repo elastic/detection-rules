@@ -90,13 +90,13 @@ def kibana_diff(rule_id, repo, branch, threads):
     rules = RuleCollection.default()
 
     if rule_id:
-        rules = rules.filter(lambda r: r.id in rule_id)
+        rules = rules.filter(lambda r: r.id in rule_id).id_map
     else:
-        rules = rules.filter(production_filter)
+        rules = rules.filter(production_filter).id_map
 
     # add versions to the rules
     manage_versions(list(rules.values()), verbose=False)
-    repo_hashes = {r.id: r.get_hash() for r in rules.values()}
+    repo_hashes = {r.id: r.contents.sha256(include_version=True) for r in rules.values()}
 
     kibana_rules = {r['rule_id']: r for r in get_kibana_rules(repo=repo, branch=branch, threads=threads).values()}
     kibana_hashes = {r['rule_id']: dict_hash(r) for r in kibana_rules.values()}
@@ -110,8 +110,9 @@ def kibana_diff(rule_id, repo, branch, threads):
             continue
         if rule_hash != kibana_hashes[rule_id]:
             rule_diff.append(
-                f'versions - repo: {rules[rule_id].contents["version"]}, kibana: {kibana_rules[rule_id]["version"]} -> '
-                f'{rule_id} - {rules[rule_id].name}'
+                f'versions - repo: {rules[rule_id].contents.autobumped_version}, '
+                f'kibana: {kibana_rules[rule_id]["version"]} -> '
+                f'{rule_id} - {rules[rule_id].contents.name}'
             )
 
     diff = {
@@ -141,7 +142,7 @@ def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_bran
     """Prep a commit and push to Kibana."""
     git_exe = shutil.which("git")
 
-    package_name = Package.load_configs()['package']["name"]
+    package_name = Package.load_configs()["name"]
     release_dir = os.path.join(RELEASE_DIR, package_name)
     message = message or f"[Detection Rules] Add {package_name} rules"
 

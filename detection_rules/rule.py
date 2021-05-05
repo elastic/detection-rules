@@ -386,9 +386,9 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
         return converted
 
     @cached
-    def sha256(self) -> str:
-        # get the hash of the API dict with the version not included, otherwise it'll always be dirty.
-        hashable_contents = self.to_api_format(include_version=False)
+    def sha256(self, include_version=False) -> str:
+        # get the hash of the API dict without the version by default, otherwise it'll always be dirty.
+        hashable_contents = self.to_api_format(include_version=include_version)
         return utils.dict_hash(hashable_contents)
 
 
@@ -416,6 +416,7 @@ class TOMLRule:
         toml_write(converted, str(self.path.absolute()))
 
     def save_json(self, path: Path, include_version: bool = True):
+        path = path.with_suffix('.json')
         with open(str(path.absolute()), 'w', newline='\n') as f:
             json.dump(self.contents.to_api_format(include_version=include_version), f, sort_keys=True, indent=2)
             f.write('\n')
