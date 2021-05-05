@@ -1,0 +1,53 @@
+[metadata]
+creation_date = "2021/05/05"
+maturity = "development"
+updated_date = "2021/05/05"
+
+[rule]
+author = ["Elastic", "Austin Songer"]
+description = """
+Identified Traffic Mirroring with the threat actor intention of exfiltrating sensitive data from unencrypted internal
+traffic.
+"""
+false_positives = ["System Admin", "Penetration Testing"]
+from = "now-25m"
+index = ["filebeat-*", "logs-aws*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EC2 Full Network Packet Capture Detected"
+references = [
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_TrafficMirrorFilter.html",
+    "https://github.com/easttimor/aws-incident-response",
+]
+risk_score = 47
+rule_id = "c1812764-0788-470f-8e74-eb4a14d47573"
+severity = "medium"
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Network Security"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.action:(CreateTrafficMirrorFilter or CreateTrafficMirrorFilterRule or CreateTrafficMirrorSession or CreateTrafficMirrorTarget) and event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+reference = "https://attack.mitre.org/techniques/T1074/"
+name = "Data Staged"
+id = "T1074"
+
+
+[rule.threat.tactic]
+reference = "https://attack.mitre.org/tactics/TA0009/"
+name = "Collection"
+id = "TA0009"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+reference = "https://attack.mitre.org/tactics/TA0010/"
+name = "Exfiltration"
+id = "TA0010"
