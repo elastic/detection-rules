@@ -30,12 +30,12 @@ class RuleMeta(MarshmallowDataclassMixin):
     deprecation_date: Optional[definitions.Date]
 
     # Optional fields
-    beats_version: Optional[definitions.BranchVer]
-    ecs_versions: Optional[List[definitions.BranchVer]]
     comments: Optional[str]
     maturity: Optional[definitions.Maturity]
+    min_stack_version: Optional[definitions.SemVer]
     os_type_list: Optional[List[definitions.OSType]]
     query_schema_validation: Optional[bool]
+    query_validate_master: Optional[bool]
     related_endpoint_rules: Optional[List[str]]
 
 

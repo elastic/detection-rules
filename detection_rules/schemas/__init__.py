@@ -3,9 +3,11 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
+from typing import Dict
 from .base import TomlMetadata
 from .rta_schema import validate_rta_mapping
 from ..semver import Version
+from ..utils import cached, load_etc_dump
 from . import definitions
 
 # import all of the schema versions
@@ -20,6 +22,7 @@ __all__ = (
     "available_versions",
     "definitions",
     "downgrade",
+    "get_stack_schemas",
     "CurrentSchema",
     "validate_rta_mapping",
     "TomlMetadata",
@@ -63,3 +66,10 @@ def downgrade(api_contents: dict, target_version: str):
             break
 
     return api_contents
+
+
+@cached
+def get_stack_schemas(stack_version: str) -> Dict[str, dict]:
+    """Return all ECS + beats to stack versions for a every stack version >= a specified stack version."""
+    stack_map = load_etc_dump('stack-schema-map.yaml')
+    return {k: v for k, v in stack_map.items() if Version(k) >= Version(stack_version)}

@@ -12,7 +12,7 @@ from pathlib import Path
 import eql
 
 import kql
-from detection_rules import attack, beats, ecs
+from detection_rules import attack
 from detection_rules.packaging import load_versions
 from detection_rules.rule import QueryRuleData
 from detection_rules.rule_loader import FILE_PATTERN
@@ -355,23 +355,6 @@ class TestRuleFiles(BaseRuleTest):
 
 class TestRuleMetadata(BaseRuleTest):
     """Test the metadata of rules."""
-
-    def test_ecs_and_beats_opt_in_not_latest_only(self):
-        """Test that explicitly defined opt-in validation is not only the latest versions to avoid stale tests."""
-        for rule in self.all_rules:
-            beats_version = rule.contents.metadata.beats_version
-            ecs_versions = rule.contents.metadata.ecs_versions or []
-            latest_beats = str(beats.get_max_version())
-            latest_ecs = ecs.get_max_version()
-
-            error_msg = f'{self.rule_str(rule)} it is unnecessary to define the current latest beats version: ' \
-                        f'{latest_beats}'
-            self.assertNotEqual(latest_beats, beats_version, error_msg)
-
-            if len(ecs_versions) == 1:
-                error_msg = f'{self.rule_str(rule)} it is unnecessary to define the current latest ecs version if ' \
-                            f'only one version is specified: {latest_ecs}'
-                self.assertNotIn(latest_ecs, ecs_versions, error_msg)
 
     def test_updated_date_newer_than_creation(self):
         """Test that the updated_date is newer than the creation date."""

@@ -10,8 +10,13 @@ from typing import List
 import eql
 
 import kql
-from detection_rules import beats, ecs
-from detection_rules.rule import QueryValidator, QueryRuleData, RuleMeta
+from . import beats, ecs
+from .rule import QueryValidator, QueryRuleData, RuleMeta
+from .schemas import get_stack_schemas
+from .utils import load_etc_dump
+
+
+CURRENT_PACKAGE = load_etc_dump('packages.yml')['package']['name']
 
 
 class KQLValidator(QueryValidator):
@@ -37,28 +42,39 @@ class KQLValidator(QueryValidator):
             return
 
         indexes = data.index or []
-        beats_version = meta.beats_version or beats.get_max_version()
-        ecs_versions = meta.ecs_versions or [ecs.get_max_version()]
+        stack_versions = get_stack_schemas(meta.min_stack_version)
+
+        if not stack_versions:
+            # add latest
+            stack_versions = {CURRENT_PACKAGE: {'beats': beats.get_max_version(), 'ecs': ecs.get_max_version()}}
+
+        if meta.query_validate_master:
+            stack_versions['latest'] = {'beats': 'master', 'ecs': 'master'}
 
         beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
-        beat_schema = beats.get_schema_from_kql(ast, beat_types, version=beats_version) if beat_types else None
 
-        if not ecs_versions:
-            kql.parse(self.query, schema=ecs.get_kql_schema(indexes=indexes, beat_schema=beat_schema))
-        else:
-            for version in ecs_versions:
-                schema = ecs.get_kql_schema(version=version, indexes=indexes, beat_schema=beat_schema)
+        for stack_version, mapping in stack_versions.items():
+            beats_version = mapping['beats']
+            ecs_version = mapping['ecs']
+            err_trailer = f'stack: {stack_version}, beats: {beats_version}, ecs: {ecs_version}'
 
-                try:
-                    kql.parse(self.query, schema=schema)
-                except kql.KqlParseError as exc:
-                    message = exc.error_msg
-                    trailer = None
-                    if "Unknown field" in message and beat_types:
-                        trailer = "\nTry adding event.module or event.dataset to specify beats module"
+            beat_schema = beats.get_schema_from_kql(ast, beat_types, version=beats_version) if beat_types else None
 
-                    raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
-                                            len(exc.caret.lstrip()), trailer=trailer) from None
+            schema = ecs.get_kql_schema(version=ecs_version, indexes=indexes, beat_schema=beat_schema)
+
+            try:
+                kql.parse(self.query, schema=schema)
+            except kql.KqlParseError as exc:
+                message = exc.error_msg
+                trailer = err_trailer
+                if "Unknown field" in message and beat_types:
+                    trailer = f"\nTry adding event.module or event.dataset to specify beats module\n\n{trailer}"
+
+                raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
+                                        len(exc.caret.lstrip()), trailer=trailer) from None
+            except Exception as exc:
+                exc.args += (err_trailer,)
+                raise
 
 
 class EQLValidator(QueryValidator):
@@ -81,8 +97,14 @@ class EQLValidator(QueryValidator):
             return
 
         indexes = data.index or []
-        beats_version = meta.beats_version or beats.get_max_version()
-        ecs_versions = meta.ecs_versions or [ecs.get_max_version()]
+        stack_versions = get_stack_schemas(meta.min_stack_version)
+
+        if not stack_versions:
+            # add latest
+            stack_versions = {CURRENT_PACKAGE: {'beats': beats.get_max_version(), 'ecs': ecs.get_max_version()}}
+
+        if meta.query_validate_master:
+            stack_versions['latest'] = {'beats': 'master', 'ecs': 'master'}
 
         # TODO: remove once py-eql supports ipv6 for cidrmatch
         # Or, unregister the cidrMatch function and replace it with one that doesn't validate against strict IPv4
@@ -90,25 +112,29 @@ class EQLValidator(QueryValidator):
             parsed = eql.parse_query(self.query)
 
         beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
-        beat_schema = beats.get_schema_from_eql(parsed, beat_types, version=beats_version) if beat_types else None
 
-        for version in ecs_versions:
-            schema = ecs.get_kql_schema(indexes=indexes, beat_schema=beat_schema, version=version)
+        for stack_version, mapping in stack_versions.items():
+            beats_version = mapping['beats']
+            ecs_version = mapping['ecs']
+            err_trailer = f'stack: {stack_version}, beats: {beats_version}, ecs: {ecs_version}'
+
+            beat_schema = beats.get_schema_from_eql(parsed, beat_types, version=beats_version) if beat_types else None
+
+            schema = ecs.get_kql_schema(indexes=indexes, beat_schema=beat_schema, version=ecs_version)
             eql_schema = ecs.KqlSchema2Eql(schema)
 
             try:
                 # TODO: switch to custom cidrmatch that allows ipv6
                 with eql_schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
                     eql.parse_query(self.query)
-
-            except eql.EqlTypeMismatchError:
-                raise
-
             except eql.EqlParseError as exc:
                 message = exc.error_msg
-                trailer = None
+                trailer = err_trailer
                 if "Unknown field" in message and beat_types:
-                    trailer = "\nTry adding event.module or event.dataset to specify beats module"
+                    trailer = f"\nTry adding event.module or event.dataset to specify beats module\n\n{trailer}"
 
                 raise exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
                                     len(exc.caret.lstrip()), trailer=trailer) from None
+            except Exception as exc:
+                exc.args += (err_trailer,)
+                raise
