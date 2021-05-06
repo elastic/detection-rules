@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/08/14"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ CVE-2020-1048 and CVE-2020-1337. .
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Suspicious PrintSpooler SPL File Created"
 note = "Refer to CVEs, CVE-2020-1048 and CVE-2020-1337 for further information on the vulnerability and exploit. Verify that the relevant system is patched."
@@ -21,13 +21,18 @@ rule_id = "a7ccae7b-9d2c-44b2-a061-98e5946971fa"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:file and not event.type:deletion and
- file.extension:(spl or SPL) and
- file.path:C\:\\Windows\\System32\\spool\\PRINTERS\\* and
- not process.name:(spoolsv.exe or printfilterpipelinesvc.exe or PrintIsolationHost.exe or splwow64.exe or msiexec.exe or poqexec.exe)
+file where event.type != "deletion" and
+  file.extension : "spl" and
+  file.path : "?:\\Windows\\System32\\spool\\PRINTERS\\*" and
+  not process.name : ("spoolsv.exe",
+                      "printfilterpipelinesvc.exe",
+                      "PrintIsolationHost.exe",
+                      "splwow64.exe",
+                      "msiexec.exe",
+                      "poqexec.exe")
 '''
 
 
@@ -35,12 +40,11 @@ event.category:file and not event.type:deletion and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1068"
-name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
+name = "Exploitation for Privilege Escalation"
 
 
 [rule.threat.tactic]
 id = "TA0004"
-name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
+name = "Privilege Escalation"

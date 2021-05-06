@@ -9,6 +9,7 @@ import glob
 import os
 import shutil
 import json
+from pathlib import Path
 
 import requests
 import eql
@@ -99,7 +100,7 @@ def get_max_version(include_master=False):
     versions = get_schema_map().keys()
 
     if include_master and any([v.startswith('master') for v in versions]):
-        return glob.glob(os.path.join(ECS_SCHEMAS_DIR, 'master*'))[0]
+        return list(Path(ECS_SCHEMAS_DIR).glob('master*'))[0].name
 
     return str(max([Version(v) for v in versions if not v.startswith('master')]))
 
@@ -107,6 +108,9 @@ def get_max_version(include_master=False):
 @cached
 def get_schema(version=None, name='ecs_flat'):
     """Get schema by version."""
+    if version == 'master':
+        version = get_max_version(include_master=True)
+
     return get_schemas()[version or str(get_max_version())][name]
 
 
