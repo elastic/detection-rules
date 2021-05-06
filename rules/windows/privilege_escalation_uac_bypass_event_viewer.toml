@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/03/17"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
@@ -11,20 +11,24 @@ elevated permissions.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Bypass UAC via Event Viewer"
-risk_score = 21
+risk_score = 73
 rule_id = "31b4c719-f2b4-41f6-a9bd-fce93c2eaf62"
-severity = "low"
+severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
-  process.parent.name:eventvwr.exe and
-  not process.executable:("C:\Windows\SysWOW64\mmc.exe" or "C:\Windows\System32\mmc.exe")
+process where event.type in ("start", "process_started") and
+  process.parent.name : "eventvwr.exe" and
+  not process.executable : 
+            ("?:\\Windows\\SysWOW64\\mmc.exe", 
+             "?:\\Windows\\System32\\mmc.exe",
+             "?:\\Windows\\SysWOW64\\WerFault.exe",
+             "?:\\Windows\\System32\\WerFault.exe")
 '''
 
 
@@ -32,17 +36,17 @@ event.category:process and event.type:(start or process_started) and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1548"
-name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
+name = "Abuse Elevation Control Mechanism"
 [[rule.threat.technique.subtechnique]]
 id = "T1548.002"
-name = "Bypass User Access Control"
 reference = "https://attack.mitre.org/techniques/T1548/002/"
+name = "Bypass User Access Control"
 
 
 
 [rule.threat.tactic]
 id = "TA0004"
-name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+name = "Privilege Escalation"
 
