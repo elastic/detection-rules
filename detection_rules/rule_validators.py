@@ -42,9 +42,10 @@ class KQLValidator(QueryValidator):
             return
 
         indexes = data.index or []
-        stack_versions = get_stack_schemas(meta.min_stack_version)
 
-        if not stack_versions:
+        if meta.min_stack_version:
+            stack_versions = get_stack_schemas(meta.min_stack_version)
+        else:
             # add latest
             stack_versions = {CURRENT_PACKAGE: {'beats': beats.get_max_version(), 'ecs': ecs.get_max_version()}}
 
@@ -97,9 +98,10 @@ class EQLValidator(QueryValidator):
             return
 
         indexes = data.index or []
-        stack_versions = get_stack_schemas(meta.min_stack_version)
 
-        if not stack_versions:
+        if meta.min_stack_version:
+            stack_versions = get_stack_schemas(meta.min_stack_version)
+        else:
             # add latest
             stack_versions = {CURRENT_PACKAGE: {'beats': beats.get_max_version(), 'ecs': ecs.get_max_version()}}
 
