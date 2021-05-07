@@ -260,7 +260,7 @@ class Package(object):
         os.makedirs(extras_dir, exist_ok=True)
 
         for rule in self.rules:
-            rule.save_json(Path(os.path.join(rules_dir, os.path.basename(rule.path))))
+            rule.save_json(Path(rules_dir).joinpath(rule.path.name).with_suffix('.json'))
 
         self._package_kibana_notice_file(rules_dir)
         self._package_kibana_index_file(rules_dir)
