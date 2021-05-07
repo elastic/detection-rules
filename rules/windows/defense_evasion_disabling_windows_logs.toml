@@ -1,0 +1,49 @@
+[metadata]
+creation_date = "2021/05/06"
+maturity = "development"
+updated_date = "2021/05/06"
+
+[rule]
+author = ["Elastic","Ivan Ninichuck","Austin Songer"]
+description = """
+Identifies attempts to disable EventLog and logman. This is often done by attackers in an attempt to evade detection on
+a system.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Disable Windows Event and Security Logs"
+references = ["https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/logman"]
+risk_score = 21
+rule_id = "4de76544-f0e5-486a-8f84-eae0b6063cdc"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+     ((process.name:"cmd.exe" or process.pe.original_file_name == "cmd.exe") and 
+           process.args : ("EventLog-System", "EventLog", "stop","logman","delete") and
+           not process.args : ("create","query","update","import","export")) or         
+     ((process.name:"pwsh.exe" or process.pe.original_file_name == "pwsh.exe") and 
+			process.args : ("Set-Service", "EventLog", "Disabled")) or
+     ((process.name:"powershell.exe" or process.pe.original_file_name == "powershell.exe") and 
+			process.args : ("Set-Service", "EventLog", "Disabled")) or
+     ((process.name:"powershell_ise.exe" or process.pe.original_file_name == "powershell_ise.exe") and 
+			process.args : ("Set-Service", "EventLog", "Disabled"))
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal on Host"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
