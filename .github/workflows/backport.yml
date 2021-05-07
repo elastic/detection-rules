@@ -24,12 +24,6 @@ jobs:
         target_branch: [7.13]
 
     steps:
-      - uses: craftech-io/slack-action@v1
-        with:
-          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          status: failure
-        if: failure()
-
       - name: Checkout repo
         uses: actions/checkout@v2
 
@@ -56,11 +50,14 @@ jobs:
           # <python code to remove irrelevant rules>
           # git commit --author ... --message ...
 
-          echo "Push new commit to ${{matrix.target_branch}}"
-          git push
-
       - name: Push changes
         uses: ad-m/github-push-action@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{matrix.target_branch}}
+
+      - uses: craftech-io/slack-action@v1
+        with:
+          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: failure
+        if: failure()
