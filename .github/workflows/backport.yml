@@ -26,6 +26,9 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.PROTECTIONS_MACHINE_TOKEN }}
+          ref: ${{matrix.target_branch}}
 
       - name: Set github config
         run: |
@@ -51,13 +54,5 @@ jobs:
           # git commit --author ... --message ...
 
       - name: Push changes
-        uses: ad-m/github-push-action@master
-        with:
-          github_token: ${{ secrets.PROTECTIONS_MACHINE_TOKEN }}
-          branch: ${{matrix.target_branch}}
-
-      - uses: craftech-io/slack-action@v1
-        with:
-          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          status: failure
-        if: failure()
+        run: |
+          git push
