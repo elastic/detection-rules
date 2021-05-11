@@ -122,6 +122,7 @@ def kibana_experimental():
 @click.pass_context
 def create_dnstwist_rule(ctx: click.Context, input_file, rule_type, verbose=True):
     """Create an indicator match or query rule based on dnstwist results."""
+    kibana = ctx.obj['kibana']
 
     # Read csv file containing output from dnstwist
 
