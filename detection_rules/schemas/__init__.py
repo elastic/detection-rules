@@ -56,7 +56,6 @@ def get_schema_file(version: Version, rule_type: str) -> dict:
 @migrate("7.8")
 @migrate("7.9")
 @migrate("7.12")
-@migrate("7.13")
 def strip_additional_properties(version: Version, api_contents: dict) -> dict:
     """Remove all fields that the target schema doesn't recognize."""
     stripped = {}
@@ -123,6 +122,23 @@ def downgrade_threshold_to_7_11(version: Version, api_contents: dict) -> dict:
         # if cardinality was defined with no field or value
         api_contents['threshold'].pop('cardinality', None)
         api_contents["threshold"]["field"] = api_contents["threshold"]["field"][0]
+
+    # finally, downgrade any additional properties that were added
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("7.13")
+def downgrade_ml_multijob_713(version: Version, api_contents: dict) -> dict:
+    """Convert `machine_learning_job_id` as an array to a string for < 7.13."""
+    if "machine_learning_job_id" in api_contents:
+        job_id = api_contents["machine_learning_job_id"]
+
+        if isinstance(job_id, list):
+            if len(job_id) > 1:
+                raise ValueError('Cannot downgrade an ML rule with multiple jobs defined')
+
+            api_contents = api_contents.copy()
+            api_contents["machine_learning_job_id"] = job_id[0]
 
     # finally, downgrade any additional properties that were added
     return strip_additional_properties(version, api_contents)
