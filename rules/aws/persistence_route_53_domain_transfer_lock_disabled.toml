@@ -1,0 +1,46 @@
+[metadata]
+creation_date = "2021/05/10"
+maturity = "development"
+updated_date = "2021/05/10"
+
+[rule]
+author = ["Elastic", "Austin Songer"]
+description = "Identifies when a transfer lock was removed from a Route 53 domain."
+false_positives = ["Unknown"]
+index = ["filebeat-*", "logs-aws*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Route 53 Domain Transfer Lock Disabled"
+references = ["https://docs.aws.amazon.com/Route53/latest/APIReference/Welcome.html"]
+risk_score = 21
+rule_id = "12051077-0124-4394-9522-8f4f4db1d674"
+severity = "low"
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Asset Visibility"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and event.provider:route53.amazonaws.com and event.action:DisableDomainTransferLock and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+id = "T1098"
+
+
+[rule.threat.tactic]
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+id = "TA0003"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+id = "TA0006"
