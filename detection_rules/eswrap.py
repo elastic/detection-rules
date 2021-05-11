@@ -736,3 +736,21 @@ def delete_ml_job(ctx: click.Context, job_name, job_type, verbose=True):
 
     if verbose:
         click.echo(f'Deleted {job_type} job: {job_name}')
+
+
+@es_experimental.command('index-dnstwist-results')
+@click.argument('input-file', type=click.Path(exists=True, dir_okay=False), required=True)
+@click.pass_context
+def index_dnstwist_results(ctx: click.Context, input_file, verbose=True):
+    """Index dnstwist results in Elasticsearch."""
+    es_client: Elasticsearch = ctx.obj['es']
+
+    # Read csv file containing dnstwist results
+
+    # Perform any validation on file contents
+
+    # Inform user that any existing documents in the dnstwist index will be deleted. Continue? Y/n
+
+    # Delete documents from dnstwist index
+
+    # Bulk index file contents in dnstwist index

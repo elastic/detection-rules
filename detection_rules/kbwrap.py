@@ -107,3 +107,28 @@ def search_alerts(ctx, query, date_range, columns, extend):
         table_columns = table_columns + columns if extend else columns
     click.echo(Table.from_list(table_columns, alerts))
     return alerts
+
+
+@kibana_group.group('experimental')
+def kibana_experimental():
+    """[Experimental] helper commands for integrating with Kibana."""
+    click.secho('\n* experimental commands are use at your own risk and may change without warning *\n')
+
+
+@kibana_experimental.command('create-dnstwist-rule')
+@click.argument('input-file', type=click.Path(exists=True, dir_okay=False), required=True)
+@click.option('--rule-type', '-t', type=click.Choice(['threat-match', 'custom-query']), required=True,
+              help="Rule type to create using dnstwist results")
+@click.pass_context
+def create_dnstwist_rule(ctx: click.Context, input_file, rule_type, verbose=True):
+    """Create an indicator match or query rule based on dnstwist results."""
+
+    # Read csv file containing output from dnstwist
+
+    # Read indicator match rule template file
+
+    # Populate threat match or query rule using user's dnstwist results
+
+    # Create rule file
+
+    # Prompt: Upload rule to Kibana? Y/n. If yes, call upload_rule to upload toml file to Kibana
