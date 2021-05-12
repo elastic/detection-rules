@@ -53,8 +53,8 @@ class KQLValidator(QueryValidator):
 
                 raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
                                         len(exc.caret.lstrip()), trailer=trailer) from None
-            except Exception as exc:
-                exc.args += (err_trailer,)
+            except Exception:
+                print(err_trailer)
                 raise
 
 
@@ -97,6 +97,6 @@ class EQLValidator(QueryValidator):
 
                 raise exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
                                     len(exc.caret.lstrip()), trailer=trailer) from None
-            except Exception as exc:
-                exc.args += (err_trailer,)
+            except Exception:
+                print(err_trailer)
                 raise
