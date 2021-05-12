@@ -14,7 +14,7 @@ from typing import Union
 
 import click
 import elasticsearch
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, helpers
 from elasticsearch.client import AsyncSearchClient, IngestClient, LicenseClient, MlClient
 
 import kql
@@ -745,12 +745,55 @@ def index_dnstwist_results(ctx: click.Context, input_file, verbose=True):
     """Index dnstwist results in Elasticsearch."""
     es_client: Elasticsearch = ctx.obj['es']
 
-    # Read csv file containing dnstwist results
+    with open('input-file', 'r') as f:
+        data = json.load(f)
 
-    # Perform any validation on file contents
+    domain_name = [record['domain-name'] for record in data if record['fuzzer'] == 'original*'][0]
+    domain = domain_name.split('.')[0]
+    domain_index = f'dnstwist-{domain}'
+    if es.indices.exists(index=f'dnstwist-{domain}'):
+        if click.confirm(f'dnstwist index already exists for domain {domain_name}. Do you want to continue?', abort=True):
+            es.indices.delete(index=f'dnstwist-{domain}')
 
-    # Inform user that any existing documents in the dnstwist index will be deleted. Continue? Y/n
+    def create_mappings():
 
-    # Delete documents from dnstwist index
+        mappings = {'mappings': {
+                        'properties': {
+                            'dns-a': {'type': 'keyword'},
+                            'dns-aaaa': {'type': 'keyword'},
+                            'dns-mx': {'type': 'keyword'},
+                            'dns-ns': {'type': 'keyword'},
+                            'banner-http': {'type': 'keyword'},
+                            'fuzzer': {'type': 'keyword'},
+                            'original-domain': {'type': 'keyword'},
+                            'dns.question.registered_domain': {'type': 'keyword'}
+                            }
+                        }
+                    }
+        return mappings
 
-    # Bulk index file contents in dnstwist index
+    es.indices.create(index=f'dnstwist-{domain}', body=create_mappings())
+
+    es_updates = []
+    count = 0
+    for record in data:
+        temp = {}
+        temp['fuzzer'] = record.get('fuzzer', None)
+        if temp['fuzzer'] == 'original*':
+            continue
+        temp['dns-a'] = record.get('dns-a', None)
+        temp['dns-aaaa'] = record.get('dns-aaaa', None)
+        temp['dns-mx'] = record.get('dns-mx', None)
+        temp['dns-ns'] = record.get('dns-ns', None)
+        temp['banner-http'] = record.get('banner-http', None)
+        temp['original-domain'] = domain_name
+        temp['dns'] = {'question': {}}
+        temp['dns']['question']['registered_domain'] = record.get('domain-name', None)
+        es_updates.append({'_index': domain_index, '_id': count, '_source': temp})
+        count += 1
+
+    click.echo(f'Indexing data for domain {domain_name}')
+
+    for success, info in helpers.streaming_bulk(es_client, es_updates, chunk_size=1000, request_timeout=150):
+        if not success:
+            client_error(info)
