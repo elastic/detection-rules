@@ -757,19 +757,20 @@ def index_dnstwist_results(ctx: click.Context, input_file, verbose=True):
 
     def create_mappings():
 
-        mappings = {'mappings': {
-                    'properties': {
-                    'dns-a': {'type': 'keyword'},
-                    'dns-aaaa': {'type': 'keyword'},
-                    'dns-mx': {'type': 'keyword'},
-                    'dns-ns': {'type': 'keyword'},
-                    'banner-http': {'type': 'keyword'},
-                    'fuzzer': {'type': 'keyword'},
-                    'original-domain': {'type': 'keyword'},
-                    'dns.question.registered_domain': {'type': 'keyword'}
-                    }
-                    }
+        mappings = {
+            "mappings": {
+                "properties": {
+                    "dns-a": {"type": "keyword"},
+                    "dns-aaaa": {"type": "keyword"},
+                    "dns-mx": {"type": "keyword"},
+                    "dns-ns": {"type": "keyword"},
+                    "banner-http": {"type": "keyword"},
+                    "fuzzer": {"type": "keyword"},
+                    "original-domain": {"type": "keyword"},
+                    "dns.question.registered_domain": {"type": "keyword"},
                 }
+            }
+        }
         return mappings
 
     es_client.indices.create(index=f'dnstwist-{domain}', body=create_mappings())
