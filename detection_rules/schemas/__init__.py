@@ -70,6 +70,16 @@ def downgrade(api_contents: dict, target_version: str):
 
 @cached
 def get_stack_schemas(stack_version: str) -> Dict[str, dict]:
-    """Return all ECS + beats to stack versions for a every stack version >= a specified stack version."""
+    """Return all ECS + beats to stack versions for a every stack version >= specified stack version and <= package."""
+    from ..packaging import load_current_package_version
+
+    stack_version = Version(stack_version)
+    current_package = Version(load_current_package_version())
+
+    if len(current_package) == 2:
+        current_package = Version(current_package + (0,))
+
     stack_map = load_etc_dump('stack-schema-map.yaml')
-    return {k: v for k, v in stack_map.items() if Version(k) >= Version(stack_version)}
+    versions = {k: v for k, v in stack_map.items()
+                if (mapped_version := Version(k)) >= stack_version and mapped_version <= current_package and v}
+    return versions
