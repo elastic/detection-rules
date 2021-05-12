@@ -1,14 +1,22 @@
 [metadata]
 creation_date = "2021/05/10"
-maturity = "development"
+maturity = "production"
 updated_date = "2021/05/10"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
 description = "Identifies when a request has been made to transfer a Route 53 domain to another AWS account."
-from = "now-10m"
+false_positives = [
+    """
+    A domain may be transferred to another AWS account by a system or network administrator. Verify whether the user
+    identity, user agent, and/or hostname should be making changes in your environment. Domain transfers from unfamiliar
+    users or hosts should be investigated. If known behavior is causing false positives, it can be exempted from the
+    rule.
+    """,
+]
+from = "now-60m"
 index = ["filebeat-*", "logs-aws*"]
-interval = "15m"
+interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS Route 53 Domain Transferred to Another Account"
