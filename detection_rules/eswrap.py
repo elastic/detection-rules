@@ -751,9 +751,9 @@ def index_dnstwist_results(ctx: click.Context, input_file, verbose=True):
     domain_name = [record['domain-name'] for record in data if record['fuzzer'] == 'original*'][0]
     domain = domain_name.split('.')[0]
     domain_index = f'dnstwist-{domain}'
-    if es.indices.exists(index=f'dnstwist-{domain}'):
+    if es_client.indices.exists(index=f'dnstwist-{domain}'):
         if click.confirm(f'dnstwist index already exists for domain {domain_name}. Do you want to continue?', abort=True):
-            es.indices.delete(index=f'dnstwist-{domain}')
+            es_client.indices.delete(index=f'dnstwist-{domain}')
 
     def create_mappings():
 
@@ -772,7 +772,7 @@ def index_dnstwist_results(ctx: click.Context, input_file, verbose=True):
                     }
         return mappings
 
-    es.indices.create(index=f'dnstwist-{domain}', body=create_mappings())
+    es_client.indices.create(index=f'dnstwist-{domain}', body=create_mappings())
 
     es_updates = []
     count = 0
