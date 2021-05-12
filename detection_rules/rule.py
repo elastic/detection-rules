@@ -7,19 +7,24 @@ import json
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
-from typing import Literal, Union, Optional, List, Any
+from typing import Literal, Union, Optional, List, Any, Dict
 from uuid import uuid4
 
 from marshmallow import ValidationError, validates_schema
 
-from . import utils
+import eql
+import kql
+
+from . import beats, ecs, utils
 from .mixins import MarshmallowDataclassMixin
 from .rule_formatter import toml_write, nested_normalize
 from .schemas import definitions
-from .schemas import downgrade
-from .utils import cached
+from .schemas import get_stack_schemas, downgrade
+from .utils import cached, load_etc_dump
+
 
 _META_SCHEMA_REQ_DEFAULTS = {}
+CURRENT_PACKAGE = load_etc_dump('packages.yml')['package']['name']
 
 
 @dataclass(frozen=True)
@@ -37,6 +42,24 @@ class RuleMeta(MarshmallowDataclassMixin):
     query_schema_validation: Optional[bool]
     query_validate_master: Optional[bool]
     related_endpoint_rules: Optional[List[str]]
+
+    def get_validation_stack_versions(self) -> Dict[str, dict]:
+        """Get a dict of beats and ecs versions per stack release."""
+        stack_versions = {}
+
+        if self.min_stack_version:
+            stack_versions = get_stack_schemas(self.min_stack_version)
+
+        # if min_stack_version is not defined in a rule or the stack version is not defined in the stack-schema-map,
+        #  then validate with the latest non-master schemas saved locally
+        if not stack_versions:
+            # add latest
+            stack_versions = {CURRENT_PACKAGE: {'beats': beats.get_max_version(), 'ecs': ecs.get_max_version()}}
+
+        if self.query_validate_master:
+            stack_versions['latest'] = {'beats': 'master', 'ecs': 'master'}
+
+        return stack_versions
 
 
 @dataclass(frozen=True)
@@ -211,6 +234,19 @@ class QueryRuleData(BaseRuleData):
         if validator is not None:
             return validator.ast
 
+    def get_beats_types(self) -> List[str]:
+        indexes = self.index or []
+        beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
+        return beat_types
+
+    def get_query_schema(self, ast: Union[eql.ast.Expression, kql.ast.Expression], beats_version: str,
+                         ecs_version: str) -> dict:
+        indexes = self.index or []
+        beat_types = self.get_beats_types()
+        beat_schema = beats.get_schema_from_kql(ast, beat_types, version=beats_version) if beat_types else None
+        schema = ecs.get_kql_schema(version=ecs_version, indexes=indexes, beat_schema=beat_schema)
+        return schema
+
 
 @dataclass(frozen=True)
 class MachineLearningRuleData(BaseRuleData):
@@ -244,6 +280,19 @@ class EQLRuleData(QueryRuleData):
     """EQL rules are a special case of query rules."""
     type: Literal["eql"]
     language: Literal["eql"]
+
+    def get_query_schema(self, ast: Union[eql.ast.Expression, kql.ast.Expression], beats_version: str,
+                         ecs_version: str) -> dict:
+        # TODO: remove once py-eql supports ipv6 for cidrmatch
+        # Or, unregister the cidrMatch function and replace it with one that doesn't validate against strict IPv4
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+            parsed = eql.parse_query(self.query)
+
+        indexes = self.index or []
+        beat_types = self.get_beats_types()
+        beat_schema = beats.get_schema_from_eql(parsed, beat_types, version=beats_version) if beat_types else None
+        schema = ecs.get_kql_schema(version=ecs_version, indexes=indexes, beat_schema=beat_schema)
+        return schema
 
 
 @dataclass(frozen=True)
