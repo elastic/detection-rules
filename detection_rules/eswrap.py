@@ -7,6 +7,7 @@
 import json
 import os
 import time
+from datetime import datetime
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
@@ -767,7 +768,8 @@ def index_dnstwist_results(ctx: click.Context, input_file, verbose=True):
                     "banner-http": {"type": "keyword"},
                     "fuzzer": {"type": "keyword"},
                     "original-domain": {"type": "keyword"},
-                    "dns.question.registered_domain": {"type": "keyword"},
+                    "@timestamp": {"type": "date"},
+                    "dns.question.registered_domain": {"type": "keyword"}
                 }
             }
         }
@@ -788,6 +790,7 @@ def index_dnstwist_results(ctx: click.Context, input_file, verbose=True):
         temp['dns-ns'] = record.get('dns-ns', None)
         temp['banner-http'] = record.get('banner-http', None)
         temp['original-domain'] = domain_name
+        temp['@timestamp'] = datetime.utcnow()
         temp['dns'] = {'question': {}}
         temp['dns']['question']['registered_domain'] = record.get('domain-name', None)
         es_updates.append({'_index': domain_index, '_id': count, '_source': temp})
