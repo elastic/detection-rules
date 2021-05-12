@@ -745,31 +745,31 @@ def index_dnstwist_results(ctx: click.Context, input_file, verbose=True):
     """Index dnstwist results in Elasticsearch."""
     es_client: Elasticsearch = ctx.obj['es']
 
-    with open('input-file', 'r') as f:
+    with open(input_file, 'r') as f:
         data = json.load(f)
 
     domain_name = [record['domain-name'] for record in data if record['fuzzer'] == 'original*'][0]
     domain = domain_name.split('.')[0]
     domain_index = f'dnstwist-{domain}'
     if es_client.indices.exists(index=f'dnstwist-{domain}'):
-        if click.confirm(f'dnstwist index already exists for domain {domain_name}. Do you want to continue?', abort=True):
+        if click.confirm(f'dnstwist index already exists for {domain_name}. Do you want to continue?', abort=True):
             es_client.indices.delete(index=f'dnstwist-{domain}')
 
     def create_mappings():
 
         mappings = {'mappings': {
-                        'properties': {
-                            'dns-a': {'type': 'keyword'},
-                            'dns-aaaa': {'type': 'keyword'},
-                            'dns-mx': {'type': 'keyword'},
-                            'dns-ns': {'type': 'keyword'},
-                            'banner-http': {'type': 'keyword'},
-                            'fuzzer': {'type': 'keyword'},
-                            'original-domain': {'type': 'keyword'},
-                            'dns.question.registered_domain': {'type': 'keyword'}
-                            }
-                        }
+                    'properties': {
+                    'dns-a': {'type': 'keyword'},
+                    'dns-aaaa': {'type': 'keyword'},
+                    'dns-mx': {'type': 'keyword'},
+                    'dns-ns': {'type': 'keyword'},
+                    'banner-http': {'type': 'keyword'},
+                    'fuzzer': {'type': 'keyword'},
+                    'original-domain': {'type': 'keyword'},
+                    'dns.question.registered_domain': {'type': 'keyword'}
                     }
+                    }
+                }
         return mappings
 
     es_client.indices.create(index=f'dnstwist-{domain}', body=create_mappings())
