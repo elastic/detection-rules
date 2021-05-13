@@ -14,7 +14,7 @@ import eql
 import kql
 from detection_rules import attack, beats, ecs
 from detection_rules.packaging import load_versions
-from detection_rules.rule import BaseQueryRuleData
+from detection_rules.rule import QueryRuleData
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.utils import get_path, load_etc_dump
 from rta import get_ttp_names
@@ -58,7 +58,7 @@ class TestValidRules(BaseRuleTest):
         ttp_names = get_ttp_names()
 
         for rule in self.production_rules:
-            if isinstance(rule.contents.data, BaseQueryRuleData) and rule.id in mappings:
+            if isinstance(rule.contents.data, QueryRuleData) and rule.id in mappings:
                 matching_rta = mappings[rule.id].get('rta_name')
 
                 self.assertIsNotNone(matching_rta, f'{self.rule_str(rule)} does not have RTAs')
@@ -232,7 +232,7 @@ class TestRuleTags(BaseRuleTest):
             if 'Elastic' not in rule_tags:
                 missing_required_tags.add('Elastic')
 
-            if isinstance(rule.contents.data, BaseQueryRuleData):
+            if isinstance(rule.contents.data, QueryRuleData):
                 for index in rule.contents.data.index:
                     expected_tags = required_tags_map.get(index, {})
                     expected_all = expected_tags.get('all', [])
@@ -299,14 +299,10 @@ class TestRuleTags(BaseRuleTest):
 class TestRuleTimelines(BaseRuleTest):
     """Test timelines in rules are valid."""
 
-    TITLES = {
-        'db366523-f1c6-4c1f-8731-6ce5ed9e5717': 'Generic Endpoint Timeline',
-        '91832785-286d-4ebe-b884-1a208d111a70': 'Generic Network Timeline',
-        '76e52245-7519-4251-91ab-262fb1a1728c': 'Generic Process Timeline'
-    }
-
     def test_timeline_has_title(self):
         """Ensure rules with timelines have a corresponding title."""
+        from detection_rules.schemas.definitions import TIMELINE_TEMPLATES
+
         for rule in self.all_rules:
             timeline_id = rule.contents.data.timeline_id
             timeline_title = rule.contents.data.timeline_title
@@ -317,13 +313,14 @@ class TestRuleTimelines(BaseRuleTest):
 
             if timeline_id:
                 unknown_id = f'{self.rule_str(rule)} Unknown timeline_id: {timeline_id}.'
-                unknown_id += f' replace with {", ".join(self.TITLES)} or update this unit test with acceptable ids'
-                self.assertIn(timeline_id, list(self.TITLES), unknown_id)
+                unknown_id += f' replace with {", ".join(TIMELINE_TEMPLATES)} ' \
+                              f'or update this unit test with acceptable ids'
+                self.assertIn(timeline_id, list(TIMELINE_TEMPLATES), unknown_id)
 
                 unknown_title = f'{self.rule_str(rule)} unknown timeline_title: {timeline_title}'
-                unknown_title += f' replace with {", ".join(self.TITLES.values())}'
+                unknown_title += f' replace with {", ".join(TIMELINE_TEMPLATES.values())}'
                 unknown_title += ' or update this unit test with acceptable titles'
-                self.assertEqual(timeline_title, self.TITLES[timeline_id], )
+                self.assertEqual(timeline_title, TIMELINE_TEMPLATES[timeline_id], unknown_title)
 
 
 class TestRuleFiles(BaseRuleTest):
@@ -440,13 +437,13 @@ class TestTuleTiming(BaseRuleTest):
         for rule in self.all_rules:
             required = False
 
-            if isinstance(rule.contents.data, BaseQueryRuleData) and 'endgame-*' in rule.contents.data.index:
+            if isinstance(rule.contents.data, QueryRuleData) and 'endgame-*' in rule.contents.data.index:
                 continue
 
             if rule.contents.data.type == 'query':
                 required = True
             elif rule.contents.data.type == 'eql' and \
-                    eql.utils.get_query_type(rule.contents.data.parsed_query) != 'sequence':
+                    eql.utils.get_query_type(rule.contents.data.ast) != 'sequence':
                 required = True
 
             if required and rule.contents.data.timestamp_override != 'event.ingested':
@@ -465,7 +462,7 @@ class TestTuleTiming(BaseRuleTest):
         for rule in self.all_rules:
             contents = rule.contents
 
-            if isinstance(contents.data, BaseQueryRuleData):
+            if isinstance(contents.data, QueryRuleData):
                 if set(getattr(contents.data, "index", None) or []) & long_indexes and not contents.data.from_:
                     missing.append(rule)
 

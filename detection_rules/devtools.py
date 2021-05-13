@@ -26,7 +26,7 @@ from .ghwrap import GithubClient, Manifest
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error, getdefault
 from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
-from .rule import TOMLRule, BaseQueryRuleData
+from .rule import TOMLRule, QueryRuleData
 from .rule_loader import production_filter, RuleCollection
 from .utils import get_path, dict_hash
 
@@ -71,7 +71,7 @@ def update_lock_versions(rule_ids):
         return
 
     rules = RuleCollection.default().filter(lambda r: r.id in rule_ids)
-    changed, new = manage_versions(rules, exclude_version_update=True, add_new=False, save_changes=True)
+    changed, new, _ = manage_versions(rules, exclude_version_update=True, add_new=False, save_changes=True)
 
     if not changed:
         click.echo('No hashes updated')
@@ -91,13 +91,13 @@ def kibana_diff(rule_id, repo, branch, threads):
     rules = RuleCollection.default()
 
     if rule_id:
-        rules = rules.filter(lambda r: r.id in rule_id)
+        rules = rules.filter(lambda r: r.id in rule_id).id_map
     else:
-        rules = rules.filter(production_filter)
+        rules = rules.filter(production_filter).id_map
 
     # add versions to the rules
     manage_versions(list(rules.values()), verbose=False)
-    repo_hashes = {r.id: r.get_hash() for r in rules.values()}
+    repo_hashes = {r.id: r.contents.sha256(include_version=True) for r in rules.values()}
 
     kibana_rules = {r['rule_id']: r for r in get_kibana_rules(repo=repo, branch=branch, threads=threads).values()}
     kibana_hashes = {r['rule_id']: dict_hash(r) for r in kibana_rules.values()}
@@ -111,8 +111,9 @@ def kibana_diff(rule_id, repo, branch, threads):
             continue
         if rule_hash != kibana_hashes[rule_id]:
             rule_diff.append(
-                f'versions - repo: {rules[rule_id].contents["version"]}, kibana: {kibana_rules[rule_id]["version"]} -> '
-                f'{rule_id} - {rules[rule_id].name}'
+                f'versions - repo: {rules[rule_id].contents.autobumped_version}, '
+                f'kibana: {kibana_rules[rule_id]["version"]} -> '
+                f'{rule_id} - {rules[rule_id].contents.name}'
             )
 
     diff = {
@@ -133,15 +134,16 @@ def kibana_diff(rule_id, repo, branch, threads):
 @click.option("--kibana-directory", "-d", help="Directory to overwrite in Kibana",
               default="x-pack/plugins/security_solution/server/lib/detection_engine/rules/prepackaged_rules")
 @click.option("--base-branch", "-b", help="Base branch in Kibana", default="master")
+@click.option("--branch-name", "-n", help="Head branch for rules (default: package name)")
 @click.option("--ssh/--http", is_flag=True, help="Method to use for cloning")
 @click.option("--github-repo", "-r", help="Repository to use for the branch", default="elastic/kibana")
 @click.option("--message", "-m", help="Override default commit message")
 @click.pass_context
-def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_branch, message):
+def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_branch, branch_name, message):
     """Prep a commit and push to Kibana."""
     git_exe = shutil.which("git")
 
-    package_name = Package.load_configs()['package']["name"]
+    package_name = Package.load_configs()["name"]
     release_dir = os.path.join(RELEASE_DIR, package_name)
     message = message or f"[Detection Rules] Add {package_name} rules"
 
@@ -168,7 +170,7 @@ def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_bran
 
         git("checkout", base_branch)
         git("pull")
-        git("checkout", "-b", f"rules/{package_name}", show_output=True)
+        git("checkout", "-b", f"rules/{branch_name or package_name}", show_output=True)
         git("rm", "-r", kibana_directory)
 
         source_dir = os.path.join(release_dir, "rules")
@@ -389,7 +391,7 @@ def rule_event_search(ctx, rule, date_range, count, max_results, verbose,
                       elasticsearch_client: Elasticsearch = None):
     """Search using a rule file against an Elasticsearch instance."""
 
-    if isinstance(rule.contents.data, BaseQueryRuleData):
+    if isinstance(rule.contents.data, QueryRuleData):
         if verbose:
             click.echo(f'Searching rule: {rule.name}')
 

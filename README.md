@@ -97,6 +97,6 @@ Occasionally, we may want to import rules from another repository that already h
 ## Questions? Problems? Suggestions?
 
 - Want to know more about the Detection Engine? Check out the [overview](https://www.elastic.co/guide/en/siem/guide/current/detection-engine-overview.html) in Kibana.
-- This repository includes new and updated rules that have not been released yet. To see the latest set of rules released with the stack, see the [Prebuilt rule reference](https://www.elastic.co/guide/en/siem/guide/current/prebuilt-rules.html).
+- This repository includes new and updated rules that have not been released yet. To see the latest set of rules released with the stack, see the [Prebuilt rule reference](https://www.elastic.co/guide/en/security/current/prebuilt-rules-changelog.html).
 - If you’d like to report a false positive or other type of bug, please create a GitHub issue and check if there's an existing one first.
 - Need help with Detection Rules? Post an issue or ask away in our [Security Discuss Forum](https://discuss.elastic.co/c/security/) or the **#security-detection-rules** channel within [Slack workspace](https://www.elastic.co/blog/join-our-elastic-stack-workspace-on-slack).
