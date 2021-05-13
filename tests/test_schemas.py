@@ -107,7 +107,7 @@ class TestSchemas(unittest.TestCase):
             downgrade(self.v79_kql, "7.7")
 
         with self.assertRaises(ValueError):
-            downgrade(self.v78_kql, "7.7")
+            downgrade(self.v78_kql, "7.7", current_version="7.8")
 
     def test_versioned_downgrade(self):
         """Downgrade a KQL rule with version information"""

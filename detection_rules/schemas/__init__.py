@@ -3,7 +3,7 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 import json
-from typing import List
+from typing import List, Optional
 
 import jsonschema
 
@@ -53,9 +53,6 @@ def get_schema_file(version: Version, rule_type: str) -> dict:
     return json.loads(path.read_text(encoding="utf8"))
 
 
-@migrate("7.8")
-@migrate("7.9")
-@migrate("7.12")
 def strip_additional_properties(version: Version, api_contents: dict) -> dict:
     """Remove all fields that the target schema doesn't recognize."""
     stripped = {}
@@ -68,6 +65,18 @@ def strip_additional_properties(version: Version, api_contents: dict) -> dict:
     # finally, validate against the json schema
     jsonschema.validate(stripped, target_schema)
     return stripped
+
+
+@migrate("7.8")
+def migrate_to_7_8(version: Version, api_contents: dict) -> dict:
+    """Default migration for 7.8."""
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("7.9")
+def migrate_to_7_9(version: Version, api_contents: dict) -> dict:
+    """Default migration for 7.9."""
+    return strip_additional_properties(version, api_contents)
 
 
 @migrate("7.10")
@@ -127,6 +136,12 @@ def downgrade_threshold_to_7_11(version: Version, api_contents: dict) -> dict:
     return strip_additional_properties(version, api_contents)
 
 
+@migrate("7.12")
+def migrate_to_7_12(version: Version, api_contents: dict) -> dict:
+    """Default migration for 7.9."""
+    return strip_additional_properties(version, api_contents)
+
+
 @migrate("7.13")
 def downgrade_ml_multijob_713(version: Version, api_contents: dict) -> dict:
     """Convert `machine_learning_job_id` as an array to a string for < 7.13."""
@@ -144,24 +159,25 @@ def downgrade_ml_multijob_713(version: Version, api_contents: dict) -> dict:
     return strip_additional_properties(version, api_contents)
 
 
-def downgrade(api_contents: dict, target_version: str):
+def downgrade(api_contents: dict, target_version: str, current_version: Optional[str] = None) -> dict:
     """Downgrade a rule to a target stack version."""
     from ..packaging import current_stack_version
 
-    target_semver = Version(target_version)[:2]
+    if current_version is None:
+        current_version = current_stack_version()
 
-    # nothing to do
-    if target_semver == Version(current_stack_version())[:2]:
-        return api_contents
+    current_major, current_minor = Version(current_version)[:2]
+    target_major, target_minor = Version(target_version)[:2]
 
-    # truncate to (major, minor)
-    if target_semver not in migrations:
-        raise ValueError(f"Unable to downgrade to {target_version}")
+    # get all the versions between current_semver and target_semver
+    if target_major != current_major:
+        raise ValueError(f"Cannot backport to major version {target_major}")
 
-    for previous_version, migration_func in reversed(sorted(migrations.items())):
-        if previous_version < target_semver:
-            break
+    for minor in reversed(range(target_minor, current_minor)):
+        version = Version([target_major, minor])
+        if version not in migrations:
+            raise ValueError(f"Missing migration for {target_version}")
 
-        api_contents = migration_func(previous_version, api_contents)
+        api_contents = migrations[version](version, api_contents)
 
     return api_contents
