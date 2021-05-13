@@ -113,7 +113,7 @@ def import_rules(input_file, directory):
 
 
 @root.command('toml-lint')
-@click.option('--rule-file', '-f', multiple=True, type=click.Path('r'),
+@click.option('--rule-file', '-f', multiple=True, type=click.Path(exists=True),
               help='Optionally specify a specific rule file only')
 def toml_lint(rule_file):
     """Cleanup files with some simple toml formatting."""
