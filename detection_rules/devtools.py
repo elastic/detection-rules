@@ -251,11 +251,11 @@ def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...
     ## Summary
 
     Pull updates to detection rules from https://github.com/elastic/detection-rules/tree/{commit_hash}.
-    
+
     ### Checklist
-    
+
     Delete any items that are not applicable to this PR.
-    
+
     - [x] Any text added follows [EUI's writing guidelines](https://elastic.github.io/eui/#/guidelines/writing),
           uses sentence case text and includes [i18n support](https://github.com/elastic/kibana/blob/master/packages/kbn-i18n/README.md)
     """).strip()  # noqa: E501
