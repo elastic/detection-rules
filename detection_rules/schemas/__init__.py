@@ -2,64 +2,182 @@
 # or more contributor license agreements. Licensed under the Elastic License
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
+import json
+from typing import List, Optional
 
-from .base import TomlMetadata
+import jsonschema
+
 from .rta_schema import validate_rta_mapping
 from ..semver import Version
+from ..utils import cached, get_etc_path
 from . import definitions
+from pathlib import Path
 
-# import all of the schema versions
-from .v7_8 import ApiSchema78
-from .v7_9 import ApiSchema79
-from .v7_10 import ApiSchema710
-from .v7_11 import ApiSchema711
-from .v7_12 import ApiSchema712
 
 __all__ = (
-    "all_schemas",
-    "available_versions",
+    "SCHEMA_DIR",
     "definitions",
     "downgrade",
-    "CurrentSchema",
     "validate_rta_mapping",
-    "TomlMetadata",
+    "all_versions",
 )
 
-all_schemas = [
-    ApiSchema78,
-    ApiSchema79,
-    ApiSchema710,
-    ApiSchema711,
-    ApiSchema712,
-]
-CurrentSchema = all_schemas[-1]
-available_versions = [cls.STACK_VERSION for cls in all_schemas]
+SCHEMA_DIR = Path(get_etc_path("api_schemas"))
+migrations = {}
 
 
-def downgrade(api_contents: dict, target_version: str):
+def all_versions() -> List[str]:
+    """Get all known stack versions."""
+    return [str(v) for v in sorted(migrations)]
+
+
+def migrate(version: str):
+    """Decorator to set a migration."""
+    version = Version(version)
+
+    def wrapper(f):
+        assert version not in migrations
+        migrations[version] = f
+        return f
+
+    return wrapper
+
+
+@cached
+def get_schema_file(version: Version, rule_type: str) -> dict:
+    path = Path(SCHEMA_DIR) / str(version) / f"{version}.{rule_type}.json"
+
+    if not path.exists():
+        raise ValueError(f"Unsupported rule type {rule_type}. Unable to downgrade to {version}")
+
+    return json.loads(path.read_text(encoding="utf8"))
+
+
+def strip_additional_properties(version: Version, api_contents: dict) -> dict:
+    """Remove all fields that the target schema doesn't recognize."""
+    stripped = {}
+    target_schema = get_schema_file(version, api_contents["type"])
+
+    for field, field_schema in target_schema["properties"].items():
+        if field in api_contents:
+            stripped[field] = api_contents[field]
+
+    # finally, validate against the json schema
+    jsonschema.validate(stripped, target_schema)
+    return stripped
+
+
+@migrate("7.8")
+def migrate_to_7_8(version: Version, api_contents: dict) -> dict:
+    """Default migration for 7.8."""
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("7.9")
+def migrate_to_7_9(version: Version, api_contents: dict) -> dict:
+    """Default migration for 7.9."""
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("7.10")
+def downgrade_threat_to_7_10(version: Version, api_contents: dict) -> dict:
+    """Downgrade the threat mapping changes from 7.11 to 7.10."""
+    if "threat" in api_contents:
+        v711_threats = api_contents.get("threat", [])
+        v710_threats = []
+
+        for threat in v711_threats:
+            # drop tactic without threat
+            if "technique" not in threat:
+                continue
+
+            threat = threat.copy()
+            threat["technique"] = [t.copy() for t in threat["technique"]]
+
+            # drop subtechniques
+            for technique in threat["technique"]:
+                technique.pop("subtechnique", None)
+
+            v710_threats.append(threat)
+
+        api_contents = api_contents.copy()
+        api_contents.pop("threat")
+
+        # only add if the array is not empty
+        if len(v710_threats) > 0:
+            api_contents["threat"] = v710_threats
+
+    # finally, downgrade any additional properties that were added
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("7.11")
+def downgrade_threshold_to_7_11(version: Version, api_contents: dict) -> dict:
+    """Remove 7.12 threshold changes that don't impact the rule."""
+    if "threshold" in api_contents:
+        threshold = api_contents['threshold']
+        threshold_field = threshold['field']
+
+        # attempt to convert threshold field to a string
+        if len(threshold_field) > 1:
+            raise ValueError('Cannot downgrade a threshold rule that has multiple threshold fields defined')
+
+        if threshold.get('cardinality', {}).get('field') or threshold.get('cardinality', {}).get('value'):
+            raise ValueError('Cannot downgrade a threshold rule that has a defined cardinality')
+
+        api_contents = api_contents.copy()
+        api_contents["threshold"] = api_contents["threshold"].copy()
+
+        # if cardinality was defined with no field or value
+        api_contents['threshold'].pop('cardinality', None)
+        api_contents["threshold"]["field"] = api_contents["threshold"]["field"][0]
+
+    # finally, downgrade any additional properties that were added
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("7.12")
+def migrate_to_7_12(version: Version, api_contents: dict) -> dict:
+    """Default migration for 7.9."""
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("7.13")
+def downgrade_ml_multijob_713(version: Version, api_contents: dict) -> dict:
+    """Convert `machine_learning_job_id` as an array to a string for < 7.13."""
+    if "machine_learning_job_id" in api_contents:
+        job_id = api_contents["machine_learning_job_id"]
+
+        if isinstance(job_id, list):
+            if len(job_id) > 1:
+                raise ValueError('Cannot downgrade an ML rule with multiple jobs defined')
+
+            api_contents = api_contents.copy()
+            api_contents["machine_learning_job_id"] = job_id[0]
+
+    # finally, downgrade any additional properties that were added
+    return strip_additional_properties(version, api_contents)
+
+
+def downgrade(api_contents: dict, target_version: str, current_version: Optional[str] = None) -> dict:
     """Downgrade a rule to a target stack version."""
-    # truncate to (major, minor)
-    target_version_str = target_version
-    target_version = Version(target_version)[:2]
-    versions = set(Version(schema_cls.STACK_VERSION) for schema_cls in all_schemas)
-    role = api_contents.get("type")
+    from ..packaging import current_stack_version
 
-    check_versioned = "version" in api_contents
+    if current_version is None:
+        current_version = current_stack_version()
 
-    if target_version not in versions:
-        raise ValueError(f"Unable to downgrade from {CurrentSchema.STACK_VERSION} to {target_version_str}")
+    current_major, current_minor = Version(current_version)[:2]
+    target_major, target_minor = Version(target_version)[:2]
 
-    current_schema = None
+    # get all the versions between current_semver and target_semver
+    if target_major != current_major:
+        raise ValueError(f"Cannot backport to major version {target_major}")
 
-    for target_schema in reversed(all_schemas):
-        if check_versioned:
-            target_schema = target_schema.versioned()
+    for minor in reversed(range(target_minor, current_minor)):
+        version = Version([target_major, minor])
+        if version not in migrations:
+            raise ValueError(f"Missing migration for {target_version}")
 
-        if current_schema is not None:
-            api_contents = current_schema.downgrade(target_schema, api_contents, role)
-
-        current_schema = target_schema
-        if Version(current_schema.STACK_VERSION) == target_version:
-            break
+        api_contents = migrations[version](version, api_contents)
 
     return api_contents
