@@ -10,31 +10,27 @@ import hashlib
 import io
 import json
 import os
-import pathlib
 import shutil
 import subprocess
 import textwrap
 import time
-from pathlib import Path
-
-import click
 import typing
+from pathlib import Path
 from typing import Optional, Tuple
 
-import yaml
+import click
 from elasticsearch import Elasticsearch
-from eql import load_dump
 
 from kibana.connector import Kibana
 from . import rule_loader
 from .cli_utils import single_collection
 from .eswrap import CollectEvents, add_range_to_dsl
 from .main import root
-from .misc import PYTHON_LICENSE, add_client, GithubClient, Manifest, client_error, getdefault
-from .packaging import PACKAGE_FILE, Package, current_stack_version, manage_versions, RELEASE_DIR
-from .rule import TOMLRule, QueryRuleData
-from .rule_loader import production_filter, RuleCollection
-from .utils import get_path, dict_hash, load_dump
+from .misc import GithubClient, Manifest, PYTHON_LICENSE, add_client, client_error, getdefault
+from .packaging import PACKAGE_FILE, Package, RELEASE_DIR, current_stack_version, manage_versions
+from .rule import QueryRuleData, TOMLRule
+from .rule_loader import RuleCollection, production_filter
+from .utils import dict_hash, get_path, load_dump
 
 RULES_DIR = get_path('rules')
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
@@ -788,7 +784,7 @@ def validate_ml_detections_asset(directory):
 
 @dev_group.command("update-schemas")
 def update_schemas():
-    from . rule import BaseRuleData, AnyRuleData
+    from .rule import BaseRuleData, AnyRuleData
     classes = [BaseRuleData] + list(typing.get_args(AnyRuleData))
 
     for cls in classes:
