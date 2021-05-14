@@ -4,12 +4,47 @@ on:
     branches:
       - main
     types:
+      - opened
+      - reopened
+      - unlabeled
       - labeled
       - closed
 
 jobs:
-  backport:
-    name: on merge
+  label:
+    runs-on: ubuntu-latest
+    if: |
+      github.event.pull_request.state == 'open' && !github.event.pull_request.draft
+    steps:
+      - name: 'Apply default "backport: auto" label'
+        uses: actions/github-script@v4
+        if: |
+          !contains(github.event.pull_request.labels.*.name, 'backport: auto') &&
+          !contains(github.event.pull_request.labels.*.name, 'backport: skip')
+        with:
+          script: |
+            github.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['backport: auto']
+            })
+      - name: 'Remove "backport: auto" if "backport: skip" is set'
+        uses: actions/github-script@v4
+        if: |
+          contains(github.event.pull_request.labels.*.name, 'backport: auto') &&
+          contains(github.event.pull_request.labels.*.name, 'backport: skip')
+        with:
+          script: |
+            github.issues.removeLabel({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'backport: auto'
+            })
+
+
+  commit:
     if: |
       github.event.pull_request.merged == true
       && contains(github.event.pull_request.labels.*.name, 'backport: auto')
