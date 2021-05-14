@@ -21,7 +21,7 @@ from .misc import JS_LICENSE, cached
 from .rule import TOMLRule, QueryRuleData, ThreatMapping
 from .rule import downgrade_contents_from_rule
 from .rule_loader import RuleCollection, DEFAULT_RULES_DIR
-from .schemas import CurrentSchema, definitions
+from .schemas import definitions
 from .utils import Ndjson, get_path, get_etc_path, load_etc_dump, save_etc_dump
 
 RELEASE_DIR = get_path("releases")
@@ -100,7 +100,7 @@ def manage_versions(rules: List[TOMLRule], deprecated_rules: list = None, curren
                 rule_deprecations[rule.id] = {
                     'rule_name': rule.name,
                     'deprecation_date': rule.contents.metadata.deprecation_date,
-                    'stack_version': CurrentSchema.STACK_VERSION
+                    'stack_version': current_stack_version() + ".0"
                 }
                 newly_deprecated.append(rule.id)
 
@@ -549,3 +549,8 @@ class Package(object):
             importable_rules_docs.append(rule_doc)
 
         return bulk_upload_docs, importable_rules_docs
+
+
+@cached
+def current_stack_version() -> str:
+    return Package.load_configs()['name']
