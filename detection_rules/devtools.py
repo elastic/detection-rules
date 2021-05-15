@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 
 import click
+import typing
 from elasticsearch import Elasticsearch
 from eql import load_dump
 
@@ -703,3 +704,12 @@ def validate_ml_detections_asset(directory):
     click.echo(f'description to paste with release:\n\n{description_str}\n')
 
     return zip_name, description_str
+
+
+@dev_group.command("update-schemas")
+def update_schemas():
+    from . rule import BaseRuleData, AnyRuleData
+    classes = [BaseRuleData] + list(typing.get_args(AnyRuleData))
+
+    for cls in classes:
+        cls.save_schema()
