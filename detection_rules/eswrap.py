@@ -756,7 +756,9 @@ def index_dnstwist_results(ctx: click.Context, input_file, verbose=True):
     domain = original_domain.split('.')[0]
     domain_index = f'dnstwist-{domain}'
     if es_client.indices.exists(index=f'dnstwist-{domain}'):
-        if click.confirm(f'dnstwist index {domain_index} already exists for {original_domain}. Do you want to continue?', abort=True):
+        if click.confirm(
+            f"dnstwist index {domain_index} already exists for {original_domain}. Do you want to continue?", abort=True
+        ):
             es_client.indices.delete(index=f'dnstwist-{domain}')
 
     def create_mappings():
