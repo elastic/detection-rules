@@ -232,7 +232,7 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
 
 
 @dev_group.command("kibana-pr")
-@click.option("--token", required=True, default=get_github_token(), help="GitHub token to use for the PR")
+@click.option("--token", required=True, prompt=True, default=get_github_token(), help="GitHub token to use for the PR", hide_input=True)
 @click.option("--assign", multiple=True, help="GitHub users to assign the PR")
 @click.option("--label", multiple=True, help="GitHub labels to add to the PR")
 # Pending an official GitHub API
