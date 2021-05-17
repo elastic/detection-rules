@@ -15,6 +15,7 @@ from .main import root
 from .misc import add_params, client_error, kibana_options
 from .schemas import downgrade
 from .utils import format_command_options
+from eql.utils import load_dump
 
 
 def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, kibana_cookie, **kwargs):
@@ -124,12 +125,22 @@ def create_dnstwist_rule(ctx: click.Context, input_file, rule_type, verbose=True
     """Create an indicator match or query rule based on dnstwist results."""
     kibana = ctx.obj['kibana']
 
-    # Read csv file containing output from dnstwist
+    click.echo(f'Attempting to load dnstwist data from {input_file}')
+    dnstwist_data = load_dump(input_file)
 
-    # Read indicator match rule template file
+    watchlist_domains = []
 
-    # Populate threat match or query rule using user's dnstwist results
+    for record in dnstwist_data:
+        if record['fuzzer'] == 'original*':
+            original_domain = record['domain-name']
+            click.echo(f'Original domain name identified: {original_domain}')
+        else:
+            watchlist_domains.append(record['domain-name'])
 
-    # Create rule file
+    click.echo(f'{len(watchlist_domains)} watchlist domains identified')
+
+    # Create threat match or query rule using dnstwist results
+
+    # Save rule in toml format
 
     # Prompt: Upload rule to Kibana? Y/n. If yes, call upload_rule to upload toml file to Kibana
