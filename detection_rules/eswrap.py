@@ -747,9 +747,9 @@ def index_dnstwist_results(ctx: click.Context, input_file, verbose=True):
     """Index dnstwist results in Elasticsearch."""
     es_client: Elasticsearch = ctx.obj['es']
 
-    data = load_dump(input_file)
+    dnstwist_data = load_dump(input_file)
 
-    original_domain_name = [record['domain-name'] for record in data if record['fuzzer'] == 'original*'][0]
+    original_domain_name = [record['domain-name'] for record in dnstwist_data if record['fuzzer'] == 'original*'][0]
     domain = original_domain_name.split('.')[0]
     domain_index = f'dnstwist-{domain}'
     if es_client.indices.exists(index=f'dnstwist-{domain}'):
@@ -779,7 +779,7 @@ def index_dnstwist_results(ctx: click.Context, input_file, verbose=True):
 
     es_updates = []
     count = 0
-    for record in data:
+    for record in dnstwist_data:
         temp = {}
         temp['fuzzer'] = record.get('fuzzer', None)
         if temp['fuzzer'] == 'original*':
