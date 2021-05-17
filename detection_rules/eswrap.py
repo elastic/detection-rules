@@ -747,13 +747,16 @@ def index_dnstwist_results(ctx: click.Context, input_file, verbose=True):
     """Index dnstwist results in Elasticsearch."""
     es_client: Elasticsearch = ctx.obj['es']
 
+    click.echo(f'Attempting to load dnstwist data from {input_file}')
     dnstwist_data = load_dump(input_file)
+    click.echo(f'{len(dnstwist_data)} records loaded')
 
-    original_domain_name = [record['domain-name'] for record in dnstwist_data if record['fuzzer'] == 'original*'][0]
-    domain = original_domain_name.split('.')[0]
+    original_domain = [record['domain-name'] for record in dnstwist_data if record['fuzzer'] == 'original*'][0]
+    click.echo(f'Original domain name identified: {original_domain}')
+    domain = original_domain.split('.')[0]
     domain_index = f'dnstwist-{domain}'
     if es_client.indices.exists(index=f'dnstwist-{domain}'):
-        if click.confirm(f'dnstwist index {domain_index} already exists for {original_domain_name}. Do you want to continue?', abort=True):
+        if click.confirm(f'dnstwist index {domain_index} already exists for {original_domain}. Do you want to continue?', abort=True):
             es_client.indices.delete(index=f'dnstwist-{domain}')
 
     def create_mappings():
@@ -789,14 +792,14 @@ def index_dnstwist_results(ctx: click.Context, input_file, verbose=True):
         temp['dns-mx'] = record.get('dns-mx', None)
         temp['dns-ns'] = record.get('dns-ns', None)
         temp['banner-http'] = record.get('banner-http', None)
-        temp['original-domain'] = original_domain_name
+        temp['original-domain'] = original_domain
         temp['@timestamp'] = datetime.utcnow()
         temp['dns'] = {'question': {}}
         temp['dns']['question']['registered_domain'] = record.get('domain-name', None)
         es_updates.append({'_index': domain_index, '_id': count, '_source': temp})
         count += 1
 
-    click.echo(f'Indexing data for domain {original_domain_name}')
+    click.echo(f'Indexing data for domain {original_domain}')
 
     for success, info in helpers.streaming_bulk(es_client, es_updates, chunk_size=1000, request_timeout=150):
         if not success:
