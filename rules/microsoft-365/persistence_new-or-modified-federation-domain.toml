@@ -1,0 +1,39 @@
+[metadata]
+creation_date = "2021/05/17"
+maturity = "development"
+updated_date = "2021/05/17"
+
+[rule]
+author = ["Elastic", "Austin Songer"]
+description = """
+Identifies a new or modified federation domains can be used to create a trust between O365 and an external identity
+provider.
+"""
+index = ["filebeat-*", "logs-o365*"]
+language = "kuery"
+name = "New or Modified Federation Domain"
+risk_score = 21
+rule_id = "684554fc-0777-47ce-8c9b-3d01f198d7f8"
+severity = "low"
+tags = ["Elastic", "Cloud", "Microsoft 365", "Continuous Monitoring", "SecOps", "Identity and Access"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:("Set-AcceptedDomain" or 
+"Set-MsolDomainFederationSettings" or "Add-FederatedDomain" or "New-AcceptedDomain" or "Remove-AcceptedDomain" or "Remove-FederatedDomain") and 
+event.outcome:success
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+reference = "https://attack.mitre.org/techniques/T1098/"
+name = "Account Manipulation"
+id = "T1098"
+
+
+[rule.threat.tactic]
+reference = "https://attack.mitre.org/tactics/TA0003/"
+name = "Persistence"
+id = "TA0003"
