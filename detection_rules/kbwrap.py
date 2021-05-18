@@ -19,6 +19,7 @@ from .misc import add_params, client_error, kibana_options
 from .schemas import downgrade
 from .utils import format_command_options
 from eql.utils import load_dump
+from .rule_loader import RuleCollection
 
 
 def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, kibana_cookie, **kwargs):
@@ -153,9 +154,11 @@ def create_dnstwist_rule(ctx: click.Context, input_file, verbose=True):
     template_rule['metadata']['creation_date'] = datetime.date.today().strftime("%Y/%m/%d")
     template_rule['metadata']['updated_date'] = datetime.date.today().strftime("%Y/%m/%d")
     template_rule['rule']['author'].append(click.prompt('Enter rule author'))
-    template_rule['rule_id'] = str(uuid4())
+    template_rule['rule']['rule_id'] = str(uuid4())
 
     # Create rule object and validate it against schema
+    rule = RuleCollection()
+    rule.load_dict(template_rule, path=custom_rule_file)
 
     # Save rule in toml format
     # click.echo(f'Saving rule to {custom_rule_file}')
