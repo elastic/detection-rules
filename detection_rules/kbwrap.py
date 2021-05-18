@@ -5,6 +5,9 @@
 
 """Kibana cli commands."""
 import uuid
+from pathlib import Path
+import datetime
+from uuid import uuid4
 
 import click
 
@@ -118,12 +121,16 @@ def kibana_experimental():
 
 @kibana_experimental.command('create-dnstwist-rule')
 @click.argument('input-file', type=click.Path(exists=True, dir_okay=False), required=True)
-@click.option('--rule-type', '-t', type=click.Choice(['threat-match', 'custom-query']), required=True,
-              help="Rule type to create using dnstwist results")
 @click.pass_context
-def create_dnstwist_rule(ctx: click.Context, input_file, rule_type, verbose=True):
+def create_dnstwist_rule(ctx: click.Context, input_file, verbose=True):
     """Create an indicator match or query rule based on dnstwist results."""
     kibana = ctx.obj['kibana']
+
+    root_dir = Path(__file__).parent.parent
+    rule_template_file = root_dir / 'etc' / 'rule_template_typosquatting_domain.toml'
+    custom_rule_file = (
+            root_dir / "rules" / "cross-platform" / "initial_access_dns_request_for_typosquatting_domain.toml"
+    )
 
     click.echo(f'Attempting to load dnstwist data from {input_file}')
     dnstwist_data = load_dump(input_file)
@@ -139,8 +146,19 @@ def create_dnstwist_rule(ctx: click.Context, input_file, rule_type, verbose=True
 
     click.echo(f'{len(watchlist_domains)} watchlist domains identified')
 
-    # Create threat match or query rule using dnstwist results
+    click.echo('Attempting to create threat match rule')
+    template_rule = load_dump(str(rule_template_file))
+
+    # Populate template rule with user's custom info
+    template_rule['metadata']['creation_date'] = datetime.date.today().strftime("%Y/%m/%d")
+    template_rule['metadata']['updated_date'] = datetime.date.today().strftime("%Y/%m/%d")
+    template_rule['rule']['author'].append(click.prompt('Enter rule author'))
+    template_rule['rule_id'] = str(uuid4())
+
+    # Create rule object and validate it against schema
 
     # Save rule in toml format
+    # click.echo(f'Saving rule to {custom_rule_file}')
+    # save_dump(template_rule, str(custom_rule_file))
 
     # Prompt: Upload rule to Kibana? Y/n. If yes, call upload_rule to upload toml file to Kibana
