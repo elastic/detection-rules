@@ -157,11 +157,11 @@ def create_dnstwist_rule(ctx: click.Context, input_file, verbose=True):
     template_rule['rule']['rule_id'] = str(uuid4())
 
     # Create rule object and validate it against schema
-    rule = RuleCollection()
-    rule.load_dict(template_rule, path=custom_rule_file)
+    rule_collection = RuleCollection()
+    rule_collection.load_dict(template_rule, path=custom_rule_file)
 
     # Save rule in toml format
-    # click.echo(f'Saving rule to {custom_rule_file}')
-    # save_dump(template_rule, str(custom_rule_file))
+    click.echo(f'Saving rule to {custom_rule_file}')
+    rule_collection.rules[0].save_toml()
 
-    # Prompt: Upload rule to Kibana? Y/n. If yes, call upload_rule to upload toml file to Kibana
+    # TODO Prompt user: Upload rule to Kibana? Y/n. If yes, call upload_rule to upload toml file to Kibana
