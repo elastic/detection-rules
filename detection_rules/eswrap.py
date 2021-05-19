@@ -18,7 +18,6 @@ import click
 import elasticsearch
 from elasticsearch import Elasticsearch, helpers
 from elasticsearch.client import AsyncSearchClient, IngestClient, LicenseClient, MlClient
-from kibana import Kibana
 
 import kql
 from .kbwrap import upload_rule
@@ -750,7 +749,6 @@ def delete_ml_job(ctx: click.Context, job_name, job_type, verbose=True):
 def create_dnstwist_rule(ctx: click.Context, input_file, verbose=True):
     """Index dnstwist results in Elasticsearch."""
     es_client: Elasticsearch = ctx.obj['es']
-    kibana: Kibana = ctx.obj['kibana']
 
     click.echo(f'Attempting to load dnstwist data from {input_file}')
     dnstwist_data = load_dump(input_file)
@@ -818,7 +816,7 @@ def create_dnstwist_rule(ctx: click.Context, input_file, verbose=True):
     root_dir = Path(__file__).parent.parent
     rule_template_file = root_dir / 'etc' / 'rule_template_typosquatting_domain.toml'
     custom_rule_file = (
-            root_dir / "rules" / "cross-platform" / "initial_access_dns_request_for_typosquatting_domain.toml"
+        root_dir / "rules" / "cross-platform" / "initial_access_dns_request_for_typosquatting_domain.toml"
     )
 
     click.echo(f'{len(es_updates)} watchlist domains identified')
