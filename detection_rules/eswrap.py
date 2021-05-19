@@ -7,6 +7,7 @@
 import json
 import os
 import time
+import uuid
 from datetime import datetime
 from collections import defaultdict
 from contextlib import contextmanager
@@ -826,10 +827,10 @@ def create_dnstwist_rule(ctx: click.Context, input_file, verbose=True):
     template_rule = load_dump(str(rule_template_file))
 
     # Populate template rule with user's custom info
-    template_rule['metadata']['creation_date'] = datetime.date.today().strftime("%Y/%m/%d")
-    template_rule['metadata']['updated_date'] = datetime.date.today().strftime("%Y/%m/%d")
+    template_rule['metadata']['creation_date'] = datetime.today().strftime("%Y/%m/%d")
+    template_rule['metadata']['updated_date'] = datetime.today().strftime("%Y/%m/%d")
     template_rule['rule']['author'].append(click.prompt('Enter rule author'))
-    template_rule['rule']['rule_id'] = str(uuid4())
+    template_rule['rule']['rule_id'] = str(uuid.uuid4())
 
     # Create rule object and validate it against schema
     rule_collection = RuleCollection()

@@ -5,9 +5,6 @@
 
 """Kibana cli commands."""
 import uuid
-from pathlib import Path
-import datetime
-from uuid import uuid4
 
 import click
 
@@ -18,8 +15,6 @@ from .main import root
 from .misc import add_params, client_error, kibana_options
 from .schemas import downgrade
 from .utils import format_command_options
-from eql.utils import load_dump
-from .rule_loader import RuleCollection
 
 
 def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, kibana_cookie, **kwargs):
