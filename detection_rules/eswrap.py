@@ -837,6 +837,6 @@ def create_dnstwist_rule(ctx: click.Context, input_file, verbose=True):
     # Save rule in toml format
     click.echo(f'Saving rule to {custom_rule_file}')
     rule_collection.rules[0].save_toml()
-    
+
     if click.confirm("Upload rule to Kibana?", abort=True):
         upload_rule(ctx, [custom_rule_file])
