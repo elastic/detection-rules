@@ -17,10 +17,11 @@ import click
 import elasticsearch
 from elasticsearch import Elasticsearch, helpers
 from elasticsearch.client import AsyncSearchClient, IngestClient, LicenseClient, MlClient
+from kibana import Kibana
 
 import kql
 from .main import root
-from .misc import add_params, client_error, elasticsearch_options
+from .misc import add_params, add_client, client_error, elasticsearch_options
 from .rule import TOMLRule
 from .rule_loader import rta_mappings, RuleCollection
 from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
@@ -740,12 +741,14 @@ def delete_ml_job(ctx: click.Context, job_name, job_type, verbose=True):
         click.echo(f'Deleted {job_type} job: {job_name}')
 
 
-@es_experimental.command('index-dnstwist-results')
+@es_experimental.command('create-dnstwist-rule')
 @click.argument('input-file', type=click.Path(exists=True, dir_okay=False), required=True)
+@add_client('kibana', add_to_ctx=True)
 @click.pass_context
-def index_dnstwist_results(ctx: click.Context, input_file, verbose=True):
+def create_dnstwist_rule(ctx: click.Context, input_file, verbose=True):
     """Index dnstwist results in Elasticsearch."""
     es_client: Elasticsearch = ctx.obj['es']
+    kibana: Kibana = ctx.obj['kibana']
 
     click.echo(f'Attempting to load dnstwist data from {input_file}')
     dnstwist_data = load_dump(input_file)
@@ -753,8 +756,10 @@ def index_dnstwist_results(ctx: click.Context, input_file, verbose=True):
 
     original_domain = [record['domain-name'] for record in dnstwist_data if record['fuzzer'] == 'original*'][0]
     click.echo(f'Original domain name identified: {original_domain}')
+
     domain = original_domain.split('.')[0]
     domain_index = f'dnstwist-{domain}'
+    # If index already exists, prompt user to confirm if they want to overwrite
     if es_client.indices.exists(index=f'dnstwist-{domain}'):
         if click.confirm(
             f"dnstwist index {domain_index} already exists for {original_domain}. Do you want to continue?", abort=True
@@ -806,3 +811,32 @@ def index_dnstwist_results(ctx: click.Context, input_file, verbose=True):
     for success, info in helpers.streaming_bulk(es_client, es_updates, chunk_size=1000, request_timeout=150):
         if not success:
             client_error(info)
+
+    # Creating threat match rule
+    root_dir = Path(__file__).parent.parent
+    rule_template_file = root_dir / 'etc' / 'rule_template_typosquatting_domain.toml'
+    custom_rule_file = (
+            root_dir / "rules" / "cross-platform" / "initial_access_dns_request_for_typosquatting_domain.toml"
+    )
+
+    click.echo(f'{len(es_updates)} watchlist domains identified')
+
+    click.echo('Attempting to create threat match rule')
+    template_rule = load_dump(str(rule_template_file))
+
+    # Populate template rule with user's custom info
+    template_rule['metadata']['creation_date'] = datetime.date.today().strftime("%Y/%m/%d")
+    template_rule['metadata']['updated_date'] = datetime.date.today().strftime("%Y/%m/%d")
+    template_rule['rule']['author'].append(click.prompt('Enter rule author'))
+    template_rule['rule']['rule_id'] = str(uuid4())
+
+    # Create rule object and validate it against schema
+    rule_collection = RuleCollection()
+    rule_collection.load_dict(template_rule, path=custom_rule_file)
+
+    # Save rule in toml format
+    click.echo(f'Saving rule to {custom_rule_file}')
+    rule_collection.rules[0].save_toml()
+    
+    if click.confirm("Upload rule to Kibana?", abort=True):
+        detection_rules.kbwrap.upload_rule(ctx, [custom_rule_file])
