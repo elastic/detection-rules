@@ -20,6 +20,7 @@ from elasticsearch.client import AsyncSearchClient, IngestClient, LicenseClient,
 from kibana import Kibana
 
 import kql
+from .kbwrap import upload_rule
 from .main import root
 from .misc import add_params, add_client, client_error, elasticsearch_options
 from .rule import TOMLRule
@@ -839,4 +840,4 @@ def create_dnstwist_rule(ctx: click.Context, input_file, verbose=True):
     rule_collection.rules[0].save_toml()
     
     if click.confirm("Upload rule to Kibana?", abort=True):
-        detection_rules.kbwrap.upload_rule(ctx, [custom_rule_file])
+        upload_rule(ctx, [custom_rule_file])
