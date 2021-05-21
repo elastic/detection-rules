@@ -5,20 +5,260 @@
 
 """Schemas and dataclasses for experimental ML features."""
 
-from contextlib import contextmanager
+import io
+import zipfile
+from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Literal, Optional
 
 import click
 import elasticsearch
 import json
+import requests
+from eql.table import Table
 from elasticsearch import Elasticsearch
 from elasticsearch.client import IngestClient, LicenseClient, MlClient
 
 from .eswrap import es_experimental
 from .ghwrap import Manifest, ReleaseManifest
 from .misc import client_error
+from .schemas import definitions
 from .utils import get_path
+
+
+ML_PATH = Path(get_path('machine-learning'))
+
+
+def info_from_tag(tag: str) -> (Literal['ml'], definitions.MachineLearningType, str, int):
+    try:
+        ml, release_type, release_date, release_number = tag.split('-')
+    except ValueError as exc:
+        raise ValueError(f'{tag} is not of valid release format: ml-type-date-number. {exc}')
+
+    return ml, release_type, release_date, int(release_number)
+
+
+class InvalidLicenseError(Exception):
+    """Invalid stack license for ML features requiring platinum or enterprise."""
+
+
+@dataclass
+class MachineLearningClient:
+    """Class for experimental machine learning release clients."""
+
+    es_client: Elasticsearch
+    bundle: dict
+
+    @cached_property
+    def model_id(self) -> str:
+        for name, data in self.bundle.items():
+            if Path(name).stem.lower().endswith('model'):
+                return data['model_id']
+
+    @cached_property
+    def bundle_type(self) -> str:
+        return self.model_id.split('_')[0].lower()
+
+    @cached_property
+    def ml_client(self) -> MlClient:
+        return MlClient(self.es_client)
+
+    @cached_property
+    def ingest_client(self) -> IngestClient:
+        return IngestClient(self.es_client)
+
+    @cached_property
+    def license(self) -> str:
+        license_client = LicenseClient(self.es_client)
+        return license_client.get()['license']['type'].lower()
+
+    def verify_license(self):
+        valid_license = self.license in ('platinum', 'enterprise')
+
+        if not valid_license:
+            err_msg = 'You must have a platinum or enterprise subscription in order to use these ML features'
+            raise InvalidLicenseError(err_msg)
+
+    @classmethod
+    def from_release(cls, es_client: Elasticsearch, release_tag: str, repo: str = 'elastic/detection-rules'
+                     ) -> 'MachineLearningClient':
+        """Load from a GitHub release."""
+        full_type = '-'.join(info_from_tag(release_tag)[:2])
+        release_url = f'https://api.github.com/repos/{repo}/releases/tags/{release_tag}'
+        release = requests.get(release_url)
+        release.raise_for_status()
+
+        # check that the release only has a single zip file
+        assets = [a for a in release.json()['assets'] if
+                  a['name'].startswith(full_type) and a['name'].endswith('.zip')]
+        assert len(assets) == 1, f'Malformed release: expected 1 {full_type} zip file, found: {len(assets)}!'
+
+        zipped_url = assets[0]['browser_download_url']
+        zipped_raw = requests.get(zipped_url)
+        zipped_bundle = zipfile.ZipFile(io.BytesIO(zipped_raw.content))
+
+        bundle = {}
+        for filename in zipped_bundle.namelist():
+            if filename.endswith('/'):
+                continue
+
+            fp = Path(filename)
+            contents = zipped_bundle.read(filename)
+
+            if fp.suffix == '.json':
+                contents = json.loads(contents)
+
+            bundle[fp.name] = contents
+
+        return cls(es_client=es_client, bundle=bundle)
+
+    @classmethod
+    def from_directory(cls, es_client: Elasticsearch, directory: Path) -> 'MachineLearningClient':
+        """Load from an unzipped local directory."""
+        bundle = json.loads(directory.read_text())
+        return cls(es_client=es_client, bundle=bundle)
+
+    def remove(self) -> dict:
+        """Remove machine learning files from a stack."""
+        results = dict(script={}, pipeline={}, model={})
+        for pipeline in list(self.get_related_pipelines()):
+            results['pipeline'][pipeline] = self.ingest_client.delete_pipeline(pipeline)
+        for script in list(self.get_related_scripts()):
+            results['script'][script] = self.es_client.delete_script(script)
+
+        results['model'][self.model_id] = self.ml_client.delete_trained_model(self.model_id)
+        return results
+
+    def setup(self) -> dict:
+        """Setup machine learning bundle on a stack."""
+        self.verify_license()
+        results = dict(script={}, pipeline={}, model={})
+
+        # upload in order: model, scripts, then pipelines
+        parsed_bundle = dict(model={}, script={}, pipeline={})
+        for filename, data in self.bundle.items():
+            fp = Path(filename)
+            file_type = fp.stem.split('_')[-1]
+            parsed_bundle[file_type][fp.stem] = data
+
+        model = list(parsed_bundle['model'].values())[0]
+        results['model'][model['model_id']] = self.upload_model(model['model_id'], model)
+
+        for script_name, script in parsed_bundle['script'].items():
+            results['script'][script_name] = self.upload_script(script_name, script)
+
+        for pipeline_name, pipeline in parsed_bundle['pipeline'].items():
+            results['pipeline'][pipeline_name] = self.upload_ingest_pipeline(pipeline_name, pipeline)
+
+        return results
+
+    def get_all_scripts(self) -> Dict[str, dict]:
+        """Get all scripts from an elasticsearch instance."""
+        return self.es_client.cluster.state()['metadata']['stored_scripts']
+
+    def get_related_scripts(self) -> Dict[str, dict]:
+        """Get all scripts which start with ml_*."""
+        scripts = self.get_all_scripts()
+        return {n: s for n, s in scripts.items() if n.lower().startswith(f'ml_{self.bundle_type}')}
+
+    def get_related_pipelines(self) -> Dict[str, dict]:
+        """Get all pipelines which start with ml_*."""
+        pipelines = self.ingest_client.get_pipeline()
+        return {n: s for n, s in pipelines.items() if n.lower().startswith(f'ml_{self.bundle_type}')}
+
+    def get_related_model(self) -> dict:
+        """Get a model from an elasticsearch instance matching the model_id."""
+        for model in self.get_existing_model_files():
+            if model['model_id'] == self.model_id:
+                return model
+
+    def get_existing_model_files(self) -> dict:
+        """Get available models from a stack."""
+        return self.ml_client.get_trained_models()['trained_model_configs']
+
+    @classmethod
+    def check_model_exists(cls, es_client: Elasticsearch, model_id: str) -> bool:
+        """Check if a model exists on a stack by model id."""
+        ml_client = MlClient(es_client)
+        return model_id in [m['model_id'] for m in ml_client.get_trained_models().get('trained_model_configs', [])]
+
+    def get_related_files(self) -> dict:
+        """Check for the presence and status of ML bundle files on a stack."""
+        files = {
+            'pipeline': self.get_related_pipelines(),
+            'script': self.get_related_scripts(),
+            'model': self.get_related_model(),
+            'release': self.get_related_release()
+        }
+        return files
+
+    def get_related_release(self) -> ReleaseManifest:
+        """Get the GitHub release related to a model."""
+        manifests = get_ml_model_manifests_by_model_id()
+        manifest = manifests.get(self.model_id)
+        return manifest
+
+    @classmethod
+    def get_all_ml_files(cls, es_client: Elasticsearch) -> dict:
+        """Get all scripts, pipelines, and models which start with ml_*."""
+        pipelines = IngestClient(es_client).get_pipeline()
+        scripts = es_client.cluster.state()['metadata']['stored_scripts']
+        models = MlClient(es_client).get_trained_models()['trained_model_configs']
+        manifests = get_ml_model_manifests_by_model_id()
+
+        files = {
+            'pipeline': {n: s for n, s in pipelines.items() if n.lower().startswith('ml_')},
+            'script': {n: s for n, s in scripts.items() if n.lower().startswith('ml_')},
+            'model': {m['model_id']: {'model': m, 'release': manifests[m['model_id']]}
+                      for m in models if m['model_id'] in manifests},
+        }
+        return files
+
+    @classmethod
+    def remove_ml_scripts_pipelines(cls, es_client: Elasticsearch,
+                                    ml_type: Optional[definitions.MachineLearningTypeLower] = None) -> dict:
+        """Remove all ML script and pipeline files."""
+        results = dict(script={}, pipeline={})
+        ingest_client = IngestClient(es_client)
+
+        files = cls.get_all_ml_files(es_client=es_client)
+        for file_type, data in files.items():
+            for name in list(data):
+                this_type = name.split('_')[1].lower()
+                if ml_type and this_type != ml_type:
+                    continue
+                if file_type == 'script':
+                    results[file_type][name] = es_client.delete_script(name)
+                elif file_type == 'pipeline':
+                    results[file_type][name] = ingest_client.delete_pipeline(name)
+
+        return results
+
+    def upload_model(self, model_id: str, body: dict) -> dict:
+        """Upload an ML model file."""
+        return self.ml_client.put_trained_model(model_id=model_id, body=body)
+
+    def upload_script(self, script_id: str, body: dict) -> dict:
+        """Install a script file."""
+        return self.es_client.put_script(id=script_id, body=body)
+
+    def upload_ingest_pipeline(self, pipeline_id: str, body: dict) -> dict:
+        """Install a pipeline file."""
+        return self.ingest_client.put_pipeline(id=pipeline_id, body=body)
+
+    @staticmethod
+    def _build_script_error(exc: elasticsearch.RequestError, pipeline_file: str):
+        """Build an error for a failed script upload."""
+        error = exc.info['error']
+        cause = error['caused_by']
+        error_msg = [
+            f'Script error while uploading {pipeline_file}: {cause["type"]} - {cause["reason"]}',
+            ' '.join(f'{k}: {v}' for k, v in error['position'].items()),
+            '\n'.join(error['script_stack'])
+        ]
+
+        return click.style('\n'.join(error_msg), fg='red')
 
 
 def get_ml_model_manifests_by_model_id(repo: str = 'elastic/detection-rules') -> Dict[str, ReleaseManifest]:
@@ -37,251 +277,110 @@ def get_ml_model_manifests_by_model_id(repo: str = 'elastic/detection-rules') ->
     return model_manifests
 
 
-@es_experimental.command('check-model-files')
+@es_experimental.group('ml')
+def ml_group():
+    """Experimental machine learning commands."""
+
+
+@ml_group.command('check-files')
 @click.pass_context
-def check_model_files(ctx):
+def check_files(ctx):
     """Check ML model files on an elasticsearch instance."""
-    es_client: Elasticsearch = ctx.obj['es']
-    ml_client = MlClient(es_client)
-    ingest_client = IngestClient(es_client)
+    files = MachineLearningClient.get_all_ml_files(ctx.obj['es'])
 
-    def safe_get(func, arg):
-        try:
-            return func(arg)
-        except elasticsearch.NotFoundError:
-            return None
+    results = []
+    for file_type, data in files.items():
+        if file_type == 'model':
+            continue
+        for name in list(data):
+            results.append({'file_type': file_type, 'name': name})
 
-    models = [m for m in ml_client.get_trained_models().get('trained_model_configs', [])
-              if m['created_by'] != '_xpack']
+    for model_name, model in files['model'].items():
+        results.append({'file_type': 'model', 'name': model_name, 'related_release': model['release'].tag_name})
 
-    if models:
-        if len([m for m in models if m['model_id'].startswith('dga_')]) > 1:
-            click.secho('Multiple DGA models detected! It is not recommended to run more than one DGA model at a time',
-                        fg='yellow')
-
-        manifests = get_ml_model_manifests_by_model_id()
-
-        click.echo(f'DGA Model{"s" if len(models) > 1 else ""} found:')
-        for model in models:
-            manifest = manifests.get(model['model_id'])
-            click.echo(f'    - {model["model_id"]}, associated release: {manifest.html_url if manifest else None}')
-    else:
-        click.echo('No DGA Models found')
-
-    support_files = {
-        'create_script': safe_get(es_client.get_script, 'dga_ngrams_create'),
-        'delete_script': safe_get(es_client.get_script, 'dga_ngrams_transform_delete'),
-        'enrich_pipeline': safe_get(ingest_client.get_pipeline, 'dns_enrich_pipeline'),
-        'inference_pipeline': safe_get(ingest_client.get_pipeline, 'dns_dga_inference_enrich_pipeline')
-    }
-
-    click.echo('Support Files:')
-    for support_file, results in support_files.items():
-        click.echo(f'    - {support_file}: {"found" if results else "not found"}')
+    fields = ['file_type', 'name', 'related_release']
+    table = Table.from_list(fields, results)
+    click.echo(table)
+    return files
 
 
-@es_experimental.command('remove-dga-model')
+@ml_group.command('remove-model')
 @click.argument('model-id')
-@click.option('--force', '-f', is_flag=True, help='Force the attempted delete without checking if model exists')
 @click.pass_context
-def remove_dga_model(ctx, model_id, force, es_client: Elasticsearch = None, ml_client: MlClient = None,
-                     ingest_client: IngestClient = None):
-    """Remove ML DGA files."""
-    es_client = es_client or ctx.obj['es']
-    ml_client = ml_client or MlClient(es_client)
-    ingest_client = ingest_client or IngestClient(es_client)
-
-    def safe_delete(func, fid, verbose=True):
-        try:
-            func(fid)
-        except elasticsearch.NotFoundError:
-            return False
-        if verbose:
-            click.echo(f' - {fid} deleted')
-        return True
-
-    model_exists = False
-    if not force:
-        existing_models = ml_client.get_trained_models()
-        model_exists = model_id in [m['model_id'] for m in existing_models.get('trained_model_configs', [])]
-
-    if model_exists or force:
-        if model_exists:
-            click.secho('[-] Existing model detected - deleting files', fg='yellow')
-
-        deleted = [
-            safe_delete(ingest_client.delete_pipeline, 'dns_dga_inference_enrich_pipeline'),
-            safe_delete(ingest_client.delete_pipeline, 'dns_enrich_pipeline'),
-            safe_delete(es_client.delete_script, 'dga_ngrams_transform_delete'),
-            # f'{model_id}_dga_ngrams_transform_delete'
-            safe_delete(es_client.delete_script, 'dga_ngrams_create'),
-            # f'{model_id}_dga_ngrams_create'
-            safe_delete(ml_client.delete_trained_model, model_id)
-        ]
-
-        if not any(deleted):
-            click.echo('No files deleted')
-    else:
-        click.echo(f'Model: {model_id} not found')
+def remove_model(ctx: click.Context, model_id):
+    """Remove ML model files."""
+    es_client = MlClient(ctx.obj['es'])
+    result = es_client.delete_trained_model(model_id)
+    table = Table.from_list(['model_id', 'status'], [{'model_id': model_id, 'status': result}])
+    click.echo(table)
+    return result
 
 
-expected_ml_dga_patterns = {
-    'model':                                'dga_*_model.json',  # noqa: E241
-    'dga_ngrams_create':                    'dga_*_ngrams_create.json',  # noqa: E241
-    'dga_ngrams_transform_delete':          'dga_*_ngrams_transform_delete.json',  # noqa: E241
-    'dns_enrich_pipeline':                  'dga_*_ingest_pipeline1.json',  # noqa: E241
-    'dns_dga_inference_enrich_pipeline':    'dga_*_ingest_pipeline2.json'  # noqa: E241
-}
+@ml_group.command('remove-scripts-pipelines')
+@click.option('--dga/--problemchild', '-d/-p', default=None,
+              help='Delete all ml_* pipeline and script files (optionally specify ML type)')
+@click.pass_context
+def remove_scripts_pipelines(ctx: click.Context, dga: Optional[definitions.MachineLearningTypeLower] = None):
+    """Remove ML scripts and pipeline files."""
+    ml_type = 'dga' if dga is True else 'problemchild' if dga is False else None
+    status = MachineLearningClient.remove_ml_scripts_pipelines(es_client=ctx.obj['es'], ml_type=ml_type)
+
+    results = []
+    for file_type, response in status.items():
+        for name, result in response.items():
+            results.append({'file_type': file_type, 'name': name, 'status': result})
+
+    fields = ['file_type', 'name', 'status']
+    table = Table.from_list(fields, results)
+    click.echo(table)
+    return status
 
 
-@es_experimental.command('setup-dga-model')
+@ml_group.command('setup')
 @click.option('--model-tag', '-t',
               help='Release tag for model files staged in detection-rules (required to download files)')
 @click.option('--repo', '-r', default='elastic/detection-rules',
               help='GitHub repository hosting the model file releases (owner/repo)')
 @click.option('--model-dir', '-d', type=click.Path(exists=True, file_okay=False),
               help='Directory containing local model files')
-@click.option('--overwrite', is_flag=True, help='Overwrite all files if already in the stack')
 @click.pass_context
-def setup_dga_model(ctx, model_tag, repo, model_dir, overwrite):
-    """Upload ML DGA model and dependencies and enrich DNS data."""
-    import io
-    import requests
-    import shutil
-    import zipfile
-
+def setup_bundle(ctx, model_tag, repo, model_dir):
+    """Upload ML model and dependencies to enrich data."""
     es_client: Elasticsearch = ctx.obj['es']
-    client_info = es_client.info()
-    license_client = LicenseClient(es_client)
 
-    if license_client.get()['license']['type'].lower() not in ('platinum', 'enterprise'):
-        client_error('You must have a platinum or enterprise subscription in order to use these ML features')
+    if model_tag:
+        dga_client = MachineLearningClient.from_release(es_client=es_client, release_tag=model_tag, repo=repo)
+    elif model_dir:
+        dga_client = MachineLearningClient.from_directory(es_client=es_client, directory=model_dir)
+    else:
+        return client_error('model-tag or model-dir required to download model files')
 
-    # download files if necessary
-    if not model_dir:
-        if not model_tag:
-            client_error('model-tag or model-dir required to download model files')
+    dga_client.verify_license()
+    status = dga_client.setup()
 
-        click.echo(f'Downloading artifact: {model_tag}')
+    results = []
+    for file_type, response in status.items():
+        for name, result in response.items():
+            if file_type == 'model':
+                status = 'success' if result.get('create_time') else 'potential_failure'
+                results.append({'file_type': file_type, 'name': name, 'status': status})
+                continue
+            results.append({'file_type': file_type, 'name': name, 'status': result})
 
-        release_url = f'https://api.github.com/repos/{repo}/releases/tags/{model_tag}'
-        release = requests.get(release_url)
-        release.raise_for_status()
-        assets = [a for a in release.json()['assets'] if a['name'].startswith('ML-DGA') and a['name'].endswith('.zip')]
+    fields = ['file_type', 'name', 'status']
+    table = Table.from_list(fields, results)
+    click.echo(table)
 
-        if len(assets) != 1:
-            client_error(f'Malformed release: expected 1 match ML-DGA zip, found: {len(assets)}!')
-
-        zipped_url = assets[0]['browser_download_url']
-        zipped = requests.get(zipped_url)
-        z = zipfile.ZipFile(io.BytesIO(zipped.content))
-
-        dga_dir = Path(get_path('ML-models', 'DGA'))
-        model_dir = dga_dir / model_tag
-        dga_dir.mkdir(parents=True, exist_ok=True)
-        shutil.rmtree(str(model_dir), ignore_errors=True)
-        z.extractall(str(dga_dir))
-        click.echo(f'files saved to {model_dir}')
-
-        # read files as needed
-        z.close()
-
-    def get_model_filename(pattern) -> Path:
-        paths = list(Path(model_dir).glob(pattern))
-        if not paths:
-            client_error(f'{model_dir} missing files matching the pattern: {pattern}')
-        if len(paths) > 1:
-            client_error(f'{model_dir} contains multiple files matching the pattern: {pattern}')
-
-        return paths[0]
-
-    @contextmanager
-    def open_model_file(name):
-        pattern = expected_ml_dga_patterns[name]
-        with open(get_model_filename(pattern), 'r') as f:
-            yield json.load(f)
-
-    model_id, _ = get_model_filename('dga_*_model.json').name.rsplit('_', maxsplit=1)
-
-    click.echo(f'Setting up DGA model: "{model_id}" on {client_info["name"]} ({client_info["version"]["number"]})')
-
-    # upload model
-    ml_client = MlClient(es_client)
-    ingest_client = IngestClient(es_client)
-
-    existing_models = ml_client.get_trained_models()
-    if model_id in [m['model_id'] for m in existing_models.get('trained_model_configs', [])]:
-        if overwrite:
-            ctx.invoke(remove_dga_model, model_id=model_id, es_client=es_client, ml_client=ml_client,
-                       ingest_client=ingest_client, force=True)
-        else:
-            client_error(f'Model: {model_id} already exists on stack! Try --overwrite to force the upload')
-
-    click.secho('[+] Uploading model (may take a while)')
-
-    with open_model_file('model') as model_file:
-        try:
-            ml_client.put_trained_model(model_id=model_id, body=model_file)
-        except elasticsearch.ConnectionTimeout:
-            msg = 'Connection timeout, try increasing timeout using `es --timeout <secs> experimental setup_dga_model`.'
-            client_error(msg)
-
-    # install scripts
-    click.secho('[+] Uploading painless scripts')
-
-    with open_model_file('dga_ngrams_create') as painless_install:
-        es_client.put_script(id='dga_ngrams_create', body=painless_install)
-        # f'{model_id}_dga_ngrams_create'
-
-    with open_model_file('dga_ngrams_transform_delete') as painless_delete:
-        es_client.put_script(id='dga_ngrams_transform_delete', body=painless_delete)
-        # f'{model_id}_dga_ngrams_transform_delete'
-
-    # Install ingest pipelines
-    click.secho('[+] Uploading pipelines')
-
-    def _build_es_script_error(err, pipeline_file):
-        error = err.info['error']
-        cause = error['caused_by']
-
-        error_msg = [
-            f'Script error while uploading {pipeline_file}: {cause["type"]} - {cause["reason"]}',
-            ' '.join(f'{k}: {v}' for k, v in error['position'].items()),
-            '\n'.join(error['script_stack'])
-        ]
-
-        return click.style('\n'.join(error_msg), fg='red')
-
-    with open_model_file('dns_enrich_pipeline') as ingest_pipeline1:
-        try:
-            ingest_client.put_pipeline(id='dns_enrich_pipeline', body=ingest_pipeline1)
-        except elasticsearch.RequestError as e:
-            if e.error == 'script_exception':
-                client_error(_build_es_script_error(e, 'ingest_pipeline1'), e, ctx=ctx)
-            else:
-                raise
-
-    with open_model_file('dns_dga_inference_enrich_pipeline') as ingest_pipeline2:
-        try:
-            ingest_client.put_pipeline(id='dns_dga_inference_enrich_pipeline', body=ingest_pipeline2)
-        except elasticsearch.RequestError as e:
-            if e.error == 'script_exception':
-                client_error(_build_es_script_error(e, 'ingest_pipeline2'), e, ctx=ctx)
-            else:
-                raise
-
-    click.echo('Ensure that you have updated your packetbeat.yml config file.')
-    click.echo('    - reference: ML_DGA.md #2-update-packetbeat-configuration')
     click.echo('Associated rules and jobs can be found under ML-experimental-detections releases in the repo')
     click.echo('To upload rules, run: kibana upload-rule <ml-rule.toml>')
     click.echo('To upload ML jobs, run: es experimental upload-ml-job <ml-job.json>')
 
 
-@es_experimental.command('upload-ml-job')
+@ml_group.command('upload-job')
 @click.argument('job-file', type=click.Path(exists=True, dir_okay=False))
 @click.option('--overwrite', '-o', is_flag=True, help='Overwrite job if exists by name')
 @click.pass_context
-def upload_ml_job(ctx: click.Context, job_file, overwrite):
+def upload_job(ctx: click.Context, job_file, overwrite):
     """Upload experimental ML jobs."""
     es_client: Elasticsearch = ctx.obj['es']
     ml_client = MlClient(es_client)
@@ -297,7 +396,7 @@ def upload_ml_job(ctx: click.Context, job_file, overwrite):
                 client_error(str(err), err, ctx=ctx)
 
             if overwrite:
-                ctx.invoke(delete_ml_job, job_name=name, job_type=job_type)
+                ctx.invoke(delete_job, job_name=name, job_type=job_type)
                 func(name, body)
             else:
                 client_error(str(err), err, ctx=ctx)
@@ -321,11 +420,11 @@ def upload_ml_job(ctx: click.Context, job_file, overwrite):
         client_error(f'{job_file} missing required info: {e}')
 
 
-@es_experimental.command('delete-ml-job')
+@ml_group.command('delete-job')
 @click.argument('job-name')
 @click.argument('job-type')
 @click.pass_context
-def delete_ml_job(ctx: click.Context, job_name, job_type, verbose=True):
+def delete_job(ctx: click.Context, job_name, job_type, verbose=True):
     """Remove experimental ML jobs."""
     es_client: Elasticsearch = ctx.obj['es']
     ml_client = MlClient(es_client)
