@@ -6,7 +6,6 @@
 """CLI commands for internal detection_rules dev team."""
 import dataclasses
 import functools
-import hashlib
 import io
 import json
 import os
@@ -14,7 +13,6 @@ import shutil
 import subprocess
 import textwrap
 import time
-import typing
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -25,8 +23,9 @@ from kibana.connector import Kibana
 from . import rule_loader
 from .cli_utils import single_collection
 from .eswrap import CollectEvents, add_range_to_dsl
+from .ghwrap import GithubClient
 from .main import root
-from .misc import GithubClient, Manifest, PYTHON_LICENSE, add_client, client_error, getdefault
+from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import PACKAGE_FILE, Package, RELEASE_DIR, current_stack_version, manage_versions
 from .rule import QueryRuleData, TOMLRule
 from .rule_loader import RuleCollection, production_filter
