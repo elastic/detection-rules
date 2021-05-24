@@ -15,7 +15,12 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Encoding or Decoding Files via CertUtil"
-references = ["https://www.sysadmins.lv/blog-en/certutil-tips-and-tricks-working-with-x509-file-format.aspx"]
+references = [
+    "https://twitter.com/Moriarty_Meng/status/984380793383370752",
+    "https://twitter.com/egre55/status/1087685529016193025",
+    "https://www.sysadmins.lv/blog-en/certutil-tips-and-tricks-working-with-x509-file-format.aspx",
+    "https://docs.microsoft.com/en-us/archive/blogs/pki/basic-crl-checking-with-certutil",
+]
 risk_score = 47
 rule_id = "fd70c98a-c410-42dc-a2e3-761c71848acf"
 severity = "medium"
@@ -26,7 +31,7 @@ type = "eql"
 query = '''
 process where event.type == "start" and
   (process.name : "certutil.exe" or process.pe.original_file_name == "CertUtil.exe") and 
-  process.args : ("?decode", "?encode", "?encodehex", "?decodehex")
+  process.args : ("?decode", "?encode", "?urlcache", "?verifyctl", "?encodehex", "?decodehex")
 '''
 
 
