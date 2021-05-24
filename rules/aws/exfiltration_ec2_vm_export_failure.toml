@@ -6,16 +6,24 @@ updated_date = "2021/04/22"
 [rule]
 author = ["Elastic", "Austin Songer"]
 description = """
-An attempt to export an AWS EC2 instance has been detected and a VM Export might indicate an attempt to extract
-information from an instance.
+Identifies an attempt to export an AWS EC2 instance. A virtual machine (VM) export may indicate an attempt to extract or exfiltrate information.
 """
-false_positives = ["Adding User Keys to their own Accounts"]
+false_positives = [
+    """
+    VM exports may be done by a system or network administrator. Verify whether the user identity, user agent, and/or
+    hostname should be making changes in your environment. VM exports from unfamiliar users or hosts should be
+    investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
 from = "now-60m"
 index = ["filebeat-*", "logs-aws*"]
+index = ["filebeat-*", "logs-aws*"]
+interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EC2 VM Export Failure"
-note = "The AWS Filebeat module must be enabled to use this rule."
+note = """## Config
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.aws.amazon.com/vm-import/latest/userguide/vmexport.html#export-instance"]
 risk_score = 21
 rule_id = "e919611d-6b6f-493b-8314-7ed6ac2e413b"
