@@ -357,7 +357,7 @@ class ClientError(click.ClickException):
     def show(self, file=None, err=True):
         """Print the error to the console."""
         err = f' {self.original_error_type}' if self.original_error else ''
-        msg = f'{click.style(f"CLI Error{self.original_error_type}", fg="red", bold=True)}: {self.format_message()}'
+        msg = f'{click.style(f"CLI Error {self.original_error_type}", fg="red", bold=True)}: {self.format_message()}'
         click.echo(msg, err=err, file=file)
 
 

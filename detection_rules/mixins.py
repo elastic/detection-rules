@@ -7,6 +7,7 @@
 from typing import TypeVar, Type
 
 import marshmallow_dataclass
+import marshmallow_jsonschema
 from marshmallow import Schema
 
 from .utils import cached
@@ -26,6 +27,48 @@ def _strip_none_from_dict(obj: T) -> T:
     return obj
 
 
+def patch_jsonschema(obj: dict) -> dict:
+    """Patch marshmallow-jsonschema output to look more like JSL."""
+
+    def dive(child: dict) -> dict:
+        if "$ref" in child:
+            name = child["$ref"].split("/")[-1]
+            definition = obj["definitions"][name]
+            return dive(definition)
+
+        child = child.copy()
+        if "default" in child and child["default"] is None:
+            child.pop("default")
+
+        child.pop("title", None)
+
+        if isinstance(child["type"], list):
+            if 'null' in child["type"]:
+                child["type"] = [t for t in child["type"] if t != 'null']
+
+            if len(child["type"]) == 1:
+                child["type"] = child["type"][0]
+
+        if "items" in child:
+            child["items"] = dive(child["items"])
+
+        if "properties" in child:
+            # .rstrip("_") is workaround for `from_` -> from
+            # https://github.com/fuhrysteve/marshmallow-jsonschema/issues/107
+            child["properties"] = {k.rstrip("_"): dive(v) for k, v in child["properties"].items()}
+
+        if isinstance(child.get("additionalProperties"), dict):
+            # .rstrip("_") is workaround for `from_` -> from
+            # https://github.com/fuhrysteve/marshmallow-jsonschema/issues/107
+            child["additionalProperties"] = dive(child["additionalProperties"])
+
+        return child
+
+    patched = {"$schema": "http://json-schema.org/draft-04/schema#"}
+    patched.update(dive(obj))
+    return patched
+
+
 class MarshmallowDataclassMixin:
     """Mixin class for marshmallow serialization."""
 
@@ -38,6 +81,14 @@ class MarshmallowDataclassMixin:
     def get(self, key: str):
         """Get a key from the query data without raising attribute errors."""
         return getattr(self, key, None)
+
+    @classmethod
+    @cached
+    def jsonschema(cls):
+        """Get the jsonschema representation for this class."""
+        jsonschema = marshmallow_jsonschema.JSONSchema().dump(cls.__schema())
+        jsonschema = patch_jsonschema(jsonschema)
+        return jsonschema
 
     @classmethod
     def from_dict(cls: Type[ClassT], obj: dict) -> ClassT:
