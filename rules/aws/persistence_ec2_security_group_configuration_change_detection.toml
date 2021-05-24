@@ -26,17 +26,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and 
-event.action: 
-    (
-    "AuthorizeSecurityGroupIngress",
-    "AuthorizeSecurityGroupEgress",
-    "RevokeSecurityGroupIngress",
-    "RevokeSecurityGroupEgress",
-    "CreateSecurityGroup",
-    "DeleteSecurityGroup"
-    ) and 
-cidrmatch(destination.ip, "0.0.0.0/0", "::/0") and event.outcome:success
+event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.action:(AuthorizeSecurityGroupIngress or AuthorizeSecurityGroupEgress or CreateSecurityGroup or ModifyInstanceAttribute) and event.outcome:success
 '''
 
 
