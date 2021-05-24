@@ -10,7 +10,13 @@ Identifies potential Traffic Mirroring in an Amazon Elastic Compute Cloud (EC2) 
 VPC feature that you can use to copy network traffic from an elastic network interface. This feature can potentially be
 abused to exfiltrate sensitive data from unencrypted internal traffic.
 """
-false_positives = ["System Admin", "Penetration Testing"]
+false_positives = [
+    """
+    Traffic Mirroring may be done by a system or network administrator. Verify whether the user identity, user agent,
+    and/or hostname should be making changes in your environment. Traffic Mirroring from unfamiliar users or hosts
+    should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
 from = "now-25m"
 index = ["filebeat-*", "logs-aws*"]
 interval = "10m"
@@ -62,4 +68,3 @@ id = "T1074"
 reference = "https://attack.mitre.org/tactics/TA0009/"
 name = "Collection"
 id = "TA0009"
-
