@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import textwrap
 import time
+import typing
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -414,6 +415,15 @@ def deprecate_rule(ctx: click.Context, rule_file: str):
     # remove the old rule
     rule_file.unlink()
     click.echo(f'Rule moved to {deprecated_path} - remember to git add this file')
+
+
+@dev_group.command("update-schemas")
+def update_schemas():
+    from .rule import BaseRuleData, AnyRuleData
+    classes = [BaseRuleData] + list(typing.get_args(AnyRuleData))
+
+    for cls in classes:
+        cls.save_schema()
 
 
 @dev_group.group('test')
