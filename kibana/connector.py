@@ -121,7 +121,9 @@ class Kibana(object):
         except requests.HTTPError as e:
             # 7.10 changed the structure of the auth data
             if e.response.status_code == 400 and '[undefined]' in e.response.text:
-                payload = {'params': payload, 'currentURL': '', 'providerType': 'basic', 'providerName': 'cloud-basic'}
+                payload = {'params': payload, 'currentURL': '', 'providerType': 'basic',
+                           'providerName': 'cloud-basic' if self.cloud_id else 'basic'}
+
                 self.post(path, data=payload, error=True)
             else:
                 raise
