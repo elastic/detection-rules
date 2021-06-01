@@ -16,7 +16,6 @@ from uuid import uuid4
 
 import click
 
-from . import rule_loader
 from .cli_utils import rule_prompt, multi_collection
 from .misc import nested_set, parse_config
 from .rule import TOMLRule, TOMLRuleContents
