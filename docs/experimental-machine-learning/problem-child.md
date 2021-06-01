@@ -4,12 +4,11 @@ ProblemChild helps detect anomalous activity in Windows process events by:
 1) Classifying events as malicious vs benign
 2) Identifying anomalous events based on rare parent-child process relationships
 
-An end-to-end blog to create and leverage ProblemChild to detect anomalous Windows process events can be found 
-[here](https://www.elastic.co/blog/problemchild-detecting-living-off-the-land-attacks).
+An end-to-end blog on how to build the ProblemChild framework from scratch for your environment can be found [here](https://www.elastic.co/blog/problemchild-detecting-living-off-the-land-attacks).
 
 You can also find some supplementary material for the blog and examples [here](https://github.com/elastic/examples/tree/master/Machine%20Learning/ProblemChild)
 
-We also released a blog on getting started with ProblemChild using the CLI and Kibana:
+We also released a blog about getting started with ProblemChild using the CLI and Kibana:
 * [ProblemChild Release Blog](link to blog)
 
 
