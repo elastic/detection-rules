@@ -28,7 +28,7 @@ from .ghwrap import GithubClient
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import PACKAGE_FILE, Package, RELEASE_DIR, current_stack_version, manage_versions
-from .rule import QueryRuleData, TOMLRule
+from .rule import AnyRuleData, BaseRuleData, QueryRuleData, TOMLRule
 from .rule_loader import RuleCollection, production_filter
 from .utils import dict_hash, get_path, load_dump
 
@@ -419,7 +419,6 @@ def deprecate_rule(ctx: click.Context, rule_file: str):
 
 @dev_group.command("update-schemas")
 def update_schemas():
-    from .rule import BaseRuleData, AnyRuleData
     classes = [BaseRuleData] + list(typing.get_args(AnyRuleData))
 
     for cls in classes:

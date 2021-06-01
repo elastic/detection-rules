@@ -48,24 +48,6 @@ def get_gh_release(repo: Repository, release_name: Optional[str] = None, tag_nam
             return release
 
 
-def upload_gh_release_asset(token: str, asset: bytes, asset_name: str, repo=None, content_type='application/zip',
-                            release_name: Optional[str] = None, tag_name: Optional[str] = None,
-                            upload_url: Optional[str] = None):
-    """Save a Github release asset."""
-    if not upload_url:
-        assert repo, 'You must provide a repo name if not providing an upload_url'
-
-        release = get_gh_release(repo, release_name, tag_name)
-        upload_url = release.upload_url
-        suffix = '{?name,label}'
-        upload_url = upload_url.replace(suffix, f'?name={asset_name}&label={asset_name}')
-
-    headers = {'content-type': content_type}
-    r = requests.post(upload_url, auth=('', token), data=asset, headers=headers)
-    r.raise_for_status()
-    click.echo(f'Uploaded {asset_name} to release: {r.json()["url"]}')
-
-
 def load_zipped_gh_assets_with_metadata(url: str) -> Tuple[str, dict]:
     """Download and unzip a GitHub assets."""
     response = requests.get(url)
@@ -178,7 +160,7 @@ class ReleaseManifest:
     description: str = None  # parsed from GitHub release metadata as: body
 
 
-class Manifest:
+class ManifestManager:
     """Manifest handler for GitHub releases."""
 
     def __init__(self, repo: str = 'elastic/detection-rules', release_name: Optional[str] = None,

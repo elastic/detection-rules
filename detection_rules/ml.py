@@ -21,10 +21,10 @@ from elasticsearch import Elasticsearch
 from elasticsearch.client import IngestClient, LicenseClient, MlClient
 
 from .eswrap import es_experimental
-from .ghwrap import Manifest, ReleaseManifest
+from .ghwrap import ManifestManager, ReleaseManifest
 from .misc import client_error
 from .schemas import definitions
-from .utils import get_path
+from .utils import get_path, unzip_to_dict
 
 
 ML_PATH = Path(get_path('machine-learning'))
@@ -75,13 +75,13 @@ class MachineLearningClient:
         valid_license = self.license in ('platinum', 'enterprise')
 
         if not valid_license:
-            err_msg = f'Your subscription level does not support Machine Learning. See ' \
-              f'https://www.elastic.co/subscriptions for more information.'
+            err_msg = 'Your subscription level does not support Machine Learning. See ' \
+                      'https://www.elastic.co/subscriptions for more information.'
             raise InvalidLicenseError(err_msg)
 
     @classmethod
-    def from_release(cls, es_client: Elasticsearch, release_tag: str, repo: str = 'elastic/detection-rules'
-                     ) -> 'MachineLearningClient':
+    def from_release(cls, es_client: Elasticsearch, release_tag: str,
+                     repo: str = 'elastic/detection-rules') -> 'MachineLearningClient':
         """Load from a GitHub release."""
         full_type = '-'.join(info_from_tag(release_tag)[:2])
         release_url = f'https://api.github.com/repos/{repo}/releases/tags/{release_tag}'
@@ -96,19 +96,7 @@ class MachineLearningClient:
         zipped_url = assets[0]['browser_download_url']
         zipped_raw = requests.get(zipped_url)
         zipped_bundle = zipfile.ZipFile(io.BytesIO(zipped_raw.content))
-
-        bundle = {}
-        for filename in zipped_bundle.namelist():
-            if filename.endswith('/'):
-                continue
-
-            fp = Path(filename)
-            contents = zipped_bundle.read(filename)
-
-            if fp.suffix == '.json':
-                contents = json.loads(contents)
-
-            bundle[fp.name] = contents
+        bundle = unzip_to_dict(zipped_bundle)
 
         return cls(es_client=es_client, bundle=bundle)
 
@@ -262,7 +250,7 @@ class MachineLearningClient:
 
 def get_ml_model_manifests_by_model_id(repo: str = 'elastic/detection-rules') -> Dict[str, ReleaseManifest]:
     """Load all ML DGA model release manifests by model id."""
-    manifests, _ = Manifest.load_all(repo=repo)
+    manifests, _ = ManifestManager.load_all(repo=repo)
     model_manifests = {}
 
     for manifest_name, manifest in manifests.items():
