@@ -52,7 +52,8 @@ def nested_normalize(d, skip_cleanup=False, eql_rule=False):
                     # do not normalize eql queries
                     d.update({k: v})
                 else:
-                    d.update({k: nested_normalize(v)})
+                    # nor any queries
+                    d.update({k: v})
             elif k in get_preserved_fmt_fields():
                 # let these maintain newlines and whitespace for markdown support
                 d.update({k: nested_normalize(v, skip_cleanup=True, eql_rule=eql_rule)})

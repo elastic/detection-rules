@@ -49,10 +49,7 @@ def root(ctx, debug):
 def create_rule(path, config, required_only, rule_type):
     """Create a detection rule."""
     contents = load_rule_contents(config, single_only=True)[0] if config else {}
-    try:
-        return rule_prompt(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
-    finally:
-        rule_loader.reset()
+    return rule_prompt(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
 
 
 @root.command('generate-rules-index')
