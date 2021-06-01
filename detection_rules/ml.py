@@ -52,9 +52,7 @@ class MachineLearningClient:
 
     @cached_property
     def model_id(self) -> str:
-        for name, data in self.bundle.items():
-            if Path(name).stem.lower().endswith('model'):
-                return data['model_id']
+        next(data['model_id'] for name, data in self.bundle.items() if Path(name).stem.lower().endswith('model'))
 
     @cached_property
     def bundle_type(self) -> str:
@@ -77,7 +75,8 @@ class MachineLearningClient:
         valid_license = self.license in ('platinum', 'enterprise')
 
         if not valid_license:
-            err_msg = 'You must have a platinum or enterprise subscription in order to use these ML features'
+            err_msg = f'Your subscription level does not support Machine Learning. See ' \
+              f'https://www.elastic.co/subscriptions for more information.'
             raise InvalidLicenseError(err_msg)
 
     @classmethod
