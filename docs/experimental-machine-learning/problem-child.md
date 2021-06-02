@@ -29,15 +29,36 @@ expected pattern for the filenames.
 
 #### 2. Update index pipeline configuration
 
-TODO
+You will need to update your index (containing Windows process event data) settings to point to the ProblemChild enrichment pipeline.
+
+You can do this by running the following command in your Dev Tools console:
+```
+PUT your-index-pattern/_settings
+{
+  "index": {
+    "default_pipeline": "ML_ProblemChild_ingest_pipeline"
+  }
+}
+```
+
+If you wish to stop enriching your documents using ProblemChild, run the following command in your dev Tools console:
+```
+PUT your-index-pattern/_settings
+{
+  "index": {
+    "default_pipeline": null
+  }
+}
+
+```
 
 #### 3. Refresh your indexes
 
-You can optionally choose to refresh your packetbeat index mapping from within Kibana:
+You can optionally choose to refresh your index mapping from within Kibana:
 * Navigate to `Stack Management > (Kibana) Index Patterns` 
 * Select the appropriate indexes
 * Click `refresh field list`
 
 #### 4. Verify enrichment fields
 
-TODO
+Any documents corresponding to Windows process events should now be enriched with `problemchild.*`
