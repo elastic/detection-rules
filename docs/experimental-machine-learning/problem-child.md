@@ -16,40 +16,7 @@ We also released a blog about getting started with ProblemChild using the CLI an
 *Note: the ML features are considered experimental in Kibana as well as this rules CLI*
 
 
-## Uploading a model and dependencies using the CLI
-
-### Usage
-
-```console
-python -m detection_rules es experimental ml setup -h
-
-Elasticsearch client:
-Options:
-  -et, --timeout INTEGER    Timeout for elasticsearch client
-  -ep, --es-password TEXT
-  -eu, --es-user TEXT
-  --cloud-id TEXT
-  --elasticsearch-url TEXT
-
-
-* experimental commands are use at your own risk and may change without warning *
-
-Usage: detection_rules es experimental ml setup [OPTIONS]
-
-  Upload ML model and dependencies to enrich data.
-
-Options:
-  -t, --model-tag TEXT       Release tag for model files staged in detection-
-                             rules (required to download files)
-  -r, --repo TEXT            GitHub repository hosting the model file releases
-                             (owner/repo)
-  -d, --model-dir DIRECTORY  Directory containing local model files
-  --overwrite                Overwrite all files if already in the stack
-  -h, --help                 Show this message and exit.
-
-```
-
-### Detailed steps
+## Detailed steps
 
 #### 1. Upload and setup the model file and dependencies
 
@@ -60,4 +27,17 @@ Run `python -m detection_rules es <args_or_config> experimental ml setup -t <rel
 You can also upload files locally using the `-d` option, so long as the naming convention of the files match the 
 expected pattern for the filenames.
 
-#### 2. 
+#### 2. Update index pipeline configuration
+
+TODO
+
+#### 3. Refresh your indexes
+
+You can optionally choose to refresh your packetbeat index mapping from within Kibana:
+* Navigate to `Stack Management > (Kibana) Index Patterns` 
+* Select the appropriate indexes
+* Click `refresh field list`
+
+#### 4. Verify enrichment fields
+
+TODO
