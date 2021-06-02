@@ -8,7 +8,13 @@ learning job first. If this is the case, it will likely be annotated within the 
 
 ### Uploading rules
 
-Unzip the release bundlde and individually upload these rules using the [kibana upload-rule](../../CLI.md#uploading-rules-to-kibana) command
+Unzip the release bundle and upload these rules individually.
+
+Rules are now stored in ndjson format and can be imported into Kibana via the security app detections page.
+
+Earlier releases stored the rules in toml format. These can be uploaded using the 
+[7.12 branch](https://github.com/elastic/detection-rules/tree/7.12) CLI using the 
+[kibana upload-rule](../../CLI.md#uploading-rules-to-kibana) command
 
 ### Uploading ML Jobs and Datafeeds
 
