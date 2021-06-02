@@ -87,7 +87,7 @@ Options:
 To remove the ML bundle, you will need to remove the pipelines and scripts first and then the model.
 
 You can do this by running:
-* `python -m detection_rules es experimental ml remove-pipeline-scripts --dga/--problemchild`
+* `python -m detection_rules es experimental ml remove-pipeline-scripts --dga --problemchild`
 * `python -m detection_rules es experimental ml remove-model <model-id>`
 
 

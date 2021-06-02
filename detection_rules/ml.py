@@ -213,7 +213,7 @@ class MachineLearningClient:
         return files
 
     @classmethod
-    def remove_ml_scripts_pipelines(cls, es_client: Elasticsearch, ml_type: str) -> dict:
+    def remove_ml_scripts_pipelines(cls, es_client: Elasticsearch, ml_type: List[str]) -> dict:
         """Remove all ML script and pipeline files."""
         results = dict(script={}, pipeline={})
         ingest_client = IngestClient(es_client)
@@ -222,7 +222,7 @@ class MachineLearningClient:
         for file_type, data in files.items():
             for name in list(data):
                 this_type = name.split('_')[1].lower()
-                if this_type != ml_type:
+                if this_type not in ml_type:
                     continue
                 if file_type == 'script':
                     results[file_type][name] = es_client.delete_script(name)
@@ -323,13 +323,14 @@ def remove_model(ctx: click.Context, model_id):
 
 
 @ml_group.command('remove-scripts-pipelines')
-@click.option('--dga/--problemchild', '-d/-p',
-              help='Delete all ml_* pipeline and script files (optionally specify ML type)')
+@click.option('--dga', is_flag=True)
+@click.option('--problemchild', is_flag=True)
 @click.pass_context
-def remove_scripts_pipelines(ctx: click.Context, dga: Optional[definitions.MachineLearningTypeLower] = None):
+def remove_scripts_pipelines(ctx: click.Context, **ml_types):
     """Remove ML scripts and pipeline files."""
-    ml_type = 'dga' if dga is True else 'problemchild'
-    status = MachineLearningClient.remove_ml_scripts_pipelines(es_client=ctx.obj['es'], ml_type=ml_type)
+    selected_types = [k for k, v in ml_types.items() if v]
+    assert selected_types, f'Specify ML types to remove: {list(ml_types)}'
+    status = MachineLearningClient.remove_ml_scripts_pipelines(es_client=ctx.obj['es'], ml_type=selected_types)
 
     results = []
     for file_type, response in status.items():
