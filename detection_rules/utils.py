@@ -149,15 +149,15 @@ def unzip_and_save(contents, path, member=None, verbose=True):
             print('Saved files to {}: \n\t- {}'.format(path, '\n\t- '.join(name_list)))
 
 
-def unzip_to_dict(contents: zipfile.ZipFile, load_json=True) -> Dict[str, Union[dict, str]]:
+def unzip_to_dict(zipped: zipfile.ZipFile, load_json=True) -> Dict[str, Union[dict, str]]:
     """Unzip and load contents to dict with filenames as keys."""
     bundle = {}
-    for filename in contents.namelist():
+    for filename in zipped.namelist():
         if filename.endswith('/'):
             continue
 
         fp = Path(filename)
-        contents = contents.read(filename)
+        contents = zipped.read(filename)
 
         if load_json and fp.suffix == '.json':
             contents = json.loads(contents)

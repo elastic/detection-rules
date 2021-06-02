@@ -8,9 +8,9 @@
 import io
 import zipfile
 from dataclasses import dataclass
-from functools import cached_property
+from functools import cached_property, lru_cache
 from pathlib import Path
-from typing import Dict, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 import click
 import elasticsearch
@@ -52,7 +52,7 @@ class MachineLearningClient:
 
     @cached_property
     def model_id(self) -> str:
-        next(data['model_id'] for name, data in self.bundle.items() if Path(name).stem.lower().endswith('model'))
+        return next(data['model_id'] for name, data in self.bundle.items() if Path(name).stem.lower().endswith('model'))
 
     @cached_property
     def bundle_type(self) -> str:
@@ -70,6 +70,11 @@ class MachineLearningClient:
     def license(self) -> str:
         license_client = LicenseClient(self.es_client)
         return license_client.get()['license']['type'].lower()
+
+    @staticmethod
+    @lru_cache
+    def ml_manifests() -> Dict[str, ReleaseManifest]:
+        return get_ml_model_manifests_by_model_id()
 
     def verify_license(self):
         valid_license = self.license in ('platinum', 'enterprise')
@@ -154,21 +159,28 @@ class MachineLearningClient:
         pipelines = self.ingest_client.get_pipeline()
         return {n: s for n, s in pipelines.items() if n.lower().startswith(f'ml_{self.bundle_type}')}
 
-    def get_related_model(self) -> dict:
+    def get_related_model(self) -> Optional[dict]:
         """Get a model from an elasticsearch instance matching the model_id."""
-        for model in self.get_existing_model_files():
+        for model in self.get_all_existing_model_files():
             if model['model_id'] == self.model_id:
                 return model
 
-    def get_existing_model_files(self) -> dict:
+    def get_all_existing_model_files(self) -> dict:
         """Get available models from a stack."""
         return self.ml_client.get_trained_models()['trained_model_configs']
+
+    @classmethod
+    def get_existing_model_ids(cls, es_client: Elasticsearch) -> List[str]:
+        """Get model IDs for existing ML models."""
+        ml_client = MlClient(es_client)
+        return [m['model_id'] for m in ml_client.get_trained_models()['trained_model_configs']
+                if m['model_id'] in cls.ml_manifests()]
 
     @classmethod
     def check_model_exists(cls, es_client: Elasticsearch, model_id: str) -> bool:
         """Check if a model exists on a stack by model id."""
         ml_client = MlClient(es_client)
-        return model_id in [m['model_id'] for m in ml_client.get_trained_models().get('trained_model_configs', [])]
+        return model_id in [m['model_id'] for m in ml_client.get_trained_models()['trained_model_configs']]
 
     def get_related_files(self) -> dict:
         """Check for the presence and status of ML bundle files on a stack."""
@@ -182,9 +194,7 @@ class MachineLearningClient:
 
     def get_related_release(self) -> ReleaseManifest:
         """Get the GitHub release related to a model."""
-        manifests = get_ml_model_manifests_by_model_id()
-        manifest = manifests.get(self.model_id)
-        return manifest
+        return self.ml_manifests.get(self.model_id)
 
     @classmethod
     def get_all_ml_files(cls, es_client: Elasticsearch) -> dict:
@@ -292,12 +302,22 @@ def check_files(ctx):
 
 
 @ml_group.command('remove-model')
-@click.argument('model-id')
+@click.argument('model-id', required=False)
 @click.pass_context
 def remove_model(ctx: click.Context, model_id):
     """Remove ML model files."""
     es_client = MlClient(ctx.obj['es'])
-    result = es_client.delete_trained_model(model_id)
+    model_ids = MachineLearningClient.get_existing_model_ids(ctx.obj['es'])
+
+    if not model_id:
+        model_id = click.prompt('Model ID to remove', type=click.Choice(model_ids))
+
+    try:
+        result = es_client.delete_trained_model(model_id)
+    except elasticsearch.ConflictError as e:
+        click.echo(f'{e}: try running `remove-scripts-pipelines` first')
+        ctx.exit(1)
+
     table = Table.from_list(['model_id', 'status'], [{'model_id': model_id, 'status': result}])
     click.echo(table)
     return result
