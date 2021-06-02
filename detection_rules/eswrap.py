@@ -27,6 +27,7 @@ from .rule import TOMLRule
 from .rule_loader import rta_mappings, RuleCollection
 from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
 from eql.utils import load_dump
+from kibana import Kibana
 
 COLLECTION_DIR = get_path('collections')
 MATCH_ALL = {'bool': {'filter': [{'match_all': {}}]}}
@@ -744,9 +745,9 @@ def delete_ml_job(ctx: click.Context, job_name, job_type, verbose=True):
 
 @es_experimental.command('create-dnstwist-rule')
 @click.argument('input-file', type=click.Path(exists=True, dir_okay=False), required=True)
-@add_client('kibana', add_to_ctx=True)
+@add_client('kibana')
 @click.pass_context
-def create_dnstwist_rule(ctx: click.Context, input_file, verbose=True):
+def create_dnstwist_rule(ctx: click.Context, input_file, kibana_client: Kibana, verbose=True):
     """Index dnstwist results in Elasticsearch."""
     es_client: Elasticsearch = ctx.obj['es']
 
