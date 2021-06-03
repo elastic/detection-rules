@@ -61,4 +61,4 @@ You can optionally choose to refresh your index mapping from within Kibana:
 
 #### 4. Verify enrichment fields
 
-Any documents corresponding to Windows process events should now be enriched with `problemchild.*`
+Any documents corresponding to Windows process events should now be enriched with `problemchild.*`. By default, the enrichment pipeline also consists of a script processor for a blocklist, so you might also see the field `blocklist_label` appear in documents that match the blocklist.
