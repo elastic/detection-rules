@@ -1,11 +1,11 @@
 [metadata]
 creation_date = "2021/05/05"
-maturity = "development"
+maturity = "production"
 updated_date = "2021/05/05"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
-description = "Detects threat actors tampering with S3 data management in Amazon Web Services"
+description = "Identifies when threat actors tamper with S3 data management in Amazon Web Services"
 false_positives = ["Unknown"]
 from = "now-10m"
 index = ["filebeat-*", "logs-aws*"]
@@ -22,9 +22,17 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.action:(PutBucketLogging or PutBucketWebsite or PutEncryptionConfiguration or PutLifecycleConfiguration or PutReplicationConfiguration or ReplicateObject or RestoreObject) and event.outcome:success
+event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and 
+  event.action:(
+                PutBucketLogging or 
+                PutBucketWebsite or 
+                PutEncryptionConfiguration or 
+                PutLifecycleConfiguration or 
+                PutReplicationConfiguration or 
+                ReplicateObject or 
+                RestoreObject) and 
+   event.outcome:success
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
