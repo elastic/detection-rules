@@ -1,1 +1,44 @@
+[metadata]
+creation_date = "2021/06/06"
+maturity = "production"
+updated_date = "2021/06/06"
 
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a user has exported a PST file from Ediscovery search.
+"""
+false_positives = [
+    """
+    Ediscovery search may be performed by a system or network administrator. 
+    """,
+]
+from = "now-30m"
+index = ["filebeat-*", "logs-o365*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Microsoft 365 Exported PST"
+note = """## Config
+
+The Microsoft 365 Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+
+risk_score = 47
+rule_id = "02d09042-dbae-464a-8d85-4f9d5bc2c3db"
+severity = "medium"
+tags = ["Elastic", "Cloud", "Microsoft 365", "Continuous Monitoring", "SecOps", "Configuration Audit"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:o365.audit and event.provider:Exchange and event.category:web and 
+event.action:"eDiscovery search started or exported" and 
+event.outcome:success
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
