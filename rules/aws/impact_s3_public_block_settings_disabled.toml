@@ -1,0 +1,59 @@
+[metadata]
+creation_date = "2021/06/06"
+maturity = "production"
+updated_date = "2021/06/06"
+
+[rule]
+author = ["Elastic", "Austin Songer"]
+description = """
+Identifies disabling of Amazon Simple Storage Service (S3) Public Block Settings.
+"""
+false_positives = [
+    """
+    Disabling Public Block Settings may be done by a system or network administrator. 
+    """,
+]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS S3 Public Block Settings Disabled"
+note = """## Config
+
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutPublicAccessBlock.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeletePublicAccessBlock.html",
+]
+risk_score = 47
+rule_id = "21ff3cc1-bb06-4378-aa6a-70bd39e4044f"
+severity = "medium"
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Monitoring"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and 
+event.provider:s3.amazonaws.com and 
+event.action: 
+    (
+    PutBucketPublicAccessBlock or
+    PutAccountPublicAccessBlock or
+    DeletePublicAccessBlock
+    ) and 
+event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+
+
