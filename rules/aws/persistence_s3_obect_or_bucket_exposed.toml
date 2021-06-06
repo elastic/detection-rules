@@ -1,1 +1,62 @@
+[metadata]
+creation_date = "2021/06/05"
+maturity = "production"
+updated_date = "2021/06/05"
+
+[rule]
+author = ["Elastic", "Austin Songer"]
+description = """
+Identifies when a S3 object or bucket ACL has been modified. This ACL exposes the object or bucket to anyone.
+"""
+false_positives = [
+    """
+    S3 ACL's may be created by a network administrator. 
+    """,
+]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS S3 ACL Exposed Object or Bucked Added" 
+note = """## Config
+
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://auth0.com/blog/fantastic-public-s3-buckets-and-how-to-find-them/",
+    "https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketAcl.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObjectAcl.html",
+]
+risk_score = 21
+rule_id = "c558d4d1-b053-4f95-a405-240a803665e6"
+severity = "low"
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Monitoring"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and 
+event.provider:s3.amazonaws.com and 
+event.action: 
+  (
+    "PutBucketAcl" or
+    "PutObjectAcl"
+    ) and 
+    aws.cloudtrail.request_parameters.text : AccessControlPolicy.AccessControlList.Grant*.Grantee.URI and
+event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1133"
+name = "External Remote Services"
+reference = "https://attack.mitre.org/techniques/T1133/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 
