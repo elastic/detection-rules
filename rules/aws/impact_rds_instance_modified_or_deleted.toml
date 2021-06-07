@@ -1,0 +1,56 @@
+[metadata]
+creation_date = "2021/06/06"
+maturity = "production"
+updated_date = "2021/06/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the modification or deletion of an Amazon Relational Database Service (RDS) Aurora database instance.
+"""
+false_positives = [
+    """
+    Instances may be modified or deleted by a system administrator. Verify whether the user identity, user agent, and/or hostname
+    should be making changes in your environment. Instances modifications ordeletions from unfamiliar users or hosts should be
+    investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS RDS Instance Modification or Deletion"
+note = """## Config
+
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DeleteDBInstance.html",
+    "https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_ModifyDBInstance.html",
+]
+risk_score = 21
+rule_id = "afe353c5-7641-426c-86e7-e54bf259d931"
+severity = "low"
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Asset Visibility"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and 
+event.provider:rds.amazonaws.com and 
+event.action: 
+    (
+    ModifyDBInstance or
+    DeleteDBInstance
+    ) and 
+event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
