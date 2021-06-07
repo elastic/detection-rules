@@ -113,20 +113,12 @@ class Kibana(object):
 
     def login(self, kibana_username, kibana_password):
         """Authenticate to Kibana using the API to update our cookies."""
-        payload = {'username': kibana_username, 'password': kibana_password}
+        payload = {'params': {'username': kibana_username, 'password': kibana_password},
+                   'currentURL': '', 'providerType': 'basic',
+                   'providerName': 'cloud-basic' if self.cloud_id else 'basic'}
         path = '/internal/security/login'
 
-        try:
-            self.post(path, data=payload, error=True, verbose=False)
-        except requests.HTTPError as e:
-            # 7.10 changed the structure of the auth data
-            if e.response.status_code == 400 and '[undefined]' in e.response.text:
-                payload = {'params': payload, 'currentURL': '', 'providerType': 'basic',
-                           'providerName': 'cloud-basic' if self.cloud_id else 'basic'}
-
-                self.post(path, data=payload, error=True)
-            else:
-                raise
+        self.post(path, data=payload, error=True, verbose=False)
 
         # Kibana will authenticate against URLs which contain invalid spaces
         if self.space:
