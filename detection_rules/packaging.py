@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import shutil
+import textwrap
 from collections import defaultdict, OrderedDict
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -27,6 +28,7 @@ from .utils import Ndjson, get_path, get_etc_path, load_etc_dump, save_etc_dump
 RELEASE_DIR = get_path("releases")
 PACKAGE_FILE = get_etc_path('packages.yml')
 NOTICE_FILE = get_path('NOTICE.txt')
+FLEET_PKG_LOGO = get_etc_path("security-logo-color-64px.svg")
 
 
 # CHANGELOG_FILE = Path(get_etc_path('rules-changelog.json'))
@@ -476,30 +478,44 @@ class Package(object):
 
         manifest = RegistryPackageManifest.from_dict(self.registry_data)
 
-        package_dir = Path(save_dir).joinpath(manifest.version)
+        package_dir = Path(save_dir) / 'fleet' / manifest.version
         docs_dir = package_dir / 'docs'
         rules_dir = package_dir / 'kibana' / definitions.ASSET_TYPE
 
         docs_dir.mkdir(parents=True)
         rules_dir.mkdir(parents=True)
 
-        manifest_file = package_dir.joinpath('manifest.yml')
-        readme_file = docs_dir.joinpath('README.md')
-        notice_file = package_dir.joinpath('NOTICE.txt')
+        manifest_file = package_dir / 'manifest.yml'
+        readme_file = docs_dir / 'README.md'
+        notice_file = package_dir / 'NOTICE.txt'
+        logo_file = package_dir / 'img' / 'security-logo-color-64px.png'
 
         manifest_file.write_text(yaml.safe_dump(manifest.asdict()))
+
+        logo_file.parent.mkdir(parents=True)
+        shutil.copyfile(FLEET_PKG_LOGO, logo_file)
         # shutil.copyfile(CHANGELOG_FILE, str(rules_dir.joinpath('CHANGELOG.json')))
 
         for rule in self.rules:
-            asset_path = rules_dir / f'rule-{rule.id}.json'
+            asset_path = rules_dir / f'{rule.id}.json'
             asset_path.write_text(json.dumps(rule.get_asset(), indent=4, sort_keys=True), encoding="utf-8")
 
-        readme_text = ('# Detection rules\n\n'
-                       'The detection rules package stores all the security rules '
-                       'for the detection engine within the Elastic Security application.\n\n')
+        notice_contents = Path(NOTICE_FILE).read_text()
+        readme_text = textwrap.dedent("""
+        # Detection rules
+        
+        The detection rules package stores the prebuilt security rules for the Elastic Security [detection engine](https://www.elastic.co/guide/en/security/7.13/detection-engine-overview.html).
+        
+        To download or update the rules, click **Settings** > **Install Prebuilt Security Detection Rules assets**.
+        Then [import](https://www.elastic.co/guide/en/security/master/rules-ui-management.html#load-prebuilt-rules)
+        the rules into the Detection engine.
+        
+        ## License Notice
+
+        """) + textwrap.indent(notice_contents, prefix="    ")
 
         readme_file.write_text(readme_text)
-        notice_file.write_text(Path(NOTICE_FILE).read_text())
+        notice_file.write_text(notice_contents)
 
     def bump_versions(self, save_changes=False, current_versions=None):
         """Bump the versions of all production rules included in a release and optionally save changes."""
