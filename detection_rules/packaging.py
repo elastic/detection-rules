@@ -503,16 +503,16 @@ class Package(object):
         notice_contents = Path(NOTICE_FILE).read_text()
         readme_text = textwrap.dedent("""
         # Detection rules
-        
+
         The detection rules package stores the prebuilt security rules for the Elastic Security [detection engine](https://www.elastic.co/guide/en/security/7.13/detection-engine-overview.html).
-        
+
         To download or update the rules, click **Settings** > **Install Prebuilt Security Detection Rules assets**.
         Then [import](https://www.elastic.co/guide/en/security/master/rules-ui-management.html#load-prebuilt-rules)
         the rules into the Detection engine.
-        
+
         ## License Notice
 
-        """) + textwrap.indent(notice_contents, prefix="    ")
+        """) + textwrap.indent(notice_contents, prefix="    ")  # noqa: E501
 
         readme_file.write_text(readme_text)
         notice_file.write_text(notice_contents)

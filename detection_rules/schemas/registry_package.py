@@ -8,7 +8,7 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Type
 
-from marshmallow import Schema, validate
+from marshmallow import Schema
 from marshmallow_dataclass import class_schema
 
 from .definitions import ConditionSemVer, SemVer
