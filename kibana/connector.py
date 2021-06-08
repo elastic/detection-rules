@@ -113,9 +113,15 @@ class Kibana(object):
 
     def login(self, kibana_username, kibana_password):
         """Authenticate to Kibana using the API to update our cookies."""
-        payload = {'params': {'username': kibana_username, 'password': kibana_password},
-                   'currentURL': '', 'providerType': 'basic',
-                   'providerName': 'cloud-basic' if self.cloud_id else 'basic'}
+        # payload for kibana 7.10+
+        payload = {
+            'params': {
+                'username': kibana_username,
+                'password': kibana_password
+            },
+            'currentURL': '', 'providerType': 'basic',
+            'providerName': 'cloud-basic' if self.cloud_id else 'basic'
+        }
         path = '/internal/security/login'
 
         self.post(path, data=payload, error=True, verbose=False)
