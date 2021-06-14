@@ -402,7 +402,7 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
         """Transform the converted API in place before sending to Kibana."""
 
         # cleanup the whitespace in the rule
-        obj = nested_normalize(obj, eql_rule=obj.get("language") == "eql")
+        obj = nested_normalize(obj)
 
         # fill in threat.technique so it's never missing
         for threat_entry in obj.get("threat", []):

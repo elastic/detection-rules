@@ -69,3 +69,8 @@ ThresholdValue = NewType("ThresholdValue", int, validate=validate.Range(min=1))
 TimelineTemplateId = NewType('TimelineTemplateId', str, validate=validate.OneOf(list(TIMELINE_TEMPLATES)))
 TimelineTemplateTitle = NewType('TimelineTemplateTitle', str, validate=validate.OneOf(TIMELINE_TEMPLATES.values()))
 UUIDString = NewType('UUIDString', str, validate=validate.Regexp(UUID_PATTERN))
+
+
+# experimental machine learning features and releases
+MachineLearningType = Literal['DGA', 'ProblemChild']
+MachineLearningTypeLower = Literal['dga', 'problemchild']
