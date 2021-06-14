@@ -5,31 +5,45 @@
 
 """CLI commands for internal detection_rules dev team."""
 import dataclasses
-import hashlib
+import functools
 import io
 import json
 import os
 import shutil
 import subprocess
+import textwrap
 import time
+import typing
 from pathlib import Path
+from typing import Optional, Tuple
 
 import click
 from elasticsearch import Elasticsearch
-from eql import load_dump
 
 from kibana.connector import Kibana
 from . import rule_loader
 from .cli_utils import single_collection
 from .eswrap import CollectEvents, add_range_to_dsl
+from .ghwrap import GithubClient
 from .main import root
-from .misc import PYTHON_LICENSE, add_client, GithubClient, Manifest, client_error, getdefault
-from .packaging import PACKAGE_FILE, Package, manage_versions, RELEASE_DIR
-from .rule import TOMLRule, QueryRuleData
-from .rule_loader import production_filter, RuleCollection
-from .utils import get_path, dict_hash
+from .misc import PYTHON_LICENSE, add_client, client_error
+from .packaging import PACKAGE_FILE, Package, RELEASE_DIR, current_stack_version, manage_versions
+from .rule import AnyRuleData, BaseRuleData, QueryRuleData, TOMLRule
+from .rule_loader import RuleCollection, production_filter
+from .utils import dict_hash, get_path, load_dump
 
 RULES_DIR = get_path('rules')
+GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
+
+
+def get_github_token() -> Optional[str]:
+    """Get the current user's GitHub token."""
+    token = os.getenv("GITHUB_TOKEN")
+
+    if token is None and GH_CONFIG.exists():
+        token = load_dump(str(GH_CONFIG)).get("github.com", {}).get("oauth_token")
+
+    return token
 
 
 @root.group('dev')
@@ -90,13 +104,13 @@ def kibana_diff(rule_id, repo, branch, threads):
     rules = RuleCollection.default()
 
     if rule_id:
-        rules = rules.filter(lambda r: r.id in rule_id)
+        rules = rules.filter(lambda r: r.id in rule_id).id_map
     else:
-        rules = rules.filter(production_filter)
+        rules = rules.filter(production_filter).id_map
 
     # add versions to the rules
     manage_versions(list(rules.values()), verbose=False)
-    repo_hashes = {r.id: r.get_hash() for r in rules.values()}
+    repo_hashes = {r.id: r.contents.sha256(include_version=True) for r in rules.values()}
 
     kibana_rules = {r['rule_id']: r for r in get_kibana_rules(repo=repo, branch=branch, threads=threads).values()}
     kibana_hashes = {r['rule_id']: dict_hash(r) for r in kibana_rules.values()}
@@ -110,8 +124,9 @@ def kibana_diff(rule_id, repo, branch, threads):
             continue
         if rule_hash != kibana_hashes[rule_id]:
             rule_diff.append(
-                f'versions - repo: {rules[rule_id].contents["version"]}, kibana: {kibana_rules[rule_id]["version"]} -> '
-                f'{rule_id} - {rules[rule_id].name}'
+                f'versions - repo: {rules[rule_id].contents.autobumped_version}, '
+                f'kibana: {kibana_rules[rule_id]["version"]} -> '
+                f'{rule_id} - {rules[rule_id].contents.name}'
             )
 
     diff = {
@@ -127,32 +142,47 @@ def kibana_diff(rule_id, repo, branch, threads):
     return diff
 
 
+def add_git_args(f):
+    @click.argument("local-repo", default=get_path("..", "kibana"))
+    @click.option("--kibana-directory", "-d", help="Directory to overwrite in Kibana",
+                  default="x-pack/plugins/security_solution/server/lib/detection_engine/rules/prepackaged_rules")
+    @click.option("--base-branch", "-b", help="Base branch in Kibana", default="master")
+    @click.option("--branch-name", "-n", help="New branch for the rules commit")
+    @click.option("--ssh/--http", is_flag=True, help="Method to use for cloning")
+    @click.option("--github-repo", "-r", help="Repository to use for the branch", default="elastic/kibana")
+    @click.option("--message", "-m", help="Override default commit message")
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        return f(*args, **kwargs)
+
+    return decorated
+
+
 @dev_group.command("kibana-commit")
-@click.argument("local-repo", default=get_path("..", "kibana"))
-@click.option("--kibana-directory", "-d", help="Directory to overwrite in Kibana",
-              default="x-pack/plugins/security_solution/server/lib/detection_engine/rules/prepackaged_rules")
-@click.option("--base-branch", "-b", help="Base branch in Kibana", default="master")
-@click.option("--branch-name", "-n", help="Head branch for rules (default: package name)")
-@click.option("--ssh/--http", is_flag=True, help="Method to use for cloning")
-@click.option("--github-repo", "-r", help="Repository to use for the branch", default="elastic/kibana")
-@click.option("--message", "-m", help="Override default commit message")
+@add_git_args
+@click.option("--push", "-p", is_flag=True, help="Push the commit to the remote")
 @click.pass_context
-def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_branch, branch_name, message):
+def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_directory: str, base_branch: str,
+                  branch_name: Optional[str], message: Optional[str], push: bool) -> (str, str):
     """Prep a commit and push to Kibana."""
     git_exe = shutil.which("git")
 
-    package_name = Package.load_configs()['package']["name"]
+    package_name = Package.load_configs()["name"]
     release_dir = os.path.join(RELEASE_DIR, package_name)
     message = message or f"[Detection Rules] Add {package_name} rules"
 
     if not os.path.exists(release_dir):
         click.secho("Release directory doesn't exist.", fg="red", err=True)
-        click.echo(f"Run {click.style('python -m detection_rules build-release', bold=True)} to populate", err=True)
+        click.echo(f"Run {click.style('python -m detection_rules dev build-release', bold=True)} to populate", err=True)
         ctx.exit(1)
 
     if not git_exe:
         click.secho("Unable to find git", err=True, fg="red")
         ctx.exit(1)
+
+    # Get the current hash of the repo
+    long_commit_hash = subprocess.check_output([git_exe, "rev-parse", "HEAD"], encoding="utf-8").strip()
+    short_commit_hash = subprocess.check_output([git_exe, "rev-parse", "--short", "HEAD"], encoding="utf-8").strip()
 
     try:
         if not os.path.exists(local_repo):
@@ -166,9 +196,11 @@ def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_bran
             method = subprocess.call if show_output else subprocess.check_output
             return method([git_exe, "-C", local_repo] + list(args), encoding="utf-8")
 
+        branch_name = branch_name or f"detection-rules/{package_name}-{short_commit_hash}"
+
         git("checkout", base_branch)
         git("pull")
-        git("checkout", "-b", f"rules/{branch_name or package_name}", show_output=True)
+        git("checkout", "-b", branch_name, show_output=True)
         git("rm", "-r", kibana_directory)
 
         source_dir = os.path.join(release_dir, "rules")
@@ -184,14 +216,61 @@ def kibana_commit(ctx, local_repo, github_repo, ssh, kibana_directory, base_bran
 
         git("add", kibana_directory)
 
-        git("commit", "-S", "-m", message)
+        git("commit", "--no-verify", "-m", message)
         git("status", show_output=True)
+
+        if push:
+            git("push", "origin", branch_name)
 
         click.echo(f"Kibana repository {local_repo} prepped. Push changes when ready")
         click.secho(f"cd {local_repo}", bold=True)
 
+        return branch_name, long_commit_hash
+
     except subprocess.CalledProcessError as e:
-        client_error(e.returncode, e, ctx=ctx)
+        client_error(str(e), e, ctx=ctx)
+
+
+@dev_group.command("kibana-pr")
+@click.option("--token", required=True, prompt=True, default=get_github_token(),
+              help="GitHub token to use for the PR", hide_input=True)
+@click.option("--assign", multiple=True, help="GitHub users to assign the PR")
+@click.option("--label", multiple=True, help="GitHub labels to add to the PR")
+# Pending an official GitHub API
+# @click.option("--automerge", is_flag=True, help="Enable auto-merge on the PR")
+@click.option("--draft", is_flag=True, help="Open the PR as a draft")
+@add_git_args
+@click.pass_context
+def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...], draft: bool, token: str, **kwargs):
+    """Create a pull request to Kibana."""
+    branch_name, commit_hash = ctx.invoke(kibana_commit, push=True, **kwargs)
+    client = GithubClient(token).authenticated_client
+    repo = client.get_repo(kwargs["github_repo"])
+
+    title = f"[Detection Engine] Adds {current_stack_version()} rules"
+    body = textwrap.dedent(f"""
+    ## Summary
+
+    Pull updates to detection rules from https://github.com/elastic/detection-rules/tree/{commit_hash}.
+
+    ### Checklist
+
+    Delete any items that are not applicable to this PR.
+
+    - [x] Any text added follows [EUI's writing guidelines](https://elastic.github.io/eui/#/guidelines/writing),
+          uses sentence case text and includes [i18n support](https://github.com/elastic/kibana/blob/master/packages/kbn-i18n/README.md)
+    """).strip()  # noqa: E501
+    pr = repo.create_pull(title, body, kwargs["base_branch"], branch_name, draft=draft)
+
+    label = set(label)
+    if label:
+        pr.add_to_labels(*sorted(label))
+
+    if assign:
+        pr.add_to_assignees(*assign)
+
+    click.echo("PR created:")
+    click.echo(pr.html_url)
 
 
 @dev_group.command('license-check')
@@ -338,6 +417,14 @@ def deprecate_rule(ctx: click.Context, rule_file: str):
     click.echo(f'Rule moved to {deprecated_path} - remember to git add this file')
 
 
+@dev_group.command("update-schemas")
+def update_schemas():
+    classes = [BaseRuleData] + list(typing.get_args(AnyRuleData))
+
+    for cls in classes:
+        cls.save_schema()
+
+
 @dev_group.group('test')
 def test_group():
     """Commands for testing against stack resources."""
@@ -478,227 +565,3 @@ def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_coun
         json.dump(details, f, indent=2, sort_keys=True)
 
     return survey_results
-
-
-@dev_group.group('gh-release')
-def gh_release_group():
-    """Commands to manage GitHub releases."""
-
-
-@gh_release_group.command('create-ml')
-@click.argument('directory', type=click.Path(dir_okay=True, file_okay=False))
-@click.option('--gh-token', '-t', default=getdefault('gh_token'))
-@click.option('--repo', '-r', default='elastic/detection-rules', help='GitHub owner/repo')
-@click.option('--release-name', '-n', required=True, help='Name of release')
-@click.option('--description', '-d', help='Description of release to append to default message')
-@click.pass_context
-def create_ml_release(ctx, directory, gh_token, repo, release_name, description):
-    """Create a GitHub release."""
-    import re
-
-    # ML-DGA-20201129-25
-    pattern = r'^(ML-DGA|ML-experimental-detections)-\d{4}\d{2}\d{2}-\d+$'
-    assert re.match(pattern, release_name), f'release name must match pattern: {pattern}'
-    assert Path(directory).name == release_name, f'directory name must match release name: {release_name}'
-
-    gh_token = gh_token or click.prompt('GitHub token', hide_input=True)
-    client = GithubClient(gh_token)
-    gh_repo = client.authenticated_client.get_repo(repo)
-
-    # validate tag name is increment by 1
-    name_prefix, _, version = release_name.rsplit('-', 2)
-    version = int(version)
-    releases = gh_repo.get_releases()
-    max_ver = max([int(r.raw_data['name'].split('-')[-1]) for r in releases
-                   if r.raw_data['name'].startswith(name_prefix)], default=0)
-
-    if version != (max_ver + 1):
-        client_error(f'Last release version was {max_ver}. Release name should end with version: {max_ver + 1}')
-
-    # validate files
-    if name_prefix == 'ML-DGA':
-        zipped_bundle, description_str = ctx.invoke(validate_ml_dga_asset, directory=directory, repo=repo)
-    else:
-        zipped_bundle, description_str = ctx.invoke(validate_ml_detections_asset, directory=directory)
-
-    click.confirm('Validation passed, verify output. Continue?')
-
-    if description:
-        description_str = f'{description_str}\n\n----\n\n{description}'
-
-    release = gh_repo.create_git_release(name=release_name, tag=release_name, message=description_str)
-    zip_name = Path(zipped_bundle).name
-
-    click.echo(f'release created at: {release.html_url}')
-
-    # add zipped bundle as an asset to the release
-    click.echo(f'Uploading zip file: {zip_name}')
-    release.upload_asset(zipped_bundle, label=zip_name, name=zip_name, content_type='application/zip')
-
-    # create manifest entry
-    click.echo('creating manifest for release')
-    manifest = Manifest(repo, tag_name=release_name, token=gh_token)
-    manifest.save()
-
-    return release
-
-
-@gh_release_group.command('validate-ml-dga-asset')
-@click.argument('directory', type=click.Path(exists=True, file_okay=False))
-@click.option('--repo', '-r', default='elastic/detection-rules', help='GitHub owner/repo')
-def validate_ml_dga_asset(directory, repo):
-    """"Validate and prep an ML DGA bundle for release."""
-    from .eswrap import expected_ml_dga_patterns
-
-    now = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-
-    files = list(Path(directory).glob('*'))
-    if len(files) > 5:
-        client_error('Too many files, expected 5')
-
-    click.secho('[*] validated expected number of files', fg='green')
-
-    # backup files - will re-save sorted to have deterministic hash
-    backup_path = Path(directory).resolve().parent.joinpath(f'backups-{Path(directory).name}-{now.replace(":", "-")}')
-    shutil.copytree(directory, backup_path)
-
-    # validate file names and json and load
-    loaded_contents = {}
-    for name, pattern in expected_ml_dga_patterns.items():
-        path = list(Path(directory).glob(pattern))
-        match_count = len(path)
-        if match_count != 1:
-            client_error(f'Expected filename pattern "{pattern}" for "{name}": {match_count} matches detected')
-
-        file_path = path[0]
-        try:
-            with open(file_path, 'r') as f:
-                contents = json.dumps(json.load(f), sort_keys=True)
-                loaded_contents[name] = {'contents': contents, 'filename': file_path}
-
-                sha256 = hashlib.sha256(contents.encode('utf-8')).hexdigest()
-                click.secho(f'     - sha256: {sha256} - {name}')
-
-            # re-save sorted
-            with open(file_path, 'w') as f:
-                f.write(contents)
-        except json.JSONDecodeError as e:
-            client_error(f'Invalid JSON in {file_path} file', e)
-
-    model_filename = Path(loaded_contents['model']['filename']).name
-    model_name, _ = model_filename.rsplit('_', maxsplit=1)
-
-    click.secho('[*] re-saved all files with keys sorted for deterministic hashing', fg='green')
-    click.secho(f'    [+] backups saved to: {backup_path}')
-    click.secho('[*] validated expected naming patterns for all files', fg='green')
-    click.secho('[*] validated json formatting of all files', fg='green')
-
-    # check manifest for existing things
-    existing_sha = False
-    existing_model_name = False
-    model_hash = hashlib.sha256(loaded_contents['model']['contents'].encode('utf-8')).hexdigest()
-    manifest_hashes = Manifest.get_existing_asset_hashes(repo)
-
-    for release, file_data in manifest_hashes.items():
-        for file_name, sha in file_data.items():
-            if model_hash == sha:
-                existing_sha = True
-                click.secho(f'[!] hash for model file: "{loaded_contents["model"]["filename"]}" matches: '
-                            f'{release} -> {file_name} -> {sha}', fg='yellow')
-
-            if model_filename == file_name:
-                existing_model_name = True
-                client_error(f'name for model file: "{loaded_contents["model"]["filename"]}" matches: '
-                             f'{release} -> {file_name} -> {file_name}')
-
-    if not existing_sha:
-        click.secho(f'[+] validated no existing models matched hashes for: '
-                    f'{loaded_contents["model"]["filename"]}', fg='green')
-
-    if not existing_model_name:
-        click.secho(f'[+] validated no existing models matched names for: '
-                    f'{loaded_contents["model"]["filename"]}', fg='green')
-
-    # save zip
-    zip_name_no_ext = Path(directory).resolve()
-    zip_name = f'{zip_name_no_ext}.zip'
-    shutil.make_archive(str(zip_name_no_ext), 'zip', root_dir=zip_name_no_ext.parent, base_dir=zip_name_no_ext.name)
-    click.secho(f'[+] zipped folder saved to {zip_name} for release', fg='green')
-
-    click.secho(f'[!] run `setup-dga-model -d {directory}` to test this on a live stack before releasing', fg='yellow')
-
-    description = {
-        'model_name': model_name + '\n\n----\n\n',
-        'date': now,
-        'model_sha256': model_hash,
-        'For details reference': 'https://github.com/elastic/detection-rules/blob/main/docs/ML_DGA.md'
-    }
-    description_str = '\n'.join([f'{k}: {v}' for k, v in description.items()])
-    click.echo()
-    click.echo(f'[*] description to paste with release:\n\n{description_str}\n')
-
-    return zip_name, description_str
-
-
-@gh_release_group.command('validate-ml-detections-asset')
-@click.argument('directory', type=click.Path(exists=True, file_okay=False))
-def validate_ml_detections_asset(directory):
-    """Validate and prep ML detection rules and jobs before release."""
-    import pytoml
-
-    now = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-
-    all_files = list(Path(directory).glob('*'))
-    job_paths = [f for f in all_files if f.suffix == '.json']
-    rule_paths = [f for f in all_files if f.suffix == '.toml']
-    other_paths = [f for f in Path(directory).glob('*') if f.suffix not in ('.toml', '.json')]
-    job_count = len(job_paths)
-    rule_count = len(rule_paths)
-    other_count = len(other_paths)
-
-    if 'readme.md' not in [f.name.lower() for f in other_paths]:
-        client_error('Release is missing readme file')
-
-    for job in job_paths:
-        try:
-            with open(job, 'r') as f:
-                j = json.load(f)
-                assert j.get('name'), click.style(f'[!] job file "{job}" missing: name', fg='red')
-                assert j.get('type'), click.style(f'[!] job file "{job}" missing: type', fg='red')
-                assert j.get('body'), click.style(f'[!] job file "{job}" missing: body', fg='red')
-        except json.JSONDecodeError as e:
-            client_error(f'Invalid JSON in {job} file', e)
-
-    click.secho(f'[*] validated json formatting and required fields in {job_count} job files', fg='green')
-
-    for rule in rule_paths:
-        with open(rule, 'r') as f:
-            try:
-                pytoml.load(f)
-            except pytoml.TomlError as e:
-                client_error(f'[!] invalid rule toml for: {rule}', e)
-
-    click.secho(f'[*] validated toml formatting for {rule_count} rule files', fg='green')
-
-    # save zip
-    zip_name_no_ext = Path(directory).resolve()
-    zip_name = f'{zip_name_no_ext}.zip'
-    shutil.make_archive(str(zip_name_no_ext), 'zip', root_dir=zip_name_no_ext.parent, base_dir=zip_name_no_ext.name)
-    click.secho(f'[+] zipped folder saved to {zip_name} for release', fg='green')
-
-    click.secho('[!] run `kibana upload-rule` to test rules on a live stack before releasing', fg='green')
-    click.secho('[!] run `es upload-ml-job` to test jobs on a live stack before releasing', fg='green')
-
-    description = {
-        'Experimental rules': rule_count,
-        'Experimental ML jobs': job_count,
-        'Other files': str(other_count) + '\n\n----\n\n',
-        'DGA release': '<add link to DGA release these detections were built on>',
-        'date': now,
-        'For details reference': 'https://github.com/elastic/detection-rules/blob/main/docs/ML_DGA.md'
-    }
-    description_str = '\n'.join([f'{k}: {v}' for k, v in description.items()])
-    click.echo()
-    click.echo(f'description to paste with release:\n\n{description_str}\n')
-
-    return zip_name, description_str
