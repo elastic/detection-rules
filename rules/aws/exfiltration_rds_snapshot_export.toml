@@ -5,15 +5,12 @@ updated_date = "2021/06/06"
 
 [rule]
 author = ["Elastic"]
-description = """
-Identifies the export of an Amazon Relational Database Service (RDS) Aurora database snapshot.
-"""
+description = "Identifies the export of an Amazon Relational Database Service (RDS) Aurora database snapshot."
 false_positives = [
     """
-        Exporting snapshots may be done by a system or network administrator. Verify whether the user
-    identity, user agent, and/or hostname should be making changes in your environment. Snapshot exports from unfamiliar
-    users or hosts should be investigated. If known behavior is causing false positives, it can be exempted from the
-    rule.
+    Exporting snapshots may be done by a system or network administrator. Verify whether the user identity, user agent,
+    and/or hostname should be making changes in your environment. Snapshot exports from unfamiliar users or hosts should
+    be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
 from = "now-60m"
@@ -25,9 +22,7 @@ name = "AWS RDS Snapshot Export"
 note = """## Config
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
-references = [
-    "https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_StartExportTask.html",
-]
+references = ["https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_StartExportTask.html"]
 risk_score = 21
 rule_id = "119c8877-8613-416d-a98a-96b6664ee73a5"
 severity = "low"
@@ -39,6 +34,7 @@ query = '''
 event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.action:StartExportTask and event.outcome:success
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -46,3 +42,4 @@ framework = "MITRE ATT&CK"
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+
