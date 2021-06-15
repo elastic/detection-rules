@@ -5,14 +5,12 @@ updated_date = "2021/06/06"
 
 [rule]
 author = ["Elastic"]
-description = """
-Identifies the creation of an Amazon Relational Database Service (RDS) Aurora database instance.
-"""
+description = "Identifies the creation of an Amazon Relational Database Service (RDS) Aurora database instance."
 false_positives = [
     """
-    A database instance may be created by a system or network administrator. Verify whether the user identity, user agent,
-    and/or hostname should be making changes in your environment. Instances creations from unfamiliar users or hosts
-    should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    A database instance may be created by a system or network administrator. Verify whether the user identity, user
+    agent, and/or hostname should be making changes in your environment. Instances creations from unfamiliar users or
+    hosts should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
 from = "now-60m"
@@ -24,9 +22,7 @@ name = "AWS RDS Instance Creation"
 note = """## Config
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
-references = [
-    "https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CreateDBInstance.html",
-]
+references = ["https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CreateDBInstance.html"]
 risk_score = 21
 rule_id = "f30f3443-4fbb-4c27-ab89-c3ad49d62315"
 severity = "low"
@@ -38,6 +34,7 @@ query = '''
 event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.action:CreateDBInstance and event.outcome:success
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -45,3 +42,4 @@ framework = "MITRE ATT&CK"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
