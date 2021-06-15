@@ -6,9 +6,9 @@
 """Definitions for packages destined for the registry."""
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Type
+from typing import Dict, List, Optional, Type
 
-from marshmallow import Schema, validate
+from marshmallow import Schema
 from marshmallow_dataclass import class_schema
 
 from .definitions import ConditionSemVer, SemVer
@@ -18,22 +18,22 @@ from .definitions import ConditionSemVer, SemVer
 class RegistryPackageManifest:
     """Base class for registry packages."""
 
+    categories: List[str]
     conditions: Dict[str, ConditionSemVer]
+    description: str
+    format_version: SemVer
+    icons: list
+    license: str
+    name: str
+    owner: Dict[str, str]
+    release: str
+    title: str
+    type: str
     version: SemVer
 
-    categories: List[str] = field(default_factory=lambda: ['security'])
-    description: str = 'Rules for the detection engine in the Security application.'
-    format_version: SemVer = field(metadata=dict(validate=validate.Equal('1.0.0')), default='1.0.0')
-    icons: list = field(default_factory=list)
-    internal: bool = True
-    license: str = 'basic'
-    name: str = 'detection_rules'
-    owner: Dict[str, str] = field(default_factory=lambda: dict(github='elastic/protections'))
+    internal: Optional[bool] = None
     policy_templates: list = field(default_factory=list)
-    release: str = 'experimental'
     screenshots: list = field(default_factory=list)
-    title: str = 'Detection rules'
-    type: str = 'integration'
 
     @classmethod
     def get_schema(cls) -> Type[Schema]:
