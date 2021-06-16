@@ -93,13 +93,13 @@ def manage_versions(rules: List[TOMLRule], current_versions: dict = None,
     newly_deprecated = deprecated_rules - already_deprecated
 
     if not (new_rules or changed_rules or newly_deprecated):
-        return changed_rules, list(new_rules), newly_deprecated
+        return list(changed_rules), list(new_rules), list(newly_deprecated)
 
     echo('Rule changes detected!')
 
     if not save_changes:
         echo('run `build-release --update-version-lock` to update version.lock.json and deprecated_rules.json')
-        return changed_rules, list(new_rules), newly_deprecated
+        return list(changed_rules), list(new_rules), list(newly_deprecated)
 
     for rule in rules:
         contents = rule.contents.lock_info(bump=not exclude_version_update)
