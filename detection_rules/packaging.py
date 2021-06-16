@@ -106,8 +106,15 @@ def manage_versions(rules: List[TOMLRule], current_versions: dict = None,
 
         if rule.contents.metadata.maturity == "production":
             current_versions[rule.id] = contents
+
         elif rule.id in newly_deprecated:
+            current_versions[rule.id] = contents
             rule_deprecations[rule.id] = contents
+            rule_deprecations[rule.id]["stack_version"] = {
+                "rule_name": rule.name,
+                "stack_version": current_stack_version,
+                "deprecation_date": rule.contents.metadata.deprecation_date
+            }
 
     new_hash = dict_hash(current_versions)
 
