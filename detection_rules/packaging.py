@@ -162,7 +162,7 @@ class Package(object):
 
     def _add_versions(self, current_versions, update_versions_lock=False, verbose=True):
         """Add versions to rules at load time."""
-        return manage_versions(self.rules, deprecated_rules=self.deprecated_rules, current_versions=current_versions,
+        return manage_versions(self.rules, current_versions=current_versions,
                                save_changes=update_versions_lock, verbose=verbose)
 
     @classmethod
