@@ -110,15 +110,15 @@ def manage_versions(rules: List[TOMLRule], deprecated_rules: list = None, curren
     # if current_versions != new_versions???
     if new_rules or changed_rules or newly_deprecated:
         if verbose:
-            click.echo('Rule hash changes detected!')
+            click.echo('Rule changes detected!')
 
         if save_changes:
             if changed_rules or (new_rules and add_new):
                 if add_new:
                     for rule in new_rules:
-                        current_versions[rule.id] = rule.contents.lock_info()
+                        current_versions[rule.id] = rule.contents.lock_info(bump=not exclude_version_update)
                 for rule in changed_rules:
-                    current_versions[rule.id] = rule.contents.lock_info()
+                    current_versions[rule.id] = rule.contents.lock_info(bump=not exclude_version_update)
 
                 current_versions = OrderedDict(sorted(current_versions.items(), key=lambda x: x[1]['rule_name']))
 
@@ -140,11 +140,11 @@ def manage_versions(rules: List[TOMLRule], deprecated_rules: list = None, curren
 
         if verbose:
             if changed_rules:
-                click.echo(f' - {len(changed_rules)} changed rule version(s)')
+                click.echo(f' - {len(changed_rules)} changed rules')
             if new_rules:
-                click.echo(f' - {len(new_rules)} new rule version addition(s)')
+                click.echo(f' - {len(new_rules)} new rules')
             if newly_deprecated:
-                click.echo(f' - {len(newly_deprecated)} newly deprecated rule(s)')
+                click.echo(f' - {len(newly_deprecated)} newly deprecated rules')
 
     return changed_rules, list(new_rules), newly_deprecated
 
