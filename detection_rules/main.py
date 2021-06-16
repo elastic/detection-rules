@@ -153,7 +153,7 @@ def mass_update(ctx, query, metadata, language, field):
 
 
 @root.command('view-rule')
-@click.argument('rule-file')
+@click.argument('rule-file', type=Path)
 @click.option('--api-format/--rule-format', default=True, help='Print the rule in final api or rule format')
 @click.pass_context
 def view_rule(ctx, rule_file, api_format, verbose=True):

@@ -204,7 +204,7 @@ def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rul
     import pytoml
     from multiprocessing.pool import ThreadPool
     from pathlib import Path
-    from .misc import GithubClient
+    from .ghwrap import GithubClient
 
     github = GithubClient(token=token)
     repo = github.client.get_repo(repo)
