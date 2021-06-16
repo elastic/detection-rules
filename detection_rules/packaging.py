@@ -92,8 +92,6 @@ def manage_versions(rules: List[TOMLRule], current_versions: dict = None,
     # manage deprecated rules
     newly_deprecated = deprecated_rules - already_deprecated
 
-    # update the document with the new rules
-    # if current_versions != new_versions???
     if not (new_rules or changed_rules or newly_deprecated):
         return changed_rules, list(new_rules), newly_deprecated
 
