@@ -235,17 +235,16 @@ def search_rules(query, columns, language, count, verbose=True, rules: Dict[str,
     rules = rules or {str(rule.path): rule for rule in RuleCollection.default()}
 
     for file_name, rule_doc in rules.items():
-        contents = rule_doc.contents.to_dict()
         flat = {"file": os.path.relpath(file_name)}
-        flat.update(contents)
-        flat.update(contents["metadata"])
-        flat.update(contents["rule"])
+        flat.update(rule_doc)
+        flat.update(rule_doc["metadata"])
+        flat.update(rule_doc["rule"])
 
         tactic_names = []
         technique_ids = []
         subtechnique_ids = []
 
-        for entry in contents['rule'].get('threat', []):
+        for entry in rule_doc['rule'].get('threat', []):
             if entry["framework"] != "MITRE ATT&CK":
                 continue
 
@@ -254,7 +253,8 @@ def search_rules(query, columns, language, count, verbose=True, rules: Dict[str,
             technique_ids.extend([t['id'] for t in techniques])
             subtechnique_ids.extend([st['id'] for t in techniques for st in t.get('subtechnique', [])])
 
-        flat.update(techniques=technique_ids, tactics=tactic_names, subtechniques=subtechnique_ids,)
+        flat.update(techniques=technique_ids, tactics=tactic_names, subtechniques=subtechnique_ids,
+                    unique_fields=TOMLRule.get_unique_query_fields(rule_doc['rule']))
         flattened_rules.append(flat)
 
     flattened_rules.sort(key=lambda dct: dct["name"])
