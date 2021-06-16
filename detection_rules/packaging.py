@@ -80,18 +80,9 @@ def manage_versions(rules: List[TOMLRule], current_versions: dict = None,
     """Update the contents of the version.lock file and optionally save changes."""
     current_versions = load_versions(current_versions)
     versions_hash = dict_hash(current_versions)
-    current_version = {}
+    rule_deprecations = load_etc_dump('deprecated_rules.json')
 
     echo = click.echo if verbose else (lambda x: None)
-
-    for rule in rules:
-        current_version[rule.id] = {
-            'sha256': rule.contents.sha256(),
-            'rule_name': rule.name,
-            'version': rule.contents.autobumped_version
-        }
-
-    rule_deprecations = load_etc_dump('deprecated_rules.json')
 
     already_deprecated = set(rule_deprecations)
     deprecated_rules = set(rule.id for rule in rules if rule.contents.metadata.maturity == "deprecated")
