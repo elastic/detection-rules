@@ -4,9 +4,7 @@
 # 2.0.
 
 """CLI commands for internal detection_rules dev team."""
-import dataclasses
 import functools
-import hashlib
 import io
 import json
 import os
@@ -16,7 +14,7 @@ import textwrap
 import time
 import typing
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Optional, Tuple
 
 import click
 from elasticsearch import Elasticsearch
@@ -29,8 +27,9 @@ from .ghwrap import GithubClient
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import PACKAGE_FILE, Package, RELEASE_DIR, current_stack_version, manage_versions
-from .rule import AnyRuleData, BaseRuleData, QueryRuleData, TOMLRule
+from .rule import AnyRuleData, BaseRuleData, QueryRuleData, TOMLRule, TOMLRuleContents
 from .rule_loader import RuleCollection, production_filter
+from .schemas import definitions
 from .utils import dict_hash, get_path, load_dump
 
 RULES_DIR = get_path('rules')

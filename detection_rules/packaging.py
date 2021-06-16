@@ -19,7 +19,7 @@ import click
 import yaml
 
 from .misc import JS_LICENSE, cached
-from .rule import TOMLRule, QueryRuleData, ThreatMapping, downgrade_contents_from_rule
+from .rule import TOMLRule, QueryRuleData, ThreatMapping
 from .rule_loader import RuleCollection, DEFAULT_RULES_DIR
 from .schemas import definitions
 from .utils import Ndjson, get_path, get_etc_path, load_etc_dump, save_etc_dump

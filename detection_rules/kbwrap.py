@@ -68,8 +68,6 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
 @click.pass_context
 def upload_rule(ctx, rules, replace_id):
     """Upload a list of rule .toml files to Kibana."""
-    from uuid import uuid4
-
     kibana = ctx.obj['kibana']
     api_payloads = []
 

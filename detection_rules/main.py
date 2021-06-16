@@ -19,7 +19,7 @@ from .misc import nested_set, parse_config
 from .rule import TOMLRule, TOMLRuleContents
 from .rule_formatter import toml_write
 from .rule_loader import RuleCollection
-from .schemas import all_versions
+from .schemas import all_versions, definitions
 from .utils import get_path, clear_caches, load_rule_contents
 
 RULES_DIR = get_path('rules')
@@ -267,7 +267,7 @@ def search_rules(query, columns, language, count, verbose=True, rules: Dict[str,
     from .rule import get_unique_query_fields
 
     flattened_rules = []
-    rules = rules or {str(rule.path): rule for rule in RuleCollection.default()}
+    rules = rules or {str(rule.path): rule.contents.to_dict() for rule in RuleCollection.default()}
 
     for file_name, rule_doc in rules.items():
         flat = {"file": os.path.relpath(file_name)}

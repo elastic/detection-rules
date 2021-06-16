@@ -12,8 +12,10 @@ from pathlib import Path
 from typing import Literal, Union, Optional, List, Any
 from uuid import uuid4
 
+import eql
 from marshmallow import ValidationError, validates_schema
 
+import kql
 from . import utils
 from .mixins import MarshmallowDataclassMixin
 from .rule_formatter import toml_write, nested_normalize
@@ -476,6 +478,18 @@ def downgrade_contents_from_rule(rule: TOMLRule, target_version: str) -> dict:
     payload["rule_id"] = str(uuid4())
     payload = downgrade(payload, target_version)
     return payload
+
+
+def get_unique_query_fields(contents: dict) -> List[str]:
+    """Get a list of unique fields used in a rule query from rule contents."""
+    language = contents.get('language')
+    query = contents.get('query')
+    if language in ('kuery', 'eql'):
+        # TODO: remove once py-eql supports ipv6 for cidrmatch
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+            parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
+
+        return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
 
 
 # avoid a circular import
