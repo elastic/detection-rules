@@ -14,13 +14,12 @@ from typing import Dict, List, Optional
 
 import click
 
-from . import rule_loader
 from .cli_utils import rule_prompt, multi_collection
 from .misc import nested_set, parse_config
-from .rule import TOMLRule
+from .rule import TOMLRule, TOMLRuleContents
 from .rule_formatter import toml_write
 from .rule_loader import RuleCollection
-from .schemas import CurrentSchema, available_versions, definitions
+from .schemas import all_versions
 from .utils import get_path, clear_caches, load_rule_contents
 
 RULES_DIR = get_path('rules')
@@ -42,14 +41,12 @@ def root(ctx, debug):
 @click.argument('path', type=click.Path(dir_okay=False))
 @click.option('--config', '-c', type=click.Path(exists=True, dir_okay=False), help='Rule or config file')
 @click.option('--required-only', is_flag=True, help='Only prompt for required fields')
-@click.option('--rule-type', '-t', type=click.Choice(CurrentSchema.RULE_TYPES), help='Type of rule to create')
+@click.option('--rule-type', '-t', type=click.Choice(sorted(TOMLRuleContents.all_rule_types())),
+              help='Type of rule to create')
 def create_rule(path, config, required_only, rule_type):
     """Create a detection rule."""
     contents = load_rule_contents(Path(config), single_only=True)[0] if config else {}
-    try:
-        return rule_prompt(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
-    finally:
-        rule_loader.reset()
+    return rule_prompt(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
 
 
 @root.command('generate-rules-index')
@@ -111,7 +108,8 @@ def import_rules(input_file, directory):
 
 
 @root.command('toml-lint')
-@click.option('--rule-file', '-f', type=click.Path('r'), help='Optionally specify a specific rule file only')
+@click.option('--rule-file', '-f', multiple=True, type=click.Path(exists=True),
+              help='Specify one or more rule files.')
 def toml_lint(rule_file):
     """Cleanup files with some simple toml formatting."""
     if rule_file:
@@ -212,7 +210,7 @@ def _export_rules(rules: List[TOMLRule], outfile: Path, downgrade_version: Optio
 @click.option('--outfile', '-o', default=get_path('exports', f'{time.strftime("%Y%m%dT%H%M%SL")}.ndjson'),
               type=click.Path(dir_okay=False), help='Name of file for exported rules')
 @click.option('--replace-id', '-r', is_flag=True, help='Replace rule IDs with new IDs before export')
-@click.option('--stack-version', type=click.Choice(available_versions),
+@click.option('--stack-version', type=click.Choice(all_versions()),
               help='Downgrade a rule version to be compatible with older instances of Kibana')
 @click.option('--skip-unsupported', '-s', is_flag=True,
               help='If `--stack-version` is passed, skip rule types which are unsupported '

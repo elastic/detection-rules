@@ -54,9 +54,25 @@ class ParserTests(unittest.TestCase):
     def test_number_exists(self):
         self.assertEqual(kql.parse("foo:*", schema={"foo": "long"}), FieldComparison(Field("foo"), Exists()))
 
+    def test_multiple_types_success(self):
+        schema = {"common.a": "keyword", "common.b": "keyword"}
+        self.validate("common.* : \"hello\"", FieldComparison(Field("common.*"), String("hello")), schema=schema)
+
+    def test_multiple_types_fail(self):
+        with self.assertRaises(kql.KqlParseError):
+            kql.parse("common.* : \"hello\"", schema={"common.a": "keyword", "common.b": "ip"})
+
     def test_number_wildcard_fail(self):
         with self.assertRaises(kql.KqlParseError):
             kql.parse("foo:*wc", schema={"foo": "long"})
 
         with self.assertRaises(kql.KqlParseError):
             kql.parse("foo:wc*", schema={"foo": "long"})
+
+    def test_type_family_success(self):
+        kql.parse("abc : 1.2345", schema={"abc": "scaled_float"})
+        kql.parse("abc : hello", schema={"abc": "annotated-text"})
+
+    def test_type_family_fail(self):
+        with self.assertRaises(kql.KqlParseError):
+            kql.parse('foo : "hello world"', schema={"foo": "scaled_float"})

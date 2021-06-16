@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/04"
 maturity = "production"
-updated_date = "2021/03/09"
+updated_date = "2021/04/07"
 
 [rule]
 author = ["Elastic"]
@@ -25,7 +25,7 @@ type = "eql"
 
 query = '''
 network where network.protocol == "dns" and
-    process.name != null and user.id not in ("S-1-5-19", "S-1-5-20") and
+    process.name != null and user.id not in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
     /* Add new WebSvc domains here */
     dns.question.name :
     (
@@ -47,21 +47,28 @@ network where network.protocol == "dns" and
         "*localtunnel.me",
         "*pagekite.me",
         "*localxpose.io",
-        "*notabug.org"
+        "*notabug.org",
+        "rawcdn.githack.*",
+        "paste.nrecom.net",
+        "zerobin.net",
+        "controlc.com",
+        "requestbin.net"
     ) and
     /* Insert noisy false positives here */
     not process.executable :
     (
-      "C:\\Program Files\\*.exe",
-      "C:\\Program Files (x86)\\*.exe",
-      "C:\\Windows\\System32\\WWAHost.exe",
-      "C:\\Windows\\System32\\smartscreen.exe",
-      "C:\\Windows\\System32\\MicrosoftEdgeCP.exe",
-      "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
-      "C:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
-      "C:\\Users\\*\\AppData\\Local\\Programs\\Fiddler\\Fiddler.exe",
-      "C:\\Users\\*\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
-      "C:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe"
+      "?:\\Program Files\\*.exe",
+      "?:\\Program Files (x86)\\*.exe",
+      "?:\\Windows\\System32\\WWAHost.exe",
+      "?:\\Windows\\System32\\smartscreen.exe",
+      "?:\\Windows\\System32\\MicrosoftEdgeCP.exe",
+      "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
+      "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
+      "?:\\Users\\*\\AppData\\Local\\Programs\\Fiddler\\Fiddler.exe",
+      "?:\\Users\\*\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
+      "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
+      "?:\\Windows\\system32\\mobsync.exe",
+      "?:\\Windows\\SysWOW64\\mobsync.exe"
     )
 '''
 

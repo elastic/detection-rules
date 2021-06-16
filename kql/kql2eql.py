@@ -90,7 +90,7 @@ class KqlToEQL(BaseKqlParser):
         if eql.utils.is_string(value) and "*" in value:
             return eql.ast.FunctionCall("wildcard", [field, value_ast])
 
-        if self.get_field_type(field_name) == "ip" and "/" in value:
+        if self.get_field_types(field_name) == {"ip"} and "/" in value:
             return eql.ast.FunctionCall("cidrMatch", [field, value_ast])
 
         return eql.ast.Comparison(field, "==", value_ast)

@@ -6,6 +6,7 @@
 import contextlib
 import os
 import re
+from typing import Optional, Set
 
 import eql
 from lark import Token  # noqa: F401
@@ -32,10 +33,53 @@ class KvTree(Tree):
 
 
 grammar_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kql.g")
+
 with open(grammar_file, "rt") as f:
     grammar = f.read()
 
 lark_parser = Lark(grammar, propagate_positions=True, tree_class=KvTree, start=['query'], parser='lalr')
+
+
+def wildcard2regex(wc: str) -> re.Pattern:
+    parts = wc.split("*")
+    return re.compile("^{regex}$".format(regex=".*?".join(re.escape(w) for w in parts)))
+
+
+def elasticsearch_type_family(mapping_type: str) -> str:
+    """Get the family of type for an Elasticsearch mapping type."""
+    # https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-types.html
+    return {
+        # range types
+        "long_range": "range",
+        "double_range": "range",
+        "date_range": "range",
+        "ip_range": "range",
+
+        # text search types
+        "annotated-text": "text",
+        "completion": "text",
+        "search-as_you_type": "text",
+
+        # keyword
+        "constant_keyword": "keyword",
+        "wildcard": "keyword",
+
+        # date
+        "date_nanos": "date",
+
+        # integer
+        "token_count": "integer",
+        "long": "integer",
+        "short": "integer",
+        "byte": "integer",
+        "unsigned_long": "integer",
+
+        # float
+        "double": "float",
+        "half_float": "float",
+        "scaled_float": "float",
+
+    }.get(mapping_type, mapping_type)
 
 
 class BaseKqlParser(Interpreter):
@@ -62,9 +106,7 @@ class BaseKqlParser(Interpreter):
         if schema:
             for field, field_type in schema.items():
                 if "*" in field:
-                    parts = field.split("*")
-                    pattern = re.compile("^{regex}$".format(regex=".*?".join(re.escape(w) for w in parts)))
-                    self.star_fields.append(pattern)
+                    self.star_fields.append(wildcard2regex(field))
 
     def assert_lower_token(self, *tokens):
         for token in tokens:
@@ -123,6 +165,24 @@ class BaseKqlParser(Interpreter):
 
             return self.mapping_schema.get(dotted_path)
 
+    def get_field_types(self, wildcard_dotted_path, lark_tree=None) -> Optional[Set[str]]:
+        if "*" not in wildcard_dotted_path:
+            field_type = self.get_field_type(wildcard_dotted_path, lark_tree=lark_tree)
+            return {field_type} if field_type is not None else None
+
+        if self.mapping_schema is not None:
+            regex = wildcard2regex(wildcard_dotted_path)
+            field_types = set()
+
+            for field, field_type in self.mapping_schema.items():
+                if regex.fullmatch(field) is not None:
+                    field_types.add(field_type)
+
+            if len(field_types) == 0:
+                raise self.error(lark_tree, "Unknown field")
+
+            return field_types
+
     @staticmethod
     def get_literal_type(literal_value):
         if isinstance(literal_value, bool):
@@ -140,18 +200,28 @@ class BaseKqlParser(Interpreter):
             raise NotImplementedError("Unknown literal type: {}".format(type(literal_value).__name__))
 
     def convert_value(self, field_name, python_value, value_tree):
-        field_type = self.get_field_type(field_name)
+        field_type = None
+        field_types = self.get_field_types(field_name)
         value_type = self.get_literal_type(python_value)
 
+        if field_types is not None:
+            if len(field_types) == 1:
+                field_type = list(field_types)[0]
+            elif len(field_types) > 1:
+                raise self.error(value_tree,
+                                 f"{field_name} has multiple types {', '.join(field_types)}")
+
         if field_type is not None and field_type != value_type:
-            if field_type in STRING_FIELDS:
+            field_type_family = elasticsearch_type_family(field_type)
+
+            if field_type_family in STRING_FIELDS:
                 return eql.utils.to_unicode(python_value)
-            elif field_type in ("float", "long"):
+            elif field_type_family in ("float", "integer"):
                 try:
-                    return float(python_value) if field_type == "float" else int(python_value)
+                    return float(python_value) if field_type_family == "float" else int(python_value)
                 except ValueError:
                     pass
-            elif field_type == "ip" and value_type == "keyword":
+            elif field_type_family == "ip" and value_type == "keyword":
                 if "::" in python_value or self.ip_regex.match(python_value) is not None:
                     return python_value
 
@@ -228,7 +298,7 @@ class KqlParser(BaseKqlParser):
 
         with self.scope(self.visit(field_tree)) as field:
             # check the field against the schema
-            self.get_field_type(field.name, field_tree)
+            self.get_field_types(field.name, field_tree)
             return FieldComparison(field, self.visit(expr))
 
     def field_range_expression(self, tree):

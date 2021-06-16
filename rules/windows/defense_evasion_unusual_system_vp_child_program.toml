@@ -1,14 +1,14 @@
 [metadata]
 creation_date = "2020/08/19"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
 description = "Identifies a suspicious child process of the Windows virtual system process, which could indicate code injection."
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Unusual Child Process from a System Virtual Process"
 risk_score = 73
@@ -16,12 +16,12 @@ rule_id = "de9bd7e0-49e9-4e92-a64d-53ade2e66af1"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
-  process.parent.pid:4 and
-  not process.executable:(Registry or MemCompression or "C:\Windows\System32\smss.exe")
+process where event.type in ("start", "process_started") and
+  process.parent.pid == 4 and
+  not process.executable : ("Registry", "MemCompression", "?:\\Windows\\System32\\smss.exe")
 '''
 
 
@@ -29,12 +29,11 @@ event.category:process and event.type:(start or process_started) and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1055"
-name = "Process Injection"
 reference = "https://attack.mitre.org/techniques/T1055/"
+name = "Process Injection"
 
 
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
+name = "Defense Evasion"

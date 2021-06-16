@@ -18,6 +18,7 @@ import zipfile
 from dataclasses import is_dataclass, astuple
 from datetime import datetime, date
 from pathlib import Path
+from typing import Dict, Union
 
 import pytoml
 import eql.utils
@@ -147,6 +148,24 @@ def unzip_and_save(contents, path, member=None, verbose=True):
         if verbose:
             name_list = archive.namelist()[member] if not member else archive.namelist()
             print('Saved files to {}: \n\t- {}'.format(path, '\n\t- '.join(name_list)))
+
+
+def unzip_to_dict(zipped: zipfile.ZipFile, load_json=True) -> Dict[str, Union[dict, str]]:
+    """Unzip and load contents to dict with filenames as keys."""
+    bundle = {}
+    for filename in zipped.namelist():
+        if filename.endswith('/'):
+            continue
+
+        fp = Path(filename)
+        contents = zipped.read(filename)
+
+        if load_json and fp.suffix == '.json':
+            contents = json.loads(contents)
+
+        bundle[fp.name] = contents
+
+    return bundle
 
 
 def event_sort(events, timestamp='@timestamp', date_format='%Y-%m-%dT%H:%M:%S.%f%z', asc=True):

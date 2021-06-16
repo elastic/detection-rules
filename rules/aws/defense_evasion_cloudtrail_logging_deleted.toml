@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/05/26"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/05/10"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,9 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS CloudTrail Log Deleted"
-note = "The AWS Filebeat module must be enabled to use this rule."
+note = """## Config
+
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
     "https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_DeleteTrail.html",
     "https://awscli.amazonaws.com/v2/documentation/api/latest/reference/cloudtrail/delete-trail.html",
@@ -32,7 +34,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.action:DeleteTrail and event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and event.outcome:success
+event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and event.action:DeleteTrail and event.outcome:success
 '''
 
 
