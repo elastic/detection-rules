@@ -75,18 +75,18 @@ def build_release(config_file, update_version_lock, release=None, verbose=True):
 
 
 @dev_group.command('update-lock-versions')
-@click.argument('rule-ids', nargs=-1, required=True)
+@click.argument('rule-ids', nargs=-1, required=False)
 def update_lock_versions(rule_ids):
     """Update rule hashes in version.lock.json file without bumping version."""
     from .packaging import manage_versions
 
-    if not click.confirm('Are you sure you want to update hashes without a version bump?'):
-        return
-
     rules = RuleCollection.default()
 
-    if "*" not in rule_ids:
+    if rule_ids:
         rules = rules.filter(lambda r: r.id in rule_ids)
+
+    if not click.confirm(f'Are you sure you want to update hashes for {len(rules)} rules without a version bump?'):
+        return
 
     changed, new, _ = manage_versions(rules, exclude_version_update=True, add_new=False, save_changes=True)
 
