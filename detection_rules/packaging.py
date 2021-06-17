@@ -488,9 +488,9 @@ class Package(object):
         manifest_file = package_dir / 'manifest.yml'
         readme_file = docs_dir / 'README.md'
         notice_file = package_dir / 'NOTICE.txt'
-        logo_file = package_dir / 'img' / 'security-logo-color-64px.png'
+        logo_file = package_dir / 'img' / 'security-logo-color-64px.svg'
 
-        manifest_file.write_text(yaml.safe_dump(manifest.asdict()))
+        manifest_file.write_text(yaml.safe_dump(manifest.to_dict()))
 
         logo_file.parent.mkdir(parents=True)
         shutil.copyfile(FLEET_PKG_LOGO, logo_file)
@@ -502,7 +502,7 @@ class Package(object):
 
         notice_contents = Path(NOTICE_FILE).read_text()
         readme_text = textwrap.dedent("""
-        # Detection rules
+        # Prebuilt Security Detection Rules
 
         The detection rules package stores the prebuilt security rules for the Elastic Security [detection engine](https://www.elastic.co/guide/en/security/7.13/detection-engine-overview.html).
 
