@@ -512,7 +512,7 @@ class Package(object):
 
         ## License Notice
 
-        """) + textwrap.indent(notice_contents, prefix="    ")  # noqa: E501
+        """).lstrip() + textwrap.indent(notice_contents, prefix="    ")  # noqa: E501
 
         readme_file.write_text(readme_text)
         notice_file.write_text(notice_contents)
