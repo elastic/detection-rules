@@ -5,17 +5,15 @@
 
 """Definitions for packages destined for the registry."""
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Type
-
-from marshmallow import Schema
-from marshmallow_dataclass import class_schema
+from dataclasses import dataclass
+from typing import Dict, List, Optional
 
 from .definitions import ConditionSemVer, SemVer
+from ..mixins import MarshmallowDataclassMixin
 
 
 @dataclass
-class RegistryPackageManifest:
+class RegistryPackageManifest(MarshmallowDataclassMixin):
     """Base class for registry packages."""
 
     categories: List[str]
@@ -32,16 +30,5 @@ class RegistryPackageManifest:
     version: SemVer
 
     internal: Optional[bool] = None
-    policy_templates: list = field(default_factory=list)
-    screenshots: list = field(default_factory=list)
-
-    @classmethod
-    def get_schema(cls) -> Type[Schema]:
-        return class_schema(cls)
-
-    @classmethod
-    def from_dict(cls, obj: dict) -> 'RegistryPackageManifest':
-        return cls.get_schema()().load(obj)
-
-    def asdict(self) -> dict:
-        return self.get_schema()().dump(self)
+    policy_templates: Optional[list] = None
+    screenshots: Optional[list] = None
