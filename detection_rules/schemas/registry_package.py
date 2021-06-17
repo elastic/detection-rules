@@ -32,5 +32,3 @@ class RegistryPackageManifest(MarshmallowDataclassMixin):
     internal: Optional[bool] = None
     policy_templates: Optional[list] = None
     screenshots: Optional[list] = None
-
-
