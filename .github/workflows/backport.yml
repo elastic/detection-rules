@@ -4,12 +4,47 @@ on:
     branches:
       - main
     types:
+      - opened
+      - reopened
+      - unlabeled
       - labeled
       - closed
 
 jobs:
-  backport:
-    name: on merge
+  label:
+    runs-on: ubuntu-latest
+    if: |
+      github.event.pull_request.state == 'open' && !github.event.pull_request.draft
+    steps:
+      - name: 'Apply default "backport: auto" label'
+        uses: actions/github-script@v4
+        if: |
+          !contains(github.event.pull_request.labels.*.name, 'backport: auto') &&
+          !contains(github.event.pull_request.labels.*.name, 'backport: skip')
+        with:
+          script: |
+            github.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['backport: auto']
+            })
+      - name: 'Remove "backport: auto" if "backport: skip" is set'
+        uses: actions/github-script@v4
+        if: |
+          contains(github.event.pull_request.labels.*.name, 'backport: auto') &&
+          contains(github.event.pull_request.labels.*.name, 'backport: skip')
+        with:
+          script: |
+            github.issues.removeLabel({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'backport: auto'
+            })
+
+
+  commit:
     if: |
       github.event.pull_request.merged == true
       && contains(github.event.pull_request.labels.*.name, 'backport: auto')
@@ -24,24 +59,20 @@ jobs:
         target_branch: [7.13]
 
     steps:
-      - uses: craftech-io/slack-action@v1
-        with:
-          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          status: failure
-        if: failure()
-
       - name: Checkout repo
         uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.PROTECTIONS_MACHINE_TOKEN }}
+          ref: ${{matrix.target_branch}}
 
       - name: Set github config
         run: |
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
 
-      - name: Update branches
+      - name: Get branch histories
         run: |
-          git fetch origin ${{matrix.target_branch}} --unshallow
-          git checkout -f ${{matrix.target_branch}}
+          git fetch origin main --unshallow
           git status
           git log -1 --format='%H'
 
@@ -56,11 +87,6 @@ jobs:
           # <python code to remove irrelevant rules>
           # git commit --author ... --message ...
 
-          echo "Push new commit to ${{matrix.target_branch}}"
-          git push
-
       - name: Push changes
-        uses: ad-m/github-push-action@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{matrix.target_branch}}
+        run: |
+          git push
