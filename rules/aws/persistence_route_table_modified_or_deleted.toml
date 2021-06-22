@@ -17,6 +17,7 @@ note = """## Config
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
+    "https://github.com/easttimor/aws-incident-response#network-routing",
     "https://docs.datadoghq.com/security_platform/default_rules/cloudtrail-aws-route-table-modified",
     "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ReplaceRoute.html",
     "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ReplaceRouteTableAssociation",
@@ -32,19 +33,9 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and 
-event.provider:cloudtrail.amazonaws.com and 
-event.action: 
-    (
-    ReplaceRoute or
-    ReplaceRouteTableAssociation or
-    DeleteRouteTable or
-    DeleteRoute or
-    DisassociateRouteTable
-    ) and 
-event.outcome:success
+event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and event.action: (ReplaceRoute or ReplaceRouteTableAssociation or
+DeleteRouteTable or DeleteRoute or DisassociateRouteTable) and event.outcome:success
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
