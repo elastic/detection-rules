@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/04/14"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ code execution in legitimate Windows processes.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Potential Application Shimming via Sdbinst"
 risk_score = 21
@@ -20,10 +20,10 @@ rule_id = "fd4a992d-6130-4802-9ff8-829b89ae801f"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and process.name:sdbinst.exe
+process where event.type in ("start", "process_started") and process.name : "sdbinst.exe"
 '''
 
 
@@ -31,34 +31,34 @@ event.category:process and event.type:(start or process_started) and process.nam
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1546"
-name = "Event Triggered Execution"
 reference = "https://attack.mitre.org/techniques/T1546/"
+name = "Event Triggered Execution"
 [[rule.threat.technique.subtechnique]]
 id = "T1546.011"
-name = "Application Shimming"
 reference = "https://attack.mitre.org/techniques/T1546/011/"
+name = "Application Shimming"
 
 
 
 [rule.threat.tactic]
 id = "TA0003"
-name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+name = "Persistence"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1546"
-name = "Event Triggered Execution"
 reference = "https://attack.mitre.org/techniques/T1546/"
+name = "Event Triggered Execution"
 [[rule.threat.technique.subtechnique]]
 id = "T1546.011"
-name = "Application Shimming"
 reference = "https://attack.mitre.org/techniques/T1546/011/"
+name = "Application Shimming"
 
 
 
 [rule.threat.tactic]
 id = "TA0004"
-name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+name = "Privilege Escalation"
 
