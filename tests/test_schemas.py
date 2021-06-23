@@ -12,7 +12,7 @@ import eql
 
 from detection_rules.packaging import load_current_package_version
 from detection_rules.rule import TOMLRuleContents
-from detection_rules.schemas import downgrade, CurrentSchema
+from detection_rules.schemas import downgrade
 
 
 class TestSchemas(unittest.TestCase):
@@ -108,7 +108,7 @@ class TestSchemas(unittest.TestCase):
             downgrade(self.v79_kql, "7.7")
 
         with self.assertRaises(ValueError):
-            downgrade(self.v78_kql, "7.7")
+            downgrade(self.v78_kql, "7.7", current_version="7.8")
 
     def test_versioned_downgrade(self):
         """Downgrade a KQL rule with version information"""
@@ -128,8 +128,8 @@ class TestSchemas(unittest.TestCase):
     def test_threshold_downgrade(self):
         """Downgrade a threshold rule that was first introduced in 7.9."""
         api_contents = self.v712_threshold_rule
-        self.assertDictEqual(downgrade(api_contents, CurrentSchema.STACK_VERSION), api_contents)
-        self.assertDictEqual(downgrade(api_contents, CurrentSchema.STACK_VERSION + '.1'), api_contents)
+        self.assertDictEqual(downgrade(api_contents, '7.13'), api_contents)
+        self.assertDictEqual(downgrade(api_contents, '7.13.1'), api_contents)
 
         exc_msg = 'Cannot downgrade a threshold rule that has multiple threshold fields defined'
         with self.assertRaisesRegex(ValueError, exc_msg):

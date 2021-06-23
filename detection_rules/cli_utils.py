@@ -6,6 +6,7 @@
 import copy
 import datetime
 import os
+import typing
 from pathlib import Path
 from typing import List
 
@@ -17,7 +18,7 @@ from . import ecs
 from .attack import matrix, tactics, build_threat_map_entry
 from .rule import TOMLRule, TOMLRuleContents
 from .rule_loader import RuleCollection, DEFAULT_RULES_DIR, dict_filter
-from .schemas import CurrentSchema
+from .schemas import definitions
 from .utils import clear_caches, get_path
 
 RULES_DIR = get_path("rules")
@@ -66,14 +67,13 @@ def multi_collection(f):
     @click.option('--rule-id', '-id', multiple=True, required=False)
     @functools.wraps(f)
     def get_collection(*args, **kwargs):
-        rule_name: List[str] = kwargs.pop("rule_name", [])
         rule_id: List[str] = kwargs.pop("rule_id", [])
         rule_files: List[str] = kwargs.pop("rule_file")
         directories: List[str] = kwargs.pop("directory")
 
         rules = RuleCollection()
 
-        if not (rule_name or rule_id or rule_files):
+        if not (directories or rule_id or rule_files):
             client_error('Required: at least one of --rule-id, --rule-file, or --directory')
 
         rules.load_files(Path(p) for p in rule_files)
@@ -111,9 +111,10 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
         kwargs.update(kwargs.pop('rule'))
 
     rule_type = rule_type or kwargs.get('type') or \
-        click.prompt('Rule type', type=click.Choice(CurrentSchema.RULE_TYPES))
+        click.prompt('Rule type', type=click.Choice(typing.get_args(definitions.RuleType)))
 
-    schema = CurrentSchema.get_schema(role=rule_type)
+    target_data_subclass = TOMLRuleContents.get_data_subclass(rule_type)
+    schema = target_data_subclass.jsonschema()
     props = schema['properties']
     opt_reqs = schema.get('required', [])
     contents = {}

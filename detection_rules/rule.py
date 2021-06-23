@@ -3,7 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 """Rule object."""
+import dataclasses
 import json
+import typing
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
@@ -18,10 +20,8 @@ import kql
 from . import beats, ecs, utils
 from .mixins import MarshmallowDataclassMixin
 from .rule_formatter import toml_write, nested_normalize
-from .schemas import definitions
-from .schemas import get_stack_schemas, downgrade
+from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas
 from .utils import cached, load_etc_dump
-
 
 _META_SCHEMA_REQ_DEFAULTS = {}
 CURRENT_PACKAGE = load_etc_dump('packages.yml')['package']['name']
@@ -158,7 +158,7 @@ class BaseRuleData(MarshmallowDataclassMixin):
     actions: Optional[list]
     author: List[str]
     building_block_type: Optional[str]
-    description: Optional[str]
+    description: str
     enabled: Optional[bool]
     exceptions_list: Optional[list]
     license: Optional[str]
@@ -188,8 +188,22 @@ class BaseRuleData(MarshmallowDataclassMixin):
     timeline_title: Optional[definitions.TimelineTemplateTitle]
     timestamp_override: Optional[str]
     to: Optional[str]
-    type: Literal[definitions.RuleType]
+    type: definitions.RuleType
     threat: Optional[List[ThreatMapping]]
+
+    @classmethod
+    def save_schema(cls):
+        """Save the schema as a jsonschema."""
+        fields: List[dataclasses.Field] = dataclasses.fields(cls)
+        type_field = next(field for field in fields if field.name == "type")
+        rule_type = typing.get_args(type_field.type)[0] if cls != BaseRuleData else "base"
+        schema = cls.jsonschema()
+        version_dir = SCHEMA_DIR / "master"
+        version_dir.mkdir(exist_ok=True, parents=True)
+
+        # expand out the jsonschema definitions
+        with (version_dir / f"master.{rule_type}.json").open("w") as f:
+            json.dump(schema, f, indent=2, sort_keys=True)
 
     def validate_query(self, meta: RuleMeta) -> None:
         pass
@@ -349,6 +363,25 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
     metadata: RuleMeta
     data: AnyRuleData = field(metadata=dict(data_key="rule"))
 
+    @classmethod
+    def all_rule_types(cls) -> set:
+        types = set()
+        for subclass in typing.get_args(AnyRuleData):
+            field = next(field for field in dataclasses.fields(subclass) if field.name == "type")
+            types.update(typing.get_args(field.type))
+
+        return types
+
+    @classmethod
+    def get_data_subclass(cls, rule_type: str) -> typing.Type[BaseRuleData]:
+        """Get the proper subclass depending on the rule type"""
+        for subclass in typing.get_args(AnyRuleData):
+            field = next(field for field in dataclasses.fields(subclass) if field.name == "type")
+            if (rule_type, ) == typing.get_args(field.type):
+                return subclass
+
+        raise ValueError(f"Unknown rule type {rule_type}")
+
     @property
     def id(self) -> definitions.UUIDString:
         return self.data.rule_id
@@ -357,8 +390,9 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
     def name(self) -> str:
         return self.data.name
 
-    def lock_info(self) -> dict:
-        return {"rule_name": self.name, "sha256": self.sha256(), "version": self.autobumped_version}
+    def lock_info(self, bump=True) -> dict:
+        version = self.autobumped_version if bump else (self.latest_version or 1)
+        return {"rule_name": self.name, "sha256": self.sha256(), "version": version}
 
     @property
     def is_dirty(self) -> Optional[bool]:
@@ -416,7 +450,7 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
         """Transform the converted API in place before sending to Kibana."""
 
         # cleanup the whitespace in the rule
-        obj = nested_normalize(obj, eql_rule=obj.get("language") == "eql")
+        obj = nested_normalize(obj)
 
         # fill in threat.technique so it's never missing
         for threat_entry in obj.get("threat", []):

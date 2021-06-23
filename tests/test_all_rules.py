@@ -453,3 +453,15 @@ class TestTuleTiming(BaseRuleTest):
             rules_str = '\n '.join(self.rule_str(r, trailer=None) for r in missing)
             err_msg = f'The following rules should have a longer `from` defined, due to indexes used\n {rules_str}'
             self.fail(err_msg)
+
+
+class TestLicense(BaseRuleTest):
+    """Test rule license."""
+
+    def test_elastic_license_only_v2(self):
+        """Test to ensure that production rules with the elastic license are only v2."""
+        for rule in self.production_rules:
+            rule_license = rule.contents.data.license
+            if 'elastic license' in rule_license.lower():
+                err_msg = f'{self.rule_str(rule)} If Elastic License is used, only v2 should be used'
+                self.assertEqual(rule_license, 'Elastic License v2', err_msg)
