@@ -345,8 +345,9 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
     def name(self) -> str:
         return self.data.name
 
-    def lock_info(self) -> dict:
-        return {"rule_name": self.name, "sha256": self.sha256(), "version": self.autobumped_version}
+    def lock_info(self, bump=True) -> dict:
+        version = self.autobumped_version if bump else (self.latest_version or 1)
+        return {"rule_name": self.name, "sha256": self.sha256(), "version": version}
 
     @property
     def is_dirty(self) -> Optional[bool]:
