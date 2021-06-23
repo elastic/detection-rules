@@ -67,14 +67,13 @@ def multi_collection(f):
     @click.option('--rule-id', '-id', multiple=True, required=False)
     @functools.wraps(f)
     def get_collection(*args, **kwargs):
-        rule_name: List[str] = kwargs.pop("rule_name", [])
         rule_id: List[str] = kwargs.pop("rule_id", [])
         rule_files: List[str] = kwargs.pop("rule_file")
         directories: List[str] = kwargs.pop("directory")
 
         rules = RuleCollection()
 
-        if not (rule_name or rule_id or rule_files):
+        if not (directories or rule_id or rule_files):
             client_error('Required: at least one of --rule-id, --rule-file, or --directory')
 
         rules.load_files(Path(p) for p in rule_files)
