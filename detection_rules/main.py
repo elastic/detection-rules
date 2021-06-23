@@ -11,6 +11,7 @@ import re
 import time
 from pathlib import Path
 from typing import Dict, List, Optional
+from uuid import uuid4
 
 import click
 
@@ -38,14 +39,14 @@ def root(ctx, debug):
 
 
 @root.command('create-rule')
-@click.argument('path', type=click.Path(dir_okay=False))
+@click.argument('path', type=Path)
 @click.option('--config', '-c', type=click.Path(exists=True, dir_okay=False), help='Rule or config file')
 @click.option('--required-only', is_flag=True, help='Only prompt for required fields')
 @click.option('--rule-type', '-t', type=click.Choice(sorted(TOMLRuleContents.all_rule_types())),
               help='Type of rule to create')
 def create_rule(path, config, required_only, rule_type):
     """Create a detection rule."""
-    contents = load_rule_contents(Path(config), single_only=True)[0] if config else {}
+    contents = load_rule_contents(config, single_only=True)[0] if config else {}
     return rule_prompt(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
 
 
@@ -156,15 +157,14 @@ def mass_update(ctx, query, metadata, language, field):
 @click.argument('rule-file', type=Path)
 @click.option('--api-format/--rule-format', default=True, help='Print the rule in final api or rule format')
 @click.pass_context
-def view_rule(ctx, rule_file, api_format, verbose=True):
+def view_rule(ctx, rule_file, api_format):
     """View an internal rule or specified rule file."""
     rule = RuleCollection().load_file(rule_file)
 
-    if verbose:
-        if api_format:
-            click.echo(json.dumps(rule.contents.to_api_format(), indent=2, sort_keys=True))
-        else:
-            click.echo(toml_write(rule.contents.to_dict()))
+    if api_format:
+        click.echo(json.dumps(rule.contents.to_api_format(), indent=2, sort_keys=True))
+    else:
+        click.echo(toml_write(rule.contents.to_dict()))
 
     return rule
 
@@ -220,8 +220,6 @@ def export_rules(rules, outfile, replace_id, stack_version, skip_unsupported):
     assert len(rules) > 0, "No rules found"
 
     if replace_id:
-        from uuid import uuid4
-
         new_rules = []
         for rule in rules:
             new_rules.append(rule.new(data=dict(rule_id=str(uuid4()))))

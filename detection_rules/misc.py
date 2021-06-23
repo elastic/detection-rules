@@ -282,7 +282,7 @@ client_options = {
         'provider_type': click.Option(['--provider-type'], default=getdefault('provider_type')),
         'provider_name': click.Option(['--provider-name'], default=getdefault('provider_name')),
         'space': click.Option(['--space'], default=None, help='Kibana space'),
-        'no_verify': click.Option(['--no-verify'], default=getdefault('no_verify'))
+        'ignore_ssl_errors': click.Option(['--ignore-ssl-errors'], default=getdefault('ignore_ssl_errors'))
     },
     'elasticsearch': {
         'cloud_id': click.Option(['--cloud-id'], default=getdefault("cloud_id")),
@@ -290,7 +290,7 @@ client_options = {
         'es_user': click.Option(['--es-user', '-eu'], default=getdefault("es_user")),
         'es_password': click.Option(['--es-password', '-ep'], default=getdefault("es_password")),
         'timeout': click.Option(['--timeout', '-et'], default=60, help='Timeout for elasticsearch client'),
-        'no_verify': click.Option(['--no-verify'], default=getdefault('no_verify'))
+        'ignore_ssl_errors': click.Option(['--ignore-ssl-errors'], default=getdefault('ignore_ssl_errors'))
     }
 }
 kibana_options = list(client_options['kibana'].values())

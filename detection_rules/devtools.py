@@ -27,7 +27,7 @@ from .ghwrap import GithubClient
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import PACKAGE_FILE, Package, RELEASE_DIR, current_stack_version, manage_versions
-from .rule import AnyRuleData, BaseRuleData, QueryRuleData, TOMLRule, TOMLRuleContents
+from .rule import AnyRuleData, BaseRuleData, QueryRuleData, TOMLRule
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions
 from .utils import dict_hash, get_path, load_dump
@@ -395,16 +395,15 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
 
 
 @dev_group.command('deprecate-rule')
-@click.argument('rule-file', type=click.Path(dir_okay=False))
+@click.argument('rule-file', type=Path)
 @click.pass_context
-def deprecate_rule(ctx: click.Context, rule_file: str):
+def deprecate_rule(ctx: click.Context, rule_file: Path):
     """Deprecate a rule."""
-    import pytoml
     from .packaging import load_versions
 
     version_info = load_versions()
-    rule_file = Path(rule_file)
-    contents = TOMLRuleContents.from_dict(pytoml.loads(rule_file.read_text()))
+    rule_collection = RuleCollection()
+    contents = rule_collection.load_file(rule_file).contents
     rule = TOMLRule(path=rule_file, contents=contents)
 
     if rule.contents.id not in version_info:

@@ -17,7 +17,7 @@ from .schemas import downgrade
 from .utils import format_command_options
 
 
-def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, kibana_cookie, space, no_verify,
+def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, kibana_cookie, space, ignore_ssl_errors,
                       provider_type, provider_name, **kwargs):
     """Get an authenticated Kibana client."""
     from requests import HTTPError
@@ -30,18 +30,21 @@ def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, kibana
         kibana_user = kibana_user or click.prompt("kibana_user")
         kibana_password = kibana_password or click.prompt("kibana_password", hide_input=True)
 
-    with Kibana(cloud_id=cloud_id, kibana_url=kibana_url, space=space, verify=not no_verify, **kwargs) as kibana:
+    verify = not ignore_ssl_errors
+
+    with Kibana(cloud_id=cloud_id, kibana_url=kibana_url, space=space, verify=verify, **kwargs) as kibana:
         if kibana_cookie:
             kibana.add_cookie(kibana_cookie)
-        else:
-            try:
-                kibana.login(kibana_user, kibana_password, provider_type=provider_type, provider_name=provider_name)
-            except HTTPError as exc:
-                if exc.response.status_code == 401:
-                    err_msg = f'Authentication failed for {kibana_url}. If credentials are valid, check --provider-name'
-                    client_error(err_msg, exc, err=True)
-                else:
-                    raise
+            return kibana
+
+        try:
+            kibana.login(kibana_user, kibana_password, provider_type=provider_type, provider_name=provider_name)
+        except HTTPError as exc:
+            if exc.response.status_code == 401:
+                err_msg = f'Authentication failed for {kibana_url}. If credentials are valid, check --provider-name'
+                client_error(err_msg, exc, err=True)
+            else:
+                raise
 
         return kibana
 
