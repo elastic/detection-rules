@@ -25,15 +25,12 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
-     ((process.name:"cmd.exe" or process.pe.original_file_name == "cmd.exe") and 
-           process.args : ("EventLog-System", "EventLog", "stop","logman","delete") and
-           not process.args : ("create","query","update","import","export")) or         
-     ((process.name:"pwsh.exe" or process.pe.original_file_name == "pwsh.exe") and 
-			process.args : ("Set-Service", "EventLog", "Disabled")) or
-     ((process.name:"powershell.exe" or process.pe.original_file_name == "powershell.exe") and 
-			process.args : ("Set-Service", "EventLog", "Disabled")) or
-     ((process.name:"powershell_ise.exe" or process.pe.original_file_name == "powershell_ise.exe") and 
-			process.args : ("Set-Service", "EventLog", "Disabled"))
+     ((process.name:"logman.exe" or process.pe.original_file_name == "Logman.exe") and 
+           process.args : "EventLog-*" and process.args : ("stop", "delete")) or         
+     ((process.name : ("pwsh.exe", "powershell.exe", "powershell_ise.exe") or process.pe.original_file_name in 
+ ("pwsh.exe", "powershell.exe", "powershell_ise.exe")) and 
+			process.args : "Set-Service" and process.args: "EventLog" and process.args : "Disabled")  or 
+		  ((process.name:"auditpol.exe" or process.pe.original_file_name == "AUDITPOL.EXE") and process.args : "/success:disable")
 '''
 
 [[rule.threat]]
