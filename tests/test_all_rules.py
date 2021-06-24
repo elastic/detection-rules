@@ -8,14 +8,13 @@ import os
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import List
 
 import eql
 
 import kql
 from detection_rules import attack, beats, ecs
 from detection_rules.packaging import load_versions
-from detection_rules.rule import QueryRuleData, TOMLRule
+from detection_rules.rule import QueryRuleData
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.utils import get_path, load_etc_dump
 from rta import get_ttp_names
@@ -432,9 +431,8 @@ class TestRuleTiming(BaseRuleTest):
     """Test rule timing and timestamps."""
 
     def test_event_override(self):
-        """Test that rules have defined an timestamp_override if needed and don't if forbidden."""
-        missing: List[TOMLRule] = []
-        invalid: List[(TOMLRule, str)] = []
+        """Test that rules have defined an timestamp_override if needed."""
+        missing = []
 
         for rule in self.all_rules:
             required = False
@@ -444,29 +442,17 @@ class TestRuleTiming(BaseRuleTest):
 
             if rule.contents.data.type == 'query':
                 required = True
-            elif rule.contents.data.type == 'eql':
-                # beats do not populate event.ingested and EQL rules do not have a timestamp fallback
-                if any(beats_indexes := [i for i in rule.contents.data.index if 'beat' in i]):
-                    invalid.append((rule, ', '.join(beats_indexes)))
-                if eql.utils.get_query_type(rule.contents.data.ast) != 'sequence':
-                    required = True
+            elif rule.contents.data.type == 'eql' and \
+                    eql.utils.get_query_type(rule.contents.data.ast) != 'sequence':
+                required = True
 
             if required and rule.contents.data.timestamp_override != 'event.ingested':
                 missing.append(rule)
 
-        err_msg = []
         if missing:
             rules_str = '\n '.join(self.rule_str(r, trailer=None) for r in missing)
-            err_msg.append(f'The following rules should have the `timestamp_override` set to `event.ingested`:\n '
-                           f'{rules_str}')
-        if invalid:
-            rules_str = '\n '.join(self.rule_str(r, trailer=f' -> {index_str}') for r, index_str in invalid)
-            err_msg.append(f'Beats indexes do not populate `event.ingested` and EQL rules do not fallback on '
-                           f'`timestamp_override`, so it should not be set. The following rules should be revised:\n '
-                           f'{rules_str}')
-
-        if missing or invalid:
-            self.fail('\n\n'.join(err_msg))
+            err_msg = f'The following rules should have the `timestamp_override` set to `event.ingested`\n {rules_str}'
+            self.fail(err_msg)
 
     def test_required_lookback(self):
         """Ensure endpoint rules have the proper lookback time."""
