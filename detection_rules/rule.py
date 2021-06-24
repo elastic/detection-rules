@@ -39,7 +39,7 @@ class RuleMeta(MarshmallowDataclassMixin):
     os_type_list: Optional[List[definitions.OSType]]
     query_schema_validation: Optional[bool]
     related_endpoint_rules: Optional[List[str]]
-        
+
     # Extended information
     extended = Optional[dict]
 
