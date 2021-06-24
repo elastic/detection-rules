@@ -40,7 +40,7 @@ class RuleMeta(MarshmallowDataclassMixin):
     query_schema_validation: Optional[bool]
     related_endpoint_rules: Optional[List[str]]
 
-    # Extended information
+    # Extended information as an arbitrary dictionary
     extended = Optional[dict]
 
 
