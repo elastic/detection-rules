@@ -510,4 +510,3 @@ class TestRuleInvestigationGuide(BaseRuleTest):
                     self.fail(f'{self.rule_str(rule)} expected config missing\n\n'
                               f'Expected: {note_str}\n\n'
                               f'Actual: {rule.contents.data.note}')
-
