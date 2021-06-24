@@ -1,0 +1,50 @@
+[metadata]
+creation_date = "2021/06/23"
+maturity = "production"
+updated_date = "2021/06/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the occurrence of a CyberArk Privileged Access Security (PAS) non-error level audit event which is
+recommended for monitoring.
+"""
+from = "now-30m"
+index = ["filebeat-*", "logs-cyberarkpas.audit*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "CyberArk Privileged Access Security Recommended Monitor"
+note = """## Config
+
+The cyberarkpas Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://docs.cyberark.com/Product-Doc/OnlineHelp/PAS/Latest/en/Content/PASREF/Vault%20Audit%20Action%20Codes.htm?tocpath=Administration%7CReferences%7C_____3#RecommendedActionCodesforMonitoring",
+]
+risk_score = 73
+rule_id = "c5f81243-56e0-47f9-b5bb-55a5ed89ba57"
+rule_name_override = "event.action"
+severity = "high"
+tags = ["Elastic", "cyberarkpas", "SecOps", "Log Auditing", "Threat Detection", "Execution"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:cyberarkpas.audit and
+  event.code:(4 or 22 or 24 or 31 or 38 or 57 or 60 or 130 or 295 or 300 or 302 or
+              308 or 319 or 344 or 346 or 359 or 361 or 378 or 380 or 411) and
+  not event.type:error
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1072"
+name = "Software Deployment Tools"
+reference = "https://attack.mitre.org/techniques/T1072/"
