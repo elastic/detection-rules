@@ -40,6 +40,9 @@ class RuleMeta(MarshmallowDataclassMixin):
     query_schema_validation: Optional[bool]
     related_endpoint_rules: Optional[List[str]]
 
+    # Extended information as an arbitrary dictionary
+    extended = Optional[dict]
+
 
 @dataclass(frozen=True)
 class BaseThreatEntry:
