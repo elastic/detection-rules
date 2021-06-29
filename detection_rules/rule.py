@@ -43,6 +43,9 @@ class RuleMeta(MarshmallowDataclassMixin):
     query_validate_master: Optional[bool]
     related_endpoint_rules: Optional[List[str]]
 
+    # Extended information as an arbitrary dictionary
+    extended = Optional[dict]
+
     def get_validation_stack_versions(self) -> Dict[str, dict]:
         """Get a dict of beats and ecs versions per stack release."""
         stack_versions = {}
