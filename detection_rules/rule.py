@@ -48,8 +48,6 @@ class RuleMeta(MarshmallowDataclassMixin):
 
     def get_validation_stack_versions(self) -> Dict[str, dict]:
         """Get a dict of beats and ecs versions per stack release."""
-        # if min_stack_version is not defined in a rule or the stack version is not defined in the stack-schema-map,
-        #  then validate with the latest non-master schemas saved locally
         stack_versions = get_stack_schemas(self.min_stack_version or MIN_FLEET_PACKAGE_VERSION)
 
         if self.query_validate_master:
