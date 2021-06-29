@@ -21,10 +21,10 @@ from . import beats, ecs, utils
 from .mixins import MarshmallowDataclassMixin
 from .rule_formatter import toml_write, nested_normalize
 from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas
-from .utils import cached, load_etc_dump
+from .utils import cached
 
 _META_SCHEMA_REQ_DEFAULTS = {}
-CURRENT_PACKAGE = load_etc_dump('packages.yml')['package']['name']
+MIN_FLEET_PACKAGE_VERSION = '7.13.0'
 
 
 @dataclass(frozen=True)
@@ -48,18 +48,12 @@ class RuleMeta(MarshmallowDataclassMixin):
 
     def get_validation_stack_versions(self) -> Dict[str, dict]:
         """Get a dict of beats and ecs versions per stack release."""
-        stack_versions = {}
-
-        if self.min_stack_version:
-            stack_versions = get_stack_schemas(self.min_stack_version)
-
         # if min_stack_version is not defined in a rule or the stack version is not defined in the stack-schema-map,
         #  then validate with the latest non-master schemas saved locally
-        if not stack_versions:
-            # add latest
-            stack_versions = {CURRENT_PACKAGE: {'beats': beats.get_max_version(), 'ecs': ecs.get_max_version()}}
+        stack_versions = get_stack_schemas(self.min_stack_version or MIN_FLEET_PACKAGE_VERSION)
 
         if self.query_validate_master:
+            # if defined, in addition to validating all stack combos, also validate against master ECS and beats schemas
             stack_versions['latest'] = {'beats': 'master', 'ecs': 'master'}
 
         return stack_versions
@@ -255,14 +249,6 @@ class QueryRuleData(BaseRuleData):
         indexes = self.index or []
         beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
         return beat_types
-
-    def get_query_schema(self, ast: Union[eql.ast.Expression, kql.ast.Expression], beats_version: str,
-                         ecs_version: str) -> dict:
-        indexes = self.index or []
-        beat_types = self.get_beats_types()
-        beat_schema = beats.get_schema_from_kql(ast, beat_types, version=beats_version) if beat_types else None
-        schema = ecs.get_kql_schema(version=ecs_version, indexes=indexes, beat_schema=beat_schema)
-        return schema
 
 
 @dataclass(frozen=True)

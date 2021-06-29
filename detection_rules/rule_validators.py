@@ -10,7 +10,7 @@ from typing import List
 import eql
 
 import kql
-from . import ecs
+from . import ecs, beats
 from .rule import QueryValidator, QueryRuleData, RuleMeta
 
 
@@ -41,7 +41,9 @@ class KQLValidator(QueryValidator):
             ecs_version = mapping['ecs']
             err_trailer = f'stack: {stack_version}, beats: {beats_version}, ecs: {ecs_version}'
 
-            schema = data.get_query_schema(ast, beats_version, ecs_version)
+            beat_types = data.get_beats_types()
+            beat_schema = beats.get_schema_from_kql(ast, beat_types, version=beats_version) if beat_types else None
+            schema = ecs.get_kql_schema(version=ecs_version, indexes=data.index or [], beat_schema=beat_schema)
 
             try:
                 kql.parse(self.query, schema=schema)
@@ -71,7 +73,7 @@ class EQLValidator(QueryValidator):
 
     def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
         """Validate an EQL query while checking TOMLRule."""
-        _ = self.ast
+        ast = self.ast
 
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
             # syntax only, which is done via self.ast
@@ -82,7 +84,9 @@ class EQLValidator(QueryValidator):
             ecs_version = mapping['ecs']
             err_trailer = f'stack: {stack_version}, beats: {beats_version}, ecs: {ecs_version}'
 
-            schema = data.get_query_schema(_, beats_version, ecs_version)
+            beat_types = data.get_beats_types()
+            beat_schema = beats.get_schema_from_kql(ast, beat_types, version=beats_version) if beat_types else None
+            schema = ecs.get_kql_schema(version=ecs_version, indexes=data.index or [], beat_schema=beat_schema)
             eql_schema = ecs.KqlSchema2Eql(schema)
 
             try:
