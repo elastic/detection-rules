@@ -41,7 +41,7 @@ class KQLValidator(QueryValidator):
             ecs_version = mapping['ecs']
             err_trailer = f'stack: {stack_version}, beats: {beats_version}, ecs: {ecs_version}'
 
-            beat_types = data.get_beats_types()
+            beat_types = beats.parse_beats_from_index(data.index)
             beat_schema = beats.get_schema_from_kql(ast, beat_types, version=beats_version) if beat_types else None
             schema = ecs.get_kql_schema(version=ecs_version, indexes=data.index or [], beat_schema=beat_schema)
 
@@ -50,7 +50,7 @@ class KQLValidator(QueryValidator):
             except kql.KqlParseError as exc:
                 message = exc.error_msg
                 trailer = err_trailer
-                if "Unknown field" in message and data.get_beats_types():
+                if "Unknown field" in message and beat_types:
                     trailer = f"\nTry adding event.module or event.dataset to specify beats module\n\n{trailer}"
 
                 raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
@@ -84,7 +84,7 @@ class EQLValidator(QueryValidator):
             ecs_version = mapping['ecs']
             err_trailer = f'stack: {stack_version}, beats: {beats_version}, ecs: {ecs_version}'
 
-            beat_types = data.get_beats_types()
+            beat_types = beats.parse_beats_from_index(data.index)
             beat_schema = beats.get_schema_from_kql(ast, beat_types, version=beats_version) if beat_types else None
             schema = ecs.get_kql_schema(version=ecs_version, indexes=data.index or [], beat_schema=beat_schema)
             eql_schema = ecs.KqlSchema2Eql(schema)
@@ -96,7 +96,7 @@ class EQLValidator(QueryValidator):
             except eql.EqlParseError as exc:
                 message = exc.error_msg
                 trailer = err_trailer
-                if "Unknown field" in message and data.get_beats_types():
+                if "Unknown field" in message and beat_types:
                     trailer = f"\nTry adding event.module or event.dataset to specify beats module\n\n{trailer}"
 
                 raise exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,

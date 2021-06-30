@@ -235,11 +235,6 @@ class QueryRuleData(BaseRuleData):
         if validator is not None:
             return validator.ast
 
-    def get_beats_types(self) -> List[str]:
-        indexes = self.index or []
-        beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
-        return beat_types
-
 
 @dataclass(frozen=True)
 class MachineLearningRuleData(BaseRuleData):
