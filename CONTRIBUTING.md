@@ -84,6 +84,7 @@ We follow the [GitHub forking model](https://help.github.com/articles/fork-a-rep
 This repository follows a similar approach to other repositories within the [Elastic](https://github.com/elastic) organization, with a few exceptions that make our life easier. One way this repository is simpler is the lack of major version breaking changes. This means we have less backport commits to worry about and makes us a little more productive.
 
 **7.13 and later**
+
 The branching workflow we currently follow for Detection Rules:
 
 * All changes for the next release of rules are made to the `main` branch
