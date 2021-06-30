@@ -23,6 +23,7 @@ from .rule import TOMLRule, QueryRuleData, ThreatMapping
 from .rule import downgrade_contents_from_rule
 from .rule_loader import RuleCollection, DEFAULT_RULES_DIR
 from .schemas import definitions
+from .semver import Version
 from .utils import Ndjson, dict_hash, get_path, get_etc_path, load_etc_dump, save_etc_dump
 
 RELEASE_DIR = get_path("releases")
@@ -320,7 +321,9 @@ class Package(object):
         if log_deprecated:
             deprecated_rules = [r for r in all_rules if r.contents.metadata.maturity == 'deprecated']
 
-        rules = all_rules.filter(lambda r: filter_rule(r, rule_filter, exclude_fields))
+        package_version = Version(load_current_package_version())
+        rules = all_rules.filter(lambda r: (Version(r.contents.metadata.min_stack_version or '0')) <= package_version)
+        rules = rules.filter(lambda r: filter_rule(r, rule_filter, exclude_fields))
 
         if verbose:
             click.echo(f' - {len(all_rules) - len(rules)} rules excluded from package')
