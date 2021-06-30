@@ -76,6 +76,20 @@ jobs:
           git status
           git log -1 --format='%H'
 
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Checkout the commit to a temporary branch and restore it to the staging area
+        env:
+          BRANCH_NAME: backport/${{matrix.target_branch}}/${{github.run_number}}
+        run: |
+          git checkout -b $BRANCH_NAME ${{github.event.pull_request.merge_commit_sha}}
+          git reset HEAD~1
+
+
+
       - name: Backport commit
         run: |
           echo "Cherry-pick from $GITHUB_SHA to ${{matrix.target_branch}}"
