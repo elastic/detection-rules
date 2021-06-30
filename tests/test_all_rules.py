@@ -503,7 +503,8 @@ class TestRuleInvestigationGuide(BaseRuleTest):
 
         for rule in self.all_rules:
             rule_dir = rule.path.parts[-2]
-            if note_str := required.get(rule_dir):
+            note_str = required.get(rule_dir):
+            if note_str:
                 self.assert_(rule.contents.data.note, f'{self.rule_str(rule)} note required for config information')
 
                 if note_str not in rule.contents.data.note:
