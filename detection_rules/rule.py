@@ -14,10 +14,8 @@ from uuid import uuid4
 
 from marshmallow import ValidationError, validates_schema
 
-import eql
-import kql
 
-from . import beats, ecs, utils
+from . import utils
 from .mixins import MarshmallowDataclassMixin
 from .rule_formatter import toml_write, nested_normalize
 from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas
@@ -281,19 +279,6 @@ class EQLRuleData(QueryRuleData):
     """EQL rules are a special case of query rules."""
     type: Literal["eql"]
     language: Literal["eql"]
-
-    def get_query_schema(self, ast: Union[eql.ast.Expression, kql.ast.Expression], beats_version: str,
-                         ecs_version: str) -> dict:
-        # TODO: remove once py-eql supports ipv6 for cidrmatch
-        # Or, unregister the cidrMatch function and replace it with one that doesn't validate against strict IPv4
-        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
-            parsed = eql.parse_query(self.query)
-
-        indexes = self.index or []
-        beat_types = self.get_beats_types()
-        beat_schema = beats.get_schema_from_eql(parsed, beat_types, version=beats_version) if beat_types else None
-        schema = ecs.get_kql_schema(version=ecs_version, indexes=indexes, beat_schema=beat_schema)
-        return schema
 
 
 @dataclass(frozen=True)
