@@ -94,6 +94,7 @@ The branching workflow we currently follow for Detection Rules:
 * Changes to rules in an already-released branch will be included in an update to the "Prebuilt Security Detection Rules" integration
 
 **Prior to 7.13**
+
 The branching workflow we used to follow for Detection Rules:
 
 * All changes for the next release of rules are made to the `main` branch
