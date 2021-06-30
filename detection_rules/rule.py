@@ -38,7 +38,6 @@ class RuleMeta(MarshmallowDataclassMixin):
     min_stack_version: Optional[definitions.SemVer]
     os_type_list: Optional[List[definitions.OSType]]
     query_schema_validation: Optional[bool]
-    query_validate_master: Optional[bool]
     related_endpoint_rules: Optional[List[str]]
 
     # Extended information as an arbitrary dictionary
@@ -47,11 +46,6 @@ class RuleMeta(MarshmallowDataclassMixin):
     def get_validation_stack_versions(self) -> Dict[str, dict]:
         """Get a dict of beats and ecs versions per stack release."""
         stack_versions = get_stack_schemas(self.min_stack_version or MIN_FLEET_PACKAGE_VERSION)
-
-        if self.query_validate_master:
-            # if defined, in addition to validating all stack combos, also validate against master ECS and beats schemas
-            stack_versions['latest'] = {'beats': 'master', 'ecs': 'master'}
-
         return stack_versions
 
 

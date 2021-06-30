@@ -198,4 +198,8 @@ def get_stack_schemas(stack_version: str) -> Dict[str, dict]:
     stack_map = load_etc_dump('stack-schema-map.yaml')
     versions = {k: v for k, v in stack_map.items()
                 if (mapped_version := Version(k)) >= stack_version and mapped_version <= current_package and v}
+
+    if stack_version > current_package:
+        versions[stack_version] = {'beats': 'master', 'ecs': 'master'}
+
     return versions
