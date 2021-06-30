@@ -104,11 +104,9 @@ class GitChangeEntry:
 
         if self.status.startswith("R"):
             # renames are actually Delete (D) and Add (D)
-            # for renames, first undo the creation of the added file (A)
-            git("restore", "--staged", self.new_path)
-
-            # restore the deleted original file (D)
-            git("restore", "--staged", self.previous_path)
+            # revert in opposite order
+            GitChangeEntry("A", self.new_path).revert(dry_run=dry_run)
+            GitChangeEntry("D", self.previous_path).revert(dry_run=dry_run)
             return
 
         # remove the file from the staging area (A|M|D)
