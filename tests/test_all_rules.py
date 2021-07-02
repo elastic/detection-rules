@@ -12,7 +12,7 @@ from pathlib import Path
 import eql
 
 import kql
-from detection_rules import attack, beats, ecs
+from detection_rules import attack
 from detection_rules.packaging import load_versions
 from detection_rules.rule import QueryRuleData
 from detection_rules.rule_loader import FILE_PATTERN
@@ -356,23 +356,6 @@ class TestRuleFiles(BaseRuleTest):
 class TestRuleMetadata(BaseRuleTest):
     """Test the metadata of rules."""
 
-    def test_ecs_and_beats_opt_in_not_latest_only(self):
-        """Test that explicitly defined opt-in validation is not only the latest versions to avoid stale tests."""
-        for rule in self.all_rules:
-            beats_version = rule.contents.metadata.beats_version
-            ecs_versions = rule.contents.metadata.ecs_versions or []
-            latest_beats = str(beats.get_max_version())
-            latest_ecs = ecs.get_max_version()
-
-            error_msg = f'{self.rule_str(rule)} it is unnecessary to define the current latest beats version: ' \
-                        f'{latest_beats}'
-            self.assertNotEqual(latest_beats, beats_version, error_msg)
-
-            if len(ecs_versions) == 1:
-                error_msg = f'{self.rule_str(rule)} it is unnecessary to define the current latest ecs version if ' \
-                            f'only one version is specified: {latest_ecs}'
-                self.assertNotIn(latest_ecs, ecs_versions, error_msg)
-
     def test_updated_date_newer_than_creation(self):
         """Test that the updated_date is newer than the creation date."""
         invalid = []
@@ -470,3 +453,15 @@ class TestTuleTiming(BaseRuleTest):
             rules_str = '\n '.join(self.rule_str(r, trailer=None) for r in missing)
             err_msg = f'The following rules should have a longer `from` defined, due to indexes used\n {rules_str}'
             self.fail(err_msg)
+
+
+class TestLicense(BaseRuleTest):
+    """Test rule license."""
+
+    def test_elastic_license_only_v2(self):
+        """Test to ensure that production rules with the elastic license are only v2."""
+        for rule in self.production_rules:
+            rule_license = rule.contents.data.license
+            if 'elastic license' in rule_license.lower():
+                err_msg = f'{self.rule_str(rule)} If Elastic License is used, only v2 should be used'
+                self.assertEqual(rule_license, 'Elastic License v2', err_msg)
