@@ -10,6 +10,7 @@ import uuid
 
 import eql
 
+from detection_rules.packaging import load_current_package_version
 from detection_rules.rule import TOMLRuleContents
 from detection_rules.schemas import downgrade
 
@@ -165,7 +166,11 @@ class TestSchemas(unittest.TestCase):
         }
 
         def build_rule(query):
-            metadata = {"creation_date": "1970/01/01", "updated_date": "1970/01/01"}
+            metadata = {
+                "creation_date": "1970/01/01",
+                "updated_date": "1970/01/01",
+                "min_stack_version": load_current_package_version()
+            }
             data = base_fields.copy()
             data["query"] = query
             obj = {"metadata": metadata, "rule": data}

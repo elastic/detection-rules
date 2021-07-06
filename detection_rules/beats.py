@@ -6,7 +6,7 @@
 """ECS Schemas management."""
 import os
 import re
-from typing import List
+from typing import List, Optional
 
 import kql
 import eql
@@ -266,3 +266,9 @@ def get_schema_from_kql(tree: kql.ast.BaseNode, beats: list, version: str = None
             datasets.update(child.value for child in node.value if isinstance(child, kql.ast.String))
 
     return get_schema_from_datasets(beats, modules, datasets, version=version)
+
+
+def parse_beats_from_index(index: Optional[list]) -> List[str]:
+    indexes = index or []
+    beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
+    return beat_types
