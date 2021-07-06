@@ -63,7 +63,7 @@ def filter_rule(rule: TOMLRule, config_filter: dict, exclude_fields: Optional[di
 
 
 @cached
-def load_current_package_version():
+def load_current_package_version() -> str:
     """Load the current package version from config file."""
     return load_etc_dump('packages.yml')['package']['name']
 
