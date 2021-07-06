@@ -1,0 +1,51 @@
+[metadata]
+creation_date = "2021/07/06"
+maturity = "production"
+updated_date = "2021/07/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects attempts to exploit privilege escalation vulnerabilities related to the Print Spooler service. For more
+information refer to the following CVE-2021-34527 and verify that the impacted system is investigated.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Print Driver Registry Modification"
+references = [
+    "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34527",
+    "https://github.com/afwu/PrintNightmare"
+]
+risk_score = 47
+rule_id = "000597e6-83f5-4fe1-8084-b5fc9f050c3a"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by process.entity_id with maxspan=1s
+  [registry where process.name : "spoolsv.exe" and
+   user.id == "S-1-5-18" and
+  registry.path : "HKLM\\SYSTEM\\ControlSet*\\Control\\Print\\Environments\\Windows*\\Drivers\\Version-3\\*\\Configuration File"]
+  [registry where process.name : "spoolsv.exe" and
+   user.id == "S-1-5-18" and
+  registry.path : "HKLM\\SYSTEM\\ControlSet*\\Control\\Print\\Environments\\Windows*\\Drivers\\Version-3\\*\\Configuration File"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1068"
+reference = "https://attack.mitre.org/techniques/T1068/"
+name = "Exploitation for Privilege Escalation"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+name = "Privilege Escalation"
+
