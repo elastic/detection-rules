@@ -78,7 +78,7 @@ def build_release(config_file, update_version_lock, release=None, verbose=True):
 @dataclasses.dataclass
 class GitChangeEntry:
     status: str
-    previous_path: Path
+    original_path: Path
     new_path: Optional[Path] = None
 
     @classmethod
@@ -91,7 +91,7 @@ class GitChangeEntry:
 
     @property
     def path(self) -> Path:
-        return self.new_path or self.previous_path
+        return self.new_path or self.original_path
 
     def revert(self, dry_run=False):
         """Run a git command to revert this change."""
@@ -106,11 +106,11 @@ class GitChangeEntry:
             # renames are actually Delete (D) and Add (A)
             # revert in opposite order
             GitChangeEntry("A", self.new_path).revert(dry_run=dry_run)
-            GitChangeEntry("D", self.previous_path).revert(dry_run=dry_run)
+            GitChangeEntry("D", self.original_path).revert(dry_run=dry_run)
             return
 
         # remove the file from the staging area (A|M|D)
-        git("restore", "--staged", self.previous_path)
+        git("restore", "--staged", self.original_path)
 
     def read(self, git_tree="HEAD") -> bytes:
         """Read the file from disk or git."""
