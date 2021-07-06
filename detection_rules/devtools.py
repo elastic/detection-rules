@@ -103,7 +103,7 @@ class GitChangeEntry:
                 subprocess.check_call(command_line)
 
         if self.status.startswith("R"):
-            # renames are actually Delete (D) and Add (D)
+            # renames are actually Delete (D) and Add (A)
             # revert in opposite order
             GitChangeEntry("A", self.new_path).revert(dry_run=dry_run)
             GitChangeEntry("D", self.previous_path).revert(dry_run=dry_run)
