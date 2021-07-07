@@ -410,7 +410,7 @@ class TestRuleMetadata(BaseRuleTest):
             self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
 
 
-class TestTuleTiming(BaseRuleTest):
+class TestRuleTiming(BaseRuleTest):
     """Test rule timing and timestamps."""
 
     def test_event_override(self):
@@ -465,3 +465,32 @@ class TestLicense(BaseRuleTest):
             if 'elastic license' in rule_license.lower():
                 err_msg = f'{self.rule_str(rule)} If Elastic License is used, only v2 should be used'
                 self.assertEqual(rule_license, 'Elastic License v2', err_msg)
+
+
+class TestRuleInvestigationGuide(BaseRuleTest):
+    """Test the note field of a rule."""
+
+    def test_config(self):
+        """Test that rules which require a config note are using standard verbiage."""
+        config = '## Config\n\n'
+        beats_integration_pattern = config + 'The {} Fleet integration, Filebeat module, or similarly ' \
+                                             'structured data is required to be compatible with this rule.'
+        required = {
+            'aws': beats_integration_pattern.format('AWS'),
+            'azure': beats_integration_pattern.format('Azure'),
+            'gcp': beats_integration_pattern.format('GCP'),
+            'google-workspace': beats_integration_pattern.format('Google Workspace'),
+            'microsoft-365': beats_integration_pattern.format('Microsoft 365'),
+            'okta': beats_integration_pattern.format('Okta'),
+        }
+
+        for rule in self.all_rules:
+            rule_dir = rule.path.parts[-2]
+            note_str = required.get(rule_dir)
+            if note_str:
+                self.assert_(rule.contents.data.note, f'{self.rule_str(rule)} note required for config information')
+
+                if note_str not in rule.contents.data.note:
+                    self.fail(f'{self.rule_str(rule)} expected config missing\n\n'
+                              f'Expected: {note_str}\n\n'
+                              f'Actual: {rule.contents.data.note}')
