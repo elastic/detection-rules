@@ -9,6 +9,12 @@ description = """
 Detects unusual Print Spooler service spoolsv.exe child processes. This may indicate an attempt to exploit privilege
 escalation vulnerabilities related to the Printing Service on Windows.
 """
+false_positives = [
+    """
+    Install or update of a legitimate printing driver. Verify the printer driver file metadata such as manufacturer and signature
+    information.
+    """,
+]
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
@@ -16,7 +22,7 @@ license = "Elastic License v2"
 name = "Unusual Print Spooler Child Process"
 references = [
     "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34527",
-    "https://github.com/afwu/PrintNightmare"
+    "https://github.com/afwu/PrintNightmare",
 ]
 risk_score = 47
 rule_id = "ee5300a7-7e31-4a72-a258-250abb8b3aa1"
@@ -42,12 +48,13 @@ process where event.type == "start" and
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1068"
 reference = "https://attack.mitre.org/techniques/T1068/"
 name = "Exploitation for Privilege Escalation"
+id = "T1068"
 
 
 [rule.threat.tactic]
-id = "TA0004"
 reference = "https://attack.mitre.org/tactics/TA0004/"
 name = "Privilege Escalation"
+id = "TA0004"
+
