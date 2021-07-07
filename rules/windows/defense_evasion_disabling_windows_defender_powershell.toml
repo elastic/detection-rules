@@ -24,8 +24,8 @@ type = "eql"
 
 query = '''
 process where event.type == "start" and
-process.name : "powershell.exe" and
-process.args : "Set-MpPreference" and process.args : ("-Disable*", "Disabled", "NeverSend", "-Exclusion*")
+ (process.name : ("powershell.exe", "pwsh.exe") or process.pe.original_file_name == "PowerShell.EXE") and
+ process.args : "Set-MpPreference" and process.args : ("-Disable*", "Disabled", "NeverSend", "-Exclusion*")
 '''
 
 
