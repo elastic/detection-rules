@@ -76,17 +76,58 @@ jobs:
           git status
           git log -1 --format='%H'
 
-      - name: Backport commit
+      - name: Checkout the commit into the staging area
         run: |
-          echo "Cherry-pick from $GITHUB_SHA to ${{matrix.target_branch}}"
-          git cherry-pick -x ${{github.event.pull_request.merge_commit_sha}}
+          # Checkout the merged commit
+          git checkout ${{matrix.target_branch}}
 
-          # See https://github.com/elastic/detection-rules/issues/1171
-          # Eventually, this cherry pick command will be:
-          # git-cherry-pick --no-commit
-          # <python code to remove irrelevant rules>
-          # git commit --author ... --message ...
+          # Move it to the staging area
+          git reset --soft HEAD^
 
-      - name: Push changes
+      - name: Prune non-${{matrix.target_branch}} rules
+        env:
+          UNSTAGED_LIST_FILE: "../unstaged-rules.txt"
         run: |
+          python -m detection_rules dev unstage-incompatible-rules --target-stack-version ${{matrix.target_branch}}
+
+          # Track which rules were unstaged
+          git diff --name-only > $UNSTAGED_LIST_FILE
+
+          # Since they've been tracked, remove any untracked files
+          git checkout -- .
+
+      - name: Commit and push to ${{matrix.target_branch}}
+        env:
+          COMMIT_MSG_FILE: "../commit-message.txt"
+          UNSTAGED_LIST_FILE: "../unstaged-rules.txt"
+        run: |
+          # Switch to the target branch and keep the staged changes
+          git checkout ${{matrix.target_branch}}
+
+          NEEDS_BACKPORT=$(git diff --quiet --exit-code && echo y || echo n)
+
+          if [ "y" = "$NEEDS_BACKPORT" ]
+          then
+            echo "No changes to backport
+            exit 0
+          fi
+
+          # Create the new commit with the same author
+          git commit --reuse-message -c ${{github.event.pull_request.merge_commit_sha}}
+
+          # Save the commit message
+          git log ${{github.event.pull_request.merge_commit_sha}} --format=$B -n1 > $COMMIT_MSG_FILE
+
+          # Append notes to the commit message
+          if [ -s $UNSTAGED_LIST_FILE ]
+          then
+            echo "\nIgnoring changes from:" >> $COMMIT_MSG_FILE
+            awk '{print "- " $0} $UNSTAGED_LIST_FILE >> $COMMIT_MSG_FILE
+            echo -e "\n(selectively cherry picked from commit ${{github.event.pull_request.merge_commit_sha}})" >> $COMMIT_MSG_FILE
+          else
+            echo -e "\n(cherry picked from commit ${{github.event.pull_request.merge_commit_sha}})" >> $COMMIT_MSG_FILE
+          end
+
+          # Amend the commit message and push
+          git commit --amend -F $COMMIT_MSG_FILE
           git push
