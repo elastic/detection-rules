@@ -63,7 +63,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           token: ${{ secrets.PROTECTIONS_MACHINE_TOKEN }}
-          ref: ${{matrix.target_branch}}
+          ref: main
 
       - name: Set github config
         run: |
@@ -72,21 +72,77 @@ jobs:
 
       - name: Get branch histories
         run: |
-          git fetch origin main --unshallow
+          git fetch origin main --depth 100
+          git fetch origin ${{matrix.target_branch}} --depth 1
           git status
           git log -1 --format='%H'
 
-      - name: Backport commit
+      - name: Checkout the commit into the staging area
         run: |
-          echo "Cherry-pick from $GITHUB_SHA to ${{matrix.target_branch}}"
-          git cherry-pick -x ${{github.event.pull_request.merge_commit_sha}}
+          # Checkout the merged commit
+          git checkout ${{github.event.pull_request.merge_commit_sha}}
 
-          # See https://github.com/elastic/detection-rules/issues/1171
-          # Eventually, this cherry pick command will be:
-          # git-cherry-pick --no-commit
-          # <python code to remove irrelevant rules>
-          # git commit --author ... --message ...
+          # Move it to the staging area
+          git reset --soft HEAD^
 
-      - name: Push changes
+      - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Prune non-${{matrix.target_branch}} rules
+        env:
+          UNSTAGED_LIST_FILE: "../unstaged-rules.txt"
+        run: |
+          python -m detection_rules dev unstage-incompatible-rules --target-stack-version ${{matrix.target_branch}}
+
+          # Track which rules were unstaged
+          git diff --name-only > $UNSTAGED_LIST_FILE
+
+          # Since they've been tracked, remove any untracked files
+          git checkout -- .
+
+      - name: Commit and push to ${{matrix.target_branch}}
+        env:
+          COMMIT_MSG_FILE: "../commit-message.txt"
+          UNSTAGED_LIST_FILE: "../unstaged-rules.txt"
+        run: |
+          set -x
+
+          echo "Switch to the target branch and keep the staged changes"
+          git checkout ${{matrix.target_branch}}
+
+          NEEDS_BACKPORT=$(git diff HEAD --quiet --exit-code && echo y || echo n)
+
+          if [ "y" = "$NEEDS_BACKPORT" ]
+          then
+            echo "No changes to backport"
+            exit 0
+          fi
+
+          echo "Create the new commit with the same author"
+          git commit --reuse-message ${{github.event.pull_request.merge_commit_sha}}
+
+          echo "Save the commit message"
+          git log ${{github.event.pull_request.merge_commit_sha}} --format=%B -n1 > $COMMIT_MSG_FILE
+
+          echo "Append to the commit message"
+          if [ -s "$UNSTAGED_LIST_FILE" ]
+          then
+            echo "Track note for the removed files"
+
+            echo "" >> $COMMIT_MSG_FILE
+            echo "Removed changes from:" >> $COMMIT_MSG_FILE
+            awk '{print "- " $0}' $UNSTAGED_LIST_FILE >> $COMMIT_MSG_FILE
+            echo "" >> $COMMIT_MSG_FILE
+            echo '(selectively cherry picked from commit ${{github.event.pull_request.merge_commit_sha}})' >> $COMMIT_MSG_FILE
+          else
+            echo "No removed files"
+
+            echo "" >> $COMMIT_MSG_FILE
+            echo '(cherry picked from commit ${{github.event.pull_request.merge_commit_sha}})' >> $COMMIT_MSG_FILE
+          fi
+
+          echo "Amend the commit message and push"
+          git commit --amend -F $COMMIT_MSG_FILE
           git push
