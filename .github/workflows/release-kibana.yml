@@ -7,10 +7,11 @@ on:
         required: true
         default: 'master'
       labels:
-        description: 'Additional labels to assign to the PR'
-        required: false
+        description: 'Labels to assign to the PR (comma-separated)'
+        required: true
+        default: 'release_note:skip,release_note:enhancement,auto-backport'
       draft:
-        description: 'Create a PR as draft (Y)'
+        description: 'Create a PR as draft (y/n)'
         required: false
 
 jobs:
@@ -50,7 +51,7 @@ jobs:
       - name: Create the PR to Kibana
         env:
           DRAFT_ARGS: "${{startsWith(github.event.inputs.draft,'y') && '--draft' || ' '}}"
-          LABEL_ARGS: "--label release_note:skip,${{github.event.inputs.labels}}"
+          LABEL_ARGS: "--label ${{github.event.inputs.labels}}"
           BRANCH_ARGS: "--base-branch ${{github.event.inputs.kibana_branch}}"
           GITHUB_TOKEN: "${{ secrets.PROTECTIONS_MACHINE_TOKEN }}"
         run: |
