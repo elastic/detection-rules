@@ -272,21 +272,19 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
     short_commit_hash = subprocess.check_output([git_exe, "rev-parse", "--short", "HEAD"], encoding="utf-8").strip()
 
     try:
-        if not os.path.exists(local_repo):
-            if not click.confirm(f"Kibana repository doesn't exist at {local_repo}. Clone?"):
-                ctx.exit(1)
-
-            url = f"git@github.com:{github_repo}.git" if ssh else f"https://github.com/{github_repo}.git"
-            subprocess.check_call([git_exe, "clone", url, local_repo, "--depth", 1])
-
         def git(*args, show_output=False):
             method = subprocess.call if show_output else subprocess.check_output
             return method([git_exe, "-C", local_repo] + list(args), encoding="utf-8")
 
+        if not os.path.exists(local_repo):
+            click.echo(f"Kibana repository doesn't exist at {local_repo}. Cloning...")
+            url = f"git@github.com:{github_repo}.git" if ssh else f"https://github.com/{github_repo}.git"
+            subprocess.check_call([git_exe, "clone", url, local_repo, "--depth", "1"])
+        else:
+            git("checkout", base_branch)
+
         branch_name = branch_name or f"detection-rules/{package_name}-{short_commit_hash}"
 
-        git("checkout", base_branch)
-        git("pull")
         git("checkout", "-b", branch_name, show_output=True)
         git("rm", "-r", kibana_directory)
 
@@ -302,7 +300,6 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
                 shutil.copyfile(path, os.path.join(target_dir, name))
 
         git("add", kibana_directory)
-
         git("commit", "--no-verify", "-m", message)
         git("status", show_output=True)
 
@@ -319,13 +316,13 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
 
 
 @dev_group.command("kibana-pr")
-@click.option("--token", required=True, prompt=True, default=get_github_token(),
+@click.option("--token", required=True, prompt=get_github_token() is None, default=get_github_token(),
               help="GitHub token to use for the PR", hide_input=True)
 @click.option("--assign", multiple=True, help="GitHub users to assign the PR")
 @click.option("--label", multiple=True, help="GitHub labels to add to the PR")
+@click.option("--draft", is_flag=True, help="Open the PR as a draft")
 # Pending an official GitHub API
 # @click.option("--automerge", is_flag=True, help="Enable auto-merge on the PR")
-@click.option("--draft", is_flag=True, help="Open the PR as a draft")
 @add_git_args
 @click.pass_context
 def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...], draft: bool, token: str, **kwargs):
@@ -349,7 +346,9 @@ def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...
     """).strip()  # noqa: E501
     pr = repo.create_pull(title, body, kwargs["base_branch"], branch_name, draft=draft)
 
-    label = set(label)
+    # labels could also be comma separated
+    label = {lbl for cs_labels in label for lbl in cs_labels.split(",") if lbl}
+
     if label:
         pr.add_to_labels(*sorted(label))
 
