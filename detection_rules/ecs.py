@@ -200,7 +200,7 @@ class KqlSchema2Eql(eql.Schema):
 
 
 @cached
-def get_kql_schema(version=None, indexes=None, beat_schema=None):
+def get_kql_schema(version=None, indexes=None, beat_schema=None) -> dict:
     """Get schema for KQL."""
     indexes = indexes or ()
     converted = flatten_multi_fields(get_schema(version, name='ecs_flat'))
