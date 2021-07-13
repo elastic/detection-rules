@@ -840,4 +840,4 @@ def create_dnstwist_rule(ctx: click.Context, input_file, kibana_client: Kibana, 
     rule_collection.rules[0].save_toml()
 
     if click.confirm("Upload rule to Kibana?", abort=True):
-        upload_rule(ctx, [custom_rule_file])
+        ctx.invoke(upload_rule, rule_file=[custom_rule_file])
