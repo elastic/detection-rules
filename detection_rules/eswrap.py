@@ -10,22 +10,22 @@ import time
 import uuid
 from datetime import datetime
 from collections import defaultdict
+from pathlib import Path
 from typing import Union
 
 import click
 import elasticsearch
-from elasticsearch import Elasticsearch, helpers
-from elasticsearch.client import AsyncSearchClient
+from elasticsearch import Elasticsearch
+from elasticsearch.client.async_search import AsyncSearchClient
 
 import kql
 from .kbwrap import upload_rule
 from .main import root
-from .misc import add_params, add_client, client_error, elasticsearch_options
+from .misc import add_params, client_error, elasticsearch_options
 from .rule import TOMLRule
 from .rule_loader import rta_mappings, RuleCollection
 from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
 from eql.utils import load_dump
-from kibana import Kibana
 
 COLLECTION_DIR = get_path('collections')
 MATCH_ALL = {'bool': {'filter': [{'match_all': {}}]}}
@@ -429,82 +429,77 @@ def es_experimental():
 
 @es_experimental.command('create-dnstwist-rule')
 @click.argument('input-file', type=click.Path(exists=True, dir_okay=False), required=True)
-@add_client('kibana')
+# @add_client('kibana')
 @click.pass_context
-def create_dnstwist_rule(ctx: click.Context, input_file, kibana_client: Kibana, verbose=True):
+def create_dnstwist_rule(ctx: click.Context, input_file):  # , kibana_client: Kibana, verbose=True):
     """Index dnstwist results in Elasticsearch."""
     es_client: Elasticsearch = ctx.obj['es']
 
     click.echo(f'Attempting to load dnstwist data from {input_file}')
-    dnstwist_data = load_dump(input_file)
+    dnstwist_data: dict = load_dump(input_file)
     click.echo(f'{len(dnstwist_data)} records loaded')
 
-    original_domain = [record['domain-name'] for record in dnstwist_data if record['fuzzer'] == 'original*'][0]
+    original_domain = next(record['domain-name'] for record in dnstwist_data if record['fuzzer'] == 'original*')
     click.echo(f'Original domain name identified: {original_domain}')
 
     domain = original_domain.split('.')[0]
     domain_index = f'dnstwist-{domain}'
     # If index already exists, prompt user to confirm if they want to overwrite
-    if es_client.indices.exists(index=f'dnstwist-{domain}'):
+    if es_client.indices.exists(index=domain_index):
         if click.confirm(
-            f"dnstwist index {domain_index} already exists for {original_domain}. Do you want to continue?", abort=True
+            f"dnstwist index {domain_index} already exists for {original_domain}. Do you want to overwrite?", abort=True
         ):
-            es_client.indices.delete(index=f'dnstwist-{domain}')
+            es_client.indices.delete(index=domain_index)
 
-    def create_mappings():
+    fields = [
+        "dns-a",
+        "dns-aaaa",
+        "dns-mx",
+        "dns-ns",
+        "banner-http",
+        "fuzzer",
+        "original-domain",
+        "dns.question.registered_domain"
+    ]
+    timestamp_field = "@timestamp"
+    mappings = {"mappings": {"properties": {f: {"type": "keyword"} for f in fields}}}
+    mappings["mappings"]["properties"][timestamp_field] = {"type": "date"}
 
-        mappings = {
-            "mappings": {
-                "properties": {
-                    "dns-a": {"type": "keyword"},
-                    "dns-aaaa": {"type": "keyword"},
-                    "dns-mx": {"type": "keyword"},
-                    "dns-ns": {"type": "keyword"},
-                    "banner-http": {"type": "keyword"},
-                    "fuzzer": {"type": "keyword"},
-                    "original-domain": {"type": "keyword"},
-                    "@timestamp": {"type": "date"},
-                    "dns.question.registered_domain": {"type": "keyword"}
-                }
-            }
-        }
-        return mappings
+    es_client.indices.create(index=domain_index, body=mappings)
 
-    es_client.indices.create(index=f'dnstwist-{domain}', body=create_mappings())
-
+    # handle dns.question.registered_domain separately
+    fields.pop()
     es_updates = []
-    count = 0
-    for record in dnstwist_data:
-        temp = {}
-        temp['fuzzer'] = record.get('fuzzer', None)
-        if temp['fuzzer'] == 'original*':
+
+    for item in dnstwist_data:
+        if item['fuzzer'] == 'original*':
             continue
-        temp['dns-a'] = record.get('dns-a', None)
-        temp['dns-aaaa'] = record.get('dns-aaaa', None)
-        temp['dns-mx'] = record.get('dns-mx', None)
-        temp['dns-ns'] = record.get('dns-ns', None)
-        temp['banner-http'] = record.get('banner-http', None)
-        temp['original-domain'] = original_domain
-        temp['@timestamp'] = datetime.utcnow()
-        temp['dns'] = {'question': {}}
-        temp['dns']['question']['registered_domain'] = record.get('domain-name', None)
-        es_updates.append({'_index': domain_index, '_id': count, '_source': temp})
-        count += 1
+
+        record = item.copy()
+        record.setdefault('dns', {}).setdefault('question', {}).setdefault('registered_domain', item.get('domain-name'))
+
+        for field in fields:
+            record.setdefault(field, None)
+
+        record['@timestamp'] = datetime.utcnow()
+
+        es_updates.extend([{'create': {'_index': domain_index}}, record])
 
     click.echo(f'Indexing data for domain {original_domain}')
 
-    for success, info in helpers.streaming_bulk(es_client, es_updates, chunk_size=1000, request_timeout=150):
-        if not success:
-            client_error(info)
+    results = es_client.bulk(es_updates)
+    if results['errors']:
+        error = {r['create']['result'] for r in results['items'] if r['create']['status'] != 201}
+        client_error(f'Errors occurred during indexing:\n{error}')
 
     # Creating threat match rule
     root_dir = Path(__file__).parent.parent
     rule_template_file = root_dir / 'etc' / 'rule_template_typosquatting_domain.toml'
     custom_rule_file = (
-        root_dir / "rules" / "cross-platform" / "initial_access_dns_request_for_typosquatting_domain.toml"
+        root_dir / "rules" / "cross-platform" / f"initial_access_dns_request_for_typosquatting_domain_{domain}.toml"
     )
 
-    click.echo(f'{len(es_updates)} watchlist domains identified')
+    click.echo(f'{len(results["items"])} watchlist domains identified')
 
     click.echo('Attempting to create threat match rule')
     template_rule = load_dump(str(rule_template_file))
@@ -517,11 +512,11 @@ def create_dnstwist_rule(ctx: click.Context, input_file, kibana_client: Kibana, 
 
     # Create rule object and validate it against schema
     rule_collection = RuleCollection()
-    rule_collection.load_dict(template_rule, path=custom_rule_file)
+    rule = rule_collection.load_dict(template_rule, path=custom_rule_file)
 
     # Save rule in toml format
     click.echo(f'Saving rule to {custom_rule_file}')
-    rule_collection.rules[0].save_toml()
+    rule.save_toml()
 
     if click.confirm("Upload rule to Kibana?", abort=True):
         ctx.invoke(upload_rule, rule_file=[custom_rule_file])
