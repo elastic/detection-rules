@@ -28,8 +28,8 @@ jobs:
         uses: actions/checkout@v2
         with:
           token: ${{ secrets.PROTECTIONS_MACHINE_TOKEN }}
-          ref: ${{github.event.inputs.kibana_branch}}
-          repository: elastic/integrations
+          ref: ${{github.event.inputs.target_branch}}
+          repository: ${{github.event.inputs.target_repo}}
           path: integrations
 
       - name: Set up Python 3.8
@@ -67,7 +67,6 @@ jobs:
           DRAFT_ARGS: "${{startsWith(github.event.inputs.draft,'y') && '--draft' || ' '}}"
           TARGET_REPO: "${{github.event.inputs.target_repo}}"
           TARGET_BRANCH: "${{github.event.inputs.target_branch}}"
-          TARGET_PATH: "stack/integrations/packages/security_detection_engine"
           LOCAL_REPO: "../integrations"
           GITHUB_TOKEN: "${{ secrets.PROTECTIONS_MACHINE_TOKEN }}"
         run: |
