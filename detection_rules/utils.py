@@ -13,13 +13,16 @@ import hashlib
 import io
 import json
 import os
+import shutil
+import subprocess
 import time
 import zipfile
 from dataclasses import is_dataclass, astuple
 from datetime import datetime, date
 from pathlib import Path
-from typing import Dict, Union
+from typing import Dict, Union, Optional, Callable
 
+import click
 import eql.utils
 from eql.utils import load_dump, stream_json_lines
 
@@ -297,6 +300,27 @@ def format_command_options(ctx):
             formatter.write_dl(opts)
 
     return formatter.getvalue()
+
+
+def make_git(*partial_args) -> Optional[Callable]:
+    git_exe = shutil.which("git")
+    partial_args = [str(arg) for arg in partial_args]
+
+    if not git_exe:
+        click.secho("Unable to find git", err=True, fg="red")
+        ctx = click.get_current_context(silent=True)
+
+        if ctx is not None:
+            ctx.exit(1)
+
+        return
+
+    def git(*args, show_output=False):
+        method = subprocess.call if show_output else subprocess.check_output
+        full_args = [git_exe] + partial_args + [str(arg) for arg in args]
+        return method(full_args, encoding="utf-8").rstrip()
+
+    return git
 
 
 def add_params(*params):
