@@ -17,15 +17,15 @@ on:
 jobs:
   fleet-pr:
     runs-on: ubuntu-latest
-    # don't support releases from the default branch, only release branches
-    if: |
-      github.event.ref != 'main'
 
     steps:
-      - name: Checkout detection-rules
-        uses: actions/checkout@v2
+      - name: Validate the source branch
+        uses: actions/github-script@v3
         with:
-          path: detection-rules
+          script: |
+            if ('main' === '${{github.event.ref}}') {
+              core.setFailed('Forbidden branch')
+            }
 
       - name: Checkout elastic/integrations
         uses: actions/checkout@v2
