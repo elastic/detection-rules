@@ -495,7 +495,7 @@ class Package(object):
 
         ## License Notice
 
-        """).lstrip()
+        """).lstrip()  # noqa: E501
 
         # notice only needs to be appended to the README for 7.13.x
         # in 7.14+ there's a separate modal to display this

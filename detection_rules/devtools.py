@@ -13,12 +13,11 @@ import shutil
 import subprocess
 import textwrap
 import time
+import typing
 from pathlib import Path
 from typing import Optional, Tuple, List
 
 import click
-import typing
-
 import yaml
 from elasticsearch import Elasticsearch
 
@@ -97,6 +96,7 @@ class GitChangeEntry:
 
     def revert(self, dry_run=False):
         """Run a git command to revert this change."""
+
         def git(*args):
             command_line = ["git"] + [str(arg) for arg in args]
             click.echo(subprocess.list2cmdline(command_line))
@@ -365,7 +365,7 @@ def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...
 @click.option("--assign", multiple=True, help="GitHub users to assign the PR")
 @click.option("--label", multiple=True, help="GitHub labels to add to the PR")
 @click.option("--draft", is_flag=True, help="Open the PR as a draft")
-@click.option("--remote", help="Change the remote from origin")
+@click.option("--remote", help="Override the remote from 'origin'", default="origin")
 @click.pass_context
 def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool,
                     pkg_directory: str, base_branch: str, remote: str,
@@ -408,14 +408,16 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
         "version": package_version,
         "changes": [
             # This will be changed later
-            {"description": "Release security rules update", "type": "enhancement", "link": "https://github.com/elastic/integrations/pulls/0000"}
+            {"description": "Release security rules update", "type": "enhancement",
+             "link": "https://github.com/elastic/integrations/pulls/0000"}
         ]
     })
 
     # Remove existing assets and replace everything
     shutil.rmtree(target_directory)
     actual_target_directory = shutil.copytree(release_dir, target_directory)
-    assert Path(actual_target_directory).absolute() == Path(target_directory).absolute(), f"Expected a copy to {pkg_directory}"
+    assert Path(actual_target_directory).absolute() == Path(
+        target_directory).absolute(), f"Expected a copy to {pkg_directory}"
 
     # Add the changelog back
     def save_changelog():
@@ -429,8 +431,8 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     save_changelog()
 
     # Use elastic-package to format and lint
-    gopath = os.getenv("GOPATH", os.path.expanduser(os.path.join("~", "go")))
-    assert Path(gopath).exists(), "GOPATH doesn't exist"
+    gopath = utils.gopath()
+    assert gopath is not None, "$GOPATH isn't set"
 
     def elastic_pkg(*args):
         """Run a command with $GOPATH/bin/elastic-package in the package directory."""
@@ -455,27 +457,27 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     repo = client.get_repo(github_repo)
     body = textwrap.dedent(f"""
     ## What does this PR do?
-    Another update to the Security Rules package
-    
+    Update the Security Rules package to version {package_version}
+
     ## Checklist
-    
+
     - [x] I have reviewed [tips for building integrations](https://github.com/elastic/integrations/blob/master/docs/tips_for_building_integrations.md) and this pull request is aligned with them.
     - [ ] ~I have verified that all data streams collect metrics or logs.~
     - [x] I have added an entry to my package's `changelog.yml` file.
     - [x] If I'm introducing a new feature, I have modified the Kibana version constraint in my package's `manifest.yml` file to point to the latest Elastic stack release (e.g. `^7.13.0`).
-    
+
     ## Author's Checklist
     - Install the most recently release security rules in the Detection Engine
     - Install the package
     - Confirm the update is available in Kibana. Click "Update X rules" or "Install X rules"
     - Look at the changes made after the install and confirm they are consistent
-    
+
     ## How to test this PR locally
     - Perform the above checklist, and use `package-storage` to build EPR from source
-    
+
     ## Related issues
     None
-    
+
     ## Screenshots
     None
     """)  # noqa: E501

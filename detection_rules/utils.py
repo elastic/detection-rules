@@ -6,6 +6,7 @@
 """Util functions."""
 import base64
 import contextlib
+import distutils.spawn
 import functools
 import glob
 import gzip
@@ -48,6 +49,20 @@ class DateTimeEncoder(json.JSONEncoder):
 
 
 marshmallow_schemas = {}
+
+
+def gopath() -> Optional[str]:
+    """Retrieve $GOPATH."""
+    env_path = os.getenv("GOPATH")
+    if env_path:
+        return env_path
+
+    go_bin = distutils.spawn.find_executable("go")
+    if go_bin:
+        output = subprocess.check_output([go_bin, "env"], encoding="utf-8").splitlines()
+        for line in output:
+            if line.startswith("GOPATH="):
+                return line[len("GOPATH="):].strip('"')
 
 
 def dict_hash(obj: dict) -> str:
