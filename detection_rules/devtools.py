@@ -417,8 +417,8 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     # Remove existing assets and replace everything
     shutil.rmtree(target_directory)
     actual_target_directory = shutil.copytree(release_dir, target_directory)
-    assert Path(actual_target_directory).absolute() == Path(
-        target_directory).absolute(), f"Expected a copy to {pkg_directory}"
+    assert Path(actual_target_directory).absolute() == Path(target_directory).absolute(), \
+        f"Expected a copy to {pkg_directory}"
 
     # Add the changelog back
     def save_changelog():
