@@ -371,6 +371,7 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
                     pkg_directory: str, base_branch: str, remote: str,
                     branch_name: Optional[str], github_repo: str, assign: Tuple[str, ...], label: Tuple[str, ...]):
     """Create a pull request to publish the Fleet package to elastic/integrations."""
+    local_repo = os.path.abspath(local_repo)
     stack_version = Package.load_configs()["name"]
     package_version = Package.load_configs()["registry_data"]["version"]
 
@@ -436,7 +437,7 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
 
     def elastic_pkg(*args):
         """Run a command with $GOPATH/bin/elastic-package in the package directory."""
-        prev = os.getcwd()
+        prev = os.path.abspath(os.getcwd())
         os.chdir(target_directory)
 
         try:
