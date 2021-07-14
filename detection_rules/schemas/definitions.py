@@ -33,6 +33,7 @@ MACHINE_LEARNING = 'machine_learning'
 SAVED_QUERY = 'saved_query'
 QUERY = 'query'
 
+
 OPERATORS = ['equals']
 
 TIMELINE_TEMPLATES: Final[dict] = {
@@ -57,7 +58,7 @@ NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
 Operator = Literal['equals']
 OSType = Literal['windows', 'linux', 'macos']
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
-RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql']
+RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'threshold', 'threat_match']
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
 Severity = Literal['low', 'medium', 'high', 'critical']
 Sha256 = NewType('Sha256', str, validate=validate.Regexp(SHA256_PATTERN))
@@ -68,3 +69,8 @@ ThresholdValue = NewType("ThresholdValue", int, validate=validate.Range(min=1))
 TimelineTemplateId = NewType('TimelineTemplateId', str, validate=validate.OneOf(list(TIMELINE_TEMPLATES)))
 TimelineTemplateTitle = NewType('TimelineTemplateTitle', str, validate=validate.OneOf(TIMELINE_TEMPLATES.values()))
 UUIDString = NewType('UUIDString', str, validate=validate.Regexp(UUID_PATTERN))
+
+
+# experimental machine learning features and releases
+MachineLearningType = Literal['DGA', 'ProblemChild']
+MachineLearningTypeLower = Literal['dga', 'problemchild']
