@@ -41,6 +41,8 @@ sequence by host.id, user.id with maxspan=5m
   )
   ] by process.pid
  [process where event.type == "start" and process.parent.Ext.real.pid > 0 and
+  /* process.parent.Ext.real.pid is only populated if the parent process pid doesn't match */
+  
   not (process.name : "msedge.exe" and process.parent.name : "sihost.exe")
  ] by process.parent.Ext.real.pid
 '''
