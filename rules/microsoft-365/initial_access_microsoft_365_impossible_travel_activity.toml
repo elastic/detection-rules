@@ -1,11 +1,14 @@
 [metadata]
-creation_date = "2021/07/06"
+creation_date = "2021/07/15"
 maturity = "production"
-updated_date = "2021/07/06"
+updated_date = "2021/07/15"
 
 [rule]
 author = ["Austin Songer"]
-description = "Identifies when a Microsoft Cloud App Security reported a risky sign-in attempt due to a login associated with an impossible travel."
+description = """
+Identifies when a Microsoft Cloud App Security reported a risky sign-in attempt due to a login associated with an
+impossible travel.
+"""
 false_positives = [
     """
     VPN
@@ -25,28 +28,26 @@ references = [
     "https://docs.microsoft.com/en-us/cloud-app-security/policy-template-reference",
 ]
 risk_score = 47
-rule_id = ""
+rule_id = "9c49fe22-4e86-4384-a9a0-602f4d54088d"
 severity = "medium"
 tags = ["Elastic", "Cloud", "Microsoft 365", "Continuous Monitoring", "SecOps", "Configuration Audit"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.category:web and
-event.action:"Impossible travel activity" and event.outcome:success
+event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.category:web and event.action:"Impossible travel activity" and event.outcome:success
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
+id = "T1078"
 
 
 [rule.threat.tactic]
-id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
+id = "TA0001"
