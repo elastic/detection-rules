@@ -495,7 +495,12 @@ class Package(object):
 
         ## License Notice
 
-        """).lstrip() + textwrap.indent(notice_contents, prefix="    ")  # noqa: E501
+        """).lstrip()  # noqa: E501
+
+        # notice only needs to be appended to the README for 7.13.x
+        # in 7.14+ there's a separate modal to display this
+        if self.name == "7.13":
+            textwrap.indent(notice_contents, prefix="    ")
 
         readme_file.write_text(readme_text)
         notice_file.write_text(notice_contents)
