@@ -206,5 +206,5 @@ def toml_write(rule_contents, outfile=None):
             _do_write(data, _contents)
 
     finally:
-        if needs_close:
+        if needs_close and isinstance(outfile, io.IOBase):
             outfile.close()
