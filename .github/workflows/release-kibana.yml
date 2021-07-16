@@ -32,6 +32,11 @@ jobs:
           repository: elastic/kibana
           path: kibana
 
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
       - name: Install dependencies
         run: |
           cd detection-rules
@@ -58,9 +63,9 @@ jobs:
           cd detection-rules
           python -m detection_rules dev kibana-pr --assign ${{github.actor}} $LABEL_ARGS $DRAFT_ARGS $BRANCH_ARGS
 
-    - name: Archive production artifacts for branch builds
-      uses: actions/upload-artifact@v2
-      with:
-        name: release-files
-        path: |
-          detection-rules/releases
+      - name: Archive production artifacts for branch builds
+        uses: actions/upload-artifact@v2
+        with:
+          name: release-files
+          path: |
+            detection-rules/releases
