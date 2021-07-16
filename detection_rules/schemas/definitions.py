@@ -46,7 +46,7 @@ TIMELINE_TEMPLATES: Final[dict] = {
 
 def string_only_list(obj: List[str]):
     """Validate all records in a list are strings."""
-    return all([type(r) == str for r in obj])
+    return all([isinstance(r, str) for r in obj])
 
 
 BranchVer = NewType('BranchVer', str, validate=validate.Regexp(BRANCH_PATTERN))
@@ -55,8 +55,6 @@ ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDI
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
 FilterLanguages = Literal["kuery", "lucene"]
 Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
-StringListMaxSizeThree = NewType('StringListMaxSizeThree', list,
-                                 validate=validate.And(validate.Length(min=0, max=3), string_only_list))
 Markdown = NewType("MarkdownField", CodeString)
 Maturity = Literal['development', 'experimental', 'beta', 'production', 'deprecated']
 MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
@@ -69,6 +67,8 @@ RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'threshold
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
 Severity = Literal['low', 'medium', 'high', 'critical']
 Sha256 = NewType('Sha256', str, validate=validate.Regexp(SHA256_PATTERN))
+StringListMaxSizeThree = NewType('StringListMaxSizeThree', list,
+                                 validate=validate.And(validate.Length(min=0, max=3), string_only_list))
 SubTechniqueURL = NewType('SubTechniqueURL', str, validate=validate.Regexp(SUBTECHNIQUE_URL))
 TacticURL = NewType('TacticURL', str, validate=validate.Regexp(TACTIC_URL))
 TechniqueURL = NewType('TechniqueURL', str, validate=validate.Regexp(TECHNIQUE_URL))
