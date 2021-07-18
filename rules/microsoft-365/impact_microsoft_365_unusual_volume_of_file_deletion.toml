@@ -8,7 +8,7 @@ author = ["Austin Songer"]
 description = """
 Identifies when Microsoft Cloud App Security reported a user has deleted a unusual a large volume of files.
 """
-false_positives = [" "]
+false_positives = ["Unknown"]
 from = "now-30m"
 index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
@@ -30,7 +30,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.category:web and event.action: "Unusual volume of file deletion" and event.outcome:success
+event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.category:web and event.action:"Unusual volume of file deletion" and event.outcome:success
 '''
 
 [[rule.threat]]
@@ -39,7 +39,6 @@ framework = "MITRE ATT&CK"
 name = "Data Destruction"
 reference = "https://attack.mitre.org/techniques/T1485/"
 id = "T1485"
-
 
 [rule.threat.tactic]
 name = "Impact"
