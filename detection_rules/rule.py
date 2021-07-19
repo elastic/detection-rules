@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Literal, Union, Optional, List, Any, Dict
 from uuid import uuid4
 
+import eql
 from marshmallow import ValidationError, validates_schema
-
 
 from . import utils
 from .mixins import MarshmallowDataclassMixin
@@ -268,6 +268,29 @@ class EQLRuleData(QueryRuleData):
     """EQL rules are a special case of query rules."""
     type: Literal["eql"]
     language: Literal["eql"]
+
+    @cached_property
+    def max_span(self) -> Optional[eql.ast.TimeRange]:
+        """Maxspan value for sequence rules if defined."""
+        if eql.utils.get_query_type(self.ast) == 'sequence' and hasattr(self.ast.first, 'max_span'):
+            return self.ast.first.max_span
+
+    @cached_property
+    def look_back(self) -> Union[eql.ast.TimeRange, Literal['unknown']]:
+        """Lookback value of a rule."""
+        # https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#date-math
+        from_ = self.from_ or 'now-6m'
+        from_ = from_.split('-')
+        to = self.to
+
+        if len(from_) != 2 or from_[0] != 'now' or to not in (None, 'now'):
+            return 'unknown'
+
+        _, lookback = from_
+        quantity = int(lookback[-2])
+        unit = eql.ast.TimeUnit(lookback[-1])
+
+        return eql.ast.TimeRange(quantity, unit)
 
 
 @dataclass(frozen=True)

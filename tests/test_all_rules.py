@@ -6,6 +6,7 @@
 """Test that all rules have valid metadata and syntax."""
 import os
 import re
+import warnings
 from collections import defaultdict
 from pathlib import Path
 
@@ -454,6 +455,30 @@ class TestRuleTiming(BaseRuleTest):
             rules_str = '\n '.join(self.rule_str(r, trailer=None) for r in missing)
             err_msg = f'The following rules should have a longer `from` defined, due to indexes used\n {rules_str}'
             self.fail(err_msg)
+
+    def test_eql_lookback(self):
+        """Ensure EQL rules lookback => max_span, when defined."""
+        unknowns = []
+        invalids = []
+
+        for rule in self.all_rules:
+            if rule.contents.data.type == 'eql' and rule.contents.data.max_span:
+                if rule.contents.data.look_back == 'unknown':
+                    unknowns.append(self.rule_str(rule, trailer=None))
+                else:
+                    look_back = rule.contents.data.look_back.as_milliseconds()
+                    max_span = rule.contents.data.max_span.as_milliseconds()
+
+                    if look_back < max_span:
+                        invalids.append(f'{self.rule_str(rule)} lookback: {look_back}, maxspan: {max_span}')
+
+        if unknowns:
+            warn_str = '\n'.join(unknowns)
+            warnings.warn(f'Unable to determine lookbacks for the following rules:\n{warn_str}')
+
+        if invalids:
+            invalids_str = '\n'.join(invalids)
+            self.fail(f'The following rules have longer max_spans than lookbacks:\n{invalids_str}')
 
 
 class TestLicense(BaseRuleTest):
