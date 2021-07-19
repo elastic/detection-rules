@@ -1,3 +1,50 @@
+[metadata]
+creation_date = "2021/07/19"
+maturity = "production"
+updated_date = "2021/07/19"
+
+[rule]
+author = ["Austin Songer"]
+description = """
+Identifies use of WMI’s Win32_ShadowCopy class and CIM cmdlets for shadow copy deletion on endpoints. This commonly occurs in tandem with ransomware or
+other destructive attacks.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Volume Shadow Copy Deletion via PowerShell"
+risk_score = 73
+rule_id = "d99a037b-c8e2-47a5-97b9-170d076827c4"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  process.name: ("powershell.exe", "pwsh.exe") and 
+  process.args : "Get-WmiObject" and process.args : ("Win32_ShadowCopy","% { $_.Delete() }", "Disabled") or
+  process.args : "Get-CimInstance" and process.args : ("Win32_ShadowCopy", "Remove-CimInstance")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+reference = "https://attack.mitre.org/techniques/T1070/"
+name = "Indicator Removal on Host"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.004"
+reference = "https://attack.mitre.org/techniques/T1070/004/"
+name = "File Deletion"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+name = "Defense Evasion"
 
 
 
