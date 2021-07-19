@@ -34,6 +34,7 @@ class RuleMeta(MarshmallowDataclassMixin):
 
     # Optional fields
     comments: Optional[str]
+    integration: Optional[str]
     maturity: Optional[definitions.Maturity]
     min_stack_version: Optional[definitions.SemVer]
     os_type_list: Optional[List[definitions.OSType]]
