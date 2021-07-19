@@ -183,7 +183,7 @@ class BaseRuleData(MarshmallowDataclassMixin):
     def save_schema(cls):
         """Save the schema as a jsonschema."""
         fields: List[dataclasses.Field] = dataclasses.fields(cls)
-        type_field = next(field for field in fields if field.name == "type")
+        type_field = next(f for f in fields if f.name == "type")
         rule_type = typing.get_args(type_field.type)[0] if cls != BaseRuleData else "base"
         schema = cls.jsonschema()
         version_dir = SCHEMA_DIR / "master"
