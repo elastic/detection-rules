@@ -122,7 +122,7 @@ class PatchedJSONSchema(marshmallow_jsonschema.JSONSchema):
             field = marshmallow_union.Union([subfield for _, subfield in field.union_fields],
                                             metadata=field.metadata,
                                             required=field.required, name=field.name,
-                                            parent=field.parent, root=field.root,  error_messages=field.error_messages,
+                                            parent=field.parent, root=field.root, error_messages=field.error_messages,
                                             default_error_messages=field.default_error_messages, default=field.default,
                                             allow_none=field.allow_none)
 
