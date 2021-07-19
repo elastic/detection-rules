@@ -116,7 +116,7 @@ class PatchedJSONSchema(marshmallow_jsonschema.JSONSchema):
 
     # Patch marshmallow-jsonschema to support marshmallow-dataclass[union]
     def _get_schema_for_field(self, obj, field):
-        """Patch marshmallow_jsonschema.base.JSONSchema to support """
+        """Patch marshmallow_jsonschema.base.JSONSchema to support marshmallow-dataclass[union]."""
         if isinstance(field, marshmallow_dataclass.union_field.Union):
             # convert to marshmallow_union.Union
             field = marshmallow_union.Union([subfield for _, subfield in field.union_fields],
