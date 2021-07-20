@@ -67,7 +67,7 @@ RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'threshold
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
 Severity = Literal['low', 'medium', 'high', 'critical']
 Sha256 = NewType('Sha256', str, validate=validate.Regexp(SHA256_PATTERN))
-StringListMaxSizeThree = NewType('StringListMaxSizeThree', list,
+StringListMaxSizeThree = NewType('StringListMaxSizeThree', List[NonEmptyStr],
                                  validate=validate.And(validate.Length(min=0, max=3), string_only_list))
 SubTechniqueURL = NewType('SubTechniqueURL', str, validate=validate.Regexp(SUBTECHNIQUE_URL))
 TacticURL = NewType('TacticURL', str, validate=validate.Regexp(TACTIC_URL))
