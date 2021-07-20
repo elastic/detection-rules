@@ -1,0 +1,52 @@
+[metadata]
+creation_date = "2021/07/19"
+maturity = "production"
+updated_date = "2021/07/19"
+
+[rule]
+author = ["Austin Songer"]
+description = "Identifies when an ElastiCache security group has been modified or deleted."
+false_positives = [
+    """
+    A ElastiCache security group deletion may be done by a system or network administrator. Verify whether the user identity,
+    user agent, and/or hostname should be making changes in your environment. Security Group deletions from unfamiliar
+    users or hosts should be investigated. If known behavior is causing false positives, it can be exempted from the
+    rule.
+    """,
+]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS ElastiCache Security Group Modified or Deleted"
+note = """## Config
+
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = ["https://docs.aws.amazon.com/AmazonElastiCache/latest/APIReference/Welcome.html"]
+risk_score = 21
+rule_id = "1ba5160d-f5a2-4624-b0ff-6a1dc55d2516"
+severity = "low"
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Monitoring"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and  event.provider:elasticache.amazonaws.com and  event.action:(Delete Cache Security Group or 
+Authorize Cache Security Group Ingress or  Revoke Cache Security Group Ingress or AuthorizeCacheSecurityGroupEgress or 
+RevokeCacheSecurityGroupEgress) and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1531"
+name = "Account Access Removal"
+reference = "https://attack.mitre.org/techniques/T1531/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
