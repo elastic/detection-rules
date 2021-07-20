@@ -7,7 +7,9 @@
 from typing import TypeVar, Type
 
 import marshmallow_dataclass
+import marshmallow_dataclass.union_field
 import marshmallow_jsonschema
+import marshmallow_union
 from marshmallow import Schema
 
 from .utils import cached
@@ -42,7 +44,10 @@ def patch_jsonschema(obj: dict) -> dict:
 
         child.pop("title", None)
 
-        if isinstance(child["type"], list):
+        if "anyOf" in child:
+            child["anyOf"] = [dive(c) for c in child["anyOf"]]
+
+        elif isinstance(child["type"], list):
             if 'null' in child["type"]:
                 child["type"] = [t for t in child["type"] if t != 'null']
 
@@ -86,7 +91,7 @@ class MarshmallowDataclassMixin:
     @cached
     def jsonschema(cls):
         """Get the jsonschema representation for this class."""
-        jsonschema = marshmallow_jsonschema.JSONSchema().dump(cls.__schema())
+        jsonschema = PatchedJSONSchema().dump(cls.__schema())
         jsonschema = patch_jsonschema(jsonschema)
         return jsonschema
 
@@ -105,3 +110,20 @@ class MarshmallowDataclassMixin:
             serialized = _strip_none_from_dict(serialized)
 
         return serialized
+
+
+class PatchedJSONSchema(marshmallow_jsonschema.JSONSchema):
+
+    # Patch marshmallow-jsonschema to support marshmallow-dataclass[union]
+    def _get_schema_for_field(self, obj, field):
+        """Patch marshmallow_jsonschema.base.JSONSchema to support marshmallow-dataclass[union]."""
+        if isinstance(field, marshmallow_dataclass.union_field.Union):
+            # convert to marshmallow_union.Union
+            field = marshmallow_union.Union([subfield for _, subfield in field.union_fields],
+                                            metadata=field.metadata,
+                                            required=field.required, name=field.name,
+                                            parent=field.parent, root=field.root, error_messages=field.error_messages,
+                                            default_error_messages=field.default_error_messages, default=field.default,
+                                            allow_none=field.allow_none)
+
+        return super()._get_schema_for_field(obj, field)
