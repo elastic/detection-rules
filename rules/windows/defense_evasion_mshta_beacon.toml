@@ -9,7 +9,7 @@ description = """
 Identifies Mshta.exe making outbound network connections. This may indicate adversarial activity as Mshta is often
 leveraged by adversaries to execute malicious scripts and evade detection.
 """
-from = "now-120m"
+from = "now-10m"
 index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
@@ -21,7 +21,7 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
 type = "eql"
 
 query = '''
-sequence by process.entity_id with maxspan=2h
+sequence by process.entity_id with maxspan=10m
   [process where event.type in ("start", "process_started") and process.name : "mshta.exe" and
      not process.parent.name : "Microsoft.ConfigurationManagement.exe" and
      not (process.parent.executable : "C:\\Amazon\\Amazon Assistant\\amazonAssistantService.exe" or
