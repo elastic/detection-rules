@@ -12,7 +12,6 @@ Rules within this folder are organized by solution or platform. The structure is
 | [`macos/`](macos)                   | Rules for macOS                                                      |
 | [`ml/`](ml)                         | Rules that use machine learning jobs (ML)                            |
 | [`network/`](network)               | Rules that use network data sources                                  |
-| [`okta/`](integrations/okta)        | Rules written for the Okta module of filebeat                        |
 | [`promotions/`](promotions)         | Rules that promote external alerts into detection engine alerts      |
 | [`windows/`](windows)               | Rules for the Microsoft Windows Operating System                     |
 
