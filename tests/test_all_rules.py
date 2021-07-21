@@ -480,6 +480,23 @@ class TestRuleTiming(BaseRuleTest):
             invalids_str = '\n'.join(invalids)
             self.fail(f'The following rules have longer max_spans than lookbacks:\n{invalids_str}')
 
+    def test_eql_interval_to_maxspan(self):
+        """Check the ratio of interval to maxspan for eql rules."""
+        invalids = []
+
+        for rule in self.all_rules:
+            if rule.contents.data.type == 'eql':
+                if rule.contents.data.interval_ratio and rule.contents.data.interval_ratio < 50:
+                    interval = rule.contents.data.interval or 600
+                    maxspan = rule.contents.data.max_span
+                    expected = maxspan // 2
+                    err_msg = f'{self.rule_str(rule)} interval: {interval}, maxspan: {maxspan}, expected: >={expected}'
+                    invalids.append(err_msg)
+
+        if invalids:
+            invalids_str = '\n'.join(invalids)
+            self.fail(f'The following rules have intervals too short for their given max_spans:\n{invalids_str}')
+
 
 class TestLicense(BaseRuleTest):
     """Test rule license."""
