@@ -12,7 +12,7 @@ from pathlib import Path
 import eql
 
 import kql
-from detection_rules import attack, beats, ecs
+from detection_rules import attack
 from detection_rules.packaging import load_versions
 from detection_rules.rule import QueryRuleData
 from detection_rules.rule_loader import FILE_PATTERN
@@ -205,11 +205,12 @@ class TestRuleTags(BaseRuleTest):
     def test_required_tags(self):
         """Test that expected tags are present within rules."""
         # indexes considered; only those with obvious relationships included
-        # 'apm-*-transaction*', 'auditbeat-*', 'endgame-*', 'filebeat-*', 'logs-*', 'logs-aws*',
+        # 'apm-*-transaction*', 'traces-apm*', 'auditbeat-*', 'endgame-*', 'filebeat-*', 'logs-*', 'logs-aws*',
         # 'logs-endpoint.alerts-*', 'logs-endpoint.events.*', 'logs-okta*', 'packetbeat-*', 'winlogbeat-*'
 
         required_tags_map = {
             'apm-*-transaction*': {'all': ['APM']},
+            'traces-apm*': {'all': ['APM']},
             'auditbeat-*': {'any': ['Windows', 'macOS', 'Linux']},
             'endgame-*': {'all': ['Elastic Endgame']},
             'logs-aws*': {'all': ['AWS']},
@@ -356,23 +357,6 @@ class TestRuleFiles(BaseRuleTest):
 class TestRuleMetadata(BaseRuleTest):
     """Test the metadata of rules."""
 
-    def test_ecs_and_beats_opt_in_not_latest_only(self):
-        """Test that explicitly defined opt-in validation is not only the latest versions to avoid stale tests."""
-        for rule in self.all_rules:
-            beats_version = rule.contents.metadata.beats_version
-            ecs_versions = rule.contents.metadata.ecs_versions or []
-            latest_beats = str(beats.get_max_version())
-            latest_ecs = ecs.get_max_version()
-
-            error_msg = f'{self.rule_str(rule)} it is unnecessary to define the current latest beats version: ' \
-                        f'{latest_beats}'
-            self.assertNotEqual(latest_beats, beats_version, error_msg)
-
-            if len(ecs_versions) == 1:
-                error_msg = f'{self.rule_str(rule)} it is unnecessary to define the current latest ecs version if ' \
-                            f'only one version is specified: {latest_ecs}'
-                self.assertNotIn(latest_ecs, ecs_versions, error_msg)
-
     def test_updated_date_newer_than_creation(self):
         """Test that the updated_date is newer than the creation date."""
         invalid = []
@@ -427,7 +411,7 @@ class TestRuleMetadata(BaseRuleTest):
             self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
 
 
-class TestTuleTiming(BaseRuleTest):
+class TestRuleTiming(BaseRuleTest):
     """Test rule timing and timestamps."""
 
     def test_event_override(self):
@@ -482,3 +466,32 @@ class TestLicense(BaseRuleTest):
             if 'elastic license' in rule_license.lower():
                 err_msg = f'{self.rule_str(rule)} If Elastic License is used, only v2 should be used'
                 self.assertEqual(rule_license, 'Elastic License v2', err_msg)
+
+
+class TestRuleInvestigationGuide(BaseRuleTest):
+    """Test the note field of a rule."""
+
+    def test_config(self):
+        """Test that rules which require a config note are using standard verbiage."""
+        config = '## Config\n\n'
+        beats_integration_pattern = config + 'The {} Fleet integration, Filebeat module, or similarly ' \
+                                             'structured data is required to be compatible with this rule.'
+        required = {
+            'aws': beats_integration_pattern.format('AWS'),
+            'azure': beats_integration_pattern.format('Azure'),
+            'gcp': beats_integration_pattern.format('GCP'),
+            'google-workspace': beats_integration_pattern.format('Google Workspace'),
+            'microsoft-365': beats_integration_pattern.format('Microsoft 365'),
+            'okta': beats_integration_pattern.format('Okta'),
+        }
+
+        for rule in self.all_rules:
+            rule_dir = rule.path.parts[-2]
+            note_str = required.get(rule_dir)
+            if note_str:
+                self.assert_(rule.contents.data.note, f'{self.rule_str(rule)} note required for config information')
+
+                if note_str not in rule.contents.data.note:
+                    self.fail(f'{self.rule_str(rule)} expected config missing\n\n'
+                              f'Expected: {note_str}\n\n'
+                              f'Actual: {rule.contents.data.note}')
