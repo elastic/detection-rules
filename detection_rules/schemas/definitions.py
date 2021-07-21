@@ -44,12 +44,10 @@ TIMELINE_TEMPLATES: Final[dict] = {
 }
 
 
-def string_only_list(obj: List[str]):
-    """Validate all records in a list are strings."""
-    return all([isinstance(r, str) for r in obj])
-
+NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
 
 BranchVer = NewType('BranchVer', str, validate=validate.Regexp(BRANCH_PATTERN))
+CardinalityFields = NewType('CardinalityFields', List[NonEmptyStr], validate=validate.Length(min=0, max=3))
 CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
@@ -58,7 +56,6 @@ Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
 Markdown = NewType("MarkdownField", CodeString)
 Maturity = Literal['development', 'experimental', 'beta', 'production', 'deprecated']
 MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
-NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
 Operator = Literal['equals']
 OSType = Literal['windows', 'linux', 'macos']
 PositiveInteger = NewType('PositiveInteger', int, validate=validate.Range(min=1))
@@ -67,8 +64,6 @@ RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'threshold
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
 Severity = Literal['low', 'medium', 'high', 'critical']
 Sha256 = NewType('Sha256', str, validate=validate.Regexp(SHA256_PATTERN))
-StringListMaxSizeThree = NewType('StringListMaxSizeThree', List[NonEmptyStr],
-                                 validate=validate.And(validate.Length(min=0, max=3), string_only_list))
 SubTechniqueURL = NewType('SubTechniqueURL', str, validate=validate.Regexp(SUBTECHNIQUE_URL))
 TacticURL = NewType('TacticURL', str, validate=validate.Regexp(TACTIC_URL))
 TechniqueURL = NewType('TechniqueURL', str, validate=validate.Regexp(TECHNIQUE_URL))

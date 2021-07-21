@@ -256,7 +256,7 @@ class ThresholdQueryRuleData(QueryRuleData):
             field: str
             value: definitions.ThresholdValue
 
-        field: definitions.StringListMaxSizeThree
+        field: definitions.CardinalityFields
         value: definitions.ThresholdValue
         cardinality: Optional[List[ThresholdCardinality]]
 
