@@ -34,6 +34,7 @@ class RuleMeta(MarshmallowDataclassMixin):
 
     # Optional fields
     comments: Optional[str]
+    integration: Optional[str]
     maturity: Optional[definitions.Maturity]
     min_stack_version: Optional[definitions.SemVer]
     os_type_list: Optional[List[definitions.OSType]]
@@ -182,7 +183,7 @@ class BaseRuleData(MarshmallowDataclassMixin):
     def save_schema(cls):
         """Save the schema as a jsonschema."""
         fields: List[dataclasses.Field] = dataclasses.fields(cls)
-        type_field = next(field for field in fields if field.name == "type")
+        type_field = next(f for f in fields if f.name == "type")
         rule_type = typing.get_args(type_field.type)[0] if cls != BaseRuleData else "base"
         schema = cls.jsonschema()
         version_dir = SCHEMA_DIR / "master"
@@ -255,9 +256,9 @@ class ThresholdQueryRuleData(QueryRuleData):
             field: str
             value: definitions.ThresholdValue
 
-        field: List[definitions.NonEmptyStr]
+        field: definitions.CardinalityFields
         value: definitions.ThresholdValue
-        cardinality: Optional[ThresholdCardinality]
+        cardinality: Optional[List[ThresholdCardinality]]
 
     type: Literal["threshold"]
     threshold: ThresholdMapping
