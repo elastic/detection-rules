@@ -269,28 +269,43 @@ class EQLRuleData(QueryRuleData):
     type: Literal["eql"]
     language: Literal["eql"]
 
+    @staticmethod
+    def convert_time_span(span: str) -> int:
+        """Convert time span in datemath to value in milliseconds."""
+        amount = int("".join(char for char in span if char.isdigit()))
+        unit = eql.ast.TimeUnit("".join(char for char in span if char.isalpha()))
+        return eql.ast.TimeRange(amount, unit).as_milliseconds()
+
+    def convert_relative_delta(self, lookback: str) -> int:
+        now = len("now")
+        min_length = now + len('+5m')
+
+        if lookback.startswith("now") and len(lookback) >= min_length:
+            lookback = lookback[len("now"):]
+            sign = lookback[0]  # + or -
+            span = lookback[1:]
+            amount = self.convert_time_span(span)
+            return amount * (-1 if sign == "-" else 1)
+        else:
+            return self.convert_time_span(lookback)
+
     @cached_property
-    def max_span(self) -> Optional[eql.ast.TimeRange]:
+    def max_span(self) -> Optional[int]:
         """Maxspan value for sequence rules if defined."""
         if eql.utils.get_query_type(self.ast) == 'sequence' and hasattr(self.ast.first, 'max_span'):
-            return self.ast.first.max_span
+            return self.ast.first.max_span.as_milliseconds() if self.ast.first.max_span else None
 
     @cached_property
-    def look_back(self) -> Union[eql.ast.TimeRange, Literal['unknown']]:
+    def look_back(self) -> Optional[Union[int, Literal['unknown']]]:
         """Lookback value of a rule."""
         # https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#date-math
-        from_ = self.from_ or 'now-6m'
-        from_ = from_.split('-')
-        to = self.to
+        to = self.convert_relative_delta(self.to) if self.to else 0
+        from_ = self.convert_relative_delta(self.from_ or "now-6m")
 
-        if len(from_) != 2 or from_[0] != 'now' or to not in (None, 'now'):
+        if not (to or from_):
             return 'unknown'
-
-        _, lookback = from_
-        quantity = int(lookback[-2])
-        unit = eql.ast.TimeUnit(lookback[-1])
-
-        return eql.ast.TimeRange(quantity, unit)
+        else:
+            return to - from_
 
 
 @dataclass(frozen=True)

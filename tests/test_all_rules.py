@@ -466,8 +466,8 @@ class TestRuleTiming(BaseRuleTest):
                 if rule.contents.data.look_back == 'unknown':
                     unknowns.append(self.rule_str(rule, trailer=None))
                 else:
-                    look_back = rule.contents.data.look_back.as_milliseconds()
-                    max_span = rule.contents.data.max_span.as_milliseconds()
+                    look_back = rule.contents.data.look_back
+                    max_span = rule.contents.data.max_span
 
                     if look_back < max_span:
                         invalids.append(f'{self.rule_str(rule)} lookback: {look_back}, maxspan: {max_span}')
