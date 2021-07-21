@@ -486,9 +486,14 @@ class TestRuleTiming(BaseRuleTest):
 
         for rule in self.all_rules:
             if rule.contents.data.type == 'eql':
-                if rule.contents.data.interval_ratio and rule.contents.data.interval_ratio < 50:
-                    interval = rule.contents.data.interval or 5 * 60 * 1000
-                    maxspan = rule.contents.data.max_span
+                five_minutes = 5 * 60 * 1000
+                interval = rule.contents.data.interval or five_minutes
+                maxspan = rule.contents.data.max_span
+                ratio = rule.contents.data.interval_ratio
+
+                # we want to test for at least a ratio of: interval >= 1/2 maxspan
+                # but we only want to make an exception and cap the ratio at 5m
+                if maxspan and maxspan > five_minutes / 2 and ratio and ratio < 50:
                     expected = maxspan // 2
                     err_msg = f'{self.rule_str(rule)} interval: {interval}, maxspan: {maxspan}, expected: >={expected}'
                     invalids.append(err_msg)
