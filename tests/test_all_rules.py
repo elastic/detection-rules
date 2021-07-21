@@ -480,8 +480,8 @@ class TestRuleInvestigationGuide(BaseRuleTest):
             'aws': beats_integration_pattern.format('AWS'),
             'azure': beats_integration_pattern.format('Azure'),
             'gcp': beats_integration_pattern.format('GCP'),
-            'google-workspace': beats_integration_pattern.format('Google Workspace'),
-            'microsoft-365': beats_integration_pattern.format('Microsoft 365'),
+            'google_workspace': beats_integration_pattern.format('Google Workspace'),
+            'o365': beats_integration_pattern.format('Microsoft 365'),
             'okta': beats_integration_pattern.format('Okta'),
         }
 
