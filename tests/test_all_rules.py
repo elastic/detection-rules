@@ -487,7 +487,7 @@ class TestRuleTiming(BaseRuleTest):
         for rule in self.all_rules:
             if rule.contents.data.type == 'eql':
                 if rule.contents.data.interval_ratio and rule.contents.data.interval_ratio < 50:
-                    interval = rule.contents.data.interval or 600
+                    interval = rule.contents.data.interval or 5 * 60 * 1000
                     maxspan = rule.contents.data.max_span
                     expected = maxspan // 2
                     err_msg = f'{self.rule_str(rule)} interval: {interval}, maxspan: {maxspan}, expected: >={expected}'
