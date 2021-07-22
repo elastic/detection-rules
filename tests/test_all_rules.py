@@ -6,6 +6,7 @@
 """Test that all rules have valid metadata and syntax."""
 import os
 import re
+import warnings
 from collections import defaultdict
 from pathlib import Path
 
@@ -456,6 +457,55 @@ class TestRuleTiming(BaseRuleTest):
             rules_str = '\n '.join(self.rule_str(r, trailer=None) for r in missing)
             err_msg = f'The following rules should have a longer `from` defined, due to indexes used\n {rules_str}'
             self.fail(err_msg)
+
+    def test_eql_lookback(self):
+        """Ensure EQL rules lookback => max_span, when defined."""
+        unknowns = []
+        invalids = []
+        ten_minutes = 10 * 60 * 1000
+
+        for rule in self.all_rules:
+            if rule.contents.data.type == 'eql' and rule.contents.data.max_span:
+                if rule.contents.data.look_back == 'unknown':
+                    unknowns.append(self.rule_str(rule, trailer=None))
+                else:
+                    look_back = rule.contents.data.look_back
+                    max_span = rule.contents.data.max_span
+                    expected = look_back + ten_minutes
+
+                    if expected < max_span:
+                        invalids.append(f'{self.rule_str(rule)} lookback: {look_back}, maxspan: {max_span}, '
+                                        f'expected: >={expected}')
+
+        if unknowns:
+            warn_str = '\n'.join(unknowns)
+            warnings.warn(f'Unable to determine lookbacks for the following rules:\n{warn_str}')
+
+        if invalids:
+            invalids_str = '\n'.join(invalids)
+            self.fail(f'The following rules have longer max_spans than lookbacks:\n{invalids_str}')
+
+    def test_eql_interval_to_maxspan(self):
+        """Check the ratio of interval to maxspan for eql rules."""
+        invalids = []
+        five_minutes = 5 * 60 * 1000
+
+        for rule in self.all_rules:
+            if rule.contents.data.type == 'eql':
+                interval = rule.contents.data.interval or five_minutes
+                maxspan = rule.contents.data.max_span
+                ratio = rule.contents.data.interval_ratio
+
+                # we want to test for at least a ratio of: interval >= 1/2 maxspan
+                # but we only want to make an exception and cap the ratio at 5m interval (2.5m maxspan)
+                if maxspan and maxspan > (five_minutes / 2) and ratio and ratio < .5:
+                    expected = maxspan // 2
+                    err_msg = f'{self.rule_str(rule)} interval: {interval}, maxspan: {maxspan}, expected: >={expected}'
+                    invalids.append(err_msg)
+
+        if invalids:
+            invalids_str = '\n'.join(invalids)
+            self.fail(f'The following rules have intervals too short for their given max_spans (ms):\n{invalids_str}')
 
 
 class TestLicense(BaseRuleTest):
