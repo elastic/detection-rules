@@ -15,7 +15,8 @@ false_positives = [
     the source IP address of your reverse-proxy.
     """,
 ]
-index = ["packetbeat-*"]
+from = "now-9m"
+index = ["auditbeat-*", "filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
 language = "lucene"
 license = "Elastic License v2"
 name = "Inbound Connection to an Unsecure Elasticsearch Node"
@@ -29,7 +30,7 @@ references = [
 risk_score = 47
 rule_id = "31295df3-277b-4c56-a1fb-84e31b4222a9"
 severity = "medium"
-tags = ["Elastic", "Network", "Threat Detection", "Initial Access"]
+tags = ["Elastic", "Network", "Threat Detection", "Initial Access", "Host"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -41,13 +42,12 @@ event.category:network_traffic AND network.protocol:http AND status:OK AND desti
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1190"
-name = "Exploit Public-Facing Application"
 reference = "https://attack.mitre.org/techniques/T1190/"
+name = "Exploit Public-Facing Application"
+id = "T1190"
 
 
 [rule.threat.tactic]
-id = "TA0001"
-name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
+name = "Initial Access"
+id = "TA0001"
