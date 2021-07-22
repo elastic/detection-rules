@@ -1,0 +1,51 @@
+[metadata]
+creation_date = "2021/07/22"
+maturity = "production"
+updated_date = "2021/07/22"
+
+[rule]
+author = ["Austin Songer"]
+description = ""
+false_positives = [
+    """
+    Unknown
+    """,
+]
+from = "now-30m"
+index = ["filebeat-*", "logs-o365*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "DNS-over-HTTPS Enabled by Registry"
+references = [
+    "https://www.tenforums.com/tutorials/151318-how-enable-disable-dns-over-https-doh-microsoft-edge.html",
+    "https://chromeenterprise.google/policies/?policy=DnsOverHttpsMode",
+    "",
+]
+risk_score = 21
+rule_id = "a22a09c2-2162-4df0-a356-9aacbeb56a04"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where event.type in ("creation", "change") and
+  (registry.path: "HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Edge\BuiltInDnsClientEnabled" and
+  registry.data.strings: "1") or
+  (registry.path: "HKEY_LOCAL_MACHINE\SOFTWARE\Google\Chrome\DnsOverHttpsMode" and
+  registry.data.strings: "secure")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
