@@ -9,19 +9,20 @@ import typing
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
-from typing import Literal, Union, Optional, List, Any
+from typing import Literal, Union, Optional, List, Any, Dict
 from uuid import uuid4
 
 from marshmallow import ValidationError, validates_schema
 
+
 from . import utils
 from .mixins import MarshmallowDataclassMixin
 from .rule_formatter import toml_write, nested_normalize
-from .schemas import definitions, SCHEMA_DIR
-from .schemas import downgrade
+from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas
 from .utils import cached
 
 _META_SCHEMA_REQ_DEFAULTS = {}
+MIN_FLEET_PACKAGE_VERSION = '7.13.0'
 
 
 @dataclass(frozen=True)
@@ -32,16 +33,21 @@ class RuleMeta(MarshmallowDataclassMixin):
     deprecation_date: Optional[definitions.Date]
 
     # Optional fields
-    beats_version: Optional[definitions.BranchVer]
-    ecs_versions: Optional[List[definitions.BranchVer]]
     comments: Optional[str]
+    integration: Optional[str]
     maturity: Optional[definitions.Maturity]
+    min_stack_version: Optional[definitions.SemVer]
     os_type_list: Optional[List[definitions.OSType]]
     query_schema_validation: Optional[bool]
     related_endpoint_rules: Optional[List[str]]
 
     # Extended information as an arbitrary dictionary
-    extended = Optional[dict]
+    extended: Optional[dict]
+
+    def get_validation_stack_versions(self) -> Dict[str, dict]:
+        """Get a dict of beats and ecs versions per stack release."""
+        stack_versions = get_stack_schemas(self.min_stack_version or MIN_FLEET_PACKAGE_VERSION)
+        return stack_versions
 
 
 @dataclass(frozen=True)
@@ -177,7 +183,7 @@ class BaseRuleData(MarshmallowDataclassMixin):
     def save_schema(cls):
         """Save the schema as a jsonschema."""
         fields: List[dataclasses.Field] = dataclasses.fields(cls)
-        type_field = next(field for field in fields if field.name == "type")
+        type_field = next(f for f in fields if f.name == "type")
         rule_type = typing.get_args(type_field.type)[0] if cls != BaseRuleData else "base"
         schema = cls.jsonschema()
         version_dir = SCHEMA_DIR / "master"
@@ -250,9 +256,9 @@ class ThresholdQueryRuleData(QueryRuleData):
             field: str
             value: definitions.ThresholdValue
 
-        field: List[definitions.NonEmptyStr]
+        field: definitions.CardinalityFields
         value: definitions.ThresholdValue
-        cardinality: Optional[ThresholdCardinality]
+        cardinality: Optional[List[ThresholdCardinality]]
 
     type: Literal["threshold"]
     threshold: ThresholdMapping
