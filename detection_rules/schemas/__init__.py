@@ -3,13 +3,13 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 import json
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import jsonschema
 
 from .rta_schema import validate_rta_mapping
 from ..semver import Version
-from ..utils import cached, get_etc_path
+from ..utils import cached, get_etc_path, load_etc_dump
 from . import definitions
 from pathlib import Path
 
@@ -18,6 +18,7 @@ __all__ = (
     "SCHEMA_DIR",
     "definitions",
     "downgrade",
+    "get_stack_schemas",
     "validate_rta_mapping",
     "all_versions",
 )
@@ -122,7 +123,7 @@ def downgrade_threshold_to_7_11(version: Version, api_contents: dict) -> dict:
         if len(threshold_field) > 1:
             raise ValueError('Cannot downgrade a threshold rule that has multiple threshold fields defined')
 
-        if threshold.get('cardinality', {}).get('field') or threshold.get('cardinality', {}).get('value'):
+        if threshold.get('cardinality'):
             raise ValueError('Cannot downgrade a threshold rule that has a defined cardinality')
 
         api_contents = api_contents.copy()
@@ -181,3 +182,24 @@ def downgrade(api_contents: dict, target_version: str, current_version: Optional
         api_contents = migrations[version](version, api_contents)
 
     return api_contents
+
+
+@cached
+def get_stack_schemas(stack_version: str) -> Dict[str, dict]:
+    """Return all ECS + beats to stack versions for a every stack version >= specified stack version and <= package."""
+    from ..packaging import load_current_package_version
+
+    stack_version = Version(stack_version)
+    current_package = Version(load_current_package_version())
+
+    if len(current_package) == 2:
+        current_package = Version(current_package + (0,))
+
+    stack_map = load_etc_dump('stack-schema-map.yaml')
+    versions = {k: v for k, v in stack_map.items()
+                if (mapped_version := Version(k)) >= stack_version and mapped_version <= current_package and v}
+
+    if stack_version > current_package:
+        versions[stack_version] = {'beats': 'master', 'ecs': 'master'}
+
+    return versions
