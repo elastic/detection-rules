@@ -483,24 +483,24 @@ class TestRuleTiming(BaseRuleTest):
     def test_eql_interval_to_maxspan(self):
         """Check the ratio of interval to maxspan for eql rules."""
         invalids = []
+        five_minutes = 5 * 60 * 1000
 
         for rule in self.all_rules:
             if rule.contents.data.type == 'eql':
-                five_minutes = 5 * 60 * 1000
                 interval = rule.contents.data.interval or five_minutes
                 maxspan = rule.contents.data.max_span
                 ratio = rule.contents.data.interval_ratio
 
                 # we want to test for at least a ratio of: interval >= 1/2 maxspan
-                # but we only want to make an exception and cap the ratio at 5m
-                if maxspan and maxspan > five_minutes / 2 and ratio and ratio < 50:
+                # but we only want to make an exception and cap the ratio at 5m interval (2.5m maxspan)
+                if maxspan and maxspan > (five_minutes / 2) and ratio and ratio < .5:
                     expected = maxspan // 2
                     err_msg = f'{self.rule_str(rule)} interval: {interval}, maxspan: {maxspan}, expected: >={expected}'
                     invalids.append(err_msg)
 
         if invalids:
             invalids_str = '\n'.join(invalids)
-            self.fail(f'The following rules have intervals too short for their given max_spans:\n{invalids_str}')
+            self.fail(f'The following rules have intervals too short for their given max_spans (ms):\n{invalids_str}')
 
 
 class TestLicense(BaseRuleTest):

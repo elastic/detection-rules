@@ -308,11 +308,11 @@ class EQLRuleData(QueryRuleData):
             return to - from_
 
     @cached_property
-    def interval_ratio(self) -> Optional[int]:
+    def interval_ratio(self) -> Optional[float]:
         """Ratio of interval time window / max_span time window."""
         if self.max_span:
             interval = self.convert_time_span(self.interval or '5m')
-            return interval // self.max_span
+            return interval / self.max_span
 
 
 @dataclass(frozen=True)
