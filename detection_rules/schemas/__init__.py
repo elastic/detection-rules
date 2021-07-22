@@ -123,7 +123,7 @@ def downgrade_threshold_to_7_11(version: Version, api_contents: dict) -> dict:
         if len(threshold_field) > 1:
             raise ValueError('Cannot downgrade a threshold rule that has multiple threshold fields defined')
 
-        if threshold.get('cardinality', {}).get('field') or threshold.get('cardinality', {}).get('value'):
+        if threshold.get('cardinality'):
             raise ValueError('Cannot downgrade a threshold rule that has a defined cardinality')
 
         api_contents = api_contents.copy()
