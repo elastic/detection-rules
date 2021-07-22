@@ -223,7 +223,7 @@ def validate_all(fail):
 @click.option('--columns', '-c', multiple=True, help='Specify columns to add the table')
 @click.option('--language', type=click.Choice(["eql", "kql"]), default="kql")
 @click.option('--count', is_flag=True, help='Return a count rather than table')
-def search_rules(query, columns, language, count, verbose=True, rules: Dict[str, dict] = None, pager=False):
+def search_rules(query, columns, language, count, verbose=True, rules: Dict[str, TOMLRule] = None, pager=False):
     """Use KQL or EQL to find matching rules."""
     from kql import get_evaluator
     from eql.table import Table
@@ -235,16 +235,16 @@ def search_rules(query, columns, language, count, verbose=True, rules: Dict[str,
     rules = rules or {str(rule.path): rule for rule in RuleCollection.default()}
 
     for file_name, rule_doc in rules.items():
-        flat = {"file": os.path.relpath(file_name)}
-        flat.update(rule_doc)
-        flat.update(rule_doc["metadata"])
-        flat.update(rule_doc["rule"])
+        flat: dict = {"file": os.path.relpath(file_name)}
+        flat.update(rule_doc.contents.to_dict())
+        flat.update(flat["metadata"])
+        flat.update(flat["rule"])
 
         tactic_names = []
         technique_ids = []
         subtechnique_ids = []
 
-        for entry in rule_doc['rule'].get('threat', []):
+        for entry in flat['rule'].get('threat', []):
             if entry["framework"] != "MITRE ATT&CK":
                 continue
 
@@ -253,8 +253,8 @@ def search_rules(query, columns, language, count, verbose=True, rules: Dict[str,
             technique_ids.extend([t['id'] for t in techniques])
             subtechnique_ids.extend([st['id'] for t in techniques for st in t.get('subtechnique', [])])
 
-        flat.update(techniques=technique_ids, tactics=tactic_names, subtechniques=subtechnique_ids,
-                    unique_fields=TOMLRule.get_unique_query_fields(rule_doc['rule']))
+        flat.update(techniques=technique_ids, tactics=tactic_names, subtechniques=subtechnique_ids)
+        #           unique_fields=TOMLRule.get_unique_query_fields(rule_doc['rule']))
         flattened_rules.append(flat)
 
     flattened_rules.sort(key=lambda dct: dct["name"])

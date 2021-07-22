@@ -215,8 +215,4 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
     # rta_mappings.add_rule_to_mapping_file(rule)
     # click.echo('Placeholder added to rule-mapping.yml')
 
-    click.echo('Rule will validate against the latest ECS schema available (and beats if necessary)')
-    click.echo('    - to have a rule validate against specific ECS schemas, add them to metadata->ecs_versions')
-    click.echo('    - to have a rule validate against a specific beats schema, add it to metadata->beats_version')
-
     return rule
