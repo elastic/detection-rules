@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Literal, Union, Optional, List, Any, Dict
 from uuid import uuid4
 
+import eql
 from marshmallow import ValidationError, validates_schema
-
 
 from . import utils
 from .mixins import MarshmallowDataclassMixin
@@ -269,6 +269,51 @@ class EQLRuleData(QueryRuleData):
     """EQL rules are a special case of query rules."""
     type: Literal["eql"]
     language: Literal["eql"]
+
+    @staticmethod
+    def convert_time_span(span: str) -> int:
+        """Convert time span in datemath to value in milliseconds."""
+        amount = int("".join(char for char in span if char.isdigit()))
+        unit = eql.ast.TimeUnit("".join(char for char in span if char.isalpha()))
+        return eql.ast.TimeRange(amount, unit).as_milliseconds()
+
+    def convert_relative_delta(self, lookback: str) -> int:
+        now = len("now")
+        min_length = now + len('+5m')
+
+        if lookback.startswith("now") and len(lookback) >= min_length:
+            lookback = lookback[len("now"):]
+            sign = lookback[0]  # + or -
+            span = lookback[1:]
+            amount = self.convert_time_span(span)
+            return amount * (-1 if sign == "-" else 1)
+        else:
+            return self.convert_time_span(lookback)
+
+    @cached_property
+    def max_span(self) -> Optional[int]:
+        """Maxspan value for sequence rules if defined."""
+        if eql.utils.get_query_type(self.ast) == 'sequence' and hasattr(self.ast.first, 'max_span'):
+            return self.ast.first.max_span.as_milliseconds() if self.ast.first.max_span else None
+
+    @cached_property
+    def look_back(self) -> Optional[Union[int, Literal['unknown']]]:
+        """Lookback value of a rule."""
+        # https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#date-math
+        to = self.convert_relative_delta(self.to) if self.to else 0
+        from_ = self.convert_relative_delta(self.from_ or "now-6m")
+
+        if not (to or from_):
+            return 'unknown'
+        else:
+            return to - from_
+
+    @cached_property
+    def interval_ratio(self) -> Optional[float]:
+        """Ratio of interval time window / max_span time window."""
+        if self.max_span:
+            interval = self.convert_time_span(self.interval or '5m')
+            return interval / self.max_span
 
 
 @dataclass(frozen=True)
