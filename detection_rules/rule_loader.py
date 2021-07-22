@@ -5,6 +5,7 @@
 
 """Load rule metadata transform between rule and api formats."""
 import io
+import typing
 from collections import OrderedDict
 from pathlib import Path
 from typing import Dict, List, Iterable, Callable, Optional
@@ -111,7 +112,11 @@ class RuleCollection:
 
         return filtered_collection
 
-    def _deserialize_toml(self, path: Path) -> dict:
+    @staticmethod
+    def deserialize_toml_string(contents: typing.Union[bytes, str]) -> dict:
+        return pytoml.loads(contents)
+
+    def _load_toml_file(self, path: Path) -> dict:
         if path in self._toml_load_cache:
             return self._toml_load_cache[path]
 
@@ -119,7 +124,7 @@ class RuleCollection:
         # https://github.com/uiri/toml/issues/152
         # might also be worth looking at https://github.com/sdispater/tomlkit
         with io.open(str(path.resolve()), "r", encoding="utf-8") as f:
-            toml_dict = pytoml.load(f)
+            toml_dict = self.deserialize_toml_string(f.read())
             self._toml_load_cache[path] = toml_dict
             return toml_dict
 
@@ -157,7 +162,7 @@ class RuleCollection:
                 self.add_rule(rule)
                 return rule
 
-            obj = self._deserialize_toml(path)
+            obj = self._load_toml_file(path)
             return self.load_dict(obj, path=path)
         except Exception:
             print(f"Error loading rule in {path}")
@@ -171,7 +176,7 @@ class RuleCollection:
     def load_directory(self, directory: Path, recursive=True, toml_filter: Optional[Callable[[dict], bool]] = None):
         paths = self._get_paths(directory, recursive=recursive)
         if toml_filter is not None:
-            paths = [path for path in paths if toml_filter(self._deserialize_toml(path))]
+            paths = [path for path in paths if toml_filter(self._load_toml_file(path))]
 
         self.load_files(paths)
 
