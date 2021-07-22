@@ -7,6 +7,9 @@
 from typing import TypeVar, Type
 
 import marshmallow_dataclass
+import marshmallow_dataclass.union_field
+import marshmallow_jsonschema
+import marshmallow_union
 from marshmallow import Schema
 
 from .utils import cached
@@ -26,6 +29,51 @@ def _strip_none_from_dict(obj: T) -> T:
     return obj
 
 
+def patch_jsonschema(obj: dict) -> dict:
+    """Patch marshmallow-jsonschema output to look more like JSL."""
+
+    def dive(child: dict) -> dict:
+        if "$ref" in child:
+            name = child["$ref"].split("/")[-1]
+            definition = obj["definitions"][name]
+            return dive(definition)
+
+        child = child.copy()
+        if "default" in child and child["default"] is None:
+            child.pop("default")
+
+        child.pop("title", None)
+
+        if "anyOf" in child:
+            child["anyOf"] = [dive(c) for c in child["anyOf"]]
+
+        elif isinstance(child["type"], list):
+            if 'null' in child["type"]:
+                child["type"] = [t for t in child["type"] if t != 'null']
+
+            if len(child["type"]) == 1:
+                child["type"] = child["type"][0]
+
+        if "items" in child:
+            child["items"] = dive(child["items"])
+
+        if "properties" in child:
+            # .rstrip("_") is workaround for `from_` -> from
+            # https://github.com/fuhrysteve/marshmallow-jsonschema/issues/107
+            child["properties"] = {k.rstrip("_"): dive(v) for k, v in child["properties"].items()}
+
+        if isinstance(child.get("additionalProperties"), dict):
+            # .rstrip("_") is workaround for `from_` -> from
+            # https://github.com/fuhrysteve/marshmallow-jsonschema/issues/107
+            child["additionalProperties"] = dive(child["additionalProperties"])
+
+        return child
+
+    patched = {"$schema": "http://json-schema.org/draft-04/schema#"}
+    patched.update(dive(obj))
+    return patched
+
+
 class MarshmallowDataclassMixin:
     """Mixin class for marshmallow serialization."""
 
@@ -38,6 +86,14 @@ class MarshmallowDataclassMixin:
     def get(self, key: str):
         """Get a key from the query data without raising attribute errors."""
         return getattr(self, key, None)
+
+    @classmethod
+    @cached
+    def jsonschema(cls):
+        """Get the jsonschema representation for this class."""
+        jsonschema = PatchedJSONSchema().dump(cls.__schema())
+        jsonschema = patch_jsonschema(jsonschema)
+        return jsonschema
 
     @classmethod
     def from_dict(cls: Type[ClassT], obj: dict) -> ClassT:
@@ -54,3 +110,20 @@ class MarshmallowDataclassMixin:
             serialized = _strip_none_from_dict(serialized)
 
         return serialized
+
+
+class PatchedJSONSchema(marshmallow_jsonschema.JSONSchema):
+
+    # Patch marshmallow-jsonschema to support marshmallow-dataclass[union]
+    def _get_schema_for_field(self, obj, field):
+        """Patch marshmallow_jsonschema.base.JSONSchema to support marshmallow-dataclass[union]."""
+        if isinstance(field, marshmallow_dataclass.union_field.Union):
+            # convert to marshmallow_union.Union
+            field = marshmallow_union.Union([subfield for _, subfield in field.union_fields],
+                                            metadata=field.metadata,
+                                            required=field.required, name=field.name,
+                                            parent=field.parent, root=field.root, error_messages=field.error_messages,
+                                            default_error_messages=field.default_error_messages, default=field.default,
+                                            allow_none=field.allow_none)
+
+        return super()._get_schema_for_field(obj, field)

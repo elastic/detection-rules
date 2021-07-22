@@ -68,3 +68,11 @@ class ParserTests(unittest.TestCase):
 
         with self.assertRaises(kql.KqlParseError):
             kql.parse("foo:wc*", schema={"foo": "long"})
+
+    def test_type_family_success(self):
+        kql.parse("abc : 1.2345", schema={"abc": "scaled_float"})
+        kql.parse("abc : hello", schema={"abc": "annotated-text"})
+
+    def test_type_family_fail(self):
+        with self.assertRaises(kql.KqlParseError):
+            kql.parse('foo : "hello world"', schema={"foo": "scaled_float"})

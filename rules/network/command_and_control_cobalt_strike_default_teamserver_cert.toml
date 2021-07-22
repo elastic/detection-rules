@@ -1,22 +1,25 @@
 [metadata]
 creation_date = "2020/10/05"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/05/10"
 
 [rule]
 author = ["Elastic"]
 description = """
 This rule detects the use of the default Cobalt Strike Team Server TLS certificate. Cobalt Strike is software for
 Adversary Simulations and Red Team Operations which are security assessments that replicate the tactics and techniques
-of an advanced adversary in a network. If using Filebeat, this rule requires the Suricata or Zeek modules. Modifications
-to the Packetbeat configuration can be made to include MD5 and SHA256 hashing algorithms (the default is SHA1) - see the
-Reference section for additional information on module configuration.
+of an advanced adversary in a network. Modifications to the Packetbeat configuration can be made to include MD5 and
+SHA256 hashing algorithms (the default is SHA1) - see the Reference section for additional information on module
+configuration.
 """
-index = ["filebeat-*", "packetbeat-*"]
+from = "now-9m"
+index = ["auditbeat-*", "filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Default Cobalt Strike Team Server Certificate"
-note = "While Cobalt Strike is intended to be used for penetration tests and IR training, it is frequently used by actual threat actors (TA) such as APT19, APT29, APT32, APT41, FIN6, DarkHydrus, CopyKittens, Cobalt Group, Leviathan, and many other unnamed criminal TAs. This rule uses high-confidence atomic indicators, alerts should be investigated rapidly."
+note = """## Threat intel
+
+While Cobalt Strike is intended to be used for penetration tests and IR training, it is frequently used by actual threat actors (TA) such as APT19, APT29, APT32, APT41, FIN6, DarkHydrus, CopyKittens, Cobalt Group, Leviathan, and many other unnamed criminal TAs. This rule uses high-confidence atomic indicators, alerts should be investigated rapidly."""
 references = [
     "https://attack.mitre.org/software/S0154/",
     "https://www.cobaltstrike.com/help-setup-collaboration",
@@ -27,13 +30,7 @@ references = [
 risk_score = 99
 rule_id = "e7075e8d-a966-458e-a183-85cd331af255"
 severity = "critical"
-tags = [
-    "Command and Control",
-    "Post-Execution",
-    "Threat Detection",
-    "Elastic",
-    "Network",
-]
+tags = ["Command and Control", "Post-Execution", "Threat Detection", "Elastic", "Network", "Host"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -61,4 +58,3 @@ reference = "https://attack.mitre.org/techniques/T1071/001/"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-

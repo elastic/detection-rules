@@ -6,6 +6,7 @@
 """Util functions."""
 import base64
 import contextlib
+import distutils.spawn
 import functools
 import glob
 import gzip
@@ -13,12 +14,16 @@ import hashlib
 import io
 import json
 import os
+import shutil
+import subprocess
 import time
 import zipfile
 from dataclasses import is_dataclass, astuple
 from datetime import datetime, date
 from pathlib import Path
+from typing import Dict, Union, Optional, Callable
 
+import click
 import eql.utils
 from eql.utils import load_dump, stream_json_lines
 
@@ -44,6 +49,20 @@ class DateTimeEncoder(json.JSONEncoder):
 
 
 marshmallow_schemas = {}
+
+
+def gopath() -> Optional[str]:
+    """Retrieve $GOPATH."""
+    env_path = os.getenv("GOPATH")
+    if env_path:
+        return env_path
+
+    go_bin = distutils.spawn.find_executable("go")
+    if go_bin:
+        output = subprocess.check_output([go_bin, "env"], encoding="utf-8").splitlines()
+        for line in output:
+            if line.startswith("GOPATH="):
+                return line[len("GOPATH="):].strip('"')
 
 
 def dict_hash(obj: dict) -> str:
@@ -146,6 +165,24 @@ def unzip_and_save(contents, path, member=None, verbose=True):
         if verbose:
             name_list = archive.namelist()[member] if not member else archive.namelist()
             print('Saved files to {}: \n\t- {}'.format(path, '\n\t- '.join(name_list)))
+
+
+def unzip_to_dict(zipped: zipfile.ZipFile, load_json=True) -> Dict[str, Union[dict, str]]:
+    """Unzip and load contents to dict with filenames as keys."""
+    bundle = {}
+    for filename in zipped.namelist():
+        if filename.endswith('/'):
+            continue
+
+        fp = Path(filename)
+        contents = zipped.read(filename)
+
+        if load_json and fp.suffix == '.json':
+            contents = json.loads(contents)
+
+        bundle[fp.name] = contents
+
+    return bundle
 
 
 def event_sort(events, timestamp='@timestamp', date_format='%Y-%m-%dT%H:%M:%S.%f%z', asc=True):
@@ -278,6 +315,27 @@ def format_command_options(ctx):
             formatter.write_dl(opts)
 
     return formatter.getvalue()
+
+
+def make_git(*prefix_args) -> Optional[Callable]:
+    git_exe = shutil.which("git")
+    prefix_args = [str(arg) for arg in prefix_args]
+
+    if not git_exe:
+        click.secho("Unable to find git", err=True, fg="red")
+        ctx = click.get_current_context(silent=True)
+
+        if ctx is not None:
+            ctx.exit(1)
+
+        return
+
+    def git(*args, show_output=False):
+        method = subprocess.call if show_output else subprocess.check_output
+        full_args = [git_exe] + prefix_args + [str(arg) for arg in args]
+        return method(full_args, encoding="utf-8").rstrip()
+
+    return git
 
 
 def add_params(*params):

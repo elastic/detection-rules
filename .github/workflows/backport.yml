@@ -1,0 +1,147 @@
+name: backport
+on:
+  pull_request_target:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - unlabeled
+      - labeled
+      - closed
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    if: |
+      github.event.pull_request.state == 'open' && !github.event.pull_request.draft
+    steps:
+      - name: 'Apply default "backport: auto" label'
+        uses: actions/github-script@v4
+        if: |
+          !contains(github.event.pull_request.labels.*.name, 'backport: auto') &&
+          !contains(github.event.pull_request.labels.*.name, 'backport: skip')
+        with:
+          script: |
+            github.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['backport: auto']
+            })
+      - name: 'Remove "backport: auto" if "backport: skip" is set'
+        uses: actions/github-script@v4
+        if: |
+          contains(github.event.pull_request.labels.*.name, 'backport: auto') &&
+          contains(github.event.pull_request.labels.*.name, 'backport: skip')
+        with:
+          script: |
+            github.issues.removeLabel({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'backport: auto'
+            })
+
+  commit:
+    if: |
+      github.event.pull_request.merged == true
+      && contains(github.event.pull_request.labels.*.name, 'backport: auto')
+      && (
+        (github.event.action == 'labeled' && github.event.label.name == 'backport: auto')
+        || (github.event.action == 'closed')
+      )
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+      matrix:
+        target_branch: [7.13, 7.14]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.PROTECTIONS_MACHINE_TOKEN }}
+          ref: main
+
+      - name: Set github config
+        run: |
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+      - name: Get branch histories
+        run: |
+          git fetch origin main --depth 100
+          git fetch origin ${{matrix.target_branch}} --depth 1
+          git status
+          git log -1 --format='%H'
+
+      - name: Checkout the commit into the staging area
+        run: |
+          # Checkout the merged commit
+          git checkout ${{github.event.pull_request.merge_commit_sha}}
+
+          # Move it to the staging area
+          git reset --soft HEAD^
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Prune non-${{matrix.target_branch}} rules
+        env:
+          UNSTAGED_LIST_FILE: "../unstaged-rules.txt"
+        run: |
+          python -m detection_rules dev unstage-incompatible-rules --target-stack-version ${{matrix.target_branch}}
+
+          # Track which rules were unstaged
+          git diff --name-only > $UNSTAGED_LIST_FILE
+
+          # Since they've been tracked, remove any untracked files
+          git checkout -- .
+
+      - name: Commit and push to ${{matrix.target_branch}}
+        env:
+          COMMIT_MSG_FILE: "../commit-message.txt"
+          UNSTAGED_LIST_FILE: "../unstaged-rules.txt"
+        run: |
+          set -x
+
+          echo "Switch to the target branch and keep the staged changes"
+          git checkout ${{matrix.target_branch}}
+
+          NEEDS_BACKPORT=$(git diff HEAD --quiet --exit-code && echo n || echo y)
+
+          if [ "n" = "$NEEDS_BACKPORT" ]
+          then
+            echo "No changes to backport"
+            exit 0
+          fi
+
+          echo "Create the new commit with the same author"
+          git commit --reuse-message ${{github.event.pull_request.merge_commit_sha}}
+
+          echo "Save the commit message"
+          git log ${{github.event.pull_request.merge_commit_sha}} --format=%B -n1 > $COMMIT_MSG_FILE
+
+          echo "Append to the commit message"
+          if [ -s "$UNSTAGED_LIST_FILE" ]
+          then
+            echo "Track note for the removed files"
+
+            echo "" >> $COMMIT_MSG_FILE
+            echo "Removed changes from:" >> $COMMIT_MSG_FILE
+            awk '{print "- " $0}' $UNSTAGED_LIST_FILE >> $COMMIT_MSG_FILE
+            echo "" >> $COMMIT_MSG_FILE
+            echo '(selectively cherry picked from commit ${{github.event.pull_request.merge_commit_sha}})' >> $COMMIT_MSG_FILE
+          else
+            echo "No removed files"
+
+            echo "" >> $COMMIT_MSG_FILE
+            echo '(cherry picked from commit ${{github.event.pull_request.merge_commit_sha}})' >> $COMMIT_MSG_FILE
+          fi
+
+          echo "Amend the commit message and push"
+          git commit --amend -F $COMMIT_MSG_FILE
+          git push
