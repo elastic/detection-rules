@@ -460,6 +460,7 @@ class TestRuleTiming(BaseRuleTest):
         """Ensure EQL rules lookback => max_span, when defined."""
         unknowns = []
         invalids = []
+        ten_minutes = 10 * 60 * 1000
 
         for rule in self.all_rules:
             if rule.contents.data.type == 'eql' and rule.contents.data.max_span:
@@ -468,9 +469,11 @@ class TestRuleTiming(BaseRuleTest):
                 else:
                     look_back = rule.contents.data.look_back
                     max_span = rule.contents.data.max_span
+                    expected = look_back + ten_minutes
 
-                    if look_back < max_span:
-                        invalids.append(f'{self.rule_str(rule)} lookback: {look_back}, maxspan: {max_span}')
+                    if expected < max_span:
+                        invalids.append(f'{self.rule_str(rule)} lookback: {look_back}, maxspan: {max_span}, '
+                                        f'expected: >={expected}')
 
         if unknowns:
             warn_str = '\n'.join(unknowns)
