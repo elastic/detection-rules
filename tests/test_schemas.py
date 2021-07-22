@@ -86,10 +86,10 @@ class TestSchemas(unittest.TestCase):
         cls.v712_threshold_rule = dict(copy.deepcopy(cls.v79_threshold_contents), threshold={
             'field': ['destination.bytes', 'process.args'],
             'value': 75,
-            'cardinality': {
+            'cardinality': [{
                 'field': 'user.name',
                 'value': 2
-            }
+            }]
         })
 
     def test_query_downgrade(self):
