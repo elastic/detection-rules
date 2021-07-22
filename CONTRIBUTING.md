@@ -83,7 +83,20 @@ We follow the [GitHub forking model](https://help.github.com/articles/fork-a-rep
 
 This repository follows a similar approach to other repositories within the [Elastic](https://github.com/elastic) organization, with a few exceptions that make our life easier. One way this repository is simpler is the lack of major version breaking changes. This means we have less backport commits to worry about and makes us a little more productive.
 
-The basic branching workflow we follow for Detection Rules:
+**7.13 and later**
+
+The branching workflow we currently follow for Detection Rules:
+
+* All changes for the next release of rules are made to the `main` branch
+* During feature freeze for a release, we will create a branch from `main` for the release version `{majorVersion.minorVersion}`. This means that we can continue contributing to `main`, even during feature freeze, and it will target `{majorVersion.minorVersion+1}`
+* Rules are automatically backported to old branches (starting at `7.13`) if the `backport: auto` label is set on GitHub. This is done automatically for all PRs that merge to main `main` with the label `backport: auto`.
+* To opt-out of a backport, add the label `backport: skip`. GitHub will automatically remove the `backport: auto` label from the PR when this label is set
+* As of 7.13, you can use Fleet to [update prebuilt rules](https://www.elastic.co/guide/en/security/current/rules-ui-management.html#download-prebuilt-rules) for your stack
+* Changes to rules in an already-released branch will be included in an update to the "Prebuilt Security Detection Rules" integration
+
+**Prior to 7.13**
+
+The branching workflow we used to follow for Detection Rules:
 
 * All changes for the next release of rules are made to the `main` branch
 * During feature freeze for a release, we will create a branch from `main` for the release version `{majorVersion.minorVersion}`. This means that we can continue contributing to `main`, even during feature freeze, and it will just target `{majorVersion.minorVersion+1}`
