@@ -1,0 +1,59 @@
+[metadata]
+creation_date = "2021/05/10"
+maturity = "production"
+updated_date = "2021/07/20"
+integration = "aws"
+
+[rule]
+author = ["Elastic", "Austin Songer"]
+description = "Identifies when a request has been made to transfer a Route 53 domain to another AWS account."
+false_positives = [
+    """
+    A domain may be transferred to another AWS account by a system or network administrator. Verify whether the user
+    identity, user agent, and/or hostname should be making changes in your environment. Domain transfers from unfamiliar
+    users or hosts should be investigated. If known behavior is causing false positives, it can be exempted from the
+    rule.
+    """,
+]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Route 53 Domain Transferred to Another Account"
+note = """## Config
+
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = ["https://docs.aws.amazon.com/Route53/latest/APIReference/API_Operations_Amazon_Route_53.html"]
+risk_score = 21
+rule_id = "2045567e-b0af-444a-8c0b-0b6e2dae9e13"
+severity = "low"
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Asset Visibility"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and event.provider:route53.amazonaws.com and event.action:TransferDomainToAnotherAwsAccount and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+reference = "https://attack.mitre.org/techniques/T1098/"
+name = "Account Manipulation"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+name = "Persistence"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0006"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+name = "Credential Access"
+
