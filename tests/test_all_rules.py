@@ -17,6 +17,7 @@ from detection_rules import attack
 from detection_rules.packaging import load_versions
 from detection_rules.rule import QueryRuleData
 from detection_rules.rule_loader import FILE_PATTERN
+from detection_rules.schemas import definitions
 from detection_rules.utils import get_path, load_etc_dump
 from rta import get_ttp_names
 from .base import BaseRuleTest
@@ -328,7 +329,7 @@ class TestRuleTimelines(BaseRuleTest):
 class TestRuleFiles(BaseRuleTest):
     """Test the expected file names."""
 
-    def test_rule_file_names_by_tactic(self):
+    def test_rule_file_name_tactic(self):
         """Test to ensure rule files have the primary tactic prepended to the filename."""
         bad_name_rules = []
 
@@ -336,7 +337,8 @@ class TestRuleFiles(BaseRuleTest):
             rule_path = rule.path.resolve()
             filename = rule_path.name
 
-            if rule_path.parent.name == 'ml':
+            # machine learning jobs should be in rules/ml or rules/integrations/<name>
+            if rule.contents.data.type == definitions.MACHINE_LEARNING:
                 continue
 
             threat = rule.contents.data.threat
@@ -518,30 +520,33 @@ class TestLicense(BaseRuleTest):
                 self.assertEqual(rule_license, 'Elastic License v2', err_msg)
 
 
-class TestRuleInvestigationGuide(BaseRuleTest):
+class TestIntegrationRules(BaseRuleTest):
     """Test the note field of a rule."""
 
-    def test_config(self):
+    def test_integration_guide(self):
         """Test that rules which require a config note are using standard verbiage."""
         config = '## Config\n\n'
         beats_integration_pattern = config + 'The {} Fleet integration, Filebeat module, or similarly ' \
                                              'structured data is required to be compatible with this rule.'
-        required = {
-            'aws': beats_integration_pattern.format('AWS'),
-            'azure': beats_integration_pattern.format('Azure'),
-            'gcp': beats_integration_pattern.format('GCP'),
-            'google-workspace': beats_integration_pattern.format('Google Workspace'),
-            'microsoft-365': beats_integration_pattern.format('Microsoft 365'),
-            'okta': beats_integration_pattern.format('Okta'),
+        render = beats_integration_pattern.format
+        integration_notes = {
+            'aws': render('AWS'),
+            'azure': render('Azure'),
+            'cyberarkpas': render('CyberArk Privileged Access Security (PAS)'),
+            'gcp': render('GCP'),
+            'google_workspace': render('Google Workspace'),
+            'o365': render('Microsoft 365'),
+            'okta': render('Okta'),
         }
 
         for rule in self.all_rules:
-            rule_dir = rule.path.parts[-2]
-            note_str = required.get(rule_dir)
+            integration = rule.contents.metadata.integration
+            note_str = integration_notes.get(integration)
+
             if note_str:
                 self.assert_(rule.contents.data.note, f'{self.rule_str(rule)} note required for config information')
 
                 if note_str not in rule.contents.data.note:
-                    self.fail(f'{self.rule_str(rule)} expected config missing\n\n'
+                    self.fail(f'{self.rule_str(rule)} expected {integration} config missing\n\n'
                               f'Expected: {note_str}\n\n'
                               f'Actual: {rule.contents.data.note}')
