@@ -5,7 +5,7 @@ updated_date = "2021/05/05"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
-description = "Identifies when threat actors tamper with S3 data management in Amazon Web Services"
+description = "Identifies when a user tampers with S3 configuration in Amazon Web Services."
 false_positives = ["Unknown"]
 from = "now-10m"
 index = ["filebeat-*", "logs-aws*"]
@@ -30,14 +30,8 @@ type = "query"
 
 query = '''
 event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and 
-  event.action:(PutBucketLogging or 
-                PutBucketWebsite or 
-                PutEncryptionConfiguration or 
-                PutLifecycleConfiguration or 
-                PutReplicationConfiguration or 
-                ReplicateObject or 
-                RestoreObject) and 
-   event.outcome:success
+  event.action:(PutBucketLogging or PutBucketWebsite or PutEncryptionConfiguration or PutLifecycleConfiguration or 
+                PutReplicationConfiguration or ReplicateObject or RestoreObject) and event.outcome:success
 '''
 
 [[rule.threat]]
