@@ -4,6 +4,7 @@
 # 2.0.
 
 """CLI commands for internal detection_rules dev team."""
+import dataclasses
 import functools
 import io
 import json
