@@ -402,8 +402,7 @@ class TestRuleMetadata(BaseRuleTest):
                 err_msg = f'{self.rule_str(rule)} deprecation_date and updated_date should match'
                 self.assertEqual(meta.deprecation_date, meta.updated_date, err_msg)
 
-
-        # skip this so the lock file can be shared across branches 
+        # skip this so the lock file can be shared across branches
         #
         # missing_rules = sorted(set(versions).difference(set(self.rule_lookup)))
         # missing_rule_strings = '\n '.join(f'{r} - {versions[r]["rule_name"]}' for r in missing_rules)
