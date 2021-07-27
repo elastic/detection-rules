@@ -331,9 +331,10 @@ def make_git(*prefix_args) -> Optional[Callable]:
         return
 
     def git(*args, show_output=False):
-        method = subprocess.call if show_output else subprocess.check_output
         full_args = [git_exe] + prefix_args + [str(arg) for arg in args]
-        return method(full_args, encoding="utf-8").rstrip()
+        if show_output:
+            return subprocess.check_output(full_args, encoding="utf-8").rstrip()
+        return subprocess.check_call(full_args)
 
     return git
 
