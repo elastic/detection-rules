@@ -1,0 +1,71 @@
+name: release-kibana
+on:
+  workflow_dispatch:
+    inputs:
+      kibana_branch:
+        description: 'Target branch for a Kibana PR'
+        required: true
+        default: 'master'
+      labels:
+        description: 'Labels to assign to the PR (comma-separated)'
+        required: true
+        default: 'release_note:skip,release_note:enhancement,auto-backport'
+      draft:
+        description: 'Create a PR as draft (y/n)'
+        required: false
+
+jobs:
+  kibana-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout detection-rules
+        uses: actions/checkout@v2
+        with:
+          path: detection-rules
+
+      - name: Checkout Kibana
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.PROTECTIONS_MACHINE_TOKEN }}
+          ref: ${{github.event.inputs.kibana_branch}}
+          repository: elastic/kibana
+          path: kibana
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          cd detection-rules
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Build release package
+        run: |
+          cd detection-rules
+          python -m detection_rules dev build-release
+
+      - name: Set github config
+        run: |
+          git config --global user.email "72879786+protectionsmachine@users.noreply.github.com"
+          git config --global user.name "protectionsmachine"
+
+      - name: Create the PR to Kibana
+        env:
+          DRAFT_ARGS: "${{startsWith(github.event.inputs.draft,'y') && '--draft' || ' '}}"
+          LABEL_ARGS: "--label ${{github.event.inputs.labels}}"
+          BRANCH_ARGS: "--base-branch ${{github.event.inputs.kibana_branch}}"
+          GITHUB_TOKEN: "${{ secrets.PROTECTIONS_MACHINE_TOKEN }}"
+        run: |
+          cd detection-rules
+          python -m detection_rules dev kibana-pr --assign ${{github.actor}} $LABEL_ARGS $DRAFT_ARGS $BRANCH_ARGS
+
+      - name: Archive production artifacts for branch builds
+        uses: actions/upload-artifact@v2
+        with:
+          name: release-files
+          path: |
+            detection-rules/releases

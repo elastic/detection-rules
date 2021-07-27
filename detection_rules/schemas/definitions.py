@@ -5,7 +5,7 @@
 
 """Custom shared definitions for schemas."""
 
-from typing import Literal, Final
+from typing import List, Literal, Final
 
 from marshmallow import validate
 from marshmallow_dataclass import NewType
@@ -44,19 +44,21 @@ TIMELINE_TEMPLATES: Final[dict] = {
 }
 
 
+NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
+
 BranchVer = NewType('BranchVer', str, validate=validate.Regexp(BRANCH_PATTERN))
+CardinalityFields = NewType('CardinalityFields', List[NonEmptyStr], validate=validate.Length(min=0, max=3))
 CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
 FilterLanguages = Literal["kuery", "lucene"]
 Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
-PositiveInteger = NewType('PositiveInteger', int, validate=validate.Range(min=1))
 Markdown = NewType("MarkdownField", CodeString)
 Maturity = Literal['development', 'experimental', 'beta', 'production', 'deprecated']
 MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
-NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
 Operator = Literal['equals']
 OSType = Literal['windows', 'linux', 'macos']
+PositiveInteger = NewType('PositiveInteger', int, validate=validate.Range(min=1))
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
 RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'threshold', 'threat_match']
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))

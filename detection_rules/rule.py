@@ -9,7 +9,7 @@ import typing
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
-from typing import Literal, Union, Optional, List, Any
+from typing import Literal, Union, Optional, List, Any, Dict
 from uuid import uuid4
 
 import eql
@@ -19,11 +19,11 @@ import kql
 from . import utils
 from .mixins import MarshmallowDataclassMixin
 from .rule_formatter import toml_write, nested_normalize
-from .schemas import definitions, SCHEMA_DIR
-from .schemas import downgrade
+from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas
 from .utils import cached
 
 _META_SCHEMA_REQ_DEFAULTS = {}
+MIN_FLEET_PACKAGE_VERSION = '7.13.0'
 
 
 @dataclass(frozen=True)
@@ -34,13 +34,21 @@ class RuleMeta(MarshmallowDataclassMixin):
     deprecation_date: Optional[definitions.Date]
 
     # Optional fields
-    beats_version: Optional[definitions.BranchVer]
-    ecs_versions: Optional[List[definitions.BranchVer]]
     comments: Optional[str]
+    integration: Optional[str]
     maturity: Optional[definitions.Maturity]
+    min_stack_version: Optional[definitions.SemVer]
     os_type_list: Optional[List[definitions.OSType]]
     query_schema_validation: Optional[bool]
     related_endpoint_rules: Optional[List[str]]
+
+    # Extended information as an arbitrary dictionary
+    extended: Optional[dict]
+
+    def get_validation_stack_versions(self) -> Dict[str, dict]:
+        """Get a dict of beats and ecs versions per stack release."""
+        stack_versions = get_stack_schemas(self.min_stack_version or MIN_FLEET_PACKAGE_VERSION)
+        return stack_versions
 
 
 @dataclass(frozen=True)
@@ -176,7 +184,7 @@ class BaseRuleData(MarshmallowDataclassMixin):
     def save_schema(cls):
         """Save the schema as a jsonschema."""
         fields: List[dataclasses.Field] = dataclasses.fields(cls)
-        type_field = next(field for field in fields if field.name == "type")
+        type_field = next(f for f in fields if f.name == "type")
         rule_type = typing.get_args(type_field.type)[0] if cls != BaseRuleData else "base"
         schema = cls.jsonschema()
         version_dir = SCHEMA_DIR / "master"
@@ -249,9 +257,9 @@ class ThresholdQueryRuleData(QueryRuleData):
             field: str
             value: definitions.ThresholdValue
 
-        field: List[definitions.NonEmptyStr]
+        field: definitions.CardinalityFields
         value: definitions.ThresholdValue
-        cardinality: Optional[ThresholdCardinality]
+        cardinality: Optional[List[ThresholdCardinality]]
 
     type: Literal["threshold"]
     threshold: ThresholdMapping
@@ -262,6 +270,51 @@ class EQLRuleData(QueryRuleData):
     """EQL rules are a special case of query rules."""
     type: Literal["eql"]
     language: Literal["eql"]
+
+    @staticmethod
+    def convert_time_span(span: str) -> int:
+        """Convert time span in datemath to value in milliseconds."""
+        amount = int("".join(char for char in span if char.isdigit()))
+        unit = eql.ast.TimeUnit("".join(char for char in span if char.isalpha()))
+        return eql.ast.TimeRange(amount, unit).as_milliseconds()
+
+    def convert_relative_delta(self, lookback: str) -> int:
+        now = len("now")
+        min_length = now + len('+5m')
+
+        if lookback.startswith("now") and len(lookback) >= min_length:
+            lookback = lookback[len("now"):]
+            sign = lookback[0]  # + or -
+            span = lookback[1:]
+            amount = self.convert_time_span(span)
+            return amount * (-1 if sign == "-" else 1)
+        else:
+            return self.convert_time_span(lookback)
+
+    @cached_property
+    def max_span(self) -> Optional[int]:
+        """Maxspan value for sequence rules if defined."""
+        if eql.utils.get_query_type(self.ast) == 'sequence' and hasattr(self.ast.first, 'max_span'):
+            return self.ast.first.max_span.as_milliseconds() if self.ast.first.max_span else None
+
+    @cached_property
+    def look_back(self) -> Optional[Union[int, Literal['unknown']]]:
+        """Lookback value of a rule."""
+        # https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#date-math
+        to = self.convert_relative_delta(self.to) if self.to else 0
+        from_ = self.convert_relative_delta(self.from_ or "now-6m")
+
+        if not (to or from_):
+            return 'unknown'
+        else:
+            return to - from_
+
+    @cached_property
+    def interval_ratio(self) -> Optional[float]:
+        """Ratio of interval time window / max_span time window."""
+        if self.max_span:
+            interval = self.convert_time_span(self.interval or '5m')
+            return interval / self.max_span
 
 
 @dataclass(frozen=True)

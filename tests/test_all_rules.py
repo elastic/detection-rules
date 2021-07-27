@@ -6,16 +6,18 @@
 """Test that all rules have valid metadata and syntax."""
 import os
 import re
+import warnings
 from collections import defaultdict
 from pathlib import Path
 
 import eql
 
 import kql
-from detection_rules import attack, beats, ecs
+from detection_rules import attack
 from detection_rules.packaging import load_versions
 from detection_rules.rule import QueryRuleData
 from detection_rules.rule_loader import FILE_PATTERN
+from detection_rules.schemas import definitions
 from detection_rules.utils import get_path, load_etc_dump
 from rta import get_ttp_names
 from .base import BaseRuleTest
@@ -205,11 +207,12 @@ class TestRuleTags(BaseRuleTest):
     def test_required_tags(self):
         """Test that expected tags are present within rules."""
         # indexes considered; only those with obvious relationships included
-        # 'apm-*-transaction*', 'auditbeat-*', 'endgame-*', 'filebeat-*', 'logs-*', 'logs-aws*',
+        # 'apm-*-transaction*', 'traces-apm*', 'auditbeat-*', 'endgame-*', 'filebeat-*', 'logs-*', 'logs-aws*',
         # 'logs-endpoint.alerts-*', 'logs-endpoint.events.*', 'logs-okta*', 'packetbeat-*', 'winlogbeat-*'
 
         required_tags_map = {
             'apm-*-transaction*': {'all': ['APM']},
+            'traces-apm*': {'all': ['APM']},
             'auditbeat-*': {'any': ['Windows', 'macOS', 'Linux']},
             'endgame-*': {'all': ['Elastic Endgame']},
             'logs-aws*': {'all': ['AWS']},
@@ -326,7 +329,7 @@ class TestRuleTimelines(BaseRuleTest):
 class TestRuleFiles(BaseRuleTest):
     """Test the expected file names."""
 
-    def test_rule_file_names_by_tactic(self):
+    def test_rule_file_name_tactic(self):
         """Test to ensure rule files have the primary tactic prepended to the filename."""
         bad_name_rules = []
 
@@ -334,7 +337,8 @@ class TestRuleFiles(BaseRuleTest):
             rule_path = rule.path.resolve()
             filename = rule_path.name
 
-            if rule_path.parent.name == 'ml':
+            # machine learning jobs should be in rules/ml or rules/integrations/<name>
+            if rule.contents.data.type == definitions.MACHINE_LEARNING:
                 continue
 
             threat = rule.contents.data.threat
@@ -355,23 +359,6 @@ class TestRuleFiles(BaseRuleTest):
 
 class TestRuleMetadata(BaseRuleTest):
     """Test the metadata of rules."""
-
-    def test_ecs_and_beats_opt_in_not_latest_only(self):
-        """Test that explicitly defined opt-in validation is not only the latest versions to avoid stale tests."""
-        for rule in self.all_rules:
-            beats_version = rule.contents.metadata.beats_version
-            ecs_versions = rule.contents.metadata.ecs_versions or []
-            latest_beats = str(beats.get_max_version())
-            latest_ecs = ecs.get_max_version()
-
-            error_msg = f'{self.rule_str(rule)} it is unnecessary to define the current latest beats version: ' \
-                        f'{latest_beats}'
-            self.assertNotEqual(latest_beats, beats_version, error_msg)
-
-            if len(ecs_versions) == 1:
-                error_msg = f'{self.rule_str(rule)} it is unnecessary to define the current latest ecs version if ' \
-                            f'only one version is specified: {latest_ecs}'
-                self.assertNotIn(latest_ecs, ecs_versions, error_msg)
 
     def test_updated_date_newer_than_creation(self):
         """Test that the updated_date is newer than the creation date."""
@@ -415,19 +402,21 @@ class TestRuleMetadata(BaseRuleTest):
                 err_msg = f'{self.rule_str(rule)} deprecation_date and updated_date should match'
                 self.assertEqual(meta.deprecation_date, meta.updated_date, err_msg)
 
-        missing_rules = sorted(set(versions).difference(set(self.rule_lookup)))
-        missing_rule_strings = '\n '.join(f'{r} - {versions[r]["rule_name"]}' for r in missing_rules)
-        err_msg = f'Deprecated rules should not be removed, but moved to the rules/_deprecated folder instead. ' \
-                  f'The following rules have been version locked and are missing. ' \
-                  f'Re-add to the deprecated folder and update maturity to "deprecated": \n {missing_rule_strings}'
-        self.assertEqual([], missing_rules, err_msg)
+        # skip this so the lock file can be shared across branches
+        #
+        # missing_rules = sorted(set(versions).difference(set(self.rule_lookup)))
+        # missing_rule_strings = '\n '.join(f'{r} - {versions[r]["rule_name"]}' for r in missing_rules)
+        # err_msg = f'Deprecated rules should not be removed, but moved to the rules/_deprecated folder instead. ' \
+        #           f'The following rules have been version locked and are missing. ' \
+        #           f'Re-add to the deprecated folder and update maturity to "deprecated": \n {missing_rule_strings}'
+        # self.assertEqual([], missing_rules, err_msg)
 
         for rule_id, entry in deprecations.items():
             rule_str = f'{rule_id} - {entry["rule_name"]} ->'
             self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
 
 
-class TestTuleTiming(BaseRuleTest):
+class TestRuleTiming(BaseRuleTest):
     """Test rule timing and timestamps."""
 
     def test_event_override(self):
@@ -471,6 +460,55 @@ class TestTuleTiming(BaseRuleTest):
             err_msg = f'The following rules should have a longer `from` defined, due to indexes used\n {rules_str}'
             self.fail(err_msg)
 
+    def test_eql_lookback(self):
+        """Ensure EQL rules lookback => max_span, when defined."""
+        unknowns = []
+        invalids = []
+        ten_minutes = 10 * 60 * 1000
+
+        for rule in self.all_rules:
+            if rule.contents.data.type == 'eql' and rule.contents.data.max_span:
+                if rule.contents.data.look_back == 'unknown':
+                    unknowns.append(self.rule_str(rule, trailer=None))
+                else:
+                    look_back = rule.contents.data.look_back
+                    max_span = rule.contents.data.max_span
+                    expected = look_back + ten_minutes
+
+                    if expected < max_span:
+                        invalids.append(f'{self.rule_str(rule)} lookback: {look_back}, maxspan: {max_span}, '
+                                        f'expected: >={expected}')
+
+        if unknowns:
+            warn_str = '\n'.join(unknowns)
+            warnings.warn(f'Unable to determine lookbacks for the following rules:\n{warn_str}')
+
+        if invalids:
+            invalids_str = '\n'.join(invalids)
+            self.fail(f'The following rules have longer max_spans than lookbacks:\n{invalids_str}')
+
+    def test_eql_interval_to_maxspan(self):
+        """Check the ratio of interval to maxspan for eql rules."""
+        invalids = []
+        five_minutes = 5 * 60 * 1000
+
+        for rule in self.all_rules:
+            if rule.contents.data.type == 'eql':
+                interval = rule.contents.data.interval or five_minutes
+                maxspan = rule.contents.data.max_span
+                ratio = rule.contents.data.interval_ratio
+
+                # we want to test for at least a ratio of: interval >= 1/2 maxspan
+                # but we only want to make an exception and cap the ratio at 5m interval (2.5m maxspan)
+                if maxspan and maxspan > (five_minutes / 2) and ratio and ratio < .5:
+                    expected = maxspan // 2
+                    err_msg = f'{self.rule_str(rule)} interval: {interval}, maxspan: {maxspan}, expected: >={expected}'
+                    invalids.append(err_msg)
+
+        if invalids:
+            invalids_str = '\n'.join(invalids)
+            self.fail(f'The following rules have intervals too short for their given max_spans (ms):\n{invalids_str}')
+
 
 class TestLicense(BaseRuleTest):
     """Test rule license."""
@@ -482,3 +520,35 @@ class TestLicense(BaseRuleTest):
             if 'elastic license' in rule_license.lower():
                 err_msg = f'{self.rule_str(rule)} If Elastic License is used, only v2 should be used'
                 self.assertEqual(rule_license, 'Elastic License v2', err_msg)
+
+
+class TestIntegrationRules(BaseRuleTest):
+    """Test the note field of a rule."""
+
+    def test_integration_guide(self):
+        """Test that rules which require a config note are using standard verbiage."""
+        config = '## Config\n\n'
+        beats_integration_pattern = config + 'The {} Fleet integration, Filebeat module, or similarly ' \
+                                             'structured data is required to be compatible with this rule.'
+        render = beats_integration_pattern.format
+        integration_notes = {
+            'aws': render('AWS'),
+            'azure': render('Azure'),
+            'cyberarkpas': render('CyberArk Privileged Access Security (PAS)'),
+            'gcp': render('GCP'),
+            'google_workspace': render('Google Workspace'),
+            'o365': render('Microsoft 365'),
+            'okta': render('Okta'),
+        }
+
+        for rule in self.all_rules:
+            integration = rule.contents.metadata.integration
+            note_str = integration_notes.get(integration)
+
+            if note_str:
+                self.assert_(rule.contents.data.note, f'{self.rule_str(rule)} note required for config information')
+
+                if note_str not in rule.contents.data.note:
+                    self.fail(f'{self.rule_str(rule)} expected {integration} config missing\n\n'
+                              f'Expected: {note_str}\n\n'
+                              f'Actual: {rule.contents.data.note}')
