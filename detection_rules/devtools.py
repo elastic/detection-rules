@@ -318,6 +318,7 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
 # Pending an official GitHub API
 # @click.option("--automerge", is_flag=True, help="Enable auto-merge on the PR")
 @add_git_args
+@click.pass_context
 def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...], draft: bool, token: str, **kwargs):
     """Create a pull request to Kibana."""
     branch_name, commit_hash = ctx.invoke(kibana_commit, push=True, **kwargs)
