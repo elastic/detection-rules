@@ -29,7 +29,7 @@ PUT _ingest/pipeline/ml_hostriskscore_ingest_pipeline
 
 #### 5. Upload and start the `pivot` transform
 
-Upload the `pivot` transform in `ml_hostriskscore_pivot_transform.json` using the following API call:
+Upload the `pivot` transform in `ml_hostriskscore_pivot_transform.json` using the following API call. This transform calculates the risk level per hour for each host in your environment:
 
 
 ```
@@ -43,8 +43,6 @@ PUT _transform/ml_hostriskscore_pivot_transform
 ```
 GET ml_host_risk_score/_search (or _count)
 ```
-
-This transform runs hourly and calculates the risk level for each host in your environment.
 
 #### 6. Create the `ml_host_risk_score_latest` index with appropriate mappings
 
@@ -62,7 +60,7 @@ PUT ml_host_risk_score_latest
 
 #### 7. Upload the `latest` transform
 
-Upload the `latest` transform in `ml_hostriskscore_latest_transform.json` using the following API call:
+Upload the `latest` transform in `ml_hostriskscore_latest_transform.json` using the following API call. This transform gets the most current risk levels for all the hosts in your environment:
 
 
 ```
@@ -77,11 +75,8 @@ PUT _transform/ml_hostriskscore_latest_transform
 GET ml_host_risk_score_latest/_search (or _count)
 ```
 
-This transform gets the most current risk levels for all the hosts in your environment.
-
 #### 8. Import the dashboards
 
 * Navigate to `Management` -> `Stack Management` -> `Kibana` -> `Saved Objects`
 * Click on `Import` and import the `ml_hostriskscore_dashboards.ndjson` file
-
-Navigate to `Analytics` -> `Dashboard`. You should see two dashboards- `Current Risky Hosts`, which displays the current list (Top 20) of suspicious hosts in your environment, and `Host Risk Drilldown`, which allows you to further drill down into details of the risk associated with a particular host of interest.
+* Navigate to `Analytics` -> `Dashboard`. You should see two dashboards- `Current Risky Hosts`, which displays the current list (Top 20) of suspicious hosts in your environment, and `Host Risk Drilldown`, which allows you to further drill down into details of the risk associated with a particular host of interest.
