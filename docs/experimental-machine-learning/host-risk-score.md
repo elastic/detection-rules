@@ -81,6 +81,6 @@ GET ml_host_risk_score_latest/_search (or _count)
 * Click on `Import` and import the `ml_hostriskscore_dashboards.ndjson` file
 * Navigate to `Analytics` -> `Dashboard`. You should see two dashboards- `Current Risky Hosts`, which displays the current list (Top 20) of suspicious hosts in your environment, and `Host Risk Drilldown`, which allows you to further drill down into details of the risk associated with a particular host of interest.
 
-## About hostnames and host IDs
+# About hostnames and host IDs
 
 The Host Risk Score app currently uses host names (`host.name`), not the `host.id` field, for both searching and displaying hosts. There may be some edge cases where hosts use the same name. Physical Windows clients - desktops and laptops - in an Active Directory forest, are unlikely to have name collisions, as their computer accounts and distinguished names should be unique. Non-domain member servers, desktops and laptops, in a Windows workgroup, may occasionally have name collisions. Macs are often not managed by a directory service and may have name collisions. Virtual servers, that are created from templates or cloning processes may have hostname collisions.
