@@ -623,19 +623,18 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
 
 
 @dev_group.command('deprecate-rule')
-@click.argument('rule-file', type=click.Path(dir_okay=False))
+@click.argument('rule-file', type=Path)
 @click.pass_context
-def deprecate_rule(ctx: click.Context, rule_file: str):
+def deprecate_rule(ctx: click.Context, rule_file: Path):
     """Deprecate a rule."""
-    import pytoml
     from .packaging import load_versions
 
     version_info = load_versions()
-    rule_file = Path(rule_file)
-    contents = pytoml.loads(rule_file.read_text())
+    rule_collection = RuleCollection()
+    contents = rule_collection.load_file(rule_file).contents
     rule = TOMLRule(path=rule_file, contents=contents)
 
-    if rule.id not in version_info:
+    if rule.contents.id not in version_info:
         click.echo('Rule has not been version locked and so does not need to be deprecated. '
                    'Delete the file or update the maturity to `development` instead')
         ctx.exit()

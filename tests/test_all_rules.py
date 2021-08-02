@@ -39,7 +39,7 @@ class TestValidRules(BaseRuleTest):
         self.assertIsNone(re.match(file_pattern, 'still_not_a_valid_file_name.not_json'),
                           f'Incorrect pattern for verifying rule names: {file_pattern}')
 
-        for rule in self.all_rules:
+        for rule in self.production_rules:
             file_name = str(rule.path.name)
             self.assertIsNotNone(re.match(file_pattern, file_name), f'Invalid file name for {rule.path}')
 
@@ -73,7 +73,7 @@ class TestValidRules(BaseRuleTest):
         """Test that no file names are duplicated."""
         name_map = defaultdict(list)
 
-        for rule in self.all_rules:
+        for rule in self.production_rules:
             name_map[rule.path.name].append(rule.path.name)
 
         duplicates = {name: paths for name, paths in name_map.items() if len(paths) > 1}
@@ -90,7 +90,7 @@ class TestThreatMappings(BaseRuleTest):
         revoked = list(attack.revoked)
         deprecated = list(attack.deprecated)
 
-        for rule in self.all_rules:
+        for rule in self.production_rules:
             revoked_techniques = {}
             threat_mapping = rule.contents.data.threat
 
@@ -107,7 +107,7 @@ class TestThreatMappings(BaseRuleTest):
 
     def test_tactic_to_technique_correlations(self):
         """Ensure rule threat info is properly related to a single tactic and technique."""
-        for rule in self.all_rules:
+        for rule in self.production_rules:
             threat_mapping = rule.contents.data.threat or []
             if threat_mapping:
                 for entry in threat_mapping:
@@ -165,7 +165,7 @@ class TestThreatMappings(BaseRuleTest):
 
     def test_duplicated_tactics(self):
         """Check that a tactic is only defined once."""
-        for rule in self.all_rules:
+        for rule in self.production_rules:
             threat_mapping = rule.contents.data.threat
             tactics = [t.tactic.name for t in threat_mapping or []]
             duplicates = sorted(set(t for t in tactics if tactics.count(t) > 1))
@@ -191,7 +191,7 @@ class TestRuleTags(BaseRuleTest):
         ]
         expected_case = {normalize(t): t for t in expected_tags}
 
-        for rule in self.all_rules:
+        for rule in self.production_rules:
             rule_tags = rule.contents.data.tags
 
             if rule_tags:
@@ -224,7 +224,7 @@ class TestRuleTags(BaseRuleTest):
             'winlogbeat-*': {'all': ['Windows']}
         }
 
-        for rule in self.all_rules:
+        for rule in self.production_rules:
             rule_tags = rule.contents.data.tags
             error_msg = f'{self.rule_str(rule)} Missing tags:\nActual tags: {", ".join(rule_tags)}'
 
@@ -262,7 +262,7 @@ class TestRuleTags(BaseRuleTest):
         invalid = []
         tactics = set(tactics)
 
-        for rule in self.all_rules:
+        for rule in self.production_rules:
             rule_tags = rule.contents.data.tags
 
             if 'Continuous Monitoring' in rule_tags or rule.contents.data.type == 'machine_learning':
@@ -306,7 +306,7 @@ class TestRuleTimelines(BaseRuleTest):
         """Ensure rules with timelines have a corresponding title."""
         from detection_rules.schemas.definitions import TIMELINE_TEMPLATES
 
-        for rule in self.all_rules:
+        for rule in self.production_rules:
             timeline_id = rule.contents.data.timeline_id
             timeline_title = rule.contents.data.timeline_title
 
@@ -333,7 +333,7 @@ class TestRuleFiles(BaseRuleTest):
         """Test to ensure rule files have the primary tactic prepended to the filename."""
         bad_name_rules = []
 
-        for rule in self.all_rules:
+        for rule in self.production_rules:
             rule_path = rule.path.resolve()
             filename = rule_path.name
 
@@ -423,7 +423,7 @@ class TestRuleTiming(BaseRuleTest):
         """Test that rules have defined an timestamp_override if needed."""
         missing = []
 
-        for rule in self.all_rules:
+        for rule in self.production_rules:
             required = False
 
             if isinstance(rule.contents.data, QueryRuleData) and 'endgame-*' in rule.contents.data.index:
@@ -448,7 +448,7 @@ class TestRuleTiming(BaseRuleTest):
         long_indexes = {'logs-endpoint.events.*'}
         missing = []
 
-        for rule in self.all_rules:
+        for rule in self.production_rules:
             contents = rule.contents
 
             if isinstance(contents.data, QueryRuleData):
@@ -466,7 +466,7 @@ class TestRuleTiming(BaseRuleTest):
         invalids = []
         ten_minutes = 10 * 60 * 1000
 
-        for rule in self.all_rules:
+        for rule in self.production_rules:
             if rule.contents.data.type == 'eql' and rule.contents.data.max_span:
                 if rule.contents.data.look_back == 'unknown':
                     unknowns.append(self.rule_str(rule, trailer=None))
@@ -492,7 +492,7 @@ class TestRuleTiming(BaseRuleTest):
         invalids = []
         five_minutes = 5 * 60 * 1000
 
-        for rule in self.all_rules:
+        for rule in self.production_rules:
             if rule.contents.data.type == 'eql':
                 interval = rule.contents.data.interval or five_minutes
                 maxspan = rule.contents.data.max_span
@@ -541,7 +541,7 @@ class TestIntegrationRules(BaseRuleTest):
             'okta': render('Okta'),
         }
 
-        for rule in self.all_rules:
+        for rule in self.production_rules:
             integration = rule.contents.metadata.integration
             note_str = integration_notes.get(integration)
 
