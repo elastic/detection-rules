@@ -181,6 +181,65 @@ def update_lock_versions(rule_ids):
     return changed
 
 
+@dev_group.command('release-diff')
+@click.argument('old-tag')
+@click.argument('new-tag')
+def release_tag_diff(old_tag: str, new_tag: str) -> List[dict]:
+    """Rule diff between two tagged releases in the rules repo."""
+    from eql.table import Table
+
+    git = utils.make_git()
+    version_path = str(Path('etc').joinpath('version.lock.json'))
+    deprecated_path = str(Path('etc').joinpath('deprecated_rules.json'))
+    new = []
+    changed = []
+    deprecated = []
+
+    old_version = json.loads(git('show', f'{old_tag}:{version_path}', show_output=True))
+    new_version = json.loads(git('show', f'{new_tag}:{version_path}', show_output=True))
+
+    for rule_id, entry in new_version.items():
+        old_entry = old_version.get(rule_id)
+
+        if not old_entry:
+            new.append(dict(rule_id=rule_id, rule_name=entry['rule_name'], version=entry['version']))
+        elif entry['version'] != old_entry['version']:
+            ver_diff = entry['version'] - old_entry['version']
+            ver_diff = f'{"+" if ver_diff > 0 else "-"}{ver_diff}'
+            changed.append(
+                dict(rule_id=rule_id, rule_name=entry['rule_name'], version=entry['version'], version_diff=ver_diff))
+
+    old_deprecate = json.loads(git('show', f'{old_tag}:{deprecated_path}', show_output=True))
+    new_deprecate = json.loads(git('show', f'{new_tag}:{deprecated_path}', show_output=True))
+
+    deprecated.extend([dict(rule_id=rid, rule_name=e['rule_name']) for rid, e in new_deprecate.items()
+                       if rid not in old_deprecate])
+
+    new = sorted(new, key=lambda x: x['rule_name'])
+    deprecated = sorted(deprecated, key=lambda x: x['rule_name'])
+    changed = sorted(changed, key=lambda x: x['rule_name'])
+
+    def make_header(text: str, table: Table, diff: list):
+        width = len(str(table).splitlines()[0])
+        count = len(diff)
+        header = f'{"=" * width}\n{text + f"({count})":^{width}}'
+        return header
+
+    new_table = Table.from_list(['rule_id', 'rule_name', 'version'], new)
+    click.echo(make_header('New Rules', new_table, new))
+    click.echo(new_table)
+
+    deprecated_table = Table.from_list(['rule_id', 'rule_name'], deprecated)
+    click.echo(make_header('Deprecated Rules', deprecated_table, deprecated))
+    click.echo(deprecated_table)
+
+    changed_table = Table.from_list(['rule_id', 'rule_name', 'version', 'version_diff'], changed)
+    click.echo(make_header('Changed Rules', changed_table, changed))
+    click.echo(changed_table)
+
+    return new + deprecated + changed
+
+
 @dev_group.command('kibana-diff')
 @click.option('--rule-id', '-r', multiple=True, help='Optionally specify rule ID')
 @click.option('--repo', default='elastic/kibana', help='Repository where branch is located')
