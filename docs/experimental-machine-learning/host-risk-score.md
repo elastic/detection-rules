@@ -1,6 +1,6 @@
 # Host Risk Score- What is it?
 
-The Host Risk Score package consists of all the artifacts required to stand up the host risk scoring framework in your environment. This framework leverages transforms and visualizations in Kibana to identify the most suspicious hosts in your environment, based on alert activity on the hosts. 
+The Host Risk Score package (available as a GitHub release [here](https://github.com/elastic/detection-rules/releases)) consists of all the artifacts required to stand up the host risk scoring framework in your environment. This framework leverages transforms and visualizations in Kibana to identify the most suspicious hosts in your environment, based on alert activity on the hosts. 
 To deploy this framework in your environment, follow the steps outlined below.
 
 # Detailed steps
