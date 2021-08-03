@@ -1,6 +1,6 @@
 # Host Risk Score- What is it?
 
-The Host Risk Score package consists of all the artifacts required to stand up the host risk scoring framework in your environment. This framework leverages transforms and visualizations in Kibana to identify the most suspicious hosts in your environment, based on alert activity on the hosts. 
+The Host Risk Score package (available as a GitHub release [here](https://github.com/elastic/detection-rules/releases)) consists of all the artifacts required to stand up the host risk scoring framework in your environment. This framework leverages transforms and visualizations in Kibana to identify the most suspicious hosts in your environment, based on alert activity on the hosts. 
 To deploy this framework in your environment, follow the steps outlined below.
 
 # Detailed steps
@@ -79,7 +79,7 @@ GET ml_host_risk_score_latest/_search (or _count)
 
 * Navigate to `Management` -> `Stack Management` -> `Kibana` -> `Saved Objects`
 * Click on `Import` and import the `ml_hostriskscore_dashboards.ndjson` file
-* Navigate to `Analytics` -> `Dashboard`. You should see two dashboards- `Current Risky Hosts`, which displays the current list (Top 20) of suspicious hosts in your environment, and `Host Risk Drilldown`, which allows you to further drill down into details of the risk associated with a particular host of interest.
+* Navigate to `Analytics` -> `Dashboard`. You should see two dashboards- `Current Risk Scores for Hosts`, which displays the current list (Top 20) of suspicious hosts in your environment, and `Drilldown of Host Risk Score`, which allows you to further drill down into details of the risk associated with a particular host of interest.
 
 # About hostnames and host IDs
 
