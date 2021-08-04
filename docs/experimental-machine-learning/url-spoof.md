@@ -81,7 +81,8 @@ You can optionally choose to refresh your index mapping from within Kibana:
 
 ### 6. Upload detection rule(s)
 
-***insert command here***
+
+You can upload the rules associated with the *URL Spoofing* framework using the instructions provided [here](https://github.com/elastic/detection-rules/blob/main/docs/experimental-machine-learning/experimental-detections.md)
 
 
 And that's it! You should now be alerted whenever you interact with a predicted malicious URL in your environment.
