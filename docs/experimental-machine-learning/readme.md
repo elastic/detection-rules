@@ -6,6 +6,7 @@ This repo contains some additional information and files to use experimental[*](
 * [DGA](DGA.md)
 * [ProblemChild](problem-child.md)
 * [HostRiskScore](host-risk-score.md)
+* [URLSpoof](url-spoof.md)
 * [experimental detections](experimental-detections.md)
 
 ## Releases
@@ -14,6 +15,7 @@ There are separate [releases](https://github.com/elastic/detection-rules/release
 * DGA: `ML-DGA-*`
 * ProblemChild: `ML-ProblemChild-*`
 * Host Risk Score: `ML-HostRiskScore-*`
+* URL Spoof: `ML-URLSpoof-*`
 * experimental detections: `ML-experimental-detections-*`
 
 Releases will use the tag `ML-TYPE-YYYMMDD-N`, which will be needed for uploading the model using the CLI.
