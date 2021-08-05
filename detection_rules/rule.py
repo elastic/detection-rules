@@ -103,8 +103,8 @@ class ThreatMapping(MarshmallowDataclassMixin):
                 technique_ids.add(technique.id)
 
                 for subtechnique in (technique.subtechnique or []):
-                    sub_technique_ids.update(subtechnique.id)
-                    sub_technique_names.update(subtechnique.name)
+                    sub_technique_ids.add(subtechnique.id)
+                    sub_technique_names.add(subtechnique.name)
 
         return FlatThreatMapping(
             tactic_names=sorted(tactic_names),
