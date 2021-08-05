@@ -330,13 +330,18 @@ def make_git(*prefix_args) -> Optional[Callable]:
 
         return
 
-    def git(*args, show_output=False):
+    def git(*args, print_output=False):
         full_args = [git_exe] + prefix_args + [str(arg) for arg in args]
-        if show_output:
-            return subprocess.check_output(full_args, encoding="utf-8").rstrip()
-        return subprocess.check_call(full_args)
+        if print_output:
+            return subprocess.check_call(full_args)
+        return subprocess.check_output(full_args, encoding="utf-8").rstrip()
 
     return git
+
+
+def git(*args, **kwargs):
+    """Find and run a one-off Git command."""
+    return make_git()(*args, **kwargs)
 
 
 def add_params(*params):
