@@ -1,0 +1,45 @@
+name: Project-assigner
+
+on:
+  pull_request_target:
+    types:
+      - labeled
+      - unlabeled
+  issues:
+    types:
+      - labeled
+      - unlabeled
+
+jobs:
+  assign_to_project:
+    runs-on: ubuntu-latest
+    name: Assign or remove an issue from a project based on a label
+    steps:
+      - name: Assign issue to project
+        uses: elastic/github-actions/project-assigner@v2.1.1
+        id: project_assigner
+        if: |
+          github.event_name == "issues"
+        with:
+          issue-mappings: |
+            [
+              {"label": "Rule: New", "projectNumber": "342", "columnName": "To do", "projectScope": "org"},
+              {"label": "Rule: Tuning", "projectNumber": "342", "columnName": "To do", "projectScope": "org"},
+              {"label": "Rule: Hunt", "projectNumber": "342", "columnName": "To do", "projectScope": "org"},
+              {"label": "Rule: Deprecated", "projectNumber": "342", "columnName": "To do", "projectScope": "org"}
+            ]
+          ghToken: ${{ secrets.PROJECT_ASSIGNER_TOKEN }}
+      - name: Assign pull to project
+        uses: elastic/github-actions/project-assigner@v2.1.1
+        id: project_assigner
+        if: |
+          github.event_name == "pull_request_target"
+        with:
+          issue-mappings: |
+            [
+              {"label": "Rule: New", "projectNumber": "342", "columnName": "In Progress", "projectScope": "org"},
+              {"label": "Rule: Tuning", "projectNumber": "342", "columnName": "In Progress", "projectScope": "org"},
+              {"label": "Rule: Hunt", "projectNumber": "342", "columnName": "In Progress", "projectScope": "org"},
+              {"label": "Rule: Deprecated", "projectNumber": "342", "columnName": "In Progress", "projectScope": "org"}
+            ]
+          ghToken: ${{ secrets.PROJECT_ASSIGNER_TOKEN }}
