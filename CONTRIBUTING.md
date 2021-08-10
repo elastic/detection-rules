@@ -64,7 +64,7 @@ We'll tag issues and pull requests with the target release if applicable. If a r
 
 Of course, feel free to bump your issues if you think they've been neglected for a prolonged period.
 
-Issues and pull requests (not labeled `security`, `backlog`, `Rule: New`) will be marked as `stale` after 60 days of inactivity. After 7 more days of incactivity, they will be closed automatically.
+Issues and pull requests will be marked as `stale` after 60 days of inactivity. After 7 more days of incactivity, they will be closed automatically.
 
 If an issue or pull request is marked `stale` and/or closed, this does not mean it is not important, just that there may be more work than available resources over a given time. We feel that it is a better experience to generate activity responding to a stale issue or letting it close, than to let something remain open and neglected for longer periods of time.
 
