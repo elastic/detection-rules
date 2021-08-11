@@ -6,9 +6,10 @@ updated_date = "2021/07/30"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies process execution events where the command line value contains a long sequence of whitespace characters. Attackers
-may attempt to evade signature-based detections by padding their malicious command with unnecessary whitespace
-characters. These observations should be investigated for malicious behavior.
+Identifies process execution events where the command line value contains a long sequence of whitespace characters or 
+multiple occurrences of contiguous whitespace. Attackers may attempt to evade signature-based detections by padding 
+their malicious command with unnecessary whitespace characters. These observations should be investigated for malicious 
+behavior.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
@@ -29,7 +30,10 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
-  process.command_line regex ".*[ ]{20,}.*"
+  process.command_line regex ".*[ ]{20,}.*" or 
+  
+  /* this will match on 3 or more separate occurrences of 5+ contiguous whitespace characters */
+  process.command_line regex ".*(.*[ ]{5,}[^ ]*){3,}.*"
 '''
 
 [[rule.threat]]
