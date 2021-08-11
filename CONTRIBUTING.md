@@ -68,7 +68,7 @@ Issues and pull requests will be marked as `stale` after 60 days of inactivity. 
 
 If an issue or pull request is marked `stale` and/or closed, this does not mean it is not important, just that there may be more work than available resources over a given time. We feel that it is a better experience to generate activity responding to a stale issue or letting it close, than to let something remain open and neglected for longer periods of time.
 
-If your issue or pull request is closed from inactivity and you feel this is an error, please feel free to re-open it with comments and we will try our best to respond with justification to close or to get it the proper attention. 
+If your issue or pull request is closed from inactivity and you feel this is an error, please feel free to re-open it with comments and we will try our best to respond with justification to close or to get it the proper attention.
 
 ### "I want to help!"
 
