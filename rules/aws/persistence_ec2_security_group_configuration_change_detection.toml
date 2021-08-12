@@ -9,7 +9,13 @@ description = """
 Detects threat actors making configuration change to EC2 security groups. Threat actors may be able to maintain
 persistence, exfiltrate, and pivot in a AWS environment.
 """
-false_positives = ["Unknown"]
+false_positives = [
+    """
+    A security group may be created by a system or network administrator. Verify whether the user identity, user
+    agent, and/or hostname should be making changes in your environment. Security group creations from unfamiliar users
+    or hosts should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    """,
+]```
 from = "now-30m"
 index = ["filebeat-*", "logs-aws*"]
 interval = "10m"
