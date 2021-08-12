@@ -139,7 +139,7 @@ def downgrade_threshold_to_7_11(version: Version, api_contents: dict) -> dict:
 
 @migrate("7.12")
 def migrate_to_7_12(version: Version, api_contents: dict) -> dict:
-    """Default migration for 7.9."""
+    """Default migration for 7.12."""
     return strip_additional_properties(version, api_contents)
 
 
@@ -157,6 +157,12 @@ def downgrade_ml_multijob_713(version: Version, api_contents: dict) -> dict:
             api_contents["machine_learning_job_id"] = job_id[0]
 
     # finally, downgrade any additional properties that were added
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("7.14")
+def migrate_to_7_14(version: Version, api_contents: dict) -> dict:
+    """Default migration for 7.14."""
     return strip_additional_properties(version, api_contents)
 
 
@@ -199,7 +205,7 @@ def get_stack_schemas(stack_version: str) -> Dict[str, dict]:
     versions = {k: v for k, v in stack_map.items()
                 if (mapped_version := Version(k)) >= stack_version and mapped_version <= current_package and v}
 
-    if stack_version > current_package:
+    if stack_version > current_package or not versions:
         versions[stack_version] = {'beats': 'master', 'ecs': 'master'}
 
     return versions
