@@ -6,6 +6,7 @@
 """Test that all rules have valid metadata and syntax."""
 import os
 import re
+import warnings
 from collections import defaultdict
 from pathlib import Path
 
@@ -401,12 +402,14 @@ class TestRuleMetadata(BaseRuleTest):
                 err_msg = f'{self.rule_str(rule)} deprecation_date and updated_date should match'
                 self.assertEqual(meta.deprecation_date, meta.updated_date, err_msg)
 
-        missing_rules = sorted(set(versions).difference(set(self.rule_lookup)))
-        missing_rule_strings = '\n '.join(f'{r} - {versions[r]["rule_name"]}' for r in missing_rules)
-        err_msg = f'Deprecated rules should not be removed, but moved to the rules/_deprecated folder instead. ' \
-                  f'The following rules have been version locked and are missing. ' \
-                  f'Re-add to the deprecated folder and update maturity to "deprecated": \n {missing_rule_strings}'
-        self.assertEqual([], missing_rules, err_msg)
+        # skip this so the lock file can be shared across branches
+        #
+        # missing_rules = sorted(set(versions).difference(set(self.rule_lookup)))
+        # missing_rule_strings = '\n '.join(f'{r} - {versions[r]["rule_name"]}' for r in missing_rules)
+        # err_msg = f'Deprecated rules should not be removed, but moved to the rules/_deprecated folder instead. ' \
+        #           f'The following rules have been version locked and are missing. ' \
+        #           f'Re-add to the deprecated folder and update maturity to "deprecated": \n {missing_rule_strings}'
+        # self.assertEqual([], missing_rules, err_msg)
 
         for rule_id, entry in deprecations.items():
             rule_str = f'{rule_id} - {entry["rule_name"]} ->'
@@ -456,6 +459,55 @@ class TestRuleTiming(BaseRuleTest):
             rules_str = '\n '.join(self.rule_str(r, trailer=None) for r in missing)
             err_msg = f'The following rules should have a longer `from` defined, due to indexes used\n {rules_str}'
             self.fail(err_msg)
+
+    def test_eql_lookback(self):
+        """Ensure EQL rules lookback => max_span, when defined."""
+        unknowns = []
+        invalids = []
+        ten_minutes = 10 * 60 * 1000
+
+        for rule in self.all_rules:
+            if rule.contents.data.type == 'eql' and rule.contents.data.max_span:
+                if rule.contents.data.look_back == 'unknown':
+                    unknowns.append(self.rule_str(rule, trailer=None))
+                else:
+                    look_back = rule.contents.data.look_back
+                    max_span = rule.contents.data.max_span
+                    expected = look_back + ten_minutes
+
+                    if expected < max_span:
+                        invalids.append(f'{self.rule_str(rule)} lookback: {look_back}, maxspan: {max_span}, '
+                                        f'expected: >={expected}')
+
+        if unknowns:
+            warn_str = '\n'.join(unknowns)
+            warnings.warn(f'Unable to determine lookbacks for the following rules:\n{warn_str}')
+
+        if invalids:
+            invalids_str = '\n'.join(invalids)
+            self.fail(f'The following rules have longer max_spans than lookbacks:\n{invalids_str}')
+
+    def test_eql_interval_to_maxspan(self):
+        """Check the ratio of interval to maxspan for eql rules."""
+        invalids = []
+        five_minutes = 5 * 60 * 1000
+
+        for rule in self.all_rules:
+            if rule.contents.data.type == 'eql':
+                interval = rule.contents.data.interval or five_minutes
+                maxspan = rule.contents.data.max_span
+                ratio = rule.contents.data.interval_ratio
+
+                # we want to test for at least a ratio of: interval >= 1/2 maxspan
+                # but we only want to make an exception and cap the ratio at 5m interval (2.5m maxspan)
+                if maxspan and maxspan > (five_minutes / 2) and ratio and ratio < .5:
+                    expected = maxspan // 2
+                    err_msg = f'{self.rule_str(rule)} interval: {interval}, maxspan: {maxspan}, expected: >={expected}'
+                    invalids.append(err_msg)
+
+        if invalids:
+            invalids_str = '\n'.join(invalids)
+            self.fail(f'The following rules have intervals too short for their given max_spans (ms):\n{invalids_str}')
 
 
 class TestLicense(BaseRuleTest):

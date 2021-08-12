@@ -279,7 +279,7 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
 
         branch_name = branch_name or f"detection-rules/{package_name}-{short_commit_hash}"
 
-        git("checkout", "-b", branch_name, show_output=True)
+        git("checkout", "-b", branch_name, print_output=True)
         git("rm", "-r", kibana_directory)
 
         source_dir = os.path.join(release_dir, "rules")
@@ -295,7 +295,7 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
 
         git("add", kibana_directory)
         git("commit", "--no-verify", "-m", message)
-        git("status", show_output=True)
+        git("status", print_output=True)
 
         if push:
             git("push", "origin", branch_name)
@@ -318,6 +318,7 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
 # Pending an official GitHub API
 # @click.option("--automerge", is_flag=True, help="Enable auto-merge on the PR")
 @add_git_args
+@click.pass_context
 def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...], draft: bool, token: str, **kwargs):
     """Create a pull request to Kibana."""
     branch_name, commit_hash = ctx.invoke(kibana_commit, push=True, **kwargs)
