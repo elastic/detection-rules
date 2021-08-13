@@ -14,6 +14,7 @@ from detection_rules import utils
 from detection_rules.packaging import load_current_package_version
 from detection_rules.rule import TOMLRuleContents
 from detection_rules.schemas import downgrade
+from detection_rules.semver import Version
 
 
 class TestSchemas(unittest.TestCase):
@@ -202,7 +203,7 @@ class TestVersions(unittest.TestCase):
 
     def test_stack_schema_map(self):
         """Test to ensure that an entry exists in the stack-schema-map for the current package version."""
-        package_version = load_current_package_version()
+        package_version = Version(load_current_package_version())
         stack_map = utils.load_etc_dump('stack-schema-map.yaml')
         err_msg = f'There is no entry defined for the current package ({package_version}) in the stack-schema-map'
-        self.assertIn(package_version, [str(Version(v)[:2]) for v in stack_map], err_msg)
+        self.assertIn(package_version, [Version(v)[:2] for v in stack_map], err_msg)

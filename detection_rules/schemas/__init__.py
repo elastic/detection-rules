@@ -3,15 +3,15 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 import json
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import jsonschema
 
+from . import definitions
 from .rta_schema import validate_rta_mapping
 from ..semver import Version
 from ..utils import cached, get_etc_path, load_etc_dump
-from . import definitions
-from pathlib import Path
 
 
 __all__ = (
