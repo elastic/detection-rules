@@ -5,14 +5,14 @@
 
 """Load rule metadata transform between rule and api formats."""
 import io
-import typing
 from collections import OrderedDict
 from pathlib import Path
-from typing import Dict, List, Iterable, Callable, Optional
+from typing import Dict, List, Iterable, Callable, Optional, Union
 
 import click
 import pytoml
 
+from . import utils
 from .mappings import RtaMappings
 from .rule import TOMLRule, TOMLRuleContents
 from .schemas import definitions
@@ -113,7 +113,7 @@ class RuleCollection:
         return filtered_collection
 
     @staticmethod
-    def deserialize_toml_string(contents: typing.Union[bytes, str]) -> dict:
+    def deserialize_toml_string(contents: Union[bytes, str]) -> dict:
         return pytoml.loads(contents)
 
     def _load_toml_file(self, path: Path) -> dict:
@@ -123,7 +123,7 @@ class RuleCollection:
         # use pytoml instead of toml because of annoying bugs
         # https://github.com/uiri/toml/issues/152
         # might also be worth looking at https://github.com/sdispater/tomlkit
-        with io.open(str(path.resolve()), "r", encoding="utf-8") as f:
+        with io.open(path, "r", encoding="utf-8") as f:
             toml_dict = self.deserialize_toml_string(f.read())
             self._toml_load_cache[path] = toml_dict
             return toml_dict
@@ -167,6 +167,21 @@ class RuleCollection:
         except Exception:
             print(f"Error loading rule in {path}")
             raise
+
+    def load_git_branch(self, branch: str):
+        """Load rules from a Git branch."""
+        git = utils.make_git()
+        rules_dir = DEFAULT_RULES_DIR.relative_to(get_path("."))
+        paths = git("ls-files", "--with-tree", branch, rules_dir).splitlines()
+
+        for path in paths:
+            path = Path(path)
+            if path.suffix != ".toml":
+                continue
+
+            contents = git("show", f"{branch}:{path}")
+            toml_dict = self.deserialize_toml_string(contents)
+            self.load_dict(toml_dict, path)
 
     def load_files(self, paths: Iterable[Path]):
         """Load multiple files into the collection."""
@@ -261,7 +276,6 @@ def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rul
 
 
 rta_mappings = RtaMappings()
-
 
 __all__ = (
     "FILE_PATTERN",
