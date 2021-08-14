@@ -4,35 +4,48 @@ on:
   pull_request_target:
     types:
       - opened
+      - reopened
+      - edited
+      - labeled
+      - unlabeled
   issues:
     types:
       - opened
-  label:
-     types: ["*"]    
-
+      - reopened
+      - edited
+      - labeled
+      - unlabeled
 jobs:
-  community-label:
+  label:
     runs-on: ubuntu-latest
     steps:
-      - name: Determine membership
+      - name: Check if member of elastic org
         uses: actions/github-script@v4
         id: membership
         with:
           github-token: ${{ secrets.READ_ORG_TOKEN }}
+          result-encoding: string
           script: |
-            return github.orgs.getMembershipForAuthenticatedUser({
-                org: "elastic",
-                username: context.payload.sender.login
-              })
-      - name: Add community label for users not in Elastic org
+            const result = await github.orgs.getMembershipForAuthenticatedUser({
+                       org: "elastic",
+                       username: context.payload.sender.login
+                    })
+            console.log(result.data.state)
+            if (result.data.state == "active"){
+              console.log("%s: detected as an active member of elastic org", context.payload.sender.login)
+              return "member"
+            } else {
+              console.log("%s: not detected as active member of elastic org", context.payload.sender.login)
+              return "notMember"
+            }
+      - name: Add label for community members
         uses: actions/github-script@v4
-        if: |
-          "${{ steps.membership.outputs.result.state }}" != "active"
+        if: ${{ steps.membership.outputs.result == 'notMember' }}
         with:
           script: |
             github.issues.addLabels({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: ['community']
-            })
+                            issue_number: context.issue.number,
+                            owner: context.repo.owner,
+                            repo: context.repo.repo,
+                            labels: ['community']
+                          })
