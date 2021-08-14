@@ -184,7 +184,7 @@ def update_lock_versions(rule_ids):
 @dev_group.command('release-diff')
 @click.argument('old-tag')
 @click.argument('new-tag')
-def release_tag_diff(old_tag: str, new_tag: str) -> List[dict]:
+def release_tag_diff(old_tag: str, new_tag: str) -> (List[dict], List[dict], List[dict]):
     """Rule diff between two tagged releases in the rules repo."""
     from eql.table import Table
 
@@ -195,8 +195,8 @@ def release_tag_diff(old_tag: str, new_tag: str) -> List[dict]:
     changed = []
     deprecated = []
 
-    old_version = json.loads(git('show', f'{old_tag}:{version_path}', show_output=True))
-    new_version = json.loads(git('show', f'{new_tag}:{version_path}', show_output=True))
+    old_version = json.loads(git('show', f'{old_tag}:{version_path}'))
+    new_version = json.loads(git('show', f'{new_tag}:{version_path}'))
 
     for rule_id, entry in new_version.items():
         old_entry = old_version.get(rule_id)
@@ -209,8 +209,8 @@ def release_tag_diff(old_tag: str, new_tag: str) -> List[dict]:
             changed.append(
                 dict(rule_id=rule_id, rule_name=entry['rule_name'], version=entry['version'], version_diff=ver_diff))
 
-    old_deprecate = json.loads(git('show', f'{old_tag}:{deprecated_path}', show_output=True))
-    new_deprecate = json.loads(git('show', f'{new_tag}:{deprecated_path}', show_output=True))
+    old_deprecate = json.loads(git('show', f'{old_tag}:{deprecated_path}'))
+    new_deprecate = json.loads(git('show', f'{new_tag}:{deprecated_path}'))
 
     deprecated.extend([dict(rule_id=rid, rule_name=e['rule_name']) for rid, e in new_deprecate.items()
                        if rid not in old_deprecate])
@@ -237,7 +237,7 @@ def release_tag_diff(old_tag: str, new_tag: str) -> List[dict]:
     click.echo(make_header('Changed Rules', changed_table, changed))
     click.echo(changed_table)
 
-    return new + deprecated + changed
+    return new, deprecated, changed
 
 
 @dev_group.command('kibana-diff')
