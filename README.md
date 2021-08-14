@@ -15,7 +15,7 @@ This repository was first announced on Elastic's blog post, [Elastic Security op
 - [Red Team Automation](rta)
 - [How to contribute](#how-to-contribute)
 - [Licensing](#licensing)
-- [Questions? Problems? Suggestions?](#questions-problems-suggestions)
+- [Questions? Problems? Suggestions?](#questions-problems-suggestions) 
 
 
 ## Overview of this repository
