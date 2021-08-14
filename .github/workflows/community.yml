@@ -1,0 +1,38 @@
+name: Community
+
+on:
+  pull_request_target:
+    types:
+      - opened
+  issues:
+    types:
+      - opened
+  label:
+     types: ["*"]    
+
+jobs:
+  community-label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine membership
+        uses: actions/github-script@v4
+        id: membership
+        with:
+          github-token: ${{ secrets.READ_ORG_TOKEN }}
+          script: |
+            return github.orgs.getMembershipForAuthenticatedUser({
+                org: "elastic",
+                username: context.payload.sender.login
+              })
+      - name: Add community label for users not in Elastic org
+        uses: actions/github-script@v4
+        if: |
+          "${{ steps.membership.outputs.result.state }}" != "active"
+        with:
+          script: |
+            github.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['community']
+            })
