@@ -23,6 +23,7 @@ def _convert_lock_version(stack_version: Optional[str]) -> Version:
         return MIN_LOCK_VERSION_DEFAULT
     return max(Version(stack_version), MIN_LOCK_VERSION_DEFAULT)
 
+
 @cached
 def get_locked_hash(rule_id: str, min_stack_version: Optional[str] = None) -> Optional[str]:
     rules_versions = load_versions()
@@ -70,37 +71,46 @@ def manage_versions(rules: List[TOMLRule],
 
             # scenarios to handle, assuming older stacks are always locked first:
             # 1) no breaking changes ever made or the first time a rule is created
-            # 2) on an old stack, before a breaking change
-            # 3) on a new stack, locking in a breaking change
-            # 4) on a new stack, after a breaking change has been locked
+            # 2) on the latest, after a breaking change has been locked
+            # 3) on the latest stack, locking in a breaking change
+            # 4) on an old stack, after a breaking change has been made
             latest_locked_stack_version = _convert_lock_version(current_rule_lock.get("min_stack_version"))
 
-            if min_stack == latest_locked_stack_version:
-                # at the latest, just create/update the lock entry
-                current_versions.setdefault(rule.id, {}).update(lock_info)
+            if rule.id not in current_versions or min_stack == latest_locked_stack_version:
+                # 1) no breaking changes ever made or the first time a rule is created
+                # 2) on the latest, after a breaking change has been locked
+                current_versions[rule.id] = lock_info
 
                 # add the min_stack_version to the lock if it's explicitly set
                 if rule.contents.metadata.min_stack_version is not None:
                     current_versions[rule.id]["min_stack_version"] = str(min_stack)
 
-            elif min_stack < latest_locked_stack_version:
-                # current stack is later that the most recently locked version
-                assert str(min_stack) in current_rule_lock.get("previous", {}), \
-                    f"Expected a lock for {rule.id} @ v{min_stack}"
-
-                current_rule_lock["previous"][str(min_stack)] = lock_info
-                continue
-
             elif min_stack > latest_locked_stack_version:
-                # detected a breaking change. push the latest locked changes into .previous
+                # 3) on the latest stack, locking in a breaking change
                 previous_lock_info = {
                     "rule_name":  current_rule_lock["rule_name"],
                     "sha256":  current_rule_lock["sha256"],
                     "version":  current_rule_lock["version"],
                 }
-                current_rule_lock.setdefault("previous", {})[str(latest_locked_stack_version)] = previous_lock_info
+                current_rule_lock.setdefault("previous", {})
+
+                # move the current locked info into the previous section
+                current_rule_lock["previous"][str(latest_locked_stack_version)] = previous_lock_info
+
+                # overwrite the "latest" part of the lock at the top level
                 current_rule_lock.update(lock_info, min_stack_version=str(latest_locked_stack_version))
 
+            elif min_stack < latest_locked_stack_version:
+                # 4) on an old stack, after a breaking change has been made
+                assert str(min_stack) in current_rule_lock.get("previous", {}), \
+                    f"Expected {rule.id} @ v{min_stack} in the rule lock"
+
+                # TODO: Figure out whether we support locking old versions and if we want to
+                #       "leave room" by skipping versions when breaking changes are made.
+                #       We can still inspect the version lock manually after locks are made,
+                #       since it's a good summary of everything that happens
+                current_rule_lock["previous"][str(min_stack)] = lock_info
+                continue
             else:
                 raise RuntimeError("Unreachable code")
 

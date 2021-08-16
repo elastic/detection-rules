@@ -406,9 +406,8 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
     @property
     def is_dirty(self) -> Optional[bool]:
         """Determine if the rule has changed since its version was locked."""
-        from .version_lock import load_versions, get_locked_hash
+        from .version_lock import get_locked_hash
 
-        rules_versions = load_versions()
         existing_sha256 = get_locked_hash(self.id, self.metadata.min_stack_version)
 
         if existing_sha256 is not None:
