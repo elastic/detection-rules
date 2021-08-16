@@ -98,9 +98,9 @@ def manage_versions(rules: List[TOMLRule],
             elif min_stack > latest_locked_stack_version:
                 # 3) on the latest stack, locking in a breaking change
                 previous_lock_info = {
-                    "rule_name":  current_rule_lock["rule_name"],
-                    "sha256":  current_rule_lock["sha256"],
-                    "version":  current_rule_lock["version"],
+                    "rule_name": current_rule_lock["rule_name"],
+                    "sha256": current_rule_lock["sha256"],
+                    "version": current_rule_lock["version"],
                 }
                 current_rule_lock.setdefault("previous", {})
 
