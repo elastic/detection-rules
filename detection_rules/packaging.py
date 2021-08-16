@@ -91,7 +91,7 @@ class Package(object):
             self.rules = [r for r in self.rules if max_version >= r.contents.latest_version]
 
         self.changed_ids, self.new_ids, self.removed_ids = \
-            manage_versions(self.rules, verbose=False)
+            manage_versions(self.rules, verbose=False, save_changes=False)
 
     @classmethod
     def load_configs(cls):

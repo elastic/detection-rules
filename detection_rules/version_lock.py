@@ -3,14 +3,14 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 """Helper utilities to manage the version lock."""
+from copy import deepcopy
 from typing import List, Optional
 
 import click
 
 from .rule import TOMLRule
-from .utils import dict_hash, load_etc_dump, save_etc_dump, cached
 from .semver import Version
-
+from .utils import dict_hash, load_etc_dump, save_etc_dump, cached
 
 ETC_VERSION_LOCK_FILE = "version.lock.json"
 ETC_DEPRECATED_RULES_FILE = "deprecated_rules.json"
@@ -25,14 +25,24 @@ def _convert_lock_version(stack_version: Optional[str]) -> Version:
 
 
 @cached
+def get_locked_version(rule_id: str, min_stack_version: Optional[str] = None) -> Optional[int]:
+    rules_versions = load_versions()
+
+    if rule_id in rules_versions:
+        latest_version_info = rules_versions[rule_id]
+        stack_version_info = latest_version_info.get("previous", {}).get(min_stack_version, latest_version_info)
+        return stack_version_info['version']
+
+
+@cached
 def get_locked_hash(rule_id: str, min_stack_version: Optional[str] = None) -> Optional[str]:
     rules_versions = load_versions()
 
     # Get the version info matching the min_stack_version if present
     if rule_id in rules_versions:
-        rule_lock_info = rules_versions[rule_id]
-        version_info = rule_lock_info.get("previous_stacks", {}).get(min_stack_version, rule_lock_info)
-        existing_sha256: str = version_info['sha256']
+        latest_version_info = rules_versions[rule_id]
+        stack_version_info = latest_version_info.get("previous", {}).get(min_stack_version, latest_version_info)
+        existing_sha256: str = stack_version_info['sha256']
         return existing_sha256
 
 
@@ -42,7 +52,7 @@ def manage_versions(rules: List[TOMLRule],
     """Update the contents of the version.lock file and optionally save changes."""
     from .packaging import current_stack_version
 
-    current_versions = load_versions()
+    current_versions = deepcopy(load_versions())
     versions_hash = dict_hash(current_versions)
     rule_deprecations = load_etc_dump(ETC_DEPRECATED_RULES_FILE)
 
@@ -67,7 +77,7 @@ def manage_versions(rules: List[TOMLRule],
             min_stack = _convert_lock_version(rule.contents.metadata.min_stack_version)
 
             lock_info = rule.contents.lock_info(bump=not exclude_version_update)
-            current_rule_lock: dict = current_versions.get(rule.id, {})
+            current_rule_lock: dict = current_versions.setdefault(rule.id, {})
 
             # scenarios to handle, assuming older stacks are always locked first:
             # 1) no breaking changes ever made or the first time a rule is created
@@ -76,14 +86,14 @@ def manage_versions(rules: List[TOMLRule],
             # 4) on an old stack, after a breaking change has been made
             latest_locked_stack_version = _convert_lock_version(current_rule_lock.get("min_stack_version"))
 
-            if rule.id not in current_versions or min_stack == latest_locked_stack_version:
+            if not current_rule_lock or min_stack == latest_locked_stack_version:
                 # 1) no breaking changes ever made or the first time a rule is created
                 # 2) on the latest, after a breaking change has been locked
-                current_versions[rule.id] = lock_info
+                current_rule_lock.update(lock_info)
 
                 # add the min_stack_version to the lock if it's explicitly set
                 if rule.contents.metadata.min_stack_version is not None:
-                    current_versions[rule.id]["min_stack_version"] = str(min_stack)
+                    current_rule_lock["min_stack_version"] = str(min_stack)
 
             elif min_stack > latest_locked_stack_version:
                 # 3) on the latest stack, locking in a breaking change
@@ -98,7 +108,7 @@ def manage_versions(rules: List[TOMLRule],
                 current_rule_lock["previous"][str(latest_locked_stack_version)] = previous_lock_info
 
                 # overwrite the "latest" part of the lock at the top level
-                current_rule_lock.update(lock_info, min_stack_version=str(latest_locked_stack_version))
+                current_rule_lock.update(lock_info, min_stack_version=str(min_stack))
 
             elif min_stack < latest_locked_stack_version:
                 # 4) on an old stack, after a breaking change has been made

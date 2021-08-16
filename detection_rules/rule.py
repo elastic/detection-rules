@@ -416,14 +416,9 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
     @property
     def latest_version(self) -> Optional[int]:
         """Retrieve the latest known version of the rule."""
-        from .version_lock import load_versions
+        from .version_lock import get_locked_version
 
-        rules_versions = load_versions()
-
-        if self.id in rules_versions:
-            version_info = rules_versions[self.id]
-            version = version_info['version']
-            return version
+        return get_locked_version(self.id, self.metadata.min_stack_version)
 
     @property
     def autobumped_version(self) -> Optional[int]:
