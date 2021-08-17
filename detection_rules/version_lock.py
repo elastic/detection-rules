@@ -56,7 +56,7 @@ def manage_versions(rules: List[TOMLRule],
     versions_hash = dict_hash(current_versions)
     rule_deprecations = load_etc_dump(ETC_DEPRECATED_RULES_FILE)
 
-    echo = click.echo if verbose else (lambda x: None)
+    verbose_echo = click.echo if verbose else (lambda x: None)
 
     already_deprecated = set(rule_deprecations)
     deprecated_rules = set(rule.id for rule in rules if rule.contents.metadata.maturity == "deprecated")
@@ -69,7 +69,7 @@ def manage_versions(rules: List[TOMLRule],
     if not (new_rules or changed_rules or newly_deprecated):
         return list(changed_rules), list(new_rules), list(newly_deprecated)
 
-    echo('Rule changes detected!')
+    verbose_echo('Rule changes detected!')
 
     for rule in rules:
         if rule.contents.metadata.maturity == "production" or rule.id in newly_deprecated:
@@ -133,22 +133,22 @@ def manage_versions(rules: List[TOMLRule],
             }
 
     if not save_changes:
-        echo('run `build-release --update-version-lock` to update version.lock.json and deprecated_rules.json')
+        verbose_echo('run `build-release --update-version-lock` to update version.lock.json and deprecated_rules.json')
         return list(changed_rules), list(new_rules), list(newly_deprecated)
 
     new_hash = dict_hash(current_versions)
 
     if versions_hash != new_hash:
         save_etc_dump(current_versions, ETC_VERSION_LOCK_FILE)
-        echo('Updated version.lock.json file')
+        click.echo('Updated version.lock.json file')
 
     if newly_deprecated:
         save_etc_dump(rule_deprecations, ETC_DEPRECATED_RULES_FILE)
-        echo('Updated deprecated_rules.json file')
+        click.echo('Updated deprecated_rules.json file')
 
-    echo(f' - {len(changed_rules)} changed rules')
-    echo(f' - {len(new_rules)} new rules')
-    echo(f' - {len(newly_deprecated)} newly deprecated rules')
+    click.echo(f' - {len(changed_rules)} changed rules')
+    click.echo(f' - {len(new_rules)} new rules')
+    click.echo(f' - {len(newly_deprecated)} newly deprecated rules')
 
     return changed_rules, list(new_rules), newly_deprecated
 
