@@ -132,6 +132,11 @@ def manage_versions(rules: List[TOMLRule],
                 "deprecation_date": rule.contents.metadata.deprecation_date
             }
 
+    if save_changes or verbose:
+        click.echo(f' - {len(changed_rules)} changed rules')
+        click.echo(f' - {len(new_rules)} new rules')
+        click.echo(f' - {len(newly_deprecated)} newly deprecated rules')
+
     if not save_changes:
         verbose_echo('run `build-release --update-version-lock` to update version.lock.json and deprecated_rules.json')
         return list(changed_rules), list(new_rules), list(newly_deprecated)
@@ -145,10 +150,6 @@ def manage_versions(rules: List[TOMLRule],
     if newly_deprecated:
         save_etc_dump(rule_deprecations, ETC_DEPRECATED_RULES_FILE)
         click.echo('Updated deprecated_rules.json file')
-
-    click.echo(f' - {len(changed_rules)} changed rules')
-    click.echo(f' - {len(new_rules)} new rules')
-    click.echo(f' - {len(newly_deprecated)} newly deprecated rules')
 
     return changed_rules, list(new_rules), newly_deprecated
 
