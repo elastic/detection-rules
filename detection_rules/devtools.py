@@ -133,6 +133,10 @@ class GitChangeEntry:
 @click.option("--dry-run", is_flag=True, help="List the changes that would be made")
 def prune_staging_area(target_stack_version: str, dry_run: bool):
     """Prune the git staging area to remove changes to incompatible rules."""
+    exceptions = {
+        "etc/packages.yml",
+    }
+
     target_stack_version = Version(target_stack_version)[:2]
 
     # load a structured summary of the diff from git
@@ -143,6 +147,11 @@ def prune_staging_area(target_stack_version: str, dry_run: bool):
     reversions: List[GitChangeEntry] = []
 
     for change in changes:
+        if str(change.path) in exceptions:
+            # Don't backport any changes to files matching the list of exceptions
+            reversions.append(change)
+            continue
+
         # it's a change to a rule file, load it and check the version
         if str(change.path.absolute()).startswith(RULES_DIR) and change.path.suffix == ".toml":
             # bypass TOML validation in case there were schema changes

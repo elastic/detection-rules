@@ -42,7 +42,7 @@ class RuleMeta(MarshmallowDataclassMixin):
     related_endpoint_rules: Optional[List[str]]
 
     # Extended information as an arbitrary dictionary
-    extended: Optional[dict]
+    extended: Optional[Dict[str, Any]]
 
     def get_validation_stack_versions(self) -> Dict[str, dict]:
         """Get a dict of beats and ecs versions per stack release."""
@@ -157,7 +157,7 @@ class BaseRuleData(MarshmallowDataclassMixin):
 
     interval: Optional[definitions.Interval]
     max_signals: Optional[definitions.MaxSignals]
-    meta: Optional[dict]
+    meta: Optional[Dict[str, Any]]
     name: str
     note: Optional[definitions.Markdown]
     # can we remove this comment?
