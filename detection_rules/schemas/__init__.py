@@ -3,15 +3,15 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 import json
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import jsonschema
 
+from . import definitions
 from .rta_schema import validate_rta_mapping
 from ..semver import Version
 from ..utils import cached, get_etc_path, load_etc_dump
-from . import definitions
-from pathlib import Path
 
 
 __all__ = (
@@ -139,7 +139,7 @@ def downgrade_threshold_to_7_11(version: Version, api_contents: dict) -> dict:
 
 @migrate("7.12")
 def migrate_to_7_12(version: Version, api_contents: dict) -> dict:
-    """Default migration for 7.9."""
+    """Default migration for 7.12."""
     return strip_additional_properties(version, api_contents)
 
 
@@ -157,6 +157,12 @@ def downgrade_ml_multijob_713(version: Version, api_contents: dict) -> dict:
             api_contents["machine_learning_job_id"] = job_id[0]
 
     # finally, downgrade any additional properties that were added
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("7.14")
+def migrate_to_7_14(version: Version, api_contents: dict) -> dict:
+    """Default migration for 7.14."""
     return strip_additional_properties(version, api_contents)
 
 
