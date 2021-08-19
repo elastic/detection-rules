@@ -10,7 +10,7 @@ import marshmallow_dataclass
 import marshmallow_dataclass.union_field
 import marshmallow_jsonschema
 import marshmallow_union
-from marshmallow import Schema
+from marshmallow import Schema, fields
 
 from .utils import cached
 
@@ -117,6 +117,13 @@ class PatchedJSONSchema(marshmallow_jsonschema.JSONSchema):
     # Patch marshmallow-jsonschema to support marshmallow-dataclass[union]
     def _get_schema_for_field(self, obj, field):
         """Patch marshmallow_jsonschema.base.JSONSchema to support marshmallow-dataclass[union]."""
+        if isinstance(field, fields.Raw) and field.allow_none and not field.validate:
+            # raw fields shouldn't be type string but type any. bug in marshmallow_dataclass:__init__.py:
+            #  if typ is Any:
+            #      metadata.setdefault("allow_none", True)
+            #      return marshmallow.fields.Raw(**metadata)
+            return {"type": ["string", "number", "object", "array", "boolean", "null"]}
+
         if isinstance(field, marshmallow_dataclass.union_field.Union):
             # convert to marshmallow_union.Union
             field = marshmallow_union.Union([subfield for _, subfield in field.union_fields],
