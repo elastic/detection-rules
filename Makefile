@@ -57,3 +57,8 @@ release: deps
 kibana-commit: deps
 	@echo "PREP KIBANA-COMMIT: $(app_name)"
 	$(PYTHON) -m detection_rules dev kibana-commit
+
+.PHONY: image
+image:
+	docker build . -t detection_rules
+
