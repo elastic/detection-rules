@@ -182,7 +182,7 @@ def update_lock_versions(rule_ids):
     if not click.confirm(f'Are you sure you want to update hashes for {len(rules)} rules without a version bump?'):
         return
 
-    changed, new, _ = manage_versions(rules, exclude_version_update=True, add_new=False, save_changes=True)
+    changed, new, _ = manage_versions(rules.rules, exclude_version_update=True, add_new=False, save_changes=True)
 
     if not changed:
         click.echo('No hashes updated')

@@ -19,6 +19,7 @@ from .schemas import definitions
 from .utils import get_path, cached
 
 DEFAULT_RULES_DIR = Path(get_path("rules"))
+DEFAULT_DEPRECATED_DIR = DEFAULT_RULES_DIR / '_deprecated'
 RTA_DIR = get_path("rta")
 FILE_PATTERN = r'^([a-z0-9_])+\.(json|toml)$'
 
@@ -168,6 +169,23 @@ class RuleCollection:
             print(f"Error loading rule in {path}")
             raise
 
+    def load_deprecated_files(self, deprecated_dir: Path = DEFAULT_DEPRECATED_DIR) -> Dict[str, TOMLRule]:
+        """Load a deprecated rule file, which will be stored as a dict only rather than a rule object."""
+        # bypass caching and validation
+        deprecated = {}
+        for rule_file in deprecated_dir.glob('*.toml'):
+            try:
+                obj = pytoml.loads(rule_file.read_text(encoding='utf-8'))
+                contents = TOMLRuleContents.from_dict_unvalidated(obj)
+                rule = TOMLRule(path=rule_file, contents=contents)
+                self.add_rule(rule)
+                deprecated[str(rule.id)] = rule
+            except Exception:
+                print(f"Error loading rule in {rule_file}")
+                raise
+
+        return deprecated
+
     def load_git_branch(self, branch: str):
         """Load rules from a Git branch."""
         git = utils.make_git()
@@ -205,11 +223,17 @@ class RuleCollection:
         self.frozen = True
 
     @classmethod
-    def default(cls):
+    def default(cls) -> 'RuleCollection':
         """Return the default rule collection, which retrieves from rules/."""
         if cls.__default is None:
             collection = RuleCollection()
-            collection.load_directory(DEFAULT_RULES_DIR)
+            rule_dirs = [d for d in DEFAULT_RULES_DIR.glob('*') if d.is_dir() and not d.name == '_deprecated']
+
+            for rule_dir in rule_dirs:
+                collection.load_directory(rule_dir)
+
+            collection.load_deprecated_files()
+
             collection.freeze()
             cls.__default = collection
 
@@ -224,7 +248,7 @@ def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rul
     import pytoml
     from multiprocessing.pool import ThreadPool
     from pathlib import Path
-    from .misc import GithubClient
+    from .ghwrap import GithubClient
 
     github = GithubClient(token=token)
     repo = github.client.get_repo(repo)

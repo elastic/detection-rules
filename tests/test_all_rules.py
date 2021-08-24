@@ -166,8 +166,8 @@ class TestThreatMappings(BaseRuleTest):
     def test_duplicated_tactics(self):
         """Check that a tactic is only defined once."""
         for rule in self.all_rules:
-            threat_mapping = rule.contents.data.threat
-            tactics = [t.tactic.name for t in threat_mapping or []]
+            threat_mapping = rule.contents.data.threat or []
+            tactics = [t.tactic.name for t in threat_mapping]
             duplicates = sorted(set(t for t in tactics if tactics.count(t) > 1))
 
             if duplicates:
@@ -389,7 +389,7 @@ class TestRuleMetadata(BaseRuleTest):
                 deprecated_rules[rule.id] = rule
                 err_msg = f'{self.rule_str(rule)} cannot be deprecated if it has not been version locked. ' \
                           f'Convert to `development` or delete the rule file instead'
-                self.assertIn(rule.id, versions, err_msg)
+                self.assertIn(rule.id, list(versions), err_msg)
 
                 rule_path = rule.path.relative_to(get_path('rules'))
                 err_msg = f'{self.rule_str(rule)} deprecated rules should be stored in ' \

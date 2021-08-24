@@ -6,6 +6,7 @@
 """Util functions."""
 import base64
 import contextlib
+import dataclasses
 import distutils.spawn
 import functools
 import glob
@@ -17,6 +18,7 @@ import os
 import shutil
 import subprocess
 import time
+import typing
 import zipfile
 from dataclasses import is_dataclass, astuple
 from datetime import datetime, date
@@ -354,6 +356,25 @@ def add_params(*params):
         return f
 
     return decorator
+
+
+def parse_required_dc_fields_from_dict(dataclazz, obj: dict):
+    """Parse required values of a dataclass from a given dict."""
+    populated = {}
+    class_fields = dataclasses.fields(dataclazz)
+
+    for field in class_fields:
+        field_types = typing.get_args(field.type)
+        value = obj.get(field.name)
+
+        # required
+        if not (len(field_types) > 1 and field_types[-1] is not None):
+            if value is None:
+                raise ValueError(f'Missing required field for {field.name}')
+
+        populated[field.name] = value
+
+    return populated
 
 
 class Ndjson(list):

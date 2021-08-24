@@ -371,6 +371,7 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
     data: AnyRuleData = field(metadata=dict(data_key="rule"))
 
     @classmethod
+    @cached
     def all_rule_types(cls) -> set:
         types = set()
         for subclass in typing.get_args(AnyRuleData):
@@ -380,6 +381,7 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
         return types
 
     @classmethod
+    @cached
     def get_data_subclass(cls, rule_type: str) -> typing.Type[BaseRuleData]:
         """Get the proper subclass depending on the rule type"""
         for subclass in typing.get_args(AnyRuleData):
@@ -388,6 +390,14 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
                 return subclass
 
         raise ValueError(f"Unknown rule type {rule_type}")
+
+    @classmethod
+    def from_dict_unvalidated(cls, obj: dict) -> 'TOMLRuleContents':
+        """Deserialize a dataclass from a dict."""
+        meta = RuleMeta(**utils.parse_required_dc_fields_from_dict(RuleMeta, obj['metadata']))
+        rule_class = cls.get_data_subclass(obj['rule']['type'])
+        data = rule_class(**utils.parse_required_dc_fields_from_dict(rule_class, obj['rule']))
+        return cls(metadata=meta, data=data)
 
     @property
     def id(self) -> definitions.UUIDString:
