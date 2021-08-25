@@ -42,11 +42,11 @@ jobs:
           BRANCHES: "${{github.event.inputs.branches}}"
         run: |
           ./etc/lock-multiple.sh $BRANCHES
-
-          git checkout -b version-lock/$(git rev-parse --short HEAD)-${GITHUB_RUN_NUMBER}
+          PR_BRANCH="version-lock/$(git rev-parse --short HEAD)-${GITHUB_RUN_NUMBER}"
+          git checkout -b $PR_BRANCH
           git add etc/version.lock.json
           git commit -m "Locked versions for releases: $BRANCHES"
-          git push
+          git push -u origin $PR_BRANCH
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v3
