@@ -22,7 +22,8 @@ from .misc import JS_LICENSE, cached
 from .rule import TOMLRule, QueryRuleData, ThreatMapping
 from .rule_loader import RuleCollection, DEFAULT_RULES_DIR
 from .schemas import definitions
-from .utils import Ndjson, dict_hash, get_path, get_etc_path, load_etc_dump, save_etc_dump
+from .utils import Ndjson, get_path, get_etc_path, load_etc_dump
+from .version_lock import manage_versions
 
 RELEASE_DIR = get_path("releases")
 PACKAGE_FILE = get_etc_path('packages.yml')
@@ -67,77 +68,13 @@ def load_current_package_version() -> str:
     return load_etc_dump('packages.yml')['package']['name']
 
 
-@cached
-def load_versions(current_versions: dict = None):
-    """Load the versions file."""
-    return current_versions or load_etc_dump('version.lock.json')
-
-
-def manage_versions(rules: List[TOMLRule], current_versions: dict = None,
-                    exclude_version_update=False, add_new=True, save_changes=False,
-                    verbose=True) -> (List[str], List[str], List[str]):
-    """Update the contents of the version.lock file and optionally save changes."""
-    current_versions = load_versions(current_versions)
-    versions_hash = dict_hash(current_versions)
-    rule_deprecations = load_etc_dump('deprecated_rules.json')
-
-    echo = click.echo if verbose else (lambda x: None)
-
-    already_deprecated = set(rule_deprecations)
-    deprecated_rules = set(rule.id for rule in rules if rule.contents.metadata.maturity == "deprecated")
-    new_rules = set(rule.id for rule in rules if rule.contents.latest_version is None) - deprecated_rules
-    changed_rules = set(rule.id for rule in rules if rule.contents.is_dirty) - deprecated_rules
-
-    # manage deprecated rules
-    newly_deprecated = deprecated_rules - already_deprecated
-
-    if not (new_rules or changed_rules or newly_deprecated):
-        return list(changed_rules), list(new_rules), list(newly_deprecated)
-
-    echo('Rule changes detected!')
-
-    if not save_changes:
-        echo('run `build-release --update-version-lock` to update version.lock.json and deprecated_rules.json')
-        return list(changed_rules), list(new_rules), list(newly_deprecated)
-
-    for rule in rules:
-        contents = rule.contents.lock_info(bump=not exclude_version_update)
-
-        if rule.contents.metadata.maturity == "production":
-            current_versions[rule.id] = contents
-
-        elif rule.id in newly_deprecated:
-            current_versions[rule.id] = contents
-            rule_deprecations[rule.id] = {
-                "rule_name": rule.name,
-                "stack_version": current_stack_version,
-                "deprecation_date": rule.contents.metadata.deprecation_date
-            }
-
-    new_hash = dict_hash(current_versions)
-
-    if versions_hash != new_hash:
-        save_etc_dump(current_versions, 'version.lock.json')
-        echo('Updated version.lock.json file')
-
-    if newly_deprecated:
-        save_etc_dump(rule_deprecations, 'deprecated_rules.json')
-        echo('Updated deprecated_rules.json file')
-
-    echo(f' - {len(changed_rules)} changed rules')
-    echo(f' - {len(new_rules)} new rules')
-    echo(f' - {len(newly_deprecated)} newly deprecated rules')
-
-    return changed_rules, list(new_rules), newly_deprecated
-
-
 class Package(object):
     """Packaging object for siem rules and releases."""
 
     def __init__(self, rules: List[TOMLRule], name: str, deprecated_rules: Optional[List[TOMLRule]] = None,
-                 release: Optional[bool] = False, current_versions: Optional[dict] = None,
+                 release: Optional[bool] = False,
                  min_version: Optional[int] = None, max_version: Optional[int] = None,
-                 update_version_lock: Optional[bool] = False, registry_data: Optional[dict] = None,
+                 registry_data: Optional[dict] = None,
                  verbose: Optional[bool] = True):
         """Initialize a package."""
         self.name = name
@@ -146,18 +83,14 @@ class Package(object):
         self.release = release
         self.registry_data = registry_data or {}
 
-        self.changed_rule_ids, self.new_rules_ids, self.removed_rule_ids = self._add_versions(current_versions,
-                                                                                              update_version_lock,
-                                                                                              verbose=verbose)
+        if min_version is not None:
+            self.rules = [r for r in self.rules if min_version <= r.contents.latest_version]
 
-        if min_version or max_version:
-            self.rules = [r for r in self.rules
-                          if (min_version or 0) <= r.contents['version'] <= (max_version or r.contents['version'])]
+        if max_version is not None:
+            self.rules = [r for r in self.rules if max_version >= r.contents.latest_version]
 
-    def _add_versions(self, current_versions, update_versions_lock=False, verbose=True):
-        """Add versions to rules at load time."""
-        return manage_versions(self.rules, current_versions=current_versions,
-                               save_changes=update_versions_lock, verbose=verbose)
+        self.changed_ids, self.new_ids, self.removed_ids = \
+            manage_versions(self.rules, verbose=False, save_changes=False)
 
     @classmethod
     def load_configs(cls):
@@ -251,7 +184,7 @@ class Package(object):
 
         if self.release:
             self._generate_registry_package(save_dir)
-            self.save_release_files(extras_dir, self.changed_rule_ids, self.new_rules_ids, self.removed_rule_ids)
+            self.save_release_files(extras_dir, self.changed_ids, self.new_ids, self.removed_ids)
 
             # zip all rules only and place in extras
             shutil.make_archive(os.path.join(extras_dir, self.name), 'zip', root_dir=os.path.dirname(rules_dir),
@@ -282,7 +215,7 @@ class Package(object):
         return sha256
 
     @classmethod
-    def from_config(cls, config: dict = None, update_version_lock: bool = False, verbose: bool = False) -> 'Package':
+    def from_config(cls, config: dict = None, verbose: bool = False) -> 'Package':
         """Load a rules package given a config."""
         all_rules = RuleCollection.default()
         config = config or {}
@@ -299,9 +232,7 @@ class Package(object):
         if verbose:
             click.echo(f' - {len(all_rules) - len(rules)} rules excluded from package')
 
-        package = cls(rules, deprecated_rules=deprecated_rules, update_version_lock=update_version_lock,
-                      verbose=verbose, **config)
-
+        package = cls(rules, deprecated_rules=deprecated_rules, verbose=verbose, **config)
         return package
 
     def generate_summary_and_changelog(self, changed_rule_ids, new_rule_ids, removed_rules):
@@ -479,10 +410,6 @@ class Package(object):
         readme_file.write_text(readme_text)
         notice_file.write_text(notice_contents)
 
-    def bump_versions(self, save_changes=False, current_versions=None):
-        """Bump the versions of all production rules included in a release and optionally save changes."""
-        return manage_versions(self.rules, current_versions=current_versions, save_changes=save_changes)
-
     def create_bulk_index_body(self) -> Tuple[Ndjson, Ndjson]:
         """Create a body to bulk index into a stack."""
         package_hash = self.get_package_hash(verbose=False)
@@ -508,9 +435,9 @@ class Package(object):
             summary_doc['rule_names'].append(rule.name)
             summary_doc['rule_hashes'].append(rule.contents.sha256())
 
-            if rule.id in self.new_rules_ids:
+            if rule.id in self.new_ids:
                 status = 'new'
-            elif rule.id in self.changed_rule_ids:
+            elif rule.id in self.changed_ids:
                 status = 'modified'
             else:
                 status = 'unmodified'
