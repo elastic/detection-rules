@@ -82,9 +82,11 @@ class Package(object):
         self.release = release
         self.registry_data = registry_data or {}
 
-        if min_version or max_version:
-            self.rules = rules.filter(
-                lambda r: (min_version or 0) <= r.contents['version'] <= (max_version or r.contents['version']))
+        if min_version is not None:
+            self.rules = self.rules.filter(lambda r: min_version <= r.contents.latest_version)
+
+        if max_version is not None:
+            self.rules = self.rules.filter(lambda r: max_version >= r.contents.latest_version)
 
         self.changed_ids, self.new_ids, self.removed_ids = \
             manage_versions(self.rules, verbose=verbose, save_changes=False)
