@@ -163,7 +163,7 @@ class RuleCollection(BaseCollection):
     def _get_paths(self, directory: Path, recursive=True) -> List[Path]:
         return sorted(directory.rglob('*.toml') if recursive else directory.glob('*.toml'))
 
-    def _assert_new(self, rule: Union[TOMLRule, DeprecatedRule], rule_name: str, rule_id: str, is_deprecated=False):
+    def _assert_new(self, rule: Union[TOMLRule, DeprecatedRule], is_deprecated=False):
         if is_deprecated:
             id_map = self.deprecated.id_map
             file_map = self.deprecated.file_map
@@ -171,9 +171,9 @@ class RuleCollection(BaseCollection):
             id_map = self.id_map
             file_map = self.file_map
 
-        assert not self.frozen, f"Unable to add rule {rule_name} {rule_id} to a frozen collection"
-        assert rule_id not in id_map, \
-            f"Rule ID {rule_id} for {rule_name} collides with rule {id_map.get(rule_id).get('name')}"
+        assert not self.frozen, f"Unable to add rule {rule.name} {rule.id} to a frozen collection"
+        assert rule.id not in id_map, \
+            f"Rule ID {rule.id} for {rule.name} collides with rule {id_map.get(rule.id).get('name')}"
 
         if rule.path is not None:
             rule_path = rule.path.resolve()
@@ -181,14 +181,13 @@ class RuleCollection(BaseCollection):
             file_map[rule_path] = rule
 
     def add_rule(self, rule: TOMLRule):
-        self._assert_new(rule, rule.name, rule.id)
+        self._assert_new(rule)
         self.id_map[rule.id] = rule
         self.rules.append(rule)
 
     def add_deprecated_rule(self, rule: DeprecatedRule):
-        data: dict = rule['rule']
-        self._assert_new(rule, data['name'], data['rule_id'], is_deprecated=True)
-        self.deprecated.id_map[data['rule_id']] = rule
+        self._assert_new(rule, is_deprecated=True)
+        self.deprecated.id_map[rule.id] = rule
         self.deprecated.rules.append(rule)
 
     def load_dict(self, obj: dict, path: Optional[Path] = None) -> Union[TOMLRule, DeprecatedRule]:
