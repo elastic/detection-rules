@@ -12,6 +12,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Validate the source branch
+        uses: actions/github-script@v3
+        with:
+          script: |
+            if ('refs/heads/main' !== '${{github.event.ref}}') {
+              core.setFailed('Forbidden branch, expected "main"')
+            }
+
       - name: Checkout detection-rules
         uses: actions/checkout@v2
         with:
