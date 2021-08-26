@@ -429,9 +429,10 @@ class BaseRuleContents(ABC):
         """Convert the rule to the API format."""
 
     @cached
-    @abstractmethod
     def sha256(self, include_version=False) -> str:
-        """get the hash of the API dict without the version by default, otherwise it'll always be dirty."""
+        # get the hash of the API dict without the version by default, otherwise it'll always be dirty.
+        hashable_contents = self.to_api_format(include_version=include_version)
+        return utils.dict_hash(hashable_contents)
 
 
 @dataclass(frozen=True)
@@ -494,12 +495,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         converted = self._post_dict_transform(converted)
 
         return converted
-
-    @cached
-    def sha256(self, include_version=False) -> str:
-        # get the hash of the API dict without the version by default, otherwise it'll always be dirty.
-        hashable_contents = self.to_api_format(include_version=include_version)
-        return utils.dict_hash(hashable_contents)
 
 
 @dataclass
@@ -570,12 +565,6 @@ class DeprecatedRule(dict):
 
                 converted = self._post_dict_transform(converted)
                 return converted
-
-            @cached
-            def sha256(self, include_version=False) -> str:
-                # get the hash of the API dict without the version by default, otherwise it'll always be dirty.
-                hashable_contents = self.to_api_format(include_version=include_version)
-                return utils.dict_hash(hashable_contents)
 
         contents = Contents(self.get('metadata'), self.get('rule'))
         return contents
