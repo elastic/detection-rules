@@ -14,7 +14,7 @@ import eql
 
 import kql
 from detection_rules import attack
-from detection_rules.packaging import load_versions
+from detection_rules.version_lock import load_versions
 from detection_rules.rule import QueryRuleData
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.schemas import definitions

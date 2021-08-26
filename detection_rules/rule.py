@@ -381,31 +381,26 @@ class BaseRuleContents(ABC):
 
     def lock_info(self, bump=True) -> dict:
         version = self.autobumped_version if bump else (self.latest_version or 1)
-        return {"rule_name": self.name, "sha256": self.sha256(), "version": version}
+        contents = {"rule_name": self.name, "sha256": self.sha256(), "version": version}
+
+        return contents
 
     @property
     def is_dirty(self) -> Optional[bool]:
         """Determine if the rule has changed since its version was locked."""
-        from .packaging import load_versions
+        from .version_lock import get_locked_hash
 
-        rules_versions = load_versions()
+        existing_sha256 = get_locked_hash(self.id, self.metadata.min_stack_version)
 
-        if self.id in rules_versions:
-            version_info = rules_versions[self.id]
-            existing_sha256: str = version_info['sha256']
+        if existing_sha256 is not None:
             return existing_sha256 != self.sha256()
 
     @property
     def latest_version(self) -> Optional[int]:
         """Retrieve the latest known version of the rule."""
-        from .packaging import load_versions
+        from .version_lock import get_locked_version
 
-        rules_versions = load_versions()
-
-        if self.id in rules_versions:
-            version_info = rules_versions[self.id]
-            version = version_info['version']
-            return version
+        return get_locked_version(self.id, self.metadata.min_stack_version)
 
     @property
     def autobumped_version(self) -> Optional[int]:
