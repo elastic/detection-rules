@@ -21,7 +21,7 @@ import yaml
 from .misc import JS_LICENSE, cached
 from .rule import TOMLRule, QueryRuleData, ThreatMapping
 from .rule import downgrade_contents_from_rule
-from .rule_loader import RuleCollection, DEFAULT_RULES_DIR
+from .rule_loader import DeprecatedCollection, RuleCollection, DEFAULT_RULES_DIR
 from .schemas import definitions
 from .utils import Ndjson, dict_hash, get_path, get_etc_path, load_etc_dump, save_etc_dump
 
@@ -74,8 +74,8 @@ def load_versions(current_versions: dict = None):
     return current_versions or load_etc_dump('version.lock.json')
 
 
-def manage_versions(rules: List[TOMLRule], current_versions: dict = None,
-                    exclude_version_update=False, add_new=True, save_changes=False,
+def manage_versions(rules: RuleCollection, current_versions: dict = None,
+                    exclude_version_update=False, save_changes=False,
                     verbose=True) -> (List[str], List[str], List[str]):
     """Update the contents of the version.lock file and optionally save changes."""
     current_versions = load_versions(current_versions)
@@ -85,7 +85,7 @@ def manage_versions(rules: List[TOMLRule], current_versions: dict = None,
     echo = click.echo if verbose else (lambda x: None)
 
     already_deprecated = set(rule_deprecations)
-    deprecated_rules = set(rule.id for rule in rules if rule.contents.metadata.maturity == "deprecated")
+    deprecated_rules = set(rules.deprecated.id_map)
     new_rules = set(rule.id for rule in rules if rule.contents.latest_version is None) - deprecated_rules
     changed_rules = set(rule.id for rule in rules if rule.contents.is_dirty) - deprecated_rules
 
@@ -107,7 +107,10 @@ def manage_versions(rules: List[TOMLRule], current_versions: dict = None,
         if rule.contents.metadata.maturity == "production":
             current_versions[rule.id] = contents
 
-        elif rule.id in newly_deprecated:
+    for rule in rules.deprecated:
+        contents = rule.contents.lock_info(bump=not exclude_version_update)
+
+        if rule.id in newly_deprecated:
             current_versions[rule.id] = contents
             rule_deprecations[rule.id] = {
                 "rule_name": rule.name,
@@ -135,15 +138,14 @@ def manage_versions(rules: List[TOMLRule], current_versions: dict = None,
 class Package(object):
     """Packaging object for siem rules and releases."""
 
-    def __init__(self, rules: List[TOMLRule], name: str, deprecated_rules: Optional[List[TOMLRule]] = None,
-                 release: Optional[bool] = False, current_versions: Optional[dict] = None,
-                 min_version: Optional[int] = None, max_version: Optional[int] = None,
-                 update_version_lock: Optional[bool] = False, registry_data: Optional[dict] = None,
-                 verbose: Optional[bool] = True):
+    def __init__(self, rules: RuleCollection, name: str, release: Optional[bool] = False,
+                 current_versions: Optional[dict] = None, min_version: Optional[int] = None,
+                 max_version: Optional[int] = None, update_version_lock: Optional[bool] = False,
+                 registry_data: Optional[dict] = None, verbose: Optional[bool] = True):
         """Initialize a package."""
         self.name = name
         self.rules = rules
-        self.deprecated_rules: List[TOMLRule] = deprecated_rules or []
+        self.deprecated_rules: DeprecatedCollection = rules.deprecated
         self.release = release
         self.registry_data = registry_data or {}
 
@@ -152,8 +154,8 @@ class Package(object):
                                                                                               verbose=verbose)
 
         if min_version or max_version:
-            self.rules = [r for r in self.rules
-                          if (min_version or 0) <= r.contents['version'] <= (max_version or r.contents['version'])]
+            self.rules = rules.filter(
+                lambda r: (min_version or 0) <= r.contents['version'] <= (max_version or r.contents['version']))
 
     def _add_versions(self, current_versions, update_versions_lock=False, verbose=True):
         """Add versions to rules at load time."""
@@ -313,20 +315,16 @@ class Package(object):
         all_rules = RuleCollection.default()
         config = config or {}
         exclude_fields = config.pop('exclude_fields', {})
-        log_deprecated = config.pop('log_deprecated', False)
+        # deprecated rules are now embedded in the RuleCollection.deprecated - this is left here for backwards compat
+        config.pop('log_deprecated', False)
         rule_filter = config.pop('filter', {})
-        deprecated_rules = []
-
-        if log_deprecated:
-            deprecated_rules = [r for r in all_rules if r.contents.metadata.maturity == 'deprecated']
 
         rules = all_rules.filter(lambda r: filter_rule(r, rule_filter, exclude_fields))
 
         if verbose:
             click.echo(f' - {len(all_rules) - len(rules)} rules excluded from package')
 
-        package = cls(rules, deprecated_rules=deprecated_rules, update_version_lock=update_version_lock,
-                      verbose=verbose, **config)
+        package = cls(rules, update_version_lock=update_version_lock, verbose=verbose, **config)
 
         return package
 
