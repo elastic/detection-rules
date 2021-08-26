@@ -24,7 +24,6 @@ def _convert_lock_version(stack_version: Optional[str]) -> Version:
     return max(Version(stack_version), MIN_LOCK_VERSION_DEFAULT)
 
 
-@cached
 def get_locked_version(rule_id: str, min_stack_version: Optional[str] = None) -> Optional[int]:
     rules_versions = load_versions()
 
@@ -34,7 +33,6 @@ def get_locked_version(rule_id: str, min_stack_version: Optional[str] = None) ->
         return stack_version_info['version']
 
 
-@cached
 def get_locked_hash(rule_id: str, min_stack_version: Optional[str] = None) -> Optional[str]:
     rules_versions = load_versions()
 
@@ -146,6 +144,9 @@ def manage_versions(rules: RuleCollection,
     if versions_hash != new_hash:
         save_etc_dump(current_versions, ETC_VERSION_LOCK_FILE)
         click.echo('Updated version.lock.json file')
+
+        # reset the cache
+        load_versions.clear()
 
     if newly_deprecated:
         save_etc_dump(rule_deprecations, ETC_DEPRECATED_RULES_FILE)
