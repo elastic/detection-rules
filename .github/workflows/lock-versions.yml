@@ -42,19 +42,17 @@ jobs:
           BRANCHES: "${{github.event.inputs.branches}}"
         run: |
           ./etc/lock-multiple.sh $BRANCHES
-          PR_BRANCH="version-lock/$(git rev-parse --short HEAD)-${GITHUB_RUN_NUMBER}"
-          git checkout -b $PR_BRANCH
           git add etc/version.lock.json
-          git commit -m "Locked versions for releases: $BRANCHES"
-          git push -u origin $PR_BRANCH
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v3
         with:
           assignees: '${{github.actor}}'
           delete-branch: true
+          branch: "version-lock/"
+          commit-message: "Locked versions for releases: ${{github.event.inputs.branches}}"
+          branch-suffix: "short-commit-hash"
           title: 'Lock versions for releases: ${{github.event.inputs.branches}}'
-          token: ${{ secrets.PROTECTIONS_MACHINE_TOKEN }}
           body: |
             Lock versions for releases: ${{github.event.inputs.branches}}.
 
@@ -65,4 +63,4 @@ jobs:
         with:
           name: release-files
           path: |
-            detection-rules/releases
+            releases
