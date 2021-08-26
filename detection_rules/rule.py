@@ -496,17 +496,6 @@ class TOMLRule:
         """Generate the relevant fleet compatible asset."""
         return {"id": self.id, "attributes": self.contents.to_api_format(), "type": definitions.SAVED_OBJECT_TYPE}
 
-    def new(self, path: Optional[Path] = None, data: Optional[dict] = None, metadata: Optional[dict] = None):
-        """Return a new, updated rule object."""
-        data = data or {}
-        metadata = metadata or {}
-        new_data = dataclasses.replace(self.contents.data, **data)
-        new_meta = dataclasses.replace(self.contents.metadata, **metadata)
-
-        contents = TOMLRuleContents(data=new_data, metadata=new_meta)
-        new_rule = TOMLRule(path=path or self.path, contents=contents)
-        return new_rule
-
     def save_toml(self):
         assert self.path is not None, f"Can't save rule {self.name} (self.id) without a path"
         converted = self.contents.to_dict()

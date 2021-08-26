@@ -622,8 +622,8 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
             new_data = {'rule_id': str(uuid4())}
 
         rule_path = Path(f'pr-{pr.number}-{rule.path}')
-
-        new_rule = this_rule.new(path=rule_path, data=dict(meta=new_meta, **new_data))
+        contents = dataclasses.replace(rule.contents, metadata=new_meta, data=new_data)
+        new_rule = TOMLRule(path=rule_path, contents=contents)
 
         rule_dict = {'metadata': new_rule.contents.metadata.to_dict(), 'rule': new_rule.contents.to_api_format()}
         all_rules[rule_path] = rule_dict
@@ -649,8 +649,6 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
 @click.pass_context
 def deprecate_rule(ctx: click.Context, rule_file: Path):
     """Deprecate a rule."""
-    from .packaging import load_versions
-
     version_info = load_versions()
     rule_collection = RuleCollection()
     contents = rule_collection.load_file(rule_file).contents
@@ -671,7 +669,12 @@ def deprecate_rule(ctx: click.Context, rule_file: Path):
     deprecated_path = get_path('rules', '_deprecated', rule_file.name)
 
     # create the new rule and save it
-    new_rule = rule.new(path=Path(deprecated_path), metadata=new_meta)
+    new_meta = dataclasses.replace(rule.contents.metadata,
+                                   updated_date=today,
+                                   deprecation_date=today,
+                                   maturity='deprecated')
+    contents = dataclasses.replace(rule.contents, metadata=new_meta)
+    new_rule = TOMLRule(contents=contents, path=Path(deprecated_path))
     new_rule.save_toml()
 
     # remove the old rule

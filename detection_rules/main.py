@@ -4,13 +4,14 @@
 # 2.0.
 
 """CLI commands for detection_rules."""
+import dataclasses
 import glob
 import json
 import os
 import re
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 from uuid import uuid4
 
 import click
@@ -169,7 +170,7 @@ def view_rule(ctx, rule_file, api_format):
     return rule
 
 
-def _export_rules(rules: List[TOMLRule], outfile: Path, downgrade_version: Optional[definitions.SemVer] = None,
+def _export_rules(rules: RuleCollection, outfile: Path, downgrade_version: Optional[definitions.SemVer] = None,
                   verbose=True, skip_unsupported=False):
     """Export rules into a consolidated ndjson file."""
     from .rule import downgrade_contents_from_rule
@@ -207,29 +208,33 @@ def _export_rules(rules: List[TOMLRule], outfile: Path, downgrade_version: Optio
 
 @root.command('export-rules')
 @multi_collection
-@click.option('--outfile', '-o', default=get_path('exports', f'{time.strftime("%Y%m%dT%H%M%SL")}.ndjson'),
-              type=click.Path(dir_okay=False), help='Name of file for exported rules')
+@click.option('--outfile', '-o', default=Path(get_path('exports', f'{time.strftime("%Y%m%dT%H%M%SL")}.ndjson')),
+              type=Path, help='Name of file for exported rules')
 @click.option('--replace-id', '-r', is_flag=True, help='Replace rule IDs with new IDs before export')
 @click.option('--stack-version', type=click.Choice(all_versions()),
               help='Downgrade a rule version to be compatible with older instances of Kibana')
 @click.option('--skip-unsupported', '-s', is_flag=True,
               help='If `--stack-version` is passed, skip rule types which are unsupported '
                    '(an error will be raised otherwise)')
-def export_rules(rules, outfile, replace_id, stack_version, skip_unsupported):
+def export_rules(rules, outfile: Path, replace_id, stack_version, skip_unsupported):
     """Export rule(s) into an importable ndjson file."""
     assert len(rules) > 0, "No rules found"
 
     if replace_id:
-        new_rules = []
-        for rule in rules:
-            new_rules.append(rule.new(data=dict(rule_id=str(uuid4()))))
+        # if we need to replace the id, take each rule object and create a copy
+        # of it, with only the rule_id field changed
+        old_rules = rules
+        rules = RuleCollection()
 
-        rules = new_rules
+        for rule in old_rules:
+            new_data = dataclasses.replace(rule.contents.data, rule_id=str(uuid4()))
+            new_contents = dataclasses.replace(rule.contents, data=new_data)
+            rules.add_rule(TOMLRule(contents=new_contents))
 
-    _export_rules(rules=rules, outfile=Path(outfile), downgrade_version=stack_version,
+    outfile.parent.mkdir(exist_ok=True)
+    _export_rules(rules=rules, outfile=outfile, downgrade_version=stack_version,
                   skip_unsupported=skip_unsupported)
 
-    Path(outfile).parent.mkdir(exist_ok=True)
     return rules
 
 
