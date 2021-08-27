@@ -13,21 +13,23 @@ import shutil
 import subprocess
 import textwrap
 import time
+import typing
 from pathlib import Path
 from typing import Optional, Tuple, List
 
 import click
-import typing
+import yaml
 from elasticsearch import Elasticsearch
 
 from kibana.connector import Kibana
-from . import rule_loader
+from . import rule_loader, utils
 from .cli_utils import single_collection
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
-from .packaging import PACKAGE_FILE, Package, RELEASE_DIR, current_stack_version, manage_versions
+from .packaging import PACKAGE_FILE, Package, RELEASE_DIR, current_stack_version
+from .version_lock import manage_versions, load_versions
 from .rule import AnyRuleData, BaseRuleData, QueryRuleData, TOMLRule
 from .rule_loader import RuleCollection, production_filter
 from .semver import Version
@@ -65,11 +67,15 @@ def build_release(config_file, update_version_lock, release=None, verbose=True):
     if verbose:
         click.echo('[+] Building package {}'.format(config.get('name')))
 
-    package = Package.from_config(config, update_version_lock=update_version_lock, verbose=verbose)
+    package = Package.from_config(config, verbose=verbose)
+
+    if update_version_lock:
+        manage_versions(package.rules, save_changes=True, verbose=verbose)
+
     package.save(verbose=verbose)
 
     if verbose:
-        package.get_package_hash(verbose=True)
+        package.get_package_hash(verbose=verbose)
         click.echo(f'- {len(package.rules)} rules included')
 
     return package
@@ -95,6 +101,7 @@ class GitChangeEntry:
 
     def revert(self, dry_run=False):
         """Run a git command to revert this change."""
+
         def git(*args):
             command_line = ["git"] + [str(arg) for arg in args]
             click.echo(subprocess.list2cmdline(command_line))
@@ -126,6 +133,10 @@ class GitChangeEntry:
 @click.option("--dry-run", is_flag=True, help="List the changes that would be made")
 def prune_staging_area(target_stack_version: str, dry_run: bool):
     """Prune the git staging area to remove changes to incompatible rules."""
+    exceptions = {
+        "etc/packages.yml",
+    }
+
     target_stack_version = Version(target_stack_version)[:2]
 
     # load a structured summary of the diff from git
@@ -136,6 +147,11 @@ def prune_staging_area(target_stack_version: str, dry_run: bool):
     reversions: List[GitChangeEntry] = []
 
     for change in changes:
+        if str(change.path) in exceptions:
+            # Don't backport any changes to files matching the list of exceptions
+            reversions.append(change)
+            continue
+
         # it's a change to a rule file, load it and check the version
         if str(change.path.absolute()).startswith(RULES_DIR) and change.path.suffix == ".toml":
             # bypass TOML validation in case there were schema changes
@@ -171,7 +187,7 @@ def update_lock_versions(rule_ids):
     if not click.confirm(f'Are you sure you want to update hashes for {len(rules)} rules without a version bump?'):
         return
 
-    changed, new, _ = manage_versions(rules, exclude_version_update=True, add_new=False, save_changes=True)
+    changed, new, _ = manage_versions(rules, exclude_version_update=True, save_changes=True)
 
     if not changed:
         click.echo('No hashes updated')
@@ -252,8 +268,6 @@ def add_git_args(f):
 def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_directory: str, base_branch: str,
                   branch_name: Optional[str], message: Optional[str], push: bool) -> (str, str):
     """Prep a commit and push to Kibana."""
-    git_exe = shutil.which("git")
-
     package_name = Package.load_configs()["name"]
     release_dir = os.path.join(RELEASE_DIR, package_name)
     message = message or f"[Detection Rules] Add {package_name} rules"
@@ -263,29 +277,23 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
         click.echo(f"Run {click.style('python -m detection_rules dev build-release', bold=True)} to populate", err=True)
         ctx.exit(1)
 
-    if not git_exe:
-        click.secho("Unable to find git", err=True, fg="red")
-        ctx.exit(1)
+    git = utils.make_git("-C", local_repo)
 
     # Get the current hash of the repo
-    long_commit_hash = subprocess.check_output([git_exe, "rev-parse", "HEAD"], encoding="utf-8").strip()
-    short_commit_hash = subprocess.check_output([git_exe, "rev-parse", "--short", "HEAD"], encoding="utf-8").strip()
+    long_commit_hash = git("rev-parse", "HEAD")
+    short_commit_hash = git("rev-parse", "--short", "HEAD")
 
     try:
-        def git(*args, show_output=False):
-            method = subprocess.call if show_output else subprocess.check_output
-            return method([git_exe, "-C", local_repo] + list(args), encoding="utf-8")
-
         if not os.path.exists(local_repo):
             click.echo(f"Kibana repository doesn't exist at {local_repo}. Cloning...")
             url = f"git@github.com:{github_repo}.git" if ssh else f"https://github.com/{github_repo}.git"
-            subprocess.check_call([git_exe, "clone", url, local_repo, "--depth", "1"])
+            utils.make_git()("clone", url, local_repo, "--depth", "1")
         else:
             git("checkout", base_branch)
 
         branch_name = branch_name or f"detection-rules/{package_name}-{short_commit_hash}"
 
-        git("checkout", "-b", branch_name, show_output=True)
+        git("checkout", "-b", branch_name, print_output=True)
         git("rm", "-r", kibana_directory)
 
         source_dir = os.path.join(release_dir, "rules")
@@ -301,7 +309,7 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
 
         git("add", kibana_directory)
         git("commit", "--no-verify", "-m", message)
-        git("status", show_output=True)
+        git("status", print_output=True)
 
         if push:
             git("push", "origin", branch_name)
@@ -344,7 +352,7 @@ def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...
     - [x] Any text added follows [EUI's writing guidelines](https://elastic.github.io/eui/#/guidelines/writing),
           uses sentence case text and includes [i18n support](https://github.com/elastic/kibana/blob/master/packages/kbn-i18n/README.md)
     """).strip()  # noqa: E501
-    pr = repo.create_pull(title, body, kwargs["base_branch"], branch_name, draft=draft)
+    pr = repo.create_pull(title, body, kwargs["base_branch"], branch_name, maintainer_can_modify=True, draft=draft)
 
     # labels could also be comma separated
     label = {lbl for cs_labels in label for lbl in cs_labels.split(",") if lbl}
@@ -357,6 +365,167 @@ def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...
 
     click.echo("PR created:")
     click.echo(pr.html_url)
+
+
+@dev_group.command("integrations-pr")
+@click.argument("local-repo", type=click.Path(exists=True, file_okay=False, dir_okay=True),
+                default=get_path("..", "integrations"))
+@click.option("--token", required=True, prompt=get_github_token() is None, default=get_github_token(),
+              help="GitHub token to use for the PR", hide_input=True)
+@click.option("--pkg-directory", "-d", help="Directory to save the package in cloned repository",
+              default=os.path.join("packages", "security_detection_engine"))
+@click.option("--base-branch", "-b", help="Base branch in target repository", default="master")
+@click.option("--branch-name", "-n", help="New branch for the rules commit")
+@click.option("--github-repo", "-r", help="Repository to use for the branch", default="elastic/integrations")
+@click.option("--assign", multiple=True, help="GitHub users to assign the PR")
+@click.option("--label", multiple=True, help="GitHub labels to add to the PR")
+@click.option("--draft", is_flag=True, help="Open the PR as a draft")
+@click.option("--remote", help="Override the remote from 'origin'", default="origin")
+@click.pass_context
+def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool,
+                    pkg_directory: str, base_branch: str, remote: str,
+                    branch_name: Optional[str], github_repo: str, assign: Tuple[str, ...], label: Tuple[str, ...]):
+    """Create a pull request to publish the Fleet package to elastic/integrations."""
+    local_repo = os.path.abspath(local_repo)
+    stack_version = Package.load_configs()["name"]
+    package_version = Package.load_configs()["registry_data"]["version"]
+
+    release_dir = Path(RELEASE_DIR) / stack_version / "fleet" / package_version
+    message = f"[Security Rules] Update security rules package to v{package_version}"
+
+    if not release_dir.exists():
+        click.secho("Release directory doesn't exist.", fg="red", err=True)
+        click.echo(f"Run {click.style('python -m detection_rules dev build-release', bold=True)} to populate", err=True)
+        ctx.exit(1)
+
+    if not Path(local_repo).exists():
+        click.secho(f"{github_repo} is not present at {local_repo}.", fg="red", err=True)
+        ctx.exit(1)
+
+    # Get the most recent commit hash of detection-rules
+    detection_rules_git = utils.make_git()
+    long_commit_hash = detection_rules_git("rev-parse", "HEAD")
+    short_commit_hash = detection_rules_git("rev-parse", "--short", "HEAD")
+
+    # refresh the local clone of the repository
+    git = utils.make_git("-C", local_repo)
+    git("checkout", base_branch)
+    git("pull", remote, base_branch)
+
+    # Switch to a new branch in elastic/integrations
+    branch_name = branch_name or f"detection-rules/{package_version}-{short_commit_hash}"
+    git("checkout", "-b", branch_name)
+
+    # Load the changelog in memory, before it's removed. Come back for it after the PR is created
+    target_directory = Path(local_repo) / pkg_directory
+    changelog_path = target_directory / "changelog.yml"
+    changelog_entries: list = yaml.safe_load(changelog_path.read_text(encoding="utf-8"))
+
+    changelog_entries.insert(0, {
+        "version": package_version,
+        "changes": [
+            # This will be changed later
+            {"description": "Release security rules update", "type": "enhancement",
+             "link": "https://github.com/elastic/integrations/pulls/0000"}
+        ]
+    })
+
+    # Remove existing assets and replace everything
+    shutil.rmtree(target_directory)
+    actual_target_directory = shutil.copytree(release_dir, target_directory)
+    assert Path(actual_target_directory).absolute() == Path(target_directory).absolute(), \
+        f"Expected a copy to {pkg_directory}"
+
+    # Add the changelog back
+    def save_changelog():
+        with changelog_path.open("wt") as f:
+            # add a note for other maintainers of elastic/integrations to be careful with versions
+            f.write("# newer versions go on top\n")
+            f.write("# NOTE: please use pre-release versions (e.g. -dev.0) until a package is ready for production\n")
+
+            yaml.dump(changelog_entries, f, allow_unicode=True, default_flow_style=False, indent=2)
+
+    save_changelog()
+
+    # Use elastic-package to format and lint
+    gopath = utils.gopath()
+    assert gopath is not None, "$GOPATH isn't set"
+
+    def elastic_pkg(*args):
+        """Run a command with $GOPATH/bin/elastic-package in the package directory."""
+        prev = os.path.abspath(os.getcwd())
+        os.chdir(target_directory)
+
+        try:
+            return subprocess.check_call([os.path.join(gopath, "bin", "elastic-package")] + list(args))
+        finally:
+            os.chdir(prev)
+
+    elastic_pkg("format")
+    elastic_pkg("lint")
+
+    # Upload the files to a branch
+    git("add", pkg_directory)
+    git("commit", "-m", message)
+    git("push", "--set-upstream", remote, branch_name)
+
+    # Create a pull request (not done yet, but we need the PR number)
+    client = GithubClient(token).authenticated_client
+    repo = client.get_repo(github_repo)
+    body = textwrap.dedent(f"""
+    ## What does this PR do?
+    Update the Security Rules package to version {package_version}.
+    Autogenerated from commit  https://github.com/elastic/detection-rules/tree/{long_commit_hash}
+
+    ## Checklist
+
+    - [x] I have reviewed [tips for building integrations](https://github.com/elastic/integrations/blob/master/docs/tips_for_building_integrations.md) and this pull request is aligned with them.
+    - [ ] ~I have verified that all data streams collect metrics or logs.~
+    - [x] I have added an entry to my package's `changelog.yml` file.
+    - [x] If I'm introducing a new feature, I have modified the Kibana version constraint in my package's `manifest.yml` file to point to the latest Elastic stack release (e.g. `^7.13.0`).
+
+    ## Author's Checklist
+    - Install the most recently release security rules in the Detection Engine
+    - Install the package
+    - Confirm the update is available in Kibana. Click "Update X rules" or "Install X rules"
+    - Look at the changes made after the install and confirm they are consistent
+
+    ## How to test this PR locally
+    - Perform the above checklist, and use `package-storage` to build EPR from source
+
+    ## Related issues
+    None
+
+    ## Screenshots
+    None
+    """)  # noqa: E501
+
+    pr = repo.create_pull(message, body, base_branch, branch_name, maintainer_can_modify=True, draft=draft)
+
+    # labels could also be comma separated
+    label = {lbl for cs_labels in label for lbl in cs_labels.split(",") if lbl}
+
+    if label:
+        pr.add_to_labels(*sorted(label))
+
+    if assign:
+        pr.add_to_assignees(*assign)
+
+    click.echo("PR created:")
+    click.echo(pr.html_url)
+
+    # replace the changelog entry with the actual PR link
+    changelog_entries[0]["changes"][0]["link"] = pr.html_url
+    save_changelog()
+
+    # format the yml file with elastic-package
+    elastic_pkg("format")
+    elastic_pkg("lint")
+
+    # Push the updated changelog to the PR branch
+    git("add", pkg_directory)
+    git("commit", "-m", f"Add changelog entry for {package_version}")
+    git("push")
 
 
 @dev_group.command('license-check')
@@ -401,9 +570,9 @@ def package_stats(ctx, token, threads):
     new, modified, errors = rule_loader.load_github_pr_rules(labels=[release], token=token, threads=threads)
 
     click.echo(f'Total rules as of {release} package: {len(current_package.rules)}')
-    click.echo(f'New rules: {len(current_package.new_rules_ids)}')
-    click.echo(f'Modified rules: {len(current_package.changed_rule_ids)}')
-    click.echo(f'Deprecated rules: {len(current_package.removed_rule_ids)}')
+    click.echo(f'New rules: {len(current_package.new_ids)}')
+    click.echo(f'Modified rules: {len(current_package.changed_ids)}')
+    click.echo(f'Deprecated rules: {len(current_package.removed_ids)}')
 
     click.echo('\n-----\n')
     click.echo('Rules in active PRs for current package: ')
@@ -473,7 +642,6 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
 def deprecate_rule(ctx: click.Context, rule_file: str):
     """Deprecate a rule."""
     import pytoml
-    from .packaging import load_versions
 
     version_info = load_versions()
     rule_file = Path(rule_file)
