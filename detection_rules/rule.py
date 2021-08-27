@@ -361,7 +361,8 @@ class ThreatMatchRuleData(QueryRuleData):
 
 
 # All of the possible rule types
-AnyRuleData = Union[QueryRuleData, EQLRuleData, MachineLearningRuleData, ThresholdQueryRuleData, ThreatMatchRuleData]
+# Sort inverse of any inheritance - see comment in TOMLRuleContents.to_dict
+AnyRuleData = Union[EQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData, MachineLearningRuleData, QueryRuleData]
 
 
 @dataclass(frozen=True)
@@ -438,7 +439,22 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
         return data.validate_query(metadata)
 
     def to_dict(self, strip_none_values=True) -> dict:
-        dict_obj = super(TOMLRuleContents, self).to_dict(strip_none_values=strip_none_values)
+        # When marshmallow_dataclass creates a schema for deserialization, it uses typeguard.checktype to select the
+        # appropriate field for union fields. In the case of contents.data, the valid fields are those contained in
+        # AnyRuleData and marshmallow_dataclass will check the list in the order it is defined.
+        #
+        # The final check in the checktype function is an instance check, so if the RuleDataType is inherited from
+        # another RuleDataType in that list, it will incorrectly select the wrong class (ex: QueryRuleData where
+        # ThreatMatchData is expected). This results in an invalid schema and a stripping of fields.
+        #
+        # While we can try to keep AnyRuleData inversely sorted by inheritance, it is more reliable here to dump from
+        # schemas generated directly on the RuleData and RuleMetadata classes explicitly. See issue #1141
+        #
+        # dict_obj = super(TOMLRuleContents, self).to_dict(strip_none_values=strip_none_values)
+
+        metadata = self.metadata.to_dict(strip_none_values=strip_none_values)
+        data = self.data.to_dict(strip_none_values=strip_none_values)
+        dict_obj = dict(metadata=metadata, rule=data)
         return nested_normalize(dict_obj)
 
     def flattened_dict(self) -> dict:
