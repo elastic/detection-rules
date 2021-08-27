@@ -429,9 +429,9 @@ def es_experimental():
 
 @es_experimental.command('create-dnstwist-rule')
 @click.argument('input-file', type=click.Path(exists=True, dir_okay=False), required=True)
-# @add_client('kibana')
+@click.option('--author', '-a', required=True, help='Author name to be added to rule')
 @click.pass_context
-def create_dnstwist_rule(ctx: click.Context, input_file):  # , kibana_client: Kibana, verbose=True):
+def create_dnstwist_rule(ctx: click.Context, input_file: click.Path, author: str):  # , kibana_client: Kibana, verbose=True):
     """Index dnstwist results in Elasticsearch."""
     es_client: Elasticsearch = ctx.obj['es']
 
@@ -439,7 +439,7 @@ def create_dnstwist_rule(ctx: click.Context, input_file):  # , kibana_client: Ki
     dnstwist_data: dict = load_dump(input_file)
     click.echo(f'{len(dnstwist_data)} records loaded')
 
-    original_domain = next(record['domain-name'] for record in dnstwist_data if record['fuzzer'] == 'original*')
+    original_domain = next(r['domain-name'] for r in dnstwist_data if r.get('fuzzer', '') == 'original*')
     click.echo(f'Original domain name identified: {original_domain}')
 
     domain = original_domain.split('.')[0]
@@ -470,6 +470,7 @@ def create_dnstwist_rule(ctx: click.Context, input_file):  # , kibana_client: Ki
     # handle dns.question.registered_domain separately
     fields.pop()
     es_updates = []
+    now = datetime.utcnow()
 
     for item in dnstwist_data:
         if item['fuzzer'] == 'original*':
@@ -481,13 +482,13 @@ def create_dnstwist_rule(ctx: click.Context, input_file):  # , kibana_client: Ki
         for field in fields:
             record.setdefault(field, None)
 
-        record['@timestamp'] = datetime.utcnow()
+        record['@timestamp'] = now
 
         es_updates.extend([{'create': {'_index': domain_index}}, record])
 
     click.echo(f'Indexing data for domain {original_domain}')
 
-    results = es_client.bulk(es_updates)
+    results = es_client.bulk(body=es_updates)
     if results['errors']:
         error = {r['create']['result'] for r in results['items'] if r['create']['status'] != 201}
         client_error(f'Errors occurred during indexing:\n{error}')
@@ -505,10 +506,9 @@ def create_dnstwist_rule(ctx: click.Context, input_file):  # , kibana_client: Ki
     template_rule = load_dump(str(rule_template_file))
 
     # Populate template rule with user's custom info
-    template_rule['metadata']['creation_date'] = datetime.today().strftime("%Y/%m/%d")
-    template_rule['metadata']['updated_date'] = datetime.today().strftime("%Y/%m/%d")
-    template_rule['rule']['author'].append(click.prompt('Enter rule author'))
-    template_rule['rule']['rule_id'] = str(uuid.uuid4())
+    today = datetime.today().strftime("%Y/%m/%d")
+    template_rule['metadata'].update(creation_date=today, updated_date=today)
+    template_rule['rule'].update(author=[author], rule_id=str(uuid.uuid4()))
 
     # Create rule object and validate it against schema
     rule_collection = RuleCollection()
