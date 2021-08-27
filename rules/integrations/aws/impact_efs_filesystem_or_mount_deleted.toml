@@ -7,9 +7,9 @@ integration = "aws"
 [rule]
 author = ["Austin Songer"]
 description = """
-Detects when a EFS Fileshare is modified or deleted. You can't delete a file system that is in use. If the file
-system has any mount targets, the adversary must first delete them, so deletion of a mount will occur before deletion
-of a fileshare.
+Detects when a EFS File System or Mount is deleted. An adversary breaking any file system using the mount target that
+is being deleted, which might disrupt instances or applications using those mounts. The mount must be deleted prior to
+deleting the File System, or the adversary will be unable to delete the File System.
 """
 false_positives = [
     """
@@ -42,7 +42,6 @@ query = '''
 event.dataset:aws.cloudtrail and event.provider:elasticfilesystem.amazonaws.com and 
 event.action:(DeleteMountTarget or DeleteFileSystem) and event.outcome:success
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
