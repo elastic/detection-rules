@@ -26,7 +26,7 @@ def main(ip=None):
     s.connect((ip, 445))
     common.log("Sending HELLO")
     s.send(b"HELLO!")
-    common.log("Shutting down the conection...")
+    common.log("Shutting down the connection...")
     s.close()
     common.log("Closed connection to {}:{}".format(ip, SMB_PORT))
 

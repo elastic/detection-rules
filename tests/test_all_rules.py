@@ -14,7 +14,7 @@ import eql
 
 import kql
 from detection_rules import attack
-from detection_rules.packaging import load_versions
+from detection_rules.version_lock import load_versions
 from detection_rules.rule import QueryRuleData
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.schemas import definitions
@@ -402,12 +402,14 @@ class TestRuleMetadata(BaseRuleTest):
                 err_msg = f'{self.rule_str(rule)} deprecation_date and updated_date should match'
                 self.assertEqual(meta.deprecation_date, meta.updated_date, err_msg)
 
-        missing_rules = sorted(set(versions).difference(set(self.rule_lookup)))
-        missing_rule_strings = '\n '.join(f'{r} - {versions[r]["rule_name"]}' for r in missing_rules)
-        err_msg = f'Deprecated rules should not be removed, but moved to the rules/_deprecated folder instead. ' \
-                  f'The following rules have been version locked and are missing. ' \
-                  f'Re-add to the deprecated folder and update maturity to "deprecated": \n {missing_rule_strings}'
-        self.assertEqual([], missing_rules, err_msg)
+        # skip this so the lock file can be shared across branches
+        #
+        # missing_rules = sorted(set(versions).difference(set(self.rule_lookup)))
+        # missing_rule_strings = '\n '.join(f'{r} - {versions[r]["rule_name"]}' for r in missing_rules)
+        # err_msg = f'Deprecated rules should not be removed, but moved to the rules/_deprecated folder instead. ' \
+        #           f'The following rules have been version locked and are missing. ' \
+        #           f'Re-add to the deprecated folder and update maturity to "deprecated": \n {missing_rule_strings}'
+        # self.assertEqual([], missing_rules, err_msg)
 
         for rule_id, entry in deprecations.items():
             rule_str = f'{rule_id} - {entry["rule_name"]} ->'

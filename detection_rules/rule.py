@@ -42,7 +42,7 @@ class RuleMeta(MarshmallowDataclassMixin):
     related_endpoint_rules: Optional[List[str]]
 
     # Extended information as an arbitrary dictionary
-    extended: Optional[dict]
+    extended: Optional[Dict[str, Any]]
 
     def get_validation_stack_versions(self) -> Dict[str, dict]:
         """Get a dict of beats and ecs versions per stack release."""
@@ -103,8 +103,8 @@ class ThreatMapping(MarshmallowDataclassMixin):
                 technique_ids.add(technique.id)
 
                 for subtechnique in (technique.subtechnique or []):
-                    sub_technique_ids.update(subtechnique.id)
-                    sub_technique_names.update(subtechnique.name)
+                    sub_technique_ids.add(subtechnique.id)
+                    sub_technique_names.add(subtechnique.name)
 
         return FlatThreatMapping(
             tactic_names=sorted(tactic_names),
@@ -157,7 +157,7 @@ class BaseRuleData(MarshmallowDataclassMixin):
 
     interval: Optional[definitions.Interval]
     max_signals: Optional[definitions.MaxSignals]
-    meta: Optional[dict]
+    meta: Optional[Dict[str, Any]]
     name: str
     note: Optional[definitions.Markdown]
     # can we remove this comment?
@@ -399,31 +399,26 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
 
     def lock_info(self, bump=True) -> dict:
         version = self.autobumped_version if bump else (self.latest_version or 1)
-        return {"rule_name": self.name, "sha256": self.sha256(), "version": version}
+        contents = {"rule_name": self.name, "sha256": self.sha256(), "version": version}
+
+        return contents
 
     @property
     def is_dirty(self) -> Optional[bool]:
         """Determine if the rule has changed since its version was locked."""
-        from .packaging import load_versions
+        from .version_lock import get_locked_hash
 
-        rules_versions = load_versions()
+        existing_sha256 = get_locked_hash(self.id, self.metadata.min_stack_version)
 
-        if self.id in rules_versions:
-            version_info = rules_versions[self.id]
-            existing_sha256: str = version_info['sha256']
+        if existing_sha256 is not None:
             return existing_sha256 != self.sha256()
 
     @property
     def latest_version(self) -> Optional[int]:
         """Retrieve the latest known version of the rule."""
-        from .packaging import load_versions
+        from .version_lock import get_locked_version
 
-        rules_versions = load_versions()
-
-        if self.id in rules_versions:
-            version_info = rules_versions[self.id]
-            version = version_info['version']
-            return version
+        return get_locked_version(self.id, self.metadata.min_stack_version)
 
     @property
     def autobumped_version(self) -> Optional[int]:
