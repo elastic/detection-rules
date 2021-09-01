@@ -183,11 +183,12 @@ def update_lock_versions(rule_ids):
     if rule_ids:
         rules = rules.filter(lambda r: r.id in rule_ids)
     else:
-        rules = rules.filter(lambda r: r.contents.metadata.maturity in ("production", "deprecated"))
+        rules = rules.filter(production_filter)
 
     if not click.confirm(f'Are you sure you want to update hashes for {len(rules)} rules without a version bump?'):
         return
 
+    # this command may not function as expected anymore due to previous changes eliminating the use of add_new=False
     changed, new, _ = manage_versions(rules, exclude_version_update=True, save_changes=True)
 
     if not changed:

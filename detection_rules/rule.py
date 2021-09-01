@@ -3,9 +3,11 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 """Rule object."""
+import copy
 import dataclasses
 import json
 import typing
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
@@ -362,41 +364,22 @@ class ThreatMatchRuleData(QueryRuleData):
 
 
 # All of the possible rule types
-AnyRuleData = Union[QueryRuleData, EQLRuleData, MachineLearningRuleData, ThresholdQueryRuleData, ThreatMatchRuleData]
+# Sort inverse of any inheritance - see comment in TOMLRuleContents.to_dict
+AnyRuleData = Union[EQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData, MachineLearningRuleData, QueryRuleData]
 
 
-@dataclass(frozen=True)
-class TOMLRuleContents(MarshmallowDataclassMixin):
-    """Rule object which maps directly to the TOML layout."""
-    metadata: RuleMeta
-    data: AnyRuleData = field(metadata=dict(data_key="rule"))
-
-    @classmethod
-    def all_rule_types(cls) -> set:
-        types = set()
-        for subclass in typing.get_args(AnyRuleData):
-            field = next(field for field in dataclasses.fields(subclass) if field.name == "type")
-            types.update(typing.get_args(field.type))
-
-        return types
-
-    @classmethod
-    def get_data_subclass(cls, rule_type: str) -> typing.Type[BaseRuleData]:
-        """Get the proper subclass depending on the rule type"""
-        for subclass in typing.get_args(AnyRuleData):
-            field = next(field for field in dataclasses.fields(subclass) if field.name == "type")
-            if (rule_type, ) == typing.get_args(field.type):
-                return subclass
-
-        raise ValueError(f"Unknown rule type {rule_type}")
+class BaseRuleContents(ABC):
+    """Base contents object for shared methods between active and deprecated rules."""
 
     @property
-    def id(self) -> definitions.UUIDString:
-        return self.data.rule_id
+    @abstractmethod
+    def id(self):
+        pass
 
     @property
-    def name(self) -> str:
-        return self.data.name
+    @abstractmethod
+    def name(self):
+        pass
 
     def lock_info(self, bump=True) -> dict:
         version = self.autobumped_version if bump else (self.latest_version or 1)
@@ -430,24 +413,6 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
 
         return version + 1 if self.is_dirty else version
 
-    @validates_schema
-    def validate_query(self, value: dict, **kwargs):
-        """Validate queries by calling into the validator for the relevant method."""
-        data: AnyRuleData = value["data"]
-        metadata: RuleMeta = value["metadata"]
-
-        return data.validate_query(metadata)
-
-    def to_dict(self, strip_none_values=True) -> dict:
-        dict_obj = super(TOMLRuleContents, self).to_dict(strip_none_values=strip_none_values)
-        return nested_normalize(dict_obj)
-
-    def flattened_dict(self) -> dict:
-        flattened = dict()
-        flattened.update(self.data.to_dict())
-        flattened.update(self.metadata.to_dict())
-        return flattened
-
     @staticmethod
     def _post_dict_transform(obj: dict) -> dict:
         """Transform the converted API in place before sending to Kibana."""
@@ -461,6 +426,72 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
 
         return obj
 
+    @abstractmethod
+    def to_api_format(self, include_version=True) -> dict:
+        """Convert the rule to the API format."""
+
+    @cached
+    def sha256(self, include_version=False) -> str:
+        # get the hash of the API dict without the version by default, otherwise it'll always be dirty.
+        hashable_contents = self.to_api_format(include_version=include_version)
+        return utils.dict_hash(hashable_contents)
+
+
+@dataclass(frozen=True)
+class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
+    """Rule object which maps directly to the TOML layout."""
+    metadata: RuleMeta
+    data: AnyRuleData = field(metadata=dict(data_key="rule"))
+
+    @classmethod
+    def all_rule_types(cls) -> set:
+        types = set()
+        for subclass in typing.get_args(AnyRuleData):
+            field = next(field for field in dataclasses.fields(subclass) if field.name == "type")
+            types.update(typing.get_args(field.type))
+
+        return types
+
+    @classmethod
+    def get_data_subclass(cls, rule_type: str) -> typing.Type[BaseRuleData]:
+        """Get the proper subclass depending on the rule type"""
+        for subclass in typing.get_args(AnyRuleData):
+            field = next(field for field in dataclasses.fields(subclass) if field.name == "type")
+            if (rule_type, ) == typing.get_args(field.type):
+                return subclass
+
+        raise ValueError(f"Unknown rule type {rule_type}")
+
+    @property
+    def id(self) -> definitions.UUIDString:
+        return self.data.rule_id
+
+    @property
+    def name(self) -> str:
+        return self.data.name
+
+    @validates_schema
+    def validate_query(self, value: dict, **kwargs):
+        """Validate queries by calling into the validator for the relevant method."""
+        data: AnyRuleData = value["data"]
+        metadata: RuleMeta = value["metadata"]
+
+        return data.validate_query(metadata)
+
+    def to_dict(self, strip_none_values=True) -> dict:
+        # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
+        # result from union fields which contain classes and related subclasses (AnyRuleData). See issue #1141
+        metadata = self.metadata.to_dict(strip_none_values=strip_none_values)
+        data = self.data.to_dict(strip_none_values=strip_none_values)
+        dict_obj = dict(metadata=metadata, rule=data)
+        return nested_normalize(dict_obj)
+
+    def flattened_dict(self) -> dict:
+        flattened = dict()
+        flattened.update(self.data.to_dict())
+        flattened.update(self.metadata.to_dict())
+        return flattened
+
     def to_api_format(self, include_version=True) -> dict:
         """Convert the TOML rule to the API format."""
         converted = self.data.to_dict()
@@ -470,12 +501,6 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
         converted = self._post_dict_transform(converted)
 
         return converted
-
-    @cached
-    def sha256(self, include_version=False) -> str:
-        # get the hash of the API dict without the version by default, otherwise it'll always be dirty.
-        hashable_contents = self.to_api_format(include_version=include_version)
-        return utils.dict_hash(hashable_contents)
 
 
 @dataclass
@@ -506,6 +531,49 @@ class TOMLRule:
         with open(str(path.absolute()), 'w', newline='\n') as f:
             json.dump(self.contents.to_api_format(include_version=include_version), f, sort_keys=True, indent=2)
             f.write('\n')
+
+
+class DeprecatedRule(dict):
+    """Minimal dict object for deprecated rule."""
+
+    def __init__(self, path: Path, *args, **kwargs):
+        super(DeprecatedRule, self).__init__(*args, **kwargs)
+        self.path = path
+
+    @property
+    def id(self) -> str:
+        return self.contents.id
+
+    @property
+    def name(self) -> str:
+        return self.contents.name
+
+    @property
+    def contents(self):
+        @dataclass
+        class Contents(BaseRuleContents):
+            metadata: dict
+            data: dict
+
+            @property
+            def id(self) -> str:
+                return self.data.get('rule_id')
+
+            @property
+            def name(self) -> str:
+                return self.data.get('name')
+
+            def to_api_format(self, include_version=True) -> dict:
+                """Convert the TOML rule to the API format."""
+                converted = copy.deepcopy(self.data)
+                if include_version:
+                    converted["version"] = self.autobumped_version
+
+                converted = self._post_dict_transform(converted)
+                return converted
+
+        contents = Contents(self.get('metadata'), self.get('rule'))
+        return contents
 
 
 def downgrade_contents_from_rule(rule: TOMLRule, target_version: str) -> dict:
