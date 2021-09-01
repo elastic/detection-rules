@@ -11,11 +11,11 @@ To deploy this framework in your environment, follow the steps outlined below.
 
 #### 3. Uploading required scripts
 
-Upload the script in `ml_hostriskscore_levels_script.json` using the following API call:
+Upload the scripts in `ml_hostriskscore_levels_script.json`, `ml_hostriskscore_map_script.json` and `ml_hostriskscore_reduce_script.json` using the following API call:
 
 
 ```
-PUT _scripts/ml_hostriskscore_levels_script
+PUT _scripts/<script_name>
 ```
 
 #### 4. Upload required ingest pipelines
