@@ -518,8 +518,9 @@ def downgrade_contents_from_rule(rule: TOMLRule, target_version: str) -> dict:
     return payload
 
 
-def get_unique_query_fields(contents: dict) -> List[str]:
+def get_unique_query_fields(rule: TOMLRule) -> List[str]:
     """Get a list of unique fields used in a rule query from rule contents."""
+    contents = rule.contents.to_api_format()
     language = contents.get('language')
     query = contents.get('query')
     if language in ('kuery', 'eql'):

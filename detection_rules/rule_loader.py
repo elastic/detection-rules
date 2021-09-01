@@ -250,7 +250,7 @@ def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rul
             rule = TOMLRule(path=rule_file.filename, contents=contents)
             rule.gh_pr = pull
 
-            if rule.contents.id in existing_rules:
+            if rule in existing_rules:
                 modified_rules.append(rule)
             else:
                 new_rules.append(rule)

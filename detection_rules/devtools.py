@@ -599,8 +599,8 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
 
     def add_github_meta(this_rule: TOMLRule, status: str, original_rule_id: Optional[definitions.UUIDString] = None):
         pr = this_rule.gh_pr
-        new_data = {}
-        new_meta = {
+        data = rule.contents.data
+        extend_meta = {
             'status': status,
             'github': {
                 'base': pr.base.label,
@@ -618,11 +618,12 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
         }
 
         if original_rule_id:
-            new_meta['original_rule_id'] = original_rule_id
-            new_data = {'rule_id': str(uuid4())}
+            extend_meta['original_rule_id'] = original_rule_id
+            data = dataclasses.replace(rule.contents.data, rule_id=str(uuid4()))
 
         rule_path = Path(f'pr-{pr.number}-{rule.path}')
-        contents = dataclasses.replace(rule.contents, metadata=new_meta, data=new_data)
+        new_meta = dataclasses.replace(rule.contents.metadata, extended=extend_meta)
+        contents = dataclasses.replace(rule.contents, metadata=new_meta, data=data)
         new_rule = TOMLRule(path=rule_path, contents=contents)
 
         rule_dict = {'metadata': new_rule.contents.metadata.to_dict(), 'rule': new_rule.contents.to_api_format()}

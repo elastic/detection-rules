@@ -57,7 +57,7 @@ def filter_rule(rule: TOMLRule, config_filter: dict, exclude_fields: Optional[di
     if exclude_fields:
         from .rule import get_unique_query_fields
 
-        unique_fields = get_unique_query_fields(rule.contents.to_api_format())
+        unique_fields = get_unique_query_fields(rule)
 
         for index, fields in exclude_fields.items():
             if unique_fields and (rule.contents.data.index == index or index == 'any'):

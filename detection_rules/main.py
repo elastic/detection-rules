@@ -270,11 +270,11 @@ def search_rules(query, columns, language, count, verbose=True, rules: Dict[str,
     from .rule import get_unique_query_fields
 
     flattened_rules = []
-    rules = rules or {str(rule.path): rule.contents.to_dict() for rule in RuleCollection.default()}
+    rules = rules or {str(rule.path): rule for rule in RuleCollection.default()}
 
-    for file_name, rule_doc in rules.items():
+    for file_name, rule in rules.items():
         flat: dict = {"file": os.path.relpath(file_name)}
-        flat.update(rule_doc.contents.to_dict())
+        flat.update(rule.contents.to_dict())
         flat.update(flat["metadata"])
         flat.update(flat["rule"])
 
@@ -292,7 +292,7 @@ def search_rules(query, columns, language, count, verbose=True, rules: Dict[str,
             subtechnique_ids.extend([st['id'] for t in techniques for st in t.get('subtechnique', [])])
 
         flat.update(techniques=technique_ids, tactics=tactic_names, subtechniques=subtechnique_ids,
-                    unique_fields=get_unique_query_fields(rule_doc['rule']))
+                    unique_fields=get_unique_query_fields(rule))
         flattened_rules.append(flat)
 
     flattened_rules.sort(key=lambda dct: dct["name"])
