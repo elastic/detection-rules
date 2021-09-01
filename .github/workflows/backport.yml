@@ -145,3 +145,10 @@ jobs:
           echo "Amend the commit message and push"
           git commit --amend -F $COMMIT_MSG_FILE
           git push
+
+      - name: "Notify slack on failure"
+        uses: craftech-io/slack-action@v1
+        with:
+          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: failure
+        if: failure()
