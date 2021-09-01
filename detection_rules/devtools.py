@@ -642,8 +642,6 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
 @click.pass_context
 def deprecate_rule(ctx: click.Context, rule_file: Path):
     """Deprecate a rule."""
-    from .packaging import load_versions
-
     version_info = load_versions()
     rule_collection = RuleCollection()
     contents = rule_collection.load_file(rule_file).contents
