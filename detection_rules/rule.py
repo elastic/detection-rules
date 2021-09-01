@@ -361,7 +361,8 @@ class ThreatMatchRuleData(QueryRuleData):
 
 
 # All of the possible rule types
-AnyRuleData = Union[QueryRuleData, EQLRuleData, MachineLearningRuleData, ThresholdQueryRuleData, ThreatMatchRuleData]
+# Sort inverse of any inheritance - see comment in TOMLRuleContents.to_dict
+AnyRuleData = Union[EQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData, MachineLearningRuleData, QueryRuleData]
 
 
 @dataclass(frozen=True)
@@ -438,7 +439,11 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
         return data.validate_query(metadata)
 
     def to_dict(self, strip_none_values=True) -> dict:
-        dict_obj = super(TOMLRuleContents, self).to_dict(strip_none_values=strip_none_values)
+        # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
+        # result from union fields which contain classes and related subclasses (AnyRuleData). See issue #1141
+        metadata = self.metadata.to_dict(strip_none_values=strip_none_values)
+        data = self.data.to_dict(strip_none_values=strip_none_values)
+        dict_obj = dict(metadata=metadata, rule=data)
         return nested_normalize(dict_obj)
 
     def flattened_dict(self) -> dict:
