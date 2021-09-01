@@ -28,7 +28,8 @@ from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
-from .packaging import PACKAGE_FILE, Package, RELEASE_DIR, current_stack_version, manage_versions
+from .packaging import PACKAGE_FILE, Package, RELEASE_DIR, current_stack_version
+from .version_lock import manage_versions, load_versions
 from .rule import AnyRuleData, BaseRuleData, QueryRuleData, TOMLRule
 from .rule_loader import RuleCollection, production_filter
 from .semver import Version
@@ -66,11 +67,15 @@ def build_release(config_file, update_version_lock, release=None, verbose=True):
     if verbose:
         click.echo('[+] Building package {}'.format(config.get('name')))
 
-    package = Package.from_config(config, update_version_lock=update_version_lock, verbose=verbose)
+    package = Package.from_config(config, verbose=verbose)
+
+    if update_version_lock:
+        manage_versions(package.rules, save_changes=True, verbose=verbose)
+
     package.save(verbose=verbose)
 
     if verbose:
-        package.get_package_hash(verbose=True)
+        package.get_package_hash(verbose=verbose)
         click.echo(f'- {len(package.rules)} rules included')
 
     return package
@@ -128,6 +133,10 @@ class GitChangeEntry:
 @click.option("--dry-run", is_flag=True, help="List the changes that would be made")
 def prune_staging_area(target_stack_version: str, dry_run: bool):
     """Prune the git staging area to remove changes to incompatible rules."""
+    exceptions = {
+        "etc/packages.yml",
+    }
+
     target_stack_version = Version(target_stack_version)[:2]
 
     # load a structured summary of the diff from git
@@ -138,6 +147,11 @@ def prune_staging_area(target_stack_version: str, dry_run: bool):
     reversions: List[GitChangeEntry] = []
 
     for change in changes:
+        if str(change.path) in exceptions:
+            # Don't backport any changes to files matching the list of exceptions
+            reversions.append(change)
+            continue
+
         # it's a change to a rule file, load it and check the version
         if str(change.path.absolute()).startswith(RULES_DIR) and change.path.suffix == ".toml":
             # bypass TOML validation in case there were schema changes
@@ -168,12 +182,13 @@ def update_lock_versions(rule_ids):
     if rule_ids:
         rules = rules.filter(lambda r: r.id in rule_ids)
     else:
-        rules = rules.filter(lambda r: r.contents.metadata.maturity in ("production", "deprecated"))
+        rules = rules.filter(production_filter)
 
     if not click.confirm(f'Are you sure you want to update hashes for {len(rules)} rules without a version bump?'):
         return
 
-    changed, new, _ = manage_versions(rules, exclude_version_update=True, add_new=False, save_changes=True)
+    # this command may not function as expected anymore due to previous changes eliminating the use of add_new=False
+    changed, new, _ = manage_versions(rules, exclude_version_update=True, save_changes=True)
 
     if not changed:
         click.echo('No hashes updated')
@@ -615,9 +630,9 @@ def package_stats(ctx, token, threads):
     new, modified, errors = rule_loader.load_github_pr_rules(labels=[release], token=token, threads=threads)
 
     click.echo(f'Total rules as of {release} package: {len(current_package.rules)}')
-    click.echo(f'New rules: {len(current_package.new_rules_ids)}')
-    click.echo(f'Modified rules: {len(current_package.changed_rule_ids)}')
-    click.echo(f'Deprecated rules: {len(current_package.removed_rule_ids)}')
+    click.echo(f'New rules: {len(current_package.new_ids)}')
+    click.echo(f'Modified rules: {len(current_package.changed_ids)}')
+    click.echo(f'Deprecated rules: {len(current_package.removed_ids)}')
 
     click.echo('\n-----\n')
     click.echo('Rules in active PRs for current package: ')
@@ -687,7 +702,6 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
 def deprecate_rule(ctx: click.Context, rule_file: str):
     """Deprecate a rule."""
     import pytoml
-    from .packaging import load_versions
 
     version_info = load_versions()
     rule_file = Path(rule_file)
