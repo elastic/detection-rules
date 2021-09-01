@@ -218,7 +218,7 @@ class RuleCollection:
 
 @cached
 def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rules', token=None, threads=50,
-                         verbose=True):
+                         verbose=True) -> (Dict[str, TOMLRule], Dict[str, TOMLRule], Dict[str, list]):
     """Load all rules active as a GitHub PR."""
     import requests
     import pytoml

@@ -15,7 +15,7 @@ import textwrap
 import time
 import typing
 from pathlib import Path
-from typing import Optional, Tuple, List
+from typing import Dict, Optional, Tuple, List
 
 import click
 import yaml
@@ -594,7 +594,7 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
     from uuid import uuid4
     from .main import search_rules
 
-    all_rules = {}
+    all_rules: Dict[Path, TOMLRule] = {}
     new, modified, errors = rule_loader.load_github_pr_rules(token=token, threads=threads)
 
     def add_github_meta(this_rule: TOMLRule, status: str, original_rule_id: Optional[definitions.UUIDString] = None):
@@ -626,8 +626,7 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
         contents = dataclasses.replace(rule.contents, metadata=new_meta, data=data)
         new_rule = TOMLRule(path=rule_path, contents=contents)
 
-        rule_dict = {'metadata': new_rule.contents.metadata.to_dict(), 'rule': new_rule.contents.to_api_format()}
-        all_rules[rule_path] = rule_dict
+        all_rules[new_rule.path] = new_rule
 
     for rule_id, rule in new.items():
         add_github_meta(rule, 'new')
