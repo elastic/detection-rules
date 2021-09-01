@@ -380,27 +380,34 @@ class TestRuleMetadata(BaseRuleTest):
         versions = load_versions()
         deprecations = load_etc_dump('deprecated_rules.json')
         deprecated_rules = {}
+        rules_path = get_path('rules')
+        deprecated_path = get_path("rules", "_deprecated")
 
-        for rule in self.all_rules:
+        misplaced_rules = [r for r in self.all_rules
+                           if r.path.relative_to(rules_path).parts[-2] == '_deprecated' and  # noqa: W504
+                           r.contents.metadata.maturity != 'deprecated']
+        misplaced = '\n'.join(f'{self.rule_str(r)} {r.contents.metadata.maturity}' for r in misplaced_rules)
+        err_str = f'The following rules are stored in {deprecated_path} but are not marked as deprecated:\n{misplaced}'
+        self.assertListEqual(misplaced_rules, [], err_str)
+
+        for rule in self.deprecated_rules:
             meta = rule.contents.metadata
-            maturity = meta.maturity
 
-            if maturity == 'deprecated':
-                deprecated_rules[rule.id] = rule
-                err_msg = f'{self.rule_str(rule)} cannot be deprecated if it has not been version locked. ' \
-                          f'Convert to `development` or delete the rule file instead'
-                self.assertIn(rule.id, versions, err_msg)
+            deprecated_rules[rule.id] = rule
+            err_msg = f'{self.rule_str(rule)} cannot be deprecated if it has not been version locked. ' \
+                      f'Convert to `development` or delete the rule file instead'
+            self.assertIn(rule.id, versions, err_msg)
 
-                rule_path = rule.path.relative_to(get_path('rules'))
-                err_msg = f'{self.rule_str(rule)} deprecated rules should be stored in ' \
-                          f'"{get_path("rules", "_deprecated")}" folder'
-                self.assertEqual('_deprecated', rule_path.parts[0], err_msg)
+            rule_path = rule.path.relative_to(rules_path)
+            err_msg = f'{self.rule_str(rule)} deprecated rules should be stored in ' \
+                      f'"{deprecated_path}" folder'
+            self.assertEqual('_deprecated', rule_path.parts[-2], err_msg)
 
-                err_msg = f'{self.rule_str(rule)} missing deprecation date'
-                self.assertIsNotNone(meta.deprecation_date, err_msg)
+            err_msg = f'{self.rule_str(rule)} missing deprecation date'
+            self.assertIsNotNone(meta['deprecation_date'], err_msg)
 
-                err_msg = f'{self.rule_str(rule)} deprecation_date and updated_date should match'
-                self.assertEqual(meta.deprecation_date, meta.updated_date, err_msg)
+            err_msg = f'{self.rule_str(rule)} deprecation_date and updated_date should match'
+            self.assertEqual(meta['deprecation_date'], meta['updated_date'], err_msg)
 
         # skip this so the lock file can be shared across branches
         #
