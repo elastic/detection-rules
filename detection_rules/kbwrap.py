@@ -9,30 +9,12 @@ import uuid
 import click
 
 import kql
-from kibana import Kibana, Signal, RuleResource
+from kibana import Signal, RuleResource
 from .cli_utils import multi_collection
 from .main import root
-from .misc import add_params, client_error, kibana_options
+from .misc import add_params, client_error, kibana_options, get_kibana_client
 from .schemas import downgrade
 from .utils import format_command_options
-
-
-def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, kibana_cookie, **kwargs):
-    """Get an authenticated Kibana client."""
-    if not (cloud_id or kibana_url):
-        client_error("Missing required --cloud-id or --kibana-url")
-
-    if not kibana_cookie:
-        # don't prompt for these until there's a cloud id or Kibana URL
-        kibana_user = kibana_user or click.prompt("kibana_user")
-        kibana_password = kibana_password or click.prompt("kibana_password", hide_input=True)
-
-    with Kibana(cloud_id=cloud_id, kibana_url=kibana_url, **kwargs) as kibana:
-        if kibana_cookie:
-            kibana.add_cookie(kibana_cookie)
-        else:
-            kibana.login(kibana_user, kibana_password)
-        return kibana
 
 
 @root.group('kibana')
