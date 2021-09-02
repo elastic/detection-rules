@@ -89,9 +89,3 @@ def search_alerts(ctx, query, date_range, columns, extend):
         table_columns = table_columns + columns if extend else columns
     click.echo(Table.from_list(table_columns, alerts))
     return alerts
-
-
-@kibana_group.group('experimental')
-def kibana_experimental():
-    """[Experimental] helper commands for integrating with Kibana."""
-    click.secho('\n* experimental commands are use at your own risk and may change without warning *\n')
