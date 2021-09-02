@@ -67,7 +67,7 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
         rules = RuleCollection.default()
 
     rule_count = len(rules)
-    package = Package(rules, load_current_package_version(), verbose=False)
+    package = Package(rules, name=load_current_package_version(), verbose=False)
     package_hash = package.get_package_hash()
     bulk_upload_docs, importable_rules_docs = package.create_bulk_index_body()
 
@@ -178,7 +178,7 @@ def view_rule(ctx, rule_file, api_format):
 @click.option('--skip-unsupported', '-s', is_flag=True,
               help='If `--stack-version` is passed, skip rule types which are unsupported '
                    '(an error will be raised otherwise)')
-def export_rules(rules, outfile, replace_id, stack_version, skip_unsupported):
+def export_rules(rules, outfile, replace_id, stack_version, skip_unsupported) -> RuleCollection:
     """Export rule(s) into an importable ndjson file."""
     from .packaging import Package
 
