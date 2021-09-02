@@ -305,7 +305,7 @@ def test_rules(ctx):
 @click.pass_context
 @add_client('elasticsearch', 'kibana', add_func_arg=False)
 def create_dnstwist_rule(ctx: click.Context, input_file: click.Path, author: str):
-    """Index dnstwist results in Elasticsearch."""
+    """Create a dnstwist index in Elasticsearch and upload a corresponding threat match rule."""
     from elasticsearch import Elasticsearch
     from .kbwrap import upload_rule
 
