@@ -21,6 +21,11 @@ In order to detect network activity on the lookalike domains using a threat matc
 
 ### 3. Import the rule into Kibana
 
-Import the ndjson rule file generated in the previous step, into Kibana, via the Detection rules UI.
+Import the ndjson rule file generated in the previous step, into Kibana, via the Detection rules UI. 
 
 ### 4. Detect potentially malicious network activity targeting your organization!
+
+
+## Note
+
+You DO NOT need to re-import the rule file each time you have an additional domain to track. For each new domain, you'd run Step 1 to generate the json file consisting of lookalike domains for that domain, followed by the CLI command in Step 2 to index these domains into a new index. This index will automatically be picked up by the rule you imported the very first time.
