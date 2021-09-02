@@ -23,7 +23,7 @@ from .rule import TOMLRule, TOMLRuleContents
 from .rule_formatter import toml_write
 from .rule_loader import RuleCollection
 from .schemas import all_versions
-from .utils import get_path, clear_caches, load_dump, load_rule_contents
+from .utils import get_path, get_etc_path, clear_caches, load_dump, load_rule_contents
 
 RULES_DIR = get_path('rules')
 
@@ -299,15 +299,14 @@ def test_rules(ctx):
     ctx.exit(pytest.main(["-v"]))
 
 
-@root.command('create-dnstwist-rule')
+@root.command('create-dnstwist-index')
 @click.argument('input-file', type=click.Path(exists=True, dir_okay=False), required=True)
 @click.option('--author', '-a', required=True, help='Author name to be added to rule')
 @click.pass_context
-@add_client('elasticsearch', 'kibana', add_func_arg=False)
-def create_dnstwist_rule(ctx: click.Context, input_file: click.Path, author: str):
-    """Create a dnstwist index in Elasticsearch and upload a corresponding threat match rule."""
+@add_client('elasticsearch', add_func_arg=False)
+def create_dnstwist_index(ctx: click.Context, input_file: click.Path, author: str):
+    """Create a dnstwist index in Elasticsearch to work with a threat match rule."""
     from elasticsearch import Elasticsearch
-    from .kbwrap import upload_rule
 
     es_client: Elasticsearch = ctx.obj['es']
 
@@ -323,8 +322,8 @@ def create_dnstwist_rule(ctx: click.Context, input_file: click.Path, author: str
     # If index already exists, prompt user to confirm if they want to overwrite
     if es_client.indices.exists(index=domain_index):
         if click.confirm(
-            f"dnstwist index {domain_index} already exists for {original_domain}. Do you want to overwrite?", abort=True
-        ):
+                f"dnstwist index: {domain_index} already exists for {original_domain}. Do you want to overwrite?",
+                abort=True):
             es_client.indices.delete(index=domain_index)
 
     fields = [
@@ -369,30 +368,12 @@ def create_dnstwist_rule(ctx: click.Context, input_file: click.Path, author: str
         error = {r['create']['result'] for r in results['items'] if r['create']['status'] != 201}
         client_error(f'Errors occurred during indexing:\n{error}')
 
+    click.echo(f'{len(results["items"])} watchlist domains added to index')
+
     # Creating threat match rule
-    root_dir = Path(__file__).parent.parent
-    rule_template_file = root_dir / 'etc' / 'rule_template_typosquatting_domain.toml'
-    custom_rule_file = (
-        root_dir / "rules" / "cross-platform" / f"initial_access_dns_request_for_typosquatting_domain_{domain}.toml"
-    )
-
-    click.echo(f'{len(results["items"])} watchlist domains identified')
-
-    click.echo('Attempting to create threat match rule')
-    template_rule = load_dump(str(rule_template_file))
-
-    # Populate template rule with user's custom info
-    today = datetime.today().strftime("%Y/%m/%d")
-    template_rule['metadata'].update(creation_date=today, updated_date=today)
-    template_rule['rule'].update(author=[author], rule_id=str(uuid4()))
-
-    # Create rule object and validate it against schema
-    rule_collection = RuleCollection()
-    rule = rule_collection.load_dict(template_rule, path=custom_rule_file)
-
-    # Save rule in toml format
-    click.echo(f'Saving rule to {custom_rule_file}')
-    rule.save_toml()
-
-    if click.confirm("Upload rule to Kibana?", abort=True):
-        ctx.invoke(upload_rule, rule_file=[custom_rule_file])
+    rule_template_file = Path(get_etc_path('rule_template_typosquatting_domain.json'))
+    template_rule = json.loads(rule_template_file.read_text())
+    template_rule.update(author=[author], rule_id=str(uuid4()))
+    updated_rule = Path(get_path('rule_typosquatting_domain.ndjson'))
+    updated_rule.write_text(json.dumps(template_rule, sort_keys=True))
+    click.echo(f'Rule saved to: {updated_rule}. Import this to Kibana to create alerts on all dnstwist-* indexes')
