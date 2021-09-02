@@ -210,8 +210,12 @@ def release_tag_diff(old_tag: str, new_tag: str) -> (List[dict], List[dict], Lis
     changed = []
     deprecated = []
 
-    old_version = json.loads(git('show', f'{old_tag}:{version_path}'))
-    new_version = json.loads(git('show', f'{new_tag}:{version_path}'))
+    try:
+        old_version = json.loads(git('--no-pager', 'show', f'{old_tag}:{version_path}'))
+        new_version = json.loads(git('--no-pager', 'show', f'{new_tag}:{version_path}'))
+    except subprocess.CalledProcessError:
+        click.secho('An error occurred loading the versions lock. Are you sure the tag exists?', err=True, color='red')
+        raise
 
     for rule_id, entry in new_version.items():
         old_entry = old_version.get(rule_id)
