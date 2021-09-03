@@ -13,13 +13,15 @@ Eg: `dnstwist --format json elastic.co | jq`
 
 This should give you a json file consisting of potentially malicious lookalike domains for your domain.
 
-### 2. Index the lookalike domains into Elasticsearch and generate the rule file
+### 2. Index the lookalike domains into Elasticsearch
 
-In order to detect network activity on the lookalike domains using a threat match rule, you would first need to index these domains into an Elasticsearch index. The following CLI command not only does this, but also generates the rule file which you will then import into Kibana:
+In order to detect network activity on the lookalike domains using a threat match rule, you would first need to index these domains into an Elasticsearch index using the following CLI command:
 
 `python -m detection_rules typosquat create-dnstwist-index [OPTIONS] INPUT_FILE`
 
 ### 3. Prep rule to alert on generated indexes
+
+Run the following CLI command to generate the typosquat rule file, which you will then import into Kibana.
 
 `python -m detection_rules typosquat prep-rule [OPTIONS] AUTHOR`
 
