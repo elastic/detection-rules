@@ -17,13 +17,18 @@ This should give you a json file consisting of potentially malicious lookalike d
 
 In order to detect network activity on the lookalike domains using a threat match rule, you would first need to index these domains into an Elasticsearch index. The following CLI command not only does this, but also generates the rule file which you will then import into Kibana:
 
-`python -m detection_rules create-dnstwist-index [OPTIONS] INPUT_FILE`
+`python -m detection_rules typosquat create-dnstwist-index [OPTIONS] INPUT_FILE`
 
-### 3. Import the rule into Kibana
+### 3. Prep rule to alert on generated indexes
+
+`python -m detection_rules typosquat prep-rule [OPTIONS] AUTHOR`
+
+
+### 4. Import the rule into Kibana
 
 Import the ndjson rule file generated in the previous step, into Kibana, via the Detection rules UI. 
 
-### 4. Detect potentially malicious network activity targeting your organization!
+### 5. Detect potentially malicious network activity targeting your organization!
 
 
 ## Note

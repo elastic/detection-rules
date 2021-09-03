@@ -299,12 +299,16 @@ def test_rules(ctx):
     ctx.exit(pytest.main(["-v"]))
 
 
-@root.command('create-dnstwist-index')
+@root.group('typosquat')
+def typosquat_group():
+    """Commands for generating typosquat detections."""
+
+
+@typosquat_group.command('create-dnstwist-index')
 @click.argument('input-file', type=click.Path(exists=True, dir_okay=False), required=True)
-@click.option('--author', '-a', required=True, help='Author name to be added to rule')
 @click.pass_context
 @add_client('elasticsearch', add_func_arg=False)
-def create_dnstwist_index(ctx: click.Context, input_file: click.Path, author: str):
+def create_dnstwist_index(ctx: click.Context, input_file: click.Path):
     """Create a dnstwist index in Elasticsearch to work with a threat match rule."""
     from elasticsearch import Elasticsearch
 
@@ -369,11 +373,17 @@ def create_dnstwist_index(ctx: click.Context, input_file: click.Path, author: st
         client_error(f'Errors occurred during indexing:\n{error}')
 
     click.echo(f'{len(results["items"])} watchlist domains added to index')
+    click.echo('Run `prep-rule` and import to Kibana to create alerts on this index')
 
-    # Creating threat match rule
+
+@typosquat_group.command('prep-rule')
+@click.argument('author')
+def prep_rule(author: str):
+    """Prep the detection threat match rule for dnstwist data with a rule_id and author."""
     rule_template_file = Path(get_etc_path('rule_template_typosquatting_domain.json'))
     template_rule = json.loads(rule_template_file.read_text())
     template_rule.update(author=[author], rule_id=str(uuid4()))
     updated_rule = Path(get_path('rule_typosquatting_domain.ndjson'))
     updated_rule.write_text(json.dumps(template_rule, sort_keys=True))
     click.echo(f'Rule saved to: {updated_rule}. Import this to Kibana to create alerts on all dnstwist-* indexes')
+    click.echo('Note: you only need to import and enable this rule one time for all dnstwist-* indexes')
