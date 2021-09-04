@@ -10,6 +10,7 @@ import json
 import os
 import re
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Dict
 from uuid import uuid4
@@ -17,12 +18,12 @@ from uuid import uuid4
 import click
 
 from .cli_utils import rule_prompt, multi_collection
-from .misc import nested_set, parse_config
+from .misc import add_client, client_error, nested_set, parse_config
 from .rule import TOMLRule, TOMLRuleContents
 from .rule_formatter import toml_write
 from .rule_loader import RuleCollection
 from .schemas import all_versions
-from .utils import get_path, clear_caches, load_rule_contents
+from .utils import get_path, get_etc_path, clear_caches, load_dump, load_rule_contents
 
 RULES_DIR = get_path('rules')
 
@@ -67,7 +68,7 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
         rules = RuleCollection.default()
 
     rule_count = len(rules)
-    package = Package(rules, load_current_package_version(), verbose=False)
+    package = Package(rules, name=load_current_package_version(), verbose=False)
     package_hash = package.get_package_hash()
     bulk_upload_docs, importable_rules_docs = package.create_bulk_index_body()
 
@@ -178,7 +179,7 @@ def view_rule(ctx, rule_file, api_format):
 @click.option('--skip-unsupported', '-s', is_flag=True,
               help='If `--stack-version` is passed, skip rule types which are unsupported '
                    '(an error will be raised otherwise)')
-def export_rules(rules, outfile, replace_id, stack_version, skip_unsupported):
+def export_rules(rules, outfile, replace_id, stack_version, skip_unsupported) -> RuleCollection:
     """Export rule(s) into an importable ndjson file."""
     from .packaging import Package
 
@@ -296,3 +297,93 @@ def test_rules(ctx):
 
     clear_caches()
     ctx.exit(pytest.main(["-v"]))
+
+
+@root.group('typosquat')
+def typosquat_group():
+    """Commands for generating typosquat detections."""
+
+
+@typosquat_group.command('create-dnstwist-index')
+@click.argument('input-file', type=click.Path(exists=True, dir_okay=False), required=True)
+@click.pass_context
+@add_client('elasticsearch', add_func_arg=False)
+def create_dnstwist_index(ctx: click.Context, input_file: click.Path):
+    """Create a dnstwist index in Elasticsearch to work with a threat match rule."""
+    from elasticsearch import Elasticsearch
+
+    es_client: Elasticsearch = ctx.obj['es']
+
+    click.echo(f'Attempting to load dnstwist data from {input_file}')
+    dnstwist_data: dict = load_dump(input_file)
+    click.echo(f'{len(dnstwist_data)} records loaded')
+
+    original_domain = next(r['domain-name'] for r in dnstwist_data if r.get('fuzzer', '') == 'original*')
+    click.echo(f'Original domain name identified: {original_domain}')
+
+    domain = original_domain.split('.')[0]
+    domain_index = f'dnstwist-{domain}'
+    # If index already exists, prompt user to confirm if they want to overwrite
+    if es_client.indices.exists(index=domain_index):
+        if click.confirm(
+                f"dnstwist index: {domain_index} already exists for {original_domain}. Do you want to overwrite?",
+                abort=True):
+            es_client.indices.delete(index=domain_index)
+
+    fields = [
+        "dns-a",
+        "dns-aaaa",
+        "dns-mx",
+        "dns-ns",
+        "banner-http",
+        "fuzzer",
+        "original-domain",
+        "dns.question.registered_domain"
+    ]
+    timestamp_field = "@timestamp"
+    mappings = {"mappings": {"properties": {f: {"type": "keyword"} for f in fields}}}
+    mappings["mappings"]["properties"][timestamp_field] = {"type": "date"}
+
+    es_client.indices.create(index=domain_index, body=mappings)
+
+    # handle dns.question.registered_domain separately
+    fields.pop()
+    es_updates = []
+    now = datetime.utcnow()
+
+    for item in dnstwist_data:
+        if item['fuzzer'] == 'original*':
+            continue
+
+        record = item.copy()
+        record.setdefault('dns', {}).setdefault('question', {}).setdefault('registered_domain', item.get('domain-name'))
+
+        for field in fields:
+            record.setdefault(field, None)
+
+        record['@timestamp'] = now
+
+        es_updates.extend([{'create': {'_index': domain_index}}, record])
+
+    click.echo(f'Indexing data for domain {original_domain}')
+
+    results = es_client.bulk(body=es_updates)
+    if results['errors']:
+        error = {r['create']['result'] for r in results['items'] if r['create']['status'] != 201}
+        client_error(f'Errors occurred during indexing:\n{error}')
+
+    click.echo(f'{len(results["items"])} watchlist domains added to index')
+    click.echo('Run `prep-rule` and import to Kibana to create alerts on this index')
+
+
+@typosquat_group.command('prep-rule')
+@click.argument('author')
+def prep_rule(author: str):
+    """Prep the detection threat match rule for dnstwist data with a rule_id and author."""
+    rule_template_file = Path(get_etc_path('rule_template_typosquatting_domain.json'))
+    template_rule = json.loads(rule_template_file.read_text())
+    template_rule.update(author=[author], rule_id=str(uuid4()))
+    updated_rule = Path(get_path('rule_typosquatting_domain.ndjson'))
+    updated_rule.write_text(json.dumps(template_rule, sort_keys=True))
+    click.echo(f'Rule saved to: {updated_rule}. Import this to Kibana to create alerts on all dnstwist-* indexes')
+    click.echo('Note: you only need to import and enable this rule one time for all dnstwist-* indexes')

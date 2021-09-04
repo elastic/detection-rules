@@ -8,7 +8,7 @@ from typing import List, Optional
 
 import click
 
-from .rule import TOMLRule
+from .rule_loader import RuleCollection
 from .semver import Version
 from .utils import dict_hash, load_etc_dump, save_etc_dump, cached
 
@@ -44,7 +44,7 @@ def get_locked_hash(rule_id: str, min_stack_version: Optional[str] = None) -> Op
         return existing_sha256
 
 
-def manage_versions(rules: List[TOMLRule],
+def manage_versions(rules: RuleCollection,
                     exclude_version_update=False, save_changes=False,
                     verbose=True) -> (List[str], List[str], List[str]):
     """Update the contents of the version.lock file and optionally save changes."""
@@ -57,7 +57,7 @@ def manage_versions(rules: List[TOMLRule],
     verbose_echo = click.echo if verbose else (lambda x: None)
 
     already_deprecated = set(rule_deprecations)
-    deprecated_rules = set(rule.id for rule in rules if rule.contents.metadata.maturity == "deprecated")
+    deprecated_rules = set(rules.deprecated.id_map)
     new_rules = set(rule.id for rule in rules if rule.contents.latest_version is None) - deprecated_rules
     changed_rules = set(rule.id for rule in rules if rule.contents.is_dirty) - deprecated_rules
 
@@ -122,12 +122,12 @@ def manage_versions(rules: List[TOMLRule],
             else:
                 raise RuntimeError("Unreachable code")
 
-    for rule in rules:
+    for rule in rules.deprecated:
         if rule.id in newly_deprecated:
             rule_deprecations[rule.id] = {
                 "rule_name": rule.name,
                 "stack_version": current_stack_version,
-                "deprecation_date": rule.contents.metadata.deprecation_date
+                "deprecation_date": rule.contents.metadata['deprecation_date']
             }
 
     if save_changes or verbose:
