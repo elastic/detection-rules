@@ -161,7 +161,7 @@ def mass_update(ctx, query, metadata, language, field):
 @click.pass_context
 def view_rule(ctx, rule_file, api_format):
     """View an internal rule or specified rule file."""
-    rule = RuleCollection().load_file(rule_file)
+    rule = RuleCollection().load_file(Path(rule_file))
 
     if api_format:
         click.echo(json.dumps(rule.contents.to_api_format(), indent=2, sort_keys=True))
