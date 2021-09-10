@@ -15,7 +15,7 @@ import textwrap
 import time
 import typing
 from pathlib import Path
-from typing import Optional, Tuple, List
+from typing import Dict, Optional, Tuple, List
 
 import click
 import yaml
@@ -32,6 +32,7 @@ from .packaging import PACKAGE_FILE, Package, RELEASE_DIR, current_stack_version
 from .version_lock import manage_versions, load_versions
 from .rule import AnyRuleData, BaseRuleData, QueryRuleData, TOMLRule
 from .rule_loader import RuleCollection, production_filter
+from .schemas import definitions
 from .semver import Version
 from .utils import dict_hash, get_path, load_dump
 
@@ -212,8 +213,6 @@ def kibana_diff(rule_id, repo, branch, threads):
     else:
         rules = rules.filter(production_filter).id_map
 
-    # add versions to the rules
-    manage_versions(list(rules.values()), verbose=False)
     repo_hashes = {r.id: r.contents.sha256(include_version=True) for r in rules.values()}
 
     kibana_rules = {r['rule_id']: r for r in get_kibana_rules(repo=repo, branch=branch, threads=threads).values()}
@@ -594,32 +593,39 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
     from uuid import uuid4
     from .main import search_rules
 
-    all_rules = {}
+    all_rules: Dict[Path, TOMLRule] = {}
     new, modified, errors = rule_loader.load_github_pr_rules(token=token, threads=threads)
 
-    def add_github_meta(this_rule, status, original_rule_id=None):
+    def add_github_meta(this_rule: TOMLRule, status: str, original_rule_id: Optional[definitions.UUIDString] = None):
         pr = this_rule.gh_pr
-        rule.metadata['status'] = status
-        rule.metadata['github'] = {
-            'base': pr.base.label,
-            'comments': [c.body for c in pr.get_comments()],
-            'commits': pr.commits,
-            'created_at': str(pr.created_at),
-            'head': pr.head.label,
-            'is_draft': pr.draft,
-            'labels': [lbl.name for lbl in pr.get_labels()],
-            'last_modified': str(pr.last_modified),
-            'title': pr.title,
-            'url': pr.html_url,
-            'user': pr.user.login
+        data = rule.contents.data
+        extend_meta = {
+            'status': status,
+            'github': {
+                'base': pr.base.label,
+                'comments': [c.body for c in pr.get_comments()],
+                'commits': pr.commits,
+                'created_at': str(pr.created_at),
+                'head': pr.head.label,
+                'is_draft': pr.draft,
+                'labels': [lbl.name for lbl in pr.get_labels()],
+                'last_modified': str(pr.last_modified),
+                'title': pr.title,
+                'url': pr.html_url,
+                'user': pr.user.login
+            }
         }
 
         if original_rule_id:
-            rule.metadata['original_rule_id'] = original_rule_id
-            rule.contents['rule_id'] = str(uuid4())
+            extend_meta['original_rule_id'] = original_rule_id
+            data = dataclasses.replace(rule.contents.data, rule_id=str(uuid4()))
 
-        rule_path = f'pr-{pr.number}-{rule.path}'
-        all_rules[rule_path] = rule.rule_format()
+        rule_path = Path(f'pr-{pr.number}-{rule.path}')
+        new_meta = dataclasses.replace(rule.contents.metadata, extended=extend_meta)
+        contents = dataclasses.replace(rule.contents, metadata=new_meta, data=data)
+        new_rule = TOMLRule(path=rule_path, contents=contents)
+
+        all_rules[new_rule.path] = new_rule
 
     for rule_id, rule in new.items():
         add_github_meta(rule, 'new')
@@ -638,32 +644,35 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
 
 
 @dev_group.command('deprecate-rule')
-@click.argument('rule-file', type=click.Path(dir_okay=False))
+@click.argument('rule-file', type=Path)
 @click.pass_context
-def deprecate_rule(ctx: click.Context, rule_file: str):
+def deprecate_rule(ctx: click.Context, rule_file: Path):
     """Deprecate a rule."""
-    import pytoml
-
     version_info = load_versions()
-    rule_file = Path(rule_file)
-    contents = pytoml.loads(rule_file.read_text())
+    rule_collection = RuleCollection()
+    contents = rule_collection.load_file(rule_file).contents
     rule = TOMLRule(path=rule_file, contents=contents)
 
-    if rule.id not in version_info:
+    if rule.contents.id not in version_info:
         click.echo('Rule has not been version locked and so does not need to be deprecated. '
                    'Delete the file or update the maturity to `development` instead')
         ctx.exit()
 
     today = time.strftime('%Y/%m/%d')
 
+    new_meta = {
+        'updated_date': today,
+        'deprecation_date': today,
+        'maturity': 'deprecated'
+    }
+    deprecated_path = get_path('rules', '_deprecated', rule_file.name)
+
+    # create the new rule and save it
     new_meta = dataclasses.replace(rule.contents.metadata,
                                    updated_date=today,
                                    deprecation_date=today,
                                    maturity='deprecated')
     contents = dataclasses.replace(rule.contents, metadata=new_meta)
-    deprecated_path = get_path('rules', '_deprecated', rule_file.name)
-
-    # create the new rule and save it
     new_rule = TOMLRule(contents=contents, path=Path(deprecated_path))
     new_rule.save_toml()
 
