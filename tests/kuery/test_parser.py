@@ -8,6 +8,7 @@ import kql
 from kql.ast import (
     Field,
     FieldComparison,
+    FieldRange,
     String,
     Number,
     Exists,
@@ -72,7 +73,12 @@ class ParserTests(unittest.TestCase):
     def test_type_family_success(self):
         kql.parse("abc : 1.2345", schema={"abc": "scaled_float"})
         kql.parse("abc : hello", schema={"abc": "annotated-text"})
+        kql.parse("abc >= now-30d", schema={"abc": "date_nanos"})
 
     def test_type_family_fail(self):
         with self.assertRaises(kql.KqlParseError):
             kql.parse('foo : "hello world"', schema={"foo": "scaled_float"})
+
+    def test_date(self):
+        schema = {"@time": "date"}
+        self.validate('@time <= now-10d', FieldRange(Field("@time"), "<=", String("now-10d")), schema=schema)
