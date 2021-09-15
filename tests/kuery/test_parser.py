@@ -82,3 +82,6 @@ class ParserTests(unittest.TestCase):
     def test_date(self):
         schema = {"@time": "date"}
         self.validate('@time <= now-10d', FieldRange(Field("@time"), "<=", String("now-10d")), schema=schema)
+
+        with self.assertRaises(kql.KqlParseError):
+            kql.parse("@time > 5", schema=schema)
