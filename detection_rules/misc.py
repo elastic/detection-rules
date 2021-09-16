@@ -4,11 +4,11 @@
 # 2.0.
 
 """Misc support."""
-import json
 import os
 import re
 import time
 import uuid
+from pathlib import Path
 
 from functools import wraps
 from typing import NoReturn
@@ -252,14 +252,15 @@ def get_kibana_rules(*rule_paths, repo='elastic/kibana', branch='master', verbos
 @cached
 def parse_config():
     """Parse a default config file."""
-    config_file = get_path('.detection-rules-cfg.json')
+    import eql
+
+    config_file = next(Path(get_path()).glob('.detection-rules-cfg.*'), None)
     config = {}
 
-    if os.path.exists(config_file):
-        with open(config_file) as f:
-            config = json.load(f)
+    if config_file and config_file.exists():
+        config = eql.utils.load_dump(str(config_file))
 
-        click.secho('Loaded config file: {}'.format(config_file), fg='yellow')
+        click.secho(f'Loaded config file: {config_file}', fg='yellow')
 
     return config
 
