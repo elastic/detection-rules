@@ -13,7 +13,7 @@ from .evaluator import FilterGenerator
 from .kql2eql import KqlToEQL
 from .parser import lark_parse, KqlParser
 
-__version__ = '0.1.4'
+__version__ = '0.1.5'
 __all__ = (
     "ast",
     "from_eql",
