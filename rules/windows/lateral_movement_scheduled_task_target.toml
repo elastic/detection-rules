@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/20"
 maturity = "production"
-updated_date = "2021/05/10"
+updated_date = "2021/09/13"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,39 @@ license = "Elastic License v2"
 name = "Remote Scheduled Task Creation"
 note = """## Triage and analysis
 
-Decode the base64 encoded tasks actions registry value to investigate the task configured action."""
+### Investigating Creation of Remote Scheduled Tasks
+
+[Scheduled tasks](https://docs.microsoft.com/en-us/windows/win32/taskschd/about-the-task-scheduler) are a great mechanism used for persistence and executing programs. These features can
+be used remotely for a variety of legitimate reasons, but at the same time used by malware and adversaries.
+When investigating scheduled tasks that have been set-up remotely, one of the first methods should be determining the
+original intent behind the configuration and verify if the activity is tied to benign behavior such as software installations or any kind
+of network administrator work. One objective for these alerts is to understand the configured action within the scheduled
+task, this is captured within the registry event data for this rule and can be base64 decoded to view the value.
+
+#### Possible investigation steps:
+- Review the base64 encoded tasks actions registry value to investigate the task configured action.
+- Determine if task is related to legitimate or benign behavior based on the corresponding process or program tied to the
+scheduled task.
+- Further examination should include both the source and target machines where host-based artifacts and network logs
+should be reviewed further around the time window of the creation of the scheduled task.
+
+### False Positive Analysis
+- There is a high possibility of benign activity tied to the creation of remote scheduled tasks as it is a general feature
+within Windows and used for legitimate purposes for a wide range of activity. Any kind of context should be found to
+further understand the source of the activity and determine the intent based on the scheduled task contents.
+
+### Related Rules
+- Service Command Lateral Movement
+- Remotely Started Services via RPC
+
+### Response and Remediation
+- This behavior represents post-exploitation actions such as persistence or lateral movement, immediate response should
+be taken to review and investigate the activity and potentially isolate involved machines to prevent further post-compromise
+behavior.
+- Remove scheduled task and any other related artifacts to the activity.
+- Review privileged account management and user account management settings such as implementing GPO policies to further
+restrict activity or configure settings that only allow Administrators to create remote scheduled tasks.
+"""
 risk_score = 47
 rule_id = "954ee7c8-5437-49ae-b2d6-2960883898e9"
 severity = "medium"
