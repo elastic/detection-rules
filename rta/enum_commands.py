@@ -52,7 +52,7 @@ def main(args=None):
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', '--sample', dest="sample", default=len(commands), type=int,
-                        help="Number of commands to run, choosen at random from the list of enumeration commands")
+                        help="Number of commands to run, chosen at random from the list of enumeration commands")
     args = parser.parse_args(args)
     sample = min(len(commands), args.sample)
 
@@ -65,7 +65,7 @@ def main(args=None):
         common.log("About to call {}".format(command))
         if command in slow_commands:
             common.execute(command, kill=True, timeout=15)
-            common.log("[output surpressed]", log_type='-')
+            common.log("[output suppressed]", log_type='-')
         else:
             common.execute(command)
 
