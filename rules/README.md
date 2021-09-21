@@ -23,6 +23,7 @@ Integration specific rules are stored in the [`integrations/`](integrations) dir
 | [`aws/`](integrations/aws)                             | Amazon Web Services (AWS)            |
 | [`azure/`](integrations/azure)                         | Microsoft Azure                      |
 | [`cyberarkpas/`](integrations/cyberarkpas)             | Cyber Ark Privileged Access Security |
+| [`endpoint/`](integrations/endpoint)                   | Elastic Endpoint Security            |
 | [`gcp/`](integrations/gcp)                             | Google Cloud Platform (GCP)          |
 | [`google_workspace/`](integrations/google_workspace)   | Google Workspace (formerly GSuite)   |
 | [`o365/`](integrations/o365)                           | Microsoft Office                     |
