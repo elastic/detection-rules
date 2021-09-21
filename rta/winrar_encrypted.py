@@ -87,7 +87,7 @@ def main(password="s0l33t"):
     #            original_file_name == "*rar*" - no
     #            signature_signer == "*win.rar*" -no
     #            output filename == "*.rar" - no
-    common.log("Test case 6: FP, shoudln't alert, run with myapp.exe", log_type="!")
+    common.log("Test case 6: FP, shouldn't alert, run with myapp.exe", log_type="!")
     common.execute([MY_APP, "-hpbadargument"])
 
     common.log("Cleanup", "-")
