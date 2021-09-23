@@ -22,9 +22,10 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and event.type:(process_started or start) and 
-(process.name:"wevtutil.exe" or process.pe.original_file_name:"wevtutil.exe") and 
-process.args:("/e:false" or cl or "clear-log") or process.name:"powershell.exe" and process.args:"Clear-EventLog"
+process where event.type in ("process_started", "start") and
+  (process.name : "wevtutil.exe" or process.pe.original_file_name == "wevtutil.exe") and
+    process.args : ("/e:false", "cl", "clear-log") or
+  process.name : "powershell.exe" and process.args : ("Clear-EventLog","Remove-Item","*ConsoleHost*history*")
 '''
 
 
