@@ -3,23 +3,29 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 """Rule object."""
+import copy
+import dataclasses
 import json
+import typing
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
-from typing import Literal, Union, Optional, List, Any
+from typing import Literal, Union, Optional, List, Any, Dict
 from uuid import uuid4
 
+import eql
 from marshmallow import ValidationError, validates_schema
 
+import kql
 from . import utils
 from .mixins import MarshmallowDataclassMixin
 from .rule_formatter import toml_write, nested_normalize
-from .schemas import definitions
-from .schemas import downgrade
+from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas
 from .utils import cached
 
 _META_SCHEMA_REQ_DEFAULTS = {}
+MIN_FLEET_PACKAGE_VERSION = '7.13.0'
 
 
 @dataclass(frozen=True)
@@ -30,13 +36,21 @@ class RuleMeta(MarshmallowDataclassMixin):
     deprecation_date: Optional[definitions.Date]
 
     # Optional fields
-    beats_version: Optional[definitions.SemVer]
-    ecs_versions: Optional[List[definitions.SemVer]]
     comments: Optional[str]
+    integration: Optional[str]
     maturity: Optional[definitions.Maturity]
+    min_stack_version: Optional[definitions.SemVer]
     os_type_list: Optional[List[definitions.OSType]]
     query_schema_validation: Optional[bool]
     related_endpoint_rules: Optional[List[str]]
+
+    # Extended information as an arbitrary dictionary
+    extended: Optional[Dict[str, Any]]
+
+    def get_validation_stack_versions(self) -> Dict[str, dict]:
+        """Get a dict of beats and ecs versions per stack release."""
+        stack_versions = get_stack_schemas(self.min_stack_version or MIN_FLEET_PACKAGE_VERSION)
+        return stack_versions
 
 
 @dataclass(frozen=True)
@@ -92,8 +106,8 @@ class ThreatMapping(MarshmallowDataclassMixin):
                 technique_ids.add(technique.id)
 
                 for subtechnique in (technique.subtechnique or []):
-                    sub_technique_ids.update(subtechnique.id)
-                    sub_technique_names.update(subtechnique.name)
+                    sub_technique_ids.add(subtechnique.id)
+                    sub_technique_names.add(subtechnique.name)
 
         return FlatThreatMapping(
             tactic_names=sorted(tactic_names),
@@ -135,7 +149,7 @@ class BaseRuleData(MarshmallowDataclassMixin):
     actions: Optional[list]
     author: List[str]
     building_block_type: Optional[str]
-    description: Optional[str]
+    description: str
     enabled: Optional[bool]
     exceptions_list: Optional[list]
     license: Optional[str]
@@ -146,7 +160,7 @@ class BaseRuleData(MarshmallowDataclassMixin):
 
     interval: Optional[definitions.Interval]
     max_signals: Optional[definitions.MaxSignals]
-    meta: Optional[dict]
+    meta: Optional[Dict[str, Any]]
     name: str
     note: Optional[definitions.Markdown]
     # can we remove this comment?
@@ -161,12 +175,26 @@ class BaseRuleData(MarshmallowDataclassMixin):
     severity: definitions.Severity
     tags: Optional[List[str]]
     throttle: Optional[str]
-    timeline_id: Optional[str]
-    timeline_title: Optional[str]
+    timeline_id: Optional[definitions.TimelineTemplateId]
+    timeline_title: Optional[definitions.TimelineTemplateTitle]
     timestamp_override: Optional[str]
     to: Optional[str]
-    type: Literal[definitions.RuleType]
+    type: definitions.RuleType
     threat: Optional[List[ThreatMapping]]
+
+    @classmethod
+    def save_schema(cls):
+        """Save the schema as a jsonschema."""
+        fields: List[dataclasses.Field] = dataclasses.fields(cls)
+        type_field = next(f for f in fields if f.name == "type")
+        rule_type = typing.get_args(type_field.type)[0] if cls != BaseRuleData else "base"
+        schema = cls.jsonschema()
+        version_dir = SCHEMA_DIR / "master"
+        version_dir.mkdir(exist_ok=True, parents=True)
+
+        # expand out the jsonschema definitions
+        with (version_dir / f"master.{rule_type}.json").open("w") as f:
+            json.dump(schema, f, indent=2, sort_keys=True)
 
     def validate_query(self, meta: RuleMeta) -> None:
         pass
@@ -217,7 +245,7 @@ class MachineLearningRuleData(BaseRuleData):
     type: Literal["machine_learning"]
 
     anomaly_threshold: int
-    machine_learning_job_id: str
+    machine_learning_job_id: Union[str, List[str]]
 
 
 @dataclass(frozen=True)
@@ -231,9 +259,9 @@ class ThresholdQueryRuleData(QueryRuleData):
             field: str
             value: definitions.ThresholdValue
 
-        field: List[definitions.NonEmptyStr]
+        field: definitions.CardinalityFields
         value: definitions.ThresholdValue
-        cardinality: Optional[ThresholdCardinality]
+        cardinality: Optional[List[ThresholdCardinality]]
 
     type: Literal["threshold"]
     threshold: ThresholdMapping
@@ -244,6 +272,51 @@ class EQLRuleData(QueryRuleData):
     """EQL rules are a special case of query rules."""
     type: Literal["eql"]
     language: Literal["eql"]
+
+    @staticmethod
+    def convert_time_span(span: str) -> int:
+        """Convert time span in datemath to value in milliseconds."""
+        amount = int("".join(char for char in span if char.isdigit()))
+        unit = eql.ast.TimeUnit("".join(char for char in span if char.isalpha()))
+        return eql.ast.TimeRange(amount, unit).as_milliseconds()
+
+    def convert_relative_delta(self, lookback: str) -> int:
+        now = len("now")
+        min_length = now + len('+5m')
+
+        if lookback.startswith("now") and len(lookback) >= min_length:
+            lookback = lookback[len("now"):]
+            sign = lookback[0]  # + or -
+            span = lookback[1:]
+            amount = self.convert_time_span(span)
+            return amount * (-1 if sign == "-" else 1)
+        else:
+            return self.convert_time_span(lookback)
+
+    @cached_property
+    def max_span(self) -> Optional[int]:
+        """Maxspan value for sequence rules if defined."""
+        if eql.utils.get_query_type(self.ast) == 'sequence' and hasattr(self.ast.first, 'max_span'):
+            return self.ast.first.max_span.as_milliseconds() if self.ast.first.max_span else None
+
+    @cached_property
+    def look_back(self) -> Optional[Union[int, Literal['unknown']]]:
+        """Lookback value of a rule."""
+        # https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#date-math
+        to = self.convert_relative_delta(self.to) if self.to else 0
+        from_ = self.convert_relative_delta(self.from_ or "now-6m")
+
+        if not (to or from_):
+            return 'unknown'
+        else:
+            return to - from_
+
+    @cached_property
+    def interval_ratio(self) -> Optional[float]:
+        """Ratio of interval time window / max_span time window."""
+        if self.max_span:
+            interval = self.convert_time_span(self.interval or '5m')
+            return interval / self.max_span
 
 
 @dataclass(frozen=True)
@@ -291,49 +364,45 @@ class ThreatMatchRuleData(QueryRuleData):
 
 
 # All of the possible rule types
-AnyRuleData = Union[QueryRuleData, EQLRuleData, MachineLearningRuleData, ThresholdQueryRuleData, ThreatMatchRuleData]
+# Sort inverse of any inheritance - see comment in TOMLRuleContents.to_dict
+AnyRuleData = Union[EQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData, MachineLearningRuleData, QueryRuleData]
 
 
-@dataclass(frozen=True)
-class TOMLRuleContents(MarshmallowDataclassMixin):
-    """Rule object which maps directly to the TOML layout."""
-    metadata: RuleMeta
-    data: AnyRuleData = field(metadata=dict(data_key="rule"))
+class BaseRuleContents(ABC):
+    """Base contents object for shared methods between active and deprecated rules."""
 
     @property
-    def id(self) -> definitions.UUIDString:
-        return self.data.rule_id
+    @abstractmethod
+    def id(self):
+        pass
 
     @property
-    def name(self) -> str:
-        return self.data.name
+    @abstractmethod
+    def name(self):
+        pass
 
-    def lock_info(self) -> dict:
-        return {"rule_name": self.name, "sha256": self.sha256(), "version": self.autobumped_version}
+    def lock_info(self, bump=True) -> dict:
+        version = self.autobumped_version if bump else (self.latest_version or 1)
+        contents = {"rule_name": self.name, "sha256": self.sha256(), "version": version}
+
+        return contents
 
     @property
     def is_dirty(self) -> Optional[bool]:
         """Determine if the rule has changed since its version was locked."""
-        from .packaging import load_versions
+        from .version_lock import get_locked_hash
 
-        rules_versions = load_versions()
+        existing_sha256 = get_locked_hash(self.id, self.metadata.min_stack_version)
 
-        if self.id in rules_versions:
-            version_info = rules_versions[self.id]
-            existing_sha256: str = version_info['sha256']
+        if existing_sha256 is not None:
             return existing_sha256 != self.sha256()
 
     @property
     def latest_version(self) -> Optional[int]:
         """Retrieve the latest known version of the rule."""
-        from .packaging import load_versions
+        from .version_lock import get_locked_version
 
-        rules_versions = load_versions()
-
-        if self.id in rules_versions:
-            version_info = rules_versions[self.id]
-            version = version_info['version']
-            return version
+        return get_locked_version(self.id, self.metadata.min_stack_version)
 
     @property
     def autobumped_version(self) -> Optional[int]:
@@ -344,6 +413,63 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
 
         return version + 1 if self.is_dirty else version
 
+    @staticmethod
+    def _post_dict_transform(obj: dict) -> dict:
+        """Transform the converted API in place before sending to Kibana."""
+
+        # cleanup the whitespace in the rule
+        obj = nested_normalize(obj)
+
+        # fill in threat.technique so it's never missing
+        for threat_entry in obj.get("threat", []):
+            threat_entry.setdefault("technique", [])
+
+        return obj
+
+    @abstractmethod
+    def to_api_format(self, include_version=True) -> dict:
+        """Convert the rule to the API format."""
+
+    @cached
+    def sha256(self, include_version=False) -> str:
+        # get the hash of the API dict without the version by default, otherwise it'll always be dirty.
+        hashable_contents = self.to_api_format(include_version=include_version)
+        return utils.dict_hash(hashable_contents)
+
+
+@dataclass(frozen=True)
+class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
+    """Rule object which maps directly to the TOML layout."""
+    metadata: RuleMeta
+    data: AnyRuleData = field(metadata=dict(data_key="rule"))
+
+    @classmethod
+    def all_rule_types(cls) -> set:
+        types = set()
+        for subclass in typing.get_args(AnyRuleData):
+            field = next(field for field in dataclasses.fields(subclass) if field.name == "type")
+            types.update(typing.get_args(field.type))
+
+        return types
+
+    @classmethod
+    def get_data_subclass(cls, rule_type: str) -> typing.Type[BaseRuleData]:
+        """Get the proper subclass depending on the rule type"""
+        for subclass in typing.get_args(AnyRuleData):
+            field = next(field for field in dataclasses.fields(subclass) if field.name == "type")
+            if (rule_type, ) == typing.get_args(field.type):
+                return subclass
+
+        raise ValueError(f"Unknown rule type {rule_type}")
+
+    @property
+    def id(self) -> definitions.UUIDString:
+        return self.data.rule_id
+
+    @property
+    def name(self) -> str:
+        return self.data.name
+
     @validates_schema
     def validate_query(self, value: dict, **kwargs):
         """Validate queries by calling into the validator for the relevant method."""
@@ -353,7 +479,11 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
         return data.validate_query(metadata)
 
     def to_dict(self, strip_none_values=True) -> dict:
-        dict_obj = super(TOMLRuleContents, self).to_dict(strip_none_values=strip_none_values)
+        # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
+        # result from union fields which contain classes and related subclasses (AnyRuleData). See issue #1141
+        metadata = self.metadata.to_dict(strip_none_values=strip_none_values)
+        data = self.data.to_dict(strip_none_values=strip_none_values)
+        dict_obj = dict(metadata=metadata, rule=data)
         return nested_normalize(dict_obj)
 
     def flattened_dict(self) -> dict:
@@ -361,19 +491,6 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
         flattened.update(self.data.to_dict())
         flattened.update(self.metadata.to_dict())
         return flattened
-
-    @staticmethod
-    def _post_dict_transform(obj: dict) -> dict:
-        """Transform the converted API in place before sending to Kibana."""
-
-        # cleanup the whitespace in the rule
-        obj = nested_normalize(obj, eql_rule=obj.get("language") == "eql")
-
-        # fill in threat.technique so it's never missing
-        for threat_entry in obj.get("threat", []):
-            threat_entry.setdefault("technique", [])
-
-        return obj
 
     def to_api_format(self, include_version=True) -> dict:
         """Convert the TOML rule to the API format."""
@@ -384,12 +501,6 @@ class TOMLRuleContents(MarshmallowDataclassMixin):
         converted = self._post_dict_transform(converted)
 
         return converted
-
-    @cached
-    def sha256(self) -> str:
-        # get the hash of the API dict with the version not included, otherwise it'll always be dirty.
-        hashable_contents = self.to_api_format(include_version=False)
-        return utils.dict_hash(hashable_contents)
 
 
 @dataclass
@@ -416,9 +527,53 @@ class TOMLRule:
         toml_write(converted, str(self.path.absolute()))
 
     def save_json(self, path: Path, include_version: bool = True):
+        path = path.with_suffix('.json')
         with open(str(path.absolute()), 'w', newline='\n') as f:
             json.dump(self.contents.to_api_format(include_version=include_version), f, sort_keys=True, indent=2)
             f.write('\n')
+
+
+class DeprecatedRule(dict):
+    """Minimal dict object for deprecated rule."""
+
+    def __init__(self, path: Path, *args, **kwargs):
+        super(DeprecatedRule, self).__init__(*args, **kwargs)
+        self.path = path
+
+    @property
+    def id(self) -> str:
+        return self.contents.id
+
+    @property
+    def name(self) -> str:
+        return self.contents.name
+
+    @property
+    def contents(self):
+        @dataclass
+        class Contents(BaseRuleContents):
+            metadata: dict
+            data: dict
+
+            @property
+            def id(self) -> str:
+                return self.data.get('rule_id')
+
+            @property
+            def name(self) -> str:
+                return self.data.get('name')
+
+            def to_api_format(self, include_version=True) -> dict:
+                """Convert the TOML rule to the API format."""
+                converted = copy.deepcopy(self.data)
+                if include_version:
+                    converted["version"] = self.autobumped_version
+
+                converted = self._post_dict_transform(converted)
+                return converted
+
+        contents = Contents(self.get('metadata'), self.get('rule'))
+        return contents
 
 
 def downgrade_contents_from_rule(rule: TOMLRule, target_version: str) -> dict:
@@ -429,6 +584,19 @@ def downgrade_contents_from_rule(rule: TOMLRule, target_version: str) -> dict:
     payload["rule_id"] = str(uuid4())
     payload = downgrade(payload, target_version)
     return payload
+
+
+def get_unique_query_fields(rule: TOMLRule) -> List[str]:
+    """Get a list of unique fields used in a rule query from rule contents."""
+    contents = rule.contents.to_api_format()
+    language = contents.get('language')
+    query = contents.get('query')
+    if language in ('kuery', 'eql'):
+        # TODO: remove once py-eql supports ipv6 for cidrmatch
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+            parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
+
+        return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
 
 
 # avoid a circular import

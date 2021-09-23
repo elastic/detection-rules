@@ -10,8 +10,11 @@ import uuid
 
 import eql
 
+from detection_rules import utils
+from detection_rules.packaging import load_current_package_version
 from detection_rules.rule import TOMLRuleContents
-from detection_rules.schemas import downgrade, CurrentSchema
+from detection_rules.schemas import downgrade
+from detection_rules.semver import Version
 
 
 class TestSchemas(unittest.TestCase):
@@ -85,10 +88,10 @@ class TestSchemas(unittest.TestCase):
         cls.v712_threshold_rule = dict(copy.deepcopy(cls.v79_threshold_contents), threshold={
             'field': ['destination.bytes', 'process.args'],
             'value': 75,
-            'cardinality': {
+            'cardinality': [{
                 'field': 'user.name',
                 'value': 2
-            }
+            }]
         })
 
     def test_query_downgrade(self):
@@ -107,7 +110,7 @@ class TestSchemas(unittest.TestCase):
             downgrade(self.v79_kql, "7.7")
 
         with self.assertRaises(ValueError):
-            downgrade(self.v78_kql, "7.7")
+            downgrade(self.v78_kql, "7.7", current_version="7.8")
 
     def test_versioned_downgrade(self):
         """Downgrade a KQL rule with version information"""
@@ -127,8 +130,8 @@ class TestSchemas(unittest.TestCase):
     def test_threshold_downgrade(self):
         """Downgrade a threshold rule that was first introduced in 7.9."""
         api_contents = self.v712_threshold_rule
-        self.assertDictEqual(downgrade(api_contents, CurrentSchema.STACK_VERSION), api_contents)
-        self.assertDictEqual(downgrade(api_contents, CurrentSchema.STACK_VERSION + '.1'), api_contents)
+        self.assertDictEqual(downgrade(api_contents, '7.13'), api_contents)
+        self.assertDictEqual(downgrade(api_contents, '7.13.1'), api_contents)
 
         exc_msg = 'Cannot downgrade a threshold rule that has multiple threshold fields defined'
         with self.assertRaisesRegex(ValueError, exc_msg):
@@ -165,7 +168,11 @@ class TestSchemas(unittest.TestCase):
         }
 
         def build_rule(query):
-            metadata = {"creation_date": "1970/01/01", "updated_date": "1970/01/01"}
+            metadata = {
+                "creation_date": "1970/01/01",
+                "updated_date": "1970/01/01",
+                "min_stack_version": load_current_package_version()
+            }
             data = base_fields.copy()
             data["query"] = query
             obj = {"metadata": metadata, "rule": data}
@@ -189,3 +196,14 @@ class TestSchemas(unittest.TestCase):
             build_rule("""
                     process where process.pid == "some string field"
             """)
+
+
+class TestVersions(unittest.TestCase):
+    """Test that schema versioning aligns."""
+
+    def test_stack_schema_map(self):
+        """Test to ensure that an entry exists in the stack-schema-map for the current package version."""
+        package_version = Version(load_current_package_version())
+        stack_map = utils.load_etc_dump('stack-schema-map.yaml')
+        err_msg = f'There is no entry defined for the current package ({package_version}) in the stack-schema-map'
+        self.assertIn(package_version, [Version(v)[:2] for v in stack_map], err_msg)

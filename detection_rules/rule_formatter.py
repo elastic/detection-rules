@@ -5,18 +5,32 @@
 
 """Helper functions for managing rules in the repository."""
 import copy
+import dataclasses
 import io
 import textwrap
+import typing
 from collections import OrderedDict
 
 import toml
 
-from .schemas import CurrentSchema
+from .schemas import definitions
+from .utils import cached
 
 SQ = "'"
 DQ = '"'
 TRIPLE_SQ = SQ * 3
 TRIPLE_DQ = DQ * 3
+
+
+@cached
+def get_preserved_fmt_fields():
+    from .rule import BaseRuleData
+    preserved_keys = set()
+
+    for field in dataclasses.fields(BaseRuleData):  # type: dataclasses.Field
+        if field.type in (definitions.Markdown, typing.Optional[definitions.Markdown]):
+            preserved_keys.add(field.metadata.get("data_key", field.name))
+    return preserved_keys
 
 
 def cleanup_whitespace(val):
@@ -25,25 +39,22 @@ def cleanup_whitespace(val):
     return val
 
 
-def nested_normalize(d, skip_cleanup=False, eql_rule=False):
+def nested_normalize(d, skip_cleanup=False):
     if isinstance(d, str):
         return d if skip_cleanup else cleanup_whitespace(d)
     elif isinstance(d, list):
-        return [nested_normalize(val, eql_rule=eql_rule) for val in d]
+        return [nested_normalize(val) for val in d]
     elif isinstance(d, dict):
         for k, v in d.items():
             if k == 'query':
                 # TODO: the linter still needs some work, but once up to par, uncomment to implement - kql.lint(v)
-                if eql_rule:
-                    # do not normalize eql queries
-                    d.update({k: v})
-                else:
-                    d.update({k: nested_normalize(v)})
-            elif k in CurrentSchema.markdown_fields():
+                # do not normalize queries
+                d.update({k: v})
+            elif k in get_preserved_fmt_fields():
                 # let these maintain newlines and whitespace for markdown support
-                d.update({k: nested_normalize(v, skip_cleanup=True, eql_rule=eql_rule)})
+                d.update({k: nested_normalize(v, skip_cleanup=True)})
             else:
-                d.update({k: nested_normalize(v, eql_rule=eql_rule)})
+                d.update({k: nested_normalize(v)})
         return d
     else:
         return d
@@ -166,7 +177,7 @@ def toml_write(rule_contents, outfile=None):
                     bottom[k] = v
                 else:
                     top[k] = v
-            elif k in CurrentSchema.markdown_fields():
+            elif k in get_preserved_fmt_fields():
                 top[k] = NonformattedField(v)
             else:
                 top[k] = v
@@ -195,5 +206,5 @@ def toml_write(rule_contents, outfile=None):
             _do_write(data, _contents)
 
     finally:
-        if needs_close:
+        if needs_close and hasattr(outfile, "close"):
             outfile.close()

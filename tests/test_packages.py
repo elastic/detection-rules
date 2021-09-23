@@ -57,38 +57,7 @@ class TestPackages(BaseRuleTest):
         """Test the generation of the package summary."""
         rules = self.production_rules
         package = Package(rules, 'test-package')
-        changed_rule_ids, new_rule_ids, deprecated_rule_ids = package.bump_versions(save_changes=False)
-        package.generate_summary_and_changelog(changed_rule_ids, new_rule_ids, deprecated_rule_ids)
-
-    # def test_versioning_diffs(self):
-    #     """Test that versioning is detecting diffs as expected."""
-    #     rules, version_info = self.get_test_rule()
-    #     package = Package(rules, 'test', current_versions=version_info)
-    #
-    #     # test versioning doesn't falsely detect changes
-    #     changed_rules, new_rules = package.changed_rule_ids, package.new_rules_ids
-    #
-    #     self.assertEqual(0, len(changed_rules), 'Package version bumping is improperly detecting changed rules')
-    #     self.assertEqual(0, len(new_rules), 'Package version bumping is improperly detecting new rules')
-    #     self.assertEqual(1, package.rules[0].contents['version'], 'Package version bumping unexpectedly')
-    #
-    #     # test versioning detects a new rule
-    #     package.rules[0].contents.pop('version')
-    #     changed_rules, new_rules, _ = package.bump_versions(current_versions={})
-    #
-    #     self.assertEqual(0, len(changed_rules), 'Package version bumping is improperly detecting changed rules')
-    #     self.assertEqual(1, len(new_rules), 'Package version bumping is not detecting new rules')
-    #     self.assertEqual(1, package.rules[0].contents['version'],
-    #                      'Package version bumping not setting version to 1 for new rules')
-    #
-    #     # test versioning detects a hash changes
-    #     package.rules[0].contents.pop('version')
-    #     package.rules[0].contents['query'] = 'process.name:changed.test.query'
-    #     changed_rules, new_rules, _ = package.bump_versions(current_versions=version_info)
-    #
-    #     self.assertEqual(1, len(changed_rules), 'Package version bumping is not detecting changed rules')
-    #     self.assertEqual(0, len(new_rules), 'Package version bumping is improperly detecting new rules')
-    #     self.assertEqual(2, package.rules[0].contents['version'], 'Package version not bumping on changes')
+        package.generate_summary_and_changelog(package.changed_ids, package.new_ids, package.removed_ids)
 
     def test_rule_versioning(self):
         """Test that all rules are properly versioned and tracked"""
@@ -115,32 +84,6 @@ class TestPackages(BaseRuleTest):
 
         # test that no hashes changed as a result of the version bumps
         self.assertListEqual(original_hashes, post_bump_hashes, 'Version bumping modified the hash of a rule')
-
-    # def test_version_filter(self):
-    #     """Test that version filtering is working as expected."""
-    #     msg = 'Package version filter failing'
-    #
-    #     rules, version_info = self.get_test_rule(version=1, count=3)
-    #     package = Package(rules, 'test', current_versions=version_info, min_version=2)
-    #     self.assertEqual(0, len(package.rules), msg)
-    #
-    #     rules, version_info = self.get_test_rule(version=5, count=3)
-    #     package = Package(rules, 'test', current_versions=version_info, max_version=2)
-    #     self.assertEqual(0, len(package.rules), msg)
-    #
-    #     rules, version_info = self.get_test_rule(version=2, count=3)
-    #     package = Package(rules, 'test', current_versions=version_info, min_version=1, max_version=3)
-    #     self.assertEqual(3, len(package.rules), msg)
-    #
-    #     rules, version_info = self.get_test_rule(version=1, count=3)
-    #
-    #     version = 1
-    #     for rule_id, vinfo in version_info.items():
-    #         vinfo['version'] = version
-    #         version += 1
-    #
-    #     package = Package(rules, 'test', current_versions=version_info, min_version=2, max_version=2)
-    #     self.assertEqual(1, len(package.rules), msg)
 
 
 class TestRegistryPackage(unittest.TestCase):

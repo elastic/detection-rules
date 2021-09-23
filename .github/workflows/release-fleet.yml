@@ -1,0 +1,94 @@
+name: release-fleet
+on:
+  workflow_dispatch:
+    inputs:
+      target_repo:
+        description: 'Target repository to build a PR against'
+        required: true
+        default: 'elastic/integrations'
+      target_branch:
+        description: 'Target branch for PR base'
+        required: true
+        default: 'master'
+      draft:
+        description: 'Create a PR as draft (y/n)'
+        required: false
+
+jobs:
+  fleet-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate the source branch
+        uses: actions/github-script@v3
+        with:
+          script: |
+            if ('refs/heads/main' === '${{github.event.ref}}') {
+              core.setFailed('Forbidden branch')
+            }
+
+      - name: Checkout detection-rules
+        uses: actions/checkout@v2
+        with:
+          path: detection-rules
+
+      - name: Checkout elastic/integrations
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.PROTECTIONS_MACHINE_TOKEN }}
+          ref: ${{github.event.inputs.target_branch}}
+          repository: ${{github.event.inputs.target_repo}}
+          path: integrations
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install Python dependencies
+        run: |
+          cd detection-rules
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Build release package
+        run: |
+          cd detection-rules
+          python -m detection_rules dev build-release
+
+      - name: Set github config
+        run: |
+          git config --global user.email "72879786+protectionsmachine@users.noreply.github.com"
+          git config --global user.name "protectionsmachine"
+
+      - name: Setup go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '^1.16.0'
+
+      - name: Build elastic-package
+        run: |
+          go get github.com/elastic/elastic-package
+
+      - name: Create the PR to Integrations
+        env:
+          DRAFT_ARGS: "${{startsWith(github.event.inputs.draft,'y') && '--draft' || ' '}}"
+          TARGET_REPO: "${{github.event.inputs.target_repo}}"
+          TARGET_BRANCH: "${{github.event.inputs.target_branch}}"
+          LOCAL_REPO: "../integrations"
+          GITHUB_TOKEN: "${{ secrets.PROTECTIONS_MACHINE_TOKEN }}"
+        run: |
+          cd detection-rules
+          python -m detection_rules dev integrations-pr \
+            $LOCAL_REPO                                 \
+            --github-repo $TARGET_REPO                  \
+            --base-branch $TARGET_BRANCH                \
+            --assign ${{github.actor}}                  \
+            $DRAFT_ARGS
+
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: release-files
+          path: |
+            detection-rules/releases

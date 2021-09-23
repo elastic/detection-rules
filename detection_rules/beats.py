@@ -6,7 +6,7 @@
 """ECS Schemas management."""
 import os
 import re
-from typing import List
+from typing import List, Optional
 
 import kql
 import eql
@@ -109,7 +109,7 @@ def _flatten_schema(schema: list, prefix="") -> list:
     for s in schema:
         if s.get("type") == "group":
             nested_prefix = prefix + s["name"] + "."
-            # beats is complicated. it seems lke we would expect a zoom.webhook.*, for the zoom.webhook dataset,
+            # beats is complicated. it seems like we would expect a zoom.webhook.*, for the zoom.webhook dataset,
             # but instead it's just at zoom.* directly.
             #
             # we have what looks like zoom.zoom.*, but should actually just be zoom.*.
@@ -173,6 +173,9 @@ def get_beats_sub_schema(schema: dict, beat: str, module: str, *datasets: str):
 
         dataset_dir = module_dir.get("folders", {}).get(dataset, {})
         flattened.extend(get_field_schema(dataset_dir, prefix=module + ".", include_common=True))
+
+    # we also need to capture (beta?) fields which are directly within the module _meta.files.fields
+    flattened.extend(get_field_schema(module_dir, include_common=True))
 
     return {field["name"]: field for field in sorted(flattened, key=lambda f: f["name"])}
 
@@ -263,3 +266,9 @@ def get_schema_from_kql(tree: kql.ast.BaseNode, beats: list, version: str = None
             datasets.update(child.value for child in node.value if isinstance(child, kql.ast.String))
 
     return get_schema_from_datasets(beats, modules, datasets, version=version)
+
+
+def parse_beats_from_index(index: Optional[list]) -> List[str]:
+    indexes = index or []
+    beat_types = [index.split("-")[0] for index in indexes if "beat-*" in index]
+    return beat_types
