@@ -15,7 +15,7 @@ import textwrap
 import time
 import typing
 from pathlib import Path
-from typing import Optional, Tuple, List
+from typing import Dict, Optional, Tuple, List
 
 import click
 import yaml
@@ -28,9 +28,11 @@ from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
-from .packaging import PACKAGE_FILE, Package, RELEASE_DIR, current_stack_version, manage_versions
+from .packaging import PACKAGE_FILE, Package, RELEASE_DIR, current_stack_version
+from .version_lock import manage_versions, load_versions
 from .rule import AnyRuleData, BaseRuleData, QueryRuleData, TOMLRule
 from .rule_loader import RuleCollection, production_filter
+from .schemas import definitions
 from .semver import Version
 from .utils import dict_hash, get_path, load_dump
 
@@ -66,11 +68,15 @@ def build_release(config_file, update_version_lock, release=None, verbose=True):
     if verbose:
         click.echo('[+] Building package {}'.format(config.get('name')))
 
-    package = Package.from_config(config, update_version_lock=update_version_lock, verbose=verbose)
+    package = Package.from_config(config, verbose=verbose)
+
+    if update_version_lock:
+        manage_versions(package.rules, save_changes=True, verbose=verbose)
+
     package.save(verbose=verbose)
 
     if verbose:
-        package.get_package_hash(verbose=True)
+        package.get_package_hash(verbose=verbose)
         click.echo(f'- {len(package.rules)} rules included')
 
     return package
@@ -128,6 +134,10 @@ class GitChangeEntry:
 @click.option("--dry-run", is_flag=True, help="List the changes that would be made")
 def prune_staging_area(target_stack_version: str, dry_run: bool):
     """Prune the git staging area to remove changes to incompatible rules."""
+    exceptions = {
+        "etc/packages.yml",
+    }
+
     target_stack_version = Version(target_stack_version)[:2]
 
     # load a structured summary of the diff from git
@@ -138,6 +148,11 @@ def prune_staging_area(target_stack_version: str, dry_run: bool):
     reversions: List[GitChangeEntry] = []
 
     for change in changes:
+        if str(change.path) in exceptions:
+            # Don't backport any changes to files matching the list of exceptions
+            reversions.append(change)
+            continue
+
         # it's a change to a rule file, load it and check the version
         if str(change.path.absolute()).startswith(RULES_DIR) and change.path.suffix == ".toml":
             # bypass TOML validation in case there were schema changes
@@ -168,12 +183,13 @@ def update_lock_versions(rule_ids):
     if rule_ids:
         rules = rules.filter(lambda r: r.id in rule_ids)
     else:
-        rules = rules.filter(lambda r: r.contents.metadata.maturity in ("production", "deprecated"))
+        rules = rules.filter(production_filter)
 
     if not click.confirm(f'Are you sure you want to update hashes for {len(rules)} rules without a version bump?'):
         return
 
-    changed, new, _ = manage_versions(rules, exclude_version_update=True, add_new=False, save_changes=True)
+    # this command may not function as expected anymore due to previous changes eliminating the use of add_new=False
+    changed, new, _ = manage_versions(rules, exclude_version_update=True, save_changes=True)
 
     if not changed:
         click.echo('No hashes updated')
@@ -197,8 +213,6 @@ def kibana_diff(rule_id, repo, branch, threads):
     else:
         rules = rules.filter(production_filter).id_map
 
-    # add versions to the rules
-    manage_versions(list(rules.values()), verbose=False)
     repo_hashes = {r.id: r.contents.sha256(include_version=True) for r in rules.values()}
 
     kibana_rules = {r['rule_id']: r for r in get_kibana_rules(repo=repo, branch=branch, threads=threads).values()}
@@ -279,7 +293,7 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
 
         branch_name = branch_name or f"detection-rules/{package_name}-{short_commit_hash}"
 
-        git("checkout", "-b", branch_name, show_output=True)
+        git("checkout", "-b", branch_name, print_output=True)
         git("rm", "-r", kibana_directory)
 
         source_dir = os.path.join(release_dir, "rules")
@@ -295,7 +309,7 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
 
         git("add", kibana_directory)
         git("commit", "--no-verify", "-m", message)
-        git("status", show_output=True)
+        git("status", print_output=True)
 
         if push:
             git("push", "origin", branch_name)
@@ -318,6 +332,7 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
 # Pending an official GitHub API
 # @click.option("--automerge", is_flag=True, help="Enable auto-merge on the PR")
 @add_git_args
+@click.pass_context
 def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...], draft: bool, token: str, **kwargs):
     """Create a pull request to Kibana."""
     branch_name, commit_hash = ctx.invoke(kibana_commit, push=True, **kwargs)
@@ -555,9 +570,9 @@ def package_stats(ctx, token, threads):
     new, modified, errors = rule_loader.load_github_pr_rules(labels=[release], token=token, threads=threads)
 
     click.echo(f'Total rules as of {release} package: {len(current_package.rules)}')
-    click.echo(f'New rules: {len(current_package.new_rules_ids)}')
-    click.echo(f'Modified rules: {len(current_package.changed_rule_ids)}')
-    click.echo(f'Deprecated rules: {len(current_package.removed_rule_ids)}')
+    click.echo(f'New rules: {len(current_package.new_ids)}')
+    click.echo(f'Modified rules: {len(current_package.changed_ids)}')
+    click.echo(f'Deprecated rules: {len(current_package.removed_ids)}')
 
     click.echo('\n-----\n')
     click.echo('Rules in active PRs for current package: ')
@@ -578,32 +593,39 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
     from uuid import uuid4
     from .main import search_rules
 
-    all_rules = {}
+    all_rules: Dict[Path, TOMLRule] = {}
     new, modified, errors = rule_loader.load_github_pr_rules(token=token, threads=threads)
 
-    def add_github_meta(this_rule, status, original_rule_id=None):
+    def add_github_meta(this_rule: TOMLRule, status: str, original_rule_id: Optional[definitions.UUIDString] = None):
         pr = this_rule.gh_pr
-        rule.metadata['status'] = status
-        rule.metadata['github'] = {
-            'base': pr.base.label,
-            'comments': [c.body for c in pr.get_comments()],
-            'commits': pr.commits,
-            'created_at': str(pr.created_at),
-            'head': pr.head.label,
-            'is_draft': pr.draft,
-            'labels': [lbl.name for lbl in pr.get_labels()],
-            'last_modified': str(pr.last_modified),
-            'title': pr.title,
-            'url': pr.html_url,
-            'user': pr.user.login
+        data = rule.contents.data
+        extend_meta = {
+            'status': status,
+            'github': {
+                'base': pr.base.label,
+                'comments': [c.body for c in pr.get_comments()],
+                'commits': pr.commits,
+                'created_at': str(pr.created_at),
+                'head': pr.head.label,
+                'is_draft': pr.draft,
+                'labels': [lbl.name for lbl in pr.get_labels()],
+                'last_modified': str(pr.last_modified),
+                'title': pr.title,
+                'url': pr.html_url,
+                'user': pr.user.login
+            }
         }
 
         if original_rule_id:
-            rule.metadata['original_rule_id'] = original_rule_id
-            rule.contents['rule_id'] = str(uuid4())
+            extend_meta['original_rule_id'] = original_rule_id
+            data = dataclasses.replace(rule.contents.data, rule_id=str(uuid4()))
 
-        rule_path = f'pr-{pr.number}-{rule.path}'
-        all_rules[rule_path] = rule.rule_format()
+        rule_path = Path(f'pr-{pr.number}-{rule.path}')
+        new_meta = dataclasses.replace(rule.contents.metadata, extended=extend_meta)
+        contents = dataclasses.replace(rule.contents, metadata=new_meta, data=data)
+        new_rule = TOMLRule(path=rule_path, contents=contents)
+
+        all_rules[new_rule.path] = new_rule
 
     for rule_id, rule in new.items():
         add_github_meta(rule, 'new')
@@ -622,33 +644,35 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
 
 
 @dev_group.command('deprecate-rule')
-@click.argument('rule-file', type=click.Path(dir_okay=False))
+@click.argument('rule-file', type=Path)
 @click.pass_context
-def deprecate_rule(ctx: click.Context, rule_file: str):
+def deprecate_rule(ctx: click.Context, rule_file: Path):
     """Deprecate a rule."""
-    import pytoml
-    from .packaging import load_versions
-
     version_info = load_versions()
-    rule_file = Path(rule_file)
-    contents = pytoml.loads(rule_file.read_text())
+    rule_collection = RuleCollection()
+    contents = rule_collection.load_file(rule_file).contents
     rule = TOMLRule(path=rule_file, contents=contents)
 
-    if rule.id not in version_info:
+    if rule.contents.id not in version_info:
         click.echo('Rule has not been version locked and so does not need to be deprecated. '
                    'Delete the file or update the maturity to `development` instead')
         ctx.exit()
 
     today = time.strftime('%Y/%m/%d')
 
+    new_meta = {
+        'updated_date': today,
+        'deprecation_date': today,
+        'maturity': 'deprecated'
+    }
+    deprecated_path = get_path('rules', '_deprecated', rule_file.name)
+
+    # create the new rule and save it
     new_meta = dataclasses.replace(rule.contents.metadata,
                                    updated_date=today,
                                    deprecation_date=today,
                                    maturity='deprecated')
     contents = dataclasses.replace(rule.contents, metadata=new_meta)
-    deprecated_path = get_path('rules', '_deprecated', rule_file.name)
-
-    # create the new rule and save it
     new_rule = TOMLRule(contents=contents, path=Path(deprecated_path))
     new_rule.save_toml()
 

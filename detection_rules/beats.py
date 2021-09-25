@@ -109,7 +109,7 @@ def _flatten_schema(schema: list, prefix="") -> list:
     for s in schema:
         if s.get("type") == "group":
             nested_prefix = prefix + s["name"] + "."
-            # beats is complicated. it seems lke we would expect a zoom.webhook.*, for the zoom.webhook dataset,
+            # beats is complicated. it seems like we would expect a zoom.webhook.*, for the zoom.webhook dataset,
             # but instead it's just at zoom.* directly.
             #
             # we have what looks like zoom.zoom.*, but should actually just be zoom.*.

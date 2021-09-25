@@ -60,9 +60,15 @@ When requesting a **New rule**, please create an issue of the **New rule** type.
 
 First of all, **sorry about that!** We want you to have a great time with Detection Rules.
 
-We'll tag issues and pull requests with the target release. If a rule is blocked by a feature, we'll add a label to reflect that. With all of the issues, we need to prioritize according to impact and difficulty, so some issues can be neglected while we work on more pressing issues.
+We'll tag issues and pull requests with the target release if applicable. If a rule is blocked by a feature, we'll add a label to reflect that. With all of the issues, we need to prioritize according to impact and difficulty, so some issues can be neglected while we work on more pressing issues.
 
 Of course, feel free to bump your issues if you think they've been neglected for a prolonged period.
+
+Issues and pull requests will be marked as `stale` after 60 days of inactivity. After 7 more days of incactivity, they will be closed automatically.
+
+If an issue or pull request is marked `stale` and/or closed, this does not mean it is not important, just that there may be more work than available resources over a given time. We feel that it is a better experience to generate activity responding to a stale issue or letting it close, than to let something remain open and neglected for longer periods of time.
+
+If your issue or pull request is closed from inactivity and you feel this is an error, please feel free to re-open it with comments and we will try our best to respond with justification to close or to get it the proper attention.
 
 ### "I want to help!"
 
