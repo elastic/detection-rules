@@ -40,7 +40,7 @@ def main():
     fake_doc_iqy = os.path.abspath("test_word.iqy")
     common.execute([msoffice_path, "/c", "echo", "test", ">", fake_doc_iqy])
 
-    # Brwoser writing IQY file
+    # Browser writing IQY file
     fake_browser_iqy = os.path.abspath("test_browser.iqy")
     common.execute([browser_path, "/c", "echo", "test", ">", fake_browser_iqy])
 
