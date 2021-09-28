@@ -104,7 +104,7 @@ class String(Value):
 
 class Wildcard(Value):
     escapes = {"\t": "\\t", "\r": "\\r"}
-    slash_escaped = r'''^\\():<>"*{} '''
+    slash_escaped = r'''^\\():<>"{} '''
 
     def _render(self):
         escaped = []
