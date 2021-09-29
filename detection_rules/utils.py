@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Dict, Union, Optional, Callable
 
 import click
+import pytoml
 import eql.utils
 from eql.utils import load_dump, stream_json_lines
 
@@ -271,30 +272,33 @@ def clear_caches():
     _cache.clear()
 
 
-def load_rule_contents(rule_file: str, single_only=False) -> list:
+def load_rule_contents(rule_file: Path, single_only=False) -> list:
     """Load a rule file from multiple formats."""
     _, extension = os.path.splitext(rule_file)
+    raw_text = rule_file.read_text()
 
     if extension in ('.ndjson', '.jsonl'):
         # kibana exported rule object is ndjson with the export metadata on the last line
-        with open(rule_file, 'r') as f:
-            contents = [json.loads(line) for line in f.readlines()]
+        contents = [json.loads(line) for line in raw_text.splitlines()]
 
-            if len(contents) > 1 and 'exported_count' in contents[-1]:
-                contents.pop(-1)
+        if len(contents) > 1 and 'exported_count' in contents[-1]:
+            contents.pop(-1)
 
-            if single_only and len(contents) > 1:
-                raise ValueError('Multiple rules not allowed')
+        if single_only and len(contents) > 1:
+            raise ValueError('Multiple rules not allowed')
 
-            return contents or [{}]
+        return contents or [{}]
+    elif extension == '.toml':
+        rule = pytoml.loads(raw_text)
     else:
         rule = load_dump(rule_file)
-        if isinstance(rule, dict):
-            return [rule]
-        elif isinstance(rule, list):
-            return rule
-        else:
-            raise ValueError(f"Expected a list or dictionary in {rule_file}")
+
+    if isinstance(rule, dict):
+        return [rule]
+    elif isinstance(rule, list):
+        return rule
+    else:
+        raise ValueError(f"Expected a list or dictionary in {rule_file}")
 
 
 def format_command_options(ctx):
@@ -330,13 +334,18 @@ def make_git(*prefix_args) -> Optional[Callable]:
 
         return
 
-    def git(*args, show_output=False):
+    def git(*args, print_output=False):
         full_args = [git_exe] + prefix_args + [str(arg) for arg in args]
-        if show_output:
-            return subprocess.check_output(full_args, encoding="utf-8").rstrip()
-        return subprocess.check_call(full_args)
+        if print_output:
+            return subprocess.check_call(full_args)
+        return subprocess.check_output(full_args, encoding="utf-8").rstrip()
 
     return git
+
+
+def git(*args, **kwargs):
+    """Find and run a one-off Git command."""
+    return make_git()(*args, **kwargs)
 
 
 def add_params(*params):

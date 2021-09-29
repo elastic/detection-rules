@@ -1,0 +1,62 @@
+[metadata]
+creation_date = "2021/09/08"
+maturity = "production"
+updated_date = "2021/09/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies unusual instances of Control Panel with suspicious keywords or paths in the process command line value.
+Adversaries may abuse Control.exe to proxy execution of malicious code.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Control Panel Process with Unusual Arguments"
+references = ["https://www.joesandbox.com/analysis/476188/1/html"]
+risk_score = 73
+rule_id = "416697ae-e468-4093-a93d-59661fa619ec"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+ process.executable : ("?:\\Windows\\SysWOW64\\control.exe", "?:\\Windows\\System32\\control.exe") and
+ process.command_line :
+          ("*.jpg*",
+           "*.png*",
+           "*.gif*",
+           "*.bmp*",
+           "*.jpeg*",
+           "*.TIFF*",
+           "*.inf*",
+           "*.dat*",
+           "*.cpl:*/*",
+           "*../../..*",
+           "*/AppData/Local/*",
+           "*:\\Users\\Public\\*",
+           "*\\AppData\\Local\\*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+reference = "https://attack.mitre.org/techniques/T1218/"
+name = "Signed Binary Proxy Execution"
+id = "T1218"
+[[rule.threat.technique.subtechnique]]
+reference = "https://attack.mitre.org/techniques/T1218/002/"
+name = "Control Panel"
+id = "T1218.002"
+
+
+
+[rule.threat.tactic]
+reference = "https://attack.mitre.org/tactics/TA0005/"
+name = "Defense Evasion"
+id = "TA0005"
+
