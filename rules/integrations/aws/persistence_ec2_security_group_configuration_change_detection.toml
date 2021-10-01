@@ -1,14 +1,15 @@
 [metadata]
 creation_date = "2021/05/05"
 maturity = "production"
-updated_date = "2021/05/05"
+updated_date = "2021/09/20"
+integration = "aws"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
 description = """
-Identifies a change to an AWS Security Group Configuration. A security group is like a virtul firewall and modifying
+Identifies a change to an AWS Security Group Configuration. A security group is like a virtual firewall, and modifying
 configurations may allow unauthorized access. Threat actors may abuse this to establish persistence, exfiltrate data, or
-pivot in a AWS environment.
+pivot in an AWS environment.
 """
 false_positives = [
     """
@@ -48,8 +49,19 @@ framework = "MITRE ATT&CK"
 name = "Persistence"
 id = "TA0003"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+  [[rule.threat.technique.subtechnique]]
+  id = "T1562.007"
+  name = "Disable or Modify Cloud Firewall"
+  reference = "https://attack.mitre.org/techniques/T1562/007/"
 
 [rule.threat.tactic]
 name = "Defense Evasion"
