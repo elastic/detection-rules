@@ -224,6 +224,9 @@ class BaseKqlParser(Interpreter):
             elif field_type_family == "ip" and value_type == "keyword":
                 if "::" in python_value or self.ip_regex.match(python_value) is not None:
                     return python_value
+            elif field_type_family == 'date' and value_type in STRING_FIELDS:
+                # this will not validate datemath syntax
+                return python_value
 
             raise self.error(value_tree, "Value doesn't match {field}'s type: {type}",
                              field=field_name, type=field_type)
