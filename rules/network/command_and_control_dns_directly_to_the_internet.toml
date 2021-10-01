@@ -7,9 +7,9 @@ updated_date = "2021/05/26"
 author = ["Elastic"]
 description = """
 This rule detects when an internal network client sends DNS traffic directly to the Internet. This is atypical behavior
-for a managed network, and can be indicative of malware, exfiltration, command and control, or, simply,
+for a managed network and can be indicative of malware, exfiltration, command and control, or simply
 misconfiguration. This DNS activity also impacts your organization's ability to provide enterprise monitoring and
-logging of DNS, and opens your network to a variety of abuses and malicious communications.
+logging of DNS, and it opens your network to a variety of abuses and malicious communications.
 """
 false_positives = [
     """
@@ -20,7 +20,8 @@ false_positives = [
     destinations. In that case, such devices or networks can be excluded from this rule when this is expected behavior.
     """,
 ]
-index = ["filebeat-*", "packetbeat-*"]
+from = "now-9m"
+index = ["auditbeat-*", "filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "DNS Activity to the Internet"
@@ -32,7 +33,7 @@ references = [
 risk_score = 47
 rule_id = "6ea71ff0-9e95-475b-9506-2580d1ce6154"
 severity = "medium"
-tags = ["Elastic", "Network", "Threat Detection", "Command and Control"]
+tags = ["Elastic", "Network", "Threat Detection", "Command and Control", "Host"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -78,7 +79,6 @@ event.category:(network or network_traffic) and (event.type:connection or type:d
 framework = "MITRE ATT&CK"
 
 [rule.threat.tactic]
+reference = "https://attack.mitre.org/tactics/TA0011/"
 id = "TA0011"
 name = "Command and Control"
-reference = "https://attack.mitre.org/tactics/TA0011/"
-

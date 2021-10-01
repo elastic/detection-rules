@@ -13,39 +13,18 @@ from typing import Union
 import click
 import elasticsearch
 from elasticsearch import Elasticsearch
-from elasticsearch.client import AsyncSearchClient
+from elasticsearch.client.async_search import AsyncSearchClient
 
 import kql
 from .main import root
-from .misc import add_params, client_error, elasticsearch_options
+from .misc import add_params, client_error, elasticsearch_options, get_elasticsearch_client
 from .rule import TOMLRule
 from .rule_loader import rta_mappings, RuleCollection
 from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
 
+
 COLLECTION_DIR = get_path('collections')
 MATCH_ALL = {'bool': {'filter': [{'match_all': {}}]}}
-
-
-def get_elasticsearch_client(cloud_id=None, elasticsearch_url=None, es_user=None, es_password=None, ctx=None, **kwargs):
-    """Get an authenticated elasticsearch client."""
-    if not (cloud_id or elasticsearch_url):
-        client_error("Missing required --cloud-id or --elasticsearch-url")
-
-    # don't prompt for these until there's a cloud id or elasticsearch URL
-    es_user = es_user or click.prompt("es_user")
-    es_password = es_password or click.prompt("es_password", hide_input=True)
-    hosts = [elasticsearch_url] if elasticsearch_url else None
-    timeout = kwargs.pop('timeout', 60)
-
-    try:
-        client = Elasticsearch(hosts=hosts, cloud_id=cloud_id, http_auth=(es_user, es_password), timeout=timeout,
-                               **kwargs)
-        # force login to test auth
-        client.info()
-        return client
-    except elasticsearch.AuthenticationException as e:
-        error_msg = f'Failed authentication for {elasticsearch_url or cloud_id}'
-        client_error(error_msg, e, ctx=ctx, err=True)
 
 
 def add_range_to_dsl(dsl_filter, start_time, end_time='now'):

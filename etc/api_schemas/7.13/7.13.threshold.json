@@ -38,7 +38,13 @@
     "filters": {
       "items": {
         "additionalProperties": {
-          "type": "string"
+          "type": [
+            "string",
+            "number",
+            "object",
+            "array",
+            "boolean"
+          ]
         },
         "type": "object"
       },
@@ -77,7 +83,13 @@
     },
     "meta": {
       "additionalProperties": {
-        "type": "string"
+        "type": [
+            "string",
+            "number",
+            "object",
+            "array",
+            "boolean"
+          ]
       },
       "type": "object"
     },
@@ -112,6 +124,9 @@
             "type": "string"
           },
           "operator": {
+            "enum": [
+              "equals"
+            ],
             "type": "string"
           },
           "value": {
@@ -151,6 +166,9 @@
             "type": "string"
           },
           "operator": {
+            "enum": [
+              "equals"
+            ],
             "type": "string"
           },
           "severity": {
@@ -178,6 +196,9 @@
         "additionalProperties": false,
         "properties": {
           "framework": {
+            "enum": [
+              "MITRE ATT&CK"
+            ],
             "type": "string"
           },
           "tactic": {
@@ -265,30 +286,35 @@
       "additionalProperties": false,
       "properties": {
         "cardinality": {
-          "additionalProperties": false,
-          "properties": {
-            "field": {
-              "type": "string"
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "value": {
+                "description": "ThresholdValue",
+                "format": "integer",
+                "minimum": 1,
+                "type": "number"
+              }
             },
-            "value": {
-              "description": "ThresholdValue",
-              "format": "integer",
-              "minimum": 1,
-              "type": "number"
-            }
+            "required": [
+              "field",
+              "value"
+            ],
+            "type": "object"
           },
-          "required": [
-            "field",
-            "value"
-          ],
-          "type": "object"
+          "type": "array"
         },
         "field": {
+          "description": "CardinalityFields",
           "items": {
             "description": "NonEmptyStr",
             "minLength": 1,
             "type": "string"
           },
+          "maxItems": 3,
           "type": "array"
         },
         "value": {
@@ -336,6 +362,9 @@
       "type": "string"
     },
     "type": {
+      "enum": [
+        "threshold"
+      ],
       "type": "string"
     }
   },

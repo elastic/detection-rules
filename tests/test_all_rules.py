@@ -6,6 +6,7 @@
 """Test that all rules have valid metadata and syntax."""
 import os
 import re
+import warnings
 from collections import defaultdict
 from pathlib import Path
 
@@ -13,9 +14,10 @@ import eql
 
 import kql
 from detection_rules import attack
-from detection_rules.packaging import load_versions
+from detection_rules.version_lock import load_versions
 from detection_rules.rule import QueryRuleData
 from detection_rules.rule_loader import FILE_PATTERN
+from detection_rules.schemas import definitions
 from detection_rules.utils import get_path, load_etc_dump
 from rta import get_ttp_names
 from .base import BaseRuleTest
@@ -327,7 +329,7 @@ class TestRuleTimelines(BaseRuleTest):
 class TestRuleFiles(BaseRuleTest):
     """Test the expected file names."""
 
-    def test_rule_file_names_by_tactic(self):
+    def test_rule_file_name_tactic(self):
         """Test to ensure rule files have the primary tactic prepended to the filename."""
         bad_name_rules = []
 
@@ -335,7 +337,8 @@ class TestRuleFiles(BaseRuleTest):
             rule_path = rule.path.resolve()
             filename = rule_path.name
 
-            if rule_path.parent.name == 'ml':
+            # machine learning jobs should be in rules/ml or rules/integrations/<name>
+            if rule.contents.data.type == definitions.MACHINE_LEARNING:
                 continue
 
             threat = rule.contents.data.threat
@@ -377,34 +380,43 @@ class TestRuleMetadata(BaseRuleTest):
         versions = load_versions()
         deprecations = load_etc_dump('deprecated_rules.json')
         deprecated_rules = {}
+        rules_path = get_path('rules')
+        deprecated_path = get_path("rules", "_deprecated")
 
-        for rule in self.all_rules:
+        misplaced_rules = [r for r in self.all_rules
+                           if r.path.relative_to(rules_path).parts[-2] == '_deprecated' and  # noqa: W504
+                           r.contents.metadata.maturity != 'deprecated']
+        misplaced = '\n'.join(f'{self.rule_str(r)} {r.contents.metadata.maturity}' for r in misplaced_rules)
+        err_str = f'The following rules are stored in {deprecated_path} but are not marked as deprecated:\n{misplaced}'
+        self.assertListEqual(misplaced_rules, [], err_str)
+
+        for rule in self.deprecated_rules:
             meta = rule.contents.metadata
-            maturity = meta.maturity
 
-            if maturity == 'deprecated':
-                deprecated_rules[rule.id] = rule
-                err_msg = f'{self.rule_str(rule)} cannot be deprecated if it has not been version locked. ' \
-                          f'Convert to `development` or delete the rule file instead'
-                self.assertIn(rule.id, versions, err_msg)
+            deprecated_rules[rule.id] = rule
+            err_msg = f'{self.rule_str(rule)} cannot be deprecated if it has not been version locked. ' \
+                      f'Convert to `development` or delete the rule file instead'
+            self.assertIn(rule.id, versions, err_msg)
 
-                rule_path = rule.path.relative_to(get_path('rules'))
-                err_msg = f'{self.rule_str(rule)} deprecated rules should be stored in ' \
-                          f'"{get_path("rules", "_deprecated")}" folder'
-                self.assertEqual('_deprecated', rule_path.parts[0], err_msg)
+            rule_path = rule.path.relative_to(rules_path)
+            err_msg = f'{self.rule_str(rule)} deprecated rules should be stored in ' \
+                      f'"{deprecated_path}" folder'
+            self.assertEqual('_deprecated', rule_path.parts[-2], err_msg)
 
-                err_msg = f'{self.rule_str(rule)} missing deprecation date'
-                self.assertIsNotNone(meta.deprecation_date, err_msg)
+            err_msg = f'{self.rule_str(rule)} missing deprecation date'
+            self.assertIsNotNone(meta['deprecation_date'], err_msg)
 
-                err_msg = f'{self.rule_str(rule)} deprecation_date and updated_date should match'
-                self.assertEqual(meta.deprecation_date, meta.updated_date, err_msg)
+            err_msg = f'{self.rule_str(rule)} deprecation_date and updated_date should match'
+            self.assertEqual(meta['deprecation_date'], meta['updated_date'], err_msg)
 
-        missing_rules = sorted(set(versions).difference(set(self.rule_lookup)))
-        missing_rule_strings = '\n '.join(f'{r} - {versions[r]["rule_name"]}' for r in missing_rules)
-        err_msg = f'Deprecated rules should not be removed, but moved to the rules/_deprecated folder instead. ' \
-                  f'The following rules have been version locked and are missing. ' \
-                  f'Re-add to the deprecated folder and update maturity to "deprecated": \n {missing_rule_strings}'
-        self.assertEqual([], missing_rules, err_msg)
+        # skip this so the lock file can be shared across branches
+        #
+        # missing_rules = sorted(set(versions).difference(set(self.rule_lookup)))
+        # missing_rule_strings = '\n '.join(f'{r} - {versions[r]["rule_name"]}' for r in missing_rules)
+        # err_msg = f'Deprecated rules should not be removed, but moved to the rules/_deprecated folder instead. ' \
+        #           f'The following rules have been version locked and are missing. ' \
+        #           f'Re-add to the deprecated folder and update maturity to "deprecated": \n {missing_rule_strings}'
+        # self.assertEqual([], missing_rules, err_msg)
 
         for rule_id, entry in deprecations.items():
             rule_str = f'{rule_id} - {entry["rule_name"]} ->'
@@ -455,6 +467,55 @@ class TestRuleTiming(BaseRuleTest):
             err_msg = f'The following rules should have a longer `from` defined, due to indexes used\n {rules_str}'
             self.fail(err_msg)
 
+    def test_eql_lookback(self):
+        """Ensure EQL rules lookback => max_span, when defined."""
+        unknowns = []
+        invalids = []
+        ten_minutes = 10 * 60 * 1000
+
+        for rule in self.all_rules:
+            if rule.contents.data.type == 'eql' and rule.contents.data.max_span:
+                if rule.contents.data.look_back == 'unknown':
+                    unknowns.append(self.rule_str(rule, trailer=None))
+                else:
+                    look_back = rule.contents.data.look_back
+                    max_span = rule.contents.data.max_span
+                    expected = look_back + ten_minutes
+
+                    if expected < max_span:
+                        invalids.append(f'{self.rule_str(rule)} lookback: {look_back}, maxspan: {max_span}, '
+                                        f'expected: >={expected}')
+
+        if unknowns:
+            warn_str = '\n'.join(unknowns)
+            warnings.warn(f'Unable to determine lookbacks for the following rules:\n{warn_str}')
+
+        if invalids:
+            invalids_str = '\n'.join(invalids)
+            self.fail(f'The following rules have longer max_spans than lookbacks:\n{invalids_str}')
+
+    def test_eql_interval_to_maxspan(self):
+        """Check the ratio of interval to maxspan for eql rules."""
+        invalids = []
+        five_minutes = 5 * 60 * 1000
+
+        for rule in self.all_rules:
+            if rule.contents.data.type == 'eql':
+                interval = rule.contents.data.interval or five_minutes
+                maxspan = rule.contents.data.max_span
+                ratio = rule.contents.data.interval_ratio
+
+                # we want to test for at least a ratio of: interval >= 1/2 maxspan
+                # but we only want to make an exception and cap the ratio at 5m interval (2.5m maxspan)
+                if maxspan and maxspan > (five_minutes / 2) and ratio and ratio < .5:
+                    expected = maxspan // 2
+                    err_msg = f'{self.rule_str(rule)} interval: {interval}, maxspan: {maxspan}, expected: >={expected}'
+                    invalids.append(err_msg)
+
+        if invalids:
+            invalids_str = '\n'.join(invalids)
+            self.fail(f'The following rules have intervals too short for their given max_spans (ms):\n{invalids_str}')
+
 
 class TestLicense(BaseRuleTest):
     """Test rule license."""
@@ -468,30 +529,33 @@ class TestLicense(BaseRuleTest):
                 self.assertEqual(rule_license, 'Elastic License v2', err_msg)
 
 
-class TestRuleInvestigationGuide(BaseRuleTest):
+class TestIntegrationRules(BaseRuleTest):
     """Test the note field of a rule."""
 
-    def test_config(self):
+    def test_integration_guide(self):
         """Test that rules which require a config note are using standard verbiage."""
         config = '## Config\n\n'
         beats_integration_pattern = config + 'The {} Fleet integration, Filebeat module, or similarly ' \
                                              'structured data is required to be compatible with this rule.'
-        required = {
-            'aws': beats_integration_pattern.format('AWS'),
-            'azure': beats_integration_pattern.format('Azure'),
-            'gcp': beats_integration_pattern.format('GCP'),
-            'google-workspace': beats_integration_pattern.format('Google Workspace'),
-            'microsoft-365': beats_integration_pattern.format('Microsoft 365'),
-            'okta': beats_integration_pattern.format('Okta'),
+        render = beats_integration_pattern.format
+        integration_notes = {
+            'aws': render('AWS'),
+            'azure': render('Azure'),
+            'cyberarkpas': render('CyberArk Privileged Access Security (PAS)'),
+            'gcp': render('GCP'),
+            'google_workspace': render('Google Workspace'),
+            'o365': render('Microsoft 365'),
+            'okta': render('Okta'),
         }
 
         for rule in self.all_rules:
-            rule_dir = rule.path.parts[-2]
-            note_str = required.get(rule_dir)
+            integration = rule.contents.metadata.integration
+            note_str = integration_notes.get(integration)
+
             if note_str:
                 self.assert_(rule.contents.data.note, f'{self.rule_str(rule)} note required for config information')
 
                 if note_str not in rule.contents.data.note:
-                    self.fail(f'{self.rule_str(rule)} expected config missing\n\n'
+                    self.fail(f'{self.rule_str(rule)} expected {integration} config missing\n\n'
                               f'Expected: {note_str}\n\n'
                               f'Actual: {rule.contents.data.note}')
