@@ -7,33 +7,48 @@ To deploy this framework in your environment, follow the steps outlined below.
 
 #### 1. Unzip the release bundle
 
-#### 2. Navigate to the Dev Tools console in Kibana
+#### 2. Modify artifacts to reflect Kibana space
+For security reasons, we recommend that you restrict the Host Risk Score application to a specific Kibana space. In order to do so, run the `include_space.py` script with your Kibana space as the argument.
 
-#### 3. Uploading required scripts
-
-Upload the scripts in `ml_hostriskscore_levels_script.json`, `ml_hostriskscore_map_script.json` and `ml_hostriskscore_reduce_script.json` using the following API call:
-
+Eg:
 
 ```
-PUT _scripts/<script_name>
+python include_space.py -space default
 ```
 
-#### 4. Upload required ingest pipelines
+This will ensure that all the relevant artifacts become space aware.
+
+#### 3. Navigate to the Dev Tools console in Kibana
+
+#### 4. Uploading required scripts
+
+Upload the contents of `ml_hostriskscore_levels_script.json`, `ml_hostriskscore_map_script.json` and `ml_hostriskscore_reduce_script.json` as individual scripts, using the Script API:
+
+Eg:
+
+```
+PUT _scripts/ml_hostriskscore_levels_script
+{content of the ml_hostriskscore_levels_script.json file}
+```
+
+#### 5. Upload required ingest pipelines
 
 Upload the ingest pipeline in `ml_hostriskscore_ingest_pipeline.json` using the following API call:
 
 
 ```
 PUT _ingest/pipeline/ml_hostriskscore_ingest_pipeline
+{content of the ml_hostriskscore_ingest_pipeline.json file}
 ```
 
-#### 5. Upload and start the `pivot` transform
+#### 6. Upload and start the `pivot` transform
 
-Upload the `pivot` transform in `ml_hostriskscore_pivot_transform.json` using the following API call. This transform calculates the risk level per hour for each host in your environment:
+Upload the `pivot` transform in `ml_hostriskscore_pivot_transform.json` using the following API call. This transform calculates the risk level per hour for each host in the Kibana space specified in Step 2:
 
 
 ```
 PUT _transform/ml_hostriskscore_pivot_transform
+{content of the ml_hostriskscore_pivot_transform.json file}
 ```
 
 * Navigate to `Transforms` under `Management` -> `Stack Management`. For the transform with the ID `ml_hostriskscore_pivot_transform`, under `Actions`, click `Start`. 
@@ -44,7 +59,7 @@ PUT _transform/ml_hostriskscore_pivot_transform
 GET ml_host_risk_score/_search (or _count)
 ```
 
-#### 6. Create the `ml_host_risk_score_latest` index with appropriate mappings
+#### 7. Create the `ml_host_risk_score_latest` index with appropriate mappings
 
 
 ```
@@ -58,13 +73,14 @@ PUT ml_host_risk_score_latest
 }
 ```
 
-#### 7. Upload the `latest` transform
+#### 8. Upload the `latest` transform
 
-Upload the `latest` transform in `ml_hostriskscore_latest_transform.json` using the following API call. This transform gets the most current risk levels for all the hosts in your environment:
+Upload the `latest` transform in `ml_hostriskscore_latest_transform.json` using the following API call. This transform gets the most current risk levels for all the hosts in the Kibana space specified in Step 2:
 
 
 ```
 PUT _transform/ml_hostriskscore_latest_transform
+{content of the ml_hostriskscore_latest_transform.json file}
 ```
 
 * Navigate to `Transforms` under `Management` -> `Stack Management`. For the transform with the ID `ml_hostriskscore_latest_transform`, under `Actions`, click `Start`. 
