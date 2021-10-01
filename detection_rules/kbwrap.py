@@ -39,7 +39,6 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
 @click.pass_context
 def upload_rule(ctx, rules, replace_id):
     """Upload a list of rule .toml files to Kibana."""
-
     kibana = ctx.obj['kibana']
     api_payloads = []
 
@@ -60,8 +59,22 @@ def upload_rule(ctx, rules, replace_id):
         api_payloads.append(rule)
 
     with kibana:
-        rules = RuleResource.bulk_create(api_payloads)
-        click.echo(f"Successfully uploaded {len(rules)} rules")
+        results = RuleResource.bulk_create(api_payloads)
+
+    success = []
+    errors = []
+    for result in results:
+        if 'error' in result:
+            errors.append(f'{result["rule_id"]} - {result["error"]["message"]}')
+        else:
+            success.append(result['rule_id'])
+
+    if success:
+        click.echo('Successful uploads:\n  - ' + '\n  - '.join(success))
+    if errors:
+        click.echo('Failed uploads:\n  - ' + '\n  - '.join(errors))
+
+    return results
 
 
 @kibana_group.command('search-alerts')
