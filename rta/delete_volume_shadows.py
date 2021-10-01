@@ -8,7 +8,7 @@
 # signal.rule.name: Volume Shadow Copy Deletion via VssAdmin
 # ELastic Detection: Volume Shadow Copy Deletion via WMIC
 # ATT&CK: T1107
-# Description: Uses both vssadmin.exe and wmic.exe to delete volumne shadow copies.
+# Description: Uses both vssadmin.exe and wmic.exe to delete volume shadow copies.
 
 from . import common
 
