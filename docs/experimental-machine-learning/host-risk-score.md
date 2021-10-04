@@ -13,7 +13,7 @@ For security reasons, we recommend that you restrict the Host Risk Score applica
 Eg:
 
 ```
-python include_space.py -space default
+python include_space.py --space default
 ```
 
 This will ensure that all the relevant artifacts become space aware.
