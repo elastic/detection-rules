@@ -57,8 +57,7 @@ class TestPackages(BaseRuleTest):
         """Test the generation of the package summary."""
         rules = self.production_rules
         package = Package(rules, 'test-package')
-        changed_rule_ids, new_rule_ids, deprecated_rule_ids = package.bump_versions(save_changes=False)
-        package.generate_summary_and_changelog(changed_rule_ids, new_rule_ids, deprecated_rule_ids)
+        package.generate_summary_and_changelog(package.changed_ids, package.new_ids, package.removed_ids)
 
     def test_rule_versioning(self):
         """Test that all rules are properly versioned and tracked"""
