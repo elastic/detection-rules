@@ -1,0 +1,50 @@
+[metadata]
+creation_date = "2021/10/03"
+maturity = "production"
+updated_date = "2021/10/03"
+integration = "aws"
+
+[rule]
+author = ["Austin Songer"]
+description = """
+Identifies when a default policy version is undone by reverting the previous previous version. An adversary could 
+set an old version of the policy as the default policy and then gain full admin privilege over the AWS account.
+"""
+false_positives = [
+    """
+    Default Policy Version could be modified by a system administrator. Verify whether the user identity, 
+    user agent, and/or hostname should be making changes in your environment. Default Policy Version being modified
+    from unfamiliar users should be investigated. If known behavior is causing false positives, it can be 
+    exempted from the rule.
+    """,
+]
+from = "now-25m"
+index = ["filebeat-*", "logs-aws*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Default Policy Version Modified"
+note = """## Config
+
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_SetDefaultPolicyVersion.html",
+]
+risk_score = 21
+rule_id = "5d8aafc2-8901-49ce-a786-4aa64f49efcf"
+severity = "low"
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Identity and Access"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and 
+event.action:SetDefaultPolicyVersion and event.outcome:success
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
