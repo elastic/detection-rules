@@ -1,0 +1,56 @@
+[metadata]
+creation_date = "2021/10/03"
+maturity = "production"
+updated_date = "2021/10/03"
+integration = "aws"
+
+[rule]
+author = ["Austin Songer"]
+description = """
+Identifies when an user attached a Lambda layer to an existing function to override a library that is in use by the 
+function, where their malicious code could utilize the function's IAM role for AWS API calls. This would give an 
+adversary access to the privileges associated with the Lambda service role that is attached to that function.
+"""
+false_positives = [
+    """
+    Lambda Layer being attached may be performed by a system administrator. Verify whether the user identity, user 
+    agent, and/or hostname should be making changes in your environment. Lambda Layer being attached from unfamiliar
+    users should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
+from = "now-25m"
+index = ["filebeat-*", "logs-aws*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Attached Malicious Lambda Layer"
+note = """## Config
+
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://docs.aws.amazon.com/lambda/latest/dg/API_UpdateFunctionConfiguration.html",
+    "https://rhinosecuritylabs.com/aws/aws-privilege-escalation-methods-mitigation-part-2/",
+]
+risk_score = 21
+rule_id = "59ada119-64f4-466f-be04-7a123f5a107a"
+severity = "low"
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Identity and Access"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and event.provider:lambda.amazonaws.com and 
+event.action:UpdateFunctionConfiguration and event.outcome:success
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
