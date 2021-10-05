@@ -8,15 +8,15 @@ To deploy this framework in your environment, follow the steps outlined below.
 #### 1. Unzip the release bundle
 
 #### 2. Modify artifacts to reflect Kibana space
-For security reasons, we recommend that you restrict the Host Risk Score application to a specific Kibana space. In order to do so, run the `include_space.py` script with your Kibana space as the argument.
+For security reasons, we require that you restrict the Host Risk Score application to a specific Kibana space. In order to do so, run the `generate_scripts.py` script with your Kibana space as the argument.
 
 Eg:
 
 ```
-python include_space.py --space default
+python generate_scripts.py --space default
 ```
 
-This will ensure that all the relevant artifacts become space aware.
+This will create a folder named `<your-space-name>`, consisting of all the required scripts, modified for your Kibana space. **For the following steps, please use the scripts from this folder.**
 
 #### 3. Navigate to the Dev Tools console in Kibana
 
