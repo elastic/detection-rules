@@ -85,3 +85,11 @@ class ParserTests(unittest.TestCase):
 
         with self.assertRaises(kql.KqlParseError):
             kql.parse("@time > 5", schema=schema)
+
+    def test_wildcard_types(self):
+        kql.parse("process.name.text : *hello*rdub*", schema={"process.name.text": "text"})
+        kql.parse("process.name : *hello*rdub*", schema={"process.name": "keyword"})
+        kql.parse("process.name : *hello*rdub*", schema={"process.name": "wildcard"})
+
+        with self.assertRaises(kql.KqlParseError):
+            kql.parse("process.name.text : *hello*rdub*", schema={"process.name": "boolean"})
