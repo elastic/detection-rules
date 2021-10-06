@@ -16,18 +16,19 @@ Eg:
 python generate_scripts.py --space default
 ```
 
-This will create a folder named `<your-space-name>`, consisting of all the required scripts, modified for your Kibana space. **For the following steps, please use the scripts from this folder.**
+This will create a folder named `<your-space-name>`, consisting of all the required artifacts, modified for your Kibana space. **For the steps that follow, please use the scripts from this folder.**
 
 #### 3. Navigate to the Dev Tools console in Kibana
 
+You will now upload all the Host Risk Score artifacts to Kibana. Remember to suffix the names of all the scripts, ingest pipelines, transforms etc. with your Kibana space, while uploading them. 
 #### 4. Uploading required scripts
 
-Upload the contents of `ml_hostriskscore_levels_script.json`, `ml_hostriskscore_map_script.json` and `ml_hostriskscore_reduce_script.json` as individual scripts, using the Script API:
+Upload the contents of `ml_hostriskscore_levels_script.json`, `ml_hostriskscore_map_script.json` and `ml_hostriskscore_reduce_script.json` as individual scripts, using the Script API.
 
 Eg:
 
 ```
-PUT _scripts/ml_hostriskscore_levels_script
+PUT _scripts/ml_hostriskscore_levels_script_<your-space-name>
 {content of the ml_hostriskscore_levels_script.json file}
 ```
 
@@ -37,7 +38,7 @@ Upload the ingest pipeline in `ml_hostriskscore_ingest_pipeline.json` using the 
 
 
 ```
-PUT _ingest/pipeline/ml_hostriskscore_ingest_pipeline
+PUT _ingest/pipeline/ml_hostriskscore_ingest_pipeline_<your-space-name>
 {content of the ml_hostriskscore_ingest_pipeline.json file}
 ```
 
@@ -47,23 +48,22 @@ Upload the `pivot` transform in `ml_hostriskscore_pivot_transform.json` using th
 
 
 ```
-PUT _transform/ml_hostriskscore_pivot_transform
+PUT _transform/ml_hostriskscore_pivot_transform_<your-space-name>
 {content of the ml_hostriskscore_pivot_transform.json file}
 ```
 
-* Navigate to `Transforms` under `Management` -> `Stack Management`. For the transform with the ID `ml_hostriskscore_pivot_transform`, under `Actions`, click `Start`. 
+* Navigate to `Transforms` under `Management` -> `Stack Management`. For the transform with the ID `ml_hostriskscore_pivot_transform_<your-space-name>`, under `Actions`, click `Start`. 
 * Verify that the Transform started as expected by ensuring that documents are appearing in the destination index of the Transform, eg: using the Search/Count APIs:
 
 
 ```
-GET ml_host_risk_score/_search (or _count)
+GET ml_host_risk_score_<your-space-name>/_search (or _count)
 ```
 
-#### 7. Create the `ml_host_risk_score_latest` index with appropriate mappings
-
+#### 7. Create the space-aware `ml_host_risk_score_latest_<your-space-name>` index with appropriate mappings
 
 ```
-PUT ml_host_risk_score_latest
+PUT ml_host_risk_score_latest_<your-space-name>
 {
     "mappings" : {
             "properties" : {
@@ -79,16 +79,16 @@ Upload the `latest` transform in `ml_hostriskscore_latest_transform.json` using 
 
 
 ```
-PUT _transform/ml_hostriskscore_latest_transform
+PUT _transform/ml_hostriskscore_latest_transform_<your-space-name>
 {content of the ml_hostriskscore_latest_transform.json file}
 ```
 
-* Navigate to `Transforms` under `Management` -> `Stack Management`. For the transform with the ID `ml_hostriskscore_latest_transform`, under `Actions`, click `Start`. 
+* Navigate to `Transforms` under `Management` -> `Stack Management`. For the transform with the ID `ml_hostriskscore_latest_transform_<your-space-name>`, under `Actions`, click `Start`. 
 * Verify that the Transform started as expected by ensuring that documents are appearing in the destination index of the Transform, eg: using the Search/Count APIs:
 
 
 ```
-GET ml_host_risk_score_latest/_search (or _count)
+GET ml_host_risk_score_latest_<your-space-name>/_search (or _count)
 ```
 
 #### 8. Import the dashboards
