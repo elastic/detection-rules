@@ -8,6 +8,14 @@ integration = "aws"
 author = ["Elastic", "Austin Songer"]
 description = "Identifies when an AWS Route Table has been modified or deleted."
 false_positives = ["Automated processes that uses Terraform may lead to false positives."]
+false_positives = [
+    """
+    Route Table could be modified or deleted by a system administrator. Verify whether the user identity, 
+    user agent, and/or hostname should be making changes in your environment. Route Table being modified
+    from unfamiliar users should be investigated. If known behavior is causing false positives, it can be 
+    exempted from the rule.  Also automated processes that uses Terraform may lead to false positives.
+    """,
+]
 from = "now-60m"
 index = ["filebeat-*", "logs-aws*"]
 interval = "10m"
