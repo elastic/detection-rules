@@ -1,0 +1,57 @@
+[metadata]
+creation_date = "2021/10/01"
+maturity = "production"
+updated_date = "2021/10/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the deletion of backup files, saved using third-party software, by a process outside of the backup suite.
+Adversaries may delete Backup files to ensure that recovery from a Ransomware attack is less likely.
+"""
+false_positives = [
+    "Certain utilities that delete files for disk cleanup or Administrators manually removing backup files.",
+]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Third-party Backup Files Deleted via Unexpected Process"
+references = ["https://www.advintel.io/post/backup-removal-solutions-from-conti-ransomware-with-love"]
+risk_score = 47
+rule_id = "11ea6bec-ebde-4d71-a8e9-784948f8e3e9"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Impact"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where event.type == "deletion" and
+  (
+  /* Veeam Related Backup Files */
+  (file.extension : ("VBK", "VIB", "VBM") and
+  not process.executable : ("?:\\Windows\\Veeam\\Backup\\*",
+                            "?:\\Program Files\\Veeam\\Backup and Replication\\*",
+                            "?:\\Program Files (x86)\\Veeam\\Backup and Replication\\*")) or
+
+  /* Veritas Backup Exec Related Backup File */
+  (file.extension : "BKF" and
+  not process.executable : ("?:\\Program Files\\Veritas\\Backup Exec\\*",
+                            "?:\\Program Files (x86)\\Veritas\\Backup Exec\\*"))
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [[rule.threat.technique]]
+  id = "T1490"
+  name = "Inhibit System Recovery"
+  reference = "https://attack.mitre.org/techniques/T1490/"
+
+  [rule.threat.tactic]
+  id = "TA0040"
+  name = "Impact"
+  reference = "https://attack.mitre.org/tactics/TA0040/"
+
