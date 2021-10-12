@@ -7,7 +7,8 @@ integration = "aws"
 [rule]
 author = ["Austin Songer"]
 description = """
-Identifies the use of AssumeRole. Attackers could move laterally and escalate privileges.
+Identifies the use of AssumeRole. AssumeRole returns a set of temporary security credentials that you can use to access
+AWS resources. An adversary could move laterally and escalate privileges.
 """
 false_positives = [
     """
@@ -32,7 +33,6 @@ query = '''
 event.dataset:aws.cloudtrail and event.provider:sts.amazonaws.com and event.action:AssumedRole and 
 aws.cloudtrail.user_identity.session_context.session_issuer.type:Role and event.outcome:success
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
