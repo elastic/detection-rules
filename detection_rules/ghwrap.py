@@ -292,4 +292,4 @@ class ManifestManager:
                 'data': data
             }
 
-        return assets
+        return assets 
