@@ -1,0 +1,50 @@
+[metadata]
+creation_date = "2021/07/15"
+maturity = "development"
+updated_date = "2021/10/05"
+integration = "o365"
+
+[rule]
+author = ["Austin Songer"]
+description = """
+Identifies when a Microsoft Cloud App Security reported a risky sign-in attempt due to a login associated with an
+impossible travel.
+"""
+false_positives = ["User using a VPN may lead to false positives."]
+from = "now-30m"
+index = ["filebeat-*", "logs-o365*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Microsoft 365 Impossible travel activity"
+note = """## Config
+
+The Microsoft 365 Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
+"""
+references = [
+    "https://docs.microsoft.com/en-us/cloud-app-security/anomaly-detection-policy",
+    "https://docs.microsoft.com/en-us/cloud-app-security/policy-template-reference",
+]
+risk_score = 47
+rule_id = "9c49fe22-4e86-4384-a9a0-602f4d54088d"
+severity = "medium"
+tags = ["Elastic", "Cloud", "Microsoft 365", "Continuous Monitoring", "SecOps", "Configuration Audit"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.category:web and event.action:"Impossible travel activity" and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+id = "T1078"
+
+
+[rule.threat.tactic]
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+id = "TA0001"
