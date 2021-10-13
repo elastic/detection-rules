@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2021/07/07"
 maturity = "production"
-updated_date = "2021/07/07"
+updated_date = "2021/09/22"
 
 [rule]
-author = ["Elastic"]
+author = ["Elastic", "Dennis Perto"]
 description = """
 Identifies a Windows trusted program that is known to be vulnerable to DLL Search Order Hijacking
 starting after being renamed or from a non-standard path. This is uncommon behavior and may indicate an attempt to evade
@@ -32,7 +32,9 @@ process where event.type == "start" and
   (process.name : "MsMpEng.exe" and not
         process.executable : ("?:\\ProgramData\\Microsoft\\Windows Defender\\*.exe",
                               "?:\\Program Files\\Windows Defender\\*.exe",
-                              "?:\\Program Files (x86)\\Windows Defender\\*.exe"))
+                              "?:\\Program Files (x86)\\Windows Defender\\*.exe",
+                              "?:\\Program Files\\Microsoft Security Client\\*.exe",
+                              "?:\\Program Files (x86)\\Microsoft Security Client\\*.exe"))
 '''
 
 
