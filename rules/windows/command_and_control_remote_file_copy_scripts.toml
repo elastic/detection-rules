@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/29"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/10/13"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +23,7 @@ type = "eql"
 query = '''
 sequence by host.id, process.entity_id
   [network where process.name : ("wscript.exe", "cscript.exe") and network.protocol != "dns" and
-   network.direction == "outgoing" and network.type == "ipv4" and destination.ip != "127.0.0.1"
+   network.direction : ("outgoing", "egress") and network.type == "ipv4" and destination.ip != "127.0.0.1"
   ]
   [file where event.type == "creation" and file.extension : ("exe", "dll")]
 '''
