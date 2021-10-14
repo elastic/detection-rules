@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/04/21"
 maturity = "production"
-updated_date = "2021/09/13"
+updated_date = "2021/10/14"
 
 [rule]
 author = ["Elastic"]
@@ -27,9 +27,9 @@ investigating the associated activity to determine if it requires further invest
 
 If an indicator matches a local observation, the following enriched fields will be generated to identify the indicator, field, and type matched.
 
-- `threatintel.indicator.matched.atomic` - this identifies the atomic indicator that matched the local observation
-- `threatintel.indicator.matched.field` - this identifies the indicator field that matched the local observation
-- `threatintel.indicator.matched.type` - this identifies the indicator type that matched the local observation
+- `threat.indicator.matched.atomic` - this identifies the atomic indicator that matched the local observation
+- `threat.indicator.matched.field` - this identifies the indicator field that matched the local observation
+- `threat.indicator.matched.type` - this identifies the indicator type that matched the local observation
 
 #### Possible investigation steps:
 - Investigation should be validated and reviewed based on the data (file hash, registry path, URL, imphash) that was matched
@@ -65,14 +65,14 @@ timeline_id = "495ad7a7-316e-4544-8a0f-9c098daee76e"
 timeline_title = "Generic Threat Match Timeline"
 type = "threat_match"
 
-threat_index = [ "filebeat-*"]
+threat_index = [ "logs-ti_*"]
 threat_indicator_path = ""
 threat_language = "kuery"
 
 threat_query = '''
-@timestamp >= "now-30d" and event.module:threatintel and
-  (threatintel.indicator.file.hash.*:* or threatintel.indicator.file.pe.imphash:* or threatintel.indicator.ip:* or
-     threatintel.indicator.registry.path:* or threatintel.indicator.url.full:*)
+@timestamp >= "now-30d" and event.dataset:ti_* and
+  (threat.indicator.file.hash.*:* or threat.indicator.file.pe.imphash:* or threat.indicator.ip:* or
+     threat.indicator.registry.path:* or threat.indicator.url.full:*)
 '''
 
 query = """
@@ -87,11 +87,11 @@ store = "appState"
 negate = false
 disabled = false
 type = "phrase"
-key = "event.module"
+key = "event.dataset"
 [rule.threat_filters.meta.params]
-query = "threatintel"
+query = "ti_*"
 [rule.threat_filters.query.match_phrase]
-"event.module" = "threatintel"
+"event.dataset" = "ti_*"
 
 [[rule.threat_filters]]
 [rule.threat_filters."$state"]
@@ -136,46 +136,46 @@ query = "indicator"
 [[rule.threat_mapping.entries]]
 field = "file.hash.md5"
 type = "mapping"
-value = "threatintel.indicator.file.hash.md5"
+value = "threat.indicator.file.hash.md5"
 
 [[rule.threat_mapping]]
 [[rule.threat_mapping.entries]]
 field = "file.hash.sha1"
 type = "mapping"
-value = "threatintel.indicator.file.hash.sha1"
+value = "threat.indicator.file.hash.sha1"
 
 [[rule.threat_mapping]]
 [[rule.threat_mapping.entries]]
 field = "file.hash.sha256"
 type = "mapping"
-value = "threatintel.indicator.file.hash.sha256"
+value = "threat.indicator.file.hash.sha256"
 
 [[rule.threat_mapping]]
 [[rule.threat_mapping.entries]]
 field = "file.pe.imphash"
 type = "mapping"
-value = "threatintel.indicator.file.pe.imphash"
+value = "threat.indicator.file.pe.imphash"
 
 [[rule.threat_mapping]]
 [[rule.threat_mapping.entries]]
 field = "source.ip"
 type = "mapping"
-value = "threatintel.indicator.ip"
+value = "threat.indicator.ip"
 
 [[rule.threat_mapping]]
 [[rule.threat_mapping.entries]]
 field = "destination.ip"
 type = "mapping"
-value = "threatintel.indicator.ip"
+value = "threat.indicator.ip"
 
 [[rule.threat_mapping]]
 [[rule.threat_mapping.entries]]
 field = "url.full"
 type = "mapping"
-value = "threatintel.indicator.url.full"
+value = "threat.indicator.url.full"
 
 [[rule.threat_mapping]]
 [[rule.threat_mapping.entries]]
 field = "registry.path"
 type = "mapping"
-value = "threatintel.indicator.registry.path"
+value = "threat.indicator.registry.path"
