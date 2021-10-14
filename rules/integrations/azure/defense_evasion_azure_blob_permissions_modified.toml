@@ -7,7 +7,7 @@ integration = "azure"
 [rule]
 author = ["Austin Songer"]
 description = """
-Identifies when the Azure role-based access control (Azure RBAC) permissions are modified for a Azure
+Identifies when the Azure role-based access control (Azure RBAC) permissions are modified for an Azure
 Blob. An adversary may modify the permissions on a blob to weaken their target's security controls
 or an administrator may inadvertently modify the permissions, which could lead to data exposure or loss.
 """
@@ -33,10 +33,10 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:azure.activitylogs and azure.activitylogs.operation_name:
-    ("MICROSOFT.STORAGE/STORAGEACCOUNTS/BLOBSERVICES/CONTAINERS/BLOBS/MANAGEOWNERSHIP/ACTION" or
+event.dataset:azure.activitylogs and azure.activitylogs.operation_name:(
+     "MICROSOFT.STORAGE/STORAGEACCOUNTS/BLOBSERVICES/CONTAINERS/BLOBS/MANAGEOWNERSHIP/ACTION" or
      "MICROSOFT.STORAGE/STORAGEACCOUNTS/BLOBSERVICES/CONTAINERS/BLOBS/MODIFYPERMISSIONS/ACTION") and 
-event.outcome:(Success or success)
+  event.outcome:(Success or success)
 '''
 
 
