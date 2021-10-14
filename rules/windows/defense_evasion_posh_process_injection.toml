@@ -15,7 +15,7 @@ from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "PowerShell Process Injection Tooling"
+name = "Potential Process Injection via PowerShell"
 references = [
     "https://github.com/EmpireProject/Empire/blob/master/data/module_source/management/Invoke-PSInject.ps1",
     "https://github.com/EmpireProject/Empire/blob/master/data/module_source/management/Invoke-ReflectivePEInjection.ps1",
@@ -31,10 +31,22 @@ type = "query"
 query = '''
 event.code:"4104" and 
   powershell.file.script_block_text : (
+   (WriteProcessMemory or
+    NtVirtualAlloc or
     VirtualAlloc or
     VirtualAllocEx or
-    "[System.Reflection.Assembly]::Load" or
-    "[Reflection.Assembly]::Load"
+    NtLoadLibrary or
+    LoadLibrary or
+    LoadLibraryA or
+    LoadLibraryEx or
+    GetProcAddress or
+    OpenProcess or
+    VirtualProtect) and
+   (CreateRemoteThread or
+    NtCreateThreadEx or
+    CreateThread or
+    QueueUserAPC or
+    (SuspendThread and ResumeThread))
   )
 '''
 
