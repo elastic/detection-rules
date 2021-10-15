@@ -1,0 +1,93 @@
+[metadata]
+creation_date = "2021/10/13"
+maturity = "production"
+updated_date = "2021/10/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the use of discovery-related Windows API Functions in Powershell Scripts. Attackers can use these
+functions to perform various situational awareness related activities, like enumerating users, shares, sessions, domain
+trusts, groups, etc.,
+"""
+false_positives = ["Legitimate Powershell Scripts that make use of these Functions"]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "PowerShell Suspicious Discovery Related Windows API Functions"
+references = [
+    "https://github.com/BC-SECURITY/Empire/blob/9259e5106986847d2bb770c4289c0c0f1adf2344/data/module_source/situational_awareness/network/powerview.ps1#L21413",
+]
+risk_score = 47
+rule_id = "61ac3638-40a3-44b2-855a-985636ca985e"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.code:"4104" and 
+  powershell.file.script_block_text : (
+    NetShareEnum or
+    NetWkstaUserEnum or
+    NetSessionEnum or
+    NetLocalGroupEnum or
+    NetLocalGroupGetMembers or
+    DsGetSiteName or
+    DsEnumerateDomainTrusts or
+    WTSEnumerateSessionsEx or
+    WTSQuerySessionInformation or
+    LsaGetLogonSessionData or
+    QueryServiceObjectSecurity
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1135"
+name = "Network Share Discovery"
+reference = "https://attack.mitre.org/techniques/T1135/"
+
+[[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
+
+  [[rule.threat.technique.subtechnique]]
+  id = "T1069.001"
+  name = "Local Groups"
+  reference = "https://attack.mitre.org/techniques/T1069/001/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+[[rule.threat.technique]]
+id = "T1106"
+name = "Native API"
+reference = "https://attack.mitre.org/techniques/T1106/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
