@@ -382,11 +382,9 @@ class BaseRuleContents(ABC):
         pass
 
     @property
+    @abstractmethod
     def version_lock(self):
-        # VersionLock
-        from .version_lock import default_version_lock
-
-        return getattr(self, '_version_lock', None) or default_version_lock
+        pass
 
     def lock_info(self, bump=True) -> dict:
         version = self.autobumped_version if bump else (self.latest_version or 1)
@@ -397,7 +395,7 @@ class BaseRuleContents(ABC):
     @property
     def is_dirty(self) -> Optional[bool]:
         """Determine if the rule has changed since its version was locked."""
-        existing_sha256 = self.version_lock.get_locked_hash(self.id, self.metadata.min_stack_version)
+        existing_sha256 = self.version_lock.get_locked_hash(self.id, self.metadata.get('min_stack_version'))
 
         if existing_sha256 is not None:
             return existing_sha256 != self.sha256()
@@ -405,7 +403,7 @@ class BaseRuleContents(ABC):
     @property
     def latest_version(self) -> Optional[int]:
         """Retrieve the latest known version of the rule."""
-        return self.version_lock.get_locked_version(self.id, self.metadata.min_stack_version)
+        return self.version_lock.get_locked_version(self.id, self.metadata.get('min_stack_version'))
 
     @property
     def autobumped_version(self) -> Optional[int]:
@@ -445,7 +443,23 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     """Rule object which maps directly to the TOML layout."""
     metadata: RuleMeta
     data: AnyRuleData = field(metadata=dict(data_key="rule"))
-    _version_lock: Optional[Any] = None
+    # _version_lock: Optional[Any] = None
+
+    @cached_property
+    def version_lock(self):
+        # VersionLock
+        from .version_lock import default_version_lock
+
+        return getattr(self, '_version_lock', None) or default_version_lock
+
+    def set_version_lock(self, value):
+        from .version_lock import VersionLock
+
+        if value and not isinstance(value, VersionLock):
+            raise TypeError(f'version lock property must be set with VersionLock objects only. Got {type(value)}')
+
+        # circumvent frozen class
+        self.__dict__['_version_lock'] = value
 
     @classmethod
     def all_rule_types(cls) -> set:
@@ -537,14 +551,56 @@ class TOMLRule:
             f.write('\n')
 
 
+@dataclass(frozen=True)
+class DeprecatedRuleContents(BaseRuleContents):
+    metadata: dict
+    data: dict
+
+    @cached_property
+    def version_lock(self):
+        # VersionLock
+        from .version_lock import default_version_lock
+
+        return getattr(self, '_version_lock', None) or default_version_lock
+
+    def set_version_lock(self, value):
+        from .version_lock import VersionLock
+
+        if value and not isinstance(value, VersionLock):
+            raise TypeError(f'version lock property must be set with VersionLock objects only. Got {type(value)}')
+
+        # circumvent frozen class
+        self.__dict__['_version_lock'] = value
+
+    @property
+    def id(self) -> str:
+        return self.data.get('rule_id')
+
+    @property
+    def name(self) -> str:
+        return self.data.get('name')
+
+    @classmethod
+    def from_dict(cls, obj: dict):
+        return cls(metadata=obj['metadata'], data=obj['rule'])
+
+    def to_api_format(self, include_version=True) -> dict:
+        """Convert the TOML rule to the API format."""
+        converted = copy.deepcopy(self.data)
+        if include_version:
+            converted["version"] = self.autobumped_version
+
+        converted = self._post_dict_transform(converted)
+        return converted
+
+
 class DeprecatedRule(dict):
     """Minimal dict object for deprecated rule."""
 
-    def __init__(self, path: Path, metadata: dict, rule: dict, *args, **kwargs):
-        self._metadata = metadata
-        self._rule = rule
+    def __init__(self, path: Path, contents: DeprecatedRuleContents, *args, **kwargs):
         super(DeprecatedRule, self).__init__(*args, **kwargs)
         self.path = path
+        self.contents = contents
 
     def __repr__(self):
         return f'{type(self).__name__}(contents={self.contents}, path={self.path})'
@@ -556,34 +612,6 @@ class DeprecatedRule(dict):
     @property
     def name(self) -> str:
         return self.contents.name
-
-    @property
-    def contents(self):
-        @dataclass
-        class Contents(BaseRuleContents):
-            metadata: dict
-            data: dict
-            _version_lock: Optional[Any] = None
-
-            @property
-            def id(self) -> str:
-                return self.data.get('rule_id')
-
-            @property
-            def name(self) -> str:
-                return self.data.get('name')
-
-            def to_api_format(self, include_version=True) -> dict:
-                """Convert the TOML rule to the API format."""
-                converted = copy.deepcopy(self.data)
-                if include_version:
-                    converted["version"] = self.autobumped_version
-
-                converted = self._post_dict_transform(converted)
-                return converted
-
-        contents = Contents(self._metadata, self._rule)
-        return contents
 
 
 def downgrade_contents_from_rule(rule: TOMLRule, target_version: str) -> dict:

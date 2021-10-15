@@ -34,10 +34,12 @@ class VersionLock:
     """Version handling for rule files and collections."""
 
     def __init__(self, version_lock_file: Optional[str] = None, deprecated_lock_file: Optional[str] = None,
-                 version_lock: Optional[dict] = None, deprecated_lock: Optional[dict] = None):
+                 version_lock: Optional[dict] = None, deprecated_lock: Optional[dict] = None,
+                 name: Optional[str] = None):
         assert (version_lock_file or version_lock), 'Must provide version lock file or contents'
         assert (deprecated_lock_file or deprecated_lock), 'Must provide deprecated lock file or contents'
 
+        self.name = name
         self.version_lock_file = version_lock_file
         self.deprecated_lock_file = deprecated_lock_file
 
@@ -177,4 +179,4 @@ class VersionLock:
         return changed_rules, list(new_rules), newly_deprecated
 
 
-default_version_lock = VersionLock(ETC_VERSION_LOCK_FILE, ETC_DEPRECATED_RULES_FILE)
+default_version_lock = VersionLock(ETC_VERSION_LOCK_FILE, ETC_DEPRECATED_RULES_FILE, name='default')
