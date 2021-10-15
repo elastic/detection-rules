@@ -14,7 +14,7 @@ import eql
 
 import kql
 from detection_rules import attack
-from detection_rules.version_lock import load_versions
+from detection_rules.version_lock import default_version_lock
 from detection_rules.rule import QueryRuleData
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.schemas import definitions
@@ -377,7 +377,7 @@ class TestRuleMetadata(BaseRuleTest):
 
     def test_deprecated_rules(self):
         """Test that deprecated rules are properly handled."""
-        versions = load_versions()
+        versions = default_version_lock.version_lock
         deprecations = load_etc_dump('deprecated_rules.json')
         deprecated_rules = {}
         rules_path = get_path('rules')

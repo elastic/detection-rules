@@ -381,6 +381,13 @@ class BaseRuleContents(ABC):
     def name(self):
         pass
 
+    @property
+    def version_lock(self):
+        # VersionLock
+        from .version_lock import default_version_lock
+
+        return getattr(self, '_version_lock', None) or default_version_lock
+
     def lock_info(self, bump=True) -> dict:
         version = self.autobumped_version if bump else (self.latest_version or 1)
         contents = {"rule_name": self.name, "sha256": self.sha256(), "version": version}
@@ -390,9 +397,7 @@ class BaseRuleContents(ABC):
     @property
     def is_dirty(self) -> Optional[bool]:
         """Determine if the rule has changed since its version was locked."""
-        from .version_lock import get_locked_hash
-
-        existing_sha256 = get_locked_hash(self.id, self.metadata.min_stack_version)
+        existing_sha256 = self.version_lock.get_locked_hash(self.id, self.metadata.min_stack_version)
 
         if existing_sha256 is not None:
             return existing_sha256 != self.sha256()
@@ -400,9 +405,7 @@ class BaseRuleContents(ABC):
     @property
     def latest_version(self) -> Optional[int]:
         """Retrieve the latest known version of the rule."""
-        from .version_lock import get_locked_version
-
-        return get_locked_version(self.id, self.metadata.min_stack_version)
+        return self.version_lock.get_locked_version(self.id, self.metadata.min_stack_version)
 
     @property
     def autobumped_version(self) -> Optional[int]:
@@ -442,6 +445,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     """Rule object which maps directly to the TOML layout."""
     metadata: RuleMeta
     data: AnyRuleData = field(metadata=dict(data_key="rule"))
+    _version_lock: Optional[Any] = None
 
     @classmethod
     def all_rule_types(cls) -> set:
@@ -536,9 +540,14 @@ class TOMLRule:
 class DeprecatedRule(dict):
     """Minimal dict object for deprecated rule."""
 
-    def __init__(self, path: Path, *args, **kwargs):
+    def __init__(self, path: Path, metadata: dict, rule: dict, *args, **kwargs):
+        self._metadata = metadata
+        self._rule = rule
         super(DeprecatedRule, self).__init__(*args, **kwargs)
         self.path = path
+
+    def __repr__(self):
+        return f'{type(self).__name__}(contents={self.contents}, path={self.path})'
 
     @property
     def id(self) -> str:
@@ -554,6 +563,7 @@ class DeprecatedRule(dict):
         class Contents(BaseRuleContents):
             metadata: dict
             data: dict
+            _version_lock: Optional[Any] = None
 
             @property
             def id(self) -> str:
@@ -572,7 +582,7 @@ class DeprecatedRule(dict):
                 converted = self._post_dict_transform(converted)
                 return converted
 
-        contents = Contents(self.get('metadata'), self.get('rule'))
+        contents = Contents(self._metadata, self._rule)
         return contents
 
 

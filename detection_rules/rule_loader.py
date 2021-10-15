@@ -127,6 +127,7 @@ class RuleCollection(BaseCollection):
         self.frozen = False
 
         self._toml_load_cache: Dict[Path, dict] = {}
+        self._version_lock: Optional[dict] = None
 
         for rule in (rules or []):
             self.add_rule(rule)
@@ -197,6 +198,7 @@ class RuleCollection(BaseCollection):
             self.add_deprecated_rule(deprecated_rule)
             return deprecated_rule
         else:
+            obj['_version_lock'] = self._version_lock
             contents = TOMLRuleContents.from_dict(obj)
             rule = TOMLRule(path=path, contents=contents)
             self.add_rule(rule)
