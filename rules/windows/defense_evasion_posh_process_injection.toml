@@ -6,9 +6,8 @@ updated_date = "2021/10/14"
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the use of Windows API Functions that Malware and Hacktools commonly abuse to Inject into process and
-load binaries and DLLs into memory in Powershell Scripts. Attackers use these functions to evade detections by loading
-executables and DLLs in memory and injecting them into legit processes.,
+This rule detects the use of Windows API functions that are commonly abused by Malware and Hacktools to load 
+malicious code or injecting it into remote processes.
 """
 false_positives = ["Legitimate Powershell Scripts that make use of these Functions"]
 from = "now-9m"
@@ -31,22 +30,24 @@ type = "query"
 query = '''
 event.code:"4104" and 
   powershell.file.script_block_text : (
-   (WriteProcessMemory or
-    NtVirtualAlloc or
-    VirtualAlloc or
-    VirtualAllocEx or
-    NtLoadLibrary or
+   (VirtualAlloc or
+    VirtualAllocEx or 
+    VirtualProtect or
+    LdrLoadDll or
     LoadLibrary or
     LoadLibraryA or
     LoadLibraryEx or
     GetProcAddress or
-    OpenProcess or
-    VirtualProtect) and
-   (CreateRemoteThread or
+    OpenProcess or 
+    OpenProcessToken or
+    AdjustTokenPrivileges) and
+   (WriteProcessMemory or
+    CreateRemoteThread or
     NtCreateThreadEx or
     CreateThread or
     QueueUserAPC or
-    (SuspendThread and ResumeThread))
+    SuspendThread or 
+    ResumeThread)
   )
 '''
 
