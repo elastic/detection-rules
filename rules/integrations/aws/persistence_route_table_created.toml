@@ -1,13 +1,21 @@
 [metadata]
 creation_date = "2021/06/05"
 maturity = "production"
-updated_date = "2021/10/05"
+updated_date = "2021/10/15"
 integration = "aws"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
 description = "Identifies when an AWS Route Table has been created."
-false_positives = ["Automated processes that uses Terraform may lead to false positives."]
+false_positives = [
+    """
+    Route Table being created may be done by a system or network administrator. Verify whether the user identity, user 
+    agent, and/or hostname should be making changes in your environment. Route Table being created from unfamiliar users or 
+    hosts should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+
+    Automated processes that uses Terraform may lead to false positives.
+    """,
+]
 from = "now-60m"
 index = ["filebeat-*", "logs-aws*"]
 interval = "10m"
