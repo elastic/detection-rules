@@ -99,10 +99,9 @@ class DeprecatedCollection(BaseCollection):
     file_map: Dict[Path, DeprecatedRule] = field(default_factory=dict)
     rules: List[DeprecatedRule] = field(default_factory=list)
 
-    def __contains__(self, rule: dict):
+    def __contains__(self, rule: DeprecatedRule):
         """Check if a rule is in the map by comparing IDs."""
-        rule_id = rule.get('rule', {}).get('rule_id')
-        return rule_id is not None and rule_id in self.id_map
+        return rule.id in self.id_map
 
     def filter(self, cb: Callable[[DeprecatedRule], bool]) -> 'RuleCollection':
         """Retrieve a filtered collection of rules."""
@@ -120,6 +119,8 @@ class RuleCollection(BaseCollection):
     __default = None
 
     def __init__(self, rules: Optional[List[TOMLRule]] = None):
+        from .version_lock import VersionLock
+
         self.id_map: Dict[definitions.UUIDString, TOMLRule] = {}
         self.file_map: Dict[Path, TOMLRule] = {}
         self.rules: List[TOMLRule] = []
@@ -127,6 +128,7 @@ class RuleCollection(BaseCollection):
         self.frozen = False
 
         self._toml_load_cache: Dict[Path, dict] = {}
+        self._version_lock: Optional[VersionLock] = None
 
         for rule in (rules or []):
             self.add_rule(rule)
@@ -229,7 +231,7 @@ class RuleCollection(BaseCollection):
         """Load rules from a Git branch."""
         git = utils.make_git()
         rules_dir = DEFAULT_RULES_DIR.relative_to(get_path("."))
-        paths = git("ls-files", "--with-tree", branch, rules_dir).splitlines()
+        paths = git("ls-tree", "-r", "--name-only", branch, rules_dir).splitlines()
 
         for path in paths:
             path = Path(path)
@@ -271,6 +273,43 @@ class RuleCollection(BaseCollection):
             cls.__default = collection
 
         return cls.__default
+
+    def compare_collections(self, other: 'RuleCollection'
+                            ) -> (Dict[str, TOMLRule], Dict[str, TOMLRule], Dict[str, DeprecatedRule]):
+        """Get the changes between two sets of rules."""
+        assert self._version_lock, 'RuleCollection._version_lock must be set for self'
+        assert other._version_lock, 'RuleCollection._version_lock must be set for other'
+
+        # we cannot trust the assumption that either of the versions or deprecated files were pre-locked, which means we
+        # have to perform additional checks beyond what is done in manage_versions
+        changed_rules = {}
+        new_rules = {}
+        newly_deprecated = {}
+
+        pre_versions_hash = utils.dict_hash(self._version_lock.version_lock)
+        post_versions_hash = utils.dict_hash(other._version_lock.version_lock)
+        pre_deprecated_hash = utils.dict_hash(self._version_lock.deprecated_lock)
+        post_deprecated_hash = utils.dict_hash(other._version_lock.deprecated_lock)
+
+        if pre_versions_hash == post_versions_hash and pre_deprecated_hash == post_deprecated_hash:
+            return changed_rules, new_rules, newly_deprecated
+
+        for rule in other:
+            if rule.contents.metadata.maturity != 'production':
+                continue
+
+            if rule.id not in self.id_map:
+                new_rules[rule.id] = rule
+            else:
+                pre_rule = self.id_map[rule.id]
+                if rule.contents.sha256() != pre_rule.contents.sha256():
+                    changed_rules[rule.id] = rule
+
+        for rule in other.deprecated:
+            if rule.id not in self.deprecated.id_map:
+                newly_deprecated[rule.id] = rule
+
+        return changed_rules, new_rules, newly_deprecated
 
 
 @cached
