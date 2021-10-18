@@ -1,0 +1,47 @@
+
+[metadata]
+creation_date = "2021/10/18"
+maturity = "production"
+updated_date = "2021/10/18"
+integration = "azure"
+
+[rule]
+author = ["Austin Songer"]
+description = """
+Identifies the creation or patching of potential malicious rolebinding. You can assign these roles to Kubernetes subjects 
+(users, groups, or service accounts) with role bindings and cluster role bindings.
+"""
+from = "now-20m"
+index = ["filebeat-*", "logs-azure*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure Kubernetes Rolebindings Modified or Deleted"
+note = """## Config
+
+The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://docs.microsoft.com/en-us/azure/role-based-access-control/resource-provider-operations",
+]
+risk_score = 21
+rule_id = "1c966416-60c1-436b-bfd0-e002fddbfd89"
+severity = "low"
+tags = ["Elastic", "Cloud", "Azure", "Continuous Monitoring", "SecOps", "Identity and Access"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:azure.activitylogs and azure.activitylogs.operation_name:
+	(MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/ROLEBINDINGS/WRITE or
+	 MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/ROLEBINDINGS/DELETE or
+	 MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/CLUSTERROLEBINDINGS/WRITE or 
+	 MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/CLUSTERROLEBINDINGS/DELETE) and 
+event.outcome:(Success or success)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
