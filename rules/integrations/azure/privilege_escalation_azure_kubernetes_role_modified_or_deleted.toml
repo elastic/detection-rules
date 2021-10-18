@@ -7,12 +7,13 @@ integration = "azure"
 [rule]
 author = ["Austin Songer"]
 description = """
-Identifies when a Azure Kubernetes Role/ClusterRole is Modifiedn or Deleted.
+Identifies when a Azure Kubernetes Role or ClusterRole is Modified or Deleted. An adversary could modified Role or ClusterRole to move 
+laterally and escalate privileges.
 """
 false_positives = [
     """
-    Kubernetes Role being modified or deleted may be performed by a system administrator. Verify whether the user identity, user agent, 
-    and/or hostname should be making changes in your environment. Kubernetes Role modified or deleted from unfamiliar users should be 
+    Kubernetes Role or ClusterRole being modified or deleted may be performed by a system administrator. Verify whether the user identity, user agent, 
+    and/or hostname should be making changes in your environment. Kubernetes Role or ClusterRole modified or deleted from unfamiliar users should be 
     investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
@@ -20,7 +21,7 @@ from = "now-25m"
 index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Azure Kubernetes Role/ClusterRole Modified or Deleted"
+name = "Azure Kubernetes Role Modified or Deleted"
 note = """## Config
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
@@ -38,14 +39,14 @@ type = "query"
 
 query = '''
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:
-	(MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/CLUSTERROLES/WRITE or
-	 MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/CLUSTERROLES/DELETE or 
-	 MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/CLUSTERROLES/BIND/ACTION or 
-         MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/CLUSTERROLES/ESCALATE/ACTION or
-	 MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/ROLES/WRITE or 
-	 MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/ROLES/DELETE or 
-	 MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/ROLES/BIND/ACTION or
-         MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/ROLES/ESCALATE/ACTION) and 
+	("MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/CLUSTERROLES/WRITE" or
+	 "MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/CLUSTERROLES/DELETE" or 
+	 "MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/CLUSTERROLES/BIND/ACTION" or 
+         "MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/CLUSTERROLES/ESCALATE/ACTION" or
+	 "MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/ROLES/WRITE" or 
+	 "MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/ROLES/DELETE" or 
+	 "MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/ROLES/BIND/ACTION" or
+         "MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/ROLES/ESCALATE/ACTION") and 
 event.outcome:(Success or success)
 '''
 
