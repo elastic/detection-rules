@@ -1,0 +1,59 @@
+[metadata]
+creation_date = "2021/10/18"
+maturity = "production"
+updated_date = "2021/10/18"
+integration = "azure"
+
+[rule]
+author = ["Austin Songer"]
+description = """
+Identifies when a Azure Kubernetes Role/ClusterRole is Modifiedn or Deleted.
+"""
+false_positives = [
+    """
+    Kubernetes Role being modified or deleted may be performed by a system administrator. Verify whether the user identity, user agent, 
+    and/or hostname should be making changes in your environment. Kubernetes Role modified or deleted from unfamiliar users should be 
+    investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
+from = "now-25m"
+index = ["filebeat-*", "logs-azure*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure Kubernetes Role or ClusterRole Modified or Deleted"
+note = """## Config
+
+The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://docs.microsoft.com/en-us/azure/role-based-access-control/resource-provider-operations#microsoftkubernetes",
+    "https://www.microsoft.com/security/blog/2021/03/23/secure-containerized-environments-with-updated-threat-matrix-for-kubernetes/",
+    "https://www.microsoft.com/security/blog/2020/04/02/attack-matrix-kubernetes/",
+    "https://medium.com/mitre-engenuity/att-ck-for-containers-now-available-4c2359654bf1",
+    "https://attack.mitre.org/matrices/enterprise/cloud/",
+]
+risk_score = 21
+rule_id = "67178b42-21a6-474b-90ed-a2a8b91b2e83"
+severity = "low"
+tags = ["Elastic", "Cloud", "Azure", "Continuous Monitoring", "SecOps", "Identity and Access"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:azure.activitylogs and azure.activitylogs.operation_name:
+	(MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/CLUSTERROLES/WRITE or
+	 MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/CLUSTERROLES/DELETE or 
+	 MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/CLUSTERROLES/BIND/ACTION or 
+         MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/CLUSTERROLES/ESCALATE/ACTION or
+	 MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/ROLES/WRITE or 
+	 MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/ROLES/DELETE or 
+	 MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/ROLES/BIND/ACTION or
+         MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/ROLES/ESCALATE/ACTION) and 
+event.outcome:(Success or success)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
