@@ -436,6 +436,19 @@ class TestRuleMetadata(BaseRuleTest):
         if failures:
             err_msg = '\n'.join(failures)
             self.fail(f'The following rules have been improperly demoted:\n{err_msg}')
+    
+    def test_all_min_stack_rules_have_comment(self):
+        failures = []
+
+        for rule in self.all_rules:
+            if rule.contents.metadata.min_stack_version and not rule.contents.metadata.min_stack_comments:
+                failures.append(f'{self.rule_str(rule)} missing `metadata.min_stack_comments`. min_stack_version: '
+                                f'{rule.contents.metadata.min_stack_version}')
+
+        if failures:
+            err_msg = '\n'.join(failures)
+            self.fail(f'The following ({len(failures)}) rules have a `min_stack_version` defined but missing comments:'
+                      f'\n{err_msg}')
 
 
 class TestRuleTiming(BaseRuleTest):
