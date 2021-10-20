@@ -4,7 +4,7 @@
 # 2.0.
 
 """Generic mixin classes."""
-from typing import TypeVar, Type
+from typing import TypeVar, Type, Optional, Any
 
 import marshmallow_dataclass
 import marshmallow_dataclass.union_field
@@ -83,9 +83,9 @@ class MarshmallowDataclassMixin:
         """Get the marshmallow schema for the data class"""
         return marshmallow_dataclass.class_schema(cls)()
 
-    def get(self, key: str):
+    def get(self, key: str, default: Optional[Any] = None):
         """Get a key from the query data without raising attribute errors."""
-        return getattr(self, key, None)
+        return getattr(self, key, default)
 
     @classmethod
     @cached
