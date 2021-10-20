@@ -436,6 +436,7 @@ class TestRuleMetadata(BaseRuleTest):
         if failures:
             err_msg = '\n'.join(failures)
             self.fail(f'The following rules have been improperly demoted:\n{err_msg}')
+
     def test_all_min_stack_rules_have_comment(self):
         failures = []
 
