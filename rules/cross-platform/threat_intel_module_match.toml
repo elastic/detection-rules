@@ -3,27 +3,28 @@ creation_date = "2021/04/21"
 maturity = "production"
 updated_date = "2021/10/14"
 min_stack_version = "7.16"
+min_stack_comment = "Threat intel integrations fields were updated from `threatintel.*` to `threat.*` in ECS 1.11 (7.16)."
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule is triggered when indicators from the Threat Intel modules has a match against local file or network observations.
+This rule is triggered when indicators from the Threat Intel integrations has a match against local file or network observations.
 """
 from = "now-65m"
 index = ["auditbeat-*", "endgame-*", "filebeat-*", "logs-*", "packetbeat-*", "winlogbeat-*"]
 interval = "1h"
 language = "kuery"
 license = "Elastic License v2"
-name = "Threat Intel Match"
+name = "Threat Intel Indicator Match"
 note = """## Triage and Analysis
 
 ### Investigating Threat Intel Indicator Matches
 
 Threat Intel indicator match rules allow matching from a local observation such as an endpoint event that records a file
-hash with an entry of a file hash stored within the Threat Intel modules. Other examples of matches can occur on
+hash with an entry of a file hash stored within the Threat Intel integrations. Other examples of matches can occur on
 an IP address, registry path, URL and imphash.
 
-The matches will be based on the incoming feed data so it's important to validate the data and review the results by
+The matches will be based on the incoming last 30 days feed data so it's important to validate the data and review the results by
 investigating the associated activity to determine if it requires further investigation.
 
 If an indicator matches a local observation, the following enriched fields will be generated to identify the indicator, field, and type matched.
@@ -43,7 +44,7 @@ These kinds of questions can help understand if the activity is related to legit
 - For any matches found, it's important to consider the initial release date of that indicator. Threat intelligence can
 be a great tool for augmenting existing security processes, while at the same time it should be understood that threat
 intelligence can represent a specific set of activity observed at a point in time. For example, an IP address
-may have hosted malware observed in a Dridex campaign six months ago, but it's possible that IP has been remediated and
+may have hosted malware observed in a Dridex campaign month ago, but it's possible that IP has been remediated and
 no longer represents any threat.
 - Adversaries often use legitimate tools as network administrators such as `PsExec` or `AdFind`, these tools often find their
 way into indicator lists creating the potential for false positives.
