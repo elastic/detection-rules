@@ -427,7 +427,7 @@ class TestRuleMetadata(BaseRuleTest):
 
         for rule in self.all_rules:
             if rule.contents.metadata.min_stack_version and not rule.contents.metadata.min_stack_comments:
-                failures.append(f'{self.rule_str(rule)} missing `extended.min_stack_comments`. min_stack_version: '
+                failures.append(f'{self.rule_str(rule)} missing `metadata.min_stack_comments`. min_stack_version: '
                                 f'{rule.contents.metadata.min_stack_version}')
 
         if failures:
