@@ -428,9 +428,9 @@ class TestRuleMetadata(BaseRuleTest):
         failures = []
 
         for rule in self.all_rules:
-            err_msg = f'{self.rule_str(rule)} a version locked rule can only go from production to deprecated\n'
-            err_msg += f'Actual: {rule.contents.metadata.maturity}'
             if rule.id in versions and rule.contents.metadata.maturity not in ('production', 'deprecated'):
+                err_msg = f'{self.rule_str(rule)} a version locked rule can only go from production to deprecated\n'
+                err_msg += f'Actual: {rule.contents.metadata.maturity}'
                 failures.append(err_msg)
 
         if failures:
