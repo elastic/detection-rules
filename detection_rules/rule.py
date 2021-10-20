@@ -393,7 +393,7 @@ class BaseRuleContents(ABC):
         """Determine if the rule has changed since its version was locked."""
         from .version_lock import get_locked_hash
 
-        existing_sha256 = get_locked_hash(self.id, self.metadata.min_stack_version)
+        existing_sha256 = get_locked_hash(self.id, self.metadata.get('min_stack_version'))
 
         if existing_sha256 is not None:
             return existing_sha256 != self.sha256()
@@ -403,7 +403,7 @@ class BaseRuleContents(ABC):
         """Retrieve the latest known version of the rule."""
         from .version_lock import get_locked_version
 
-        return get_locked_version(self.id, self.metadata.min_stack_version)
+        return get_locked_version(self.id, self.metadata.get('min_stack_version'))
 
     @property
     def autobumped_version(self) -> Optional[int]:
