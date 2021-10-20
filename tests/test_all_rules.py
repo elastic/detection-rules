@@ -422,6 +422,34 @@ class TestRuleMetadata(BaseRuleTest):
             rule_str = f'{rule_id} - {entry["rule_name"]} ->'
             self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
 
+    def test_rule_demotions(self):
+        """Test to ensure a locked rule is not dropped to development, only deprecated"""
+        versions = load_versions()
+        failures = []
+
+        for rule in self.all_rules:
+            if rule.id in versions and rule.contents.metadata.maturity not in ('production', 'deprecated'):
+                err_msg = f'{self.rule_str(rule)} a version locked rule can only go from production to deprecated\n'
+                err_msg += f'Actual: {rule.contents.metadata.maturity}'
+                failures.append(err_msg)
+
+        if failures:
+            err_msg = '\n'.join(failures)
+            self.fail(f'The following rules have been improperly demoted:\n{err_msg}')
+
+    def test_all_min_stack_rules_have_comment(self):
+        failures = []
+
+        for rule in self.all_rules:
+            if rule.contents.metadata.min_stack_version and not rule.contents.metadata.min_stack_comments:
+                failures.append(f'{self.rule_str(rule)} missing `metadata.min_stack_comments`. min_stack_version: '
+                                f'{rule.contents.metadata.min_stack_version}')
+
+        if failures:
+            err_msg = '\n'.join(failures)
+            self.fail(f'The following ({len(failures)}) rules have a `min_stack_version` defined but missing comments:'
+                      f'\n{err_msg}')
+
 
 class TestRuleTiming(BaseRuleTest):
     """Test rule timing and timestamps."""
