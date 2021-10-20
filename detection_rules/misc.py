@@ -4,11 +4,11 @@
 # 2.0.
 
 """Misc support."""
-import json
 import os
 import re
 import time
 import uuid
+from pathlib import Path
 
 from functools import wraps
 from typing import NoReturn
@@ -252,14 +252,15 @@ def get_kibana_rules(*rule_paths, repo='elastic/kibana', branch='master', verbos
 @cached
 def parse_config():
     """Parse a default config file."""
-    config_file = get_path('.detection-rules-cfg.json')
+    import eql
+
+    config_file = next(Path(get_path()).glob('.detection-rules-cfg.*'), None)
     config = {}
 
-    if os.path.exists(config_file):
-        with open(config_file) as f:
-            config = json.load(f)
+    if config_file and config_file.exists():
+        config = eql.utils.load_dump(str(config_file))
 
-        click.secho('Loaded config file: {}'.format(config_file), fg='yellow')
+        click.secho(f'Loaded config file: {config_file}', fg='yellow')
 
     return config
 
@@ -283,6 +284,7 @@ def get_elasticsearch_client(cloud_id=None, elasticsearch_url=None, es_user=None
     es_password = es_password or click.prompt("es_password", hide_input=True)
     hosts = [elasticsearch_url] if elasticsearch_url else None
     timeout = kwargs.pop('timeout', 60)
+    kwargs['verify_certs'] = not kwargs.pop('ignore_ssl_errors', False)
 
     try:
         client = Elasticsearch(hosts=hosts, cloud_id=cloud_id, http_auth=(es_user, es_password), timeout=timeout,
@@ -295,8 +297,10 @@ def get_elasticsearch_client(cloud_id=None, elasticsearch_url=None, es_user=None
         client_error(error_msg, e, ctx=ctx, err=True)
 
 
-def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, kibana_cookie, **kwargs):
+def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, kibana_cookie, space, ignore_ssl_errors,
+                      provider_type, provider_name, **kwargs):
     """Get an authenticated Kibana client."""
+    from requests import HTTPError
     from kibana import Kibana
 
     if not (cloud_id or kibana_url):
@@ -307,11 +311,22 @@ def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, kibana
         kibana_user = kibana_user or click.prompt("kibana_user")
         kibana_password = kibana_password or click.prompt("kibana_password", hide_input=True)
 
-    with Kibana(cloud_id=cloud_id, kibana_url=kibana_url, **kwargs) as kibana:
+    verify = not ignore_ssl_errors
+
+    with Kibana(cloud_id=cloud_id, kibana_url=kibana_url, space=space, verify=verify, **kwargs) as kibana:
         if kibana_cookie:
             kibana.add_cookie(kibana_cookie)
-        else:
-            kibana.login(kibana_user, kibana_password)
+            return kibana
+
+        try:
+            kibana.login(kibana_user, kibana_password, provider_type=provider_type, provider_name=provider_name)
+        except HTTPError as exc:
+            if exc.response.status_code == 401:
+                err_msg = f'Authentication failed for {kibana_url}. If credentials are valid, check --provider-name'
+                client_error(err_msg, exc, err=True)
+            else:
+                raise
+
         return kibana
 
 
@@ -323,14 +338,18 @@ client_options = {
         'kibana_password': click.Option(['--kibana-password', '-kp'], default=getdefault('kibana_password')),
         'kibana_url': click.Option(['--kibana-url'], default=getdefault('kibana_url')),
         'kibana_user': click.Option(['--kibana-user', '-ku'], default=getdefault('kibana_user')),
-        'space': click.Option(['--space'], default=None, help='Kibana space')
+        'provider_type': click.Option(['--provider-type'], default=getdefault('provider_type')),
+        'provider_name': click.Option(['--provider-name'], default=getdefault('provider_name')),
+        'space': click.Option(['--space'], default=None, help='Kibana space'),
+        'ignore_ssl_errors': click.Option(['--ignore-ssl-errors'], default=getdefault('ignore_ssl_errors'))
     },
     'elasticsearch': {
         'cloud_id': click.Option(['--cloud-id'], default=getdefault("cloud_id")),
         'elasticsearch_url': click.Option(['--elasticsearch-url'], default=getdefault("elasticsearch_url")),
         'es_user': click.Option(['--es-user', '-eu'], default=getdefault("es_user")),
         'es_password': click.Option(['--es-password', '-ep'], default=getdefault("es_password")),
-        'timeout': click.Option(['--timeout', '-et'], default=60, help='Timeout for elasticsearch client')
+        'timeout': click.Option(['--timeout', '-et'], default=60, help='Timeout for elasticsearch client'),
+        'ignore_ssl_errors': click.Option(['--ignore-ssl-errors'], default=getdefault('ignore_ssl_errors'))
     }
 }
 kibana_options = list(client_options['kibana'].values())

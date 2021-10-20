@@ -1,0 +1,50 @@
+[metadata]
+creation_date = "2021/10/15"
+maturity = "production"
+updated_date = "2021/10/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the presence of Portable Executables in a PowerShell Script by Looking for its encoded header.
+Attackers embed PEs into PowerShell Scripts for Injecting them into the memory, avoiding defenses by not writing to
+disk.,
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Suspicious Portable Executable Encoded in Powershell Script"
+risk_score = 47
+rule_id = "ad84d445-b1ce-4377-82d9-7c633f28bf9a"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.code:"4104" and 
+  powershell.file.script_block_text : (
+    TVqQAAMAAAAEAAAA
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+    [[rule.threat.technique.subtechnique]]
+    id = "T1059.001"
+    name = "PowerShell"
+    reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
