@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/10/04"
+updated_date = "2021/10/24"
 
 [rule]
-author = ["Elastic"]
+author = ["Elastic", "Austin Songer"]
 description = """
 Identifies use of vssadmin.exe for shadow copy deletion or resizing on endpoints. This commonly occurs in tandem with
 ransomware or other destructive attacks.
@@ -12,7 +12,10 @@ ransomware or other destructive attacks.
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
-license = "Elastic License v2"
+license = "Elastic License v2
+references = [
+    "https://redcanary.com/blog/intelligence-insights-october-2021/",
+]
 name = "Volume Shadow Copy Deleted or Resized via VssAdmin"
 risk_score = 73
 rule_id = "b5ea4bfe-a1b2-421f-9d47-22a75a6f2921"
@@ -24,7 +27,7 @@ type = "eql"
 query = '''
 process where event.type in ("start", "process_started") and event.action == "start" 
   and (process.name : "vssadmin.exe" or process.pe.original_file_name == "VSSADMIN.EXE") and
-  process.args in ("delete", "resize") and process.args : "shadows*"
+  process.args in ("delete", "resize", "unbounded") and process.args : "shadows*"
 '''
 
 
