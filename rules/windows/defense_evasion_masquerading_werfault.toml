@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/08/24"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2021/10/13"
 
 [rule]
 author = ["Elastic"]
@@ -31,7 +31,7 @@ query = '''
 sequence by host.id, process.entity_id with maxspan = 5s
   [process where event.type:"start" and process.name : ("wermgr.exe", "WerFault.exe") and process.args_count == 1]
   [network where process.name : ("wermgr.exe", "WerFault.exe") and network.protocol != "dns" and
-    network.direction == "outgoing" and destination.ip !="::1" and destination.ip !="127.0.0.1"
+    network.direction : ("outgoing", "egress") and destination.ip !="::1" and destination.ip !="127.0.0.1"
   ]
 '''
 
