@@ -229,6 +229,9 @@ class Package(object):
 
         rules = all_rules.filter(lambda r: filter_rule(r, rule_filter, exclude_fields))
 
+        # add back in deprecated fields
+        rules.deprecated = all_rules.deprecated
+
         if verbose:
             click.echo(f' - {len(all_rules) - len(rules)} rules excluded from package')
 
