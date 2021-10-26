@@ -13,22 +13,22 @@ from marshmallow_dataclass import NewType
 ASSET_TYPE = "security_rule"
 SAVED_OBJECT_TYPE = "security-rule"
 
-DATE_PATTERN = r'\d{4}/\d{2}/\d{2}'
+DATE_PATTERN = r'^\d{4}/\d{2}/\d{2}$'
 MATURITY_LEVELS = ['development', 'experimental', 'beta', 'production', 'deprecated']
 OS_OPTIONS = ['windows', 'linux', 'macos']
-PR_PATTERN = r'^$|\d+'
-SHA256_PATTERN = r'[a-fA-F0-9]{64}'
-UUID_PATTERN = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+PR_PATTERN = r'^$|\d+$'
+SHA256_PATTERN = r'^[a-fA-F0-9]{64}$'
+UUID_PATTERN = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
 
 _version = r'\d+\.\d+(\.\d+[\w-]*)*'
 CONDITION_VERSION_PATTERN = rf'^\^{_version}$'
 VERSION_PATTERN = f'^{_version}$'
 BRANCH_PATTERN = f'{VERSION_PATTERN}|^master$'
 
-INTERVAL_PATTERN = r'\d+[mshd]'
-TACTIC_URL = r'https://attack.mitre.org/tactics/TA[0-9]+/'
-TECHNIQUE_URL = r'https://attack.mitre.org/techniques/T[0-9]+/'
-SUBTECHNIQUE_URL = r'https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/'
+INTERVAL_PATTERN = r'^\d+[mshd]$'
+TACTIC_URL = r'^https://attack.mitre.org/tactics/TA[0-9]+/$'
+TECHNIQUE_URL = r'^https://attack.mitre.org/techniques/T[0-9]+/$'
+SUBTECHNIQUE_URL = r'^https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/$'
 MACHINE_LEARNING = 'machine_learning'
 SAVED_QUERY = 'saved_query'
 QUERY = 'query'
