@@ -174,7 +174,7 @@ class KqlSchema2Eql(eql.Schema):
     type_mapping = {
         "keyword": eql.types.TypeHint.String,
         "ip": eql.types.TypeHint.String,
-        # "float": eql.types.TypeHint.Numeric,
+        "float": eql.types.TypeHint.Numeric,
         # "double": eql.types.TypeHint.Numeric,
         # "long": eql.types.TypeHint.Numeric,
         # "short": eql.types.TypeHint.Numeric,
