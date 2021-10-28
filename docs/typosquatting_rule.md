@@ -35,4 +35,6 @@ Import the ndjson rule file generated in the previous step, into Kibana, via the
 
 ## Note
 
-You DO NOT need to re-import the rule file each time you have an additional domain to track. For each new domain, you'd run Step 1 to generate the json file consisting of lookalike domains for that domain, followed by the CLI command in Step 2 to index these domains into a new index. This index will automatically be picked up by the rule you imported the very first time.
+- You DO NOT need to re-import the rule file each time you have an additional domain to track. For each new domain, you'd run Step 1 to generate the json file consisting of lookalike domains for that domain, followed by the CLI command in Step 2 to index these domains into a new index. This index will automatically be picked up by the rule you imported the very first time.
+
+- For advanced users, the threat indicator indices (`dnstwist-*`) also contain additional context about the lookalike domains, such as fuzzer information. You can query these indices if you would like to get such context about domains that have been alerted on.
