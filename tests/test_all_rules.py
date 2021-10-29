@@ -443,7 +443,7 @@ class TestRuleMetadata(BaseRuleTest):
 
     def test_rule_demotions(self):
         """Test to ensure a locked rule is not dropped to development, only deprecated"""
-        versions = load_versions()
+        versions = default_version_lock.version_lock
         failures = []
 
         for rule in self.all_rules:
