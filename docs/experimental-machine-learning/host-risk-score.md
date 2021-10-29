@@ -8,7 +8,7 @@ To deploy this framework in your environment, follow the steps outlined below.
 #### 1. Unzip the release bundle
 
 #### 2. Modify artifacts to reflect Kibana space
-For security reasons, we require that you restrict the Host Risk Score application to a specific Kibana space. In order to do so, run the `generate_scripts.py` script with your Kibana space as the argument.
+For security reasons, we require that you restrict the Host Risk Score application to a specific Kibana space. In order to do so, run the `ml_hostriskscore_generate_scripts.py` script in the directory that is prefixed with `ML-HostRiskScore` with your Kibana space as the argument.
 
 Eg:
 
