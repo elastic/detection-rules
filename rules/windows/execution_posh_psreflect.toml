@@ -15,7 +15,61 @@ index = ["winlogbeat-*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "PowerShell PSReflect Script"
-references = ["https://github.com/mattifestation/PSReflect/blob/master/PSReflect.psm1"]
+note = """## Triage and analysis
+### Investigating PowerShell PSReflect Script
+
+PowerShell is one of the main tools in the belt of system administrators for automation, report routines, and other tasks.
+
+PSReflect is a library that enables PowerShell to access win32 API functions in an uncomplicated way. It also helps to
+create enums and structs easily—all without touching the disk.
+
+Although this is an interesting project for every developer and admin out there, it is mainly used in the red team and
+malware tooling for its capabilities.
+
+Detecting the core implementation of PSReflect means detecting most of the tooling that uses windows API through
+PowerShell, enabling the defender to discover tools being dropped in the environment.
+
+#### Possible investigation steps:
+- Check for additional PowerShell logs that indicate that the script/command was run.
+- Gather the script content that may be split into multiple script blocks, and identify its capabilities.
+- If the action is suspicious for the user, check for any other activities done by the user in the last 48 hours.
+- Look for additional alerts involving the host and the user.
+
+### False Positive Analysis
+- Verify whether the script content is malicious/harmful.
+
+### Related Rules
+- PowerShell Suspicious Discovery Related Windows API Functions
+- PowerShell Keylogging Script
+- PowerShell Suspicious Script with Audio Capture Capabilities
+- Potential Process Injection via PowerShell
+- PowerShell Reflection Assembly Load
+- PowerShell Suspicious Payload Encoded and Compressed
+- PowerShell Suspicious Script with Screenshot Capabilities
+
+### Response and Remediation
+- Immediate response should be taken to validate activity, investigate and potentially isolate activity to prevent further
+post-compromise behavior.
+
+## Config
+The 'PowerShell Script Block Logging' logging policy is required be configured (Enable).
+
+Steps to implement the logging policy with with Advanced Audit Configuration:
+```
+Computer Configuration > 
+Administrative Templates > 
+Windows PowerShell > 
+Turn on PowerShell Script Block Logging (Enable)
+```
+Steps to implement the logging policy via registry:
+```
+reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+```
+"""
+references = [
+  "https://github.com/mattifestation/PSReflect/blob/master/PSReflect.psm1",
+  "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0109_windows_powershell_script_block_log.md"
+]
 risk_score = 47
 rule_id = "56f2e9b5-4803-4e44-a0a4-a52dc79d57fe"
 severity = "medium"
