@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/10/15"
 maturity = "production"
-updated_date = "2021/10/15"
+updated_date = "2021/11/11"
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +15,55 @@ index = ["winlogbeat-*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Suspicious Portable Executable Encoded in Powershell Script"
+note = """## Triage and analysis.
+
+### Investigating Suspicious Portable Executable Encoded in Powershell Script
+
+PowerShell is one of the main tools in the belt of system administrators for automation, report routines, and other tasks.
+
+Attackers can abuse PowerShell In-Memory capabilities to inject executables into memory without touching the disk, bypassing
+AntiVirus software. These executables are generally base64 encoded.
+
+#### Possible investigation steps:
+
+- Check for additional PowerShell logs that indicate that the script/command was run.
+- Gather the script content that may be split into multiple script blocks, and identify its capabilities.
+- If the action is suspicious for the user, check for any other activities done by the user in the last 48 hours.
+- Look for additional alerts involving the host and the user.
+
+### False Positive Analysis
+
+- Verify whether the script content is malicious/harmful.
+
+### Related Rules
+
+- PowerShell Reflection Assembly Load
+- PowerShell Suspicious Payload Encoded and Compressed
+- PowerShell PSReflect Script
+
+### Response and Remediation
+
+- Immediate response should be taken to validate activity, investigate and potentially isolate activity to prevent further
+post-compromise behavior.
+
+## Config
+
+The 'PowerShell Script Block Logging' logging policy is required be configured (Enable).
+Steps to implement the logging policy with with Advanced Audit Configuration:
+
+```
+Computer Configuration > 
+Administrative Templates > 
+Windows PowerShell > 
+Turn on PowerShell Script Block Logging (Enable)
+```
+
+Steps to implement the logging policy via registry:
+
+```
+reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+```
+"""
 risk_score = 47
 rule_id = "ad84d445-b1ce-4377-82d9-7c633f28bf9a"
 severity = "medium"
