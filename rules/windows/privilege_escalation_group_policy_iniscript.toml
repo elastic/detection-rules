@@ -78,10 +78,17 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-(event.code: "5136" and winlog.event_data.AttributeLDAPDisplayName:("gPCMachineExtensionNames" or "gPCUserExtensionNames") and 
-winlog.event_data.AttributeValue:(*42B5FAAE-6536-11D2-AE5A-0000F87571E3* and (*40B66650-4972-11D1-A7CA-0000F87571E3* or *40B6664F-4972-11D1-A7CA-0000F87571E3*))) or
-(event.code: "5145" and winlog.event_data.ShareName: "\\\\*\\SYSVOL" and winlog.event_data.RelativeTargetName:(*\\scripts.ini or *\\psscripts.ini) and
-(message: WriteData or winlog.event_data.AccessList: *%%4417*))
+(
+ event.code:5136 and winlog.event_data.AttributeLDAPDisplayName:(gPCMachineExtensionNames or gPCUserExtensionNames) and
+   winlog.event_data.AttributeValue:(*42B5FAAE-6536-11D2-AE5A-0000F87571E3* and
+                                      (*40B66650-4972-11D1-A7CA-0000F87571E3* or *40B6664F-4972-11D1-A7CA-0000F87571E3*))
+)
+or
+(
+ event.code:5145 and winlog.event_data.ShareName:\\\\*\\SYSVOL and
+   winlog.event_data.RelativeTargetName:(*\\scripts.ini or *\\psscripts.ini) and
+   (message:WriteData or winlog.event_data.AccessList:*%%4417*)
+)
 '''
 
 
