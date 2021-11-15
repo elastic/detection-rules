@@ -18,7 +18,7 @@ tmp_file = 'tmp_file.toml'
 
 class TestRuleTomlFormatter(unittest.TestCase):
     """Test that the custom toml formatting is not compromising the integrity of the data."""
-    with open(get_etc_path('test_toml.json'), 'r') as f:
+    with open(get_etc_path("test_toml.json"), "r") as f:
         test_data = json.load(f)
 
     def compare_formatted(self, data, callback=None, kwargs=None):
