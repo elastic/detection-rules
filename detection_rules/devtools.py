@@ -29,7 +29,7 @@ from .ghwrap import GithubClient
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import PACKAGE_FILE, Package, RELEASE_DIR, current_stack_version
-from .version_lock import manage_versions, load_versions
+from .version_lock import default_version_lock
 from .rule import AnyRuleData, BaseRuleData, QueryRuleData, TOMLRule
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions
@@ -71,7 +71,7 @@ def build_release(config_file, update_version_lock, release=None, verbose=True):
     package = Package.from_config(config, verbose=verbose)
 
     if update_version_lock:
-        manage_versions(package.rules, save_changes=True, verbose=verbose)
+        default_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
 
     package.save(verbose=verbose)
 
@@ -176,8 +176,6 @@ def prune_staging_area(target_stack_version: str, dry_run: bool):
 @click.argument('rule-ids', nargs=-1, required=False)
 def update_lock_versions(rule_ids):
     """Update rule hashes in version.lock.json file without bumping version."""
-    from .packaging import manage_versions
-
     rules = RuleCollection.default()
 
     if rule_ids:
@@ -189,7 +187,7 @@ def update_lock_versions(rule_ids):
         return
 
     # this command may not function as expected anymore due to previous changes eliminating the use of add_new=False
-    changed, new, _ = manage_versions(rules, exclude_version_update=True, save_changes=True)
+    changed, new, _ = default_version_lock.manage_versions(rules, exclude_version_update=True, save_changes=True)
 
     if not changed:
         click.echo('No hashes updated')
@@ -648,7 +646,7 @@ def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
 @click.pass_context
 def deprecate_rule(ctx: click.Context, rule_file: Path):
     """Deprecate a rule."""
-    version_info = load_versions()
+    version_info = default_version_lock.version_lock
     rule_collection = RuleCollection()
     contents = rule_collection.load_file(rule_file).contents
     rule = TOMLRule(path=rule_file, contents=contents)
@@ -659,12 +657,6 @@ def deprecate_rule(ctx: click.Context, rule_file: Path):
         ctx.exit()
 
     today = time.strftime('%Y/%m/%d')
-
-    new_meta = {
-        'updated_date': today,
-        'deprecation_date': today,
-        'maturity': 'deprecated'
-    }
     deprecated_path = get_path('rules', '_deprecated', rule_file.name)
 
     # create the new rule and save it
