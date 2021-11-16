@@ -145,8 +145,11 @@ class PackageDocument(xlsxwriter.Workbook):
         )
 
         for row, rule in enumerate(rules, 1):
-            flat_mitre = ThreatMapping.flatten(rule.contents.data.threat)
-            rule_contents = {'tactics': flat_mitre.tactic_names, 'techniques': flat_mitre.technique_ids}
+            rule_contents = {'tactics': '', 'techniques': ''}
+            if isinstance(rules, RuleCollection):
+                flat_mitre = ThreatMapping.flatten(rule.contents.data.threat)
+                rule_contents = {'tactics': flat_mitre.tactic_names, 'techniques': flat_mitre.technique_ids}
+
             rule_contents.update(rule.contents.to_api_format())
 
             for column, field in enumerate(metadata_fields):
