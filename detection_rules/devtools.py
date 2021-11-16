@@ -198,7 +198,7 @@ def update_lock_versions(rule_ids):
 @dev_group.command('kibana-diff')
 @click.option('--rule-id', '-r', multiple=True, help='Optionally specify rule ID')
 @click.option('--repo', default='elastic/kibana', help='Repository where branch is located')
-@click.option('--branch', '-b', default='master', help='Specify the kibana branch to diff against')
+@click.option('--branch', '-b', default='main', help='Specify the kibana branch to diff against')
 @click.option('--threads', '-t', type=click.IntRange(1), default=50, help='Number of threads to use to download rules')
 def kibana_diff(rule_id, repo, branch, threads):
     """Diff rules against their version represented in kibana if exists."""
@@ -247,7 +247,7 @@ def add_git_args(f):
     @click.argument("local-repo", default=get_path("..", "kibana"))
     @click.option("--kibana-directory", "-d", help="Directory to overwrite in Kibana",
                   default="x-pack/plugins/security_solution/server/lib/detection_engine/rules/prepackaged_rules")
-    @click.option("--base-branch", "-b", help="Base branch in Kibana", default="master")
+    @click.option("--base-branch", "-b", help="Base branch in Kibana", default="main")
     @click.option("--branch-name", "-n", help="New branch for the rules commit")
     @click.option("--ssh/--http", is_flag=True, help="Method to use for cloning")
     @click.option("--github-repo", "-r", help="Repository to use for the branch", default="elastic/kibana")
@@ -276,10 +276,11 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
         ctx.exit(1)
 
     git = utils.make_git("-C", local_repo)
+    rules_git = utils.make_git('-C', utils.get_path())
 
     # Get the current hash of the repo
-    long_commit_hash = git("rev-parse", "HEAD")
-    short_commit_hash = git("rev-parse", "--short", "HEAD")
+    long_commit_hash = rules_git("rev-parse", "HEAD")
+    short_commit_hash = rules_git("rev-parse", "--short", "HEAD")
 
     try:
         if not os.path.exists(local_repo):
@@ -327,13 +328,19 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
 @click.option("--assign", multiple=True, help="GitHub users to assign the PR")
 @click.option("--label", multiple=True, help="GitHub labels to add to the PR")
 @click.option("--draft", is_flag=True, help="Open the PR as a draft")
+@click.option("--fork-owner", "-f", help="Owner of forked branch (ex: elastic)")
 # Pending an official GitHub API
 # @click.option("--automerge", is_flag=True, help="Enable auto-merge on the PR")
 @add_git_args
 @click.pass_context
-def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...], draft: bool, token: str, **kwargs):
+def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...], draft: bool, fork_owner: str,
+              token: str, **kwargs):
     """Create a pull request to Kibana."""
     branch_name, commit_hash = ctx.invoke(kibana_commit, push=True, **kwargs)
+
+    if fork_owner:
+        branch_name = f'{fork_owner}:{branch_name}'
+
     client = GithubClient(token).authenticated_client
     repo = client.get_repo(kwargs["github_repo"])
 
@@ -348,9 +355,10 @@ def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...
     Delete any items that are not applicable to this PR.
 
     - [x] Any text added follows [EUI's writing guidelines](https://elastic.github.io/eui/#/guidelines/writing),
-          uses sentence case text and includes [i18n support](https://github.com/elastic/kibana/blob/master/packages/kbn-i18n/README.md)
+          uses sentence case text and includes [i18n support](https://github.com/elastic/kibana/blob/main/packages/kbn-i18n/README.md)
     """).strip()  # noqa: E501
-    pr = repo.create_pull(title, body, kwargs["base_branch"], branch_name, maintainer_can_modify=True, draft=draft)
+    pr = repo.create_pull(title, body, base=kwargs["base_branch"], head=branch_name, maintainer_can_modify=True,
+                          draft=draft)
 
     # labels could also be comma separated
     label = {lbl for cs_labels in label for lbl in cs_labels.split(",") if lbl}
