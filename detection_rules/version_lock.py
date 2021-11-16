@@ -146,7 +146,7 @@ class VersionLock:
             if rule.id in newly_deprecated:
                 current_deprecated_lock[rule.id] = {
                     "rule_name": rule.name,
-                    "stack_version": current_stack_version,
+                    "stack_version": current_stack_version(),
                     "deprecation_date": rule.contents.metadata['deprecation_date']
                 }
 
