@@ -17,6 +17,7 @@ from uuid import uuid4
 import eql
 from marshmallow import ValidationError, validates_schema
 
+import kql
 from . import utils
 from .mixins import MarshmallowDataclassMixin
 from .rule_formatter import toml_write, nested_normalize
@@ -39,6 +40,7 @@ class RuleMeta(MarshmallowDataclassMixin):
     integration: Optional[str]
     maturity: Optional[definitions.Maturity]
     min_stack_version: Optional[definitions.SemVer]
+    min_stack_comments: Optional[str]
     os_type_list: Optional[List[definitions.OSType]]
     query_schema_validation: Optional[bool]
     related_endpoint_rules: Optional[List[str]]
@@ -380,6 +382,11 @@ class BaseRuleContents(ABC):
     def name(self):
         pass
 
+    @property
+    @abstractmethod
+    def version_lock(self):
+        pass
+
     def lock_info(self, bump=True) -> dict:
         version = self.autobumped_version if bump else (self.latest_version or 1)
         contents = {"rule_name": self.name, "sha256": self.sha256(), "version": version}
@@ -389,9 +396,7 @@ class BaseRuleContents(ABC):
     @property
     def is_dirty(self) -> Optional[bool]:
         """Determine if the rule has changed since its version was locked."""
-        from .version_lock import get_locked_hash
-
-        existing_sha256 = get_locked_hash(self.id, self.metadata.min_stack_version)
+        existing_sha256 = self.version_lock.get_locked_hash(self.id, self.metadata.get('min_stack_version'))
 
         if existing_sha256 is not None:
             return existing_sha256 != self.sha256()
@@ -399,9 +404,7 @@ class BaseRuleContents(ABC):
     @property
     def latest_version(self) -> Optional[int]:
         """Retrieve the latest known version of the rule."""
-        from .version_lock import get_locked_version
-
-        return get_locked_version(self.id, self.metadata.min_stack_version)
+        return self.version_lock.get_locked_version(self.id, self.metadata.get('min_stack_version'))
 
     @property
     def autobumped_version(self) -> Optional[int]:
@@ -441,6 +444,23 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     """Rule object which maps directly to the TOML layout."""
     metadata: RuleMeta
     data: AnyRuleData = field(metadata=dict(data_key="rule"))
+    # _version_lock: Optional[Any] = None
+
+    @cached_property
+    def version_lock(self):
+        # VersionLock
+        from .version_lock import default_version_lock
+
+        return getattr(self, '_version_lock', None) or default_version_lock
+
+    def set_version_lock(self, value):
+        from .version_lock import VersionLock
+
+        if value and not isinstance(value, VersionLock):
+            raise TypeError(f'version lock property must be set with VersionLock objects only. Got {type(value)}')
+
+        # circumvent frozen class
+        self.__dict__['_version_lock'] = value
 
     @classmethod
     def all_rule_types(cls) -> set:
@@ -532,12 +552,59 @@ class TOMLRule:
             f.write('\n')
 
 
+@dataclass(frozen=True)
+class DeprecatedRuleContents(BaseRuleContents):
+    metadata: dict
+    data: dict
+
+    @cached_property
+    def version_lock(self):
+        # VersionLock
+        from .version_lock import default_version_lock
+
+        return getattr(self, '_version_lock', None) or default_version_lock
+
+    def set_version_lock(self, value):
+        from .version_lock import VersionLock
+
+        if value and not isinstance(value, VersionLock):
+            raise TypeError(f'version lock property must be set with VersionLock objects only. Got {type(value)}')
+
+        # circumvent frozen class
+        self.__dict__['_version_lock'] = value
+
+    @property
+    def id(self) -> str:
+        return self.data.get('rule_id')
+
+    @property
+    def name(self) -> str:
+        return self.data.get('name')
+
+    @classmethod
+    def from_dict(cls, obj: dict):
+        return cls(metadata=obj['metadata'], data=obj['rule'])
+
+    def to_api_format(self, include_version=True) -> dict:
+        """Convert the TOML rule to the API format."""
+        converted = copy.deepcopy(self.data)
+        if include_version:
+            converted["version"] = self.autobumped_version
+
+        converted = self._post_dict_transform(converted)
+        return converted
+
+
 class DeprecatedRule(dict):
     """Minimal dict object for deprecated rule."""
 
-    def __init__(self, path: Path, *args, **kwargs):
+    def __init__(self, path: Path, contents: DeprecatedRuleContents, *args, **kwargs):
         super(DeprecatedRule, self).__init__(*args, **kwargs)
         self.path = path
+        self.contents = contents
+
+    def __repr__(self):
+        return f'{type(self).__name__}(contents={self.contents}, path={self.path})'
 
     @property
     def id(self) -> str:
@@ -546,33 +613,6 @@ class DeprecatedRule(dict):
     @property
     def name(self) -> str:
         return self.contents.name
-
-    @property
-    def contents(self):
-        @dataclass
-        class Contents(BaseRuleContents):
-            metadata: dict
-            data: dict
-
-            @property
-            def id(self) -> str:
-                return self.data.get('rule_id')
-
-            @property
-            def name(self) -> str:
-                return self.data.get('name')
-
-            def to_api_format(self, include_version=True) -> dict:
-                """Convert the TOML rule to the API format."""
-                converted = copy.deepcopy(self.data)
-                if include_version:
-                    converted["version"] = self.autobumped_version
-
-                converted = self._post_dict_transform(converted)
-                return converted
-
-        contents = Contents(self.get('metadata'), self.get('rule'))
-        return contents
 
 
 def downgrade_contents_from_rule(rule: TOMLRule, target_version: str) -> dict:
@@ -583,6 +623,19 @@ def downgrade_contents_from_rule(rule: TOMLRule, target_version: str) -> dict:
     payload["rule_id"] = str(uuid4())
     payload = downgrade(payload, target_version)
     return payload
+
+
+def get_unique_query_fields(rule: TOMLRule) -> List[str]:
+    """Get a list of unique fields used in a rule query from rule contents."""
+    contents = rule.contents.to_api_format()
+    language = contents.get('language')
+    query = contents.get('query')
+    if language in ('kuery', 'eql'):
+        # TODO: remove once py-eql supports ipv6 for cidrmatch
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+            parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
+
+        return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
 
 
 # avoid a circular import

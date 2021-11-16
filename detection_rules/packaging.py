@@ -20,11 +20,10 @@ import yaml
 
 from .misc import JS_LICENSE, cached
 from .rule import TOMLRule, QueryRuleData, ThreatMapping
-from .rule import downgrade_contents_from_rule
 from .rule_loader import DeprecatedCollection, RuleCollection, DEFAULT_RULES_DIR
 from .schemas import definitions
 from .utils import Ndjson, get_path, get_etc_path, load_etc_dump
-from .version_lock import manage_versions
+from .version_lock import default_version_lock
 
 RELEASE_DIR = get_path("releases")
 PACKAGE_FILE = get_etc_path('packages.yml')
@@ -55,10 +54,15 @@ def filter_rule(rule: TOMLRule, config_filter: dict, exclude_fields: Optional[di
             return False
 
     exclude_fields = exclude_fields or {}
-    for index, fields in exclude_fields.items():
-        if rule.contents.data.unique_fields and (rule.contents.data.index == index or index == 'any'):
-            if set(rule.contents.data.unique_fields) & set(fields):
-                return False
+    if exclude_fields:
+        from .rule import get_unique_query_fields
+
+        unique_fields = get_unique_query_fields(rule)
+
+        for index, fields in exclude_fields.items():
+            if unique_fields and (rule.contents.data.index == index or index == 'any'):
+                if set(unique_fields) & set(fields):
+                    return False
 
     return True
 
@@ -89,7 +93,7 @@ class Package(object):
             self.rules = self.rules.filter(lambda r: max_version >= r.contents.latest_version)
 
         self.changed_ids, self.new_ids, self.removed_ids = \
-            manage_versions(self.rules, verbose=verbose, save_changes=False)
+            default_version_lock.manage_versions(self.rules, verbose=verbose, save_changes=False)
 
     @classmethod
     def load_configs(cls):
@@ -198,35 +202,10 @@ class Package(object):
 
     def export(self, outfile, downgrade_version=None, verbose=True, skip_unsupported=False):
         """Export rules into a consolidated ndjson file."""
-        outfile = Path(outfile).with_suffix('.ndjson')
-        unsupported = []
+        from .main import _export_rules
 
-        if downgrade_version:
-            if skip_unsupported:
-                output_lines = []
-
-                for rule in self.rules:
-                    try:
-                        output_lines.append(json.dumps(downgrade_contents_from_rule(rule, downgrade_version),
-                                                       sort_keys=True))
-                    except ValueError as e:
-                        unsupported.append(f'{e}: {rule.id} - {rule.name}')
-                        continue
-
-            else:
-                output_lines = [json.dumps(downgrade_contents_from_rule(r, downgrade_version), sort_keys=True)
-                                for r in self.rules]
-        else:
-            output_lines = [json.dumps(r.contents.data.to_dict(), sort_keys=True) for r in self.rules]
-
-        outfile.write_text('\n'.join(output_lines) + '\n')
-
-        if verbose:
-            click.echo(f'Exported {len(self.rules) - len(unsupported)} rules into {outfile}')
-
-            if skip_unsupported and unsupported:
-                unsupported_str = '\n- '.join(unsupported)
-                click.echo(f'Skipped {len(unsupported)} unsupported rules: \n- {unsupported_str}')
+        _export_rules(self.rules, outfile=outfile, downgrade_version=downgrade_version, verbose=verbose,
+                      skip_unsupported=skip_unsupported)
 
     def get_package_hash(self, as_api=True, verbose=True):
         """Get hash of package contents."""
@@ -249,6 +228,9 @@ class Package(object):
         rule_filter = config.pop('filter', {})
 
         rules = all_rules.filter(lambda r: filter_rule(r, rule_filter, exclude_fields))
+
+        # add back in deprecated fields
+        rules.deprecated = all_rules.deprecated
 
         if verbose:
             click.echo(f' - {len(all_rules) - len(rules)} rules excluded from package')

@@ -1,0 +1,63 @@
+[metadata]
+creation_date = "2021/10/19"
+maturity = "production"
+updated_date = "2021/10/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects PowerShell Scripts that can record audio, a common feature in popular post-exploitation tooling.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "PowerShell Suspicious Script with Audio Capture Capabilities"
+references = ["https://github.com/PowerShellMafia/PowerSploit/blob/master/Exfiltration/Get-MicrophoneAudio.ps1"]
+risk_score = 47
+rule_id = "2f2f4939-0b34-40c2-a0a3-844eb7889f43"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Collection"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.code:"4104" and 
+  powershell.file.script_block_text : (
+    Get-MicrophoneAudio or (waveInGetNumDevs and mciSendStringA)
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1123"
+name = "Audio Capture"
+reference = "https://attack.mitre.org/techniques/T1123/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+reference = "https://attack.mitre.org/techniques/T1059/"
+name = "Command and Scripting Interpreter"
+
+  [[rule.threat.technique.subtechnique]]
+  id = "T1059.001"
+  reference = "https://attack.mitre.org/techniques/T1059/001/"
+  name = "PowerShell"
+
+[rule.threat.tactic]
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+name = "Execution"
+
