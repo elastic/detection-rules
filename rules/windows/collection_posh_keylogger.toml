@@ -6,7 +6,7 @@ updated_date = "2021/10/15"
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the use of Win32 API Functions that can be used to capture user Keystrokes in Powershell Scripts.
+Detects the use of Win32 API Functions that can be used to capture user Keystrokes in PowerShell Scripts.
 Attackers use this technique to capture user input, looking for credentials and/or other valuable data.
 """
 from = "now-9m"
@@ -26,7 +26,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.code:"4104" and 
+event.category:process and 
   ( 
    powershell.file.script_block_text : (GetAsyncKeyState or NtUserGetAsyncKeyState or GetKeyboardState or Get-Keystrokes) or 
    powershell.file.script_block_text : ((SetWindowsHookA or SetWindowsHookW or SetWindowsHookEx or SetWindowsHookExA or NtUserSetWindowsHookEx) and (GetForegroundWindow or GetWindowTextA or GetWindowTextW or WM_KEYBOARD_LL))
