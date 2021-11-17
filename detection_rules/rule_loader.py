@@ -15,7 +15,7 @@ import pytoml
 
 from . import utils
 from .mappings import RtaMappings
-from .rule import DeprecatedRule, TOMLRule, TOMLRuleContents
+from .rule import DeprecatedRule, DeprecatedRuleContents, TOMLRule, TOMLRuleContents
 from .schemas import definitions
 from .utils import get_path, cached
 
@@ -76,6 +76,32 @@ def metadata_filter(**metadata) -> Callable[[TOMLRule], bool]:
 production_filter = metadata_filter(maturity="production")
 
 
+def load_locks_from_tag(remote: str, tag: str) -> (str, dict, dict):
+    """Loads version and deprecated lock files from git tag."""
+    import json
+    git = utils.make_git()
+
+    exists_args = ['ls-remote']
+    if remote:
+        exists_args.append(remote)
+    exists_args.append(f'refs/tags/{tag}')
+
+    assert git(*exists_args), f'tag: {tag} does not exist in {remote or "local"}'
+
+    fetch_tags = ['fetch']
+    if remote:
+        fetch_tags += [remote, '--tags', '-f', tag]
+    else:
+        fetch_tags += ['--tags', '-f', tag]
+
+    git(*fetch_tags)
+
+    commit_hash = git('rev-list', '-1', tag)
+    version = json.loads(git('show', f'{tag}:etc/version.lock.json'))
+    deprecated = json.loads(git('show', f'{tag}:etc/deprecated_rules.json'))
+    return commit_hash, version, deprecated
+
+
 @dataclass
 class BaseCollection:
     """Base class for collections."""
@@ -127,6 +153,7 @@ class RuleCollection(BaseCollection):
         self.frozen = False
 
         self._toml_load_cache: Dict[Path, dict] = {}
+        self._version_lock: Optional[dict] = None
 
         for rule in (rules or []):
             self.add_rule(rule)
@@ -193,15 +220,18 @@ class RuleCollection(BaseCollection):
     def load_dict(self, obj: dict, path: Optional[Path] = None) -> Union[TOMLRule, DeprecatedRule]:
         # bypass rule object load (load_dict) and load as a dict only
         if obj.get('metadata', {}).get('maturity', '') == 'deprecated':
-            deprecated_rule = DeprecatedRule(path, **obj)
+            contents = DeprecatedRuleContents.from_dict(obj)
+            contents.set_version_lock(self._version_lock)
+            deprecated_rule = DeprecatedRule(path, contents)
             self.add_deprecated_rule(deprecated_rule)
             return deprecated_rule
         else:
+            # obj['_version_lock'] = self._version_lock
             contents = TOMLRuleContents.from_dict(obj)
+            contents.set_version_lock(self._version_lock)
             rule = TOMLRule(path=path, contents=contents)
             self.add_rule(rule)
-
-        return rule
+            return rule
 
     def load_file(self, path: Path) -> Union[TOMLRule, DeprecatedRule]:
         try:
@@ -225,11 +255,21 @@ class RuleCollection(BaseCollection):
             print(f"Error loading rule in {path}")
             raise
 
-    def load_git_branch(self, branch: str):
+    def load_git_tag(self, branch: str, remote: Optional[str] = None):
         """Load rules from a Git branch."""
+        from .version_lock import VersionLock
+
+        commit_hash, v_lock, d_lock = load_locks_from_tag(remote, branch)
+
+        v_lock_name_prefix = f'{remote}/' if remote else ''
+        v_lock_name = f'{v_lock_name_prefix}{branch}-{commit_hash}'
+
+        version_lock = VersionLock(version_lock=v_lock, deprecated_lock=d_lock, name=v_lock_name)
+        self._version_lock = version_lock
+
         git = utils.make_git()
         rules_dir = DEFAULT_RULES_DIR.relative_to(get_path("."))
-        paths = git("ls-files", "--with-tree", branch, rules_dir).splitlines()
+        paths = git("ls-tree", "-r", "--name-only", branch, rules_dir).splitlines()
 
         for path in paths:
             path = Path(path)
