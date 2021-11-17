@@ -107,7 +107,7 @@ def import_rules(input_file, directory):
         base_path = contents.get('name') or contents.get('rule', {}).get('name')
         base_path = name_to_filename(base_path) if base_path else base_path
         rule_path = os.path.join(RULES_DIR, base_path) if base_path else None
-        rule_prompt(rule_path, required_only=True, save=True, verbose=True, **contents)
+        rule_prompt(rule_path, required_only=True, save=True, verbose=True, additional_required=['index'], **contents)
 
 
 @root.command('toml-lint')
