@@ -22,6 +22,8 @@ class TestSchemas(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.current_version = load_current_package_version()
+
         # expected contents for a downgraded rule
         cls.v78_kql = {
             "description": "test description",
@@ -94,8 +96,11 @@ class TestSchemas(unittest.TestCase):
             }]
         })
 
-    def test_query_downgrade(self):
+    def test_query_downgrade_7_x(self):
         """Downgrade a standard KQL rule."""
+        if Version(self.current_version) > (7,):
+            return
+
         self.assertDictEqual(downgrade(self.v711_kql, "7.11"), self.v711_kql)
         self.assertDictEqual(downgrade(self.v711_kql, "7.9"), self.v79_kql)
         self.assertDictEqual(downgrade(self.v711_kql, "7.9.2"), self.v79_kql)
@@ -112,8 +117,11 @@ class TestSchemas(unittest.TestCase):
         with self.assertRaises(ValueError):
             downgrade(self.v78_kql, "7.7", current_version="7.8")
 
-    def test_versioned_downgrade(self):
+    def test_versioned_downgrade_7_x(self):
         """Downgrade a KQL rule with version information"""
+        if Version(self.current_version) > (7,):
+            return
+
         api_contents = self.v79_kql
         self.assertDictEqual(downgrade(api_contents, "7.9"), api_contents)
         self.assertDictEqual(downgrade(api_contents, "7.9.2"), api_contents)
@@ -127,8 +135,11 @@ class TestSchemas(unittest.TestCase):
         with self.assertRaises(ValueError):
             downgrade(api_contents, "7.7")
 
-    def test_threshold_downgrade(self):
+    def test_threshold_downgrade_7_x(self):
         """Downgrade a threshold rule that was first introduced in 7.9."""
+        if Version(self.current_version) > (7,):
+            return
+
         api_contents = self.v712_threshold_rule
         self.assertDictEqual(downgrade(api_contents, '7.13'), api_contents)
         self.assertDictEqual(downgrade(api_contents, '7.13.1'), api_contents)
@@ -152,6 +163,21 @@ class TestSchemas(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "Unsupported rule type"):
             downgrade(v712_no_cardinality, "7.8")
+
+    def test_query_downgrade_8_x(self):
+        """Downgrade a standard KQL rule."""
+        if Version(self.current_version) > (8,):
+            return
+
+    def test_versioned_downgrade_8_x(self):
+        """Downgrade a KQL rule with version information"""
+        if Version(self.current_version) > (8,):
+            return
+
+    def test_threshold_downgrade_8_x(self):
+        """Downgrade a threshold rule that was first introduced in 7.9."""
+        if Version(self.current_version) > (8,):
+            return
 
     def test_eql_validation(self):
         base_fields = {
