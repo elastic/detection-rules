@@ -1,0 +1,63 @@
+[metadata]
+creation_date = "2021/10/14"
+maturity = "production"
+updated_date = "2021/10/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the use of Windows API functions that are commonly abused by malware and security tools to load 
+malicious code or inject it into remote processes.
+"""
+false_positives = ["Legitimate Powershell Scripts that make use of these Functions"]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential Process Injection via PowerShell"
+references = [
+    "https://github.com/EmpireProject/Empire/blob/master/data/module_source/management/Invoke-PSInject.ps1",
+    "https://github.com/EmpireProject/Empire/blob/master/data/module_source/management/Invoke-ReflectivePEInjection.ps1",
+    "https://github.com/BC-SECURITY/Empire/blob/master/empire/server/data/module_source/credentials/Invoke-Mimikatz.ps1",
+]
+risk_score = 73
+rule_id = "2e29e96a-b67c-455a-afe4-de6183431d0d"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.code:"4104" and 
+  powershell.file.script_block_text : (
+   (VirtualAlloc or VirtualAllocEx or VirtualProtect or LdrLoadDll or LoadLibrary or LoadLibraryA or
+      LoadLibraryEx or GetProcAddress or OpenProcess or OpenProcessToken or AdjustTokenPrivileges) and
+   (WriteProcessMemory or CreateRemoteThread or NtCreateThreadEx or CreateThread or QueueUserAPC or
+      SuspendThread or ResumeThread)
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1055"
+name = "Process Injection"
+reference = "https://attack.mitre.org/techniques/T1055/"
+
+  [[rule.threat.technique.subtechnique]]
+  id = "T1055.001"
+  name = "Dynamic-link Library Injection"
+  reference = "https://attack.mitre.org/techniques/T1055/001/"
+
+  [[rule.threat.technique.subtechnique]]
+  id = "T1055.002"
+  name = "Portable Executable Injection"
+  reference = "https://attack.mitre.org/techniques/T1055/002/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
