@@ -58,6 +58,7 @@ def elasticsearch_type_family(mapping_type: str) -> str:
         # text search types
         "annotated-text": "text",
         "completion": "text",
+        "match_only_text": "text",
         "search-as_you_type": "text",
 
         # keyword
