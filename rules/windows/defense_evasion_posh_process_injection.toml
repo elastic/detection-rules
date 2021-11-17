@@ -6,8 +6,8 @@ updated_date = "2021/10/14"
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the use of Windows API functions that are commonly abused by Malware and Hacktools to load 
-malicious code or injecting it into remote processes.
+Detects the use of Windows API functions that are commonly abused by malware and security tools to load 
+malicious code or inject it into remote processes.
 """
 false_positives = ["Legitimate Powershell Scripts that make use of these Functions"]
 from = "now-9m"
@@ -30,24 +30,10 @@ type = "query"
 query = '''
 event.code:"4104" and 
   powershell.file.script_block_text : (
-   (VirtualAlloc or
-    VirtualAllocEx or 
-    VirtualProtect or
-    LdrLoadDll or
-    LoadLibrary or
-    LoadLibraryA or
-    LoadLibraryEx or
-    GetProcAddress or
-    OpenProcess or 
-    OpenProcessToken or
-    AdjustTokenPrivileges) and
-   (WriteProcessMemory or
-    CreateRemoteThread or
-    NtCreateThreadEx or
-    CreateThread or
-    QueueUserAPC or
-    SuspendThread or 
-    ResumeThread)
+   (VirtualAlloc or VirtualAllocEx or VirtualProtect or LdrLoadDll or LoadLibrary or LoadLibraryA or
+      LoadLibraryEx or GetProcAddress or OpenProcess or OpenProcessToken or AdjustTokenPrivileges) and
+   (WriteProcessMemory or CreateRemoteThread or NtCreateThreadEx or CreateThread or QueueUserAPC or
+      SuspendThread or ResumeThread)
   )
 '''
 
