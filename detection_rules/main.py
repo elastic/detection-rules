@@ -256,6 +256,26 @@ def validate_all(fail):
     click.echo('Rule validation successful')
 
 
+@root.command('bench-workout')
+@click.argument('paths', type=Path, nargs=-1)
+def bench_workout(paths):
+    """Explore what we can already do with what we have"""
+    from .rule_events import generate_event_docs
+
+    if paths:
+        rules = RuleCollection()
+        for path in paths:
+            if os.path.isdir(path):
+                rules.load_directory(path)
+            else:
+                rules.load_file(path)
+    else:
+        rules = RuleCollection.default()
+
+    docs = (generate_event_docs(rule.contents.data) for rule in rules)
+    click.echo("\n".join(json.dumps(doc) for doc in docs))
+
+
 @root.command('rule-search')
 @click.argument('query', required=False)
 @click.option('--columns', '-c', multiple=True, help='Specify columns to add the table')
