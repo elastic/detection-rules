@@ -9,6 +9,21 @@ import sys
 from typing import List
 import eql
 
+# https://stackoverflow.com/questions/7204805/how-to-merge-dictionaries-of-dictionaries/7205107#7205107
+def merge_dicts(a, b, path=None):
+    "merges b into a"
+    if path is None:
+        path = []
+    for key in b:
+        if key in a:
+            if isinstance(a[key], dict) and isinstance(b[key], dict):
+                merge_dicts(a[key], b[key], path + [str(key)])
+            else:
+                a[key] = b[key]
+        else:
+            a[key] = b[key]
+    return a
+
 def emit_events(node: eql.ast.BaseNode) -> List[str]:
     try:
         return emitters[type(node)](node)
@@ -18,6 +33,15 @@ def emit_events(node: eql.ast.BaseNode) -> List[str]:
         sys.stderr.write(f"{type(node)}\n")
         sys.stderr.write(f"{dir(node)}\n")
         sys.exit(1)
+
+def emit_And(node: eql.ast.And):
+    doc = {}
+    for term in node.terms:
+        term_docs = emit_events(term)
+        if len(term_docs) > 1:
+            raise NotImplemented("Unsuported multi-event term")
+        merge_dicts(doc, term_docs[0])
+    return [doc]
 
 def emit_Comparison(node: eql.ast.Comparison):
     ops = {
@@ -53,6 +77,7 @@ def emit_PipedQuery(node: eql.ast.PipedQuery):
     return emit_events(node.first)
 
 emitters = {
+    eql.ast.And: emit_And,
     eql.ast.Comparison: emit_Comparison,
     eql.ast.EventQuery: emit_EventQuery,
     eql.ast.PipedQuery: emit_PipedQuery,
@@ -82,6 +107,8 @@ def _emit_events_query(query: str) -> List[str]:
     '[{"event": {"category": "process"}, "process": {"code_signature": {"exists": false}}}]'
     >>> _emit_events_query('any where network.protocol == "some protocol"')
     '[{"network": {"protocol": "some protocol"}}]'
+    >>> _emit_events_query('process where process.name == "regsvr32.exe" and process.parent.name == "cmd.exe"')
+    '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe", "parent": {"name": "cmd.exe"}}}]'
 
     """
     import json
