@@ -107,6 +107,21 @@ def emit_PipedQuery(node: eql.ast.PipedQuery):
         raise NotImplementedError("Pipes are unsupported")
     return emit_events(node.first)
 
+def emit_FunctionCall(node: eql.ast.FunctionCall):
+    if node.signature != eql.functions.Wildcard:
+        raise NotImplementedError(f"Unsupported signature: {node.signature}")
+    if len(node.arguments) != 2:
+        raise NotImplementedError(f"Unsupported number of arguments: {len(node.arguments)}")
+    if type(node.arguments[0]) != eql.ast.Field:
+        raise NotImplementedError(f"Unsupported argument type: {type(node.argument[0])}")
+    if type(node.arguments[1]) != eql.ast.String:
+        raise NotImplementedError(f"Unsupported argument type: {type(node.argument[1])}")
+    value = node.arguments[1].value
+    value = value.replace("?", "_")
+    value = value.replace("*", "")
+    doc = emit_Field(node.arguments[0], value.lower())
+    return [doc]
+
 emitters = {
     eql.ast.Or: emit_Or,
     eql.ast.And: emit_And,
@@ -114,6 +129,7 @@ emitters = {
     eql.ast.Comparison: emit_Comparison,
     eql.ast.EventQuery: emit_EventQuery,
     eql.ast.PipedQuery: emit_PipedQuery,
+    eql.ast.FunctionCall: emit_FunctionCall,
 }
 
 def _emit_events_query(query: str) -> List[str]:
@@ -162,6 +178,9 @@ def _emit_events_query(query: str) -> List[str]:
 
     >>> _emit_events_query('process where process.name in ("regsvr32.exe", "cmd.exe")')
     '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}}]'
+
+    >>> _emit_events_query('process where process.name : "REG?*32.EXE"')
+    '[{"event": {"category": "process"}, "process": {"name": "reg_32.exe"}}]'
     """
     import json
 
