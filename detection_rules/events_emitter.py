@@ -17,8 +17,8 @@ def emit_events(rule: AnyRuleData) -> List[str]:
     if rule.type not in ("query", "eql"):
         docs = _generate_error_docs(f"Unsupported rule type: {rule.type}")
     elif rule.language == "eql":
-        from .events_emitter_eql import emit_events_eql
-        docs = emit_events_eql(rule.validator.ast)
+        from .events_emitter_eql import emit_events
+        docs = emit_events(rule.validator.ast)
     else:
         docs = _generate_error_docs(f"Unsupported query language: {rule.language}")
 
