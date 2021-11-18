@@ -273,7 +273,7 @@ def emit_events(paths):
         rules = RuleCollection.default()
 
     docs = (emit_events(rule.contents.data) for rule in rules)
-    click.echo("\n".join(json.dumps(doc) for doc in docs))
+    click.echo("\n".join(json.dumps(doc, sort_keys=True) for doc in docs))
 
 
 @root.command('rule-search')
