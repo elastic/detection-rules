@@ -34,6 +34,15 @@ def emit_events(node: eql.ast.BaseNode) -> List[str]:
         sys.stderr.write(f"{dir(node)}\n")
         sys.exit(1)
 
+def emit_Or(node: eql.ast.And):
+    doc = {}
+    for term in node.terms:
+        term_docs = emit_events(term)
+        if len(term_docs) > 1:
+            raise NotImplemented("Unsuported multi-event term")
+        doc.update(term_docs[0])
+    return [doc]
+
 def emit_And(node: eql.ast.And):
     doc = {}
     for term in node.terms:
@@ -77,6 +86,7 @@ def emit_PipedQuery(node: eql.ast.PipedQuery):
     return emit_events(node.first)
 
 emitters = {
+    eql.ast.Or: emit_Or,
     eql.ast.And: emit_And,
     eql.ast.Comparison: emit_Comparison,
     eql.ast.EventQuery: emit_EventQuery,
@@ -109,6 +119,8 @@ def _emit_events_query(query: str) -> List[str]:
     '[{"network": {"protocol": "some protocol"}}]'
     >>> _emit_events_query('process where process.name == "regsvr32.exe" and process.parent.name == "cmd.exe"')
     '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe", "parent": {"name": "cmd.exe"}}}]'
+    >>> _emit_events_query('process where process.name == "regsvr32.exe" or process.parent.name == "cmd.exe"')
+    '[{"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}}]'
 
     """
     import json
