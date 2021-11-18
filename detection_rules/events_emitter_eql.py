@@ -36,19 +36,23 @@ def emit_events(node: eql.ast.BaseNode) -> List[str]:
 
 def emit_Or(node: eql.ast.And):
     doc = {}
+    if type(node.terms) != list:
+        raise NotImplementedError(f"Unsupported terms type: {type(node.terms)}")
     for term in node.terms:
         term_docs = emit_events(term)
         if len(term_docs) > 1:
-            raise NotImplemented("Unsuported multi-event term")
+            raise NotImplementedError("Unsuported multi-event term")
         doc.update(term_docs[0])
     return [doc]
 
 def emit_And(node: eql.ast.And):
     doc = {}
+    if type(node.terms) != list:
+        raise NotImplementedError(f"Unsupported terms type: {type(node.terms)}")
     for term in node.terms:
         term_docs = emit_events(term)
         if len(term_docs) > 1:
-            raise NotImplemented("Unsuported multi-event term")
+            raise NotImplementedError("Unsuported multi-event term")
         merge_dicts(doc, term_docs[0])
     return [doc]
 
@@ -67,6 +71,11 @@ def emit_Comparison(node: eql.ast.Comparison):
         }
     }
 
+    if type(node.left) != eql.ast.Field:
+        raise NotImplementedError(f"Unsupported LHS type: {type(node.left)}")
+    if type(node.right) not in (eql.ast.String, eql.ast.Number, eql.ast.Boolean):
+        raise NotImplementedError(f"Unsupported RHS type: {type(node.left)}")
+
     value = ops[type(node.right.value)][node.comparator](node.right.value)
     for part in reversed(node.left.render().split(".")):
         doc = { part: value }
@@ -74,6 +83,8 @@ def emit_Comparison(node: eql.ast.Comparison):
     return [doc]
 
 def emit_EventQuery(node: eql.ast.EventQuery):
+    if type(node.event_type) != str:
+        raise NotImplementedError(f"Unsupported event_type type: {type(node.event_type)}")
     docs = emit_events(node.query)
     if node.event_type != "any":
         for doc in docs:
@@ -82,7 +93,7 @@ def emit_EventQuery(node: eql.ast.EventQuery):
 
 def emit_PipedQuery(node: eql.ast.PipedQuery):
     if node.pipes:
-        raise NotImplemented("Pipes are unsupported")
+        raise NotImplementedError("Pipes are unsupported")
     return emit_events(node.first)
 
 emitters = {
