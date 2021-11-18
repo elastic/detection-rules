@@ -34,6 +34,11 @@ def emit_events(node: eql.ast.BaseNode) -> List[str]:
         sys.stderr.write(f"{dir(node)}\n")
         sys.exit(1)
 
+def emit_Field(node: eql.ast.Field, value):
+    for part in reversed([node.base] + node.path):
+        value = { part: value }
+    return value
+
 def emit_Or(node: eql.ast.And):
     doc = {}
     if type(node.terms) != list:
@@ -58,15 +63,15 @@ def emit_And(node: eql.ast.And):
 
 def emit_Comparison(node: eql.ast.Comparison):
     ops = {
-        str: {
+        eql.ast.String: {
             "==": lambda s: s,    "!=": lambda s: "!" + s,
         },
-        int: {
+        eql.ast.Number: {
             "==": lambda n: n,    "!=": lambda n: n + 1,
             ">=": lambda n: n,    "<=": lambda n: n,
              ">": lambda n: n + 1, "<": lambda n: n - 1,
         },
-        bool: {
+        eql.ast.Boolean: {
             "==": lambda b: b,    "!=": lambda b: not b,
         }
     }
@@ -76,10 +81,8 @@ def emit_Comparison(node: eql.ast.Comparison):
     if type(node.right) not in (eql.ast.String, eql.ast.Number, eql.ast.Boolean):
         raise NotImplementedError(f"Unsupported RHS type: {type(node.left)}")
 
-    value = ops[type(node.right.value)][node.comparator](node.right.value)
-    for part in reversed(node.left.render().split(".")):
-        doc = { part: value }
-        value = doc
+    value = ops[type(node.right)][node.comparator](node.right.value)
+    doc = emit_Field(node.left, value)
     return [doc]
 
 def emit_EventQuery(node: eql.ast.EventQuery):
