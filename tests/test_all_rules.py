@@ -14,7 +14,7 @@ import eql
 
 import kql
 from detection_rules import attack
-from detection_rules.version_lock import load_versions
+from detection_rules.version_lock import default_version_lock
 from detection_rules.rule import QueryRuleData
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.schemas import definitions
@@ -377,7 +377,7 @@ class TestRuleMetadata(BaseRuleTest):
 
     def test_deprecated_rules(self):
         """Test that deprecated rules are properly handled."""
-        versions = load_versions()
+        versions = default_version_lock.version_lock
         deprecations = load_etc_dump('deprecated_rules.json')
         deprecated_rules = {}
         rules_path = get_path('rules')
@@ -422,9 +422,28 @@ class TestRuleMetadata(BaseRuleTest):
             rule_str = f'{rule_id} - {entry["rule_name"]} ->'
             self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
 
+    def test_integration(self):
+        """Test that rules in integrations folders have matching integration defined."""
+        failures = []
+
+        for rule in self.production_rules:
+            rules_path = get_path('rules')
+            *_, grandparent, parent, _ = rule.path.parts
+            in_integrations = grandparent == 'integrations'
+            integration = rule.contents.metadata.get('integration')
+            has_integration = integration is not None
+
+            if (in_integrations or has_integration) and (parent != integration):
+                err_msg = f'{self.rule_str(rule)}\nintegration: {integration}\npath: {rule.path.relative_to(rules_path)}'  # noqa: E501
+                failures.append(err_msg)
+
+        if failures:
+            err_msg = 'The following rules have missing/incorrect integrations or are not in an integrations folder:\n'
+            self.fail(err_msg + '\n'.join(failures))
+
     def test_rule_demotions(self):
         """Test to ensure a locked rule is not dropped to development, only deprecated"""
-        versions = load_versions()
+        versions = default_version_lock.version_lock
         failures = []
 
         for rule in self.all_rules:
