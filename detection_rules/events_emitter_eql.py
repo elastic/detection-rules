@@ -61,6 +61,14 @@ def emit_And(node: eql.ast.And):
         merge_dicts(doc, term_docs[0])
     return [doc]
 
+def emit_InSet(node: eql.ast.InSet):
+    if type(node.expression) != eql.ast.Field:
+        raise NotImplementedError(f"Unsupported expression type: {type(node.expression)}")
+    if type(node.container) != list:
+        raise NotImplementedError(f"Unsupported container type: {type(node.container)}")
+    doc = emit_Field(node.expression, node.container[-1].value)
+    return [doc]
+
 def emit_Comparison(node: eql.ast.Comparison):
     ops = {
         eql.ast.String: {
@@ -102,6 +110,7 @@ def emit_PipedQuery(node: eql.ast.PipedQuery):
 emitters = {
     eql.ast.Or: emit_Or,
     eql.ast.And: emit_And,
+    eql.ast.InSet: emit_InSet,
     eql.ast.Comparison: emit_Comparison,
     eql.ast.EventQuery: emit_EventQuery,
     eql.ast.PipedQuery: emit_PipedQuery,
@@ -111,31 +120,48 @@ def _emit_events_query(query: str) -> List[str]:
     """
     >>> _emit_events_query('process where process.name == "regsvr32.exe"')
     '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe"}}]'
+
     >>> _emit_events_query('process where process.name != "regsvr32.exe"')
     '[{"event": {"category": "process"}, "process": {"name": "!regsvr32.exe"}}]'
+
     >>> _emit_events_query('process where process.pid == 0')
     '[{"event": {"category": "process"}, "process": {"pid": 0}}]'
+
     >>> _emit_events_query('process where process.pid != 0')
     '[{"event": {"category": "process"}, "process": {"pid": 1}}]'
+
     >>> _emit_events_query('process where process.pid >= 0')
     '[{"event": {"category": "process"}, "process": {"pid": 0}}]'
+
     >>> _emit_events_query('process where process.pid <= 0')
     '[{"event": {"category": "process"}, "process": {"pid": 0}}]'
+
     >>> _emit_events_query('process where process.pid > 0')
     '[{"event": {"category": "process"}, "process": {"pid": 1}}]'
+
     >>> _emit_events_query('process where process.pid < 0')
     '[{"event": {"category": "process"}, "process": {"pid": -1}}]'
+
     >>> _emit_events_query('process where process.code_signature.exists == true')
     '[{"event": {"category": "process"}, "process": {"code_signature": {"exists": true}}}]'
+
     >>> _emit_events_query('process where process.code_signature.exists != true')
     '[{"event": {"category": "process"}, "process": {"code_signature": {"exists": false}}}]'
+
     >>> _emit_events_query('any where network.protocol == "some protocol"')
     '[{"network": {"protocol": "some protocol"}}]'
+
     >>> _emit_events_query('process where process.name == "regsvr32.exe" and process.parent.name == "cmd.exe"')
     '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe", "parent": {"name": "cmd.exe"}}}]'
+
     >>> _emit_events_query('process where process.name == "regsvr32.exe" or process.parent.name == "cmd.exe"')
     '[{"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}}]'
 
+    >>> _emit_events_query('process where process.name == "regsvr32.exe" or process.name == "cmd.exe"')
+    '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}}]'
+
+    >>> _emit_events_query('process where process.name in ("regsvr32.exe", "cmd.exe")')
+    '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}}]'
     """
     import json
 
