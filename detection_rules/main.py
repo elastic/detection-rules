@@ -256,11 +256,11 @@ def validate_all(fail):
     click.echo('Rule validation successful')
 
 
-@root.command('bench-workout')
+@root.command('emit-events')
 @click.argument('paths', type=Path, nargs=-1)
-def bench_workout(paths):
-    """Explore what we can already do with what we have"""
-    from .rule_events import generate_event_docs
+def emit_events(paths):
+    """Generate events that would trigger the given rule(s)"""
+    from .events_emitter import emit_events
 
     if paths:
         rules = RuleCollection()
@@ -272,7 +272,7 @@ def bench_workout(paths):
     else:
         rules = RuleCollection.default()
 
-    docs = (generate_event_docs(rule.contents.data) for rule in rules)
+    docs = (emit_events(rule.contents.data) for rule in rules)
     click.echo("\n".join(json.dumps(doc) for doc in docs))
 
 
