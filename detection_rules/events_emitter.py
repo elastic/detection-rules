@@ -10,6 +10,11 @@ from typing import List
 
 from .rule import AnyRuleData
 
+__all__ = (
+    "emit_events",
+    "get_ast_stats",
+)
+
 def _generate_error_docs(message: str) -> List[str]:
     return [{"error.message": message}]
 

@@ -9,6 +9,11 @@ import sys
 from typing import List
 import eql
 
+__all__ = (
+    "emit_events",
+    "get_ast_stats",
+)
+
 class emitter:
     emitters = {}
 
