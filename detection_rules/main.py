@@ -258,7 +258,8 @@ def validate_all(fail):
 
 @root.command('emit-events')
 @click.argument('paths', type=Path, nargs=-1)
-def emit_events(paths):
+@click.pass_context
+def emit_events(ctx, paths):
     """Generate events that would trigger the given rule(s)"""
     from collections import Counter
     from .events_emitter import emit_events, get_ast_stats
@@ -291,6 +292,9 @@ def emit_events(paths):
     if errors:
         click.echo(f"Errors: {len(errors)}", err=True)
     click.echo(f"Documents: {len(docs)}", err=True)
+
+    if errors:
+        ctx.exit(1)
 
 @root.command('rule-search')
 @click.argument('query', required=False)
