@@ -6,6 +6,8 @@
 """Functions for generating event documents that would trigger a given rule."""
 
 import sys
+import string
+import random
 from typing import List
 import eql
 
@@ -65,6 +67,12 @@ def merge_dicts(a, b, path=None):
             a[key] = b[key]
     return a
 
+def get_random_string(min_length, condition=None, allowed_chars=string.ascii_letters):
+    l = [random.choice(allowed_chars) for _ in range(min_length)]
+    while condition and not condition("".join(l)):
+        l.insert(random.randint(0, len(l)-1), random.choice(allowed_chars))
+    return "".join(l)
+
 @emitter(eql.ast.Field)
 def emit_Field(node: eql.ast.Field, value):
     for part in reversed([node.base] + node.path):
@@ -79,7 +87,7 @@ def emit_Or(node: eql.ast.Or):
     for term in node.terms:
         term_docs = emit_events(term)
         if len(term_docs) > 1:
-            raise NotImplementedError("Unsuported multi-event term")
+            raise NotImplementedError("Unsupported multi-event term")
         doc.update(term_docs[0])
     return [doc]
 
@@ -91,17 +99,35 @@ def emit_And(node: eql.ast.And):
     for term in node.terms:
         term_docs = emit_events(term)
         if len(term_docs) > 1:
-            raise NotImplementedError("Unsuported multi-event term")
+            raise NotImplementedError("Unsupported multi-event term")
         merge_dicts(doc, term_docs[0])
     return [doc]
 
+@emitter(eql.ast.Not)
+def emit_Not(node: eql.ast.Not):
+    if isinstance(node.term, eql.ast.InSet):
+        return emit_InSet(node.term, negate=True)
+
+    if isinstance(node.term, eql.ast.FunctionCall) and node.term.name == 'wildcard':
+        if len(node.term.arguments) == 2 and isinstance(node.term.arguments[1], eql.ast.String):
+            lhs, rhs = node.term.arguments
+            return emit_Comparison(eql.ast.Comparison(lhs, eql.ast.Comparison.NE, rhs))
+
+    raise NotImplementedError(f"Unsupported term negation: {type(node.term)}")
+
 @emitter(eql.ast.InSet)
-def emit_InSet(node: eql.ast.InSet):
+def emit_InSet(node: eql.ast.InSet, negate=False):
     if type(node.expression) != eql.ast.Field:
         raise NotImplementedError(f"Unsupported expression type: {type(node.expression)}")
     if type(node.container) != list:
         raise NotImplementedError(f"Unsupported container type: {type(node.container)}")
-    doc = emit_Field(node.expression, node.container[-1].value)
+    if negate:
+        min_length = 3 * len(node.container)
+        values = set(x.value for x in node.container)
+        value = get_random_string(min_length, lambda x: x not in values)
+    else:
+        value = node.container[0].value
+    doc = emit_Field(node.expression, value)
     return [doc]
 
 @emitter(eql.ast.Comparison)
@@ -147,8 +173,8 @@ def emit_PipedQuery(node: eql.ast.PipedQuery):
 
 @emitter(eql.ast.FunctionCall)
 def emit_FunctionCall(node: eql.ast.FunctionCall):
-    if node.signature != eql.functions.Wildcard:
-        raise NotImplementedError(f"Unsupported signature: {node.signature}")
+    if node.name != "wildcard":
+        raise NotImplementedError(f"Unsupported function: {node.name}")
     if len(node.arguments) != 2:
         raise NotImplementedError(f"Unsupported number of arguments: {len(node.arguments)}")
     if type(node.arguments[0]) != eql.ast.Field:
@@ -173,7 +199,6 @@ def emit_FunctionCall(node: eql.ast.FunctionCall):
 @emitter(eql.ast.TimeUnit)
 @emitter(eql.ast.IsNotNull)
 @emitter(eql.ast.IsNull)
-@emitter(eql.ast.Not)
 @emitter(eql.ast.MathOperation)
 @emitter(eql.ast.NamedSubquery)
 @emitter(eql.ast.NamedParams)
@@ -236,10 +261,10 @@ def _emit_events_query(query: str) -> List[str]:
     '[{"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}}]'
 
     >>> _emit_events_query('process where process.name == "regsvr32.exe" or process.name == "cmd.exe"')
-    '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}}]'
+    '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe"}}]'
 
     >>> _emit_events_query('process where process.name in ("regsvr32.exe", "cmd.exe")')
-    '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}}]'
+    '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe"}}]'
 
     >>> _emit_events_query('process where process.name : "REG?*32.EXE"')
     '[{"event": {"category": "process"}, "process": {"name": "reg_32.exe"}}]'
