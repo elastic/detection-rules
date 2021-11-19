@@ -19,6 +19,9 @@ def emit_events(rule: AnyRuleData) -> List[str]:
     elif rule.language == "eql":
         from .events_emitter_eql import emit_events
         docs = emit_events(rule.validator.ast)
+    elif rule.language == "kuery":
+        from .events_emitter_eql import emit_events
+        docs = emit_events(rule.validator.to_eql()) # shortcut?
     else:
         raise NotImplementedError(f"Unsupported query language: {rule.language}")
 
