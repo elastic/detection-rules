@@ -15,12 +15,12 @@ def _generate_error_docs(message: str) -> List[str]:
 
 def emit_events(rule: AnyRuleData) -> List[str]:
     if rule.type not in ("query", "eql"):
-        docs = _generate_error_docs(f"Unsupported rule type: {rule.type}")
+        raise NotImplementedError(f"Unsupported rule type: {rule.type}")
     elif rule.language == "eql":
         from .events_emitter_eql import emit_events
         docs = emit_events(rule.validator.ast)
     else:
-        docs = _generate_error_docs(f"Unsupported query language: {rule.language}")
+        raise NotImplementedError(f"Unsupported query language: {rule.language}")
 
     for doc in docs:
         doc.update({
@@ -28,3 +28,7 @@ def emit_events(rule: AnyRuleData) -> List[str]:
             "rule.name": rule.name,
         })
     return docs
+
+def get_ast_stats():
+    from .events_emitter_eql import get_ast_stats
+    return get_ast_stats()

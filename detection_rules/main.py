@@ -260,7 +260,8 @@ def validate_all(fail):
 @click.argument('paths', type=Path, nargs=-1)
 def emit_events(paths):
     """Generate events that would trigger the given rule(s)"""
-    from .events_emitter import emit_events
+    from collections import Counter
+    from .events_emitter import emit_events, get_ast_stats
 
     if paths:
         rules = RuleCollection()
@@ -272,9 +273,24 @@ def emit_events(paths):
     else:
         rules = RuleCollection.default()
 
-    docs = (emit_events(rule.contents.data) for rule in rules)
-    click.echo("\n".join(json.dumps(doc, sort_keys=True) for doc in docs))
+    docs = []
+    errors = []
+    for rule in rules:
+        try:
+            docs.extend(emit_events(rule.contents.data))
+        except Exception as e:
+            errors.append(str(e))
 
+    click.echo("\n".join(json.dumps(doc, sort_keys=True) for doc in docs))
+    stats = sorted(get_ast_stats().items(), key=lambda x: x[1][1], reverse=True)
+    click.echo("AST stats:\n  " + "\n  ".join("{:d}/{:d}: {:s}".format(v[0], v[1], k) for k,v in stats if v[1]), err=True)
+    if errors:
+        error_stats = sorted(Counter(errors).items(), key=lambda item: item[1], reverse=True)
+        click.echo("Error stats:\n  " + "\n  ".join("{:d}: {:s}".format(v, k) for k,v in error_stats), err=True)
+    click.echo(f"Rules: {len(rules)}", err=True)
+    if errors:
+        click.echo(f"Errors: {len(errors)}", err=True)
+    click.echo(f"Documents: {len(docs)}", err=True)
 
 @root.command('rule-search')
 @click.argument('query', required=False)

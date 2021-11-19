@@ -14,19 +14,36 @@ class emitter:
 
     def __init__(self, node_type):
         self.node_type = node_type
+        self.successful = 0
+        self.total = 0
 
     def __call__(self, func):
         if self.node_type in self.emitters:
             raise ValueError(f"Duplicate emitter for {self.node_type}: {func.__name__}")
-        self.emitters[self.node_type] = func
-        return func
+        self.emitters[self.node_type] = self
+
+        def wrapper(*args, **kwargs):
+            self.total += 1
+            ret = func(*args, **kwargs)
+            self.successful += 1
+            return ret
+
+        self.wrapper = wrapper
+        return wrapper
 
     @classmethod
     def emit_events(cls, node: eql.ast.BaseNode):
-        return cls.emitters[type(node)](node)
+        return cls.emitters[type(node)].wrapper(node)
+
+    @classmethod
+    def get_stats(cls):
+        return {k.__name__: (v.successful, v.total) for k,v in cls.emitters.items()}
 
 def emit_events(node: eql.ast.BaseNode) -> List[str]:
     return emitter.emit_events(node)
+
+def get_ast_stats():
+    return emitter.get_stats()
 
 # https://stackoverflow.com/questions/7204805/how-to-merge-dictionaries-of-dictionaries/7205107#7205107
 def merge_dicts(a, b, path=None):
@@ -170,7 +187,7 @@ def emit_not_implemented(node: eql.ast.BaseNode):
     sys.stderr.write(f"##### Emitter for {type(node)} is not implemented #####\n")
     sys.stderr.write(f"\n{node}\n")
     sys.stderr.write(f"\n{dir(node)}\n")
-    sys.exit(1)
+    raise NotImplementedError(f"Emitter not implemented: {type(node)}")
 
 def _emit_events_query(query: str) -> List[str]:
     """
