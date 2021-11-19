@@ -9,6 +9,25 @@ import sys
 from typing import List
 import eql
 
+class emitter:
+    emitters = {}
+
+    def __init__(self, node_type):
+        self.node_type = node_type
+
+    def __call__(self, func):
+        if self.node_type in self.emitters:
+            raise ValueError(f"Duplicate emitter for {self.node_type}: {func.__name__}")
+        self.emitters[self.node_type] = func
+        return func
+
+    @classmethod
+    def emit_events(cls, node: eql.ast.BaseNode):
+        return cls.emitters[type(node)](node)
+
+def emit_events(node: eql.ast.BaseNode) -> List[str]:
+    return emitter.emit_events(node)
+
 # https://stackoverflow.com/questions/7204805/how-to-merge-dictionaries-of-dictionaries/7205107#7205107
 def merge_dicts(a, b, path=None):
     "merges b into a"
@@ -24,22 +43,14 @@ def merge_dicts(a, b, path=None):
             a[key] = b[key]
     return a
 
-def emit_events(node: eql.ast.BaseNode) -> List[str]:
-    try:
-        return emitters[type(node)](node)
-    except KeyError:
-        sys.stderr.write(f"##############################\n")
-        sys.stderr.write(f"{node}\n")
-        sys.stderr.write(f"{type(node)}\n")
-        sys.stderr.write(f"{dir(node)}\n")
-        sys.exit(1)
-
+@emitter(eql.ast.Field)
 def emit_Field(node: eql.ast.Field, value):
     for part in reversed([node.base] + node.path):
         value = { part: value }
     return value
 
-def emit_Or(node: eql.ast.And):
+@emitter(eql.ast.Or)
+def emit_Or(node: eql.ast.Or):
     doc = {}
     if type(node.terms) != list:
         raise NotImplementedError(f"Unsupported terms type: {type(node.terms)}")
@@ -50,6 +61,7 @@ def emit_Or(node: eql.ast.And):
         doc.update(term_docs[0])
     return [doc]
 
+@emitter(eql.ast.And)
 def emit_And(node: eql.ast.And):
     doc = {}
     if type(node.terms) != list:
@@ -61,6 +73,7 @@ def emit_And(node: eql.ast.And):
         merge_dicts(doc, term_docs[0])
     return [doc]
 
+@emitter(eql.ast.InSet)
 def emit_InSet(node: eql.ast.InSet):
     if type(node.expression) != eql.ast.Field:
         raise NotImplementedError(f"Unsupported expression type: {type(node.expression)}")
@@ -69,6 +82,7 @@ def emit_InSet(node: eql.ast.InSet):
     doc = emit_Field(node.expression, node.container[-1].value)
     return [doc]
 
+@emitter(eql.ast.Comparison)
 def emit_Comparison(node: eql.ast.Comparison):
     ops = {
         eql.ast.String: {
@@ -93,6 +107,7 @@ def emit_Comparison(node: eql.ast.Comparison):
     doc = emit_Field(node.left, value)
     return [doc]
 
+@emitter(eql.ast.EventQuery)
 def emit_EventQuery(node: eql.ast.EventQuery):
     if type(node.event_type) != str:
         raise NotImplementedError(f"Unsupported event_type type: {type(node.event_type)}")
@@ -102,11 +117,13 @@ def emit_EventQuery(node: eql.ast.EventQuery):
             doc.update({"event": { "category": node.event_type }})
     return docs
 
+@emitter(eql.ast.PipedQuery)
 def emit_PipedQuery(node: eql.ast.PipedQuery):
     if node.pipes:
         raise NotImplementedError("Pipes are unsupported")
     return emit_events(node.first)
 
+@emitter(eql.ast.FunctionCall)
 def emit_FunctionCall(node: eql.ast.FunctionCall):
     if node.signature != eql.functions.Wildcard:
         raise NotImplementedError(f"Unsupported signature: {node.signature}")
@@ -122,15 +139,38 @@ def emit_FunctionCall(node: eql.ast.FunctionCall):
     doc = emit_Field(node.arguments[0], value.lower())
     return [doc]
 
-emitters = {
-    eql.ast.Or: emit_Or,
-    eql.ast.And: emit_And,
-    eql.ast.InSet: emit_InSet,
-    eql.ast.Comparison: emit_Comparison,
-    eql.ast.EventQuery: emit_EventQuery,
-    eql.ast.PipedQuery: emit_PipedQuery,
-    eql.ast.FunctionCall: emit_FunctionCall,
-}
+@emitter(eql.ast.BaseNode)
+@emitter(eql.ast.Expression)
+@emitter(eql.ast.EqlNode)
+@emitter(eql.ast.Literal)
+@emitter(eql.ast.String)
+@emitter(eql.ast.Number)
+@emitter(eql.ast.Null)
+@emitter(eql.ast.Boolean)
+@emitter(eql.ast.TimeRange)
+@emitter(eql.ast.TimeUnit)
+@emitter(eql.ast.IsNotNull)
+@emitter(eql.ast.IsNull)
+@emitter(eql.ast.Not)
+@emitter(eql.ast.MathOperation)
+@emitter(eql.ast.NamedSubquery)
+@emitter(eql.ast.NamedParams)
+@emitter(eql.ast.SubqueryBy)
+@emitter(eql.ast.Join)
+@emitter(eql.ast.Sequence)
+@emitter(eql.ast.PipeCommand)
+@emitter(eql.ast.EqlAnalytic)
+@emitter(eql.ast.Definition)
+@emitter(eql.ast.BaseMacro)
+@emitter(eql.ast.CustomMacro)
+@emitter(eql.ast.Macro)
+@emitter(eql.ast.Constant)
+@emitter(eql.ast.PreProcessor)
+def emit_not_implemented(node: eql.ast.BaseNode):
+    sys.stderr.write(f"##### Emitter for {type(node)} is not implemented #####\n")
+    sys.stderr.write(f"\n{node}\n")
+    sys.stderr.write(f"\n{dir(node)}\n")
+    sys.exit(1)
 
 def _emit_events_query(query: str) -> List[str]:
     """
