@@ -75,6 +75,14 @@ def get_random_string(min_length, condition=None, allowed_chars=string.ascii_let
 
 @emitter(eql.ast.Field)
 def emit_Field(node: eql.ast.Field, value):
+    # shortcut: this kind of info should come from ECS
+    list_fields = (
+        "event.type",
+        "process.args",
+        "process.parent.args",
+    )
+    if node.render() in list_fields:
+        value = [value]
     for part in reversed([node.base] + node.path):
         value = { part: value }
     return value
