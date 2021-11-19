@@ -171,6 +171,32 @@ def emit_PipedQuery(node: eql.ast.PipedQuery):
         raise NotImplementedError("Pipes are unsupported")
     return emit_events(node.first)
 
+@emitter(eql.ast.SubqueryBy)
+def emit_SubqueryBy(node: eql.ast.SubqueryBy, join_values: List[str]):
+    if any(not isinstance(value, eql.ast.Field) for value in node.join_values):
+        raise NotImplementedError(f"Unsupported join values: {node.join_values}")
+    if node.fork:
+        raise NotImplementedError(f"Unsupported fork: {node.fork}")
+    docs = emit_events(node.query)
+    for i, field in enumerate(node.join_values):
+        if i == len(join_values):
+            join_values.append(get_random_string(3 * len(node.join_values)))
+        for doc in docs:
+            doc.update(emit_Field(field, join_values[i]))
+    return docs
+
+@emitter(eql.ast.Sequence)
+def emit_Sequence(node: eql.ast.Sequence):
+    docs = []
+    if any(not isinstance(query, eql.ast.SubqueryBy) for query in node.queries):
+        raise NotImplementedError(f"Unsupported sub-queries: {node.queries}")
+    join_values = []
+    for query in node.queries:
+        docs.extend(emit_SubqueryBy(query, join_values=join_values))
+    if node.close:
+        docs.extend(emit_events(node.close))
+    return docs
+
 @emitter(eql.ast.FunctionCall)
 def emit_FunctionCall(node: eql.ast.FunctionCall):
     if node.name != "wildcard":
@@ -202,9 +228,7 @@ def emit_FunctionCall(node: eql.ast.FunctionCall):
 @emitter(eql.ast.MathOperation)
 @emitter(eql.ast.NamedSubquery)
 @emitter(eql.ast.NamedParams)
-@emitter(eql.ast.SubqueryBy)
 @emitter(eql.ast.Join)
-@emitter(eql.ast.Sequence)
 @emitter(eql.ast.PipeCommand)
 @emitter(eql.ast.EqlAnalytic)
 @emitter(eql.ast.Definition)
@@ -217,6 +241,10 @@ def emit_not_implemented(node: eql.ast.BaseNode):
     sys.stderr.write(f"##### Emitter for {type(node)} is not implemented #####\n")
     sys.stderr.write(f"\n{node}\n")
     sys.stderr.write(f"\n{dir(node)}\n")
+    sys.stderr.write(f"\nSlots:\n")
+    for slot,value in node.iter_slots():
+        sys.stderr.write(f"  {slot}: {value}\n")
+
     raise NotImplementedError(f"Emitter not implemented: {type(node)}")
 
 def _emit_events_query(query: str) -> List[str]:
@@ -268,6 +296,15 @@ def _emit_events_query(query: str) -> List[str]:
 
     >>> _emit_events_query('process where process.name : "REG?*32.EXE"')
     '[{"event": {"category": "process"}, "process": {"name": "reg_32.exe"}}]'
+
+    >>> _emit_events_query('sequence [process where process.name : "cmd.exe"] [process where process.parent.name : "cmd.exe"]')
+    '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}}, {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}}]'
+
+    >>> _emit_events_query('sequence by user.id [process where process.name : "cmd.exe"] [process where process.parent.name : "cmd.exe"]')
+    '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "..."}}, {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"id": "..."}}]'
+
+    >>> _emit_events_query('sequence [process where process.name : "cmd.exe"] by user.id [process where process.parent.name : "cmd.exe"] by user.name')
+    '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "..."}}, {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"name": "..."}}]'
     """
     import json
 
@@ -276,4 +313,5 @@ def _emit_events_query(query: str) -> List[str]:
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod()
+    flags = doctest.ELLIPSIS
+    doctest.testmod(optionflags=flags)
