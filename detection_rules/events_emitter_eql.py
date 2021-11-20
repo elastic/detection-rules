@@ -97,6 +97,32 @@ def get_random_string(min_length, condition=None, allowed_chars=string.ascii_let
         l.insert(random.randint(0, len(l)-1), random.choice(allowed_chars))
     return "".join(l)
 
+def get_random_octets(n):
+    return [random.randint(1, 254) for _ in range(n-1)]
+
+def fuzzy_ip(nr_octets, sep, fmt, condition = None, fuzziness = 0):
+    if fuzziness:
+        octets = get_random_octets(nr_octets)
+    else:
+        octets = [1] * nr_octets
+    def to_str(o):
+        return sep.join(fmt.format(x) for x in o)
+    while condition and not condition(to_str(octets)):
+        octets = get_random_octets(nr_octets)
+    return to_str(octets)
+
+def fuzzy_ipv4(*args, **kwargs):
+    return fuzzy_ip(4, ".", "{:d}")
+
+def fuzzy_ipv6(*args, **kwargs):
+    return fuzzy_ip(6, ":", "{:x}")
+
+def fuzzy_choice(options, fuzziness = 0):
+    if fuzziness:
+        return random.choice(options)
+    else:
+        return options[0]
+
 @emitter(eql.ast.Field)
 def emit_Field(node: eql.ast.Field, value):
     # shortcut: this kind of info should come from ECS
@@ -116,7 +142,7 @@ def emit_Or(node: eql.ast.Or):
     doc = {}
     if type(node.terms) != list:
         raise NotImplementedError(f"Unsupported terms type: {type(node.terms)}")
-    term_docs = emit_events(node.terms[0])
+    term_docs = emit_events(fuzzy_choice(node.terms))
     if len(term_docs) > 1:
         raise NotImplementedError("Unsupported multi-event term")
     deep_merge(doc, term_docs[0])
@@ -232,13 +258,11 @@ def emit_Sequence(node: eql.ast.Sequence):
 def emit_FunctionCall(node: eql.ast.FunctionCall):
     if node.name != "wildcard":
         raise NotImplementedError(f"Unsupported function: {node.name}")
-    if len(node.arguments) != 2:
-        raise NotImplementedError(f"Unsupported number of arguments: {len(node.arguments)}")
     if type(node.arguments[0]) != eql.ast.Field:
         raise NotImplementedError(f"Unsupported argument type: {type(node.argument[0])}")
     if type(node.arguments[1]) != eql.ast.String:
         raise NotImplementedError(f"Unsupported argument type: {type(node.argument[1])}")
-    value = node.arguments[1].value
+    value = fuzzy_choice(node.arguments[1:]).value
     value = value.replace("?", "_")
     value = value.replace("*", "")
     doc = emit_Field(node.arguments[0], value.lower())
