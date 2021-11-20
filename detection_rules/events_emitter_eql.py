@@ -92,11 +92,10 @@ def emit_Or(node: eql.ast.Or):
     doc = {}
     if type(node.terms) != list:
         raise NotImplementedError(f"Unsupported terms type: {type(node.terms)}")
-    for term in node.terms:
-        term_docs = emit_events(term)
-        if len(term_docs) > 1:
-            raise NotImplementedError("Unsupported multi-event term")
-        doc.update(term_docs[0])
+    term_docs = emit_events(node.terms[0])
+    if len(term_docs) > 1:
+        raise NotImplementedError("Unsupported multi-event term")
+    merge_dicts(doc, term_docs[0])
     return [doc]
 
 @emitter(eql.ast.And)
@@ -294,7 +293,7 @@ def _emit_events_query(query: str) -> List[str]:
     '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe", "parent": {"name": "cmd.exe"}}}]'
 
     >>> _emit_events_query('process where process.name == "regsvr32.exe" or process.parent.name == "cmd.exe"')
-    '[{"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}}]'
+    '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe"}}]'
 
     >>> _emit_events_query('process where process.name == "regsvr32.exe" or process.name == "cmd.exe"')
     '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe"}}]'
