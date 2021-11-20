@@ -8,6 +8,7 @@
 import sys
 import string
 import random
+import json
 from typing import List
 import eql
 
@@ -52,17 +53,40 @@ def emit_events(node: eql.ast.BaseNode) -> List[str]:
 def get_ast_stats():
     return emitter.get_stats()
 
-# https://stackoverflow.com/questions/7204805/how-to-merge-dictionaries-of-dictionaries/7205107#7205107
-def merge_dicts(a, b, path=None):
-    "merges b into a"
-    if path is None:
-        path = []
+def deep_merge(a, b, path=None):
+    """Recursively merge two docs
+
+    >>> _deep_merge = lambda *args: json.dumps(deep_merge(*args), sort_keys=True)
+    >>> _deep_merge({}, {"a": "A"})
+    '{"a": "A"}'
+    >>> _deep_merge({"a": "A"}, {})
+    '{"a": "A"}'
+    >>> _deep_merge({"a": ["A"]}, {"a": ["A"]})
+    '{"a": ["A"]}'
+    >>> _deep_merge({"a": ["A"]}, {"a": ["B"]})
+    '{"a": ["A", "B"]}'
+    >>> _deep_merge({"a": ["A"]}, {"a": [{"b": "B"}]})
+    '{"a": ["A", {"b": "B"}]}'
+    >>> _deep_merge({"a": "A"}, {"b": "B"})
+    '{"a": "A", "b": "B"}'
+    >>> _deep_merge({"a": "A"}, {"a": "B"})
+    Traceback (most recent call last):
+      ...
+    ValueError: Destination field already exists: a ("A" != "B")
+    >>> _deep_merge({"a": {"b": {"c": "C"}}}, {"a": {"b": {"c": "D"}}})
+    Traceback (most recent call last):
+      ...
+    ValueError: Destination field already exists: a.b.c ("C" != "D")
+    """
     for key in b:
         if key in a:
+            path = (path or []) + [str(key)]
             if isinstance(a[key], dict) and isinstance(b[key], dict):
-                merge_dicts(a[key], b[key], path + [str(key)])
-            else:
-                a[key] = b[key]
+                deep_merge(a[key], b[key], path)
+            elif isinstance(a[key], list) and isinstance(b[key], list):
+                a[key].extend(x for x in b[key] if x not in a[key])
+            elif a[key] != b[key]:
+                raise ValueError(f"Destination field already exists: {'.'.join(path)} (\"{a[key]}\" != \"{b[key]}\")")
         else:
             a[key] = b[key]
     return a
@@ -95,7 +119,7 @@ def emit_Or(node: eql.ast.Or):
     term_docs = emit_events(node.terms[0])
     if len(term_docs) > 1:
         raise NotImplementedError("Unsupported multi-event term")
-    merge_dicts(doc, term_docs[0])
+    deep_merge(doc, term_docs[0])
     return [doc]
 
 @emitter(eql.ast.And)
@@ -107,7 +131,7 @@ def emit_And(node: eql.ast.And):
         term_docs = emit_events(term)
         if len(term_docs) > 1:
             raise NotImplementedError("Unsupported multi-event term")
-        merge_dicts(doc, term_docs[0])
+        deep_merge(doc, term_docs[0])
     return [doc]
 
 @emitter(eql.ast.Not)
@@ -169,7 +193,7 @@ def emit_EventQuery(node: eql.ast.EventQuery):
     docs = emit_events(node.query)
     if node.event_type != "any":
         for doc in docs:
-            doc.update({"event": { "category": node.event_type }})
+            deep_merge(doc, {"event": { "category": node.event_type }})
     return docs
 
 @emitter(eql.ast.PipedQuery)
@@ -189,7 +213,7 @@ def emit_SubqueryBy(node: eql.ast.SubqueryBy, join_values: List[str]):
         if i == len(join_values):
             join_values.append(get_random_string(3 * len(node.join_values)))
         for doc in docs:
-            doc.update(emit_Field(field, join_values[i]))
+            deep_merge(doc, emit_Field(field, join_values[i]))
     return docs
 
 @emitter(eql.ast.Sequence)
@@ -289,6 +313,11 @@ def _emit_events_query(query: str) -> List[str]:
     >>> _emit_events_query('any where network.protocol == "some protocol"')
     '[{"network": {"protocol": "some protocol"}}]'
 
+    >>> _emit_events_query('any where network.protocol == "some protocol" and network.protocol == "some other protocol"')
+    Traceback (most recent call last):
+      ...
+    ValueError: Destination field already exists: network.protocol ("some protocol" != "some other protocol")
+
     >>> _emit_events_query('process where process.name == "regsvr32.exe" and process.parent.name == "cmd.exe"')
     '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe", "parent": {"name": "cmd.exe"}}}]'
 
@@ -304,6 +333,9 @@ def _emit_events_query(query: str) -> List[str]:
     >>> _emit_events_query('process where process.name : "REG?*32.EXE"')
     '[{"event": {"category": "process"}, "process": {"name": "reg_32.exe"}}]'
 
+    >>> _emit_events_query('process where event.type in ("start", "process_started") and process.args : "dump-keychain" and process.args : "-d"')
+    '[{"event": {"category": "process", "type": ["start"]}, "process": {"args": ["dump-keychain", "-d"]}}]'
+
     >>> _emit_events_query('sequence [process where process.name : "cmd.exe"] [process where process.parent.name : "cmd.exe"]')
     '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}}, {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}}]'
 
@@ -313,8 +345,6 @@ def _emit_events_query(query: str) -> List[str]:
     >>> _emit_events_query('sequence [process where process.name : "cmd.exe"] by user.id [process where process.parent.name : "cmd.exe"] by user.name')
     '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "..."}}, {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"name": "..."}}]'
     """
-    import json
-
     with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
         return json.dumps(emit_events(eql.parse_query(query)), sort_keys=True)
 
