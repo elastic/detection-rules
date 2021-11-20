@@ -340,15 +340,15 @@ def _emit_events_query(query: str) -> List[str]:
     '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}}, {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}}]'
 
     >>> _emit_events_query('sequence by user.id [process where process.name : "cmd.exe"] [process where process.parent.name : "cmd.exe"]')
-    '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "..."}}, {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"id": "..."}}]'
+    '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "qdf"}}, {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"id": "qdf"}}]'
 
     >>> _emit_events_query('sequence [process where process.name : "cmd.exe"] by user.id [process where process.parent.name : "cmd.exe"] by user.name')
-    '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "..."}}, {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"name": "..."}}]'
+    '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "ryA"}}, {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"name": "ryA"}}]'
     """
     with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
         return json.dumps(emit_events(eql.parse_query(query)), sort_keys=True)
 
 if __name__ == "__main__":
     import doctest
-    flags = doctest.ELLIPSIS
-    doctest.testmod(optionflags=flags)
+    random.seed(0xcafecafe)
+    doctest.testmod()
