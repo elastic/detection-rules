@@ -9,6 +9,7 @@ import sys
 import string
 import random
 import json
+import copy
 from typing import List
 import eql
 
@@ -123,6 +124,10 @@ def fuzzy_choice(options, fuzziness = 0):
     else:
         return options[0]
 
+def fuzzy_iter(iterable):
+    # shortcut: should shuffle randomly
+    return iterable
+
 @emitter(eql.ast.Field)
 def emit_Field(node: eql.ast.Field, value):
     # shortcut: this kind of info should come from ECS
@@ -139,26 +144,25 @@ def emit_Field(node: eql.ast.Field, value):
 
 @emitter(eql.ast.Or)
 def emit_Or(node: eql.ast.Or):
-    doc = {}
-    if type(node.terms) != list:
-        raise NotImplementedError(f"Unsupported terms type: {type(node.terms)}")
-    term_docs = emit_events(fuzzy_choice(node.terms))
-    if len(term_docs) > 1:
-        raise NotImplementedError("Unsupported multi-event term")
-    deep_merge(doc, term_docs[0])
-    return [doc]
+    docs = []
+    for term in fuzzy_iter(node.terms):
+        docs.extend(emit_events(term))
+    return docs
 
 @emitter(eql.ast.And)
 def emit_And(node: eql.ast.And):
-    doc = {}
-    if type(node.terms) != list:
-        raise NotImplementedError(f"Unsupported terms type: {type(node.terms)}")
+    docs = []
     for term in node.terms:
         term_docs = emit_events(term)
-        if len(term_docs) > 1:
-            raise NotImplementedError("Unsupported multi-event term")
-        deep_merge(doc, term_docs[0])
-    return [doc]
+        if not docs:
+            docs = term_docs
+            continue
+        new_docs = []
+        for term_doc in term_docs:
+            for doc in docs:
+                new_docs.append(deep_merge(copy.deepcopy(term_doc), doc))
+        docs = new_docs
+    return docs
 
 @emitter(eql.ast.Not)
 def emit_Not(node: eql.ast.Not):
@@ -176,16 +180,16 @@ def emit_Not(node: eql.ast.Not):
 def emit_InSet(node: eql.ast.InSet, negate=False):
     if type(node.expression) != eql.ast.Field:
         raise NotImplementedError(f"Unsupported expression type: {type(node.expression)}")
-    if type(node.container) != list:
-        raise NotImplementedError(f"Unsupported container type: {type(node.container)}")
+    docs = []
     if negate:
         min_length = 3 * len(node.container)
         values = set(x.value for x in node.container)
         value = get_random_string(min_length, lambda x: x not in values)
+        docs.append(emit_Field(node.expression, value))
     else:
-        value = node.container[0].value
-    doc = emit_Field(node.expression, value)
-    return [doc]
+        for term in fuzzy_iter(node.container):
+            docs.append(emit_Field(node.expression, term.value))
+    return docs
 
 @emitter(eql.ast.Comparison)
 def emit_Comparison(node: eql.ast.Comparison):
@@ -340,25 +344,25 @@ def _emit_events_query(query: str) -> List[str]:
     >>> _emit_events_query('any where network.protocol == "some protocol" and network.protocol == "some other protocol"')
     Traceback (most recent call last):
       ...
-    ValueError: Destination field already exists: network.protocol ("some protocol" != "some other protocol")
+    ValueError: Destination field already exists: network.protocol ("some other protocol" != "some protocol")
 
     >>> _emit_events_query('process where process.name == "regsvr32.exe" and process.parent.name == "cmd.exe"')
     '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe", "parent": {"name": "cmd.exe"}}}]'
 
     >>> _emit_events_query('process where process.name == "regsvr32.exe" or process.parent.name == "cmd.exe"')
-    '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe"}}]'
+    '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe"}}, {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}}]'
 
     >>> _emit_events_query('process where process.name == "regsvr32.exe" or process.name == "cmd.exe"')
-    '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe"}}]'
+    '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe"}}, {"event": {"category": "process"}, "process": {"name": "cmd.exe"}}]'
 
     >>> _emit_events_query('process where process.name in ("regsvr32.exe", "cmd.exe")')
-    '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe"}}]'
+    '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe"}}, {"event": {"category": "process"}, "process": {"name": "cmd.exe"}}]'
 
     >>> _emit_events_query('process where process.name : "REG?*32.EXE"')
     '[{"event": {"category": "process"}, "process": {"name": "reg_32.exe"}}]'
 
     >>> _emit_events_query('process where event.type in ("start", "process_started") and process.args : "dump-keychain" and process.args : "-d"')
-    '[{"event": {"category": "process", "type": ["start"]}, "process": {"args": ["dump-keychain", "-d"]}}]'
+    '[{"event": {"category": "process", "type": ["start"]}, "process": {"args": ["-d", "dump-keychain"]}}, {"event": {"category": "process", "type": ["process_started"]}, "process": {"args": ["-d", "dump-keychain"]}}]'
 
     >>> _emit_events_query('sequence [process where process.name : "cmd.exe"] [process where process.parent.name : "cmd.exe"]')
     '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}}, {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}}]'
