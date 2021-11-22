@@ -13,6 +13,8 @@ import copy
 from typing import List
 import eql
 
+from .fuzzylib import *
+
 __all__ = (
     "emit_events",
     "get_ast_stats",
@@ -91,42 +93,6 @@ def deep_merge(a, b, path=None):
         else:
             a[key] = b[key]
     return a
-
-def get_random_string(min_length, condition=None, allowed_chars=string.ascii_letters):
-    l = random.choices(allowed_chars, k=min_length)
-    while condition and not condition("".join(l)):
-        l.insert(random.randrange(len(l)), random.choice(allowed_chars))
-    return "".join(l)
-
-def get_random_octets(n):
-    return [random.randint(1, 254) for _ in range(n-1)]
-
-def fuzzy_ip(nr_octets, sep, fmt, condition = None, fuzziness = 0):
-    if fuzziness:
-        octets = get_random_octets(nr_octets)
-    else:
-        octets = [1] * nr_octets
-    def to_str(o):
-        return sep.join(fmt.format(x) for x in o)
-    while condition and not condition(to_str(octets)):
-        octets = get_random_octets(nr_octets)
-    return to_str(octets)
-
-def fuzzy_ipv4(*args, **kwargs):
-    return fuzzy_ip(4, ".", "{:d}")
-
-def fuzzy_ipv6(*args, **kwargs):
-    return fuzzy_ip(6, ":", "{:x}")
-
-def fuzzy_choice(options, fuzziness = 0):
-    if fuzziness:
-        return random.choice(options)
-    else:
-        return options[0]
-
-def fuzzy_iter(iterable):
-    # shortcut: should shuffle randomly
-    return iterable
 
 @emitter(eql.ast.Field)
 def emit_Field(node: eql.ast.Field, value):
@@ -317,6 +283,7 @@ def _emit_events_query(query: str) -> List[str]:
     with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
         return json.dumps(emit_events(eql.parse_query(query)), sort_keys=True)
 
+# run with `python3 -m detection_rules.events_emitter_eql`
 if __name__ == "__main__":
     import doctest
     random.seed(0xcafecafe)
