@@ -308,76 +308,11 @@ def emit_not_implemented(node: eql.ast.BaseNode):
 
 def _emit_events_query(query: str) -> List[str]:
     """
-    >>> _emit_events_query('process where process.name == "regsvr32.exe"')
-    '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe"}}]'
-
-    >>> _emit_events_query('process where process.name != "regsvr32.exe"')
-    '[{"event": {"category": "process"}, "process": {"name": "!regsvr32.exe"}}]'
-
-    >>> _emit_events_query('process where process.pid == 0')
-    '[{"event": {"category": "process"}, "process": {"pid": 0}}]'
-
-    >>> _emit_events_query('process where process.pid != 0')
-    '[{"event": {"category": "process"}, "process": {"pid": 1}}]'
-
-    >>> _emit_events_query('process where process.pid >= 0')
-    '[{"event": {"category": "process"}, "process": {"pid": 0}}]'
-
-    >>> _emit_events_query('process where process.pid <= 0')
-    '[{"event": {"category": "process"}, "process": {"pid": 0}}]'
-
-    >>> _emit_events_query('process where process.pid > 0')
-    '[{"event": {"category": "process"}, "process": {"pid": 1}}]'
-
-    >>> _emit_events_query('process where process.pid < 0')
-    '[{"event": {"category": "process"}, "process": {"pid": -1}}]'
-
-    >>> _emit_events_query('process where process.code_signature.exists == true')
-    '[{"event": {"category": "process"}, "process": {"code_signature": {"exists": true}}}]'
-
-    >>> _emit_events_query('process where process.code_signature.exists != true')
-    '[{"event": {"category": "process"}, "process": {"code_signature": {"exists": false}}}]'
-
-    >>> _emit_events_query('any where network.protocol == "some protocol"')
-    '[{"network": {"protocol": "some protocol"}}]'
-
     >>> _emit_events_query('any where network.protocol == "some protocol" and network.protocol == "some other protocol"')
     Traceback (most recent call last):
       ...
     ValueError: Destination field already exists: network.protocol ("some other protocol" != "some protocol")
 
-    >>> _emit_events_query('process where process.name == "regsvr32.exe" and process.parent.name == "cmd.exe"')
-    '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe", "parent": {"name": "cmd.exe"}}}]'
-
-    >>> _emit_events_query('process where process.name == "regsvr32.exe" or process.parent.name == "cmd.exe"')
-    '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe"}}, {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}}]'
-
-    >>> _emit_events_query('process where process.name == "regsvr32.exe" or process.name == "cmd.exe" or process.name == "powershell.exe"')
-    '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe"}}, {"event": {"category": "process"}, "process": {"name": "cmd.exe"}}, {"event": {"category": "process"}, "process": {"name": "powershell.exe"}}]'
-
-    >>> _emit_events_query('process where process.name in ("regsvr32.exe", "cmd.exe", "powershell.exe")')
-    '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe"}}, {"event": {"category": "process"}, "process": {"name": "cmd.exe"}}, {"event": {"category": "process"}, "process": {"name": "powershell.exe"}}]'
-
-    >>> _emit_events_query('process where process.name in ("regsvr32.exe", "cmd.exe") or process.name == "powershell.exe"')
-    '[{"event": {"category": "process"}, "process": {"name": "regsvr32.exe"}}, {"event": {"category": "process"}, "process": {"name": "cmd.exe"}}, {"event": {"category": "process"}, "process": {"name": "powershell.exe"}}]'
-
-    >>> _emit_events_query('process where process.name : "REG?*32.EXE"')
-    '[{"event": {"category": "process"}, "process": {"name": "reg_32.exe"}}]'
-
-    >>> _emit_events_query('process where event.type in ("start", "process_started") and process.args : "dump-keychain" and process.args : "-d"')
-    '[{"event": {"category": "process", "type": ["start"]}, "process": {"args": ["-d", "dump-keychain"]}}, {"event": {"category": "process", "type": ["process_started"]}, "process": {"args": ["-d", "dump-keychain"]}}]'
-
-    >>> _emit_events_query('sequence [process where process.name : "cmd.exe"] [process where process.parent.name : "cmd.exe"]')
-    '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}}, {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}}]'
-
-    >>> _emit_events_query('sequence [process where process.name : "cmd.exe"] [process where process.parent.name : "cmd.exe" or process.name : "powershell.exe"]')
-    '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}}, {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}}, {"event": {"category": "process"}, "process": {"name": "powershell.exe"}}]'
-
-    >>> _emit_events_query('sequence by user.id [process where process.name : "cmd.exe"] [process where process.parent.name : "cmd.exe"]')
-    '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "nQR"}}, {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"id": "nQR"}}]'
-
-    >>> _emit_events_query('sequence [process where process.name : "cmd.exe"] by user.id [process where process.parent.name : "cmd.exe"] by user.name')
-    '[{"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "eWR"}}, {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"name": "eWR"}}]'
     """
     with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
         return json.dumps(emit_events(eql.parse_query(query)), sort_keys=True)
