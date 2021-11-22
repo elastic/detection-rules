@@ -199,30 +199,54 @@ def emit_PipedQuery(node: eql.ast.PipedQuery):
     return emit_events(node.first)
 
 @emitter(eql.ast.SubqueryBy)
-def emit_SubqueryBy(node: eql.ast.SubqueryBy, join_values: List[str]):
+def emit_SubqueryBy(node: eql.ast.SubqueryBy):
     if any(not isinstance(value, eql.ast.Field) for value in node.join_values):
         raise NotImplementedError(f"Unsupported join values: {node.join_values}")
     if node.fork:
         raise NotImplementedError(f"Unsupported fork: {node.fork}")
-    docs = emit_events(node.query)
-    for i, field in enumerate(node.join_values):
-        if i == len(join_values):
-            join_values.append(get_random_string(3 * len(node.join_values)))
-        for doc in docs:
-            deep_merge(doc, emit_Field(field, join_values[i]))
+    return (emit_events(node.query), node.join_values)
+
+def lookup_Field(doc, field):
+    for part in [field.base] + field.path:
+        doc = doc[part]
+    return doc
+
+def lookup_join_value(idx, join_values, stack):
+    if idx < len(join_values):
+        return join_values[idx]
+    doc, join_fields = stack[0]
+    try:
+        value = lookup_Field(doc, join_fields[idx])
+    except KeyError:
+        value = get_random_string(3 * len(join_fields))
+    join_values.append(value)
+    return value
+
+def emit_JoinFields(doc, join_fields, join_values, stack):
+    for i,field in enumerate(join_fields):
+        value = lookup_join_value(i, join_values, stack)
+        deep_merge(doc, emit_Field(field, value))
+    return doc
+
+def emit_Queries(queries, docs, stack):
+    if queries:
+        query_docs, join_fields = queries[0]
+        for doc in query_docs:
+            emit_Queries(queries[1:], docs, stack + [(doc, join_fields)])
+    else:
+        join_values = []
+        for doc, join_fields in stack:
+            docs.append(emit_JoinFields(copy.deepcopy(doc), join_fields, join_values, stack))
     return docs
 
 @emitter(eql.ast.Sequence)
 def emit_Sequence(node: eql.ast.Sequence):
-    docs = []
-    if any(not isinstance(query, eql.ast.SubqueryBy) for query in node.queries):
-        raise NotImplementedError(f"Unsupported sub-queries: {node.queries}")
-    join_values = []
+    queries = []
     for query in node.queries:
-        docs.extend(emit_SubqueryBy(query, join_values=join_values))
+        queries.append(emit_SubqueryBy(query))
     if node.close:
-        docs.extend(emit_events(node.close))
-    return docs
+        queries.append((emit_events(node.close), ()))
+    return emit_Queries(queries, [], [])
 
 @emitter(eql.ast.FunctionCall)
 def emit_FunctionCall(node: eql.ast.FunctionCall):
