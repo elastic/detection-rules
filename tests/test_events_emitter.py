@@ -105,8 +105,8 @@ eql_event_docs = {
 
     """process where event.type in ("start", "process_started") and process.args : "dump-keychain" and process.args : "-d"
     """: [
-        {"event": {"category": "process", "type": ["start"]}, "process": {"args": ["-d", "dump-keychain"]}},
-        {"event": {"category": "process", "type": ["process_started"]}, "process": {"args": ["-d", "dump-keychain"]}},
+        {"event": {"category": "process", "type": ["start"]}, "process": {"args": ["dump-keychain", "-d"]}},
+        {"event": {"category": "process", "type": ["process_started"]}, "process": {"args": ["dump-keychain", "-d"]}},
     ],
 }
 

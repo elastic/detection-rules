@@ -55,7 +55,7 @@ def emit_And(node: eql.ast.And):
         new_docs = []
         for term_doc in term_docs:
             for doc in docs:
-                new_docs.append(deep_merge(copy.deepcopy(term_doc), doc))
+                new_docs.append(deep_merge(copy.deepcopy(doc), term_doc))
         docs = new_docs
     return docs
 
