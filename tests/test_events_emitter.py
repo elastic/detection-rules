@@ -190,6 +190,20 @@ eql_sequence_docs = {
     ],
 }
 
+eql_sequence_exceptions = {
+    """sequence by process.name
+        [process where process.name : "cmd.exe"]
+        [process where process.name : "powershell.exe"]
+    """:
+        'ValueError: Destination field already exists: process.name ("powershell.exe" != "cmd.exe")',
+
+    """sequence
+        [process where process.name : "cmd.exe"] by process.name
+        [process where process.parent.name : "powershell.exe"] by process.parent.name
+    """:
+        'ValueError: Destination field already exists: process.parent.name ("powershell.exe" != "cmd.exe")',
+}
+
 class TestEventEmitter(unittest.TestCase):
 
     def test_eql_events(self):
@@ -214,3 +228,8 @@ class TestEventEmitter(unittest.TestCase):
             for query, docs in eql_sequence_docs.items():
                 with self.subTest(query):
                     self.assertEqual(docs, emitter.emit_events(eql.parse_query(query)))
+
+            for query, msg in eql_sequence_exceptions.items():
+                with self.subTest(query):
+                    with self.assertRaises(ValueError, msg=msg):
+                        emitter.emit_events(eql.parse_query(query))
