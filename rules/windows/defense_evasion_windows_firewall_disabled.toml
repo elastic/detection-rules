@@ -7,7 +7,7 @@ updated_date = "2021/11/22"
 [rule]
 author = ["Austin Songer"]
 description = """
-Identifies when a user disables the Windows Firewall to help evade defense.
+Identifies when a user disables Windows Firewall profile(s) to help evade defense.
 """
 false_positives = [
     """
@@ -37,9 +37,7 @@ type = "eql"
 query = '''
 process where event.type == "start" and
  (process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") or process.pe.original_file_name == "PowerShell.EXE") and
-  process.args : "*Set-NetFirewallProfile*" and
-  process.args : "*-Enabled*" and
-  process.args : "*False*"
+  process.args : ("*Set-NetFirewallProfile*","*-Profile*","*-All*", "*-Enabled*","*False*")
 '''
 
 
