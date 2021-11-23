@@ -15,47 +15,13 @@ import eql
 
 from .utils import deep_merge
 from .fuzzylib import *
+from .events_emitter import emitter
 
 __all__ = (
-    "emit_events",
-    "get_ast_stats",
 )
 
-class emitter:
-    emitters = {}
-
-    def __init__(self, node_type):
-        self.node_type = node_type
-        self.successful = 0
-        self.total = 0
-
-    def __call__(self, func):
-        if self.node_type in self.emitters:
-            raise ValueError(f"Duplicate emitter for {self.node_type}: {func.__name__}")
-        self.emitters[self.node_type] = self
-
-        def wrapper(*args, **kwargs):
-            self.total += 1
-            ret = func(*args, **kwargs)
-            self.successful += 1
-            return ret
-
-        self.wrapper = wrapper
-        return wrapper
-
-    @classmethod
-    def emit_events(cls, node: eql.ast.BaseNode):
-        return cls.emitters[type(node)].wrapper(node)
-
-    @classmethod
-    def get_stats(cls):
-        return {k.__name__: (v.successful, v.total) for k,v in cls.emitters.items()}
-
-def emit_events(node: eql.ast.BaseNode) -> List[str]:
+def emit(node: eql.ast.BaseNode) -> List[str]:
     return emitter.emit_events(node)
-
-def get_ast_stats():
-    return emitter.get_stats()
 
 @emitter(eql.ast.Field)
 def emit_Field(node: eql.ast.Field, value):
@@ -75,14 +41,14 @@ def emit_Field(node: eql.ast.Field, value):
 def emit_Or(node: eql.ast.Or):
     docs = []
     for term in fuzzy_iter(node.terms):
-        docs.extend(emit_events(term))
+        docs.extend(emit(term))
     return docs
 
 @emitter(eql.ast.And)
 def emit_And(node: eql.ast.And):
     docs = []
     for term in node.terms:
-        term_docs = emit_events(term)
+        term_docs = emit(term)
         if not docs:
             docs = term_docs
             continue
@@ -149,7 +115,7 @@ def emit_Comparison(node: eql.ast.Comparison):
 def emit_EventQuery(node: eql.ast.EventQuery):
     if type(node.event_type) != str:
         raise NotImplementedError(f"Unsupported event_type type: {type(node.event_type)}")
-    docs = emit_events(node.query)
+    docs = emit(node.query)
     if node.event_type != "any":
         for doc in docs:
             deep_merge(doc, {"event": { "category": node.event_type }})
@@ -159,7 +125,7 @@ def emit_EventQuery(node: eql.ast.EventQuery):
 def emit_PipedQuery(node: eql.ast.PipedQuery):
     if node.pipes:
         raise NotImplementedError("Pipes are unsupported")
-    return emit_events(node.first)
+    return emit(node.first)
 
 @emitter(eql.ast.SubqueryBy)
 def emit_SubqueryBy(node: eql.ast.SubqueryBy):
@@ -167,7 +133,7 @@ def emit_SubqueryBy(node: eql.ast.SubqueryBy):
         raise NotImplementedError(f"Unsupported join values: {node.join_values}")
     if node.fork:
         raise NotImplementedError(f"Unsupported fork: {node.fork}")
-    return (emit_events(node.query), node.join_values)
+    return (emit(node.query), node.join_values)
 
 def lookup_Field(doc, field):
     for part in [field.base] + field.path:
@@ -208,7 +174,7 @@ def emit_Sequence(node: eql.ast.Sequence):
     for query in node.queries:
         queries.append(emit_SubqueryBy(query))
     if node.close:
-        queries.append((emit_events(node.close), ()))
+        queries.append((emit(node.close), ()))
     return emit_Queries(queries, [], [])
 
 @emitter(eql.ast.FunctionCall)
@@ -268,7 +234,7 @@ def _emit_events_query(query: str) -> List[str]:
 
     """
     with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
-        return json.dumps(emit_events(eql.parse_query(query)), sort_keys=True)
+        return json.dumps(emit(eql.parse_query(query)), sort_keys=True)
 
 # run with `python3 -m detection_rules.events_emitter_eql`
 if __name__ == "__main__":

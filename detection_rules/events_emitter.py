@@ -15,18 +15,45 @@ __all__ = (
     "get_ast_stats",
 )
 
-def _generate_error_docs(message: str) -> List[str]:
-    return [{"error.message": message}]
+
+class emitter:
+    emitters = {}
+
+    def __init__(self, node_type):
+        self.node_type = node_type
+        self.successful = 0
+        self.total = 0
+
+    def __call__(self, func):
+        if self.node_type in self.emitters:
+            raise ValueError(f"Duplicate emitter for {self.node_type}: {func.__name__}")
+        self.emitters[self.node_type] = self
+
+        def wrapper(*args, **kwargs):
+            self.total += 1
+            ret = func(*args, **kwargs)
+            self.successful += 1
+            return ret
+
+        self.wrapper = wrapper
+        return wrapper
+
+    @classmethod
+    def emit_events(cls, node):
+        return cls.emitters[type(node)].wrapper(node)
+
+    @classmethod
+    def get_ast_stats(cls):
+        return {k.__name__: (v.successful, v.total) for k,v in cls.emitters.items()}
+
 
 def emit_events(rule: AnyRuleData) -> List[str]:
     if rule.type not in ("query", "eql"):
         raise NotImplementedError(f"Unsupported rule type: {rule.type}")
     elif rule.language == "eql":
-        from .events_emitter_eql import emit_events
-        docs = emit_events(rule.validator.ast)
+        docs = emitter.emit_events(rule.validator.ast)
     elif rule.language == "kuery":
-        from .events_emitter_eql import emit_events
-        docs = emit_events(rule.validator.to_eql()) # shortcut?
+        docs = emitter.emit_events(rule.validator.to_eql()) # shortcut?
     else:
         raise NotImplementedError(f"Unsupported query language: {rule.language}")
 
@@ -37,6 +64,10 @@ def emit_events(rule: AnyRuleData) -> List[str]:
         })
     return docs
 
+
 def get_ast_stats():
-    from .events_emitter_eql import get_ast_stats
-    return get_ast_stats()
+    return emitter.get_ast_stats()
+
+
+# circular dependency
+import detection_rules.events_emitter_eql  # noqa: E402

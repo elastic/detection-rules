@@ -8,7 +8,7 @@ import unittest
 import random
 import eql
 
-from detection_rules.events_emitter_eql import emit_events
+from detection_rules.events_emitter import emitter
 
 eql_event_docs = {
     """process where process.name == "regsvr32.exe"
@@ -193,7 +193,7 @@ class TestEventEmitter(unittest.TestCase):
         with eql.parser.elasticsearch_syntax:
             for query, docs in eql_event_docs.items():
                 with self.subTest(query):
-                    self.assertEqual(docs, emit_events(eql.parse_query(query)))
+                    self.assertEqual(docs, emitter.emit_events(eql.parse_query(query)))
 
     def test_eql_sequence(self):
         # make repeatable random choices
@@ -202,4 +202,4 @@ class TestEventEmitter(unittest.TestCase):
         with eql.parser.elasticsearch_syntax:
             for query, docs in eql_sequence_docs.items():
                 with self.subTest(query):
-                    self.assertEqual(docs, emit_events(eql.parse_query(query)))
+                    self.assertEqual(docs, emitter.emit_events(eql.parse_query(query)))
