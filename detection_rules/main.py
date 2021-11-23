@@ -296,6 +296,38 @@ def emit_events(ctx, paths):
     if errors:
         ctx.exit(1)
 
+
+@root.command('rule-trigger')
+@click.argument('paths', type=Path, nargs=-1)
+def emit_events(paths):
+    """Generate events that would trigger the given rule(s)"""
+    from collections import Counter
+    from .events_emitter import emit_events, get_ast_stats
+
+    if paths:
+        rules = RuleCollection()
+        for path in paths:
+            if os.path.isdir(path):
+                rules.load_directory(path)
+            else:
+                rules.load_file(path)
+    else:
+        rules = RuleCollection.default()
+
+    pwd = Path(get_path(".")).absolute()
+    def get_gen_path(rule):
+        path = os.path.join("triggers", *rule.path.relative_to(pwd).parts[1:])
+        return Path(path).with_suffix('.json')
+
+    for rule in rules:
+        path = get_gen_path(rule)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.unlink(missing_ok=True)
+        docs = emit_events(rule.contents.data)
+        with open(str(path), 'w', newline='\n') as f:
+            for doc in docs:
+                f.write(json.dumps(doc, sort_keys=True) + "\n")
+
 @root.command('rule-search')
 @click.argument('query', required=False)
 @click.option('--columns', '-c', multiple=True, help='Specify columns to add the table')
