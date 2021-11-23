@@ -381,3 +381,20 @@ class Ndjson(list):
     def load(cls, filename: Path, **kwargs):
         """Load content from an ndjson file."""
         return cls.from_string(filename.read_text(), **kwargs)
+
+
+def deep_merge(a, b, path=None):
+    """Recursively merge two dictionaries"""
+
+    for key in b:
+        if key in a:
+            path = (path or []) + [str(key)]
+            if isinstance(a[key], dict) and isinstance(b[key], dict):
+                deep_merge(a[key], b[key], path)
+            elif isinstance(a[key], list) and isinstance(b[key], list):
+                a[key].extend(x for x in b[key] if x not in a[key])
+            elif a[key] != b[key]:
+                raise ValueError(f"Destination field already exists: {'.'.join(path)} (\"{a[key]}\" != \"{b[key]}\")")
+        else:
+            a[key] = b[key]
+    return a

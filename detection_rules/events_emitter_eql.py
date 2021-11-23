@@ -13,6 +13,7 @@ import copy
 from typing import List
 import eql
 
+from .utils import deep_merge
 from .fuzzylib import *
 
 __all__ = (
@@ -55,44 +56,6 @@ def emit_events(node: eql.ast.BaseNode) -> List[str]:
 
 def get_ast_stats():
     return emitter.get_stats()
-
-def deep_merge(a, b, path=None):
-    """Recursively merge two docs
-
-    >>> _deep_merge = lambda *args: json.dumps(deep_merge(*args), sort_keys=True)
-    >>> _deep_merge({}, {"a": "A"})
-    '{"a": "A"}'
-    >>> _deep_merge({"a": "A"}, {})
-    '{"a": "A"}'
-    >>> _deep_merge({"a": "A"}, {"b": "B"})
-    '{"a": "A", "b": "B"}'
-    >>> _deep_merge({"a": "A"}, {"a": "B"})
-    Traceback (most recent call last):
-      ...
-    ValueError: Destination field already exists: a ("A" != "B")
-    >>> _deep_merge({"a": ["A"]}, {"a": ["A"]})
-    '{"a": ["A"]}'
-    >>> _deep_merge({"a": ["A"]}, {"a": ["B"]})
-    '{"a": ["A", "B"]}'
-    >>> _deep_merge({"a": ["A"]}, {"a": [{"b": "B"}]})
-    '{"a": ["A", {"b": "B"}]}'
-    >>> _deep_merge({"a": {"b": {"c": "C"}}}, {"a": {"b": {"c": "D"}}})
-    Traceback (most recent call last):
-      ...
-    ValueError: Destination field already exists: a.b.c ("C" != "D")
-    """
-    for key in b:
-        if key in a:
-            path = (path or []) + [str(key)]
-            if isinstance(a[key], dict) and isinstance(b[key], dict):
-                deep_merge(a[key], b[key], path)
-            elif isinstance(a[key], list) and isinstance(b[key], list):
-                a[key].extend(x for x in b[key] if x not in a[key])
-            elif a[key] != b[key]:
-                raise ValueError(f"Destination field already exists: {'.'.join(path)} (\"{a[key]}\" != \"{b[key]}\")")
-        else:
-            a[key] = b[key]
-    return a
 
 @emitter(eql.ast.Field)
 def emit_Field(node: eql.ast.Field, value):

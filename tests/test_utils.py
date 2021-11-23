@@ -8,7 +8,7 @@ import random
 import time
 import unittest
 
-from detection_rules.utils import normalize_timing_and_sort, cached
+from detection_rules.utils import normalize_timing_and_sort, cached, deep_merge
 from detection_rules.eswrap import RtaEvents
 from detection_rules.ecs import get_kql_schema
 
@@ -101,3 +101,37 @@ class TestTimeUtils(unittest.TestCase):
         self.assertEqual(increment(), 6)
         self.assertEqual(increment(None), 7)
         self.assertEqual(increment(1), 8)
+
+class TestDictUtils(unittest.TestCase):
+    """Test dictionary helpers."""
+
+    def test_deep_merge(self):
+        self.assertEqual(
+            deep_merge({}, {"a": "A"}),
+            {"a": "A"}
+        )
+        self.assertEqual(
+            deep_merge({"a": "A"}, {}),
+            {"a": "A"}
+        )
+        self.assertEqual(
+            deep_merge({"a": "A"}, {"b": "B"}),
+            {"a": "A", "b": "B"}
+        )
+        self.assertEqual(
+            deep_merge({"a": ["A"]}, {"a": ["A"]}),
+            {"a": ["A"]}
+        )
+        self.assertEqual(
+            deep_merge({"a": ["A"]}, {"a": ["B"]}),
+            {"a": ["A", "B"]}
+        )
+        self.assertEqual(
+            deep_merge({"a": ["A"]}, {"a": [{"b": "B"}]}),
+            {"a": ["A", {"b": "B"}]}
+        )
+
+        with self.assertRaises(ValueError, msg='Destination field already exists: a ("A" != "B")'):
+            deep_merge({"a": "A"}, {"a": "B"})
+        with self.assertRaises(ValueError, msg='Destination field already exists: a.b.c ("C" != "D")'):
+            deep_merge({"a": {"b": {"c": "C"}}}, {"a": {"b": {"c": "D"}}})
