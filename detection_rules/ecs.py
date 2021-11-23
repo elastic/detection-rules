@@ -175,9 +175,10 @@ class KqlSchema2Eql(eql.Schema):
         "keyword": eql.types.TypeHint.String,
         "ip": eql.types.TypeHint.String,
         "float": eql.types.TypeHint.Numeric,
-        "double": eql.types.TypeHint.Numeric,
-        "long": eql.types.TypeHint.Numeric,
-        "short": eql.types.TypeHint.Numeric,
+        # "double": eql.types.TypeHint.Numeric,
+        # "long": eql.types.TypeHint.Numeric,
+        # "short": eql.types.TypeHint.Numeric,
+        "integer": eql.types.TypeHint.Numeric,
         "boolean": eql.types.TypeHint.Boolean,
     }
 
@@ -191,9 +192,12 @@ class KqlSchema2Eql(eql.Schema):
         return True
 
     def get_event_type_hint(self, event_type, path):
+        from kql.parser import elasticsearch_type_family
+
         dotted = ".".join(path)
         elasticsearch_type = self.kql_schema.get(dotted)
-        eql_hint = self.type_mapping.get(elasticsearch_type)
+        es_type_family = elasticsearch_type_family(elasticsearch_type)
+        eql_hint = self.type_mapping.get(es_type_family)
 
         if eql_hint is not None:
             return eql_hint, None
