@@ -224,20 +224,3 @@ def emit_not_implemented(node: eql.ast.BaseNode):
         sys.stderr.write(f"  {slot}: {value}\n")
 
     raise NotImplementedError(f"Emitter not implemented: {type(node)}")
-
-def _emit_events_query(query: str) -> List[str]:
-    """
-    >>> _emit_events_query('any where network.protocol == "some protocol" and network.protocol == "some other protocol"')
-    Traceback (most recent call last):
-      ...
-    ValueError: Destination field already exists: network.protocol ("some other protocol" != "some protocol")
-
-    """
-    with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
-        return json.dumps(emit(eql.parse_query(query)), sort_keys=True)
-
-# run with `python3 -m detection_rules.events_emitter_eql`
-if __name__ == "__main__":
-    import doctest
-    random.seed(0xcafecafe)
-    doctest.testmod()

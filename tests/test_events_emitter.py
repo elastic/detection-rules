@@ -110,6 +110,12 @@ eql_event_docs = {
     ],
 }
 
+eql_event_exceptions = {
+    """any where network.protocol == "some protocol" and network.protocol == "some other protocol"
+    """:
+        'Destination field already exists: network.protocol ("some other protocol" != "some protocol")',
+}
+
 eql_sequence_docs = {
     """sequence
         [process where process.name : "cmd.exe"]
@@ -194,6 +200,11 @@ class TestEventEmitter(unittest.TestCase):
             for query, docs in eql_event_docs.items():
                 with self.subTest(query):
                     self.assertEqual(docs, emitter.emit_events(eql.parse_query(query)))
+
+            for query, msg in eql_event_exceptions.items():
+                with self.subTest(query):
+                    with self.assertRaises(ValueError, msg=msg):
+                        emitter.emit_events(eql.parse_query(query))
 
     def test_eql_sequence(self):
         # make repeatable random choices
