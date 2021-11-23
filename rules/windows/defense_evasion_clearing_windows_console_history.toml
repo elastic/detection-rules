@@ -1,0 +1,47 @@
+[metadata]
+creation_date = "2021/11/22"
+maturity = "production"
+updated_date = "2021/11/22"
+
+[rule]
+author = ["Austin Songer"]
+description = """
+Identifies when an user attempts to clear console history. An adversary may clear the command history of a compromised account to conceal
+the actions undertaken during an intrusion.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Clearing Console History"
+risk_score = 21
+rule_id = "b5877334-677f-4fb9-86d5-a9721274223b"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type in ("process_started", "start") and
+   (process.name : ("pwsh.exe", "powershell.exe", "powershell_ise.exe") or process.pe.original_file_name in
+     ("pwsh.exe", "powershell.exe", "powershell_ise.exe") and
+	 process.args : ("Set-PSReadlineOption","Remove-Item","*ConsoleHost*history*","Clear-History","-HistorySaveStyle","SaveNothing")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal on Host"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+  [[rule.threat.technique.subtechnique]]
+  id = "T1070.003"
+  name = "Clear Command History"
+  reference = "https://attack.mitre.org/techniques/T1070/003/"
+
+[rule.threat.tactic]
+id = "TA0005"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+name = "Defense Evasion"
