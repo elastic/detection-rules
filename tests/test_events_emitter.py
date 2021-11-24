@@ -10,7 +10,7 @@ import eql
 
 from detection_rules.events_emitter import emitter
 
-eql_event_docs = {
+eql_event_docs_complete = {
     """process where process.name == "regsvr32.exe"
     """: [
         {"event": {"category": "process"}, "process": {"name": "regsvr32.exe"}},
@@ -111,13 +111,7 @@ eql_event_docs = {
     ],
 }
 
-eql_event_exceptions = {
-    """any where network.protocol == "some protocol" and network.protocol == "some other protocol"
-    """:
-        'Destination field already exists: network.protocol ("some other protocol" != "some protocol")',
-}
-
-eql_sequence_docs = {
+eql_sequence_docs_complete = {
     """sequence
         [process where process.name : "cmd.exe"]
         [process where process.parent.name : "cmd.exe"]
@@ -191,7 +185,11 @@ eql_sequence_docs = {
     ],
 }
 
-eql_sequence_exceptions = {
+eql_exceptions = {
+    """any where network.protocol == "http" and network.protocol == "https"
+    """:
+        'Destination field already exists: network.protocol ("https" != "http")',
+
     """sequence by process.name
         [process where process.name : "cmd.exe"]
         [process where process.name : "powershell.exe"]
@@ -217,24 +215,21 @@ class TestEventEmitter(unittest.TestCase):
         # restore the generator internal state
         random.setstate(self.random_state)
 
-    def test_eql_events(self):
+    def test_eql_exceptions(self):
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0):
-            for query, docs in eql_event_docs.items():
-                with self.subTest(query):
-                    self.assertEqual(docs, emitter.emit_events(eql.parse_query(query)))
-
-            for query, msg in eql_event_exceptions.items():
+            for query, msg in eql_exceptions.items():
                 with self.subTest(query):
                     with self.assertRaises(ValueError, msg=msg):
                         emitter.emit_events(eql.parse_query(query))
 
-    def test_eql_sequence(self):
-        with eql.parser.elasticsearch_syntax, emitter.fuzziness(0):
-            for query, docs in eql_sequence_docs.items():
+    def test_eql_events_complete(self):
+        with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
+            for query, docs in eql_event_docs_complete.items():
                 with self.subTest(query):
                     self.assertEqual(docs, emitter.emit_events(eql.parse_query(query)))
 
-            for query, msg in eql_sequence_exceptions.items():
+    def test_eql_sequence_complete(self):
+        with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
+            for query, docs in eql_sequence_docs_complete.items():
                 with self.subTest(query):
-                    with self.assertRaises(ValueError, msg=msg):
-                        emitter.emit_events(eql.parse_query(query))
+                    self.assertEqual(docs, emitter.emit_events(eql.parse_query(query)))

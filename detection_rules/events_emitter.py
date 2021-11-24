@@ -6,6 +6,8 @@
 """Functions for generating event documents that would trigger a given rule."""
 
 import time
+import random
+import contextlib
 from typing import List
 
 from .rule import AnyRuleData
@@ -19,6 +21,7 @@ __all__ = (
 
 class emitter:
     emitters = {}
+    completeness_level = 0
     fuzziness = fuzzylib.fuzziness
     fuzzy_iter = fuzzylib.fuzzy_iter
 
@@ -48,6 +51,24 @@ class emitter:
     @classmethod
     def get_ast_stats(cls):
         return {k.__name__: (v.successful, v.total) for k,v in cls.emitters.items()}
+
+    @classmethod
+    @contextlib.contextmanager
+    def completeness(cls, level):
+        orig_level, cls.completeness_level = cls.completeness_level, level
+        try:
+            yield
+        finally:
+            cls.completeness_level = orig_level
+
+    @classmethod
+    def complete_iter(cls, iterable):
+        max = 1 + round((len(iterable) - 1) * min(1, cls.completeness_level))
+        return iterable[:max]
+
+    @classmethod
+    def iter(cls, iterable):
+        return cls.complete_iter(cls.fuzzy_iter(iterable))
 
 
 def emit_events(rule: AnyRuleData) -> List[str]:

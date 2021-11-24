@@ -40,7 +40,7 @@ def emit_Field(node: eql.ast.Field, value):
 @emitter(eql.ast.Or)
 def emit_Or(node: eql.ast.Or):
     docs = []
-    for term in emitter.fuzzy_iter(node.terms):
+    for term in emitter.iter(node.terms):
         docs.extend(emit(term))
     return docs
 
@@ -82,7 +82,7 @@ def emit_InSet(node: eql.ast.InSet, negate=False):
         value = get_random_string(min_length, lambda x: x not in values)
         docs.append(emit_Field(node.expression, value))
     else:
-        for term in emitter.fuzzy_iter(node.container):
+        for term in emitter.iter(node.container):
             docs.append(emit_Field(node.expression, term.value))
     return docs
 
@@ -186,7 +186,7 @@ def emit_FunctionCall(node: eql.ast.FunctionCall):
     if type(node.arguments[1]) != eql.ast.String:
         raise NotImplementedError(f"Unsupported argument type: {type(node.argument[1])}")
     docs = []
-    for arg in emitter.fuzzy_iter(node.arguments[1:]):
+    for arg in emitter.iter(node.arguments[1:]):
         value = expand_wildcards(arg.value).lower()
         docs.append(emit_Field(node.arguments[0], value))
     return docs
