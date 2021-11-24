@@ -7,15 +7,26 @@
 
 import random
 import string
+import contextlib
 
 __all__ = (
     "expand_wildcards",
+    "fuzziness",
     "fuzzy_choice",
     "fuzzy_iter",
     "get_random_string",
 )
 
-fuzziness = 0
+fuzziness_level = 1
+
+@contextlib.contextmanager
+def fuzziness(level):
+    global fuzziness_level
+    orig_level, fuzziness_level = fuzziness_level, level
+    try:
+        yield
+    finally:
+        fuzziness_level = orig_level
 
 def get_random_string(min_length, condition=None, allowed_chars=string.ascii_letters):
     l = random.choices(allowed_chars, k=min_length)
@@ -27,7 +38,7 @@ def get_random_octets(n):
     return [random.randint(1, 254) for _ in range(n-1)]
 
 def fuzzy_ip(nr_octets, sep, fmt, condition = None):
-    if fuzziness:
+    if fuzziness_level:
         octets = get_random_octets(nr_octets)
     else:
         octets = [1] * nr_octets
@@ -44,14 +55,16 @@ def fuzzy_ipv6(*args, **kwargs):
     return fuzzy_ip(6, ":", "{:x}")
 
 def fuzzy_choice(options):
-    if fuzziness:
+    if fuzziness_level:
         return random.choice(options)
     else:
         return options[0]
 
 def fuzzy_iter(iterable):
-    # shortcut: should shuffle randomly
-    return iterable
+    if fuzziness_level:
+        return random.sample(iterable, len(iterable))
+    else:
+        return iterable
 
 def expand_wildcards(s, allowed_chars=string.ascii_letters+string.digits):
     chars = []

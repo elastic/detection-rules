@@ -218,7 +218,7 @@ class TestEventEmitter(unittest.TestCase):
         random.setstate(self.random_state)
 
     def test_eql_events(self):
-        with eql.parser.elasticsearch_syntax:
+        with eql.parser.elasticsearch_syntax, emitter.fuzziness(0):
             for query, docs in eql_event_docs.items():
                 with self.subTest(query):
                     self.assertEqual(docs, emitter.emit_events(eql.parse_query(query)))
@@ -229,7 +229,7 @@ class TestEventEmitter(unittest.TestCase):
                         emitter.emit_events(eql.parse_query(query))
 
     def test_eql_sequence(self):
-        with eql.parser.elasticsearch_syntax:
+        with eql.parser.elasticsearch_syntax, emitter.fuzziness(0):
             for query, docs in eql_sequence_docs.items():
                 with self.subTest(query):
                     self.assertEqual(docs, emitter.emit_events(eql.parse_query(query)))

@@ -9,6 +9,7 @@ import time
 from typing import List
 
 from .rule import AnyRuleData
+import detection_rules.fuzzylib as fuzzylib
 
 __all__ = (
     "emit_events",
@@ -18,6 +19,8 @@ __all__ = (
 
 class emitter:
     emitters = {}
+    fuzziness = fuzzylib.fuzziness
+    fuzzy_iter = fuzzylib.fuzzy_iter
 
     def __init__(self, node_type):
         self.node_type = node_type
