@@ -36,13 +36,11 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
- (process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") or process.pe.original_file_name == "PowerShell.EXE") and
-  process.args : ("*Set-NetFirewallProfile*","*-Enabled*","*False*") and
-    (process.args : "*-All*" or 
-     process.args : ("*-Profile*","*Public*") or 
-     process.args : ("*-Profile*","*Domain*") or 
-     process.args : ("*-Profile*","*Private*"))
+process where event.action == "start" and
+  (process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") or process.pe.original_file_name == "PowerShell.EXE") and
+   process.args : "*Set-NetFirewallProfile*" and
+  (process.args : "*-Enabled*" and process.args : "*False*") and
+  (process.args : "*-All*" or process.args : ("*Public*", "*Domain*", "*Private*"))
 '''
 
 [[rule.threat]]
