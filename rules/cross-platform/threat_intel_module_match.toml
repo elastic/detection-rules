@@ -1,16 +1,16 @@
 [metadata]
 creation_date = "2021/04/21"
 maturity = "production"
-updated_date = "2021/09/13"
+updated_date = "2021/10/29"
 
 [rule]
 author = ["Elastic"]
 description = """
 This rule is triggered when indicators from the Threat Intel Filebeat module has a match against local file or network observations.
 """
-from = "now-10m"
+from = "now-65m"
 index = ["auditbeat-*", "endgame-*", "filebeat-*", "logs-*", "packetbeat-*", "winlogbeat-*"]
-interval = "9m"
+interval = "1h"
 language = "kuery"
 license = "Elastic License v2"
 name = "Threat Intel Filebeat Module Indicator Match"
@@ -69,11 +69,11 @@ threat_index = [ "filebeat-*"]
 threat_indicator_path = ""
 threat_language = "kuery"
 
-threat_query = """
-event.module:threatintel and
+threat_query = '''
+@timestamp >= "now-30d" and event.module:threatintel and
   (threatintel.indicator.file.hash.*:* or threatintel.indicator.file.pe.imphash:* or threatintel.indicator.ip:* or
      threatintel.indicator.registry.path:* or threatintel.indicator.url.full:*)
-"""
+'''
 
 query = """
 file.hash.*:* or file.pe.imphash:* or source.ip:* or destination.ip:* or url.full:* or registry.path:*

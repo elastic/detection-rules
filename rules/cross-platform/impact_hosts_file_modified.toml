@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/07/07"
 maturity = "production"
-updated_date = "2021/05/10"
+updated_date = "2021/10/27"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,7 @@ license = "Elastic License v2"
 name = "Hosts File Modified"
 note = """## Config
 
-For Windows systems using Auditbeat, this rule requires adding 'C:/Windows/System32/drivers/etc' as an additional path in the 'file_integrity' module of auditbeat.yml."""
+For Windows systems using Auditbeat, this rule requires adding `C:/Windows/System32/drivers/etc` as an additional path in the 'file_integrity' module of auditbeat.yml."""
 references = ["https://www.elastic.co/guide/en/beats/auditbeat/current/auditbeat-reference-yml.html"]
 risk_score = 47
 rule_id = "9c260313-c811-4ec8-ab89-8f6530e0246c"
@@ -28,8 +28,22 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.type in ("change", "creation") and
-  file.path : ("/private/etc/hosts", "/etc/hosts", "?:\\Windows\\System32\\drivers\\etc\\hosts") 
+any where
+
+  /* file events for creation; file change events are not captured by some of the included sources for linux and so may
+     miss this, which is the purpose of the process + command line args logic below */
+  (
+   event.category == "file" and event.type in ("change", "creation") and
+     file.path : ("/private/etc/hosts", "/etc/hosts", "?:\\Windows\\System32\\drivers\\etc\\hosts")
+  )
+  or
+
+  /* process events for change targeting linux only */
+  (
+   event.category == "process" and event.type in ("start") and
+     process.name in ("nano", "vim", "vi", "emacs", "echo", "sed") and
+     process.args : ("/etc/hosts")
+  )
 '''
 
 
