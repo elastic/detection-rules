@@ -30,7 +30,9 @@ query = '''
 process where event.type in ("process_started", "start") and
    (process.name : ("pwsh.exe", "powershell.exe", "powershell_ise.exe") or process.pe.original_file_name in
      ("pwsh.dll", "powershell.exe", "powershell_ise.exe") and
-	 process.args : ("Set-PSReadlineOption","Remove-Item","*ConsoleHost*history*","Clear-History","-HistorySaveStyle","SaveNothing")
+	 process.args : ("Clear-History", "Remove-Item", "*ConsoleHost*history*") or
+	 process.args : ("Remove-Item","(Get-PSReadlineOption).HistorySavePath") or
+	 process.args : ("Set-PSReadlineOption","-HistorySaveStyle","SaveNothing"))
 '''
 
 
