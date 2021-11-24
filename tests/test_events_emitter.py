@@ -206,10 +206,17 @@ eql_sequence_exceptions = {
 
 class TestEventEmitter(unittest.TestCase):
 
-    def test_eql_events(self):
+    def setUp(self):
+        # save the generator internal state
+        self.random_state = random.getstate()
         # make repeatable random choices
         random.seed(0xbadfab1e)
 
+    def tearDown(self):
+        # restore the generator internal state
+        random.setstate(self.random_state)
+
+    def test_eql_events(self):
         with eql.parser.elasticsearch_syntax:
             for query, docs in eql_event_docs.items():
                 with self.subTest(query):
@@ -221,9 +228,6 @@ class TestEventEmitter(unittest.TestCase):
                         emitter.emit_events(eql.parse_query(query))
 
     def test_eql_sequence(self):
-        # make repeatable random choices
-        random.seed(0xbadfab1e)
-
         with eql.parser.elasticsearch_syntax:
             for query, docs in eql_sequence_docs.items():
                 with self.subTest(query):
