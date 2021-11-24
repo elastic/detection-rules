@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/18"
 maturity = "production"
-updated_date = "2021/06/01"
+updated_date = "2021/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -32,10 +32,12 @@ registry where
  or
  /* in general COM Registry changes on Users Hive is less noisy and worth alerting */
  (registry.path : ("HKEY_USERS\\*Classes\\*\\InprocServer32\\",
-                   "HKEY_USERS\\*Classes\\*\\LocalServer32\\", 
+                   "HKEY_USERS\\*Classes\\*\\LocalServer32\\",
                    "HKEY_USERS\\*Classes\\*\\DelegateExecute\\", 
                    "HKEY_USERS\\*Classes\\*\\TreatAs\\", 
                    "HKEY_USERS\\*Classes\\CLSID\\*\\ScriptletURL\\") and
+ not (process.executable : "?:\\Program Files*\\Veeam\\Backup and Replication\\Console\\veeam.backup.shell.exe" and
+      registry.path : "HKEY_USERS\\S-1-5-21-*_Classes\\CLSID\\*\\LocalServer32\\") and
  /* not necessary but good for filtering privileged installations */
  user.domain != "NT AUTHORITY")
 '''
