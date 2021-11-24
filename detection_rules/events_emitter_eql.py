@@ -185,11 +185,11 @@ def emit_FunctionCall(node: eql.ast.FunctionCall):
         raise NotImplementedError(f"Unsupported argument type: {type(node.argument[0])}")
     if type(node.arguments[1]) != eql.ast.String:
         raise NotImplementedError(f"Unsupported argument type: {type(node.argument[1])}")
-    value = fuzzy_choice(node.arguments[1:]).value
-    value = value.replace("?", "_")
-    value = value.replace("*", "")
-    doc = emit_Field(node.arguments[0], value.lower())
-    return [doc]
+    docs = []
+    for arg in fuzzy_iter(node.arguments[1:]):
+        value = expand_wildcards(arg.value).lower()
+        docs.append(emit_Field(node.arguments[0], value))
+    return docs
 
 @emitter(eql.ast.BaseNode)
 @emitter(eql.ast.Expression)

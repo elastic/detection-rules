@@ -98,9 +98,10 @@ eql_event_docs = {
         {"event": {"category": "process"}, "process": {"name": "powershell.exe"}},
     ],
 
-    """process where process.name : "REG?*32.EXE"
+    """process where process.name : ("*.EXE", "*.DLL")
     """: [
-        {"event": {"category": "process"}, "process": {"name": "reg_32.exe"}},
+        {"event": {"category": "process"}, "process": {"name": "nt.exe"}},
+        {"event": {"category": "process"}, "process": {"name": "k9ndgzsyyr.dll"}},
     ],
 
     """process where event.type in ("start", "process_started") and process.args : "dump-keychain" and process.args : "-d"

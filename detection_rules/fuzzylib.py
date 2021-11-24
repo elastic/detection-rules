@@ -9,6 +9,7 @@ import random
 import string
 
 __all__ = (
+    "expand_wildcards",
     "fuzzy_choice",
     "fuzzy_iter",
     "get_random_string",
@@ -52,3 +53,13 @@ def fuzzy_iter(iterable):
     # shortcut: should shuffle randomly
     return iterable
 
+def expand_wildcards(s, allowed_chars=string.ascii_letters+string.digits):
+    chars = []
+    for c in list(s):
+        if c == '?':
+            chars.append(random.choice(allowed_chars))
+        elif c == "*":
+            chars.extend(random.choices(allowed_chars, k=random.randrange(16)))
+        else:
+            chars.append(c)
+    return "".join(chars)
