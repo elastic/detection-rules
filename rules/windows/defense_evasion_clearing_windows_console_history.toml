@@ -27,13 +27,11 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("process_started", "start") and
-   (process.name : ("pwsh.exe", "powershell.exe", "powershell_ise.exe") or process.pe.original_file_name in
-     ("pwsh.dll", "powershell.exe", "powershell_ise.exe") and
-	 process.args : "Clear-History" or
-	 process.args : "Remove-Item" and process.args : "*ConsoleHost*history*" or
-	 process.args : "Remove-Item" and process.args : "*Get-PSReadlineOption*.HistorySavePath" or
-	 process.args : "Set-PSReadlineOption" and process.args : ("-HistorySaveStyle","SaveNothing")
+process where event.action == "start" and
+  (process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") or process.pe.original_file_name == "PowerShell.EXE") and
+     (process.args : "*Clear-History*" or
+     (process.args : ("*Remove-Item*", "rm") and process.args : ("*ConsoleHost_history.txt*", "*(Get-PSReadlineOption).HistorySavePath*")) or
+     (process.args : "*Set-PSReadlineOption*" and process.args : "*SaveNothing*"))
 '''
 
 [[rule.threat]]
