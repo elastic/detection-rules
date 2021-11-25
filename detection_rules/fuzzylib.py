@@ -19,14 +19,19 @@ __all__ = (
 
 fuzziness_level = 1
 
-@contextlib.contextmanager
-def fuzziness(level):
+def fuzziness(level=None):
     global fuzziness_level
-    orig_level, fuzziness_level = fuzziness_level, level
-    try:
-        yield
-    finally:
-        fuzziness_level = orig_level
+    if level is None:
+        return fuzziness_level
+    @contextlib.contextmanager
+    def _fuzziness(level):
+        global fuzziness_level
+        orig_level, fuzziness_level = fuzziness_level, level
+        try:
+            yield
+        finally:
+            fuzziness_level = orig_level
+    return _fuzziness(level)
 
 def get_random_string(min_length, condition=None, allowed_chars=string.ascii_letters):
     l = random.choices(allowed_chars, k=min_length)

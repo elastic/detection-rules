@@ -53,13 +53,17 @@ class emitter:
         return {k.__name__: (v.successful, v.total) for k,v in cls.emitters.items()}
 
     @classmethod
-    @contextlib.contextmanager
-    def completeness(cls, level):
-        orig_level, cls.completeness_level = cls.completeness_level, level
-        try:
-            yield
-        finally:
-            cls.completeness_level = orig_level
+    def completeness(cls, level=None):
+        if level is None:
+            return cls.completeness_level
+        @contextlib.contextmanager
+        def _completeness(level):
+            orig_level, cls.completeness_level = cls.completeness_level, level
+            try:
+                yield
+            finally:
+                cls.completeness_level = orig_level
+        return _completeness(level)
 
     @classmethod
     def complete_iter(cls, iterable):

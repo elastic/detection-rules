@@ -100,8 +100,8 @@ eql_event_docs_complete = {
 
     """process where process.name : ("*.EXE", "*.DLL")
     """: [
-        {"event": {"category": "process"}, "process": {"name": "nt.exe"}},
-        {"event": {"category": "process"}, "process": {"name": "k9ndgzsyyr.dll"}},
+        {"event": {"category": "process"}, "process": {"name": "4pp7h.exe"}},
+        {"event": {"category": "process"}, "process": {"name": "0gwcwq8s9dic.dll"}},
     ],
 
     """process where event.type in ("start", "process_started") and process.args : "dump-keychain" and process.args : "-d"
@@ -124,16 +124,16 @@ eql_sequence_docs_complete = {
         [process where process.name : "cmd.exe"]
         [process where process.parent.name : "cmd.exe"]
     """: [
-        {"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "dMR"}},
-        {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"id": "dMR"}},
+        {"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "xgG"}},
+        {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"id": "xgG"}},
     ],
 
     """sequence
         [process where process.name : "cmd.exe"] by user.id
         [process where process.parent.name : "cmd.exe"] by user.name
     """: [
-        {"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "EZH"}},
-        {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"name": "EZH"}},
+        {"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "Eev"}},
+        {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"name": "Eev"}},
     ],
 
     """sequence
@@ -150,10 +150,10 @@ eql_sequence_docs_complete = {
         [process where process.name : "cmd.exe"]
         [process where process.parent.name : "cmd.exe" or process.name : "powershell.exe"]
     """: [
-        {"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "yAv"}},
-        {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"id": "yAv"}},
-        {"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "KQQ"}},
-        {"event": {"category": "process"}, "process": {"name": "powershell.exe"}, "user": {"id": "KQQ"}},
+        {"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "GuM"}},
+        {"event": {"category": "process"}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"id": "GuM"}},
+        {"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "etd"}},
+        {"event": {"category": "process"}, "process": {"name": "powershell.exe"}, "user": {"id": "etd"}},
     ],
 
     """sequence
@@ -174,14 +174,14 @@ eql_sequence_docs_complete = {
         [process where process.name in ("cmd.exe", "powershell.exe")] by process.name
         [process where process.name in ("cmd.exe", "powershell.exe")] by process.parent.name
     """: [
-        {"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "KbTNHP"}},
-        {"event": {"category": "process"}, "process": {"name": "cmd.exe", "parent": {"name": "cmd.exe"}}, "user": {"id": "KbTNHP"}},
-        {"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "xIPVPH"}},
-        {"event": {"category": "process"}, "process": {"name": "powershell.exe", "parent": {"name": "cmd.exe"}}, "user": {"id": "xIPVPH"}},
-        {"event": {"category": "process"}, "process": {"name": "powershell.exe"}, "user": {"id": "MKhQrp"}},
-        {"event": {"category": "process"}, "process": {"name": "cmd.exe", "parent": {"name": "powershell.exe"}}, "user": {"id": "MKhQrp"}},
-        {"event": {"category": "process"}, "process": {"name": "powershell.exe"}, "user": {"id": "tJNhXK"}},
-        {"event": {"category": "process"}, "process": {"name": "powershell.exe", "parent": {"name": "powershell.exe"}}, "user": {"id": "tJNhXK"}},
+        {"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "TkxREt"}},
+        {"event": {"category": "process"}, "process": {"name": "cmd.exe", "parent": {"name": "cmd.exe"}}, "user": {"id": "TkxREt"}},
+        {"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "dLhBvu"}},
+        {"event": {"category": "process"}, "process": {"name": "powershell.exe", "parent": {"name": "cmd.exe"}}, "user": {"id": "dLhBvu"}},
+        {"event": {"category": "process"}, "process": {"name": "powershell.exe"}, "user": {"id": "UHxpew"}},
+        {"event": {"category": "process"}, "process": {"name": "cmd.exe", "parent": {"name": "powershell.exe"}}, "user": {"id": "UHxpew"}},
+        {"event": {"category": "process"}, "process": {"name": "powershell.exe"}, "user": {"id": "lKcSwh"}},
+        {"event": {"category": "process"}, "process": {"name": "powershell.exe", "parent": {"name": "powershell.exe"}}, "user": {"id": "lKcSwh"}},
     ],
 }
 
@@ -208,12 +208,17 @@ class TestEventEmitter(unittest.TestCase):
     def setUp(self):
         # save the generator internal state
         self.random_state = random.getstate()
-        # make repeatable random choices
-        random.seed(0xbadfab1e)
 
     def tearDown(self):
         # restore the generator internal state
         random.setstate(self.random_state)
+
+    def subTest(self, query):
+        # make repeatable random choices
+        fuzziness = emitter.fuzziness()
+        completeness = emitter.completeness()
+        random.seed(f"{query} {completeness} {fuzziness}")
+        return super(TestEventEmitter, self).subTest(query, completeness=completeness, fuzziness=fuzziness)
 
     def test_eql_exceptions(self):
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0):
