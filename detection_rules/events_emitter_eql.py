@@ -104,7 +104,7 @@ def emit_Comparison(node: eql.ast.Comparison):
 
     if type(node.left) != eql.ast.Field:
         raise NotImplementedError(f"Unsupported LHS type: {type(node.left)}")
-    if type(node.right) not in (eql.ast.String, eql.ast.Number, eql.ast.Boolean):
+    if type(node.right) not in ops:
         raise NotImplementedError(f"Unsupported RHS type: {type(node.left)}")
 
     value = ops[type(node.right)][node.comparator](node.right.value)
@@ -170,9 +170,7 @@ def emit_Queries(queries, docs, stack):
 
 @emitter(eql.ast.Sequence)
 def emit_Sequence(node: eql.ast.Sequence):
-    queries = []
-    for query in node.queries:
-        queries.append(emit_SubqueryBy(query))
+    queries = [emit_SubqueryBy(query) for query in node.queries]
     if node.close:
         queries.append((emit(node.close), ()))
     return emit_Queries(queries, [], [])

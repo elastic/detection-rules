@@ -40,7 +40,7 @@ def get_random_string(min_length, condition=None, allowed_chars=string.ascii_let
     return "".join(l)
 
 def get_random_octets(n):
-    return [random.randint(1, 254) for _ in range(n-1)]
+    return random.choices(range(1, 255), k=n)
 
 def fuzzy_ip(nr_octets, sep, fmt, condition = None):
     if fuzziness_level:
