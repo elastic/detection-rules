@@ -283,6 +283,8 @@ def emit_events(ctx, paths):
         except Exception as e:
             errors.append(str(e))
 
+    docs.insert(0, emitter.emit_mappings())
+
     click.echo("\n".join(json.dumps(doc, sort_keys=True) for doc in docs))
     stats = sorted(get_ast_stats().items(), key=lambda x: x[1][1], reverse=True)
     click.echo("AST stats:\n  " + "\n  ".join("{:d}/{:d}: {:s}".format(v[0], v[1], k) for k,v in stats if v[1]), err=True)

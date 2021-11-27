@@ -10,6 +10,33 @@ import eql
 
 from detection_rules.events_emitter import emitter
 
+eql_event_docs_mappings = {
+    """process where process.name == "regsvr32.exe"
+    """: {
+        "properties": {
+            "event": {"properties": {"category": {"type": "keyword"}}},
+            "process": {"properties": {"name": {"type": "keyword"}}},
+        },
+    },
+
+    """network where source.ip == "::1" or destination.ip == "::1"
+    """: {
+        "properties": {
+            "event": {"properties": {"category": {"type": "keyword"}}},
+            "destination": {"properties": {"ip": {"type": "ip"}}},
+            "source": {"properties": {"ip": {"type": "ip"}}},
+        },
+    },
+
+    """process where process.code_signature.exists == false and process.pid == 0
+    """: {
+        "properties": {
+            "event": {"properties": {"category": {"type": "keyword"}}},
+            "process": {"properties": {"code_signature": {"properties": {"exists": {"type": "boolean"}}}, "pid": {"type": "long"}}},
+        },
+    },
+}
+
 eql_event_docs_complete = {
     """process where process.name == "regsvr32.exe"
     """: [
@@ -219,6 +246,14 @@ class TestEventEmitter(unittest.TestCase):
         completeness = emitter.completeness()
         random.seed(f"{query} {completeness} {fuzziness}")
         return super(TestEventEmitter, self).subTest(query, completeness=completeness, fuzziness=fuzziness)
+
+    def test_mappings(self):
+        with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
+            for query, mappings in eql_event_docs_mappings.items():
+                with self.subTest(query):
+                    emitter.reset_mappings()
+                    _ = emitter.emit_events(eql.parse_query(query))
+                    self.assertEqual(mappings, emitter.emit_mappings())
 
     def test_eql_exceptions(self):
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0):

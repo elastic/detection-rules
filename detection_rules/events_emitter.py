@@ -10,8 +10,9 @@ import random
 import contextlib
 from typing import List
 
-from .ecs import get_max_version
+from .ecs import get_schema, get_max_version
 from .rule import AnyRuleData
+from .utils import deep_merge
 import detection_rules.fuzzylib as fuzzylib
 
 __all__ = (
@@ -26,6 +27,7 @@ class emitter:
     completeness_level = 0
     fuzziness = fuzzylib.fuzziness
     fuzzy_iter = fuzzylib.fuzzy_iter
+    mappings_fields = set()
 
     def __init__(self, node_type):
         self.node_type = node_type
@@ -45,6 +47,14 @@ class emitter:
 
         self.wrapper = wrapper
         return wrapper
+
+    @classmethod
+    def add_mappings_field(cls, field):
+        cls.mappings_fields.add(field)
+
+    @classmethod
+    def reset_mappings(cls):
+        cls.mappings_fields = set()
 
     @classmethod
     def emit_events(cls, node):
@@ -76,6 +86,20 @@ class emitter:
     def iter(cls, iterable):
         return cls.complete_iter(cls.fuzzy_iter(iterable))
 
+    @classmethod
+    def emit_mappings(cls):
+        mappings = {}
+        for field in cls.mappings_fields:
+            try:
+                field_type = get_schema(version=cls.ecs_version)[field]["type"]
+            except KeyError:
+                field_type = "keyword"
+            value = {"type": field_type}
+            for part in reversed(field.split(".")):
+                value = {"properties": {part: value}}
+            deep_merge(mappings, value)
+        return mappings
+
 
 def emit_events(rule: AnyRuleData) -> List[str]:
     if rule.type not in ("query", "eql"):
@@ -87,6 +111,9 @@ def emit_events(rule: AnyRuleData) -> List[str]:
     else:
         raise NotImplementedError(f"Unsupported query language: {rule.language}")
 
+    emitter.add_mappings_field("@timestamp")
+    emitter.add_mappings_field("ecs.version")
+    emitter.add_mappings_field("rule.name")
     for doc in docs:
         doc.update({
             "@timestamp": int(time.time() * 1000),

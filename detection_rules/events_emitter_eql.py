@@ -33,6 +33,7 @@ def is_field_array(name):
 @emitter(eql.ast.Field)
 def emit_Field(node: eql.ast.Field, value):
     field = node.render()
+    emitter.add_mappings_field(field)
     if is_field_array(field):
         value = [value]
     for part in reversed([node.base] + node.path):
@@ -120,6 +121,7 @@ def emit_EventQuery(node: eql.ast.EventQuery):
     docs = emit(node.query)
     if node.event_type != "any":
         for doc in docs:
+            emitter.add_mappings_field("event.category")
             deep_merge(doc, {"event": { "category": node.event_type }})
     return docs
 
