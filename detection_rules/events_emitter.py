@@ -10,6 +10,7 @@ import random
 import contextlib
 from typing import List
 
+from .ecs import get_max_version
 from .rule import AnyRuleData
 import detection_rules.fuzzylib as fuzzylib
 
@@ -20,6 +21,7 @@ __all__ = (
 
 
 class emitter:
+    ecs_version = get_max_version()
     emitters = {}
     completeness_level = 0
     fuzziness = fuzzylib.fuzziness
@@ -88,7 +90,8 @@ def emit_events(rule: AnyRuleData) -> List[str]:
     for doc in docs:
         doc.update({
             "@timestamp": int(time.time() * 1000),
-            "rule.name": rule.name,
+            "ecs": {"version": emitter.ecs_version},
+            "rule": {"name": rule.name},
         })
     return docs
 

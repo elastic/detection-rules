@@ -13,6 +13,7 @@ import copy
 from typing import List
 import eql
 
+from .ecs import get_schema
 from .utils import deep_merge
 from .fuzzylib import *
 from .events_emitter import emitter
@@ -23,18 +24,19 @@ __all__ = (
 def emit(node: eql.ast.BaseNode) -> List[str]:
     return emitter.emit_events(node)
 
+def is_field_array(name):
+    try:
+        return "array" in get_schema(version=emitter.ecs_version)[name]["normalize"]
+    except KeyError:
+        return False
+
 @emitter(eql.ast.Field)
 def emit_Field(node: eql.ast.Field, value):
-    # shortcut: this kind of info should come from ECS
-    list_fields = (
-        "event.type",
-        "process.args",
-        "process.parent.args",
-    )
-    if node.render() in list_fields:
+    field = node.render()
+    if is_field_array(field):
         value = [value]
     for part in reversed([node.base] + node.path):
-        value = { part: value }
+        value = {part: value}
     return value
 
 @emitter(eql.ast.Or)
