@@ -1,0 +1,59 @@
+[metadata]
+creation_date = "2021/11/27"
+maturity = "production"
+
+
+[rule]
+author = ["Austin Songer"]
+description = """
+Identifies the use of sound recorder via application or Powershell command. This activity could be a sign of an adversary leveraging an application to record audio of sensitive conversations. A common feature in popular post-exploitation tooling
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Windows Process with Audio Capture Capabilities"
+references = [
+    "https://answers.microsoft.com/en-us/windows/forum/all/soundrecorder/be109c46-67d3-45f0-b47f-03445a6a3174?auth=1",
+    "https://github.com/frgnca/AudioDeviceCmdlets",
+    "https://www.powershellgallery.com/packages/AudioDeviceCmdlets/3.0.0.4",
+    "https://powersploit.readthedocs.io/en/latest/#exfiltration",
+]
+risk_score = 47
+rule_id = "6aa3a840-2438-40d4-9b84-85e4c81613fb"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Collection"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  ((process.name:"SoundRecorder.exe" or process.pe.original_file_name == "SoundRecorder.exe") and
+      process.args : ("*/*","/file","/Duration")  or
+  ((process.name : ("pwsh.exe", "powershell.exe", "powershell_ise.exe") or process.pe.original_file_name in
+      ("pwsh.exe", "powershell.exe", "powershell_ise.exe") and
+       process.args : ("Get-AudioDevice*","*WindowsAudioDevice-", "Powershell-Cmdlet*", "Get-MicrophoneAudio*")) 
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1123"
+name = "Audio Capture"
+reference = "https://attack.mitre.org/techniques/T1123/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+name = "Execution"
