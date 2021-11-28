@@ -1,0 +1,48 @@
+[metadata]
+creation_date = "2021/11/27"
+maturity = "development"
+integration = "o365"
+
+[rule]
+author = ["Austin Songer"]
+description = """
+Identifies when a site collection administrator has been added.
+"""
+
+from = "now-30m"
+index = ["filebeat-*", "logs-o365*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Microsoft 365 "
+note = """## Config
+
+The Microsoft 365 Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
+"""
+references = [
+    "https://docs.microsoft.com/en-us/cloud-app-security/anomaly-detection-policy",
+    "https://docs.microsoft.com/en-us/cloud-app-security/policy-template-reference",
+]
+risk_score = 21
+rule_id = "5d431b28-1846-4e9f-8945-9708e86c34d4"
+severity = "low"
+tags = ["Elastic", "Cloud", "Microsoft 365", "Continuous Monitoring", "SecOps", "Configuration Audit"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:o365.audit and event.provider:(SharePoint or OneDrive) and event.category:web and 
+event.action:SiteCollectionAdminAdded event.outcome:(success or Success)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+id = "T1098"
+
+
+[rule.threat.tactic]
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003"
+id = "TA0003"
