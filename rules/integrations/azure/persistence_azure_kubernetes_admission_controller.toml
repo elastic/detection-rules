@@ -1,0 +1,72 @@
+[metadata]
+creation_date = "2021/11/27"
+maturity = "production"
+integration = "azure"
+
+[rule]
+author = ["Austin Songer"]
+description = """
+Identifies when an admission controller is executed in Azure Kubernetes. Admission controller intercepts, and possibly modifies, requests to the Kubernetes API server. The behavior of this admission controller is determined by an admission webhook that the user deploys in the cluster. Attackers can use such webhooks for gaining persistence in the cluster. For example, attackers can intercept and modify the pod creation operations in the cluster and add their malicious container to every created pod.
+"""
+false_positives = [
+    """
+    Azure Kubernetes Admissions Controller may be done by a system administrator.
+    """,
+]
+from = "now-25m"
+index = ["filebeat-*", "logs-azure*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure "
+note = """## Config
+
+The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://docs.microsoft.com/en-us/azure/role-based-access-control/resource-provider-operations#microsoftkubernetes",
+]
+risk_score = 47
+rule_id = "b4499a00-e080-4301-9efe-0291a0b04e5c"
+severity = "medium"
+tags = ["Elastic", "Cloud", "Azure", "Continuous Monitoring", "SecOps"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:azure.activitylogs and azure.activitylogs.operation_name:
+("MICROSOFT.CONTAINERSERVICE/MANAGEDCLUSTERS/ADMISSIONREGISTRATION.K8S.IO/MUTATINGWEBHOOKCONFIGURATIONS/WRITE" or
+ "MICROSOFT.CONTAINERSERVICE/MANAGEDCLUSTERS/ADMISSIONREGISTRATION.K8S.IO/VALIDATINGWEBHOOKCONFIGURATIONS/WRITE" or
+ "MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/ADMISSIONREGISTRATION.K8S.IO/MUTATINGWEBHOOKCONFIGURATIONS/WRITE" or
+ "MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/ADMISSIONREGISTRATION.K8S.IO/VALIDATINGWEBHOOKCONFIGURATIONS/WRITE") and 
+event.outcome:(Success or success)
+
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1552"
+name = "Unsecured Credentials"
+reference = "https://attack.mitre.org/techniques/T1552/"
+
+  [[rule.threat.technique.subtechnique]]
+  id = "T1552.007"
+  name = "Container API"
+  reference = "https://attack.mitre.org/techniques/T1552/007/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
