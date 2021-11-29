@@ -1,0 +1,41 @@
+version: '3'
+services:
+  es:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.15.2
+    container_name: es
+    environment:
+      - node.name=es
+      - cluster.name=detection-rules
+      - discovery.type=single-node
+      - action.destructive_requires_name=false
+      - xpack.security.enabled=true
+      - xpack.security.authc.api_key.enabled=true
+      - ELASTIC_USERNAME=elastic
+      - ELASTIC_PASSWORD=changeit
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - 127.0.0.1:9200:9200
+    networks:
+      - net
+  kbn:
+    image: docker.elastic.co/kibana/kibana:7.15.2
+    container_name: kbn
+    environment:
+      SERVER_NAME: kbn
+      ELASTICSEARCH_HOSTS: http://es:9200
+      ELASTICSEARCH_USERNAME: elastic
+      ELASTICSEARCH_PASSWORD: changeit
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: 0123456789abcdef0123456789ABCDEF
+    ports:
+      - 127.0.0.1:5601:5601
+    networks:
+      - net
+
+networks:
+  net:
+    driver: bridge
