@@ -10,8 +10,10 @@ import time
 import unittest
 import random
 import json
+from warnings import warn
 import eql
 
+from detection_rules.rule_loader import RuleCollection
 from detection_rules.events_emitter import emitter
 
 eql_event_docs_mappings = {
@@ -280,9 +282,8 @@ class TestEventEmitter(TestCaseSeed, unittest.TestCase):
                 with self.subTest(query):
                     self.assertEqual(docs, emitter.emit_events(eql.parse_query(query)))
 
-skip_alerts_test = os.getenv("TEST_ALERTS", "0").lower() not in ("1", "true")
-@unittest.skipIf(skip_alerts_test, "Slow online test")
-class TestAlerts(TestCaseSeed, unittest.TestCase):
+class TestCaseOnline:
+    index_template = "detection-rules-ut"
 
     @classmethod
     def setUpClass(cls):
@@ -305,7 +306,6 @@ class TestAlerts(TestCaseSeed, unittest.TestCase):
             raise RuntimeError(f"Could not create SIEM index: {res.json()}")
 
         cls.es_indices = IndicesClient(cls.es)
-        cls.index_template = "detection-rules-ut"
 
     @classmethod
     def tearDownClass(cls):
@@ -315,7 +315,7 @@ class TestAlerts(TestCaseSeed, unittest.TestCase):
         del(cls.es_indices)
 
     def setUp(self):
-        super(TestAlerts, self).setUp()
+        super(TestCaseOnline, self).setUp()
 
         res = self.kbn.delete_detection_engine_rules()
         if res.status_code != 200:
@@ -327,53 +327,120 @@ class TestAlerts(TestCaseSeed, unittest.TestCase):
         self.es_indices.delete(f"{self.index_template}-*")
         self.es.delete_by_query(".siem-signals-default-000001", body={"query": {"match_all": {}}})
 
-    def test_alerts_gen(self):
-        test_rules = []
-        bulk = []
-        emitter.reset_mappings()
-        with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
-            for i,(query,_) in enumerate(eql_event_docs_complete.items()):
-                index_name = "{:s}-{:03d}".format(self.index_template, i)
-                rule = {
-                    "rule_id": "test_{:03d}".format(i),
-                    "risk_score": 17,
-                    "description": "Test rule {:03d}".format(i),
-                    "interval": "3s",
-                    "from": "now-5m",
-                    "name": "test_{:03d}".format(i),
-                    "severity": "low",
-                    "type": "eql",
-                    "index": [index_name],
-                    "query": query,
-                    "language": "eql",
-                    "enabled": True,
-                }
-                test_rules.append(rule)
 
-                with self.subTest(query):
-                    for doc in emitter.emit_events(eql.parse_query(query)):
+skip_alerts_test = os.getenv("TEST_ALERTS", "0").lower() not in ("1", "true")
+@unittest.skipIf(skip_alerts_test, "Slow online test")
+class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
+
+    def get_rules_from_queries(self, queries):
+        rules = []
+        ast_nodes = []
+        for i,query in enumerate(queries):
+            index_name = "{:s}-{:03d}".format(self.index_template, i)
+            rules.append({
+                "rule_id": "test_{:03d}".format(i),
+                "risk_score": 17,
+                "description": "Test rule {:03d}".format(i),
+                "name": "Rule {:03d}".format(i),
+                "index": [index_name],
+                "interval": "3s",
+                "from": "now-5m",
+                "severity": "low",
+                "type": "eql",
+                "query": query,
+                "language": "eql",
+                "enabled": True,
+            })
+        return rules
+
+    def generate_docs(self, rules, ast_nodes):
+        emitter.reset_mappings()
+        emitter.add_mappings_field("@timestamp")
+        emitter.add_mappings_field("ecs.version")
+        emitter.add_mappings_field("rule.name")
+
+        bulk = []
+        for rule, ast_node in zip(rules, ast_nodes):
+            with self.subTest(rule["query"]):
+                try:
+                    for doc in emitter.emit_events(ast_node):
                         doc.update({
                             "@timestamp": int(time.time() * 1000),
                             "ecs": {"version": emitter.ecs_version},
                             "rule": {"name": rule["name"]},
                         })
-                        bulk.append(json.dumps({"index": {"_index": index_name}}))
+                        bulk.append(json.dumps({"index": {"_index": rule["index"][0]}}))
                         bulk.append(json.dumps(doc))
+                except Exception as e:
+                    warn(str(e))
+        return (bulk, emitter.emit_mappings())
 
-        emitter.add_mappings_field("@timestamp")
-        emitter.add_mappings_field("ecs.version")
-        emitter.add_mappings_field("rule.name")
+    def alerts_gen(self, rules, ast_nodes, batch_size=100):
+        docs, mappings = self.generate_docs(rules, ast_nodes)
+
         template = {
             "index_patterns": [f"{self.index_template}-*"],
-            "template": {
-                "mappings": emitter.emit_mappings(),
-            }
+            "template": {"mappings": mappings},
         }
         self.es_indices.put_index_template(self.index_template, body=template)
 
-        ret = self.es.bulk("\n".join(bulk))
-        if any(item["index"]["result"] != "created" for item in ret["items"]):
-            raise RuntimeError("Some documents were not created")
+        pos = 0
+        while docs[pos:pos+batch_size]:
+            ret = self.es.bulk("\n".join(docs[pos:pos+batch_size]))
+            for item in ret["items"]:
+                if item["index"]["status"] != 201:
+                    warn(str(item["index"]))
+            pos += batch_size
 
-        res = self.kbn.create_detection_engine_rules(test_rules)
+        res = self.kbn.create_detection_engine_rules(rules)
         self.assertEqual(200, res.status_code)
+
+    def test_eql_events_complete(self):
+        rules = self.get_rules_from_queries(eql_event_docs_complete)
+        with eql.parser.elasticsearch_syntax:
+            ast_nodes = [eql.parse_query(query) for query in eql_event_docs_complete]
+        with emitter.fuzziness(0), emitter.completeness(1):
+            self.alerts_gen(rules, ast_nodes)
+
+    def test_eql_sequence_complete(self):
+        rules = self.get_rules_from_queries(eql_sequence_docs_complete)
+        with eql.parser.elasticsearch_syntax:
+            ast_nodes = [eql.parse_query(query) for query in eql_sequence_docs_complete]
+        with emitter.fuzziness(0), emitter.completeness(1):
+            self.alerts_gen(rules, ast_nodes)
+
+    def get_rules_from_collection(self, collection):
+        rules = []
+        ast_nodes = []
+        for i,rule in enumerate(collection):
+            rule = rule.contents.data
+            if rule.type == "eql":
+                ast_nodes.append(rule.validator.ast)
+            elif rule.type == "query" and rule.language == "kuery":
+                ast_nodes.append(rule.validator.to_eql())
+            else:
+                warn(f"rule was skipped: type={rule.type}")
+                continue
+
+            index_name = "{:s}-{:03d}".format(self.index_template, i)
+            rules.append({
+                "rule_id": rule.rule_id,
+                "risk_score": rule.risk_score,
+                "description": rule.description,
+                "name": rule.name,
+                "index": [index_name],
+                "interval": "3s",
+                "from": "now-5m",
+                "severity": rule.severity,
+                "type": rule.type,
+                "query": rule.query,
+                "language": rule.language,
+                "enabled": True,
+            })
+        return rules, ast_nodes
+
+    def test_collection(self):
+        with eql.parser.elasticsearch_syntax:
+            rules, ast_nodes = self.get_rules_from_collection(RuleCollection.default())
+        with emitter.fuzziness(0), emitter.completeness(1):
+            self.alerts_gen(rules, ast_nodes)
