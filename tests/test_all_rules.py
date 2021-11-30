@@ -14,7 +14,7 @@ import eql
 
 import kql
 from detection_rules import attack
-from detection_rules.version_lock import load_versions
+from detection_rules.version_lock import default_version_lock
 from detection_rules.rule import QueryRuleData
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.schemas import definitions
@@ -377,7 +377,7 @@ class TestRuleMetadata(BaseRuleTest):
 
     def test_deprecated_rules(self):
         """Test that deprecated rules are properly handled."""
-        versions = load_versions()
+        versions = default_version_lock.version_lock
         deprecations = load_etc_dump('deprecated_rules.json')
         deprecated_rules = {}
         rules_path = get_path('rules')
@@ -421,6 +421,53 @@ class TestRuleMetadata(BaseRuleTest):
         for rule_id, entry in deprecations.items():
             rule_str = f'{rule_id} - {entry["rule_name"]} ->'
             self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
+
+    def test_integration(self):
+        """Test that rules in integrations folders have matching integration defined."""
+        failures = []
+
+        for rule in self.production_rules:
+            rules_path = get_path('rules')
+            *_, grandparent, parent, _ = rule.path.parts
+            in_integrations = grandparent == 'integrations'
+            integration = rule.contents.metadata.get('integration')
+            has_integration = integration is not None
+
+            if (in_integrations or has_integration) and (parent != integration):
+                err_msg = f'{self.rule_str(rule)}\nintegration: {integration}\npath: {rule.path.relative_to(rules_path)}'  # noqa: E501
+                failures.append(err_msg)
+
+        if failures:
+            err_msg = 'The following rules have missing/incorrect integrations or are not in an integrations folder:\n'
+            self.fail(err_msg + '\n'.join(failures))
+
+    def test_rule_demotions(self):
+        """Test to ensure a locked rule is not dropped to development, only deprecated"""
+        versions = default_version_lock.version_lock
+        failures = []
+
+        for rule in self.all_rules:
+            if rule.id in versions and rule.contents.metadata.maturity not in ('production', 'deprecated'):
+                err_msg = f'{self.rule_str(rule)} a version locked rule can only go from production to deprecated\n'
+                err_msg += f'Actual: {rule.contents.metadata.maturity}'
+                failures.append(err_msg)
+
+        if failures:
+            err_msg = '\n'.join(failures)
+            self.fail(f'The following rules have been improperly demoted:\n{err_msg}')
+
+    def test_all_min_stack_rules_have_comment(self):
+        failures = []
+
+        for rule in self.all_rules:
+            if rule.contents.metadata.min_stack_version and not rule.contents.metadata.min_stack_comments:
+                failures.append(f'{self.rule_str(rule)} missing `metadata.min_stack_comments`. min_stack_version: '
+                                f'{rule.contents.metadata.min_stack_version}')
+
+        if failures:
+            err_msg = '\n'.join(failures)
+            self.fail(f'The following ({len(failures)}) rules have a `min_stack_version` defined but missing comments:'
+                      f'\n{err_msg}')
 
 
 class TestRuleTiming(BaseRuleTest):
