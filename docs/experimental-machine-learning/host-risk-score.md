@@ -1,13 +1,16 @@
 # Host Risk Score- What is it?
 
-The Host Risk Score package (available as a GitHub release [here](https://github.com/elastic/detection-rules/releases)) consists of all the artifacts required to stand up the host risk scoring framework in your environment. This framework leverages transforms and visualizations in Kibana to identify the most suspicious hosts in your environment, based on alert activity on the hosts. 
+The Host Risk Score package consists of all the artifacts required to stand up the host risk scoring framework in your environment. This framework leverages transforms and visualizations in Kibana to identify the most suspicious hosts in your environment, based on alert activity on the hosts. 
 To deploy this framework in your environment, follow the steps outlined below.
 
 # Detailed steps
 
 #### 1. Unzip the release bundle
 
+Navigate to the latest GitHub [release](https://github.com/elastic/detection-rules/releases)), with the tag `ML-HostRiskScore-YYYMMDD-N`. From under `Assets`, download the zip file named `ML-HostRiskScore-YYYMMDD-N.zip` and unzip it. New releases may contain updated artifacts. 
+
 #### 2. Modify artifacts to reflect Kibana space
+
 For security reasons, we require that you restrict the Host Risk Score application to a specific Kibana space. In order to do so, run the `ml_hostriskscore_generate_scripts.py` script in the directory that is prefixed with `ML-HostRiskScore` with your Kibana space as the argument.
 
 Eg:
@@ -91,7 +94,7 @@ PUT _transform/ml_hostriskscore_latest_transform_<your-space-name>
 GET ml_host_risk_score_latest_<your-space-name>/_search (or _count)
 ```
 
-#### 8. Import the dashboards
+#### 9. Import the dashboards
 
 * Navigate to `Management` -> `Stack Management` -> `Kibana` -> `Saved Objects`
 * Click on `Import` and import the `ml_hostriskscore_dashboards.ndjson` file
