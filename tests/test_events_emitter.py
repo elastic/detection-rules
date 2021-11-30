@@ -234,22 +234,24 @@ eql_exceptions = {
         'ValueError: Destination field already exists: process.parent.name ("powershell.exe" != "cmd.exe")',
 }
 
-class TestEventEmitter(unittest.TestCase):
+
+class TestCaseSeed:
+    """Make Emitter repeat the same random choices."""
 
     def setUp(self):
-        # save the generator internal state
         self.random_state = random.getstate()
 
     def tearDown(self):
-        # restore the generator internal state
         random.setstate(self.random_state)
 
     def subTest(self, query):
-        # make repeatable random choices
         fuzziness = emitter.fuzziness()
         completeness = emitter.completeness()
         random.seed(f"{query} {completeness} {fuzziness}")
-        return super(TestEventEmitter, self).subTest(query, completeness=completeness, fuzziness=fuzziness)
+        return super(TestCaseSeed, self).subTest(query, completeness=completeness, fuzziness=fuzziness)
+
+
+class TestEventEmitter(TestCaseSeed, unittest.TestCase):
 
     def test_mappings(self):
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
@@ -280,7 +282,7 @@ class TestEventEmitter(unittest.TestCase):
 
 skip_alerts_test = os.getenv("TEST_ALERTS", "0").lower() not in ("1", "true")
 @unittest.skipIf(skip_alerts_test, "Slow online test")
-class TestAlerts(unittest.TestCase):
+class TestAlerts(TestCaseSeed, unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -313,6 +315,8 @@ class TestAlerts(unittest.TestCase):
         del(cls.es_indices)
 
     def setUp(self):
+        super(TestAlerts, self).setUp()
+
         res = self.kbn.delete_detection_engine_rules()
         if res.status_code != 200:
             raise RuntimeError(f"Could not reset rules: {res.json()}")
@@ -322,13 +326,6 @@ class TestAlerts(unittest.TestCase):
 
         self.es_indices.delete(f"{self.index_template}-*")
         self.es.delete_by_query(".siem-signals-default-000001", body={"query": {"match_all": {}}})
-
-    def subTest(self, query):
-        # make repeatable random choices
-        fuzziness = emitter.fuzziness()
-        completeness = emitter.completeness()
-        random.seed(f"{query} {completeness} {fuzziness}")
-        return super(TestAlerts, self).subTest(query, completeness=completeness, fuzziness=fuzziness)
 
     def test_alerts_gen(self):
         test_rules = []
