@@ -26,7 +26,7 @@ class Kibana:
         return requests.delete(f"{self.url}/api/detection_engine/rules?id={rule['id']}", headers=self.headers)
 
     def find_detection_engine_rules(self):
-        return requests.get(f"{self.url}/api/detection_engine/rules/_find", headers=self.headers)
+        return requests.get(f"{self.url}/api/detection_engine/rules/_find?per_page=1000", headers=self.headers)
 
     def create_detection_engine_rules(self, rules):
         return requests.post(f"{self.url}/api/detection_engine/rules/_bulk_create", headers=self.headers, data=json.dumps(rules))
