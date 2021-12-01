@@ -17,12 +17,13 @@ Host Risk Score is an experimental machine learning feature which assigns risk s
  8. [Enable Kibana features](#enable-kibana)
 
 <h3 id="modify-artifacts">1. Obtain artifacts</h3>
+
 Host Risk Score functionality is space aware for privacy. Downloaded artifacts must be modified with the desired space before they can be used.
 
  - Download the latest release [bundle](https://github.com/elastic/detection-rules/releases) with the tag `ML-HostRiskScore-YYYMMDD-N`.
  - Unzip the contents of `ML-HostRiskScore-YYYMMDD-N.zip`.
  - Run `ml_hostriskscore_generate_scripts.py` script in the unzipped directory with your Kibana space as the argument.
-<div style="margin-left: 30px">   
+<div style="margin-left: 40px">   
 <i>e.g. modifying artifacts for default space</i>
    <pre style="margin-top:-2px"><code>python ml_hostriskscore_generate_scripts.py --space default
 </code></pre></div>
@@ -35,11 +36,15 @@ Host Risk Score functionality is space aware for privacy. Downloaded artifacts m
 - Upload the contents of `ml_hostriskscore_levels_script.json`, `ml_hostriskscore_map_script.json` and `ml_hostriskscore_reduce_script.json` using the Script API in the following syntax.
 - Ensure your space name (such as `default`) replaces `<your-space-name>` in the script names below.
 
-<div style="margin-left: 30px">   
+<div style="margin-left: 40px">   
 <i>uploading scripts</i>
    <pre style="margin-top:-2px"><code>PUT _scripts/ml_hostriskscore_levels_script_&lt;your-space-name&gt;
-{contents of ml_hostriskscore_levels_script.json file}<br/><br/>PUT _scripts/ml_hostriskscore_map_script_&lt;your-space-name&gt;
-{contents of ml_hostriskscore_map_script.json file}<br/><br/>PUT _scripts/ml_hostriskscore_reduce_script_&lt;your-space-name&gt;
+{contents of ml_hostriskscore_levels_script.json file}
+
+PUT _scripts/ml_hostriskscore_map_script_&lt;your-space-name&gt;
+{contents of ml_hostriskscore_map_script.json file}
+
+PUT _scripts/ml_hostriskscore_reduce_script_&lt;your-space-name&gt;
 {contents of ml_hostriskscore_reduce_script.json file}
 </code></pre></div>
 
@@ -49,7 +54,7 @@ Host Risk Score functionality is space aware for privacy. Downloaded artifacts m
 - Upload the contents of `ml_hostriskscore_ingest_pipeline.json` using the Ingest API in the following syntax.
 - Ensure your space name (such as `default`) replaces `<your-space-name>` below.
 
-<div style="margin-left: 30px">   
+<div style="margin-left: 40px">   
 <i>uploading ingest pipeline</i>
    <pre style="margin-top:-2px"><code>PUT _ingest/pipeline/ml_hostriskscore_ingest_pipeline_&lt;your-space-name&gt;
 {contents of ml_hostriskscore_ingest_pipeline.json file}
@@ -58,12 +63,13 @@ Host Risk Score functionality is space aware for privacy. Downloaded artifacts m
 
 
 <h3 id="upload-start-pivot">4. Upload and start the `pivot` transform</h3>
+
 This transform calculates the risk level per hour for each host in the Kibana space specified.
 
 - Upload the contents of `ml_hostriskscore_pivot_transform.json` using the Transform API in the following syntax.
 - Ensure your space name (such as `default`) replaces `<your-space-name>` below.
 
-<div style="margin-left: 30px">   
+<div style="margin-left: 40px">   
 <i>uploading pivot transform</i>
    <pre style="margin-top:-2px"><code>PUT _transform/ml_hostriskscore_pivot_transform_&lt;your-space-name&gt;
 {contents of ml_hostriskscore_pivot_transform.json file}
@@ -72,7 +78,7 @@ This transform calculates the risk level per hour for each host in the Kibana sp
 - Navigate to `Transforms` under `Management / Stack Management` in Kibana. Find the transform with the ID `ml_hostriskscore_pivot_transform_<your-space-name>`. Open the `Actions` menu on the right side of the row, and click `Start`.
 - Confirm the transform is working as expected by navigating to `Management / Dev Tools` and ensuring the target index exists.
 
-<div style="margin-left: 30px">   
+<div style="margin-left: 40px">   
 <i>sample test query</i>
    <pre style="margin-top:-2px"><code>GET ml_host_risk_score_&lt;your-space-name&gt;/_search
 </code></pre></div>
@@ -83,7 +89,7 @@ This transform calculates the risk level per hour for each host in the Kibana sp
 - Create the Host Risk Score index (`ml_host_risk_score_latest_<your-space-name>`) with the following mappings.
 - Ensure your space name (such as `default`) replaces `<your-space-name>` below.
 
-<div style="margin-left: 30px">   
+<div style="margin-left: 40px">   
 <i>creating the Host Risk Score index</i>
    <pre style="margin-top:-2px"><code>PUT ml_host_risk_score_latest_&lt;your-space-name&gt;
 {
@@ -98,12 +104,13 @@ This transform calculates the risk level per hour for each host in the Kibana sp
 </code></pre></div>
 
 <h3 id="upload-start-latest">6. Upload and start the `latest` transform</h3>
+
 This transform recurringly calculates risk levels for all hosts in the Kibana space specified.
 
 - Upload the contents of `ml_hostriskscore_latest_transform.json` using the Transform API in the following syntax.
 - Ensure your space name (such as `default`) replaces `<your-space-name>` below.
 
-<div style="margin-left: 30px">   
+<div style="margin-left: 40px">   
 <i>uploading latest transform</i>
    <pre style="margin-top:-2px"><code>PUT _transform/ml_hostriskscore_latest_transform_&lt;your-space-name&gt;
 {contents of ml_hostriskscore_latest_transform.json file}
@@ -112,7 +119,7 @@ This transform recurringly calculates risk levels for all hosts in the Kibana sp
 - Navigate to `Transforms` under `Management / Stack Management` in Kibana. Find the transform with the ID `ml_hostriskscore_latest_transform_<your-space-name>`. Open the `Actions` menu on the right side of the row, and click `Start`.
 - Confirm the transform is working as expected by navigating to `Management / Dev Tools` and ensuring the target index exists. You should see documents starting to appear in the index if there is ongoing alerting activity associated with hosts.
 
-<div style="margin-left: 30px">   
+<div style="margin-left: 40px">   
 <i>sample test query</i>
    <pre style="margin-top:-2px"><code>GET ml_host_risk_score_latest_&lt;your-space-name&gt;/_search
 </code></pre></div>
