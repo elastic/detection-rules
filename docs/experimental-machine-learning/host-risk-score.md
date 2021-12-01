@@ -1,9 +1,9 @@
 # Host Risk Score
 
-Host Risk Score is an experimental machine learning feature which assigns risk scores to hosts in a given Kibana space. Risk score is calculated for each host by using transforms on the alerting indices. Scores are updated every hour according to the most recent alerting activity. The Host Risk Score [package](https://github.com/elastic/detection-rules/releases) contains all of the required artifacts to set up the feature. The Host Risk Score feature is shipped with drilldown dashboards and additional Kibana features such as _the Host Risk Score Card on the Overview Page_ and _the Host Risk Keyword on the Alert Summary Flyout_ for an enhanced experience.
+Host Risk Score is an experimental machine learning feature which assigns risk scores to hosts in a given Kibana space. Risk scores are calculated for each host by transforms on the alerting indices, and they update every hour with the most recent alerting activity. The Host Risk Score [package](https://github.com/elastic/detection-rules/releases) contains all of the required artifacts for setup. Host Risk Score feature is equipped with drilldown dashboards and additional Kibana features such as _the Host Risk Score Card on the Overview Page_ and _the Host Risk Keyword on the Alert Summary Flyout_ for an enhanced experience.
 
 ### Notes
- - **host name collision**: For searching and displaying hosts, the `host.name` field on alerts is used. There may be some edge cases where different hosts use the same name. [details](#host-name-collision-details) 
+ - **host name collision**: Hosts are identified by the `host.name` field on alerts. There may be some edge cases where different hosts use the same name. [details](#host-name-collision-details) 
 
 ## Setup Instructions
 
@@ -21,13 +21,13 @@ Host Risk Score functionality is space aware for privacy. Downloaded artifacts m
 
  - Download the latest release [bundle](https://github.com/elastic/detection-rules/releases) with the tag `ML-HostRiskScore-YYYMMDD-N`.
  - Unzip the contents of `ML-HostRiskScore-YYYMMDD-N.zip`.
- - Run `ml_hostriskscore_generate_scripts.py` script in the directory that is prefixed with `ML-HostRiskScore` with your Kibana space as the argument.
+ - Run `ml_hostriskscore_generate_scripts.py` script in the unzipped directory with your Kibana space as the argument.
 <div style="margin-left: 30px">   
 <i>e.g. modifying artifacts for default space</i>
    <pre style="margin-top:-2px"><code>python ml_hostriskscore_generate_scripts.py --space default
 </code></pre></div>
 
- - Find a new folder with your space name in the same directory. **You will be using the scripts within this directory for the next steps.**
+ - Find a new folder named after your space in the unzipped directory. **You will be using the scripts within this directory for the next steps.**
 
 <h3 id="upload-scripts">2. Upload scripts</h3>
 
@@ -141,7 +141,18 @@ To enable the _Host Risk Score card on the Overview page_, and the _Host Risk Ke
 xpack.securitySolution.enableExperimental: ['riskyHostsEnabled']
 ```
 
-#### 8. Import the dashboards
+#### Instructions to modify `kibana.yml` on Elastic Cloud
+
+1. Navigate to your deployment on the cloud
+![Navigate to deployment](./images/1_create_deployment.png)
+
+
+2. Click on Kibana on the sidebar and click on Edit configuration on your Kibana instance
+![Edit Kibana config](./images/2_edit_configuration.png)
+
+
+3. Click on Edit user settings
+![Edit user settings](./images/3_edit_user_settings.png)
 
 
 4. Modify Kibana configuration by adding `xpack.securitySolution.enableExperimental: ['riskyHostsEnabled']`
