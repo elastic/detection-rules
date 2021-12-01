@@ -7,7 +7,7 @@ To deploy this framework in your environment, follow the steps outlined below.
 
 #### 1. Unzip the release bundle
 
-Navigate to the latest GitHub [release](https://github.com/elastic/detection-rules/releases)), with the tag `ML-Beaconing-YYYMMDD-N`. From under `Assets`, download the zip file named `ML-Beaconing-YYYMMDD-N.zip` and unzip it. New releases may contain updated artifacts.
+Navigate to the latest GitHub [release](https://github.com/elastic/detection-rules/releases), with the tag `ML-Beaconing-YYYMMDD-N`. From under `Assets`, download the zip file named `ML-Beaconing-YYYMMDD-N.zip` and unzip it. New releases may contain updated artifacts.
 
 #### 2. Navigate to the Dev Tools console in Kibana
 
