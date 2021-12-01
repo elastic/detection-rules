@@ -1,7 +1,6 @@
 # Host Risk Score
 
-The Host Risk Score package (available as a GitHub release [here](https://github.com/elastic/detection-rules/releases)) consists of all the artifacts required to stand up the host risk scoring framework in your environment. This framework leverages transforms and visualizations in Kibana to identify the most suspicious hosts in your environment, based on alert activity on the hosts. 
-To deploy this framework in your environment, follow the steps outlined below.
+Host Risk Score is an experimental machine learning feature which assigns risk scores to hosts in a given Kibana space. Risk score is calculated for each host by using transforms on the alerting indices. Scores are updated every hour according to the most recent alerting activity. The Host Risk Score [package](https://github.com/elastic/detection-rules/releases) contains all of the required artifacts to set up the feature. The Host Risk Score feature is shipped with drilldown dashboards and additional Kibana features such as _the Host Risk Score Card on the Overview Page_ and _the Host Risk Keyword on the Alert Summary Flyout_ for an enhanced experience.
 
 ### Notes
  - **host name collision**: For searching and displaying hosts, the `host.name` field on alerts is used. There may be some edge cases where different hosts use the same name. [details](#host-name-collision-details) 
