@@ -38,12 +38,20 @@ Host Risk Score functionality is space aware for privacy. Downloaded artifacts m
 
 <div style="margin-left: 40px">   
 <i>uploading scripts</i>
-   <pre style="margin-top:-2px"><code>PUT _scripts/ml_hostriskscore_levels_script_&lt;your-space-name&gt;
+   <pre style="margin-top:-2px"><code>
+PUT _scripts/ml_hostriskscore_levels_script_&lt;your-space-name&gt;
 {contents of ml_hostriskscore_levels_script.json file}
+</code></pre></div>
 
+<div style="margin-left: 40px">
+   <pre><code>
 PUT _scripts/ml_hostriskscore_map_script_&lt;your-space-name&gt;
 {contents of ml_hostriskscore_map_script.json file}
+</code></pre></div>
 
+
+<div style="margin-left: 40px">
+   <pre><code>
 PUT _scripts/ml_hostriskscore_reduce_script_&lt;your-space-name&gt;
 {contents of ml_hostriskscore_reduce_script.json file}
 </code></pre></div>
