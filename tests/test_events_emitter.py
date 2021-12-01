@@ -298,12 +298,8 @@ class TestCaseOnline:
 
         if not cls.es.ping():
             raise RuntimeError("Elasticsearch is not ready")
-        res = cls.kbn.task_manager_health()
-        if res.status_code != 200:
-            raise RuntimeError(f"Kibana is not ready: {res.json()}")
-        res = cls.kbn.create_siem_index()
-        if res.status_code != 200:
-            raise RuntimeError(f"Could not create SIEM index: {res.json()}")
+        cls.kbn.task_manager_health()
+        cls.kbn.create_siem_index()
 
         cls.es_indices = IndicesClient(cls.es)
 
@@ -317,9 +313,7 @@ class TestCaseOnline:
     def setUp(self):
         super(TestCaseOnline, self).setUp()
 
-        res = self.kbn.delete_detection_engine_rules()
-        if res.status_code != 200:
-            raise RuntimeError(f"Could not reset rules: {res.json()}")
+        self.kbn.delete_detection_engine_rules()
 
         if self.es_indices.exists_index_template(self.index_template):
             self.es_indices.delete_index_template(self.index_template)
@@ -392,8 +386,7 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
                     warn(str(item["index"]))
             pos += batch_size
 
-        res = self.kbn.create_detection_engine_rules(rules)
-        self.assertEqual(200, res.status_code)
+        self.kbn.create_detection_engine_rules(rules)
 
     def test_eql_events_complete(self):
         rules = self.get_rules_from_queries(eql_event_docs_complete)
