@@ -322,13 +322,11 @@ class TestCaseOnline:
         self.es.delete_by_query(".siem-signals-default-000001", body={"query": {"match_all": {}}})
 
 
-skip_alerts_test = os.getenv("TEST_ALERTS", "0").lower() not in ("1", "true")
-@unittest.skipIf(skip_alerts_test, "Slow online test")
 class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
 
-    def get_rules_from_queries(self, queries):
+    def parse_from_queries(self, queries):
         rules = []
-        ast_nodes = []
+        asts = []
         for i,query in enumerate(queries):
             index_name = "{:s}-{:03d}".format(self.index_template, i)
             rules.append({
@@ -345,76 +343,21 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
                 "language": "eql",
                 "enabled": True,
             })
-        return rules
+            asts.append(eql.parse_query(query))
+        return rules, asts
 
-    def generate_docs(self, rules, ast_nodes):
-        emitter.reset_mappings()
-        emitter.add_mappings_field("@timestamp")
-        emitter.add_mappings_field("ecs.version")
-        emitter.add_mappings_field("rule.name")
-
-        bulk = []
-        for rule, ast_node in zip(rules, ast_nodes):
-            with self.subTest(rule["query"]):
-                try:
-                    for doc in emitter.emit_events(ast_node):
-                        doc.update({
-                            "@timestamp": int(time.time() * 1000),
-                            "ecs": {"version": emitter.ecs_version},
-                            "rule": {"name": rule["name"]},
-                        })
-                        bulk.append(json.dumps({"index": {"_index": rule["index"][0]}}))
-                        bulk.append(json.dumps(doc))
-                except Exception as e:
-                    warn(str(e))
-        return (bulk, emitter.emit_mappings())
-
-    def alerts_gen(self, rules, ast_nodes, batch_size=100):
-        docs, mappings = self.generate_docs(rules, ast_nodes)
-
-        template = {
-            "index_patterns": [f"{self.index_template}-*"],
-            "template": {"mappings": mappings},
-        }
-        self.es_indices.put_index_template(self.index_template, body=template)
-
-        pos = 0
-        while docs[pos:pos+batch_size]:
-            ret = self.es.bulk("\n".join(docs[pos:pos+batch_size]))
-            for item in ret["items"]:
-                if item["index"]["status"] != 201:
-                    warn(str(item["index"]))
-            pos += batch_size
-
-        self.kbn.create_detection_engine_rules(rules)
-
-    def test_eql_events_complete(self):
-        rules = self.get_rules_from_queries(eql_event_docs_complete)
-        with eql.parser.elasticsearch_syntax:
-            ast_nodes = [eql.parse_query(query) for query in eql_event_docs_complete]
-        with emitter.fuzziness(0), emitter.completeness(1):
-            self.alerts_gen(rules, ast_nodes)
-
-    def test_eql_sequence_complete(self):
-        rules = self.get_rules_from_queries(eql_sequence_docs_complete)
-        with eql.parser.elasticsearch_syntax:
-            ast_nodes = [eql.parse_query(query) for query in eql_sequence_docs_complete]
-        with emitter.fuzziness(0), emitter.completeness(1):
-            self.alerts_gen(rules, ast_nodes)
-
-    def get_rules_from_collection(self, collection):
+    def parse_from_collection(self, collection):
         rules = []
-        ast_nodes = []
+        asts = []
         for i,rule in enumerate(collection):
             rule = rule.contents.data
             if rule.type == "eql":
-                ast_nodes.append(rule.validator.ast)
+                asts.append(rule.validator.ast)
             elif rule.type == "query" and rule.language == "kuery":
-                ast_nodes.append(rule.validator.to_eql())
+                asts.append(rule.validator.to_eql())
             else:
                 warn(f"rule was skipped: type={rule.type}")
                 continue
-
             index_name = "{:s}-{:03d}".format(self.index_template, i)
             rules.append({
                 "rule_id": rule.rule_id,
@@ -430,10 +373,90 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
                 "language": rule.language,
                 "enabled": True,
             })
-        return rules, ast_nodes
+        return rules, asts
 
-    def test_collection(self):
+    def generate_docs_and_mappings(self, rules, asts):
+        emitter.reset_mappings()
+        emitter.add_mappings_field("@timestamp")
+        emitter.add_mappings_field("ecs.version")
+        emitter.add_mappings_field("rule.name")
+
+        bulk = []
+        for rule, ast in zip(rules, asts):
+            with self.subTest(rule["query"]):
+                try:
+                    for doc in emitter.emit_events(ast):
+                        doc.update({
+                            "@timestamp": int(time.time() * 1000),
+                            "ecs": {"version": emitter.ecs_version},
+                            "rule": {"name": rule["name"]},
+                        })
+                        bulk.append(json.dumps({"index": {"_index": rule["index"][0]}}))
+                        bulk.append(json.dumps(doc))
+                except Exception as e:
+                    warn(str(e))
+        return (bulk, emitter.emit_mappings())
+
+    def load_rules_and_docs(self, rules, asts, batch_size=100):
+        docs, mappings = self.generate_docs_and_mappings(rules, asts)
+
+        template = {
+            "index_patterns": [f"{self.index_template}-*"],
+            "template": {"mappings": mappings},
+        }
+        self.es_indices.put_index_template(self.index_template, body=template)
+
+        pos = 0
+        while docs[pos:pos+batch_size]:
+            ret = self.es.bulk("\n".join(docs[pos:pos+batch_size]))
+            for item in ret["items"]:
+                if item["index"]["status"] != 201:
+                    warn(str(item["index"]))
+            pos += batch_size
+
+        return self.kbn.create_detection_engine_rules(rules)
+
+    def wait_for_rules(self, pending, timeout=300, sleep=5):
+        start = time.time()
+        successful = []
+        failed = []
+        while (time.time() - start) < timeout:
+            self.check_rules(pending, successful, failed)
+            if (time.time() - start) > 10:
+                print(f"Progess: {len(successful)+len(failed)}/{len(successful)+len(failed)+len(pending)}")
+            if pending:
+                time.sleep(sleep)
+            else:
+                break
+        if failed:
+            warn(f"{len(failed)} rules failed:\n" + "\n".join(f"{k}: {v}" for k,v in failed))
+        return successful, failed
+
+    def check_rules(self, pending, successful, failed):
+        statuses = self.kbn.find_detection_engine_rules_statuses(pending)
+        for rule_id, rule_status in statuses.items():
+            current_status = rule_status["current_status"]
+            if current_status["last_success_at"]:
+                del(pending[rule_id])
+                successful.append((rule_id, rule_status))
+            elif current_status["last_failure_at"]:
+                del(pending[rule_id])
+                failed.append((rule_id, rule_status))
+
+    @unittest.skipIf(os.getenv("TEST_SIGNALS_QUERIES", "0").lower() not in ("1", "true"), "Slow online test")
+    def test_queries(self):
+        queries = tuple(eql_event_docs_complete) + tuple(eql_sequence_docs_complete)
         with eql.parser.elasticsearch_syntax:
-            rules, ast_nodes = self.get_rules_from_collection(RuleCollection.default())
+            rules, asts = self.parse_from_queries(queries)
         with emitter.fuzziness(0), emitter.completeness(1):
-            self.alerts_gen(rules, ast_nodes)
+            pending = self.load_rules_and_docs(rules, asts)
+        self.wait_for_rules(pending)
+
+    @unittest.skipIf(os.getenv("TEST_SIGNALS_COLLECTION", "0").lower() not in ("1", "true"), "Slow online test")
+    def test_collection(self):
+        collection = RuleCollection.default()
+        with eql.parser.elasticsearch_syntax:
+            rules, asts = self.parse_from_collection(collection)
+        with emitter.fuzziness(0), emitter.completeness(1):
+            pending = self.load_rules_and_docs(rules, asts)
+        self.wait_for_rules(pending)
