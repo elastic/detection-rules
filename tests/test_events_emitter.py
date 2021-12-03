@@ -291,17 +291,18 @@ class TestCaseOnline:
         from elasticsearch.client import IndicesClient
         from detection_rules.kibana import Kibana
 
-        es_url = os.getenv("TEST_ELASTICSEARCH_URL", "http://elastic:changeit@localhost:9200")
+        es_url = os.getenv("TEST_ELASTICSEARCH_URL", "http://elastic:changeit@localhost:29650")
         cls.es = Elasticsearch(es_url)
-        kbn_url = os.getenv("TEST_KIBANA_URL", "http://elastic:changeit@localhost:5601")
+        kbn_url = os.getenv("TEST_KIBANA_URL", "http://elastic:changeit@localhost:65290")
         cls.kbn = Kibana(kbn_url)
 
         if not cls.es.ping():
-            raise RuntimeError("Elasticsearch is not ready")
-        cls.kbn.task_manager_health()
-        cls.kbn.create_siem_index()
+            raise unittest.SkipTest(f"Could not reach Elasticsearch: {es_url}")
+        if not cls.kbn.ping():
+            raise unittest.SkipTest(f"Could not reach Kibana: {kbn_url}")
 
         cls.es_indices = IndicesClient(cls.es)
+        cls.kbn.create_siem_index()
 
     @classmethod
     def tearDownClass(cls):

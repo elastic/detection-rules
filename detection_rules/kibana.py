@@ -18,6 +18,13 @@ class Kibana:
         res.raise_for_status()
         return res.json()
 
+    def ping(self):
+        try:
+            self.task_manager_health()
+            return True
+        except requests.exceptions.ConnectionError:
+            return False
+
     def create_siem_index(self):
         res = requests.post(f"{self.url}/api/detection_engine/index", headers=self.headers)
         res.raise_for_status()
