@@ -59,7 +59,7 @@ PUT _scripts/ml_hostriskscore_reduce_script_&lt;your-space-name&gt;
 
 <h3 id="upload-ingest-pipeline">3. Upload ingest pipeline</h3>
 
-- Upload the contents of `ml_hostriskscore_ingest_pipeline.json` using the Ingest API in the following syntax.
+- Upload the contents of `ml_hostriskscore_ingest_pipeline.json` using the Ingest API with the following syntax.
 - Ensure that your space name (such as `default`) replaces `<your-space-name>` below.
 
 <div style="margin-left: 40px">   
@@ -74,7 +74,7 @@ PUT _scripts/ml_hostriskscore_reduce_script_&lt;your-space-name&gt;
 
 This transform calculates the risk level per hour for each host in the Kibana space specified.
 
-- Upload the contents of `ml_hostriskscore_pivot_transform.json` using the Transform API in the following syntax.
+- Upload the contents of `ml_hostriskscore_pivot_transform.json` using the Transform API with the following syntax.
 - Ensure that your space name (such as `default`) replaces `<your-space-name>` below.
 
 <div style="margin-left: 40px">   
