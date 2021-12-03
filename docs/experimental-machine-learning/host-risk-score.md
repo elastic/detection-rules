@@ -1,6 +1,6 @@
 # Host Risk Score
 
-Host Risk Score is an experimental machine learning feature which assigns risk scores to hosts in a given Kibana space. Risk scores are calculated for each host by transforms on the alerting indices, and they update every hour with the most recent alerting activity. The Host Risk Score [package](https://github.com/elastic/detection-rules/releases) contains all of the required artifacts for setup. Host Risk Score feature is equipped with drilldown dashboards and additional Kibana features such as _the Host Risk Score Card on the Overview Page_ and _the Host Risk Keyword on the Alert Summary Flyout_ for an enhanced experience.
+Host Risk Score is an experimental feature which assigns risk scores to hosts in a given Kibana space. Risk scores are calculated for each host by transforms on the alerting indices, and they update every hour with the most recent alerting activity. The Host Risk Score [package](https://github.com/elastic/detection-rules/releases) contains all of the required artifacts for setup. Host Risk Score feature is equipped with drilldown dashboards and additional Kibana features such as _the Host Risk Score Card on the Overview Page_ and _the Host Risk Keyword on the Alert Summary Flyout_ for an enhanced experience.
 
 ### Notes
  - **host name collision**: Hosts are identified by the `host.name` field on alerts. There may be some edge cases where different hosts use the same name. [details](#host-name-collision-details) 
@@ -18,7 +18,7 @@ Host Risk Score is an experimental machine learning feature which assigns risk s
 
 <h3 id="modify-artifacts">1. Obtain artifacts</h3>
 
-Host Risk Score functionality is space aware for privacy. Downloaded artifacts must be modified with the desired space before they can be used.
+The Host Risk Score functionality is space aware for privacy. Downloaded artifacts must be modified with the desired space before they can be used.
 
  - Download the latest release [bundle](https://github.com/elastic/detection-rules/releases) with the tag `ML-HostRiskScore-YYYMMDD-N`.
  - Unzip the contents of `ML-HostRiskScore-YYYMMDD-N.zip`.
@@ -33,8 +33,8 @@ Host Risk Score functionality is space aware for privacy. Downloaded artifacts m
 <h3 id="upload-scripts">2. Upload scripts</h3>
 
 - Navigate to `Management / Dev Tools` in Kibana.
-- Upload the contents of `ml_hostriskscore_levels_script.json`, `ml_hostriskscore_map_script.json` and `ml_hostriskscore_reduce_script.json` using the Script API in the following syntax.
-- Ensure your space name (such as `default`) replaces `<your-space-name>` in the script names below.
+- Upload the contents of `ml_hostriskscore_levels_script.json`, `ml_hostriskscore_map_script.json` and `ml_hostriskscore_reduce_script.json` using the Script API with the following syntax.
+- Ensure that your space name (such as `default`) replaces `<your-space-name>` in the script names below.
 
 <div style="margin-left: 40px">   
 <i>uploading scripts</i>
@@ -60,7 +60,7 @@ PUT _scripts/ml_hostriskscore_reduce_script_&lt;your-space-name&gt;
 <h3 id="upload-ingest-pipeline">3. Upload ingest pipeline</h3>
 
 - Upload the contents of `ml_hostriskscore_ingest_pipeline.json` using the Ingest API in the following syntax.
-- Ensure your space name (such as `default`) replaces `<your-space-name>` below.
+- Ensure that your space name (such as `default`) replaces `<your-space-name>` below.
 
 <div style="margin-left: 40px">   
 <i>uploading ingest pipeline</i>
@@ -75,7 +75,7 @@ PUT _scripts/ml_hostriskscore_reduce_script_&lt;your-space-name&gt;
 This transform calculates the risk level per hour for each host in the Kibana space specified.
 
 - Upload the contents of `ml_hostriskscore_pivot_transform.json` using the Transform API in the following syntax.
-- Ensure your space name (such as `default`) replaces `<your-space-name>` below.
+- Ensure that your space name (such as `default`) replaces `<your-space-name>` below.
 
 <div style="margin-left: 40px">   
 <i>uploading pivot transform</i>
@@ -95,7 +95,7 @@ This transform calculates the risk level per hour for each host in the Kibana sp
 
 - Navigate to `Management / Dev Tools` in Kibana.
 - Create the Host Risk Score index (`ml_host_risk_score_latest_<your-space-name>`) with the following mappings.
-- Ensure your space name (such as `default`) replaces `<your-space-name>` below.
+- Ensure that your space name (such as `default`) replaces `<your-space-name>` below.
 
 <div style="margin-left: 40px">   
 <i>creating the Host Risk Score index</i>
@@ -115,8 +115,8 @@ This transform calculates the risk level per hour for each host in the Kibana sp
 
 This transform recurringly calculates risk levels for all hosts in the Kibana space specified.
 
-- Upload the contents of `ml_hostriskscore_latest_transform.json` using the Transform API in the following syntax.
-- Ensure your space name (such as `default`) replaces `<your-space-name>` below.
+- Upload the contents of `ml_hostriskscore_latest_transform.json` using the Transform API with the following syntax.
+- Ensure that your space name (such as `default`) replaces `<your-space-name>` below.
 
 <div style="margin-left: 40px">   
 <i>uploading latest transform</i>
@@ -142,7 +142,7 @@ This transform recurringly calculates risk levels for all hosts in the Kibana sp
 
 <h3 id="enable-kibana">8. Enable Kibana features</h3>
 
-There are two features in Kibana in relation to Host Risk Scoring.
+There are two features in Kibana related to Host Risk Scoring.
 
 _Host Risk Score card on the Overview page_
 ![Host Risk Score card](./images/0a_host_risk_score_card.png)
