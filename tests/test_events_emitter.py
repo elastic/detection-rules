@@ -415,12 +415,15 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
                     warn(str(item["index"]))
             pos += batch_size
 
-        return self.kbn.create_detection_engine_rules(rules)
+        pending = self.kbn.create_detection_engine_rules(rules)
+        for rule, rule_id in zip(rules, pending):
+            rule["id"] = rule_id
+        return pending
 
     def wait_for_rules(self, pending, timeout=300, sleep=5):
         start = time.time()
-        successful = []
-        failed = []
+        successful = {}
+        failed = {}
         while (time.time() - start) < timeout:
             self.check_rules(pending, successful, failed)
             if (time.time() - start) > 10:
@@ -429,8 +432,6 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
                 time.sleep(sleep)
             else:
                 break
-        if failed:
-            warn(f"{len(failed)} rules failed:\n" + "\n".join(f"{k}: {v}" for k,v in failed))
         return successful, failed
 
     def check_rules(self, pending, successful, failed):
@@ -439,10 +440,53 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
             current_status = rule_status["current_status"]
             if current_status["last_success_at"]:
                 del(pending[rule_id])
-                successful.append((rule_id, rule_status))
+                successful[rule_id] = rule_status
             elif current_status["last_failure_at"]:
                 del(pending[rule_id])
-                failed.append((rule_id, rule_status))
+                failed[rule_id] = rule_status
+
+    def get_rule_by_id(self, rules, rule_id):
+        for rule in rules:
+            if rule['id'] == rule_id:
+                return rule
+
+    def check_docs(self, rules, rule_id):
+        rule = self.get_rule_by_id(rules, rule_id)
+        try:
+            ret = self.es.search(index=",".join(rule["index"]), body={"query": {"match_all": {}}})
+        except Exception as e:
+            warn(str(e))
+            return []
+        return [hit["_source"] for hit in ret["hits"]["hits"]]
+
+    def debug_rules(self, rules, rule_ids):
+        return ["\n{:s}\n{:s}\n{:s}".format(
+            rule_id,
+            self.get_rule_by_id(rules, rule_id)['query'].strip(),
+            "\n".join(json.dumps(doc, sort_keys=True) for doc in self.check_docs(rules, rule_id)),
+        ) for rule_id in rule_ids]
+
+    def assert_signals(self, rules, pending):
+        successful, failed = self.wait_for_rules(pending)
+        query = {
+            "size": 0,
+            "aggs": {
+                "signals_per_rule": {
+                    "terms": {
+                        "field": "signal.rule.id",
+                        "size": 10000,
+                    }
+                }
+            }
+        }
+        ret = self.es.search(index=".siem-signals-default-000001", body=query)
+        signals = {bucket["key"]: bucket["doc_count"] for bucket in ret["aggregations"]["signals_per_rule"]["buckets"]}
+        self.assertEqual(set(signals) - set(successful), set(),
+            msg="\n" + "\n".join(self.debug_rules(rules, set(signals) - set(successful))))
+        self.assertEqual(set(successful) - set(signals), set(),
+            msg="\n" + "\n".join(self.debug_rules(rules, set(successful) - set(signals))))
+        if failed:
+            print("FAILED:\n" + "\n".join(f"{rule_id}: {status['current_status']}" for rule_id,status in failed.items()))
 
     @unittest.skipIf(os.getenv("TEST_SIGNALS_QUERIES", "0").lower() not in ("1", "true"), "Slow online test")
     def test_queries(self):
@@ -451,7 +495,7 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
             rules, asts = self.parse_from_queries(queries)
         with emitter.fuzziness(0), emitter.completeness(1):
             pending = self.load_rules_and_docs(rules, asts)
-        self.wait_for_rules(pending)
+        self.assert_signals(rules, pending)
 
     @unittest.skipIf(os.getenv("TEST_SIGNALS_COLLECTION", "0").lower() not in ("1", "true"), "Slow online test")
     def test_collection(self):
@@ -460,4 +504,4 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
             rules, asts = self.parse_from_collection(collection)
         with emitter.fuzziness(0), emitter.completeness(1):
             pending = self.load_rules_and_docs(rules, asts)
-        self.wait_for_rules(pending)
+        self.assert_signals(rules, pending)
