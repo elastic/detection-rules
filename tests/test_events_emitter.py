@@ -260,7 +260,7 @@ class TestEventEmitter(TestCaseSeed, unittest.TestCase):
             for query, mappings in eql_event_docs_mappings.items():
                 with self.subTest(query):
                     emitter.reset_mappings()
-                    _ = emitter.emit_events(eql.parse_query(query))
+                    _ = emitter.emit(eql.parse_query(query))
                     self.assertEqual(mappings, emitter.emit_mappings())
 
     def test_eql_exceptions(self):
@@ -268,19 +268,19 @@ class TestEventEmitter(TestCaseSeed, unittest.TestCase):
             for query, msg in eql_exceptions.items():
                 with self.subTest(query):
                     with self.assertRaises(ValueError, msg=msg):
-                        emitter.emit_events(eql.parse_query(query))
+                        emitter.emit(eql.parse_query(query))
 
     def test_eql_events_complete(self):
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
             for query, docs in eql_event_docs_complete.items():
                 with self.subTest(query):
-                    self.assertEqual(docs, emitter.emit_events(eql.parse_query(query)))
+                    self.assertEqual(docs, emitter.emit(eql.parse_query(query)))
 
     def test_eql_sequence_complete(self):
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
             for query, docs in eql_sequence_docs_complete.items():
                 with self.subTest(query):
-                    self.assertEqual(docs, emitter.emit_events(eql.parse_query(query)))
+                    self.assertEqual(docs, emitter.emit(eql.parse_query(query)))
 
 class TestCaseOnline:
     index_template = "detection-rules-ut"
@@ -378,20 +378,12 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
 
     def generate_docs_and_mappings(self, rules, asts):
         emitter.reset_mappings()
-        emitter.add_mappings_field("@timestamp")
-        emitter.add_mappings_field("ecs.version")
-        emitter.add_mappings_field("rule.name")
 
         bulk = []
         for rule, ast in zip(rules, asts):
             with self.subTest(rule["query"]):
                 try:
-                    for doc in emitter.emit_events(ast):
-                        doc.update({
-                            "@timestamp": int(time.time() * 1000),
-                            "ecs": {"version": emitter.ecs_version},
-                            "rule": {"name": rule["name"]},
-                        })
+                    for doc in emitter.docs_from_ast(ast):
                         bulk.append(json.dumps({"index": {"_index": rule["index"][0]}}))
                         bulk.append(json.dumps(doc))
                 except Exception as e:

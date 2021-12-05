@@ -16,7 +16,7 @@ from .utils import deep_merge
 import detection_rules.fuzzylib as fuzzylib
 
 __all__ = (
-    "emit_events",
+    "emit_docs",
     "get_ast_stats",
 )
 
@@ -57,7 +57,7 @@ class emitter:
         cls.mappings_fields = set()
 
     @classmethod
-    def emit_events(cls, node):
+    def emit(cls, node):
         return cls.emitters[type(node)].wrapper(node)
 
     @classmethod
@@ -100,27 +100,33 @@ class emitter:
             deep_merge(mappings, value)
         return mappings
 
+    @classmethod
+    def ast_from_rule(cls, rule):
+        if rule.type not in ("query", "eql"):
+            raise NotImplementedError(f"Unsupported rule type: {rule.type}")
+        elif rule.language == "eql":
+            return rule.validator.ast
+        elif rule.language == "kuery":
+            return rule.validator.to_eql() # shortcut?
+        else:
+            raise NotImplementedError(f"Unsupported query language: {rule.language}")
 
-def emit_events(rule: AnyRuleData) -> List[str]:
-    if rule.type not in ("query", "eql"):
-        raise NotImplementedError(f"Unsupported rule type: {rule.type}")
-    elif rule.language == "eql":
-        docs = emitter.emit_events(rule.validator.ast)
-    elif rule.language == "kuery":
-        docs = emitter.emit_events(rule.validator.to_eql()) # shortcut?
-    else:
-        raise NotImplementedError(f"Unsupported query language: {rule.language}")
+    @classmethod
+    def docs_from_ast(cls, ast):
+        docs = emitter.emit(ast)
+        for doc in docs:
+            doc.update({
+                "@timestamp": int(time.time() * 1000),
+                "ecs": {"version": emitter.ecs_version},
+            })
+        emitter.add_mappings_field("@timestamp")
+        emitter.add_mappings_field("ecs.version")
+        return docs
 
-    emitter.add_mappings_field("@timestamp")
-    emitter.add_mappings_field("ecs.version")
-    emitter.add_mappings_field("rule.name")
-    for doc in docs:
-        doc.update({
-            "@timestamp": int(time.time() * 1000),
-            "ecs": {"version": emitter.ecs_version},
-            "rule": {"name": rule.name},
-        })
-    return docs
+
+def emit_docs(rule: AnyRuleData) -> List[str]:
+    ast = emitter.ast_from_rule(rule)
+    return emitter.docs_from_ast(ast)
 
 
 def get_ast_stats():

@@ -262,7 +262,7 @@ def validate_all(fail):
 def emit_events(ctx, paths):
     """Generate events that would trigger the given rule(s)"""
     from collections import Counter
-    from .events_emitter import emitter, emit_events, get_ast_stats
+    from .events_emitter import emitter, emit_docs, get_ast_stats
 
     if paths:
         rules = RuleCollection()
@@ -279,7 +279,7 @@ def emit_events(ctx, paths):
     for rule in rules:
         try:
             with emitter.completeness(1):
-                docs.extend(emit_events(rule.contents.data))
+                docs.extend(emit_docs(rule.contents.data))
         except Exception as e:
             errors.append(str(e))
 

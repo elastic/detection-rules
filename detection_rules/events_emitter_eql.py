@@ -22,7 +22,7 @@ __all__ = (
 )
 
 def emit(node: eql.ast.BaseNode) -> List[str]:
-    return emitter.emit_events(node)
+    return emitter.emit(node)
 
 def is_field_array(name):
     try:
