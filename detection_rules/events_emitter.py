@@ -114,9 +114,9 @@ class emitter:
     @classmethod
     def docs_from_ast(cls, ast):
         docs = emitter.emit(ast)
-        for doc in docs:
+        for t,doc in enumerate(docs):
             doc.update({
-                "@timestamp": int(time.time() * 1000),
+                "@timestamp": int(time.time() * 1000 + t),
                 "ecs": {"version": emitter.ecs_version},
             })
         emitter.add_mappings_field("@timestamp")
