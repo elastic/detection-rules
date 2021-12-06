@@ -83,7 +83,7 @@ This transform calculates the risk level per hour for each host in the Kibana sp
 {contents of ml_hostriskscore_pivot_transform.json file}
 </code></pre></div>
 
-- Navigate to `Transforms` under `Management / Stack Management` in Kibana. Find the transform with the ID `ml_hostriskscore_pivot_transform_<your-space-name>`. Open the `Actions` menu on the right side of the row, and click `Start`.
+- Navigate to `Transforms` under `Management / Stack Management` in Kibana. Find the transform with the ID `ml_hostriskscore_pivot_transform_<your-space-name>`. Open the `Actions` menu on the right side of the row, then click `Start`.
 - Confirm the transform is working as expected by navigating to `Management / Dev Tools` and ensuring the target index exists.
 
 <div style="margin-left: 40px">   
