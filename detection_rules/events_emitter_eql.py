@@ -218,11 +218,4 @@ def emit_FunctionCall(node: eql.ast.FunctionCall):
 @emitter(eql.ast.Constant)
 @emitter(eql.ast.PreProcessor)
 def emit_not_implemented(node: eql.ast.BaseNode):
-    sys.stderr.write(f"##### Emitter for {type(node)} is not implemented #####\n")
-    sys.stderr.write(f"\n{node}\n")
-    sys.stderr.write(f"\n{dir(node)}\n")
-    sys.stderr.write(f"\nSlots:\n")
-    for slot,value in node.iter_slots():
-        sys.stderr.write(f"  {slot}: {value}\n")
-
     raise NotImplementedError(f"Emitter not implemented: {type(node)}")

@@ -6,15 +6,17 @@
 """Test events emitter."""
 
 import os
+import sys
 import time
 import unittest
 import random
 import json
-from warnings import warn
 import eql
 
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.events_emitter import emitter
+
+verbose = sum(arg.count('v') for arg in sys.argv if arg.startswith("-") and not arg.startswith("--"))
 
 eql_event_docs_mappings = {
     """process where process.name == "regsvr32.exe"
@@ -357,7 +359,9 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
             elif rule.type == "query" and rule.language == "kuery":
                 asts.append(rule.validator.to_eql())
             else:
-                warn(f"rule was skipped: type={rule.type}")
+                if verbose > 3:
+                    sys.stderr.write(f"rule was skipped: type={rule.type}\n")
+                    sys.stderr.flush()
                 continue
             index_name = "{:s}-{:03d}".format(self.index_template, i)
             rules.append({
@@ -387,7 +391,10 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
                         bulk.append(json.dumps({"index": {"_index": rule["index"][0]}}))
                         bulk.append(json.dumps(doc))
                 except Exception as e:
-                    warn(str(e))
+                    if verbose > 2:
+                        sys.stderr.write(f"{str(e)}\n")
+                        sys.stderr.flush()
+                    continue
         return (bulk, emitter.emit_mappings())
 
     def load_rules_and_docs(self, rules, asts, batch_size=100):
@@ -404,7 +411,9 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
             ret = self.es.bulk("\n".join(docs[pos:pos+batch_size]))
             for item in ret["items"]:
                 if item["index"]["status"] != 201:
-                    warn(str(item["index"]))
+                    if verbose > 1:
+                        sys.stderr.write(f"{str(item['index'])}\n")
+                        sys.stderr.flush()
             pos += batch_size
 
         pending = self.kbn.create_detection_engine_rules(rules)
@@ -418,8 +427,9 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
         failed = {}
         while (time.time() - start) < timeout:
             self.check_rules(pending, successful, failed)
-            if (time.time() - start) > 10:
-                print(f"Progess: {len(successful)+len(failed)}/{len(successful)+len(failed)+len(pending)}")
+            if verbose:
+                sys.stderr.write(f"{len(pending)} ")
+                sys.stderr.flush()
             if pending:
                 time.sleep(sleep)
             else:
@@ -447,7 +457,9 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
         try:
             ret = self.es.search(index=",".join(rule["index"]), body={"query": {"match_all": {}}})
         except Exception as e:
-            warn(str(e))
+            if verbose > 1:
+                sys.stderr.write(f"{str(e)}\n")
+                sys.stderr.flush()
             return []
         return [hit["_source"] for hit in ret["hits"]["hits"]]
 
