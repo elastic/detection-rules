@@ -3,7 +3,7 @@
 Host Risk Score is an experimental feature that assigns risk scores to hosts in a given Kibana space. Risk scores are calculated for each host by utilizing transforms on the alerting indices. The transform runs hourly to update the score as new detection rule alerts are generated. The Host Risk Score [package](https://github.com/elastic/detection-rules/releases) contains all of the required artifacts for setup. The Host Risk Score feature provides drilldown Lens dashboards and additional Kibana features such as the **Host Risk Score Card** on the Overview page of the Elastic Security app, and the **Host Risk Keyword** on the Alert details flyout for an enhanced experience.
 
 ### Notes
- - **host name collision**: Hosts are identified by the `host.name` field on alerts. There may be some edge cases where different hosts use the same name. [details](#host-name-collision-details) 
+ - **Host name collision**: Hosts are identified by the `host.name` field in alerts. There may be some edge cases where different hosts use the same name. [details](#host-name-collision-details) 
 
 ## Setup Instructions
 
@@ -72,7 +72,7 @@ PUT _scripts/ml_hostriskscore_reduce_script_&lt;your-space-name&gt;
 
 <h3 id="upload-start-pivot">4. Upload and start the `pivot` transform</h3>
 
-This transform calculates the risk level per hour for each host in the Kibana space specified.
+This transform calculates the risk level every hour for each host in the Kibana space specified.
 
 - Upload the contents of `ml_hostriskscore_pivot_transform.json` using the Transform API with the following syntax.
 - Ensure that your space name (such as `default`) replaces `<your-space-name>` below.
