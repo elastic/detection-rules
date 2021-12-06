@@ -209,14 +209,14 @@ eql_sequence_docs_complete = {
         [process where process.name in ("cmd.exe", "powershell.exe")] by process.name
         [process where process.name in ("cmd.exe", "powershell.exe")] by process.parent.name
     """: [
-        {"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "TkxREt"}},
-        {"event": {"category": "process"}, "process": {"name": "cmd.exe", "parent": {"name": "cmd.exe"}}, "user": {"id": "TkxREt"}},
-        {"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "dLhBvu"}},
-        {"event": {"category": "process"}, "process": {"name": "powershell.exe", "parent": {"name": "cmd.exe"}}, "user": {"id": "dLhBvu"}},
-        {"event": {"category": "process"}, "process": {"name": "powershell.exe"}, "user": {"id": "UHxpew"}},
-        {"event": {"category": "process"}, "process": {"name": "cmd.exe", "parent": {"name": "powershell.exe"}}, "user": {"id": "UHxpew"}},
-        {"event": {"category": "process"}, "process": {"name": "powershell.exe"}, "user": {"id": "lKcSwh"}},
-        {"event": {"category": "process"}, "process": {"name": "powershell.exe", "parent": {"name": "powershell.exe"}}, "user": {"id": "lKcSwh"}},
+        {"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "Tkx"}},
+        {"event": {"category": "process"}, "process": {"name": "cmd.exe", "parent": {"name": "cmd.exe"}}, "user": {"id": "Tkx"}},
+        {"event": {"category": "process"}, "process": {"name": "cmd.exe"}, "user": {"id": "REt"}},
+        {"event": {"category": "process"}, "process": {"name": "powershell.exe", "parent": {"name": "cmd.exe"}}, "user": {"id": "REt"}},
+        {"event": {"category": "process"}, "process": {"name": "powershell.exe"}, "user": {"id": "dLh"}},
+        {"event": {"category": "process"}, "process": {"name": "cmd.exe", "parent": {"name": "powershell.exe"}}, "user": {"id": "dLh"}},
+        {"event": {"category": "process"}, "process": {"name": "powershell.exe"}, "user": {"id": "Bvu"}},
+        {"event": {"category": "process"}, "process": {"name": "powershell.exe", "parent": {"name": "powershell.exe"}}, "user": {"id": "Bvu"}},
     ],
 }
 

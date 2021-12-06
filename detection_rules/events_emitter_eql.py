@@ -80,9 +80,8 @@ def emit_InSet(node: eql.ast.InSet, negate=False):
         raise NotImplementedError(f"Unsupported expression type: {type(node.expression)}")
     docs = []
     if negate:
-        min_length = 3 * len(node.container)
         values = set(x.value for x in node.container)
-        value = get_random_string(min_length, lambda x: x not in values)
+        value = generate_field_value(node.expression.render(), lambda x: x not in values)
         docs.append(emit_Field(node.expression, value))
     else:
         for term in emitter.iter(node.container):
@@ -151,7 +150,7 @@ def lookup_join_value(idx, join_values, stack):
     try:
         value = lookup_Field(doc, join_fields[idx])
     except KeyError:
-        value = get_random_string(3 * len(join_fields))
+        value = generate_field_value(join_fields[idx].render())
     join_values.append(value)
     return value
 
