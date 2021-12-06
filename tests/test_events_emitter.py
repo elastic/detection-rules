@@ -255,7 +255,7 @@ class TestCaseSeed:
         return super(TestCaseSeed, self).subTest(query, completeness=completeness, fuzziness=fuzziness)
 
 
-class TestEventEmitter(TestCaseSeed, unittest.TestCase):
+class TestEmitter(TestCaseSeed, unittest.TestCase):
 
     def test_mappings(self):
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
@@ -325,7 +325,7 @@ class TestCaseOnline:
         self.es.delete_by_query(".siem-signals-default-000001", body={"query": {"match_all": {}}})
 
 
-class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
+class TestSignals(TestCaseOnline, TestCaseSeed, unittest.TestCase):
 
     def parse_from_queries(self, queries):
         rules = []
@@ -517,7 +517,7 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
         self.assert_signals(rules, pending)
 
     @unittest.skipIf(os.getenv("TEST_SIGNALS_COLLECTION", "0").lower() not in ("1", "true"), "Slow online test")
-    def test_collection(self):
+    def test_rules_collection(self):
         collection = RuleCollection.default()
         with eql.parser.elasticsearch_syntax:
             rules, asts = self.parse_from_collection(collection)
