@@ -452,8 +452,7 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
             if rule['id'] == rule_id:
                 return rule
 
-    def check_docs(self, rules, rule_id):
-        rule = self.get_rule_by_id(rules, rule_id)
+    def check_docs(self, rule):
         try:
             ret = self.es.search(index=",".join(rule["index"]), body={"query": {"match_all": {}}})
         except Exception as e:
@@ -464,11 +463,15 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
         return [hit["_source"] for hit in ret["hits"]["hits"]]
 
     def debug_rules(self, rules, rule_ids):
-        return ["\n{:s}\n{:s}\n{:s}".format(
-            rule_id,
-            self.get_rule_by_id(rules, rule_id)['query'].strip(),
-            "\n".join(json.dumps(doc, sort_keys=True) for doc in self.check_docs(rules, rule_id)),
-        ) for rule_id in rule_ids]
+        lines = []
+        for rule_id in sorted(rule_ids):
+            rule = self.get_rule_by_id(rules, rule_id)
+            docs = self.check_docs(rule)
+            lines.append("")
+            lines.append("{:s}: {:s}".format(rule_id, rule["name"]))
+            lines.append(rule["query"].strip())
+            lines.extend(json.dumps(doc, sort_keys=True) for doc in docs)
+        return lines
 
     def get_signals_per_rule(self):
         body = {
@@ -495,13 +498,13 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
     def assert_signals(self, rules, pending):
         successful, failed = self.wait_for_rules(pending)
         signals = self.get_signals_per_rule()
-        self.assertEqual(set(signals) - set(successful), set(),
+        self.assertEqual([], sorted(set(signals) - set(successful)),
             msg="\n" + "\n".join(self.debug_rules(rules, set(signals) - set(successful))))
-        self.assertEqual(set(successful) - set(signals), set(),
+        self.assertEqual([], sorted(set(successful) - set(signals)),
             msg="\n" + "\n".join(self.debug_rules(rules, set(successful) - set(signals))))
-        if failed:
-            print("FAILED:\n" + "\n".join(f"{rule_id}: {status['current_status']}" for rule_id,status in failed.items()))
-        self.assertEqual({}, {rule_id: doc_count for rule_id,doc_count in signals.items() if doc_count > 1},
+        self.assertEqual([], sorted((rule_id, status["current_status"]["last_failure_message"]) for rule_id,status in failed.items()),
+            msg="\n" + "\n".join(self.debug_rules(rules, failed)))
+        self.assertEqual([], sorted((rule_id, doc_count) for rule_id,doc_count in signals.items() if doc_count > 1),
             msg="\n" + "\n".join(self.debug_rules(rules, (rule_id for rule_id,doc_count in signals.items() if doc_count > 1))))
 
     @unittest.skipIf(os.getenv("TEST_SIGNALS_QUERIES", "0").lower() not in ("1", "true"), "Slow online test")
