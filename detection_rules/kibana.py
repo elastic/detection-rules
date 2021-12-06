@@ -65,3 +65,8 @@ class Kibana:
         res = requests.post(f"{self.url}/api/detection_engine/rules/_find_statuses?per_page=1000", headers=self.headers, data=json.dumps(rules))
         res.raise_for_status()
         return res.json()
+
+    def search_detection_engine_signals(self, body):
+        res = requests.post(f"{self.url}/api/detection_engine/signals/search", headers=self.headers, data=json.dumps(body))
+        res.raise_for_status()
+        return res.json()

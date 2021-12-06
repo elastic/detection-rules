@@ -470,10 +470,16 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
             "\n".join(json.dumps(doc, sort_keys=True) for doc in self.check_docs(rules, rule_id)),
         ) for rule_id in rule_ids]
 
-    def assert_signals(self, rules, pending):
-        successful, failed = self.wait_for_rules(pending)
-        query = {
+    def get_signals_per_rule(self):
+        body = {
             "size": 0,
+            "query": {
+                "bool": {
+                    "must_not": [
+                        { "exists": { "field": "signal.rule.building_block_type" }},
+                    ]
+                }
+            },
             "aggs": {
                 "signals_per_rule": {
                     "terms": {
@@ -483,21 +489,27 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
                 }
             }
         }
-        ret = self.es.search(index=".siem-signals-default-000001", body=query)
-        signals = {bucket["key"]: bucket["doc_count"] for bucket in ret["aggregations"]["signals_per_rule"]["buckets"]}
+        ret = self.kbn.search_detection_engine_signals(body)
+        return {bucket["key"]: bucket["doc_count"] for bucket in ret["aggregations"]["signals_per_rule"]["buckets"]}
+
+    def assert_signals(self, rules, pending):
+        successful, failed = self.wait_for_rules(pending)
+        signals = self.get_signals_per_rule()
         self.assertEqual(set(signals) - set(successful), set(),
             msg="\n" + "\n".join(self.debug_rules(rules, set(signals) - set(successful))))
         self.assertEqual(set(successful) - set(signals), set(),
             msg="\n" + "\n".join(self.debug_rules(rules, set(successful) - set(signals))))
         if failed:
             print("FAILED:\n" + "\n".join(f"{rule_id}: {status['current_status']}" for rule_id,status in failed.items()))
+        self.assertEqual({}, {rule_id: doc_count for rule_id,doc_count in signals.items() if doc_count > 1},
+            msg="\n" + "\n".join(self.debug_rules(rules, (rule_id for rule_id,doc_count in signals.items() if doc_count > 1))))
 
     @unittest.skipIf(os.getenv("TEST_SIGNALS_QUERIES", "0").lower() not in ("1", "true"), "Slow online test")
     def test_queries(self):
         queries = tuple(eql_event_docs_complete) + tuple(eql_sequence_docs_complete)
         with eql.parser.elasticsearch_syntax:
             rules, asts = self.parse_from_queries(queries)
-        with emitter.fuzziness(0), emitter.completeness(1):
+        with emitter.fuzziness(0), emitter.completeness(0):
             pending = self.load_rules_and_docs(rules, asts)
         self.assert_signals(rules, pending)
 
@@ -506,6 +518,6 @@ class TestAlerts(TestCaseOnline, TestCaseSeed, unittest.TestCase):
         collection = RuleCollection.default()
         with eql.parser.elasticsearch_syntax:
             rules, asts = self.parse_from_collection(collection)
-        with emitter.fuzziness(0), emitter.completeness(1):
+        with emitter.fuzziness(0), emitter.completeness(0):
             pending = self.load_rules_and_docs(rules, asts)
         self.assert_signals(rules, pending)
