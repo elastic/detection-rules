@@ -22,11 +22,22 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
-  process.name : "python*" and (
-    process.args : ("*import*pty*") and
-    process.args : ("*pty.spawn*/bash*", "*pty.spawn*/sh*", "*pty.spawn*/dash*")
-  )
+sequence with maxspan=5m
+  [process where event.type in ("start", "process_started") and process.name : "python*"] by process.entity_id
+  [process where event.type in ("start", "process_started") and 
+   process.executable : (
+      "/bin/bash",
+      "/bin/sh",
+      "/bin/dash",
+      "/bin/csh",
+      "/bin/zsh",
+      "/bin/ksh",
+      "/bin/tcsh",
+      "/bin/fish",
+      "/bin/ash",
+      "/bin/bsh"
+   )
+  ] by process.parent.entity_id
 '''
 
 
