@@ -24,7 +24,7 @@ The Host Risk Score functionality is space aware for privacy. Downloaded artifac
  - Unzip the contents of `ML-HostRiskScore-YYYMMDD-N.zip`.
  - Run `ml_hostriskscore_generate_scripts.py` script in the unzipped directory with your Kibana space as the argument.
 <div style="margin-left: 40px">   
-<i>Example of modifying artifacts for default space</i>
+<i>Example of modifying artifacts for the default space</i>
    <pre style="margin-top:-2px"><code>python ml_hostriskscore_generate_scripts.py --space default
 </code></pre></div>
 
