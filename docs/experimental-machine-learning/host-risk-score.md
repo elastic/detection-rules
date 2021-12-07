@@ -70,7 +70,7 @@ PUT _scripts/ml_hostriskscore_reduce_script_&lt;your-space-name&gt;
 
 
 
-<h3 id="upload-start-pivot">4. Upload and start the `pivot` transform</h3>
+<h3 id="upload-start-pivot">4. Upload and start the <code>pivot</code> transform</h3>
 
 This transform calculates the risk level every hour for each host in the Kibana space specified.
 
@@ -111,7 +111,7 @@ This transform calculates the risk level every hour for each host in the Kibana 
 }
 </code></pre></div>
 
-<h3 id="upload-start-latest">6. Upload and start the `latest` transform</h3>
+<h3 id="upload-start-latest">6. Upload and start the <code>latest</code> transform</h3>
 
 This transform recurringly calculates risk levels for all hosts in the Kibana space specified.
 
