@@ -4,14 +4,14 @@ maturity = "production"
 updated_date = "2021/03/03"
 
 [rule]
-author = ["Elastic"]
+author = ["Elastic","Octodet"]
 description = """
 Identifies when a terminal (tty) is spawned via Perl. Attackers may upgrade a simple reverse shell to a fully
 interactive tty after obtaining initial access to a host.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Interactive Terminal Spawned via Perl"
 risk_score = 73
@@ -19,11 +19,11 @@ rule_id = "05e5a668-7b51-4a67-93ab-e9af405c9ef3"
 severity = "high"
 tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and process.name:perl and
-  process.args:("exec \"/bin/sh\";" or "exec \"/bin/dash\";" or "exec \"/bin/bash\";")
+process where event.type in ("start" , "process_started") and process.name :("perl*") and
+  process.args regex("exec*/*sh*")
 '''
 
 
