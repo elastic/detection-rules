@@ -14,7 +14,6 @@ __all__ = (
     "fuzziness",
     "fuzzy_choice",
     "fuzzy_iter",
-    "generate_field_value",
 )
 
 fuzziness_level = 1
@@ -81,6 +80,3 @@ def expand_wildcards(s, allowed_chars=string.ascii_letters+string.digits):
         else:
             chars.append(c)
     return "".join(chars)
-
-def generate_field_value(name, condition=None):
-    return get_random_string(min_length=3, condition=condition)

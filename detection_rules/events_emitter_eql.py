@@ -5,65 +5,49 @@
 
 """Functions for generating event documents that would trigger a given rule."""
 
-import sys
 import string
 import random
 import json
 import copy
-from typing import List
+import itertools
+from typing import List, Tuple
 import eql
 
-from .ecs import get_schema
 from .utils import deep_merge
+from .constraints import Constraints
 from .fuzzylib import *
 from .events_emitter import emitter
 
 __all__ = (
 )
 
-def emit(node: eql.ast.BaseNode) -> List[str]:
+def emit(node: eql.ast.BaseNode) -> List[Constraints]:
     return emitter.emit(node)
 
-def is_field_array(name):
-    try:
-        return "array" in get_schema(version=emitter.ecs_version)[name]["normalize"]
-    except KeyError:
-        return False
-
 @emitter(eql.ast.Field)
-def emit_Field(node: eql.ast.Field, value):
-    field = node.render()
-    emitter.add_mappings_field(field)
-    if is_field_array(field):
-        value = [value]
-    for part in reversed([node.base] + node.path):
-        value = {part: value}
-    return value
+def emit_Field(node: eql.ast.Field, value: str) -> Constraints:
+    return Constraints(node.render(), "==", value)
 
 @emitter(eql.ast.Or)
-def emit_Or(node: eql.ast.Or):
-    docs = []
+def emit_Or(node: eql.ast.Or) -> List[Constraints]:
+    constraints = []
     for term in emitter.iter(node.terms):
-        docs.extend(emit(term))
-    return docs
+        constraints.extend(emit(term))
+    return constraints
 
 @emitter(eql.ast.And)
-def emit_And(node: eql.ast.And):
-    docs = []
+def emit_And(node: eql.ast.And) -> List[Constraints]:
+    constraints = []
     for term in node.terms:
-        term_docs = emit(term)
-        if not docs:
-            docs = term_docs
-            continue
-        new_docs = []
-        for term_doc in term_docs:
-            for doc in docs:
-                new_docs.append(deep_merge(copy.deepcopy(doc), term_doc))
-        docs = new_docs
-    return docs
+        term_constraints = emit(term)
+        if constraints:
+            constraints = [c + term_c for term_c in term_constraints for c in constraints]
+        else:
+            constraints = term_constraints
+    return constraints
 
 @emitter(eql.ast.Not)
-def emit_Not(node: eql.ast.Not):
+def emit_Not(node: eql.ast.Not) -> List[Constraints]:
     if isinstance(node.term, eql.ast.InSet):
         return emit_InSet(node.term, negate=True)
 
@@ -75,122 +59,88 @@ def emit_Not(node: eql.ast.Not):
     raise NotImplementedError(f"Unsupported term negation: {type(node.term)}")
 
 @emitter(eql.ast.InSet)
-def emit_InSet(node: eql.ast.InSet, negate=False):
+def emit_InSet(node: eql.ast.InSet, negate: bool=False) -> List[Constraints]:
     if type(node.expression) != eql.ast.Field:
         raise NotImplementedError(f"Unsupported expression type: {type(node.expression)}")
-    docs = []
+    constraints = []
     if negate:
-        values = set(x.value for x in node.container)
-        value = generate_field_value(node.expression.render(), lambda x: x not in values)
-        docs.append(emit_Field(node.expression, value))
+        field = node.expression.render()
+        c = Constraints()
+        for term in node.container:
+            c.append_constraint(field, "!=", term.value)
+        constraints.append(c)
     else:
         for term in emitter.iter(node.container):
-            docs.append(emit_Field(node.expression, term.value))
-    return docs
+            constraints.append(emit_Field(node.expression, term.value))
+    return constraints
 
 @emitter(eql.ast.Comparison)
-def emit_Comparison(node: eql.ast.Comparison):
-    ops = {
-        eql.ast.String: {
-            "==": lambda s: s,    "!=": lambda s: "!" + s,
-        },
-        eql.ast.Number: {
-            "==": lambda n: n,    "!=": lambda n: n + 1,
-            ">=": lambda n: n,    "<=": lambda n: n,
-             ">": lambda n: n + 1, "<": lambda n: n - 1,
-        },
-        eql.ast.Boolean: {
-            "==": lambda b: b,    "!=": lambda b: not b,
-        }
-    }
-
+def emit_Comparison(node: eql.ast.Comparison) -> List[Constraints]:
     if type(node.left) != eql.ast.Field:
         raise NotImplementedError(f"Unsupported LHS type: {type(node.left)}")
-    if type(node.right) not in ops:
-        raise NotImplementedError(f"Unsupported RHS type: {type(node.left)}")
-
-    value = ops[type(node.right)][node.comparator](node.right.value)
-    doc = emit_Field(node.left, value)
-    return [doc]
+    return [Constraints(node.left.render(), node.comparator, node.right.value)]
 
 @emitter(eql.ast.EventQuery)
-def emit_EventQuery(node: eql.ast.EventQuery):
+def emit_EventQuery(node: eql.ast.EventQuery) -> List[Constraints]:
     if type(node.event_type) != str:
         raise NotImplementedError(f"Unsupported event_type type: {type(node.event_type)}")
-    docs = emit(node.query)
+    constraints = emit(node.query)
     if node.event_type != "any":
-        for doc in docs:
-            emitter.add_mappings_field("event.category")
-            deep_merge(doc, {"event": { "category": node.event_type }})
-    return docs
+        for c in constraints:
+            c.append_constraint("event.category", "==", node.event_type)
+    return constraints
 
 @emitter(eql.ast.PipedQuery)
-def emit_PipedQuery(node: eql.ast.PipedQuery):
+def emit_PipedQuery(node: eql.ast.PipedQuery) -> List[Constraints]:
     if node.pipes:
         raise NotImplementedError("Pipes are unsupported")
     return emit(node.first)
 
-@emitter(eql.ast.SubqueryBy)
-def emit_SubqueryBy(node: eql.ast.SubqueryBy):
+def emit_SubqueryBy(node: eql.ast.SubqueryBy) -> List[Tuple[Constraints,List[str]]]:
     if any(not isinstance(value, eql.ast.Field) for value in node.join_values):
         raise NotImplementedError(f"Unsupported join values: {node.join_values}")
     if node.fork:
         raise NotImplementedError(f"Unsupported fork: {node.fork}")
-    return (emit(node.query), node.join_values)
+    join_fields = [field.render() for field in node.join_values]
+    return [(c,join_fields) for c in emit(node.query)]
 
-def lookup_Field(doc, field):
-    for part in [field.base] + field.path:
-        doc = doc[part]
-    return doc
-
-def lookup_join_value(idx, join_values, stack):
-    if idx < len(join_values):
-        return join_values[idx]
-    doc, join_fields = stack[0]
-    try:
-        value = lookup_Field(doc, join_fields[idx])
-    except KeyError:
-        value = generate_field_value(join_fields[idx].render())
-    join_values.append(value)
-    return value
-
-def emit_JoinFields(doc, join_fields, join_values, stack):
-    for i,field in enumerate(join_fields):
-        value = lookup_join_value(i, join_values, stack)
-        deep_merge(doc, emit_Field(field, value))
-    return doc
-
-def emit_Queries(queries, docs, stack):
-    if queries:
-        query_docs, join_fields = queries[0]
-        for doc in query_docs:
-            emit_Queries(queries[1:], docs, stack + [(doc, join_fields)])
-    else:
-        join_values = []
-        for doc, join_fields in stack:
-            docs.append(emit_JoinFields(copy.deepcopy(doc), join_fields, join_values, stack))
-    return docs
+def emit_JoinSeq(seq: List[Tuple[Constraints,List[str]]]) -> List[Constraints]:
+    constraints = []
+    join_rows = []
+    for c,join_fields in seq:
+        c = c.clone()
+        constraints.append(c)
+        join_rows.append([(field,c) for field in join_fields])
+    for join_col in zip(*join_rows):
+        field0 = None
+        for field,c in join_col:
+            field0 = field0 or field
+            constraints[0].append_constraint(field0, "join_value", (field,c))
+    return constraints
 
 @emitter(eql.ast.Sequence)
-def emit_Sequence(node: eql.ast.Sequence):
+def emit_Sequence(node: eql.ast.Sequence) -> List[Constraints]:
     queries = [emit_SubqueryBy(query) for query in node.queries]
     if node.close:
-        queries.append((emit(node.close), ()))
-    return emit_Queries(queries, [], [])
+        queries.append([(c,[]) for c in emit(node.close)])
+    constraints = []
+    for seq in itertools.chain(itertools.product(*queries)):
+        constraints.extend(emit_JoinSeq(seq))
+    return constraints
 
 @emitter(eql.ast.FunctionCall)
-def emit_FunctionCall(node: eql.ast.FunctionCall):
+def emit_FunctionCall(node: eql.ast.FunctionCall) -> List[Constraints]:
     if node.name != "wildcard":
         raise NotImplementedError(f"Unsupported function: {node.name}")
     if type(node.arguments[0]) != eql.ast.Field:
         raise NotImplementedError(f"Unsupported argument type: {type(node.argument[0])}")
     if type(node.arguments[1]) != eql.ast.String:
         raise NotImplementedError(f"Unsupported argument type: {type(node.argument[1])}")
-    docs = []
+    constraints = []
     for arg in emitter.iter(node.arguments[1:]):
         value = expand_wildcards(arg.value).lower()
-        docs.append(emit_Field(node.arguments[0], value))
-    return docs
+        constraints.append(emit_Field(node.arguments[0], value))
+    return constraints
 
 @emitter(eql.ast.BaseNode)
 @emitter(eql.ast.Expression)
@@ -216,5 +166,5 @@ def emit_FunctionCall(node: eql.ast.FunctionCall):
 @emitter(eql.ast.Macro)
 @emitter(eql.ast.Constant)
 @emitter(eql.ast.PreProcessor)
-def emit_not_implemented(node: eql.ast.BaseNode):
+def emit_not_implemented(node: eql.ast.BaseNode) -> List[Constraints]:
     raise NotImplementedError(f"Emitter not implemented: {type(node)}")

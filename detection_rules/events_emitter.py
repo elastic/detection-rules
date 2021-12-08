@@ -13,6 +13,7 @@ from typing import List
 from .ecs import get_schema, get_max_version
 from .rule import AnyRuleData
 from .utils import deep_merge
+from .constraints import Constraints
 import detection_rules.fuzzylib as fuzzylib
 
 __all__ = (
@@ -23,6 +24,7 @@ __all__ = (
 
 class emitter:
     ecs_version = get_max_version()
+    ecs_schema = get_schema(version=ecs_version)
     emitters = {}
     completeness_level = 0
     fuzziness = fuzzylib.fuzziness
@@ -91,7 +93,7 @@ class emitter:
         mappings = {}
         for field in cls.mappings_fields:
             try:
-                field_type = get_schema(version=cls.ecs_version)[field]["type"]
+                field_type = cls.ecs_schema[field]["type"]
             except KeyError:
                 field_type = "keyword"
             value = {"type": field_type}
@@ -112,16 +114,29 @@ class emitter:
             raise NotImplementedError(f"Unsupported query language: {rule.language}")
 
     @classmethod
-    def docs_from_ast(cls, ast):
-        docs = emitter.emit(ast)
-        for t,doc in enumerate(docs):
-            doc.update({
-                "@timestamp": int(time.time() * 1000 + t),
-                "ecs": {"version": emitter.ecs_version},
-            })
-        emitter.add_mappings_field("@timestamp")
-        emitter.add_mappings_field("ecs.version")
+    def emit_field(cls, field, value):
+        cls.add_mappings_field(field)
+        for part in reversed(field.split(".")):
+            value = {part: value}
+        return value
+
+    @classmethod
+    def emit_docs(cls, constraints):
+        docs = []
+        for constraint in constraints:
+            doc = {}
+            for field,value in constraint.resolve(cls.ecs_schema):
+                deep_merge(doc, cls.emit_field(field, value))
+            docs.append(doc)
         return docs
+
+    @classmethod
+    def docs_from_ast(cls, ast):
+        constraints = cls.emit(ast)
+        for t,constraint in enumerate(constraints):
+            constraint.append_constraint("@timestamp", "==", int(time.time() * 1000 + t))
+            constraint.append_constraint("ecs.version", "==", cls.ecs_version)
+        return cls.emit_docs(constraints)
 
 
 def emit_docs(rule: AnyRuleData) -> List[str]:
