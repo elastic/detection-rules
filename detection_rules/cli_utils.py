@@ -8,7 +8,7 @@ import datetime
 import os
 import typing
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import click
 
@@ -96,10 +96,12 @@ def multi_collection(f):
     return get_collection
 
 
-def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbose=False, **kwargs) -> TOMLRule:
+def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbose=False,
+                additional_required: Optional[list] = None, **kwargs) -> TOMLRule:
     """Prompt loop to build a rule."""
     from .misc import schema_prompt
 
+    additional_required = additional_required or []
     creation_date = datetime.date.today().strftime("%Y/%m/%d")
     if verbose and path:
         click.echo(f'[+] Building rule for {path}')
@@ -116,7 +118,7 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
     target_data_subclass = TOMLRuleContents.get_data_subclass(rule_type)
     schema = target_data_subclass.jsonschema()
     props = schema['properties']
-    opt_reqs = schema.get('required', [])
+    required_fields = schema.get('required', []) + additional_required
     contents = {}
     skipped = []
 
@@ -130,7 +132,7 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
         if name == 'version':
             continue
 
-        if required_only and name not in opt_reqs:
+        if required_only and name not in required_fields:
             continue
 
         # build this from technique ID
@@ -164,10 +166,10 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
             contents[name] = schema_prompt(name, value=kwargs.pop(name))
             continue
 
-        result = schema_prompt(name, required=name in opt_reqs, **options.copy())
+        result = schema_prompt(name, required=name in required_fields, **options.copy())
 
         if result:
-            if name not in opt_reqs and result == options.get('default', ''):
+            if name not in required_fields and result == options.get('default', ''):
                 skipped.append(name)
                 continue
 
