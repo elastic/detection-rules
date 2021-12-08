@@ -1,12 +1,12 @@
 [metadata]
 creation_date = "2021/10/19"
 maturity = "production"
-updated_date = "2021/10/19"
+updated_date = "2021/11/17"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects PowerShell Scripts that can record audio, a common feature in popular post-exploitation tooling.
+Detects PowerShell scripts that can record audio, a common feature in popular post-exploitation tooling.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.*"]
@@ -22,7 +22,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.code:"4104" and 
+event.category:process and 
   powershell.file.script_block_text : (
     Get-MicrophoneAudio or (waveInGetNumDevs and mciSendStringA)
   )
