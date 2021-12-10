@@ -1,14 +1,17 @@
 [metadata]
 creation_date = "2020/11/03"
 maturity = "production"
-updated_date = "2021/03/09"
+updated_date = "2022/12/09"
 
 [rule]
-author = ["Elastic"]
+author = ["Elastic", "Austin Songer"]
 description = """
 Timestomping is an anti-forensics technique which is used to modify the timestamps of a file, often to mimic files that
 are in the same folder.
 """
+references = [
+    "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1070.006/T1070.006.md",
+]
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
@@ -24,9 +27,14 @@ type = "eql"
 
 query = '''
 process where event.type == "start" and
- process.name : "touch" and user.id != "0" and process.args : ("-r", "-t", "-a*","-m*") or 
- (process.args : "-acmr" or process.args : "/bin/sh" or  process.args : "/opt/*") and
- not process.args : ("/usr/lib/go-*/bin/go", "/usr/lib/dracut/dracut-functions.sh", "/tmp/KSInstallAction.*/m/.patch/*")
+ (process.name : "touch" and user.id != "0" and process.args : ("-r", "-t", "-a*","-m*")) or 
+ (process.name : "touch"  and process.args : ("-acmr", "/bin/*", "/opt/*")) and
+  not process.args : 
+  (
+     "/usr/lib/go-*/bin/go", 
+     "/usr/lib/dracut/dracut-functions.sh",
+     "/tmp/KSInstallAction.*/m/.patch/*"
+  )
 '''
 
 
