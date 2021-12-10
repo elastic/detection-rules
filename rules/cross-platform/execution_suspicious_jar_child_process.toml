@@ -1,13 +1,13 @@
 [metadata]
 creation_date = "2021/01/19"
 maturity = "production"
-updated_date = "2021/08/03"
+updated_date = "2021/12/10"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies suspicious child processes of a Java Archive (JAR) file. JAR files may be used to deliver malware in order to
-evade detection.
+Identifies suspicious child processes of the Java interpreter process. This may indication an attempt to execute malicious
+JAVA code.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
@@ -24,11 +24,7 @@ type = "eql"
 query = '''
 process where event.type in ("start", "process_started") and
   process.parent.name : "java" and
-  process.name : ("sh", "bash", "dash", "ksh", "tcsh", "zsh", "curl", "wget") and
-  process.args : "-jar" and process.args : "*.jar" and
-  /* Add any FP's here */
-  not process.executable : ("/Users/*/.sdkman/*", "/Library/Java/JavaVirtualMachines/*") and
-  not process.args : ("/usr/local/*", "/Users/*/github.com/*", "/Users/*/src/*")
+  process.name : ("sh", "bash", "dash", "ksh", "tcsh", "zsh", "curl", "wget")
 '''
 
 
