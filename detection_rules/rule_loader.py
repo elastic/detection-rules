@@ -12,6 +12,7 @@ from typing import Dict, List, Iterable, Callable, Optional, Union
 
 import click
 import pytoml
+from marshmallow.exceptions import ValidationError
 
 from . import utils
 from .mappings import RtaMappings
@@ -151,6 +152,7 @@ class RuleCollection(BaseCollection):
         self.file_map: Dict[Path, TOMLRule] = {}
         self.rules: List[TOMLRule] = []
         self.deprecated: DeprecatedCollection = DeprecatedCollection()
+        self.errors: Dict[Path, Exception] = {}
         self.frozen = False
 
         self._toml_load_cache: Dict[Path, dict] = {}
@@ -227,7 +229,6 @@ class RuleCollection(BaseCollection):
             self.add_deprecated_rule(deprecated_rule)
             return deprecated_rule
         else:
-            # obj['_version_lock'] = self._version_lock
             contents = TOMLRuleContents.from_dict(obj)
             contents.set_version_lock(self._version_lock)
             rule = TOMLRule(path=path, contents=contents)
@@ -256,7 +257,7 @@ class RuleCollection(BaseCollection):
             print(f"Error loading rule in {path}")
             raise
 
-    def load_git_tag(self, branch: str, remote: Optional[str] = None):
+    def load_git_tag(self, branch: str, remote: Optional[str] = None, skip_query_validation=False):
         """Load rules from a Git branch."""
         from .version_lock import VersionLock
 
@@ -279,7 +280,15 @@ class RuleCollection(BaseCollection):
 
             contents = git("show", f"{branch}:{path}")
             toml_dict = self.deserialize_toml_string(contents)
-            self.load_dict(toml_dict, path)
+
+            if skip_query_validation:
+                toml_dict['metadata']['query_schema_validation'] = False
+
+            try:
+                self.load_dict(toml_dict, path)
+            except ValidationError as e:
+                self.errors[path] = e
+                continue
 
     def load_files(self, paths: Iterable[Path]):
         """Load multiple files into the collection."""

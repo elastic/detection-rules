@@ -99,10 +99,18 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
             ctx.exit(1)
 
     pre_rules = RuleCollection()
-    pre_rules.load_git_tag(pre, remote)
+    pre_rules.load_git_tag(pre, remote, skip_query_validation=True)
+
+    if pre_rules.errors:
+        click.echo(f'error loading {len(pre_rules.errors)} rule(s) from: {pre}, skipping:')
+        click.echo(' - ' + '\n - '.join([str(p) for p in pre_rules.errors]))
 
     post_rules = RuleCollection()
-    post_rules.load_git_tag(post, remote)
+    post_rules.load_git_tag(post, remote, skip_query_validation=True)
+
+    if post_rules.errors:
+        click.echo(f'error loading {len(post_rules.errors)} rule(s) from: {post}, skipping:')
+        click.echo(' - ' + '\n - '.join([str(p) for p in post_rules.errors]))
 
     rules_changes = pre_rules.compare_collections(post_rules)
 

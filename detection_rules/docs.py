@@ -347,7 +347,7 @@ class IntegrationSecurityDocs:
         rule_entries = []
         for rule in self.included_rules:
             title_name = name_to_title(rule.name)
-            status = 'new' if rule.contents.autobumped_version == 1 else 'update'
+            status = 'new' if rule.id in self.new_rules else 'update' if rule.id in self.updated_rules else 'deprecated'
             description = rule.contents.to_api_format()['description']
             version = rule.contents.autobumped_version
             rule_entries.append(f'|<<prebuilt-rule-{self.base_name}-{title_name}, {rule.name}>> '
