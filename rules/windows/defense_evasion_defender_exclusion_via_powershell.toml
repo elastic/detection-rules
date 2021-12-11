@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/07/20"
 maturity = "production"
-updated_date = "2021/10/17"
+updated_date = "2021/12/03"
 
 [rule]
 author = ["Elastic"]
@@ -58,7 +58,8 @@ type = "eql"
 query = '''
 process where event.type == "start" and
  (process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") or process.pe.original_file_name in ("powershell.exe", "pwsh.dll", "powershell_ise.exe")) and
-  process.args : ("*Add-MpPreference*-Exclusion*", "*Set-MpPreference*-Exclusion*")
+  process.args : ("*Add-MpPreference*", "*Set-MpPreference*") and
+  process.args : ("*-Exclusion*")
 '''
 
 

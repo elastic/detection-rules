@@ -1,0 +1,77 @@
+[metadata]
+creation_date = "2021/12/10"
+maturity = "production"
+updated_date = "2021/12/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an outbound network connection by JAVA to LDAP, RMI or DNS standard ports followed by a suspicious JAVA child
+processes. This may indicate an attempt to exploit a JAVA/NDI (Java Naming and Directory Interface) injection vulnerability.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential JAVA/JNDI Exploitation Attempt"
+references = [
+"https://www.lunasec.io/docs/blog/log4j-zero-day/",
+"https://github.com/christophetd/log4shell-vulnerable-app",
+"https://www.blackhat.com/docs/us-16/materials/us-16-Munoz-A-Journey-From-JNDI-LDAP-Manipulation-To-RCE.pdf",
+]
+risk_score = 73
+rule_id = "c3f5e1d8-910e-43b4-8d44-d748e498ca86"
+severity = "high"
+tags = ["Elastic", "Host", "Linux", "macOS", "Threat Detection", "Execution"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by host.id with maxspan=1m
+ [network where event.action == "connection_attempted" and
+  process.name : "java" and
+  /*
+     outbound connection attempt to
+     LDAP, RMI or DNS standard ports
+     by JAVA process
+   */
+  destination.port in (1389, 389, 1099, 53, 5353)] by process.pid
+ [process where event.type == "start" and
+
+  /* Suspicious JAVA child process */
+  process.parent.name : "java" and
+   process.name : ("sh",
+                   "bash",
+                   "dash",
+                   "ksh",
+                   "tcsh",
+                   "zsh",
+                   "curl",
+                   "perl*",
+                   "python*",
+                   "ruby*",
+                   "php*",
+                   "wget")] by process.parent.pid
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.007"
+name = "JavaScript"
+reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+[[rule.threat.technique]]
+id = "T1203"
+name = "Exploitation for Client Execution"
+reference = "https://attack.mitre.org/techniques/T1203/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
