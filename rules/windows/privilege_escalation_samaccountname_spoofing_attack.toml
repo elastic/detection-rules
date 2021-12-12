@@ -1,0 +1,64 @@
+[metadata]
+creation_date = "2021/12/12"
+maturity = "production"
+updated_date = "2021/12/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a suspicious computer account name rename event, this may indicate an attempt to exploit CVE-2021-42278
+to elevated privileges from standard domain user to domain admin privileges. CVE-2021-42278 is a security vulnerability
+that allows potential attackers to impersonate a domain controller using computer account sAMAccountName spoofing.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Privileged Escalation via SamAccountName Spoofing"
+references = [
+    "https://cloudbrothers.info/en/exploit-kerberos-samaccountname-spoofing/",
+    "https://github.com/cube0x0/noPac",
+]
+risk_score = 73
+rule_id = "bdcf646b-08d4-492c-870a-6c04e3700034"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Privilege Escalation"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+iam where event.action == "renamed-user-account" and
+  /* machine account name renamed to user like account name */
+  winlog.event_data.OldTargetUserName : "*$" and not winlog.event_data.NewTargetUserName : "*$"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.002"
+name = "Domain Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/002/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+reference = "https://attack.mitre.org/techniques/T1098/"
+name = "Account Manipulation"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+name = "Persistence"
