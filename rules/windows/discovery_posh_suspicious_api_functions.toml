@@ -1,14 +1,14 @@
 [metadata]
 creation_date = "2021/10/13"
 maturity = "production"
-updated_date = "2021/10/14"
+updated_date = "2021/11/17"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the use of discovery-related Windows API Functions in Powershell Scripts. Attackers can use these
+This rule detects the use of discovery-related Windows API functions in PowerShell Scripts. Attackers can use these
 functions to perform various situational awareness related activities, like enumerating users, shares, sessions, domain
-trusts, groups, etc.,
+trusts, groups, etc.
 """
 false_positives = ["Legitimate Powershell Scripts that make use of these Functions"]
 from = "now-9m"
@@ -27,7 +27,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.code:"4104" and 
+event.category:process and 
   powershell.file.script_block_text : (
     NetShareEnum or
     NetWkstaUserEnum or
