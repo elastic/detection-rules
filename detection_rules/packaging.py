@@ -23,7 +23,7 @@ from .rule import TOMLRule, QueryRuleData, ThreatMapping
 from .rule_loader import DeprecatedCollection, RuleCollection, DEFAULT_RULES_DIR
 from .schemas import definitions
 from .utils import Ndjson, get_path, get_etc_path, load_etc_dump
-from .version_lock import manage_versions
+from .version_lock import default_version_lock
 
 RELEASE_DIR = get_path("releases")
 PACKAGE_FILE = get_etc_path('packages.yml')
@@ -93,7 +93,7 @@ class Package(object):
             self.rules = self.rules.filter(lambda r: max_version >= r.contents.latest_version)
 
         self.changed_ids, self.new_ids, self.removed_ids = \
-            manage_versions(self.rules, verbose=verbose, save_changes=False)
+            default_version_lock.manage_versions(self.rules, verbose=verbose, save_changes=False)
 
     @classmethod
     def load_configs(cls):
