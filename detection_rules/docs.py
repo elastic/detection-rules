@@ -504,5 +504,5 @@ class IntegrationRuleDetail:
 
 def name_to_title(name: str) -> str:
     """Convert a rule name to tile."""
-    initial = re.sub(r'[^\w]|_', r'-', name.lower())
-    return re.sub(r'-{2,}', '-', initial)
+    initial = re.sub(r'[^\w]|_', r'-', name.lower().strip())
+    return re.sub(r'-{2,}', '-', initial).strip('-')
