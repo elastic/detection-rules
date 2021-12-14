@@ -575,6 +575,18 @@ class TestLicense(BaseRuleTest):
                 err_msg = f'{self.rule_str(rule)} If Elastic License is used, only v2 should be used'
                 self.assertEqual(rule_license, 'Elastic License v2', err_msg)
 
+class TestTitle(BaseRuleTest):
+    """Test rule title."""
+
+    def test_rule_title_invalid_start_end(self):
+        """Test to ensure that rule titles start or end with Letters or numbers"""
+        for rule in self.all_rules:
+            rule_title = rule.contents.data.name
+            start_pattern = "(^[^a-zA-Z0-9])"
+            end_pattern = "([^a-zA-Z0-9]$)"
+            if re.match(start_pattern, rule_title) is not None \
+                or re.match(end_pattern, rule_title) is not None:
+                    self.fail(f'{self.rule_str(rule)} Rule title should start and finish with Letters or Numbers only')
 
 class TestIntegrationRules(BaseRuleTest):
     """Test the note field of a rule."""
@@ -600,7 +612,7 @@ class TestIntegrationRules(BaseRuleTest):
             note_str = integration_notes.get(integration)
 
             if note_str:
-                self.assert_(rule.contents.data.note, f'{self.rule_str(rule)} note required for config information')
+                self.assertTrue(rule.contents.data.note, f'{self.rule_str(rule)} note required for config information')
 
                 if note_str not in rule.contents.data.note:
                     self.fail(f'{self.rule_str(rule)} expected {integration} config missing\n\n'
