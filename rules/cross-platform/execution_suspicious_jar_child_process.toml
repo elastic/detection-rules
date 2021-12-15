@@ -1,19 +1,24 @@
 [metadata]
 creation_date = "2021/01/19"
 maturity = "production"
-updated_date = "2021/08/03"
+updated_date = "2021/12/10"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies suspicious child processes of a Java Archive (JAR) file. JAR files may be used to deliver malware in order to
-evade detection.
+Identifies suspicious child processes of the Java interpreter process. This may indicate an attempt to execute a malicious
+JAR file or an exploitation attempt via a JAVA specific vulnerability.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Suspicious JAR Child Process"
+name = "Suspicious JAVA Child Process"
+references = [
+"https://www.lunasec.io/docs/blog/log4j-zero-day/",
+"https://github.com/christophetd/log4shell-vulnerable-app",
+"https://www.blackhat.com/docs/us-16/materials/us-16-Munoz-A-Journey-From-JNDI-LDAP-Manipulation-To-RCE.pdf",
+]
 risk_score = 47
 rule_id = "8acb7614-1d92-4359-bfcf-478b6d9de150"
 severity = "medium"
@@ -24,11 +29,7 @@ type = "eql"
 query = '''
 process where event.type in ("start", "process_started") and
   process.parent.name : "java" and
-  process.name : ("sh", "bash", "dash", "ksh", "tcsh", "zsh", "curl", "wget") and
-  process.args : "-jar" and process.args : "*.jar" and
-  /* Add any FP's here */
-  not process.executable : ("/Users/*/.sdkman/*", "/Library/Java/JavaVirtualMachines/*") and
-  not process.args : ("/usr/local/*", "/Users/*/github.com/*", "/Users/*/src/*")
+  process.name : ("sh", "bash", "dash", "ksh", "tcsh", "zsh", "curl", "wget")
 '''
 
 
