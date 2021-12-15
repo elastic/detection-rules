@@ -8,18 +8,21 @@ updated_date = "2021/12/14"
 author = ["Austin Songer"]
 description = """
 Identifies when a user has been elevated to manage all Azure Subscriptions. This setting could allow an attacker access to Azure 
-subscriptions in your environment.
+subscriptions in your environment. Adversaries with elevated access to Azure Subscription enables the user to manage user access
+to Azure resources.
 """
 false_positives = [
     """
-    If this was approved by System Administrator.
+    Azure subscription permissions elevation could be approved by System Administrator. Verify whether the user identity, user 
+    agent, and/or hostname should be making changes in your environment. Subscription permissions elevation from unfamiliar users 
+    should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
 from = "now-25m"
 index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Azure "
+name = "Azure Subscription Permissions Elevation"
 note = """## Config
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
@@ -38,11 +41,7 @@ type = "query"
 query = '''
 event.dataset:azure.activitylogs and (azure.activitylogs.operation_name:*/ROLEASSIGNMENTS/WRITE and 
 azure.activitylogs.properties:*18d7d88d-d35e-4fb5-a5c3-7773c20a72d9*) or 
-(azure.activitylogs.operation_name: 
-    (
-    MICROSOFT.AUTHORIZATION/ELEVATEACCESS/ACTION or 
-    MICROSOFT.AUTHORIZATION/CLASSICADMINISTRATORS/WRITE
-    ))
+azure.activitylogs.operation_name: MICROSOFT.AUTHORIZATION/CLASSICADMINISTRATORS/WRITE
 '''
 
 
