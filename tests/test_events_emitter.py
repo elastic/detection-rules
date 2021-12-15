@@ -563,13 +563,17 @@ class TestSignals(TestCaseOnline, TestCaseSeed, unittest.TestCase):
         successful, failed = self.wait_for_rules(pending)
         signals = self.get_signals_per_rule()
         self.assertEqual([], sorted(set(signals) - set(successful)),
-            msg="\n" + "\n".join(self.debug_rules(rules, set(signals) - set(successful))))
+            msg="\n\n ** Unsuccessful rules with signals **" +
+                "\n".join(self.debug_rules(rules, set(signals) - set(successful))))
         self.assertEqual([], sorted(set(successful) - set(signals)),
-            msg="\n" + "\n".join(self.debug_rules(rules, set(successful) - set(signals))))
+            msg="\n\n** Rules with too few signals **\n" +
+                "\n".join(self.debug_rules(rules, set(successful) - set(signals))))
         self.assertEqual([], sorted((rule_id, status["current_status"]["last_failure_message"]) for rule_id,status in failed.items()),
-            msg="\n" + "\n".join(self.debug_rules(rules, failed)))
+            msg="\n\n** Failed rules **\n" +
+                "\n".join(self.debug_rules(rules, failed)))
         self.assertEqual([], sorted((rule_id, doc_count) for rule_id,doc_count in signals.items() if doc_count > 1),
-            msg="\n" + "\n".join(self.debug_rules(rules, (rule_id for rule_id,doc_count in signals.items() if doc_count > 1))))
+            msg="\n\n** Rules with too many signals **\n" +
+                "\n".join(self.debug_rules(rules, (rule_id for rule_id,doc_count in signals.items() if doc_count > 1))))
 
     @unittest.skipIf(os.getenv("TEST_SIGNALS_QUERIES", "0").lower() not in ("1", "true"), "Slow online test")
     def test_queries(self):
