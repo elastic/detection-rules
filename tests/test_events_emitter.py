@@ -36,7 +36,7 @@ eql_event_docs_mappings = {
         },
     },
 
-    """process where process.code_signature.exists == false and process.pid == 0
+    """process where process.code_signature.exists == false and process.pid > 1024
     """: {
         "properties": {
             "event": {"properties": {"category": {"type": "keyword"}}},
@@ -48,33 +48,49 @@ eql_event_docs_mappings = {
 eql_event_docs_complete = {
     """network where source.port > 512 and source.port < 1024
     """: [
-        {"event": {"category": ["network"]}, "source": {"port": 513}},
+        {"event": {"category": ["network"]}, "source": {"port": 859}},
     ],
 
     """network where source.port > 512 or source.port < 1024
     """: [
-        {"event": {"category": ["network"]}, "source": {"port": 513}},
-        {"event": {"category": ["network"]}, "source": {"port": 1023}},
+        {"event": {"category": ["network"]}, "source": {"port": 44068}},
+        {"event": {"category": ["network"]}, "source": {"port": 609}},
     ],
 
     """network where source.port < 2000 and (source.port > 512 or source.port > 1024)
     """: [
-        {"event": {"category": ["network"]}, "source": {"port": 1999}},
-        {"event": {"category": ["network"]}, "source": {"port": 1999}},
+        {"event": {"category": ["network"]}, "source": {"port": 630}},
+        {"event": {"category": ["network"]}, "source": {"port": 1957}},
     ],
 
     """network where (source.port > 512 or source.port > 1024) and source.port < 2000
     """: [
-        {"event": {"category": ["network"]}, "source": {"port": 513}},
-        {"event": {"category": ["network"]}, "source": {"port": 1025}},
+        {"event": {"category": ["network"]}, "source": {"port": 1105}},
+        {"event": {"category": ["network"]}, "source": {"port": 1448}},
     ],
 
     """network where (source.port > 1024 or source.port < 2000) and (source.port < 4000 or source.port > 512)
     """: [
-        {"event": {"category": ["network"]}, "source": {"port": 1025}},
-        {"event": {"category": ["network"]}, "source": {"port": 1999}},
-        {"event": {"category": ["network"]}, "source": {"port": 1025}},
-        {"event": {"category": ["network"]}, "source": {"port": 1999}},
+        {"event": {"category": ["network"]}, "source": {"port": 2567}},
+        {"event": {"category": ["network"]}, "source": {"port": 569}},
+        {"event": {"category": ["network"]}, "source": {"port": 61845}},
+        {"event": {"category": ["network"]}, "source": {"port": 1670}},
+    ],
+
+    """network where destination.port in (80, 443)
+    """: [
+        {"event": {"category": ["network"]}, "destination": {"port": 80}},
+        {"event": {"category": ["network"]}, "destination": {"port": 443}},
+    ],
+
+    """network where destination.port not in (80, 443)
+    """: [
+        {"event": {"category": ["network"]}, "destination": {"port": 35106}},
+    ],
+
+    """network where not destination.port in (80, 443)
+    """: [
+        {"event": {"category": ["network"]}, "destination": {"port": 58630}},
     ],
 
     """process where process.name == "regsvr32.exe"
@@ -87,34 +103,19 @@ eql_event_docs_complete = {
         {"event": {"category": ["process"]}, "process": {"name": "!regsvr32.exe"}},
     ],
 
-    """process where process.pid == 0
-    """: [
-        {"event": {"category": ["process"]}, "process": {"pid": 0}},
-    ],
-
     """process where process.pid != 0
     """: [
-        {"event": {"category": ["process"]}, "process": {"pid": 1}},
+        {"event": {"category": ["process"]}, "process": {"pid": 1565416049}},
     ],
 
     """process where process.pid >= 0
     """: [
-        {"event": {"category": ["process"]}, "process": {"pid": 0}},
-    ],
-
-    """process where process.pid <= 0
-    """: [
-        {"event": {"category": ["process"]}, "process": {"pid": 0}},
+        {"event": {"category": ["process"]}, "process": {"pid": 2413373806}},
     ],
 
     """process where process.pid > 0
     """: [
-        {"event": {"category": ["process"]}, "process": {"pid": 1}},
-    ],
-
-    """process where process.pid < 0
-    """: [
-        {"event": {"category": ["process"]}, "process": {"pid": -1}},
+        {"event": {"category": ["process"]}, "process": {"pid": 57239544}},
     ],
 
     """process where process.code_signature.exists == true
@@ -252,21 +253,33 @@ eql_sequence_docs_complete = {
 }
 
 eql_exceptions = {
+    """process where process.pid == 0
+    """:
+        "Unsolvable constraints: process.pid (out of boundary, 1 <= 0 <= 4294967295)",
+
+    """process where process.pid <= 0
+    """:
+        "Unsolvable constraints: process.pid (empty solution space, 1 <= x <= 0)",
+
+    """process where process.pid < 0
+    """:
+        "Unsolvable constraints: process.pid (empty solution space, 1 <= x <= -1)",
+
     """any where network.protocol == "http" and network.protocol == "https"
     """:
-        "Unsolvable constraint ==: network.protocol ('https' != 'http')",
+        "Unsolvable constraints ==: network.protocol ('https' != 'http')",
 
     """sequence by process.name
         [process where process.name : "cmd.exe"]
         [process where process.name : "powershell.exe"]
     """:
-        "Unsolvable constraint ==: process.name ('cmd.exe' != 'powershell.exe')",
+        "Unsolvable constraints ==: process.name ('cmd.exe' != 'powershell.exe')",
 
     """sequence
         [process where process.name : "cmd.exe"] by process.name
         [process where process.parent.name : "powershell.exe"] by process.parent.name
     """:
-        "Unsolvable constraint ==: process.parent.name ('cmd.exe' != 'powershell.exe')",
+        "Unsolvable constraints ==: process.parent.name ('cmd.exe' != 'powershell.exe')",
 }
 
 

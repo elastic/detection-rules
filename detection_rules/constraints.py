@@ -8,10 +8,30 @@
 import random
 import string
 import copy
+from collections import namedtuple
+
+NumberLimits = namedtuple("NumberLimits", ["MIN", "MAX"])
+
+# https://www.elastic.co/guide/en/elasticsearch/reference/current/number.html
+LongLimits = NumberLimits(-2**63, 2**63-1)
+
+ecs_constraints = {
+    "pid": [(">", 0), ("<", 2**32)],
+    "port": [(">", 0), ("<", 2**16)],
+}
+
+def get_ecs_constraints(field):
+    if field in ecs_constraints:
+        return ecs_constraints[field]
+    field = field.split(".")[-1]
+    if field in ecs_constraints:
+        return ecs_constraints[field]
+    return []
 
 class ConflictError(ValueError):
-    def __init__(self, msg, field, name):
-        super(ConflictError,self).__init__(f"Unsolvable constraint {name}: {field} ({msg})")
+    def __init__(self, msg, field, name=None):
+        name = f" {name}" if name else ""
+        super(ConflictError,self).__init__(f"Unsolvable constraints{name}: {field} ({msg})")
 
 class solver:
     def __init__(self, field_type, *args):
@@ -21,6 +41,7 @@ class solver:
     def __call__(self, func):
         def _solver(cls, field, value, constraints):
             join_values = []
+            constraints = constraints + get_ecs_constraints(field)
             for k,v in constraints:
                 if k not in self.valid_constraints:
                     raise NotImplementedError(f"Unsupported {self.field_type} constraint: {k}")
@@ -28,7 +49,7 @@ class solver:
                     join_values.append(v)
             value = func(cls, field, value, constraints)
             for field,constraint in join_values:
-                constraint.append_constraint(field, "==", value)
+                constraint.append_constraint(field, "==", value["value"])
             return value
         return _solver
 
@@ -80,57 +101,59 @@ class Constraints:
 
         if value is None:
             value = random.choice((True, False))
-        return value
+        return {"value": value}
 
     @classmethod
     @solver("long", "==", "!=", ">=", "<=", ">", "<")
     def solve_long_constraints(cls, field, value, constraints):
+        min_value = LongLimits.MIN
+        max_value = LongLimits.MAX
+        exclude_values = set()
+
+        for k,v in constraints:
+            if k == ">=":
+                v = int(v)
+                if min_value < v:
+                    min_value = v
+            elif k == "<=":
+                v = int(v)
+                if max_value > v:
+                    max_value = v
+            elif k == ">":
+                v = int(v)
+                if min_value < v + 1:
+                    min_value = v + 1
+            elif k == "<":
+                v = int(v)
+                if max_value > v - 1:
+                    max_value = v - 1
         for k,v in constraints:
             if k == "==":
                 v = int(v)
                 if value is None or value == v:
                     value = v
                 else:
-                    raise ConflictError(f"{v} != {value}", field, k)
+                    raise ConflictError(f"is already {value}, cannot set to {v}", field, k)
             elif k == "!=":
-                v = int(v)
-                if value is None or value != v:
-                    if value is None:
-                        value = v + 1
-                else:
-                    raise ConflictError(f"{v} == {value}", field, k)
-            elif k == ">=":
-                v = int(v)
-                if value is None or value >= v:
-                    if value is None:
-                        value = v
-                else:
-                    raise ConflictError(f"{v} < {value}", field, k)
-            elif k == "<=":
-                v = int(v)
-                if value is None or value <= v:
-                    if value is None:
-                        value = v
-                else:
-                    raise ConflictError(f"{v} > {value}", field, k)
-            elif k == ">":
-                v = int(v)
-                if value is None or value > v:
-                    if value is None:
-                        value = v + 1
-                else:
-                    raise ConflictError(f"{v} <= {value}", field, k)
-            elif k == "<":
-                v = int(v)
-                if value is None or value < v:
-                    if value is None:
-                        value = v - 1
-                else:
-                    raise ConflictError(f"{v} >= {value}", field, k)
+                exclude_values.add(int(v))
 
-        if value is None:
-            value = random.randrange(2**16)
-        return value
+        while min_value in exclude_values:
+            min_value += 1
+        while max_value in exclude_values:
+            max_value -= 1
+        if min_value > max_value:
+            raise ConflictError(f"empty solution space, {min_value} <= x <= {max_value}", field)
+        exclude_values = {v for v in exclude_values if v >= min_value and v <= max_value}
+        if value is not None and value in exclude_values:
+            if len(exclude_values) == 1:
+                raise ConflictError(f"cannot be {exclude_values.pop()}", field)
+            else:
+                raise ConflictError(f"cannot be any of ({', '.join(str(v) for v in sorted(exclude_values))})", field)
+        if value is not None and (value < min_value or value > max_value):
+            raise ConflictError(f"out of boundary, {min_value} <= {value} <= {max_value}", field)
+        while value is None or value in exclude_values:
+            value = random.randint(min_value, max_value)
+        return {"value": value, "min": min_value, "max": max_value}
 
     @classmethod
     @solver("date", "==")
@@ -144,7 +167,7 @@ class Constraints:
 
         if value is None:
             value = random.choice((True, False))
-        return value
+        return {"value": value}
 
     @classmethod
     @solver("ip", "==")
@@ -158,7 +181,7 @@ class Constraints:
 
         if value == None:
             value = "1.1.1.1"
-        return value
+        return {"value": value}
 
     @classmethod
     @solver("keyword", "==", "!=", "min_length", "allowed_chars")
@@ -193,7 +216,7 @@ class Constraints:
 
         if value == None:
             value = "".join(random.choices(allowed_chars, k=min_length))
-        return value
+        return {"value": value}
 
     @classmethod
     def solve_constraints(cls, field, constraints, schema):
@@ -205,7 +228,7 @@ class Constraints:
             value = []
         else:
             value = None
-        return solver(field, value, constraints)
+        return solver(field, value, constraints)["value"]
 
     def resolve(self, ecs_schema):
         for field,constraints in self.constraints.items():
