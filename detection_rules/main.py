@@ -258,8 +258,9 @@ def validate_all(fail):
 
 @root.command('emit-events')
 @click.argument('paths', type=Path, nargs=-1)
+@click.option('-v', '--verbose', count=True)
 @click.pass_context
-def emit_events(ctx, paths):
+def emit_events(ctx, paths, verbose):
     """Generate events that would trigger the given rule(s)"""
     from collections import Counter
     from .events_emitter import emitter, emit_docs, get_ast_stats
@@ -281,7 +282,7 @@ def emit_events(ctx, paths):
             with emitter.completeness(1):
                 docs.extend(emit_docs(rule.contents.data))
         except Exception as e:
-            errors.append(str(e))
+            errors.append((str(e), rule.path.relative_to(get_path("."))))
 
     docs.insert(0, emitter.emit_mappings())
 
@@ -289,8 +290,14 @@ def emit_events(ctx, paths):
     stats = sorted(get_ast_stats().items(), key=lambda x: x[1][1], reverse=True)
     click.echo("AST stats:\n  " + "\n  ".join("{:d}/{:d}: {:s}".format(v[0], v[1], k) for k,v in stats if v[1]), err=True)
     if errors:
-        error_stats = sorted(Counter(errors).items(), key=lambda item: item[1], reverse=True)
-        click.echo("Error stats:\n  " + "\n  ".join("{:d}: {:s}".format(v, k) for k,v in error_stats), err=True)
+        error_stats = sorted(Counter(e[0] for e in errors).items(), key=lambda item: item[1], reverse=True)
+        click.echo("Error stats:", err=True)
+        for k,v in error_stats:
+            click.echo("  {:d}: {:s}".format(v, k), err=True)
+            if verbose:
+                for e in errors:
+                    if e[0] == k:
+                        click.echo(f"        {e[1]}", err=True)
     click.echo(f"Rules: {len(rules)}", err=True)
     if errors:
         click.echo(f"Errors: {len(errors)}", err=True)
