@@ -46,6 +46,11 @@ eql_event_docs_mappings = {
 }
 
 eql_event_docs_complete = {
+    """any where true
+    """: [
+        {},
+    ],
+
     """network where source.port > 512 and source.port < 1024
     """: [
         {"event": {"category": ["network"]}, "source": {"port": 859}},
@@ -86,6 +91,11 @@ eql_event_docs_complete = {
     """network where destination.port not in (80, 443)
     """: [
         {"event": {"category": ["network"]}, "destination": {"port": 35106}},
+    ],
+
+    """network where destination.port == 22 and destination.port in (80, 443) or destination.port == 25
+    """: [
+        {"event": {"category": ["network"]}, "destination": {"port": 25}},
     ],
 
     """network where not destination.port in (80, 443)
@@ -253,6 +263,10 @@ eql_sequence_docs_complete = {
 }
 
 eql_exceptions = {
+    """any where false
+    """:
+        "Cannot trigger with any document",
+
     """process where process.pid == 0
     """:
         "Unsolvable constraints: process.pid (out of boundary, 1 <= 0 <= 4294967295)",
@@ -268,6 +282,10 @@ eql_exceptions = {
     """any where network.protocol == "http" and network.protocol == "https"
     """:
         "Unsolvable constraints ==: network.protocol ('https' != 'http')",
+
+    """network where destination.port == 22 and destination.port in (80, 443)
+    """:
+        "Cannot trigger with any document",
 
     """sequence by process.name
         [process where process.name : "cmd.exe"]

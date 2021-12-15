@@ -123,6 +123,8 @@ class emitter:
     @classmethod
     def emit_docs(cls, constraints):
         docs = []
+        if not constraints:
+            raise ValueError("Cannot trigger with any document")
         for constraint in constraints:
             doc = {}
             for field,value in constraint.resolve(cls.ecs_schema):
