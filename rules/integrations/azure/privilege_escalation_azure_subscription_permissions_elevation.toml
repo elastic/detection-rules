@@ -2,11 +2,13 @@
 creation_date = "2021/11/27"
 maturity = "production"
 integration = "azure"
+updated_date = "2021/12/14"
 
 [rule]
 author = ["Austin Songer"]
 description = """
-Identifies when a user has been elevated to manage all Azure Subscriptions. This setting could allow an attacker access to Azure subscriptions in your environment.
+Identifies when a user has been elevated to manage all Azure Subscriptions. This setting could allow an attacker access to Azure 
+subscriptions in your environment.
 """
 false_positives = [
     """
@@ -24,6 +26,7 @@ The Azure Fleet integration, Filebeat module, or similarly structured data is re
 references = [
     "https://docs.microsoft.com/en-us/azure/active-directory/fundamentals/security-operations-privileged-accounts#assignment-and-elevation",
     "https://docs.microsoft.com/en-us/azure/role-based-access-control/resource-provider-operations#microsoftauthorization",
+    "https://docs.microsoft.com/en-us/azure/role-based-access-control/built-in-roles#user-access-administrator",
 ]
 risk_score = 47
 rule_id = "c9576b84-aec1-4269-b2b8-c9c23f857e84"
@@ -33,11 +36,13 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-(event.dataset:azure.activitylogs and 
-azure.activitylogs.operation_name: "MICROSOFT.AUTHORIZATION/ELEVATEACCESS/ACTION" and 
-event.outcome:(Success or success)) or
-(event.dataset:azure.auditlogs and azure.auditlogs.operation_name: "Assigns the caller to user access admin" and 
-event.outcome:(Success or success))
+event.dataset:azure.activitylogs and (azure.activitylogs.operation_name:*/ROLEASSIGNMENTS/WRITE and 
+azure.activitylogs.properties:*18d7d88d-d35e-4fb5-a5c3-7773c20a72d9*) or 
+(azure.activitylogs.operation_name: 
+    (
+    MICROSOFT.AUTHORIZATION/ELEVATEACCESS/ACTION or 
+    MICROSOFT.AUTHORIZATION/CLASSICADMINISTRATORS/WRITE
+    ))
 '''
 
 
