@@ -38,26 +38,6 @@ def get_random_string(min_length, condition=None, allowed_chars=string.ascii_let
         l.insert(random.randrange(len(l)), random.choice(allowed_chars))
     return "".join(l)
 
-def get_random_octets(n):
-    return random.choices(range(1, 255), k=n)
-
-def fuzzy_ip(nr_octets, sep, fmt, condition = None):
-    if fuzziness_level:
-        octets = get_random_octets(nr_octets)
-    else:
-        octets = [1] * nr_octets
-    def to_str(o):
-        return sep.join(fmt.format(x) for x in o)
-    while condition and not condition(to_str(octets)):
-        octets = get_random_octets(nr_octets)
-    return to_str(octets)
-
-def fuzzy_ipv4(*args, **kwargs):
-    return fuzzy_ip(4, ".", "{:d}")
-
-def fuzzy_ipv6(*args, **kwargs):
-    return fuzzy_ip(6, ":", "{:x}")
-
 def fuzzy_choice(options):
     if fuzziness_level:
         return random.choice(options)

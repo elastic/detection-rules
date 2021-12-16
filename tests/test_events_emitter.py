@@ -186,6 +186,26 @@ eql_event_docs_complete = {
         {"event": {"category": ["process"], "type": ["start"]}, "process": {"args": ["dump-keychain", "-d"]}},
         {"event": {"category": ["process"], "type": ["process_started"]}, "process": {"args": ["dump-keychain", "-d"]}},
     ],
+
+    """network where destination.ip == "127.0.0.1"
+    """: [
+        {"event": {"category": ["network"]}, "destination": {"ip": "127.0.0.1"}},
+    ],
+
+    """network where cidrMatch(destination.ip, "10.0.0.0/8", "192.168.0.0/16")
+    """: [
+        {"event": {"category": ["network"]}, "destination": {"ip": "192.168.129.181"}},
+    ],
+
+    """network where destination.ip == "::1"
+    """: [
+        {"event": {"category": ["network"]}, "destination": {"ip": "::1"}},
+    ],
+
+    """network where destination.ip == "822e::/16"
+    """: [
+        {"event": {"category": ["network"]}, "destination": {"ip": "822e:d242:3361:b181:c4c:ee59:cfdb:60aa"}},
+    ],
 }
 
 eql_sequence_docs_complete = {

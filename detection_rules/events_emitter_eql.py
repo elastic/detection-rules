@@ -137,12 +137,25 @@ def emit_Sequence(node: eql.ast.Sequence) -> List[Constraints]:
 
 @emitter(eql.ast.FunctionCall)
 def emit_FunctionCall(node: eql.ast.FunctionCall) -> List[Constraints]:
-    if node.name != "wildcard":
-        raise NotImplementedError(f"Unsupported function: {node.name}")
     if type(node.arguments[0]) != eql.ast.Field:
         raise NotImplementedError(f"Unsupported argument type: {type(node.argument[0])}")
-    if type(node.arguments[1]) != eql.ast.String:
-        raise NotImplementedError(f"Unsupported argument type: {type(node.argument[1])}")
+    if any(type(arg) != eql.ast.String for arg in node.arguments[1:]):
+        raise NotImplementedError("Unsupported argument type(s): " +
+            f"{', '.join(sorted({str(type(arg)) for arg in node.arguments[1:] if type(arg) != eql.ast.String}))}")
+    fn_name = node.name.lower()
+    if fn_name == "wildcard":
+        return emit_FnWildcard(node)
+    elif fn_name == "cidrmatch":
+        return emit_FnCidrMatch(node)
+    else:
+        raise NotImplementedError(f"Unsupported function: {node.name}")
+
+def emit_FnCidrMatch(node: eql.ast.FunctionCall):
+    field = node.arguments[0].render()
+    c = Constraints(field, "in", tuple(arg.value for arg in node.arguments[1:]))
+    return [c]
+
+def emit_FnWildcard(node: eql.ast.FunctionCall):
     constraints = []
     for arg in emitter.iter(node.arguments[1:]):
         value = expand_wildcards(arg.value).lower()

@@ -9,6 +9,7 @@ import random
 import string
 import copy
 from collections import namedtuple
+import ipaddress
 
 NumberLimits = namedtuple("NumberLimits", ["MIN", "MAX"])
 
@@ -170,18 +171,77 @@ class Constraints:
         return {"value": value}
 
     @classmethod
-    @solver("ip", "==")
+    @solver("ip", "==", "!=", "in", "not in")
     def solve_ip_constraints(cls, field, value, constraints):
+        include_nets = set()
+        exclude_nets = set()
+        exclude_addrs = set()
+
         for k,v in constraints:
             if k == "==":
-                if value is None or value == v:
-                    value = v
+                v = str(v)
+                try:
+                    v = ipaddress.ip_address(v)
+                except ValueError:
+                    pass
                 else:
-                    raise ConflictError(f"{v} != {value}", field, k)
+                    if value is not None and value != v:
+                        raise ConflictError(f"is already {value}, cannot set to {v}", field, k)
+                    value = v
+                    continue
+                try:
+                    include_nets.add(ipaddress.ip_network(v))
+                except ValueError:
+                    raise ValueError(f"Not an IP address or network: {v}")
+            elif k == "!=":
+                v = str(v)
+                try:
+                    exclude_addrs.add(ipaddress.ip_address(v))
+                    continue
+                except ValueError:
+                    pass
+                try:
+                    exclude_nets.add(ipaddress.ip_network(v))
+                except ValueError:
+                    raise ValueError(f"Not an IP address or network: {v}")
+            elif k == "in":
+                values = [v] if type(v) == str else v
+                for v in values:
+                    try:
+                        include_nets.add(ipaddress.ip_network(str(v)))
+                    except ValueError:
+                        raise ValueError(f"Not an IP network: {str(v)}")
+            elif k == "not in":
+                values = [v] if type(v) == str else v
+                for v in values:
+                    try:
+                        exclude_nets.add(ipaddress.ip_network(str(v)))
+                    except ValueError:
+                        raise ValueError(f"Not an IP network: {str(v)}")
 
-        if value == None:
-            value = "1.1.1.1"
-        return {"value": value}
+        if include_nets & exclude_nets:
+            raise ConflictError("net(s) both included and excluded: " +
+                f"{', '.join(str(net) for net in sorted(include_nets & exclude_nets))}", field)
+        if value is not None and value in exclude_addrs:
+            if len(exclude_addrs) == 1:
+                raise ConflictError(f"cannot be {exclude_addrs.pop()}", field)
+            else:
+                raise ConflictError(f"cannot be any of ({', '.join(str(v) for v in sorted(exclude_addrs))})", field)
+        if value is not None and any(value in net for net in exclude_nets):
+            if len(exclude_nets) == 1:
+                raise ConflictError(f"cannot be in net {exclude_nets.pop()}", field)
+            else:
+                raise ConflictError(f"cannot be in any of nets ({', '.join(str(v) for v in sorted(exclude_nets))})", field)
+        ip_versions = sorted(ip.version for ip in include_nets | exclude_nets | exclude_addrs) or [4]
+        include_nets = sorted(include_nets, key=lambda x: (x.version, x))
+        while value is None or value in exclude_addrs or any(value in net for net in exclude_nets):
+            if include_nets:
+                net = random.choice(include_nets)
+                value = net[random.randrange(net.num_addresses)]
+            else:
+                bits = 128 if random.choice(ip_versions) == 6 else 32
+                value = ipaddress.ip_address(random.randrange(1, 2**bits))
+        return {"value": value.compressed}
 
     @classmethod
     @solver("keyword", "==", "!=", "min_length", "allowed_chars")
