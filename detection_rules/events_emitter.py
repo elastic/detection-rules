@@ -128,7 +128,8 @@ class emitter:
         for constraint in constraints:
             doc = {}
             for field,value in constraint.resolve(cls.ecs_schema):
-                deep_merge(doc, cls.emit_field(field, value))
+                if value is not None:
+                    deep_merge(doc, cls.emit_field(field, value))
             docs.append(doc)
         return docs
 

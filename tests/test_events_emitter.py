@@ -169,6 +169,26 @@ eql_event_docs_complete = {
         {"network": {"protocol": "some protocol"}},
     ],
 
+    """any where process.pid == null
+    """: [
+        {},
+    ],
+
+    """any where not process.pid != null
+    """: [
+        {},
+    ],
+
+    """any where process.pid != null
+    """: [
+        {"process": {"pid": 3617084353}},
+    ],
+
+    """any where not process.pid == null
+    """: [
+        {"process": {"pid": 3003800358}},
+    ],
+
     """process where process.name == "regsvr32.exe" and process.parent.name == "cmd.exe"
     """: [
         {"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe", "parent": {"name": "cmd.exe"}}},
@@ -330,6 +350,22 @@ eql_exceptions = {
     """:
         "Cannot trigger with any document",
 
+    """any where process.pid == null and process.pid != null
+    """:
+        "Unsolvable constraints: process.pid (cannot be non-null)",
+
+    """any where process.pid > 0 and process.pid == null
+    """:
+        "Unsolvable constraints: process.pid (cannot be null)",
+
+    """any where process.name != null and process.name == null
+    """:
+        "Unsolvable constraints: process.name (cannot be null)",
+
+    """any where process.name == "cmd.exe" and process.name == null
+    """:
+        "Unsolvable constraints: process.name (cannot be null)",
+
     """process where process.pid == 0
     """:
         "Unsolvable constraints: process.pid (out of boundary, 1 <= 0 <= 4294967295)",
@@ -365,6 +401,12 @@ eql_exceptions = {
         [process where process.parent.name : "powershell.exe"] by process.parent.name
     """:
         "Unsolvable constraints ==: process.parent.name ('cmd.exe' != 'powershell.exe')",
+
+    """sequence by process.name
+        [process where process.name == null]
+        [process where process.name : "powershell.exe"]
+    """:
+        "Unsolvable constraints: process.name (cannot be non-null)",
 }
 
 

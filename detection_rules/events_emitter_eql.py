@@ -70,6 +70,20 @@ def emit_And(node: eql.ast.And, negate: bool) -> List[Constraints]:
 def emit_Not(node: eql.ast.Not, negate: bool) -> List[Constraints]:
     return emit(node.term, not negate)
 
+@emitter(eql.ast.IsNull)
+def emit_IsNull(node: eql.ast.IsNull, negate: bool) -> List[Constraints]:
+    if type(node.expr) != eql.ast.Field:
+        raise NotImplementedError(f"Unsupported expression type: {type(node.expr)}")
+    constraint_name = "!=" if negate else "=="
+    return [Constraints(node.expr.render(), constraint_name, None)]
+
+@emitter(eql.ast.IsNotNull)
+def emit_IsNotNull(node: eql.ast.IsNotNull, negate: bool) -> List[Constraints]:
+    if type(node.expr) != eql.ast.Field:
+        raise NotImplementedError(f"Unsupported expression type: {type(node.expr)}")
+    constraint_name = "==" if negate else "!="
+    return [Constraints(node.expr.render(), constraint_name, None)]
+
 @emitter(eql.ast.InSet)
 def emit_InSet(node: eql.ast.InSet, negate: bool) -> List[Constraints]:
     if type(node.expression) != eql.ast.Field:
@@ -193,8 +207,6 @@ def emit_FnWildcard(node: eql.ast.FunctionCall, negate: bool):
 @emitter(eql.ast.Null)
 @emitter(eql.ast.TimeRange)
 @emitter(eql.ast.TimeUnit)
-@emitter(eql.ast.IsNotNull)
-@emitter(eql.ast.IsNull)
 @emitter(eql.ast.MathOperation)
 @emitter(eql.ast.NamedSubquery)
 @emitter(eql.ast.NamedParams)

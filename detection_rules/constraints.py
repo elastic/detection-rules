@@ -58,7 +58,7 @@ class Constraints:
 
     def __init__(self, field=None, name=None, value=None):
         self.constraints = {}
-        if None not in (field, name):
+        if field is not None:
             self.append_constraint(field, name, value)
 
     def clone(self):
@@ -66,15 +66,31 @@ class Constraints:
         c.constraints = copy.deepcopy(self.constraints)
         return c
 
-    def append_constraint(self, field, name, value):
+    def append_constraint(self, field, name=None, value=None):
         if field not in self.constraints:
-            self.constraints[field] = []
-        self.constraints[field].append((name,value))
+            if name == "==" and value is None:
+                self.constraints[field] = None
+            else:
+                self.constraints[field] = []
+        if self.constraints[field] is None:
+            if name != "==" or value is not None:
+                raise ConflictError(f"cannot be non-null", field)
+        else:
+            if name == "==" and value is None:
+                raise ConflictError(f"cannot be null", field)
+            if name is not None and not (name == "!=" and value is None):
+                self.constraints[field].append((name,value))
 
     def extend_constraints(self, field, constraints):
         if field not in self.constraints:
-            self.constraints[field] = []
-        self.constraints[field].extend(constraints)
+            self.constraints[field] = copy.deepcopy(constraints)
+        elif self.constraints[field] is None:
+            if constraints is not None:
+                raise ConflictError(f"cannot be non-null", field)
+        else:
+            if constraints is None:
+                raise ConflictError(f"cannot be null", field)
+            self.constraints[field].extend(constraints)
 
     def __add__(self, other):
         c = self.clone()
@@ -292,5 +308,8 @@ class Constraints:
 
     def resolve(self, ecs_schema):
         for field,constraints in self.constraints.items():
-            field_schema = ecs_schema.get(field, {})
-            yield field, self.solve_constraints(field, constraints, field_schema)
+            if constraints is None:
+                yield field, None
+            else:
+                field_schema = ecs_schema.get(field, {})
+                yield field, self.solve_constraints(field, constraints, field_schema)
