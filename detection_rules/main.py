@@ -8,6 +8,7 @@ import dataclasses
 import glob
 import json
 import os
+import sys
 import re
 import time
 from datetime import datetime
@@ -282,7 +283,7 @@ def emit_events(ctx, paths, verbose):
             with emitter.completeness(1):
                 docs.extend(emit_docs(rule.contents.data))
         except Exception as e:
-            errors.append((str(e), rule.path.relative_to(get_path("."))))
+            errors.append((str(e), rule.path.relative_to(get_path(".")), sys.exc_info()[2]))
 
     docs.insert(0, emitter.emit_mappings())
 
@@ -297,7 +298,11 @@ def emit_events(ctx, paths, verbose):
             if verbose:
                 for e in errors:
                     if e[0] == k:
-                        click.echo(f"        {e[1]}", err=True)
+                        click.echo(f"      {e[1]}", err=True)
+                        if verbose > 1:
+                            import traceback
+                            s = "".join(traceback.format_tb(e[2])).replace("\n", "\n        ")
+                            click.echo(f"        {s}", err=True)
     click.echo(f"Rules: {len(rules)}", err=True)
     if errors:
         click.echo(f"Errors: {len(errors)}", err=True)
