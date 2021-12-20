@@ -10,7 +10,7 @@ import random
 import json
 import copy
 import itertools
-from typing import List, Tuple
+from typing import List, Tuple, Union
 import eql
 
 from .utils import deep_merge
@@ -21,52 +21,57 @@ from .events_emitter import emitter
 __all__ = (
 )
 
-def emit(node: eql.ast.BaseNode) -> List[Constraints]:
-    return emitter.emit(node)
+def emit(node: eql.ast.BaseNode, negate: bool) -> List[Constraints]:
+    return emitter.emit(node, negate)
 
 @emitter(eql.ast.Field)
-def emit_Field(node: eql.ast.Field, value: str) -> Constraints:
-    return Constraints(node.render(), "==", value)
+def emit_Field(node: eql.ast.Field, value: str, negate: bool) -> Constraints:
+    constraint_name = "!=" if negate else "=="
+    return Constraints(node.render(), constraint_name, value)
 
 @emitter(eql.ast.Boolean)
-def emit_Boolean(node: eql.ast.Boolean):
+def emit_Boolean(node: eql.ast.Boolean, negate: bool):
     constraints = []
-    if node.value:
+    if node.value if not negate else not node.value:
         constraints.append(Constraints())
     return constraints
 
-@emitter(eql.ast.Or)
-def emit_Or(node: eql.ast.Or) -> List[Constraints]:
+def emit_OrTerms(node: Union[eql.ast.Or, eql.ast.And], negate: bool) -> List[Constraints]:
     constraints = []
     for term in emitter.iter(node.terms):
-        constraints.extend(emit(term))
+        constraints.extend(emit(term, negate))
     return constraints
 
-@emitter(eql.ast.And)
-def emit_And(node: eql.ast.And) -> List[Constraints]:
+def emit_AndTerms(node: Union[eql.ast.Or, eql.ast.And], negate: bool) -> List[Constraints]:
     constraints = []
     for term in node.terms:
-        term_constraints = emit(term)
+        term_constraints = emit(term, negate)
         if constraints:
             constraints = [c + term_c for term_c in term_constraints for c in constraints]
         else:
             constraints = term_constraints
     return constraints
 
+@emitter(eql.ast.Or)
+def emit_Or(node: eql.ast.Or, negate: bool) -> List[Constraints]:
+    if negate:
+        return emit_AndTerms(node, negate)
+    else:
+        return emit_OrTerms(node, negate)
+
+@emitter(eql.ast.And)
+def emit_And(node: eql.ast.And, negate: bool) -> List[Constraints]:
+    if negate:
+        return emit_OrTerms(node, negate)
+    else:
+        return emit_AndTerms(node, negate)
+
 @emitter(eql.ast.Not)
-def emit_Not(node: eql.ast.Not) -> List[Constraints]:
-    if isinstance(node.term, eql.ast.InSet):
-        return emit_InSet(node.term, negate=True)
-
-    if isinstance(node.term, eql.ast.FunctionCall) and node.term.name == 'wildcard':
-        if len(node.term.arguments) == 2 and isinstance(node.term.arguments[1], eql.ast.String):
-            lhs, rhs = node.term.arguments
-            return emit_Comparison(eql.ast.Comparison(lhs, eql.ast.Comparison.NE, rhs))
-
-    raise NotImplementedError(f"Unsupported term negation: {type(node.term)}")
+def emit_Not(node: eql.ast.Not, negate: bool) -> List[Constraints]:
+    return emit(node.term, not negate)
 
 @emitter(eql.ast.InSet)
-def emit_InSet(node: eql.ast.InSet, negate: bool=False) -> List[Constraints]:
+def emit_InSet(node: eql.ast.InSet, negate: bool) -> List[Constraints]:
     if type(node.expression) != eql.ast.Field:
         raise NotImplementedError(f"Unsupported expression type: {type(node.expression)}")
     constraints = []
@@ -78,40 +83,48 @@ def emit_InSet(node: eql.ast.InSet, negate: bool=False) -> List[Constraints]:
         constraints.append(c)
     else:
         for term in emitter.iter(node.container):
-            constraints.append(emit_Field(node.expression, term.value))
+            constraints.append(emit_Field(node.expression, term.value, negate))
     return constraints
 
 @emitter(eql.ast.Comparison)
-def emit_Comparison(node: eql.ast.Comparison) -> List[Constraints]:
+def emit_Comparison(node: eql.ast.Comparison, negate: bool) -> List[Constraints]:
     if type(node.left) != eql.ast.Field:
         raise NotImplementedError(f"Unsupported LHS type: {type(node.left)}")
-    return [Constraints(node.left.render(), node.comparator, node.right.value)]
+    negation = {"==": "!=", "!=": "==", ">=": "<", "<=": ">", ">": "<=", "<": ">="}
+    comparator = negation[node.comparator] if negate else node.comparator
+    return [Constraints(node.left.render(), comparator, node.right.value)]
 
 @emitter(eql.ast.EventQuery)
-def emit_EventQuery(node: eql.ast.EventQuery) -> List[Constraints]:
+def emit_EventQuery(node: eql.ast.EventQuery, negate: bool) -> List[Constraints]:
+    if negate:
+        raise NotImplementedError(f"Negation of {type(node)} is not supported")
     if type(node.event_type) != str:
         raise NotImplementedError(f"Unsupported event_type type: {type(node.event_type)}")
-    constraints = emit(node.query)
+    constraints = emit(node.query, negate)
     if node.event_type != "any":
         for c in constraints:
             c.append_constraint("event.category", "==", node.event_type)
     return constraints
 
 @emitter(eql.ast.PipedQuery)
-def emit_PipedQuery(node: eql.ast.PipedQuery) -> List[Constraints]:
+def emit_PipedQuery(node: eql.ast.PipedQuery, negate: bool) -> List[Constraints]:
+    if negate:
+        raise NotImplementedError(f"Negation of {type(node)} is not supported")
     if node.pipes:
         raise NotImplementedError("Pipes are unsupported")
-    return emit(node.first)
+    return emit(node.first, negate)
 
-def emit_SubqueryBy(node: eql.ast.SubqueryBy) -> List[Tuple[Constraints,List[str]]]:
+def emit_SubqueryBy(node: eql.ast.SubqueryBy, negate: bool) -> List[Tuple[Constraints, List[str]]]:
+    if negate:
+        raise NotImplementedError(f"Negation of {type(node)} is not supported")
     if any(not isinstance(value, eql.ast.Field) for value in node.join_values):
         raise NotImplementedError(f"Unsupported join values: {node.join_values}")
     if node.fork:
         raise NotImplementedError(f"Unsupported fork: {node.fork}")
     join_fields = [field.render() for field in node.join_values]
-    return [(c,join_fields) for c in emit(node.query)]
+    return [(c,join_fields) for c in emit(node.query, negate)]
 
-def emit_JoinSeq(seq: List[Tuple[Constraints,List[str]]]) -> List[Constraints]:
+def emit_JoinSeq(seq: List[Tuple[Constraints, List[str]]]) -> List[Constraints]:
     constraints = []
     join_rows = []
     for c,join_fields in seq:
@@ -126,17 +139,19 @@ def emit_JoinSeq(seq: List[Tuple[Constraints,List[str]]]) -> List[Constraints]:
     return constraints
 
 @emitter(eql.ast.Sequence)
-def emit_Sequence(node: eql.ast.Sequence) -> List[Constraints]:
-    queries = [emit_SubqueryBy(query) for query in node.queries]
+def emit_Sequence(node: eql.ast.Sequence, negate: bool) -> List[Constraints]:
+    if negate:
+        raise NotImplementedError(f"Negation of {type(node)} is not supported")
+    queries = [emit_SubqueryBy(query, negate) for query in node.queries]
     if node.close:
-        queries.append([(c,[]) for c in emit(node.close)])
+        queries.append([(c,[]) for c in emit(node.close, negate)])
     constraints = []
     for seq in itertools.chain(itertools.product(*queries)):
         constraints.extend(emit_JoinSeq(seq))
     return constraints
 
 @emitter(eql.ast.FunctionCall)
-def emit_FunctionCall(node: eql.ast.FunctionCall) -> List[Constraints]:
+def emit_FunctionCall(node: eql.ast.FunctionCall, negate: bool) -> List[Constraints]:
     if type(node.arguments[0]) != eql.ast.Field:
         raise NotImplementedError(f"Unsupported argument type: {type(node.argument[0])}")
     if any(type(arg) != eql.ast.String for arg in node.arguments[1:]):
@@ -144,22 +159,29 @@ def emit_FunctionCall(node: eql.ast.FunctionCall) -> List[Constraints]:
             f"{', '.join(sorted({str(type(arg)) for arg in node.arguments[1:] if type(arg) != eql.ast.String}))}")
     fn_name = node.name.lower()
     if fn_name == "wildcard":
-        return emit_FnWildcard(node)
+        return emit_FnWildcard(node, negate)
     elif fn_name == "cidrmatch":
-        return emit_FnCidrMatch(node)
+        return emit_FnCidrMatch(node, negate)
     else:
         raise NotImplementedError(f"Unsupported function: {node.name}")
 
-def emit_FnCidrMatch(node: eql.ast.FunctionCall):
+def emit_FnCidrMatch(node: eql.ast.FunctionCall, negate: bool):
     field = node.arguments[0].render()
-    c = Constraints(field, "in", tuple(arg.value for arg in node.arguments[1:]))
+    constraint_name = "not in" if negate else "in"
+    c = Constraints(field, constraint_name, tuple(arg.value for arg in node.arguments[1:]))
     return [c]
 
-def emit_FnWildcard(node: eql.ast.FunctionCall):
+def emit_FnWildcard(node: eql.ast.FunctionCall, negate: bool):
+    if negate:
+        if len(node.arguments) == 2 and isinstance(node.arguments[1], eql.ast.String):
+            lhs, rhs = node.arguments
+            return emit_Comparison(eql.ast.Comparison(lhs, eql.ast.Comparison.NE, rhs), False)
+        else:
+            raise NotImplementedError(f"Negation of function {node.name} is not supported")
     constraints = []
     for arg in emitter.iter(node.arguments[1:]):
         value = expand_wildcards(arg.value).lower()
-        constraints.append(emit_Field(node.arguments[0], value))
+        constraints.append(emit_Field(node.arguments[0], value, negate))
     return constraints
 
 @emitter(eql.ast.BaseNode)
@@ -185,5 +207,5 @@ def emit_FnWildcard(node: eql.ast.FunctionCall):
 @emitter(eql.ast.Macro)
 @emitter(eql.ast.Constant)
 @emitter(eql.ast.PreProcessor)
-def emit_not_implemented(node: eql.ast.BaseNode) -> List[Constraints]:
+def emit_not_implemented(node: eql.ast.BaseNode, negate: bool) -> List[Constraints]:
     raise NotImplementedError(f"Emitter not implemented: {type(node)}")

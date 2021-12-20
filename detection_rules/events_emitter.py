@@ -59,8 +59,8 @@ class emitter:
         cls.mappings_fields = set()
 
     @classmethod
-    def emit(cls, node):
-        return cls.emitters[type(node)].wrapper(node)
+    def emit(cls, node, negate=False):
+        return cls.emitters[type(node)].wrapper(node, negate)
 
     @classmethod
     def get_ast_stats(cls):

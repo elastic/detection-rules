@@ -51,15 +51,41 @@ eql_event_docs_complete = {
         {},
     ],
 
+    """any where not false
+    """: [
+        {},
+    ],
+
+    """any where not (true and false)
+    """: [
+        {},
+    ],
+
+    """any where not (false or false)
+    """: [
+        {},
+    ],
+
     """network where source.port > 512 and source.port < 1024
     """: [
         {"event": {"category": ["network"]}, "source": {"port": 859}},
+    ],
+
+    """network where not (source.port > 512 and source.port < 1024)
+    """: [
+        {"event": {"category": ["network"]}, "source": {"port": 236}},
+        {"event": {"category": ["network"]}, "source": {"port": 19581}},
     ],
 
     """network where source.port > 512 or source.port < 1024
     """: [
         {"event": {"category": ["network"]}, "source": {"port": 44068}},
         {"event": {"category": ["network"]}, "source": {"port": 609}},
+    ],
+
+    """network where not (source.port < 512 or source.port > 1024)
+    """: [
+        {"event": {"category": ["network"]}, "source": {"port": 815}},
     ],
 
     """network where source.port < 2000 and (source.port > 512 or source.port > 1024)
@@ -93,14 +119,14 @@ eql_event_docs_complete = {
         {"event": {"category": ["network"]}, "destination": {"port": 35106}},
     ],
 
-    """network where destination.port == 22 and destination.port in (80, 443) or destination.port == 25
-    """: [
-        {"event": {"category": ["network"]}, "destination": {"port": 25}},
-    ],
-
     """network where not destination.port in (80, 443)
     """: [
         {"event": {"category": ["network"]}, "destination": {"port": 58630}},
+    ],
+
+    """network where destination.port == 22 and destination.port in (80, 443) or destination.port == 25
+    """: [
+        {"event": {"category": ["network"]}, "destination": {"port": 25}},
     ],
 
     """process where process.name == "regsvr32.exe"
@@ -197,6 +223,11 @@ eql_event_docs_complete = {
         {"event": {"category": ["network"]}, "destination": {"ip": "192.168.129.181"}},
     ],
 
+    """network where not cidrMatch(destination.ip, "10.0.0.0/8", "192.168.0.0/16")
+    """: [
+        {"event": {"category": ["network"]}, "destination": {"ip": "106.218.221.201"}},
+    ],
+
     """network where destination.ip == "::1"
     """: [
         {"event": {"category": ["network"]}, "destination": {"ip": "::1"}},
@@ -287,6 +318,18 @@ eql_exceptions = {
     """:
         "Cannot trigger with any document",
 
+    """any where not true
+    """:
+        "Cannot trigger with any document",
+
+    """any where not (true and true)
+    """:
+        "Cannot trigger with any document",
+
+    """any where not (true or false)
+    """:
+        "Cannot trigger with any document",
+
     """process where process.pid == 0
     """:
         "Unsolvable constraints: process.pid (out of boundary, 1 <= 0 <= 4294967295)",
@@ -306,6 +349,10 @@ eql_exceptions = {
     """network where destination.port == 22 and destination.port in (80, 443)
     """:
         "Cannot trigger with any document",
+
+    """network where not (source.port > 512 or source.port < 1024)
+    """:
+        "Unsolvable constraints: source.port (empty solution space, 1024 <= x <= 512)",
 
     """sequence by process.name
         [process where process.name : "cmd.exe"]
