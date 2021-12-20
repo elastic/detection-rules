@@ -136,7 +136,7 @@ eql_event_docs_complete = {
 
     """process where process.name != "regsvr32.exe"
     """: [
-        {"event": {"category": ["process"]}, "process": {"name": "!regsvr32.exe"}},
+        {"event": {"category": ["process"]}, "process": {"name": "pki"}},
     ],
 
     """process where process.pid != 0
@@ -223,8 +223,7 @@ eql_event_docs_complete = {
 
     """process where process.name : ("*.EXE", "*.DLL")
     """: [
-        {"event": {"category": ["process"]}, "process": {"name": "4pp7h.exe"}},
-        {"event": {"category": ["process"]}, "process": {"name": "0gwcwq8s9dic.dll"}},
+        {"event": {"category": ["process"]}, "process": {"name": "hhkrsftx.dll"}},
     ],
 
     """process where event.type in ("start", "process_started") and process.args : "dump-keychain" and process.args : "-d"

@@ -173,30 +173,17 @@ def emit_FunctionCall(node: eql.ast.FunctionCall, negate: bool) -> List[Constrai
             f"{', '.join(sorted({str(type(arg)) for arg in node.arguments[1:] if type(arg) != eql.ast.String}))}")
     fn_name = node.name.lower()
     if fn_name == "wildcard":
-        return emit_FnWildcard(node, negate)
+        return emit_FnConstraints(node, negate, "wildcard")
     elif fn_name == "cidrmatch":
-        return emit_FnCidrMatch(node, negate)
+        return emit_FnConstraints(node, negate, "in")
     else:
         raise NotImplementedError(f"Unsupported function: {node.name}")
 
-def emit_FnCidrMatch(node: eql.ast.FunctionCall, negate: bool):
+def emit_FnConstraints(node: eql.ast.FunctionCall, negate: bool, constraint_name: str):
     field = node.arguments[0].render()
-    constraint_name = "not in" if negate else "in"
+    constraint_name = f"not {constraint_name}" if negate else constraint_name
     c = Constraints(field, constraint_name, tuple(arg.value for arg in node.arguments[1:]))
     return [c]
-
-def emit_FnWildcard(node: eql.ast.FunctionCall, negate: bool):
-    if negate:
-        if len(node.arguments) == 2 and isinstance(node.arguments[1], eql.ast.String):
-            lhs, rhs = node.arguments
-            return emit_Comparison(eql.ast.Comparison(lhs, eql.ast.Comparison.NE, rhs), False)
-        else:
-            raise NotImplementedError(f"Negation of function {node.name} is not supported")
-    constraints = []
-    for arg in emitter.iter(node.arguments[1:]):
-        value = expand_wildcards(arg.value).lower()
-        constraints.append(emit_Field(node.arguments[0], value, negate))
-    return constraints
 
 @emitter(eql.ast.BaseNode)
 @emitter(eql.ast.Expression)

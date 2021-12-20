@@ -368,6 +368,107 @@ constraints_ip_exceptions = [
     ], "Unsolvable constraints: test_var (net(s) both included and excluded: fe80::/64)"),
 ]
 
+constraints_keyword = [
+    ([
+    ], {"value": "ycg"}),
+
+    ([
+    ], {"value": "ycg"}),
+
+    ([
+        ("!=", "ycg"),
+    ], {"value": "Spa"}),
+
+    ([
+        ("!=", "ycg"),
+        ("!=", "Spa"),
+    ], {"value": "alZ"}),
+
+    ([
+        ("wildcard", "*.exe"),
+    ], {"value": "cgspaalzajkedzp.exe"}),
+
+    ([
+        ("wildcard", "*.exe"),
+        ("not wildcard", "cgsp*.exe"),
+    ], {"value": "iusssrheshoebe.exe"}),
+
+    ([
+        ("wildcard", "*.exe"),
+        ("not wildcard", "cgsp*.exe"),
+        ("not wildcard", "iuss*.exe"),
+    ], {"value": "xuqtfxhxlb.exe"}),
+
+    ([
+        ("==", "cmd.exe"),
+    ], {"value": "cmd.exe"}),
+
+    ([
+        ("wildcard", "cmd.exe"),
+    ], {"value": "cmd.exe"}),
+
+    ([
+        ("wildcard", "cmd.exe"),
+        ("==", "cmd.exe"),
+    ], {"value": "cmd.exe"}),
+
+    ([
+        ("wildcard", ("cmd.exe",)),
+        ("==", "cmd.exe"),
+    ], {"value": "cmd.exe"}),
+
+    ([
+        ("wildcard", ("cmd.exe", "powershell.exe")),
+        ("==", "cmd.exe"),
+    ], {"value": "cmd.exe"}),
+
+    ([
+        ("wildcard", ("cmd.exe", "powershell.exe", "regedit.exe")),
+    ], {"value": "powershell.exe"}),
+]
+
+constraints_keyword_exceptions = [
+    ([
+        ("!=", "cmd.exe"),
+        ("==", "cmd.exe"),
+    ], "Unsolvable constraints: test_var (cannot be 'cmd.exe')"),
+
+    ([
+        ("==", "cmd.exe"),
+        ("!=", "cmd.exe"),
+    ], "Unsolvable constraints: test_var (cannot be 'cmd.exe')"),
+
+    ([
+        ("==", "cmd.exe"),
+        ("not wildcard", "*.exe"),
+    ], "Unsolvable constraints: test_var (cannot match '*.exe')"),
+
+    ([
+        ("wildcard", "*.exe"),
+        ("not wildcard", "*.EXE"),
+    ], "Unsolvable constraints: test_var (cannot match '*.exe')"),
+
+    ([
+        ("wildcard", "powershell.exe"),
+        ("==", "cmd.exe"),
+    ], "Unsolvable constraints ==: test_var (is already 'powershell.exe', cannot set to 'cmd.exe')"),
+
+    ([
+        ("wildcard", ("powershell.exe",)),
+        ("==", "cmd.exe"),
+    ], "Unsolvable constraints ==: test_var (is already 'powershell.exe', cannot set to 'cmd.exe')"),
+
+    ([
+        ("wildcard", "cmd.exe"),
+        ("wildcard", "powershell.exe"),
+    ], "Unsolvable constraints ==: test_var (is already 'powershell.exe', cannot set to 'cmd.exe')"),
+
+    ([
+        ("wildcard", ("cmd.exe", "powershell.exe")),
+        ("==", "regedit.exe"),
+    ], "Unsolvable constraints: test_var (does not match any of ('cmd.exe', 'powershell.exe'))"),
+]
+
 class TestCaseSeed:
     """Make Constraints repeat the same random choices."""
 
@@ -405,6 +506,19 @@ class TestEmitter(TestCaseSeed, unittest.TestCase):
                     self.assertEqual(test_value, solver("test_var", None, constraints))
 
             for constraints, msg in constraints_ip_exceptions:
+                with self.subTest(constraints):
+                    with self.assertRaises(ValueError, msg=msg):
+                        self.assertEqual(None, solver("test_var", None, constraints))
+
+    def test_keyword(self):
+        solver = Constraints.solve_keyword_constraints
+
+        with fuzziness(1):
+            for constraints, test_value in constraints_keyword:
+                with self.subTest(constraints):
+                    self.assertEqual(test_value, solver("test_var", None, constraints))
+
+            for constraints, msg in constraints_keyword_exceptions:
                 with self.subTest(constraints):
                     with self.assertRaises(ValueError, msg=msg):
                         self.assertEqual(None, solver("test_var", None, constraints))
