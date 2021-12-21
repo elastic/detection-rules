@@ -573,8 +573,16 @@ class TestSignals(TestCaseOnline, TestCaseSeed, unittest.TestCase):
         docs, mappings = self.generate_docs_and_mappings(rules, asts)
 
         template = {
-            "index_patterns": [f"{self.index_template}-*"],
-            "template": {"mappings": mappings},
+            "index_patterns": [
+                f"{self.index_template}-*"
+            ],
+            "template": {
+                "settings": {
+                    "number_of_shards": 1,
+                    "number_of_replicas": 0,
+                },
+                "mappings": mappings,
+            },
         }
         self.es_indices.put_index_template(self.index_template, body=template)
 
