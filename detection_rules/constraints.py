@@ -377,10 +377,10 @@ class Constraints:
             value = None
         return solver(field, value, constraints)["value"]
 
-    def resolve(self, ecs_schema):
+    def resolve(self, schema):
         for field,constraints in self.constraints.items():
             if constraints is None:
                 yield field, None
             else:
-                field_schema = ecs_schema.get(field, {})
+                field_schema = schema.get(field, {})
                 yield field, self.solve_constraints(field, constraints, field_schema)

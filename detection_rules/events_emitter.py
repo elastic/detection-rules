@@ -21,10 +21,20 @@ __all__ = (
     "get_ast_stats",
 )
 
+custom_schema = {
+    "file.Ext.windows.zone_identifier": {
+        "type": "long",
+    },
+    "process.parent.Ext.real.pid": {
+        "type": "long",
+    },
+}
 
 class emitter:
     ecs_version = get_max_version()
     ecs_schema = get_schema(version=ecs_version)
+    schema = deep_merge(custom_schema, ecs_schema)
+
     emitters = {}
     completeness_level = 0
     fuzziness = fuzzylib.fuzziness
@@ -93,7 +103,7 @@ class emitter:
         mappings = {}
         for field in cls.mappings_fields:
             try:
-                field_type = cls.ecs_schema[field]["type"]
+                field_type = cls.schema[field]["type"]
             except KeyError:
                 field_type = "keyword"
             value = {"type": field_type}
@@ -127,7 +137,7 @@ class emitter:
             raise ValueError("Cannot trigger with any document")
         for constraint in constraints:
             doc = {}
-            for field,value in constraint.resolve(cls.ecs_schema):
+            for field,value in constraint.resolve(cls.schema):
                 if value is not None:
                     deep_merge(doc, cls.emit_field(field, value))
             docs.append(doc)
