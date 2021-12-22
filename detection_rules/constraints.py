@@ -129,14 +129,13 @@ class Constraints:
                 if value is None or value == v:
                     value = v
                 else:
-                    raise ConflictError(f"{v} != {value}", field, k)
+                    raise ConflictError(f"is already {value}, cannot set to {v}", field, k)
             elif k == "!=":
                 v = bool(v)
                 if value is None or value != v:
-                    if value is None:
-                        value = not v
+                    value = not v
                 else:
-                    raise ConflictError(f"{v} == {value}", field, k)
+                    raise ConflictError(f"is already {value}, cannot set to {not v}", field, k)
 
         if value is None:
             value = random.choice((True, False))
