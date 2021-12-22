@@ -1,6 +1,6 @@
-# Discovering beaconing activity in your environment
+# Identifying beaconing activity in your environment
 
-The Beaconing package consists of all the artifacts required to stand up a beaconing discovery framework in your environment. The framework can not only help threat hunters and analysts monitor network traffic for beaconing activity, but also provides useful indicators of compromise (IoCs) for them to start an investigation with. 
+The Network Beaconing package consists of all the artifacts required to stand up a framework to identify beaconing activity in your environment. The framework can not only help threat hunters and analysts monitor network traffic for beaconing activity, but also provides useful indicators of compromise (IoCs) for them to start an investigation with. 
 To deploy this framework in your environment, follow the steps outlined below.
 
 # Detailed steps
@@ -55,8 +55,8 @@ GET ml_beaconing/_search (or _count)
 
 * Navigate to `Management` -> `Stack Management` -> `Kibana` -> `Saved Objects`
 * Click on `Import` and import the `ml_beaconing_dashboards.ndjson` file. Choose the `Request Action on conflict` option if you don't want the import to overwrite existing objects, for example the `logs-*` index pattern. 
-* Navigate to `Analytics` -> `Dashboard`. You should see three dashboards- `Beaconing Discovery`, which is the main dashboard to monitor beaconing activity, `Beaconing Drilldown` to drilldown into relevant event logs and some statistics related to the beaconing activity, and finally, `Hosts Affected Over Time By Process Name` to monitor the reach of beaconing processes across hosts in your environment, in the past two weeks.
+* Navigate to `Analytics` -> `Dashboard`. You should see three dashboards- `Network Beaconing`, which is the main dashboard to monitor beaconing activity, `Beaconing Drilldown` to drilldown into relevant event logs and some statistics related to the beaconing activity, and finally, `Hosts Affected Over Time By Process Name` to monitor the reach of beaconing processes across hosts in your environment, in the past two weeks.
 
 # Note
 
-Platinum and Enterprise customers can enable the anomaly detection job associated with this beaconing discovery framework. This job additionally allows users to find processes in their environment that don't normally beacon out. The job configuration and datafeed can be found in the latest experimental detections package, which is available as a GitHub release [here](https://github.com/elastic/detection-rules/releases), with the tag `ML-experimental-detections-YYYMMDD-N`.
+Platinum and Enterprise customers can enable the anomaly detection job associated with this beaconing identification framework. This job additionally allows users to find processes in their environment that don't normally beacon out. The job configuration and datafeed can be found in the latest experimental detections package, which is available as a GitHub release [here](https://github.com/elastic/detection-rules/releases), with the tag `ML-experimental-detections-YYYMMDD-N`.
