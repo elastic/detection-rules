@@ -5,9 +5,9 @@
 
 """Test constraints."""
 
-import random
 import unittest
 
+from detection_rules import utils
 from detection_rules.ecs import get_schema
 from detection_rules.fuzzylib import fuzziness
 from detection_rules.constraints import Constraints, LongLimits
@@ -469,20 +469,12 @@ constraints_keyword_exceptions = [
     ], "Unsolvable constraints: test_var (does not match any of ('cmd.exe', 'powershell.exe'))"),
 ]
 
-class TestCaseSeed:
-    """Make Constraints repeat the same random choices."""
 
-    def setUp(self):
-        self.random_state = random.getstate()
-
-    def tearDown(self):
-        random.setstate(self.random_state)
+class TestConstraints(utils.SeededTestCase, unittest.TestCase):
 
     def subTest(self, *args, **kwargs):
-        random.seed(f"{fuzziness()}")
-        return super(TestCaseSeed, self).subTest(*args, **kwargs)
-
-class TestEmitter(TestCaseSeed, unittest.TestCase):
+        kwargs["seed"] = str(fuzziness())
+        return super(TestConstraints, self).subTest(*args, **kwargs)
 
     def test_long(self):
         solver = Constraints.solve_long_constraints

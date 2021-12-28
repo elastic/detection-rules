@@ -9,12 +9,12 @@ import os
 import sys
 import time
 import unittest
-import random
 import json
 import eql
 
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.events_emitter import emitter
+from detection_rules import utils
 
 verbose = sum(arg.count('v') for arg in sys.argv if arg.startswith("-") and not arg.startswith("--"))
 
@@ -409,28 +409,19 @@ eql_exceptions = {
 }
 
 
-class TestCaseSeed:
-    """Make Emitter repeat the same random choices."""
-
-    def setUp(self):
-        self.random_state = random.getstate()
-
-    def tearDown(self):
-        random.setstate(self.random_state)
+class QueryTestCase:
 
     def subTest(self, query):
         fuzziness = emitter.fuzziness()
         completeness = emitter.completeness()
-        random.seed(f"{query} {completeness} {fuzziness}")
-        return super(TestCaseSeed, self).subTest(query, completeness=completeness, fuzziness=fuzziness)
-
-
-class QueryTestCase:
+        seed = f"{query} {completeness} {fuzziness}"
+        return super(QueryTestCase, self).subTest(query, completeness=completeness, fuzziness=fuzziness, seed=seed)
 
     def assertQuery(self, query, docs):
         self.assertEqual(docs, emitter.emit_docs(emitter.emit(eql.parse_query(query))))
 
-class TestEmitter(QueryTestCase, TestCaseSeed, unittest.TestCase):
+
+class TestEmitter(QueryTestCase, utils.SeededTestCase, unittest.TestCase):
     maxDiff = None
 
     def test_mappings(self):
@@ -502,7 +493,7 @@ class TestCaseOnline:
         self.es.delete_by_query(".siem-signals-default-000001", body={"query": {"match_all": {}}})
 
 
-class TestSignals(TestCaseOnline, TestCaseSeed, unittest.TestCase):
+class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
     maxDiff = None
 
     def parse_from_queries(self, queries):
