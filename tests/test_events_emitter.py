@@ -425,7 +425,12 @@ class TestCaseSeed:
         return super(TestCaseSeed, self).subTest(query, completeness=completeness, fuzziness=fuzziness)
 
 
-class TestEmitter(TestCaseSeed, unittest.TestCase):
+class QueryTestCase:
+
+    def assertQuery(self, query, docs):
+        self.assertEqual(docs, emitter.emit_docs(emitter.emit(eql.parse_query(query))))
+
+class TestEmitter(QueryTestCase, TestCaseSeed, unittest.TestCase):
     maxDiff = None
 
     def test_mappings(self):
@@ -441,19 +446,19 @@ class TestEmitter(TestCaseSeed, unittest.TestCase):
             for query, msg in eql_exceptions.items():
                 with self.subTest(query):
                     with self.assertRaises(ValueError, msg=msg):
-                        self.assertEqual(None, emitter.emit_docs(emitter.emit(eql.parse_query(query))))
+                        self.assertQuery(query, None)
 
     def test_eql_events_complete(self):
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
             for query, docs in eql_event_docs_complete.items():
                 with self.subTest(query):
-                    self.assertEqual(docs, emitter.emit_docs(emitter.emit(eql.parse_query(query))))
+                    self.assertQuery(query, docs)
 
     def test_eql_sequence_complete(self):
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
             for query, docs in eql_sequence_docs_complete.items():
                 with self.subTest(query):
-                    self.assertEqual(docs, emitter.emit_docs(emitter.emit(eql.parse_query(query))))
+                    self.assertQuery(query, docs)
 
 class TestCaseOnline:
     index_template = "detection-rules-ut"
