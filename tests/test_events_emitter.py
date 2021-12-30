@@ -379,7 +379,7 @@ eql_exceptions = {
 
     """any where network.protocol == "http" and network.protocol == "https"
     """:
-        "Unsolvable constraints ==: network.protocol ('https' != 'http')",
+        "Unsolvable constraints ==: network.protocol (is already 'http', cannot set to 'https')",
 
     """network where destination.port == 22 and destination.port in (80, 443)
     """:
@@ -393,13 +393,13 @@ eql_exceptions = {
         [process where process.name : "cmd.exe"]
         [process where process.name : "powershell.exe"]
     """:
-        "Unsolvable constraints ==: process.name ('cmd.exe' != 'powershell.exe')",
+        "Unsolvable constraints ==: process.name (is already 'powershell.exe', cannot set to 'cmd.exe')",
 
     """sequence
         [process where process.name : "cmd.exe"] by process.name
         [process where process.parent.name : "powershell.exe"] by process.parent.name
     """:
-        "Unsolvable constraints ==: process.parent.name ('cmd.exe' != 'powershell.exe')",
+        "Unsolvable constraints ==: process.parent.name (is already 'powershell.exe', cannot set to 'cmd.exe')",
 
     """sequence by process.name
         [process where process.name == null]
@@ -445,8 +445,9 @@ class TestEmitter(QueryTestCase, TestCaseSeed, unittest.TestCase):
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0):
             for query, msg in eql_exceptions.items():
                 with self.subTest(query):
-                    with self.assertRaises(ValueError, msg=msg):
+                    with self.assertRaises(ValueError, msg=msg) as cm:
                         self.assertQuery(query, None)
+                    self.assertEqual(msg, str(cm.exception))
 
     def test_eql_events_complete(self):
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):

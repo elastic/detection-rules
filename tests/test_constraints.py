@@ -461,7 +461,7 @@ constraints_keyword_exceptions = [
     ([
         ("wildcard", "cmd.exe"),
         ("wildcard", "powershell.exe"),
-    ], "Unsolvable constraints ==: test_var (is already 'powershell.exe', cannot set to 'cmd.exe')"),
+    ], "Unsolvable constraints wildcard: test_var (is already 'cmd.exe', cannot set to 'powershell.exe')"),
 
     ([
         ("wildcard", ("cmd.exe", "powershell.exe")),
@@ -494,8 +494,9 @@ class TestEmitter(TestCaseSeed, unittest.TestCase):
 
             for constraints, msg in constraints_long_exceptions:
                 with self.subTest(constraints):
-                    with self.assertRaises(ValueError, msg=msg):
+                    with self.assertRaises(ValueError, msg=msg) as cm:
                         self.assertEqual(None, solver("test_var", None, constraints))
+                    self.assertEqual(msg, str(cm.exception))
 
     def test_ip(self):
         solver = Constraints.solve_ip_constraints
@@ -520,5 +521,6 @@ class TestEmitter(TestCaseSeed, unittest.TestCase):
 
             for constraints, msg in constraints_keyword_exceptions:
                 with self.subTest(constraints):
-                    with self.assertRaises(ValueError, msg=msg):
+                    with self.assertRaises(ValueError, msg=msg) as cm:
                         self.assertEqual(None, solver("test_var", None, constraints))
+                    self.assertEqual(msg, str(cm.exception))
