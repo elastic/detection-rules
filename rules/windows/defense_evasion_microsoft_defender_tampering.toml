@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/10/18"
 maturity = "production"
-updated_date = "2021/12/25"
+updated_date = "2021/12/31"
 
 [rule]
 author = ["Austin Songer"]
@@ -16,6 +16,7 @@ language = "eql"
 license = "Elastic License v2"
 name = "Microsoft Windows Defender Tampering"
 references = [
+    "https://thedfirreport.com/2021/10/18/icedid-to-xinglocker-ransomware-in-24-hours/",
     "https://www.tenforums.com/tutorials/32236-enable-disable-microsoft-defender-pua-protection-windows-10-a.html",
     "https://www.tenforums.com/tutorials/104025-turn-off-core-isolation-memory-integrity-windows-10-a.html",
     "https://www.tenforums.com/tutorials/105533-enable-disable-windows-defender-exploit-protection-settings.html",
@@ -51,6 +52,14 @@ registry where event.type in ("creation", "change") and
   registry.data.strings : "0") or
   (registry.path : "*\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableIOAVProtection" and
   registry.data.strings : "1") or
+  (registry.path : "*\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Reporting\\DisableEnhancedNotifications" and
+  registry.data.strings : "1") or
+  (registry.path : "*\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\SpyNet\\DisableBlockAtFirstSeen" and
+  registry.data.strings : "1") or
+  (registry.path : "*\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\SpyNet\\SpynetReporting" and
+  registry.data.strings : "0") or
+  (registry.path : "*\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\SpyNet\\SubmitSamplesConsent" and
+  registry.data.strings : "0") or
   (registry.path : "*\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableBehaviorMonitoring" and
   registry.data.strings : "1")
 '''
