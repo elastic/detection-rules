@@ -11,12 +11,15 @@ import time
 import unittest
 import json
 import eql
+from pathlib import Path
 
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.events_emitter import emitter
-from detection_rules import utils
+from detection_rules import utils, jupyter
 
 verbose = sum(arg.count('v') for arg in sys.argv if arg.startswith("-") and not arg.startswith("--"))
+
+jupyter.random.seed(__name__)
 
 eql_event_docs_mappings = {
     """process where process.name == "regsvr32.exe"
@@ -423,6 +426,60 @@ class QueryTestCase:
 
 class TestEmitter(QueryTestCase, utils.SeededTestCase, unittest.TestCase):
     maxDiff = None
+    nb = jupyter.Notebook(os.path.join(os.path.dirname(__file__), "reports", "query_signals.ipynb"))
+    nb.cells.append(jupyter.Markdown(
+    """
+        # Query signals generation test report
+
+        This Jupyter Notebook captures the unit test results of the detection rules documents emitter.
+        Here you can learn what kind of queries the emitter handles and the documents it generates.
+
+        Curious about the inner workings? Read [here](signals_generation.md). Need help in using a Jupyter Notebook?
+        Read [here](https://jupyter-notebook.readthedocs.io/en/stable/notebook.html#structure-of-a-notebook-document).
+    """))
+
+    @classmethod
+    @nb.chapter("## Preliminaries")
+    def setUpClass(cls, cells):
+        super(TestEmitter, cls).setUpClass()
+        jupyter.random.seed("TestEmitter.setUpClass")
+        cells += [
+            jupyter.Markdown("""
+                This is an auxiliary cell, it prepares the environment for all the subsequent cells. It's also
+                a simple example of emitter API usage.
+            """),
+            jupyter.Code("""
+                import os; os.chdir('../..')  # use the repo's root as base for local modules import
+                import eql
+                from detection_rules.events_emitter import emitter
+
+                def emit(query):
+                    with eql.parser.elasticsearch_syntax:
+                        try:
+                            return emitter.emit_docs(emitter.emit(eql.parse_query(query)))
+                        except Exception as e:
+                            print(e)
+            """),
+            jupyter.Markdown("""
+                ## How to read the test results
+
+                If you opened this as freshly generated, the output cells content comes from the unit tests run and
+                you can read it as a plain test report. Such content is generated in a controlled environment and is
+                meant not to change between unit tests runs.
+                The notebook itself does not run in such controlled environment therefore executing these cells, even
+                if unmodified, will likely lead to different results each time.
+
+                On the other hand, you can experiment and modify the queries in the input cells, check the results
+                and, why not?, report any interesting finding. You can also add and remove cells at will.
+            """),
+        ]
+
+    @classmethod
+    def QueryCell(cls, query, docs, **kwargs):
+        source = "emit('''\n    " + query.strip() + "\n''')"
+        output = docs if type(docs) == str else "[" + ",\n".join(str(doc) for doc in docs) + "]"
+        jupyter.random.seed(source)
+        return jupyter.Code(source, output, **kwargs)
 
     def test_mappings(self):
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
@@ -432,25 +489,69 @@ class TestEmitter(QueryTestCase, utils.SeededTestCase, unittest.TestCase):
                     _ = emitter.emit_docs(emitter.emit(eql.parse_query(query)))
                     self.assertEqual(mappings, emitter.emit_mappings())
 
-    def test_eql_exceptions(self):
+    @nb.chapter("## Simple queries")
+    def test_eql_events_complete(self, cells):
+        cells.append(jupyter.Markdown(
+        """
+            What follow are all queries that may trigger a signal just with a single _minimal matching document_,
+            therefore at most one document is generated for each execution.
+
+            You will notice that some queries actually generate multiple documents, this happens when
+            the query is disjunctive (e.g. contains an _or_ operator). In these cases each of the generated
+            documents is enough to trigger the signal but all were generated to prove that all the disjunction
+            branches are correctly visited.
+        """))
+        with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
+            for query, docs in eql_event_docs_complete.items():
+                with self.subTest(query):
+                    self.assertQuery(query, docs)
+                cells.append(self.QueryCell(query, docs))
+
+    @nb.chapter("## Sequence queries")
+    def test_eql_sequence_complete(self, cells):
+        cells.append(jupyter.Markdown(
+        """
+            Following queries instead require multiple _minimal matching documents_, it's not only the content of
+            a single document that is analyzed but also the relation with the subsequent ones. Therefore a senquence
+            of documents, with the appropriate relations, is generated each time and all the documents in the sequence
+            are required for the signal to be generated.
+        """))
+        with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
+            for query, docs in eql_sequence_docs_complete.items():
+                with self.subTest(query):
+                    self.assertQuery(query, docs)
+                cells.append(self.QueryCell(query, docs))
+
+    @nb.chapter("## Error conditions")
+    def test_eql_exceptions(self, cells):
+        cells.append(jupyter.Markdown(
+        """
+            Not all the queries make sense, for those that cannot logically be ever triggered no single or sequence
+            of documents can possibly be generated. In such cases an error is reported, as the following cells show.
+
+            Of course you can challenge the generation engine first hand and see if the due errors are reported and
+            make all sense to you.
+        """))
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0):
             for query, msg in eql_exceptions.items():
                 with self.subTest(query):
                     with self.assertRaises(ValueError, msg=msg) as cm:
                         self.assertQuery(query, None)
                     self.assertEqual(msg, str(cm.exception))
+                    cells.append(self.QueryCell(query, str(cm.exception), output_type="stream"))
 
-    def test_eql_events_complete(self):
-        with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
-            for query, docs in eql_event_docs_complete.items():
-                with self.subTest(query):
-                    self.assertQuery(query, docs)
+    @classmethod
+    @nb.chapter("## Any oddities?")
+    def tearDownClass(cls, cells):
+        super(TestEmitter, cls).tearDownClass()
+        jupyter.random.seed("TestEmitter.tearDownClass")
+        cells.append(jupyter.Markdown(
+        """
+            Did you find anything odd reviewing the report or playing with the documents emitter?
+            We are interested to know.
+        """))
+        cls.nb.save()
 
-    def test_eql_sequence_complete(self):
-        with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
-            for query, docs in eql_sequence_docs_complete.items():
-                with self.subTest(query):
-                    self.assertQuery(query, docs)
 
 class TestCaseOnline:
     index_template = "detection-rules-ut"
@@ -495,6 +596,47 @@ class TestCaseOnline:
 
 class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
     maxDiff = None
+    nb = jupyter.Notebook(os.path.join(os.path.dirname(__file__), "reports", "rule_signals.ipynb"))
+    nb.cells.append(jupyter.Markdown(
+    """
+        # Rule signals generation progress
+
+        This Jupyter Notebook captures the detection rules signals generation coverage. Here you can
+        learn what rules are supported and what not and why.
+
+        Reasons for rules being not supported:
+        * rule type is not EQL or query (e.g. ML, threshold)
+        * query language is not EQL or Kuery (e.g. Lucene)
+        * fields type mismatch (i.e. non-ECS field with incorrect type definition)
+        * incorrect document generation
+
+        Curious about the inner workings? Read [here](signals_generation.md). Need help in using a Jupyter Notebook?
+        Read [here](https://jupyter-notebook.readthedocs.io/en/stable/notebook.html#structure-of-a-notebook-document).
+    """))
+
+    @classmethod
+    @nb.chapter("Preliminaries")
+    def setUpClass(cls, cells):
+        super(TestSignals, cls).setUpClass()
+        jupyter.random.seed("TestSignals.setUpClass")
+        cells += [
+            jupyter.Markdown("""
+                This is an auxiliary cell, it prepares the environment for all the subsequent cells. It's also
+                a simple example of emitter API usage.
+            """),
+            jupyter.Code("""
+                import os; os.chdir('../..')  # use the repo's root as base for local modules import
+                import eql
+                from detection_rules.events_emitter import emitter
+
+                def emit(query):
+                    with eql.parser.elasticsearch_syntax:
+                        try:
+                            return emitter.emit_docs(emitter.emit(eql.parse_query(query)))
+                        except Exception as e:
+                            print(e)
+            """),
+        ]
 
     def parse_from_queries(self, queries):
         rules = []
@@ -639,6 +781,22 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
             return []
         return [hit["_source"] for hit in ret["hits"]["hits"]]
 
+    @classmethod
+    def QueryCell(cls, query, docs, **kwargs):
+        source = "emit('''\n" + query.strip() + "\n''')"
+        output = docs if type(docs) == str else "[" + ",\n".join(str(doc) for doc in docs) + "]"
+        jupyter.random.seed(source)
+        return jupyter.Code(source, output, **kwargs)
+
+    def report_rules(self, rules, rule_ids, cells):
+        for rule_id in sorted(rule_ids):
+            rule = self.get_rule_by_id(rules, rule_id)
+            docs = self.check_docs(rule)
+            cells += [
+                jupyter.Markdown(f"### {rule['name']}"),
+                self.QueryCell(rule["query"], docs),
+            ]
+
     def debug_rules(self, rules, rule_ids):
         lines = []
         for rule_id in sorted(rule_ids):
@@ -675,20 +833,41 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
     def assert_signals(self, rules, pending):
         successful, failed = self.wait_for_rules(pending)
         signals = self.get_signals_per_rule()
-        self.assertEqual([], sorted(set(signals) - set(successful)),
+        unsuccessful = set(signals) - set(successful)
+        too_few_signals = set(successful) - set(signals)
+        too_many_signals = {rule_id: doc_count for rule_id,doc_count in signals.items() if doc_count > 1}
+        successful = {rule_id: rule_status for rule_id,rule_status in successful.items()
+                        if rule_id not in too_few_signals and rule_id not in too_many_signals}
+
+        if unsuccessful:
+            with self.nb.chapter("Unsuccessful rules with signals") as cells:
+                self.report_rules(rules, unsuccessful, cells)
+        if too_few_signals:
+            with self.nb.chapter("Rules with too few signals") as cells:
+                self.report_rules(rules, too_few_signals, cells)
+        if too_many_signals:
+            with self.nb.chapter("Rules with too many signals") as cells:
+                self.report_rules(rules, too_many_signals, cells)
+        if failed:
+            with self.nb.chapter("Failed rules") as cells:
+                self.report_rules(rules, failed, cells)
+        with self.nb.chapter("Rules with the expected signals") as cells:
+            self.report_rules(rules, successful, cells)
+
+        self.assertEqual([], sorted(unsuccessful),
             msg="\n\n ** Unsuccessful rules with signals **" +
-                "\n".join(self.debug_rules(rules, set(signals) - set(successful))))
-        self.assertEqual([], sorted(set(successful) - set(signals)),
+                "\n".join(self.debug_rules(rules, unsuccessful)))
+        self.assertEqual([], sorted(too_few_signals),
             msg="\n\n** Rules with too few signals **\n" +
-                "\n".join(self.debug_rules(rules, set(successful) - set(signals))))
-        self.assertEqual([], sorted((rule_id, status["current_status"]["last_failure_message"]) for rule_id,status in failed.items()),
+                "\n".join(self.debug_rules(rules, too_few_signals)))
+        self.assertEqual([], sorted(failed),
             msg="\n\n** Failed rules **\n" +
                 "\n".join(self.debug_rules(rules, failed)))
-        self.assertEqual([], sorted((rule_id, doc_count) for rule_id,doc_count in signals.items() if doc_count > 1),
+        self.assertEqual([], sorted(too_many_signals),
             msg="\n\n** Rules with too many signals **\n" +
-                "\n".join(self.debug_rules(rules, (rule_id for rule_id,doc_count in signals.items() if doc_count > 1))))
+                "\n".join(self.debug_rules(rules, too_many_signals)))
 
-    @unittest.skipIf(os.getenv("TEST_SIGNALS_QUERIES", "0").lower() not in ("1", "true"), "Slow online test")
+    @unittest.skipIf(os.getenv("TEST_SIGNALS_QUERIES", "0").lower() in ("0", "false", "no", ""), "Slow online test")
     def test_queries(self):
         queries = tuple(eql_event_docs_complete) + tuple(eql_sequence_docs_complete)
         with eql.parser.elasticsearch_syntax:
@@ -697,11 +876,24 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
             pending = self.load_rules_and_docs(rules, asts)
         self.assert_signals(rules, pending)
 
-    @unittest.skipIf(os.getenv("TEST_SIGNALS_COLLECTION", "0").lower() not in ("1", "true"), "Slow online test")
+    @unittest.skipIf(os.getenv("TEST_SIGNALS_COLLECTION", "0").lower() in ("0", "false", "no", ""), "Slow online test")
     def test_rules_collection(self):
-        collection = RuleCollection.default()
+        TEST_SIGNALS_COLLECTION = os.getenv("TEST_SIGNALS_COLLECTION")
+        rules_path = Path(TEST_SIGNALS_COLLECTION)
+        if TEST_SIGNALS_COLLECTION.lower() in ("1", "true", "yes"):
+            collection = RuleCollection.default()
+        elif rules_path.exists() and rules_path.is_dir():
+            collection = RuleCollection()
+            collection.load_directory(rules_path)
+        else:
+            raise ValueError(f"path does not exist or is not a directory: {rules_path}")
         with eql.parser.elasticsearch_syntax:
             rules, asts = self.parse_from_collection(collection)
         with emitter.fuzziness(0), emitter.completeness(0):
             pending = self.load_rules_and_docs(rules, asts)
         self.assert_signals(rules, pending)
+
+    @classmethod
+    def tearDownClass(cls):
+        super(TestSignals, cls).tearDownClass()
+        cls.nb.save()

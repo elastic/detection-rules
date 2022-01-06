@@ -157,3 +157,11 @@ def docs_from_ast(cls, ast):
 ```
 
 Note how a field might have value `None`, meaning that somewhere in the query it was demanded to be absent (eg. `process.pid == null`) and nowhere else the opposite was requested (it would have risen a conflict error), and therefore it's duly excluded from the generated document.
+
+### In action
+
+[![nbviewer](https://raw.githubusercontent.com/jupyter/design/master/logos/Badges/nbviewer_badge.svg)](https://nbviewer.jupyter.org/github/cavokz/detection-rules/blob/emit-events/tests/reports/query_signals.ipynb)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/cavokz/detection-rules/emit-events?labpath=tests%2Freports%2Fquery_signals.ipynb)
+
+[![nbviewer](https://raw.githubusercontent.com/jupyter/design/master/logos/Badges/nbviewer_badge.svg)](https://nbviewer.jupyter.org/github/cavokz/detection-rules/blob/emit-events/tests/reports/rule_signals.ipynb)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/cavokz/detection-rules/emit-events?labpath=tests%2Freports%2Frule_signals.ipynb)
