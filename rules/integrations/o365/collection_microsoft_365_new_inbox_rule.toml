@@ -40,7 +40,14 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:"New-InboxRule" and (o365audit.Parameters.ForwardTo:* or o365audit.Parameters.ForwardAsAttachmentTo:*) and event.outcome:success
+event.dataset:o365.audit and event.provider:Exchange and
+event.category:web and event.action:"New-InboxRule" and
+    (
+        o365audit.Parameters.ForwardTo:* or
+        o365audit.Parameters.ForwardAsAttachmentTo:* or
+        o365audit.Parameters.RedirectTo:*
+    ) 
+    and event.outcome:success
 '''
 
 
