@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/05/17"
 maturity = "production"
-updated_date = "2021/10/11"
+updated_date = "2022/01/10"
 integration = "o365"
 
 [rule]
@@ -19,16 +19,16 @@ name = "O365 Exchange Suspicious Mailbox Right Delegation"
 note = """## Config
 
 The Microsoft 365 Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
-risk_score = 21
+risk_score = 47
 rule_id = "0ce6487d-8069-4888-9ddd-61b52490cebc"
-severity = "low"
+severity = "medium"
 tags = ["Elastic", "Cloud", "Microsoft 365", "Continuous Monitoring", "SecOps", "Configuration Audit"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
 event.dataset:o365.audit and event.provider:Exchange and event.action:Add-MailboxPermission and 
-o365.audit.Parameters.AccessRights:(FullAccess or SendAs or SendOnBehalf) and event.outcome:success
+o365audit.Parameters.AccessRights:(FullAccess or SendAs or SendOnBehalf) and event.outcome:success
 '''
 
 [[rule.threat]]
