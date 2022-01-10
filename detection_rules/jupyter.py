@@ -128,5 +128,5 @@ class Notebook:
             if chap_title and chap_cells:
                 toc.append(_toc_entry(chap_title))
                 cells.append(Markdown(f"{chap_title}"))
-            cells += chap_cells
+            cells += [cell for cell in chap_cells if cell]
         to_file(self.filename, self.cells + [Markdown(toc)] + cells)

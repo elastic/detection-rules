@@ -21,6 +21,18 @@ verbose = sum(arg.count('v') for arg in sys.argv if arg.startswith("-") and not 
 
 jupyter.random.seed(__name__)
 
+def _get_collection(var_name):
+    var_value = os.getenv(var_name)
+    rules_path = Path(var_value)
+    if var_value.lower() in ("1", "true", "yes"):
+        collection = RuleCollection.default()
+    elif rules_path.exists() and rules_path.is_dir():
+        collection = RuleCollection()
+        collection.load_directory(rules_path)
+    else:
+        raise ValueError(f"path does not exist or is not a directory: {rules_path}")
+    return collection
+
 eql_event_docs_mappings = {
     """process where process.name == "regsvr32.exe"
     """: {
@@ -615,7 +627,7 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
     """))
 
     @classmethod
-    @nb.chapter("Preliminaries")
+    @nb.chapter("## Preliminaries")
     def setUpClass(cls, cells):
         super(TestSignals, cls).setUpClass()
         jupyter.random.seed("TestSignals.setUpClass")
@@ -637,6 +649,11 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
                             print(e)
             """),
         ]
+
+    @classmethod
+    def tearDownClass(cls):
+        super(TestSignals, cls).tearDownClass()
+        cls.nb.save()
 
     def parse_from_queries(self, queries):
         rules = []
@@ -691,24 +708,28 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
             })
         return rules, asts
 
-    def generate_docs_and_mappings(self, rules, asts):
+    @nb.chapter("## Generation errors")
+    def generate_docs_and_mappings(self, rules, asts, cells):
         emitter.reset_mappings()
 
         bulk = []
-        for rule, ast in zip(rules, asts):
+        for rule, ast in sorted(zip(rules, asts), key=lambda x: x[0]["name"]):
             with self.subTest(rule["query"]):
                 try:
                     for doc in emitter.docs_from_ast(ast):
                         bulk.append(json.dumps({"index": {"_index": rule["index"][0]}}))
                         bulk.append(json.dumps(doc))
                 except Exception as e:
+                    cells.append(jupyter.Markdown(f"### {rule['name']}"))
+                    cells.append(self.QueryCell(rule["query"], str(e), output_type="stream"))
                     if verbose > 2:
                         sys.stderr.write(f"{str(e)}\n")
                         sys.stderr.flush()
                     continue
         return (bulk, emitter.emit_mappings())
 
-    def load_rules_and_docs(self, rules, asts, batch_size=100):
+    @nb.chapter("## Rejected documents")
+    def load_rules_and_docs(self, rules, asts, cells, batch_size=100):
         docs, mappings = self.generate_docs_and_mappings(rules, asts)
 
         template = {
@@ -728,8 +749,9 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
         pos = 0
         while docs[pos:pos+batch_size]:
             ret = self.es.bulk("\n".join(docs[pos:pos+batch_size]))
-            for item in ret["items"]:
+            for i,item in enumerate(ret["items"]):
                 if item["index"]["status"] != 201:
+                    cells.append(jupyter.Markdown(str(item['index'])))
                     if verbose > 1:
                         sys.stderr.write(f"{str(item['index'])}\n")
                         sys.stderr.flush()
@@ -766,11 +788,6 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
                 del(pending[rule_id])
                 failed[rule_id] = rule_status
 
-    def get_rule_by_id(self, rules, rule_id):
-        for rule in rules:
-            if rule['id'] == rule_id:
-                return rule
-
     def check_docs(self, rule):
         try:
             ret = self.es.search(index=",".join(rule["index"]), body={"query": {"match_all": {}}})
@@ -780,33 +797,6 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
                 sys.stderr.flush()
             return []
         return [hit["_source"] for hit in ret["hits"]["hits"]]
-
-    @classmethod
-    def QueryCell(cls, query, docs, **kwargs):
-        source = "emit('''\n" + query.strip() + "\n''')"
-        output = docs if type(docs) == str else "[" + ",\n".join(str(doc) for doc in docs) + "]"
-        jupyter.random.seed(source)
-        return jupyter.Code(source, output, **kwargs)
-
-    def report_rules(self, rules, rule_ids, cells):
-        for rule_id in sorted(rule_ids):
-            rule = self.get_rule_by_id(rules, rule_id)
-            docs = self.check_docs(rule)
-            cells += [
-                jupyter.Markdown(f"### {rule['name']}"),
-                self.QueryCell(rule["query"], docs),
-            ]
-
-    def debug_rules(self, rules, rule_ids):
-        lines = []
-        for rule_id in sorted(rule_ids):
-            rule = self.get_rule_by_id(rules, rule_id)
-            docs = self.check_docs(rule)
-            lines.append("")
-            lines.append("{:s}: {:s}".format(rule_id, rule["name"]))
-            lines.append(rule["query"].strip())
-            lines.extend(json.dumps(doc, sort_keys=True) for doc in docs)
-        return lines
 
     def get_signals_per_rule(self):
         body = {
@@ -830,42 +820,63 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
         ret = self.kbn.search_detection_engine_signals(body)
         return {bucket["key"]: bucket["doc_count"] for bucket in ret["aggregations"]["signals_per_rule"]["buckets"]}
 
-    def assert_signals(self, rules, pending):
+    @classmethod
+    def QueryCell(cls, query, docs, **kwargs):
+        source = "emit('''\n" + query.strip() + "\n''')"
+        output = docs if type(docs) == str else "[" + ",\n".join(str(doc) for doc in docs) + "]"
+        return jupyter.Code(source, output, **kwargs)
+
+    def report_rules(self, rules, rule_ids, title):
+        with self.nb.chapter(f"## {title}") as cells:
+            for rule in rules:
+                if rule["id"] in rule_ids:
+                    docs = self.check_docs(rule)
+                    t0 = None
+                    for doc in docs:
+                        t0 = t0 or docs[0]["@timestamp"]
+                        doc["@timestamp"] -= t0
+                    jupyter.random.seed(rule['query'])
+                    cells.append(jupyter.Markdown(f"### {rule['name']}"))
+                    cells.append(self.QueryCell(rule["query"], docs))
+                    if type(rule_ids) == dict:
+                        rule_status = rule_ids[rule["id"]].get("current_status", {})
+                        failure_message = rule_status.get("last_failure_message", "").replace(rule["id"], "<i>&lt;redacted&gt;</i>")
+                        if failure_message:
+                            cells.append(jupyter.Markdown(f"SDE says:\n> {failure_message}"))
+
+    def debug_rules(self, rules, rule_ids):
+        lines = []
+        for rule in rules:
+            if rule["id"] in rule_ids:
+                docs = self.check_docs(rule)
+                lines.append("")
+                lines.append("{:s}: {:s}".format(rule["id"], rule["name"]))
+                lines.append(rule["query"].strip())
+                lines.extend(json.dumps(doc, sort_keys=True) for doc in docs)
+        return "\n" + "\n".join(lines)
+
+    def assertSignals(self, rules, rule_ids, msg):
+        if rule_ids:
+            self.report_rules(rules, rule_ids, msg)
+        with self.subTest(msg):
+            msg = None if verbose < 3 else self.debug_rules(rules, rule_ids)
+            self.assertEqual(len(rule_ids), 0, msg=msg)
+
+    def check_signals(self, rules, pending):
         successful, failed = self.wait_for_rules(pending)
         signals = self.get_signals_per_rule()
+
         unsuccessful = set(signals) - set(successful)
         too_few_signals = set(successful) - set(signals)
-        too_many_signals = {rule_id: doc_count for rule_id,doc_count in signals.items() if doc_count > 1}
-        successful = {rule_id: rule_status for rule_id,rule_status in successful.items()
-                        if rule_id not in too_few_signals and rule_id not in too_many_signals}
+        too_many_signals = {rule_id for rule_id,doc_count in signals.items() if doc_count > 1}
+        correct_signals = {rule_id for rule_id,doc_count in signals.items() if doc_count == 1}
 
-        if unsuccessful:
-            with self.nb.chapter("Unsuccessful rules with signals") as cells:
-                self.report_rules(rules, unsuccessful, cells)
-        if too_few_signals:
-            with self.nb.chapter("Rules with too few signals") as cells:
-                self.report_rules(rules, too_few_signals, cells)
-        if too_many_signals:
-            with self.nb.chapter("Rules with too many signals") as cells:
-                self.report_rules(rules, too_many_signals, cells)
-        if failed:
-            with self.nb.chapter("Failed rules") as cells:
-                self.report_rules(rules, failed, cells)
-        with self.nb.chapter("Rules with the expected signals") as cells:
-            self.report_rules(rules, successful, cells)
-
-        self.assertEqual([], sorted(unsuccessful),
-            msg="\n\n ** Unsuccessful rules with signals **" +
-                "\n".join(self.debug_rules(rules, unsuccessful)))
-        self.assertEqual([], sorted(too_few_signals),
-            msg="\n\n** Rules with too few signals **\n" +
-                "\n".join(self.debug_rules(rules, too_few_signals)))
-        self.assertEqual([], sorted(failed),
-            msg="\n\n** Failed rules **\n" +
-                "\n".join(self.debug_rules(rules, failed)))
-        self.assertEqual([], sorted(too_many_signals),
-            msg="\n\n** Rules with too many signals **\n" +
-                "\n".join(self.debug_rules(rules, too_many_signals)))
+        rules = sorted(rules, key=lambda rule: rule["name"])
+        self.assertSignals(rules, failed, "Failed rules")
+        self.assertSignals(rules, unsuccessful, "Unsuccessful rules with signals")
+        self.assertSignals(rules, too_few_signals, "Rules with too few signals")
+        self.assertSignals(rules, too_many_signals, "Rules with too many signals")
+        #self.report_rules(rules, correct_signals, "Rules with the correct signals")
 
     @unittest.skipIf(os.getenv("TEST_SIGNALS_QUERIES", "0").lower() in ("0", "false", "no", ""), "Slow online test")
     def test_queries(self):
@@ -874,26 +885,13 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
             rules, asts = self.parse_from_queries(queries)
         with emitter.fuzziness(0), emitter.completeness(0):
             pending = self.load_rules_and_docs(rules, asts)
-        self.assert_signals(rules, pending)
+        self.check_signals(rules, pending)
 
     @unittest.skipIf(os.getenv("TEST_SIGNALS_COLLECTION", "0").lower() in ("0", "false", "no", ""), "Slow online test")
     def test_rules_collection(self):
-        TEST_SIGNALS_COLLECTION = os.getenv("TEST_SIGNALS_COLLECTION")
-        rules_path = Path(TEST_SIGNALS_COLLECTION)
-        if TEST_SIGNALS_COLLECTION.lower() in ("1", "true", "yes"):
-            collection = RuleCollection.default()
-        elif rules_path.exists() and rules_path.is_dir():
-            collection = RuleCollection()
-            collection.load_directory(rules_path)
-        else:
-            raise ValueError(f"path does not exist or is not a directory: {rules_path}")
+        collection = _get_collection("TEST_SIGNALS_COLLECTION")
         with eql.parser.elasticsearch_syntax:
             rules, asts = self.parse_from_collection(collection)
         with emitter.fuzziness(0), emitter.completeness(0):
             pending = self.load_rules_and_docs(rules, asts)
-        self.assert_signals(rules, pending)
-
-    @classmethod
-    def tearDownClass(cls):
-        super(TestSignals, cls).tearDownClass()
-        cls.nb.save()
+        self.check_signals(rules, pending)
