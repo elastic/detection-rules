@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2020/11/17"
 maturity = "production"
-updated_date = "2021/07/21"
+updated_date = "2022/01/13"
 integration = "google_workspace"
+min_stack_comments = "Google Workspace schema deprecated gsuite fields in 8.0"
+min_stack_version = "8.0.0"
 
 [rule]
 author = ["Elastic"]
@@ -42,17 +44,8 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:(gsuite.admin or google_workspace.admin) and
-  event.provider:admin and event.category:iam and
+event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and
   event.action:(CHANGE_APPLICATION_SETTING or CREATE_APPLICATION_SETTING) and
-  gsuite.admin.setting.name:(
-    "Password Management - Enforce strong password" or
-    "Password Management - Password reset frequency" or
-    "Password Management - Enable password reuse" or
-    "Password Management - Enforce password policy at next login" or
-    "Password Management - Minimum password length" or
-    "Password Management - Maximum password length"
-  ) or
   google_workspace.admin.setting.name:(
     "Password Management - Enforce strong password" or
     "Password Management - Password reset frequency" or

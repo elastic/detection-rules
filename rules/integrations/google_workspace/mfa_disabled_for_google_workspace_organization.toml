@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2020/11/17"
 maturity = "production"
-updated_date = "2021/07/21"
+updated_date = "2022/01/13"
 integration = "google_workspace"
+min_stack_comments = "Google Workspace schema deprecated gsuite fields in 8.0"
+min_stack_version = "8.0.0"
 
 [rule]
 author = ["Elastic"]
@@ -42,6 +44,6 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:(gsuite.admin or google_workspace.admin) and event.provider:admin and event.category:iam and event.action:(ENFORCE_STRONG_AUTHENTICATION or ALLOW_STRONG_AUTHENTICATION) and (gsuite.admin.new_value:false or google_workspace.admin.new_value:false)
+event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:(ENFORCE_STRONG_AUTHENTICATION or ALLOW_STRONG_AUTHENTICATION) and google_workspace.admin.new_value:false
 '''
 
