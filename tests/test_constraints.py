@@ -196,6 +196,14 @@ constraints_long_exceptions = [
         ("!=", 12),
         ("==", 11),
     ], "Unsolvable constraints: test_var (cannot be any of (10, 11, 12))"),
+
+    ([
+        (">=", 0),
+        ("<=", 100000),
+        ("max_attempts", 10000),
+    ] + [
+        ("!=", x) for x in range(1, 100000)
+    ], "Unsolvable constraints: test_var (attempts exausted: 10000)"),
 ]
 
 constraints_ip = [
