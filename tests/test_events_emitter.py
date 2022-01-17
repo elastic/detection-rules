@@ -682,11 +682,9 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
         asts = []
         for i,rule in enumerate(collection):
             rule = rule.contents.data
-            if rule.type == "eql":
-                asts.append(rule.validator.ast)
-            elif rule.type == "query" and rule.language == "kuery":
-                asts.append(rule.validator.to_eql())
-            else:
+            try:
+                asts.append(emitter.ast_from_rule(rule))
+            except:
                 if verbose > 3:
                     sys.stderr.write(f"rule was skipped: type={rule.type}\n")
                     sys.stderr.flush()

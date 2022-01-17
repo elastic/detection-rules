@@ -322,7 +322,7 @@ constraints_ip_exceptions = [
     ([
         ("not in", "127.0.0.0/8"),
         ("==", "127.0.0.1"),
-    ], "Unsolvable constraints: test_var (cannot be in net 127.0.0.1/8)"),
+    ], "Unsolvable constraints: test_var (cannot be in net 127.0.0.0/8)"),
 
     ([
         ("not in", "::/96"),
@@ -500,8 +500,9 @@ class TestConstraints(utils.SeededTestCase, unittest.TestCase):
 
             for constraints, msg in constraints_ip_exceptions:
                 with self.subTest(constraints):
-                    with self.assertRaises(ValueError, msg=msg):
+                    with self.assertRaises(ValueError, msg=msg) as cm:
                         self.assertEqual(None, solver("test_var", None, constraints))
+                    self.assertEqual(msg, str(cm.exception))
 
     def test_keyword(self):
         solver = Constraints.solve_keyword_constraints

@@ -10,7 +10,7 @@ import random
 import json
 import copy
 import itertools
-from typing import List, Tuple, Union, Any
+from typing import List, Tuple, Union, Any, NoReturn
 import eql
 
 from .utils import deep_merge, cached
@@ -126,7 +126,7 @@ def emit_PipedQuery(node: eql.ast.PipedQuery, negate: bool) -> List[Constraints]
 def emit_SubqueryBy(node: eql.ast.SubqueryBy, negate: bool) -> List[Tuple[Constraints, List[str]]]:
     if negate:
         raise NotImplementedError(f"Negation of {type(node)} is not supported")
-    if any(not isinstance(value, eql.ast.Field) for value in node.join_values):
+    if any(type(value) != eql.ast.Field for value in node.join_values):
         raise NotImplementedError(f"Unsupported join values: {node.join_values}")
     if node.fork:
         raise NotImplementedError(f"Unsupported fork: {node.fork}")
@@ -174,7 +174,7 @@ def emit_FunctionCall(node: eql.ast.FunctionCall, negate: bool) -> List[Constrai
     else:
         raise NotImplementedError(f"Unsupported function: {node.name}")
 
-def emit_FnConstraints(node: eql.ast.FunctionCall, negate: bool, constraint_name: str):
+def emit_FnConstraints(node: eql.ast.FunctionCall, negate: bool, constraint_name: str) -> List[Constraints]:
     field = node.arguments[0].render()
     constraint_name = constraint_name if not negate else f"not {constraint_name}"
     c = Constraints(field, constraint_name, tuple(arg.value for arg in node.arguments[1:]))
@@ -201,5 +201,5 @@ def emit_FnConstraints(node: eql.ast.FunctionCall, negate: bool, constraint_name
 @emitter(eql.ast.Macro)
 @emitter(eql.ast.Constant)
 @emitter(eql.ast.PreProcessor)
-def emit_not_implemented(node: eql.ast.BaseNode, negate: bool) -> List[Constraints]:
+def emit_not_implemented(node: eql.ast.BaseNode, negate: bool) -> NoReturn:
     raise NotImplementedError(f"Emitter not implemented: {type(node)}")

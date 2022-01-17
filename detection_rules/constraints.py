@@ -3,12 +3,14 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-"""Helpers for value generation with constraints."""
+"""Helpers for field value generation with constraints."""
 
+import time
 import random
 import string
 import copy
 from fnmatch import fnmatch
+from functools import wraps
 from collections import namedtuple
 import ipaddress
 
@@ -40,7 +42,7 @@ def match_wildcards(values, wildcards):
         values = [values]
     return any(fnmatch(v, wc) for v in values for wc in wildcards)
 
-def expand_wildcards(value, allowed_chars=string.ascii_letters+string.digits):
+def expand_wildcards(value, allowed_chars):
     chars = []
     for c in list(value):
         if c == '?':
@@ -62,6 +64,7 @@ class solver:
         self.valid_constraints = ("join_value", ) + args
 
     def __call__(self, func):
+        @wraps(func)
         def _solver(cls, field, value, constraints):
             join_values = []
             constraints = constraints + get_ecs_constraints(field)
@@ -77,7 +80,6 @@ class solver:
         return _solver
 
 class Constraints:
-
     def __init__(self, field=None, name=None, value=None):
         self.constraints = {}
         if field is not None:
@@ -114,10 +116,14 @@ class Constraints:
                 raise ConflictError(f"cannot be null", field)
             self.constraints[field].extend(constraints)
 
+    def __iadd__(self, other):
+        for field,constraints in other.constraints.items():
+            self.extend_constraints(field, constraints)
+        return self
+
     def __add__(self, other):
         c = self.clone()
-        for field,constraints in other.constraints.items():
-            c.extend_constraints(field, constraints)
+        c += other
         return c
 
     @classmethod
@@ -201,10 +207,10 @@ class Constraints:
                 if value is None or value == v:
                     value = v
                 else:
-                    raise ConflictError(f"{v} != {value}", field, k)
+                    raise ConflictError(f"is already {value}, cannot set to {v}", field, k)
 
         if value is None:
-            value = random.choice((True, False))
+            value = int(time.time() * 1000)
         return {"value": value}
 
     @classmethod
@@ -294,7 +300,7 @@ class Constraints:
                 if type(v) == tuple and len(v) == 1:
                     v = v[0]
                 if type(value) == list:
-                    value += [v] if type(v) == str else v
+                    value.extend([v] if type(v) == str else v)
                 elif type(v) == tuple:
                     include_wildcards |= set(_v.lower() for _v in v)
                 elif value is None or value == v:
@@ -358,7 +364,7 @@ class Constraints:
                 or match_wildcards(value, exclude_wildcards):
             if include_wildcards:
                 wc = random.choice(include_wildcards)
-                v = expand_wildcards(wc, allowed_chars=allowed_chars).lower()
+                v = expand_wildcards(wc, allowed_chars).lower()
             else:
                 v = "".join(random.choices(allowed_chars, k=min_length))
             value = [v] if type(value) == list else v
@@ -378,8 +384,8 @@ class Constraints:
 
     def resolve(self, schema):
         for field,constraints in self.constraints.items():
-            if constraints is None:
-                yield field, None
-            else:
+            value = None
+            if constraints is not None:
                 field_schema = schema.get(field, {})
-                yield field, self.solve_constraints(field, constraints, field_schema)
+                value = self.solve_constraints(field, constraints, field_schema)
+            yield field, value
