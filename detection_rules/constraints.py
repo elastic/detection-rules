@@ -354,6 +354,13 @@ class Constraints:
         if include_wildcards & exclude_wildcards:
             conflict_wildcards = ', '.join(f"'{wc}'" for wc in sorted(include_wildcards & exclude_wildcards))
             raise ConflictError(f"wildcard(s) both included and excluded: {conflict_wildcards}", field)
+        if include_wildcards:
+            filtered_wildcards = {wc for wc in include_wildcards if not match_wildcards(wc, exclude_wildcards)}
+            if not filtered_wildcards:
+                include_wildcards = "', '".join(sorted(include_wildcards))
+                exclude_wildcards = "', '".join(sorted(exclude_wildcards))
+                raise ConflictError(f"filtered wildcard(s): ('{include_wildcards}') are filtered out by ('{exclude_wildcards}')", field)
+            include_wildcards = filtered_wildcards
         if value is not None and set(value if type(value) == list else [value]) & exclude_values:
             if len(exclude_values) == 1:
                 raise ConflictError(f"cannot be '{exclude_values.pop()}'", field)

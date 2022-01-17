@@ -475,6 +475,16 @@ constraints_keyword_exceptions = [
         ("wildcard", ("cmd.exe", "powershell.exe")),
         ("==", "regedit.exe"),
     ], "Unsolvable constraints: test_var (does not match any of ('cmd.exe', 'powershell.exe'))"),
+
+    ([
+        ("wildcard", ("cmd.exe", "powershell.exe")),
+        ("not wildcard", "*.exe"),
+    ], "Unsolvable constraints: test_var (filtered wildcard(s): ('cmd.exe', 'powershell.exe') are filtered out by ('*.exe'))"),
+
+    ([
+        ("wildcard", ("cmd.exe", "powershell.exe")),
+        ("not wildcard", ("*.exe", "cmd.*")),
+    ], "Unsolvable constraints: test_var (filtered wildcard(s): ('cmd.exe', 'powershell.exe') are filtered out by ('*.exe', 'cmd.*'))"),
 ]
 
 
