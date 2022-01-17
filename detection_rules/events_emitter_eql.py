@@ -10,10 +10,10 @@ import random
 import json
 import copy
 import itertools
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Any
 import eql
 
-from .utils import deep_merge
+from .utils import deep_merge, cached
 from .constraints import Constraints
 from .fuzzylib import *
 from .events_emitter import emitter
@@ -21,18 +21,23 @@ from .events_emitter import emitter
 __all__ = (
 )
 
+@cached
+def _nope(operation: Any, negate: bool) -> Any:
+    negation = {"==": "!=", "!=": "==", ">=": "<", "<=": ">", ">": "<=", "<": ">=",
+        emit_OrTerms: emit_AndTerms, emit_AndTerms: emit_OrTerms}
+    return operation if not negate else negation.get(operation, not operation)
+
 def emit(node: eql.ast.BaseNode, negate: bool) -> List[Constraints]:
     return emitter.emit(node, negate)
 
 @emitter(eql.ast.Field)
 def emit_Field(node: eql.ast.Field, value: str, negate: bool) -> Constraints:
-    constraint_name = "!=" if negate else "=="
-    return Constraints(node.render(), constraint_name, value)
+    return Constraints(node.render(), _nope("==", negate), value)
 
 @emitter(eql.ast.Boolean)
 def emit_Boolean(node: eql.ast.Boolean, negate: bool):
     constraints = []
-    if node.value if not negate else not node.value:
+    if _nope(node.value, negate):
         constraints.append(Constraints())
     return constraints
 
@@ -54,17 +59,11 @@ def emit_AndTerms(node: Union[eql.ast.Or, eql.ast.And], negate: bool) -> List[Co
 
 @emitter(eql.ast.Or)
 def emit_Or(node: eql.ast.Or, negate: bool) -> List[Constraints]:
-    if negate:
-        return emit_AndTerms(node, negate)
-    else:
-        return emit_OrTerms(node, negate)
+    return _nope(emit_OrTerms, negate)(node, negate)
 
 @emitter(eql.ast.And)
 def emit_And(node: eql.ast.And, negate: bool) -> List[Constraints]:
-    if negate:
-        return emit_OrTerms(node, negate)
-    else:
-        return emit_AndTerms(node, negate)
+    return _nope(emit_AndTerms, negate)(node, negate)
 
 @emitter(eql.ast.Not)
 def emit_Not(node: eql.ast.Not, negate: bool) -> List[Constraints]:
@@ -72,17 +71,15 @@ def emit_Not(node: eql.ast.Not, negate: bool) -> List[Constraints]:
 
 @emitter(eql.ast.IsNull)
 def emit_IsNull(node: eql.ast.IsNull, negate: bool) -> List[Constraints]:
-    if type(node.expr) != eql.ast.Field:
-        raise NotImplementedError(f"Unsupported expression type: {type(node.expr)}")
-    constraint_name = "!=" if negate else "=="
-    return [Constraints(node.expr.render(), constraint_name, None)]
+    if type(node.expr) == eql.ast.Field:
+        return [emit_Field(node.expr, None, negate)]
+    raise NotImplementedError(f"Unsupported expression type: {type(node.expr)}")
 
 @emitter(eql.ast.IsNotNull)
 def emit_IsNotNull(node: eql.ast.IsNotNull, negate: bool) -> List[Constraints]:
-    if type(node.expr) != eql.ast.Field:
-        raise NotImplementedError(f"Unsupported expression type: {type(node.expr)}")
-    constraint_name = "==" if negate else "!="
-    return [Constraints(node.expr.render(), constraint_name, None)]
+    if type(node.expr) == eql.ast.Field:
+        return [emit_Field(node.expr, None, not negate)]
+    raise NotImplementedError(f"Unsupported expression type: {type(node.expr)}")
 
 @emitter(eql.ast.InSet)
 def emit_InSet(node: eql.ast.InSet, negate: bool) -> List[Constraints]:
@@ -104,9 +101,7 @@ def emit_InSet(node: eql.ast.InSet, negate: bool) -> List[Constraints]:
 def emit_Comparison(node: eql.ast.Comparison, negate: bool) -> List[Constraints]:
     if type(node.left) != eql.ast.Field:
         raise NotImplementedError(f"Unsupported LHS type: {type(node.left)}")
-    negation = {"==": "!=", "!=": "==", ">=": "<", "<=": ">", ">": "<=", "<": ">="}
-    comparator = negation[node.comparator] if negate else node.comparator
-    return [Constraints(node.left.render(), comparator, node.right.value)]
+    return [Constraints(node.left.render(), _nope(node.comparator, negate), node.right.value)]
 
 @emitter(eql.ast.EventQuery)
 def emit_EventQuery(node: eql.ast.EventQuery, negate: bool) -> List[Constraints]:
@@ -181,7 +176,7 @@ def emit_FunctionCall(node: eql.ast.FunctionCall, negate: bool) -> List[Constrai
 
 def emit_FnConstraints(node: eql.ast.FunctionCall, negate: bool, constraint_name: str):
     field = node.arguments[0].render()
-    constraint_name = f"not {constraint_name}" if negate else constraint_name
+    constraint_name = constraint_name if not negate else f"not {constraint_name}"
     c = Constraints(field, constraint_name, tuple(arg.value for arg in node.arguments[1:]))
     return [c]
 
