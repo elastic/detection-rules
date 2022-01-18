@@ -160,8 +160,10 @@ Note how a field might have value `None`, meaning that somewhere in the query it
 
 ### In action
 
-[![nbviewer](https://raw.githubusercontent.com/jupyter/design/master/logos/Badges/nbviewer_badge.svg)](https://nbviewer.jupyter.org/github/cavokz/detection-rules/blob/emit-events/tests/reports/query_signals.ipynb)
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/cavokz/detection-rules/emit-events?labpath=tests%2Freports%2Fquery_signals.ipynb)
+[Documents generation from test queries](../tests/reports/documents_from_queries.ipynb)
 
-[![nbviewer](https://raw.githubusercontent.com/jupyter/design/master/logos/Badges/nbviewer_badge.svg)](https://nbviewer.jupyter.org/github/cavokz/detection-rules/blob/emit-events/tests/reports/rule_signals.ipynb)
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/cavokz/detection-rules/emit-events?labpath=tests%2Freports%2Frule_signals.ipynb)
+[Documents generation from detection rules](../tests/reports/documents_from_rules.md)
+
+[Alerts generation from test queries](../tests/reports/alerts_from_queries.md)
+
+[Alerts generation from detection rules](../tests/reports/alerts_from_rules.md)

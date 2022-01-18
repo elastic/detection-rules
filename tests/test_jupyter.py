@@ -5,7 +5,6 @@
 
 """Test Jupyter."""
 
-import sys
 import unittest
 
 from detection_rules import jupyter
@@ -60,12 +59,44 @@ notebooks = [
                 "file_extension": ".py",
                 "mimetype": "text/x-python",
                 "name": "python",
-                "version": ".".join(str(v) for v in sys.version_info[:3]),
             },
         },
         "nbformat": 4,
         "nbformat_minor": 5,
     })
+]
+
+md_markdown = [
+    ("# Title", [
+        "# Title",
+    ]),
+
+    ("""
+        * bullet
+        * bullet
+        * bullet
+    """, [
+        "* bullet\n",
+        "* bullet\n",
+        "* bullet",
+    ]),
+]
+
+md_code = [
+    ("x=0", None, [
+        "```python\n",
+        "x=0\n",
+        "```\n\n",
+    ]),
+
+    ("print('Hello, world!')", "Hello, world!", [
+        "```python\n",
+        "print('Hello, world!')\n",
+        "```\n\n",
+        "```python\n",
+        "Hello, world!\n",
+        "```\n\n",
+    ]),
 ]
 
 class TestJupyter(unittest.TestCase):
@@ -78,14 +109,27 @@ class TestJupyter(unittest.TestCase):
     def test_markdown(self):
         for markdown,cell in cells_markdown:
             with self.subTest(markdown):
-                self.assertEqual(cell, jupyter.Markdown(markdown))
+                self.assertEqual(cell, jupyter.Markdown(markdown).to_cell())
 
     def test_code(self):
         for i,(code,output,cell) in enumerate(cells_code):
             with self.subTest(code):
-                self.assertEqual(cell, jupyter.Code(code, output, execution_count=i+1))
+                self.assertEqual(cell, jupyter.Code(code, output, execution_count=i+1).to_cell())
 
     def test_notebook(self):
         for cells,nb in notebooks:
             with self.subTest(cells):
                 self.assertEqual(nb, jupyter.to_notebook(cells))
+
+class TestMarkdown(unittest.TestCase):
+    maxDiff = None
+
+    def test_markdown(self):
+        for md,expected in md_markdown:
+            with self.subTest(md):
+                self.assertEqual(expected, jupyter.Markdown(md).to_markdown())
+
+    def test_code(self):
+        for i,(code,output,expected) in enumerate(md_code):
+            with self.subTest(code):
+                self.assertEqual(expected, jupyter.Code(code, output, execution_count=i+1).to_markdown())

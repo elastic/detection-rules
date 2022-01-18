@@ -11,15 +11,18 @@ import time
 import unittest
 import json
 import eql
+import hashlib
+import textwrap
 from pathlib import Path
 
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.events_emitter import emitter
 from detection_rules import utils, jupyter
 
-verbose = sum(arg.count('v') for arg in sys.argv if arg.startswith("-") and not arg.startswith("--"))
+jupyter.github_user = "cavokz"
+jupyter.github_branch = "emit-events"
 
-jupyter.random.seed(__name__)
+verbose = sum(arg.count('v') for arg in sys.argv if arg.startswith("-") and not arg.startswith("--"))
 
 def _get_collection(var_name):
     var_value = os.getenv(var_name)
@@ -424,7 +427,35 @@ eql_exceptions = {
 }
 
 
+def assertIdenticalFiles(tc, first, second):
+    with open(first) as f:
+        first_hash = hashlib.sha256(f.read().encode("utf-8")).hexdigest()
+    with open(second) as f:
+        second_hash = hashlib.sha256(f.read().encode("utf-8")).hexdigest()
+    tc.assertEqual(first_hash, second_hash)
+
+
+def assertReportUnchanged(tc, nb, report):
+    filename = utils.get_path("tests", "reports", report)
+    old_filename = "{:s}.old{:s}".format(*os.path.splitext(filename))
+    new_filename = "{:s}.new{:s}".format(*os.path.splitext(filename))
+    os.rename(filename, old_filename)
+    jupyter.random.seed(report)
+    nb.save(filename)
+    os.rename(filename, new_filename)
+    os.rename(old_filename, filename)
+    with tc.subTest(os.path.join("tests", "reports", report)):
+        assertIdenticalFiles(tc, filename, new_filename)
+        os.unlink(new_filename)
+
+
 class QueryTestCase:
+
+    @classmethod
+    def QueryCell(cls, query, docs, **kwargs):
+        source = "emit('''\n    " + query.strip() + "\n''')"
+        output = docs if type(docs) == str else "[" + ",\n".join(str(doc) for doc in docs) + "]"
+        return jupyter.Code(source, output, **kwargs)
 
     def subTest(self, query):
         fuzziness = emitter.fuzziness()
@@ -436,14 +467,14 @@ class QueryTestCase:
         self.assertEqual(docs, emitter.emit_docs(emitter.emit(eql.parse_query(query))))
 
 
-class TestEmitter(QueryTestCase, utils.SeededTestCase, unittest.TestCase):
+class TestQueries(QueryTestCase, utils.SeededTestCase, unittest.TestCase):
     maxDiff = None
-    nb = jupyter.Notebook(os.path.join(os.path.dirname(__file__), "reports", "query_signals.ipynb"))
+    nb = jupyter.Notebook()
     nb.cells.append(jupyter.Markdown(
     """
-        # Query signals generation test report
+        # Documents generation from test queries
 
-        This Jupyter Notebook captures the unit test results of the detection rules documents emitter.
+        This Jupyter Notebook captures the unit test results of documents generation from queries.
         Here you can learn what kind of queries the emitter handles and the documents it generates.
 
         Curious about the inner workings? Read [here](signals_generation.md). Need help in using a Jupyter Notebook?
@@ -453,8 +484,7 @@ class TestEmitter(QueryTestCase, utils.SeededTestCase, unittest.TestCase):
     @classmethod
     @nb.chapter("## Preliminaries")
     def setUpClass(cls, cells):
-        super(TestEmitter, cls).setUpClass()
-        jupyter.random.seed("TestEmitter.setUpClass")
+        super(TestQueries, cls).setUpClass()
         cells += [
             jupyter.Markdown("""
                 This is an auxiliary cell, it prepares the environment for all the subsequent cells. It's also
@@ -485,13 +515,6 @@ class TestEmitter(QueryTestCase, utils.SeededTestCase, unittest.TestCase):
                 and, why not?, report any interesting finding. You can also add and remove cells at will.
             """),
         ]
-
-    @classmethod
-    def QueryCell(cls, query, docs, **kwargs):
-        source = "emit('''\n    " + query.strip() + "\n''')"
-        output = docs if type(docs) == str else "[" + ",\n".join(str(doc) for doc in docs) + "]"
-        jupyter.random.seed(source)
-        return jupyter.Code(source, output, **kwargs)
 
     def test_mappings(self):
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
@@ -538,11 +561,11 @@ class TestEmitter(QueryTestCase, utils.SeededTestCase, unittest.TestCase):
     def test_eql_exceptions(self, cells):
         cells.append(jupyter.Markdown(
         """
-            Not all the queries make sense, for those that cannot logically be ever triggered no single or sequence
-            of documents can possibly be generated. In such cases an error is reported, as the following cells show.
+            Not all the queries make sense, no documents can be generated for those that cannot logically be ever
+            matched. In such cases an error is reported, as the following cells show.
 
-            Of course you can challenge the generation engine first hand and see if the due errors are reported and
-            make all sense to you.
+            Here you can challenge the generation engine first hand and check that all the due errors are reported
+            and make sense to you.
         """))
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0):
             for query, msg in eql_exceptions.items():
@@ -552,20 +575,89 @@ class TestEmitter(QueryTestCase, utils.SeededTestCase, unittest.TestCase):
                     self.assertEqual(msg, str(cm.exception))
                     cells.append(self.QueryCell(query, str(cm.exception), output_type="stream"))
 
-    @classmethod
     @nb.chapter("## Any oddities?")
-    def tearDownClass(cls, cells):
-        super(TestEmitter, cls).tearDownClass()
-        jupyter.random.seed("TestEmitter.tearDownClass")
+    def test_unchanged(self, cells):
         cells.append(jupyter.Markdown(
         """
             Did you find anything odd reviewing the report or playing with the documents emitter?
             We are interested to know.
         """))
-        cls.nb.save()
+        assertReportUnchanged(self, self.nb, "documents_from_queries.ipynb")
 
 
-class TestCaseOnline:
+class TestRules(QueryTestCase, utils.SeededTestCase, unittest.TestCase):
+    maxDiff = None
+    nb = jupyter.Notebook()
+    nb.cells.append(jupyter.Markdown(
+    """
+        # Documents generation from detection rules
+
+        This report captures the error reported while generating documents from detection rules. Here you
+        can learn what rules are still problematic and for which no documents can be generated at the moment.
+
+        Curious about the inner workings? Read [here](signals_generation.md).
+    """))
+
+    @classmethod
+    def setUpClass(cls):
+        super(TestRules, cls).setUpClass()
+
+    def parse_from_collection(self, collection):
+        asts = []
+        rules = []
+        errors = {}
+        for rule in collection:
+            try:
+                asts.append(emitter.ast_from_rule(rule.contents.data))
+                rules.append(rule)
+            except Exception as e:
+                errors.setdefault(str(e), []).append(rule)
+                continue
+
+        with self.nb.chapter("## Skipped rules") as cells:
+            cells.append(None)
+            for err in sorted(errors, key=lambda e: len(errors[e]), reverse=True):
+                heading = [f"{len(errors[err])} rules:", ""]
+                bullets = []
+                for rule in sorted(errors[err], key=lambda r: r.contents.data.name):
+                    path = rule.path.relative_to(utils.ROOT_DIR)
+                    bullets.append(f"* [{rule.contents.data.name}](../../{path})")
+                with self.nb.chapter(f"### {err}") as cells:
+                    cells.append(jupyter.Markdown(heading + sorted(bullets)))
+
+        return rules, asts
+
+    def generate_docs(self, rules, asts):
+        errors = {}
+        for rule,ast in zip(rules, asts):
+            try:
+                _ = emitter.docs_from_ast(ast)
+            except Exception as e:
+                errors.setdefault(str(e), []).append(rule)
+                continue
+
+        with self.nb.chapter("## Generation errors") as cells:
+            cells.append(None)
+            for err in sorted(errors, key=lambda e: len(errors[e]), reverse=True):
+                heading = [f"{len(errors[err])} rules:"]
+                bullets = []
+                for rule in sorted(errors[err], key=lambda r: r.contents.data.name):
+                    path = rule.path.relative_to(utils.ROOT_DIR)
+                    bullets.append(f"* [{rule.contents.data.name}](../../{path})")
+                with self.nb.chapter(f"### {err}") as cells:
+                    cells.append(jupyter.Markdown(heading + sorted(bullets)))
+
+    def test_rules_collection(self):
+        collection = RuleCollection.default()
+        with eql.parser.elasticsearch_syntax:
+            rules, asts = self.parse_from_collection(collection)
+        self.generate_docs(rules, asts)
+
+    def test_unchanged(self):
+        assertReportUnchanged(self, self.nb, "documents_from_rules.md")
+
+
+class OnlineTestCase:
     index_template = "detection-rules-ut"
 
     @classmethod
@@ -595,7 +687,7 @@ class TestCaseOnline:
         del(cls.es_indices)
 
     def setUp(self):
-        super(TestCaseOnline, self).setUp()
+        super(OnlineTestCase, self).setUp()
 
         self.kbn.delete_detection_engine_rules()
 
@@ -606,108 +698,9 @@ class TestCaseOnline:
         self.es.delete_by_query(".siem-signals-default-000001", body={"query": {"match_all": {}}})
 
 
-class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
-    maxDiff = None
-    nb = jupyter.Notebook(os.path.join(os.path.dirname(__file__), "reports", "rule_signals.ipynb"))
-    nb.cells.append(jupyter.Markdown(
-    """
-        # Rule signals generation progress
+class SignalsTestCase:
 
-        This Jupyter Notebook captures the detection rules signals generation coverage. Here you can
-        learn what rules are supported and what not and why.
-
-        Reasons for rules being not supported:
-        * rule type is not EQL or query (e.g. ML, threshold)
-        * query language is not EQL or Kuery (e.g. Lucene)
-        * fields type mismatch (i.e. non-ECS field with incorrect type definition)
-        * incorrect document generation
-
-        Curious about the inner workings? Read [here](signals_generation.md). Need help in using a Jupyter Notebook?
-        Read [here](https://jupyter-notebook.readthedocs.io/en/stable/notebook.html#structure-of-a-notebook-document).
-    """))
-
-    @classmethod
-    @nb.chapter("## Preliminaries")
-    def setUpClass(cls, cells):
-        super(TestSignals, cls).setUpClass()
-        jupyter.random.seed("TestSignals.setUpClass")
-        cells += [
-            jupyter.Markdown("""
-                This is an auxiliary cell, it prepares the environment for all the subsequent cells. It's also
-                a simple example of emitter API usage.
-            """),
-            jupyter.Code("""
-                import os; os.chdir('../..')  # use the repo's root as base for local modules import
-                import eql
-                from detection_rules.events_emitter import emitter
-
-                def emit(query):
-                    with eql.parser.elasticsearch_syntax:
-                        try:
-                            return emitter.emit_docs(emitter.emit(eql.parse_query(query)))
-                        except Exception as e:
-                            print(e)
-            """),
-        ]
-
-    @classmethod
-    def tearDownClass(cls):
-        super(TestSignals, cls).tearDownClass()
-        cls.nb.save()
-
-    def parse_from_queries(self, queries):
-        rules = []
-        asts = []
-        for i,query in enumerate(queries):
-            index_name = "{:s}-{:03d}".format(self.index_template, i)
-            rules.append({
-                "rule_id": "test_{:03d}".format(i),
-                "risk_score": 17,
-                "description": "Test rule {:03d}".format(i),
-                "name": "Rule {:03d}".format(i),
-                "index": [index_name],
-                "interval": "3s",
-                "from": "now-5m",
-                "severity": "low",
-                "type": "eql",
-                "query": query,
-                "language": "eql",
-                "enabled": True,
-            })
-            asts.append(eql.parse_query(query))
-        return rules, asts
-
-    def parse_from_collection(self, collection):
-        rules = []
-        asts = []
-        for i,rule in enumerate(collection):
-            rule = rule.contents.data
-            try:
-                asts.append(emitter.ast_from_rule(rule))
-            except:
-                if verbose > 3:
-                    sys.stderr.write(f"rule was skipped: type={rule.type}\n")
-                    sys.stderr.flush()
-                continue
-            index_name = "{:s}-{:03d}".format(self.index_template, i)
-            rules.append({
-                "rule_id": rule.rule_id,
-                "risk_score": rule.risk_score,
-                "description": rule.description,
-                "name": rule.name,
-                "index": [index_name],
-                "interval": "3s",
-                "from": "now-5m",
-                "severity": rule.severity,
-                "type": rule.type,
-                "query": rule.query,
-                "language": rule.language,
-                "enabled": True,
-            })
-        return rules, asts
-
-    @nb.chapter("## Generation errors")
-    def generate_docs_and_mappings(self, rules, asts, cells):
+    def generate_docs_and_mappings(self, rules, asts):
         emitter.reset_mappings()
 
         bulk = []
@@ -721,16 +714,13 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
                             sys.stderr.write(json.dumps(doc, sort_keys=True) + "\n")
                             sys.stderr.flush()
                 except Exception as e:
-                    cells.append(jupyter.Markdown(f"### {rule['name']}"))
-                    cells.append(self.QueryCell(rule["query"], str(e), output_type="stream"))
                     if verbose > 2:
                         sys.stderr.write(f"{str(e)}\n")
                         sys.stderr.flush()
                     continue
         return (bulk, emitter.emit_mappings())
 
-    @nb.chapter("## Rejected documents")
-    def load_rules_and_docs(self, rules, asts, cells, batch_size=100):
+    def load_rules_and_docs(self, rules, asts, batch_size=100):
         docs, mappings = self.generate_docs_and_mappings(rules, asts)
 
         template = {
@@ -747,16 +737,17 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
         }
         self.es_indices.put_index_template(self.index_template, body=template)
 
-        pos = 0
-        while docs[pos:pos+batch_size]:
-            ret = self.es.bulk("\n".join(docs[pos:pos+batch_size]))
-            for i,item in enumerate(ret["items"]):
-                if item["index"]["status"] != 201:
-                    cells.append(jupyter.Markdown(str(item['index'])))
-                    if verbose > 1:
-                        sys.stderr.write(f"{str(item['index'])}\n")
-                        sys.stderr.flush()
-            pos += batch_size
+        with self.nb.chapter("## Rejected documents") as cells:
+            pos = 0
+            while docs[pos:pos+batch_size]:
+                ret = self.es.bulk("\n".join(docs[pos:pos+batch_size]))
+                for i,item in enumerate(ret["items"]):
+                    if item["index"]["status"] != 201:
+                        cells.append(jupyter.Markdown(str(item['index'])))
+                        if verbose > 1:
+                            sys.stderr.write(f"{str(item['index'])}\n")
+                            sys.stderr.flush()
+                pos += batch_size
 
         pending = self.kbn.create_detection_engine_rules(rules)
         for rule, rule_id in zip(rules, pending):
@@ -823,7 +814,7 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
 
     @classmethod
     def QueryCell(cls, query, docs, **kwargs):
-        source = "emit('''\n" + query.strip() + "\n''')"
+        source = textwrap.dedent(query.strip())
         output = docs if type(docs) == str else "[" + ",\n".join(str(doc) for doc in docs) + "]"
         return jupyter.Code(source, output, **kwargs)
 
@@ -836,7 +827,6 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
                     for doc in docs:
                         t0 = t0 or docs[0]["@timestamp"]
                         doc["@timestamp"] -= t0
-                    jupyter.random.seed(rule['query'])
                     cells.append(jupyter.Markdown(f"### {rule['name']}"))
                     cells.append(self.QueryCell(rule["query"], docs))
                     if type(rule_ids) == dict:
@@ -885,7 +875,41 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
         self.assertSignals(rules, too_many_signals, "Rules with too many signals")
         #self.report_rules(rules, correct_signals, "Rules with the correct signals")
 
-    @unittest.skipIf(os.getenv("TEST_SIGNALS_QUERIES", "0").lower() in ("0", "false", "no", ""), "Slow online test")
+
+@unittest.skipIf(os.getenv("TEST_SIGNALS_QUERIES", "0").lower() in ("0", "false", "no", ""), "Slow online test")
+class TestSignalsQueries(SignalsTestCase, OnlineTestCase, utils.SeededTestCase, unittest.TestCase):
+    maxDiff = None
+    nb = jupyter.Notebook()
+    nb.cells.append(jupyter.Markdown(
+    """
+        # Alerts generation from test queries
+
+        This report captures the unit test queries signals generation coverage.
+        Here you can learn what queries are supported.
+    """))
+
+    def parse_from_queries(self, queries):
+        rules = []
+        asts = []
+        for i,query in enumerate(queries):
+            index_name = "{:s}-{:03d}".format(self.index_template, i)
+            rules.append({
+                "rule_id": "test_{:03d}".format(i),
+                "risk_score": 17,
+                "description": "Test rule {:03d}".format(i),
+                "name": "Rule {:03d}".format(i),
+                "index": [index_name],
+                "interval": "3s",
+                "from": "now-5m",
+                "severity": "low",
+                "type": "eql",
+                "query": query,
+                "language": "eql",
+                "enabled": True,
+            })
+            asts.append(eql.parse_query(query))
+        return rules, asts
+
     def test_queries(self):
         queries = tuple(eql_event_docs_complete) + tuple(eql_sequence_docs_complete)
         with eql.parser.elasticsearch_syntax:
@@ -893,12 +917,63 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
         with emitter.fuzziness(0), emitter.completeness(0):
             pending = self.load_rules_and_docs(rules, asts)
         self.check_signals(rules, pending)
+        assertReportUnchanged(self, self.nb, "alerts_from_queries.md")
 
-    @unittest.skipIf(os.getenv("TEST_SIGNALS_COLLECTION", "0").lower() in ("0", "false", "no", ""), "Slow online test")
-    def test_rules_collection(self):
-        collection = _get_collection("TEST_SIGNALS_COLLECTION")
+
+@unittest.skipIf(os.getenv("TEST_SIGNALS_RULES", "0").lower() in ("0", "false", "no", ""), "Slow online test")
+class TestSignalsRules(SignalsTestCase, OnlineTestCase, utils.SeededTestCase, unittest.TestCase):
+    maxDiff = None
+    nb = jupyter.Notebook()
+    nb.cells.append(jupyter.Markdown(
+    """
+        # Alerts generation from detection rules
+
+        This report captures the detection rules signals generation coverage. Here you can
+        learn what rules are supported and what not and why.
+
+        Reasons for rules being not supported:
+        * rule type is not EQL or query (e.g. ML, threshold)
+        * query language is not EQL or Kuery (e.g. Lucene)
+        * fields type mismatch (i.e. non-ECS field with incorrect type definition)
+        * incorrect document generation
+
+        Curious about the inner workings? Read [here](signals_generation.md).
+    """))
+
+    def parse_from_collection(self, collection):
+        rules = []
+        asts = []
+        for i,rule in enumerate(collection):
+            rule = rule.contents.data
+            try:
+                asts.append(emitter.ast_from_rule(rule))
+            except:
+                if verbose > 3:
+                    sys.stderr.write(f"rule was skipped: type={rule.type}\n")
+                    sys.stderr.flush()
+                continue
+            index_name = "{:s}-{:03d}".format(self.index_template, i)
+            rules.append({
+                "rule_id": rule.rule_id,
+                "risk_score": rule.risk_score,
+                "description": rule.description,
+                "name": rule.name,
+                "index": [index_name],
+                "interval": "3s",
+                "from": "now-5m",
+                "severity": rule.severity,
+                "type": rule.type,
+                "query": rule.query,
+                "language": rule.language,
+                "enabled": True,
+            })
+        return rules, asts
+
+    def test_rules(self):
+        collection = _get_collection("TEST_SIGNALS_RULES")
         with eql.parser.elasticsearch_syntax:
             rules, asts = self.parse_from_collection(collection)
         with emitter.fuzziness(0), emitter.completeness(0):
             pending = self.load_rules_and_docs(rules, asts)
         self.check_signals(rules, pending)
+        assertReportUnchanged(self, self.nb, "alerts_from_rules.md")
