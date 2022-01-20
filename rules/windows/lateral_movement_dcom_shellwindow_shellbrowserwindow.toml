@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/06"
 maturity = "production"
-updated_date = "2021/10/13"
+updated_date = "2022/01/13"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +26,7 @@ query = '''
 sequence by host.id with maxspan=5s
  [network where event.type == "start" and process.name : "explorer.exe" and
   network.direction : ("incoming", "ingress") and network.transport == "tcp" and
-  source.port > 49151 and destination.port > 49151 and not source.address in ("127.0.0.1", "::1")
+  source.port > 49151 and destination.port > 49151 and source.ip != "127.0.0.1" and source.ip != "::1"
  ] by process.entity_id
  [process where event.type in ("start", "process_started") and
   process.parent.name : "explorer.exe"
