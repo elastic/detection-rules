@@ -6,7 +6,7 @@ updated_date = "2021/11/25"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a potential exploitation of InstallerTakeOver/CVE-2021-41379 default PoC execution. Successful exploitation
+Identifies a potential exploitation of InstallerTakeOver (CVE-2021-41379) default PoC execution. Successful exploitation
 allows an unprivileged user to escalate privileges to SYSTEM.
 """
 from = "now-9m"
@@ -21,9 +21,8 @@ note = """## Triage and analysis.
 InstallerFileTakeOver is a weaponized EoP PoC to the CVE-2021-41379 vulnerability. Upon successful exploitation,
 an unprivileged user will escalate privileges to SYSTEM/NT AUTHORITY.
 
-This rule detects the default execution of the PoC, which overwrites the elevation_service.exe DACL and copy itself
-to the location to escalate privileges. Still, an attacker could take over any file that is not in use (locked), such
-scenarios are not covered in this rule.
+This rule detects the default execution of the PoC, which overwrites the `elevation_service.exe` DACL and copy itself
+to the location to escalate privileges. An attacker is able to still take over any file that is not in use (locked), which is outside the scope of this rule.
 
 #### Possible investigation steps:
 
@@ -61,7 +60,7 @@ process where event.type == "start" and
     user.id : "S-1-5-18" and
     (
       (process.name : "elevation_service.exe" and 
-       not process.pe.original_file_name : "elevation_service.exe") or
+       not process.pe.original_file_name == "elevation_service.exe") or
 
       (process.parent.name : "elevation_service.exe" and 
        process.name : ("rundll32.exe", "cmd.exe", "powershell.exe")) 
