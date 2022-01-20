@@ -1,0 +1,73 @@
+[metadata]
+creation_date = "2020/10/15"
+maturity = "production"
+updated_date = "2021/10/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies instances of an unusual process enumerating built-in Windows privileged local groups membership like
+Administrators or Remote Desktop users.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Enumeration of Privileged Local Groups Membership"
+note = """## Config
+
+This will require Windows security event 4799 by enabling audit success for the windows Account Management category and
+the Security Group Management subcategory.
+"""
+risk_score = 43
+rule_id = "291a0de9-937a-4189-94c0-3e847c8b13e4"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+iam where event.action == "user-member-enumerated" and
+
+ /* noisy and usual legit processes excluded */
+ not winlog.event_data.CallerProcessName:
+              ("?:\\Windows\\System32\\VSSVC.exe",
+               "?:\\Windows\\System32\\SearchIndexer.exe",
+               "?:\\Windows\\System32\\CompatTelRunner.exe",
+               "?:\\Windows\\System32\\oobe\\msoobe.exe",
+               "?:\\Windows\\System32\\net1.exe",
+               "?:\\Windows\\System32\\svchost.exe",
+               "?:\\Windows\\System32\\Netplwiz.exe",
+               "?:\\Windows\\System32\\msiexec.exe",
+               "?:\\Windows\\System32\\CloudExperienceHostBroker.exe",
+               "?:\\Windows\\System32\\wbem\\WmiPrvSE.exe",
+               "?:\\Windows\\System32\\SrTasks.exe",
+               "?:\\Windows\\System32\\lsass.exe",
+               "?:\\Windows\\System32\\diskshadow.exe",
+               "?:\\Windows\\System32\\dfsrs.exe",
+               "?:\\Program Files\\*.exe",
+               "?:\\Program Files (x86)\\*.exe") and
+  /* privileged local groups */
+ (group.name:("admin*","RemoteDesktopUsers") or
+  winlog.event_data.TargetSid:("S-1-5-32-544","S-1-5-32-555"))
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+reference = "https://attack.mitre.org/techniques/T1069/"
+id = "T1069"
+name = "Permission Groups Discovery"
+[[rule.threat.technique.subtechnique]]
+reference = "https://attack.mitre.org/techniques/T1069/001/"
+id = "T1069.001"
+name = "Local Groups"
+
+
+
+[rule.threat.tactic]
+reference = "https://attack.mitre.org/tactics/TA0007/"
+id = "TA0007"
+name = "Discovery"
+
