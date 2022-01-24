@@ -21,7 +21,7 @@ Host Risk Score is an experimental feature that assigns risk scores to hosts in 
 The Host Risk Score functionality is space aware for privacy. Downloaded artifacts must be modified with the desired space before they can be used.
 
  - Download the release [bundle](https://github.com/elastic/detection-rules/releases) that was created closest to the release date of the Elastic Stack version you are currently running. The Host Risk Score releases can be identified by the tag `ML-HostRiskScore-YYYYMMDD-N`. **The Host Risk Score artifacts should be updated if/when you update to a newer Elastic Stack version. To do this, simply download a release bundle corresponding to your new stack version and repeat the steps below.**  
- - Unzip the contents of `ML-HostRiskScore-YYYMMDD-N.zip`.
+ - Unzip the contents of `ML-HostRiskScore-YYYYMMDD-N.zip`.
  - Run `ml_hostriskscore_generate_scripts.py` script in the unzipped directory with your Kibana space as the argument.
 <div style="margin-left: 40px">   
 <i>Example of modifying artifacts for the default space</i>
@@ -43,9 +43,8 @@ PUT _scripts/ml_hostriskscore_levels_script_&lt;your-space-name&gt;
 {contents of ml_hostriskscore_levels_script.json file}
 </code></pre></div>
 
-<div style="margin-left: 40px">   
-<i>uploading scripts</i>
-   <pre style="margin-top:-2px"><code>
+<div style="margin-left: 40px">
+   <pre><code>
 PUT _scripts/ml_hostriskscore_init_script_&lt;your-space-name&gt;
 {contents of ml_hostriskscore_init_script.json file}
 </code></pre></div>
