@@ -1,6 +1,6 @@
 # Host Risk Score
 
-Host Risk Score is an experimental feature that assigns risk scores to hosts in a given Kibana space. Risk scores are calculated for each host by utilizing transforms on the alerting indices. The transform runs hourly to update the score as new detection rule alerts are generated. The Host Risk Score [package](https://github.com/elastic/detection-rules/releases) contains all of the required artifacts for setup. The Host Risk Score feature provides drilldown Lens dashboards and additional Kibana features such as the **Host Risk Score Card** on the Overview page of the Elastic Security app, and the **Host Risk Keyword** on the Alert details flyout for an enhanced experience.
+Host Risk Score is an experimental feature that assigns risk scores to hosts in a given Kibana space. Risk scores are calculated for each host by utilizing transforms on the alerting indices. The transform runs hourly to update the score as new alerts are generated. The Host Risk Score [package](https://github.com/elastic/detection-rules/releases) contains all of the required artifacts for setup. The Host Risk Score feature provides drilldown Lens dashboards and additional Kibana features such as the **Host Risk Score Card** on the Overview page of the Elastic Security app, and the **Host Risk Keyword** on the Alert details flyout for an enhanced experience.
 
 ### Notes
  - **Host name collision**: Hosts are identified by the `host.name` field in alerts. There may be some edge cases where different hosts use the same name. [details](#host-name-collision-details) 
@@ -20,7 +20,7 @@ Host Risk Score is an experimental feature that assigns risk scores to hosts in 
 
 The Host Risk Score functionality is space aware for privacy. Downloaded artifacts must be modified with the desired space before they can be used.
 
- - Download the latest release [bundle](https://github.com/elastic/detection-rules/releases) with the tag `ML-HostRiskScore-YYYMMDD-N`.
+ - Download the release [bundle](https://github.com/elastic/detection-rules/releases) that was created closest to the release date of the Elastic Stack version you are currently running. The Host Risk Score releases can be identified by the tag `ML-HostRiskScore-YYYYMMDD-N`. **The Host Risk Score artifacts should be updated if/when you update to a newer Elastic Stack version. To do this, simply download a release bundle corresponding to your new stack version and repeat the steps below.**  
  - Unzip the contents of `ML-HostRiskScore-YYYMMDD-N.zip`.
  - Run `ml_hostriskscore_generate_scripts.py` script in the unzipped directory with your Kibana space as the argument.
 <div style="margin-left: 40px">   
@@ -33,7 +33,7 @@ The Host Risk Score functionality is space aware for privacy. Downloaded artifac
 <h3 id="upload-scripts">2. Upload scripts</h3>
 
 - Navigate to `Management / Dev Tools` in Kibana.
-- Upload the contents of `ml_hostriskscore_levels_script.json`, `ml_hostriskscore_map_script.json` and `ml_hostriskscore_reduce_script.json` using the Script API with the following syntax.
+- Upload the contents of `ml_hostriskscore_levels_script.json`, `ml_hostriskscore_init_script.json`, `ml_hostriskscore_map_script.json` and `ml_hostriskscore_reduce_script.json` using the Script API with the following syntax.
 - Ensure that your space name (such as `default`) replaces `<your-space-name>` in the script names below.
 
 <div style="margin-left: 40px">   
@@ -43,12 +43,18 @@ PUT _scripts/ml_hostriskscore_levels_script_&lt;your-space-name&gt;
 {contents of ml_hostriskscore_levels_script.json file}
 </code></pre></div>
 
+<div style="margin-left: 40px">   
+<i>uploading scripts</i>
+   <pre style="margin-top:-2px"><code>
+PUT _scripts/ml_hostriskscore_init_script_&lt;your-space-name&gt;
+{contents of ml_hostriskscore_init_script.json file}
+</code></pre></div>
+
 <div style="margin-left: 40px">
    <pre><code>
 PUT _scripts/ml_hostriskscore_map_script_&lt;your-space-name&gt;
 {contents of ml_hostriskscore_map_script.json file}
 </code></pre></div>
-
 
 <div style="margin-left: 40px">
    <pre><code>
