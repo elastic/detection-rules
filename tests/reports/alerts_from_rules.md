@@ -31,7 +31,7 @@ sequence by host.id with maxspan=5m
 
 ```python
 [{'event': {'action': 'logged-in', 'outcome': 'success', 'category': ['authentication']}, 'winlog': {'logon': {'type': 'Network'}, 'event_data': {'TargetLogonId': 'yFj'}}, 'source': {'ip': 'aa79:ec58:8d14:2981:f18d:f2a6:6b1f:4182'}, 'host': {'id': 'fUy'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
-{'event': {'action': 'reset-password', 'category': ['iam']}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}, 'host': {'id': 'fUy'}, 'winlog': {'event_data': {'SubjectLogonId': 'yFj'}}}]
+{'event': {'action': 'reset-password', 'category': ['iam']}, 'host': {'id': 'fUy'}, 'winlog': {'event_data': {'SubjectLogonId': 'yFj'}}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -619,7 +619,7 @@ sequence by process.entity_id with maxspan=1m
 
 ```python
 [{'event': {'category': ['process', 'process']}, 'process': {'name': 'rundll32.exe', 'entity_id': 'ZFy'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
-{'event': {'category': ['process', 'process'], 'dataset': 'windows.sysmon_operational', 'code': '7'}, 'file': {'pe': {'original_file_name': 'COMSVCS.DLL'}, 'name': 'XIU'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}, 'process': {'entity_id': 'ZFy'}}]
+{'event': {'category': ['process', 'process'], 'dataset': 'windows.sysmon_operational', 'code': '7'}, 'file': {'pe': {'original_file_name': 'COMSVCS.DLL'}, 'name': 'XIU'}, 'process': {'entity_id': 'ZFy'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -1638,7 +1638,7 @@ sequence by host.id with maxspan=1m
 
 ```python
 [{'event': {'type': ['ZFy'], 'category': ['file']}, 'file': {'path': '/system/library/launchdaemons/yyfjsviloooh'}, 'host': {'id': 'mxB'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
-{'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'launchctl', 'args': ['load']}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}, 'host': {'id': 'mxB'}}]
+{'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'launchctl', 'args': ['load']}, 'host': {'id': 'mxB'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
 ```
 
 

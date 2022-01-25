@@ -464,7 +464,7 @@ class QueryTestCase:
         return super(QueryTestCase, self).subTest(query, completeness=completeness, fuzziness=fuzziness, seed=seed)
 
     def assertQuery(self, query, docs):
-        self.assertEqual(docs, emitter.emit_docs(emitter.emit(eql.parse_query(query))))
+        self.assertEqual(docs, emitter.emit_docs(eql.parse_query(query)))
 
 
 class TestQueries(QueryTestCase, utils.SeededTestCase, unittest.TestCase):
@@ -498,7 +498,7 @@ class TestQueries(QueryTestCase, utils.SeededTestCase, unittest.TestCase):
                 def emit(query):
                     with eql.parser.elasticsearch_syntax:
                         try:
-                            return emitter.emit_docs(emitter.emit(eql.parse_query(query)))
+                            return emitter.emit_docs(eql.parse_query(query))
                         except Exception as e:
                             print(e)
             """),
@@ -521,7 +521,7 @@ class TestQueries(QueryTestCase, utils.SeededTestCase, unittest.TestCase):
             for query, mappings in eql_event_docs_mappings.items():
                 with self.subTest(query):
                     emitter.reset_mappings()
-                    _ = emitter.emit_docs(emitter.emit(eql.parse_query(query)))
+                    _ = emitter.emit_docs(eql.parse_query(query))
                     self.assertEqual(mappings, emitter.emit_mappings())
 
     @nb.chapter("## Simple queries")

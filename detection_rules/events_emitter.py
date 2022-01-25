@@ -131,8 +131,9 @@ class emitter:
         return value
 
     @classmethod
-    def emit_docs(cls, constraints):
+    def emit_docs(cls, ast):
         docs = []
+        constraints = cls.emit(ast)
         if not constraints:
             raise ValueError("Cannot trigger with any document")
         for constraint in constraints:
@@ -145,11 +146,11 @@ class emitter:
 
     @classmethod
     def docs_from_ast(cls, ast):
-        constraints = cls.emit(ast)
-        for t,constraint in enumerate(constraints):
-            constraint.append_constraint("@timestamp", "==", int(time.time() * 1000 + t))
-            constraint.append_constraint("ecs.version", "==", cls.ecs_version)
-        return cls.emit_docs(constraints)
+        docs = cls.emit_docs(ast)
+        for t,doc in enumerate(docs):
+            deep_merge(doc, cls.emit_field("@timestamp", int(time.time() * 1000) + t))
+            deep_merge(doc, cls.emit_field("ecs.version", cls.ecs_version))
+        return docs
 
 
 def emit_docs(rule: AnyRuleData) -> List[str]:
