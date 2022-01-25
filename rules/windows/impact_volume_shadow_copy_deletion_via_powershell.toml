@@ -1,0 +1,51 @@
+[metadata]
+creation_date = "2021/07/19"
+maturity = "production"
+updated_date = "2021/10/17"
+
+[rule]
+author = ["Elastic", "Austin Songer"]
+description = """
+Identifies the use of the Win32_ShadowCopy class and related cmdlets to achieve shadow copy deletion. This commonly occurs
+in tandem with ransomware or other destructive attacks.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Volume Shadow Copy Deletion via PowerShell"
+references = [
+    "https://docs.microsoft.com/en-us/previous-versions/windows/desktop/vsswmi/win32-shadowcopy",
+    "https://powershell.one/wmi/root/cimv2/win32_shadowcopy",
+    "https://www.fortinet.com/blog/threat-research/stomping-shadow-copies-a-second-look-into-deletion-methods",
+]
+risk_score = 73
+rule_id = "d99a037b-c8e2-47a5-97b9-170d076827c4"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Impact"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and 
+  process.args : ("*Get-WmiObject*", "*gwmi*", "*Get-CimInstance*", "*gcim*") and
+  process.args : ("*Win32_ShadowCopy*") and
+  process.args : ("*.Delete()*", "*Remove-WmiObject*", "*rwmi*", "*Remove-CimInstance*", "*rcim*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1490"
+reference = "https://attack.mitre.org/techniques/T1490/"
+name = "Inhibit System Recovery"
+
+
+
+[rule.threat.tactic]
+id = "TA0040"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+name = "Impact"
+

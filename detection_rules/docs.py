@@ -6,13 +6,14 @@
 """Create summary documents for a rule package."""
 from collections import defaultdict
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, Union
 
 import xlsxwriter
 
 from .attack import technique_lookup, matrix, attack_tm, tactics
 from .packaging import Package
-from .rule import ThreatMapping, TOMLRule
+from .rule import ThreatMapping
+from .rule_loader import DeprecatedCollection, RuleCollection
 
 
 class PackageDocument(xlsxwriter.Workbook):
@@ -117,7 +118,8 @@ class PackageDocument(xlsxwriter.Workbook):
             worksheet.write(row, 3, f'{num_techniques}/{total_techniques}', self.right_align)
             row += 1
 
-    def add_rule_details(self, rules: Optional[List[TOMLRule]] = None, name='Rule Details'):
+    def add_rule_details(self, rules: Optional[Union[DeprecatedCollection, RuleCollection]] = None,
+                         name='Rule Details'):
         """Add a worksheet for detailed metadata of rules."""
         if rules is None:
             rules = self.production_rules
@@ -136,8 +138,11 @@ class PackageDocument(xlsxwriter.Workbook):
         )
 
         for row, rule in enumerate(rules, 1):
-            flat_mitre = ThreatMapping.flatten(rule.contents.data.threat)
-            rule_contents = {'tactics': flat_mitre.tactic_names, 'techniques': flat_mitre.technique_ids}
+            rule_contents = {'tactics': '', 'techniques': ''}
+            if isinstance(rules, RuleCollection):
+                flat_mitre = ThreatMapping.flatten(rule.contents.data.threat)
+                rule_contents = {'tactics': flat_mitre.tactic_names, 'techniques': flat_mitre.technique_ids}
+
             rule_contents.update(rule.contents.to_api_format())
 
             for column, field in enumerate(metadata_fields):

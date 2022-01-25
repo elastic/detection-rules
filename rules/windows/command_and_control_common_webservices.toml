@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/04"
 maturity = "production"
-updated_date = "2021/04/07"
+updated_date = "2022/01/17"
 
 [rule]
 author = ["Elastic"]
@@ -52,7 +52,10 @@ network where network.protocol == "dns" and
         "paste.nrecom.net",
         "zerobin.net",
         "controlc.com",
-        "requestbin.net"
+        "requestbin.net",
+        "cdn.discordapp.com",
+        "discordapp.com",
+        "discord.com"
     ) and
     /* Insert noisy false positives here */
     not process.executable :
@@ -68,7 +71,8 @@ network where network.protocol == "dns" and
       "?:\\Users\\*\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
       "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
       "?:\\Windows\\system32\\mobsync.exe",
-      "?:\\Windows\\SysWOW64\\mobsync.exe"
+      "?:\\Windows\\SysWOW64\\mobsync.exe",
+      "?:\\Users\\*\\AppData\\Local\\Discord\\-*\\Discord.exe"
     )
 '''
 
@@ -86,3 +90,26 @@ id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+  [[rule.threat.technique.subtechnique]]
+  id = "T1567.001"
+  name = "Exfiltration to Code Repository"
+  reference = "https://attack.mitre.org/techniques/T1567/001/"
+
+  [[rule.threat.technique.subtechnique]]
+  id = "T1567.002"
+  name = "Exfiltration to Cloud Storage"
+  reference = "https://attack.mitre.org/techniques/T1567/002/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
