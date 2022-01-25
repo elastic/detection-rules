@@ -717,6 +717,9 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
                     for doc in emitter.docs_from_ast(ast):
                         bulk.append(json.dumps({"index": {"_index": rule["index"][0]}}))
                         bulk.append(json.dumps(doc))
+                        if verbose > 2:
+                            sys.stderr.write(json.dumps(doc, sort_keys=True) + "\n")
+                            sys.stderr.flush()
                 except Exception as e:
                     cells.append(jupyter.Markdown(f"### {rule['name']}"))
                     cells.append(self.QueryCell(rule["query"], str(e), output_type="stream"))
@@ -851,6 +854,12 @@ class TestSignals(TestCaseOnline, utils.SeededTestCase, unittest.TestCase):
                 lines.append("{:s}: {:s}".format(rule["id"], rule["name"]))
                 lines.append(rule["query"].strip())
                 lines.extend(json.dumps(doc, sort_keys=True) for doc in docs)
+                if type(rule_ids) == dict:
+                    rule_status = rule_ids[rule["id"]].get("current_status", {})
+                    failure_message = rule_status.get("last_failure_message", "")
+                    if failure_message:
+                        lines.append("SDE says:")
+                        lines.append(f"  {failure_message}")
         return "\n" + "\n".join(lines)
 
     def assertSignals(self, rules, rule_ids, msg):
