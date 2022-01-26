@@ -16,6 +16,7 @@ SAVED_OBJECT_TYPE = "security-rule"
 DATE_PATTERN = r'^\d{4}/\d{2}/\d{2}$'
 MATURITY_LEVELS = ['development', 'experimental', 'beta', 'production', 'deprecated']
 OS_OPTIONS = ['windows', 'linux', 'macos']
+NAME_PATTERN = r'^[a-zA-Z0-9].+?[a-zA-Z0-9()]$'
 PR_PATTERN = r'^$|\d+$'
 SHA256_PATTERN = r'^[a-fA-F0-9]{64}$'
 UUID_PATTERN = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
@@ -60,6 +61,7 @@ Operator = Literal['equals']
 OSType = Literal['windows', 'linux', 'macos']
 PositiveInteger = NewType('PositiveInteger', int, validate=validate.Range(min=1))
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
+RuleName = NewType('RuleName', str, validate=validate.Regexp(NAME_PATTERN))
 RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'threshold', 'threat_match']
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
 Severity = Literal['low', 'medium', 'high', 'critical']
