@@ -162,7 +162,7 @@ class BaseRuleData(MarshmallowDataclassMixin):
     interval: Optional[definitions.Interval]
     max_signals: Optional[definitions.MaxSignals]
     meta: Optional[Dict[str, Any]]
-    name: str
+    name: definitions.RuleName
     note: Optional[definitions.Markdown]
     # can we remove this comment?
     # explicitly NOT allowed!
