@@ -147,7 +147,7 @@ This transform recurringly calculates risk levels for all hosts in the Kibana sp
 
 <h3 id="enable-kibana">8. Enable Kibana features</h3>
 
-You can find Host Risk Scoring features on the following Kibana locations:
+You can find Host Risk Scoring features in the following Kibana locations:
 
 _Host Risk Score card on the Overview page_
 ![Host Risk Score card](./images/0a_host_risk_score_card.png)
