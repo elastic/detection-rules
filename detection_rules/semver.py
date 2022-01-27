@@ -10,17 +10,22 @@ from typing import Iterable, Union
 
 class Version(tuple):
 
-    def __new__(cls, version: Union[Iterable, str]) -> 'Version':
-        if not isinstance(version, (int, list, tuple)):
-            version = tuple(int(a) if a.isdigit() else a for a in re.split(r'[.-]', version))
-        return version if isinstance(version, int) else tuple.__new__(cls, version)
+    def __new__(cls, version: Union[str, Iterable]) -> 'Version':
+        if isinstance(version, (int, list, tuple)):
+            version_class = tuple.__new__(cls, version)
+        else:
+            version_tuple = tuple(int(a) if a.isdigit() else a for a in re.split(r'[.-]', version))
+            version_class = tuple.__new__(cls, version_tuple)
 
-    def bump(self):
-        """Increment the version."""
-        versions = list(self)
-        versions[-1] += 1
-        return Version(versions)
+        return version_class
 
     def __str__(self):
         """Convert back to a string."""
-        return ".".join(str(dig) for dig in self)
+        recovered_str = str(self[0])
+        for additional in self[1:]:
+            if isinstance(additional, str):
+                recovered_str += "-" + additional
+            else:
+                recovered_str += "." + str(additional)
+
+        return recovered_str
