@@ -335,6 +335,11 @@ def make_git(*prefix_args) -> Optional[Callable]:
         return
 
     def git(*args, print_output=False):
+        nonlocal prefix_args
+
+        if '-C' not in prefix_args:
+            prefix_args = ['-C', get_path()] + prefix_args
+
         full_args = [git_exe] + prefix_args + [str(arg) for arg in args]
         if print_output:
             return subprocess.check_call(full_args)

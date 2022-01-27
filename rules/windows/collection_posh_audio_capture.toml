@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/10/19"
 maturity = "production"
-updated_date = "2021/11/17"
+updated_date = "2021/11/30"
 
 [rule]
 author = ["Elastic"]
@@ -13,6 +13,54 @@ index = ["winlogbeat-*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "PowerShell Suspicious Script with Audio Capture Capabilities"
+note = """## Triage and analysis.
+
+### Investigating PowerShell Suspicious Script with Audio Capture Capabilities
+
+PowerShell is one of the main tools used by system administrators for automation, report routines, and other tasks.
+
+Attackers can use PowerShell to interact with the Windows API and capture audio from input devices connected to the
+computer.
+
+#### Possible investigation steps:
+
+- Examine script content that triggered the detection. 
+- Investigate script execution chain (parent process tree)
+- Inspect any file or network events from the suspicious powershell host process instance.
+- If the action is suspicious for the user, check for any other activities done by the user in the last 48 hours.
+
+### False Positive Analysis
+
+- Verify whether the script content is malicious/harmful.
+
+### Related Rules
+
+- PowerShell PSReflect Script - 56f2e9b5-4803-4e44-a0a4-a52dc79d57fe
+- Potential Process Injection via PowerShell - 2e29e96a-b67c-455a-afe4-de6183431d0d
+
+### Response and Remediation
+
+- Immediate response should be taken to validate, investigate, and potentially contain the activity to prevent further
+post-compromise behavior.
+
+## Config
+
+The 'PowerShell Script Block Logging' logging policy must be enabled.
+Steps to implement the logging policy with with Advanced Audit Configuration:
+
+```
+Computer Configuration > 
+Administrative Templates > 
+Windows PowerShell > 
+Turn on PowerShell Script Block Logging (Enable)
+```
+
+Steps to implement the logging policy via registry:
+
+```
+reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+```
+"""
 references = ["https://github.com/PowerShellMafia/PowerSploit/blob/master/Exfiltration/Get-MicrophoneAudio.ps1"]
 risk_score = 47
 rule_id = "2f2f4939-0b34-40c2-a0a3-844eb7889f43"

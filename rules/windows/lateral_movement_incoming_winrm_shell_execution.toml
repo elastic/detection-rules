@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/24"
 maturity = "production"
-updated_date = "2021/10/13"
+updated_date = "2022/01/13"
 
 [rule]
 author = ["Elastic"]
@@ -29,7 +29,7 @@ type = "eql"
 query = '''
 sequence by host.id with maxspan=30s
    [network where process.pid == 4 and network.direction : ("incoming", "ingress") and
-    destination.port in (5985, 5986) and network.protocol == "http" and not source.address in ("::1", "127.0.0.1")
+    destination.port in (5985, 5986) and network.protocol == "http" and source.ip != "127.0.0.1" and source.ip != "::1"
    ]
    [process where event.type == "start" and process.parent.name : "winrshost.exe" and not process.name : "conhost.exe"]
 '''
