@@ -380,7 +380,7 @@ def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...
               help="GitHub token to use for the PR", hide_input=True)
 @click.option("--pkg-directory", "-d", help="Directory to save the package in cloned repository",
               default=os.path.join("packages", "security_detection_engine"))
-@click.option("--base-branch", "-b", help="Base branch in target repository", default="master")
+@click.option("--base-branch", "-b", help="Base branch in target repository", default="main")
 @click.option("--branch-name", "-n", help="New branch for the rules commit")
 @click.option("--github-repo", "-r", help="Repository to use for the branch", default="elastic/integrations")
 @click.option("--assign", multiple=True, help="GitHub users to assign the PR")
