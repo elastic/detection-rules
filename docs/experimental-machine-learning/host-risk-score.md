@@ -147,27 +147,7 @@ This transform recurringly calculates risk levels for all hosts in the Kibana sp
 
 <h3 id="enable-kibana">8. Enable Kibana features</h3>
 
-You can find Host Risk Scoring features in the following Kibana locations:
-
-_Host Risk Score card on the Overview page_
-![Host Risk Score card](./images/0a_host_risk_score_card.png)
-
-_Host Risk Keyword on Alert Details Flyout_
-![Host Risk Keyword](./images/0b_alert_summary.png)
-
-_Host risk classification column on Host page All hosts table_
-![Hosts page risk classification column](./images/00_host_page_risk_column.png)
-
-_Hosts by risk tab on Host page_
-![Hosts Risk Tab](./images/00_host_page_hosts_by_risk_tab.png)
-
-_Host risk overview on Host details page_
-![Host risk overview](./images/00_host_details_page_risk_overview.png)
-
-_Hosts by risk tab on Host details page_
-![Host Details Risk Tab](./images/00_host_details_page_hosts_by_risk_tab.png)
-
-To enable the _Host Risk Score card on the Overview page_, and the _Host Risk Keyword on Alert Details Flyout_, you will need to add the following configuration to `kibana.yml`.
+To enable the Kibana features for Host Risk Score, you will first need to add the following configuration to `kibana.yml`.
 
 ```
 xpack.securitySolution.enableExperimental: ['riskyHostsEnabled']
@@ -201,6 +181,27 @@ xpack.securitySolution.enableExperimental: ['riskyHostsEnabled']
 
 7. View Host Risk Score Card on the Overview page
 ![Host Risk Score card](./images/0a_host_risk_score_card.png)
+
+
+Once you have modified the `kibana.yml` file, you will find Host Risk Scoring features in the following Kibana locations:
+
+_Host Risk Score card on the Overview page_
+![Host Risk Score card](./images/0a_host_risk_score_card.png)
+
+_Host Risk Keyword on Alert Details Flyout_
+![Host Risk Keyword](./images/0b_alert_summary.png)
+
+_Host risk classification column in the All hosts table on the Hosts page_
+![Hosts page risk classification column](./images/0c_host_page_risk_column.png)
+
+_Hosts by risk tab on the Hosts page_
+![Hosts Risk Tab](./images/0d_host_page_hosts_by_risk_tab.png)
+
+_Host risk overview on the Host details page_
+![Host risk overview](./images/0e_host_details_page_risk_overview.png)
+
+_Hosts by risk tab on the Host details page_
+![Host Details Risk Tab](./images/0f_host_details_page_hosts_by_risk_tab.png)
 
 <hr/>
 
