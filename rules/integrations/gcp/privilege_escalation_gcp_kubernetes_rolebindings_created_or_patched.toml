@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/06/06"
 maturity = "production"
-updated_date = "2021/10/14"
+updated_date = "2022/01/24"
 integration = "gcp"
 
 [rule]
@@ -14,7 +14,7 @@ from = "now-20m"
 index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "GCP Kubernetes Rolebindings Created or Patched "
+name = "GCP Kubernetes Rolebindings Created or Patched"
 note = """## Config
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
@@ -33,7 +33,8 @@ type = "query"
 query = '''
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:(io.k8s.authorization.rbac.v*.clusterrolebindings.create or 
 io.k8s.authorization.rbac.v*.rolebindings.create or io.k8s.authorization.rbac.v*.clusterrolebindings.patch or 
-io.k8s.authorization.rbac.v*.rolebindings.patch) and event.outcome:success
+io.k8s.authorization.rbac.v*.rolebindings.patch) and event.outcome:success and
+not gcp.audit.authentication_info.principal_email:"system:addon-manager"
 '''
 
 
