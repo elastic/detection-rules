@@ -24,6 +24,7 @@ from elasticsearch import Elasticsearch
 from kibana.connector import Kibana
 from . import rule_loader, utils
 from .cli_utils import single_collection
+from .docs import IntegrationSecurityDocs
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient
 from .main import root
@@ -80,6 +81,48 @@ def build_release(config_file, update_version_lock, release=None, verbose=True):
         click.echo(f'- {len(package.rules)} rules included')
 
     return package
+
+
+@dev_group.command('build-integration-docs')
+@click.argument('registry-version')
+@click.option('--pre', required=True, help='Tag for pre-existing rules')
+@click.option('--post', required=True, help='Tag for rules post updates')
+@click.option('--directory', '-d', type=Path, required=True, help='Output directory to save docs to')
+@click.option('--force', '-f', is_flag=True, help='Bypass the confirmation prompt')
+@click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
+@click.pass_context
+def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, post: str, directory: Path, force: bool,
+                           remote: Optional[str] = 'origin') -> IntegrationSecurityDocs:
+    """Build documents from two git tags for an integration package."""
+    if not force:
+        if not click.confirm(f'This will refresh tags and may overwrite local tags for: {pre} and {post}. Continue?'):
+            ctx.exit(1)
+
+    pre_rules = RuleCollection()
+    pre_rules.load_git_tag(pre, remote, skip_query_validation=True)
+
+    if pre_rules.errors:
+        click.echo(f'error loading {len(pre_rules.errors)} rule(s) from: {pre}, skipping:')
+        click.echo(' - ' + '\n - '.join([str(p) for p in pre_rules.errors]))
+
+    post_rules = RuleCollection()
+    post_rules.load_git_tag(post, remote, skip_query_validation=True)
+
+    if post_rules.errors:
+        click.echo(f'error loading {len(post_rules.errors)} rule(s) from: {post}, skipping:')
+        click.echo(' - ' + '\n - '.join([str(p) for p in post_rules.errors]))
+
+    rules_changes = pre_rules.compare_collections(post_rules)
+
+    docs = IntegrationSecurityDocs(registry_version, directory, True, *rules_changes)
+    package_dir = docs.generate()
+    click.echo(f'Generated documents saved to: {package_dir}')
+    updated, new, deprecated = rules_changes
+    click.echo(f'- {len(updated)} updated rules')
+    click.echo(f'- {len(new)} new rules')
+    click.echo(f'- {len(deprecated)} deprecated rules')
+
+    return docs
 
 
 @dataclasses.dataclass
