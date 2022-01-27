@@ -147,13 +147,25 @@ This transform recurringly calculates risk levels for all hosts in the Kibana sp
 
 <h3 id="enable-kibana">8. Enable Kibana features</h3>
 
-There are two features in Kibana related to Host Risk Scoring.
+You can find Host Risk Scoring features on the following Kibana locations:
 
 _Host Risk Score card on the Overview page_
 ![Host Risk Score card](./images/0a_host_risk_score_card.png)
 
 _Host Risk Keyword on Alert Details Flyout_
 ![Host Risk Keyword](./images/0b_alert_summary.png)
+
+_Host risk classification column on Host page All hosts table_
+![Hosts page risk classification column](./images/00_host_page_risk_column.png)
+
+_Hosts by risk tab on Host page_
+![Hosts Risk Tab](./images/00_host_page_hosts_by_risk_tab.png)
+
+_Host risk overview on Host details page_
+![Host risk overview](./images/00_host_details_page_risk_overview.png)
+
+_Hosts by risk tab on Host details page_
+![Host Details Risk Tab](./images/00_host_details_page_hosts_by_risk_tab.png)
 
 To enable the _Host Risk Score card on the Overview page_, and the _Host Risk Keyword on Alert Details Flyout_, you will need to add the following configuration to `kibana.yml`.
 
