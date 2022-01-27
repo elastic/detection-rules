@@ -1,0 +1,93 @@
+[metadata]
+creation_date = "2021/11/08"
+maturity = "production"
+updated_date = "2021/11/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the first occurrence of a modification to Group Policy Object Attributes to add privileges to user accounts or use them to
+add users as local admins.
+"""
+index = ["winlogbeat-*", "logs-system.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Group Policy Abuse for Privilege Addition"
+note = """## Triage and analysis
+
+### Investigating Group Policy Abuse for Privilege Addition
+
+Group Policy Objects can be used to add rights and/or modify Group Membership on GPOs by changing the contents of an INF file named
+GptTmpl.inf, which is responsible for storing every setting under the Security Settings container in the GPO, this file is unique
+for each GPO, and only exists if the GPO contains security settings.
+Example Path: "\\\\DC.com\\SysVol\\DC.com\\Policies\\{21B9B880-B2FB-4836-9C2D-2013E0D832E9}\\Machine\\Microsoft\\Windows NT\\SecEdit\\GptTmpl.inf"
+
+#### Possible investigation steps:
+- This attack abuses a legitimate mechanism of the Active Directory, so it is important to determine whether the activity is legitimate
+and the administrator is authorized to perform this operation.
+- Retrieve the contents of the `GptTmpl.inf` file, under the `Privilege Rights` section, look for potentially dangerous high privileges,
+for example: SeTakeOwnershipPrivilege, SeEnableDelegationPrivilege, etc.
+- Inspect the user SIDs associated with these privileges
+
+### False Positive Analysis
+- Verify if these User SIDs should have these privileges enabled.
+- Inspect whether the user that has done these modifications should be allowed to do it. The user name can be found in the
+`winlog.event_data.SubjectUserName` field
+
+### Related Rules
+- Scheduled Task Execution at Scale via GPO
+- Startup/Logon Script added to Group Policy Object
+
+### Response and Remediation
+- Immediate response should be taken to validate activity, investigate and potentially isolate activity to prevent further
+post-compromise behavior.
+
+## Config
+
+The 'Audit Directory Service Changes' audit policy is required be configured (Success Failure).
+Steps to implement the logging policy with with Advanced Audit Configuration:
+```
+Computer Configuration > 
+Policies > 
+Windows Settings > 
+Security Settings > 
+Advanced Audit Policies Configuration > 
+Audit Policies > 
+DS Access > 
+Audit Directory Service Changes (Success,Failure)
+```
+"""
+references = [
+    "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0025_windows_audit_directory_service_changes.md",
+    "https://labs.f-secure.com/tools/sharpgpoabuse",
+]
+risk_score = 73
+rule_id = "b9554892-5e0e-424b-83a0-5aef95aa43bf"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Active Directory"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.code: "5136" and winlog.event_data.AttributeLDAPDisplayName:"gPCMachineExtensionNames" and 
+winlog.event_data.AttributeValue:(*827D319E-6EAC-11D2-A4EA-00C04F79F83A* and *803E14A0-B4FB-11D0-A0D0-00A0C90F574B*)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+reference = "https://attack.mitre.org/techniques/T1484/"
+id = "T1484"
+name = "Domain Policy Modification"
+
+    [[rule.threat.technique.subtechnique]]
+    reference = "https://attack.mitre.org/techniques/T1484/001/"
+    id = "T1484.001"
+    name = "Group Policy Modification"
+
+[rule.threat.tactic]
+reference = "https://attack.mitre.org/tactics/TA0004/"
+id = "TA0004"
+name = "Privilege Escalation"
