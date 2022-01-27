@@ -424,9 +424,9 @@ class TestRuleMetadata(BaseRuleTest):
         stack_version = Version(current_stack_version())
         for rule_id, entry in deprecations.items():
             # if a rule is deprecated and not backported in order to keep the rule active in older branches, then it
-            #   will exist in the deprecated_rules.json file and not be in the _deprecated folder - this is expected.
-            #   However, that should not occur except by exception - the proper way to handle this situation is to
-            #   "fork" the existing rule by adding a new min_stack_version.
+            # will exist in the deprecated_rules.json file and not be in the _deprecated folder - this is expected.
+            # However, that should not occur except by exception - the proper way to handle this situation is to
+            # "fork" the existing rule by adding a new min_stack_version.
             if stack_version < Version(entry['stack_version']):
                 continue
 
