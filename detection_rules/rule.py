@@ -162,7 +162,7 @@ class BaseRuleData(MarshmallowDataclassMixin):
     interval: Optional[definitions.Interval]
     max_signals: Optional[definitions.MaxSignals]
     meta: Optional[Dict[str, Any]]
-    name: str
+    name: definitions.RuleName
     note: Optional[definitions.Markdown]
     # can we remove this comment?
     # explicitly NOT allowed!
@@ -444,7 +444,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     """Rule object which maps directly to the TOML layout."""
     metadata: RuleMeta
     data: AnyRuleData = field(metadata=dict(data_key="rule"))
-    # _version_lock: Optional[Any] = None
 
     @cached_property
     def version_lock(self):
