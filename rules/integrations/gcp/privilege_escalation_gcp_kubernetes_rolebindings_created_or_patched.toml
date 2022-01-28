@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/06/06"
 maturity = "production"
-updated_date = "2021/12/13"
+updated_date = "2022/01/24"
 integration = "gcp"
 
 [rule]
@@ -33,7 +33,8 @@ type = "query"
 query = '''
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:(io.k8s.authorization.rbac.v*.clusterrolebindings.create or 
 io.k8s.authorization.rbac.v*.rolebindings.create or io.k8s.authorization.rbac.v*.clusterrolebindings.patch or 
-io.k8s.authorization.rbac.v*.rolebindings.patch) and event.outcome:success
+io.k8s.authorization.rbac.v*.rolebindings.patch) and event.outcome:success and
+not gcp.audit.authentication_info.principal_email:"system:addon-manager"
 '''
 
 
