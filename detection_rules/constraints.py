@@ -9,8 +9,11 @@ import time
 import random
 import string
 import copy
+import operator
+from typing import List
 from fnmatch import fnmatch
-from functools import wraps
+from functools import wraps, reduce
+from itertools import chain, product
 from collections import namedtuple
 import ipaddress
 
@@ -138,6 +141,16 @@ class Constraints:
     def __add__(self, other):
         c = self.clone()
         c += other
+        return c
+
+    def __eq__(self, other):
+        return self.constraints == other.constraints
+
+    @staticmethod
+    def from_dict(other):
+        c = Constraints()
+        for field,constraints in other.items():
+            c.extend_constraints(field, constraints)
         return c
 
     @classmethod
@@ -415,3 +428,17 @@ class Constraints:
                 field_schema = schema.get(field, {})
                 value = self.solve_constraints(field, constraints, field_schema)
             yield field, value
+
+class Branch(List[Constraints]):
+    def __mul__(self, other):
+        return Branch([x+y for x in self for y in other])
+
+    @classmethod
+    def chain(cls, branches):
+        return list(chain(*branches))
+
+    @classmethod
+    def product(cls, branches):
+        return [reduce(operator.mul, p, cls.Identity) for p in product(*branches)]
+
+Branch.Identity = Branch([Constraints()])

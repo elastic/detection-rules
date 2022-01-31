@@ -9,12 +9,12 @@ import string
 import random
 import json
 import copy
-import itertools
+from itertools import chain, product
 from typing import List, Tuple, Union, Any, NoReturn
 import eql
 
 from .utils import deep_merge, cached
-from .constraints import Constraints
+from .constraints import Constraints, Branch
 from .fuzzylib import *
 from .events_emitter import emitter
 
@@ -27,96 +27,86 @@ def _nope(operation: Any, negate: bool) -> Any:
         emit_OrTerms: emit_AndTerms, emit_AndTerms: emit_OrTerms}
     return operation if not negate else negation.get(operation, not operation)
 
-def emit(node: eql.ast.BaseNode, negate: bool) -> List[Constraints]:
+def emit(node: eql.ast.BaseNode, negate: bool) -> List[Branch]:
     return emitter.emit(node, negate)
 
 @emitter(eql.ast.Field)
-def emit_Field(node: eql.ast.Field, value: str, negate: bool) -> Constraints:
-    return Constraints(node.render(), _nope("==", negate), value)
+def emit_Field(node: eql.ast.Field, value: str, negate: bool) -> List[Branch]:
+    return [Branch([Constraints(node.render(), _nope("==", negate), value)])]
 
 @emitter(eql.ast.Boolean)
-def emit_Boolean(node: eql.ast.Boolean, negate: bool):
-    constraints = []
+def emit_Boolean(node: eql.ast.Boolean, negate: bool) -> List[Branch]:
+    branches = []
     if _nope(node.value, negate):
-        constraints.append(Constraints())
-    return constraints
+        branches.append(Branch.Identity)
+    return branches
 
-def emit_OrTerms(node: Union[eql.ast.Or, eql.ast.And], negate: bool) -> List[Constraints]:
-    constraints = []
-    for term in emitter.iter(node.terms):
-        constraints.extend(emit(term, negate))
-    return constraints
+def emit_OrTerms(node: Union[eql.ast.Or, eql.ast.And], negate: bool) -> List[Branch]:
+    return Branch.chain(emit(term, negate) for term in node.terms)
 
-def emit_AndTerms(node: Union[eql.ast.Or, eql.ast.And], negate: bool) -> List[Constraints]:
-    constraints = []
-    for term in node.terms:
-        term_constraints = emit(term, negate)
-        if constraints:
-            constraints = [c + term_c for term_c in term_constraints for c in constraints]
-        else:
-            constraints = term_constraints
-    return constraints
+def emit_AndTerms(node: Union[eql.ast.Or, eql.ast.And], negate: bool) -> List[Branch]:
+    return Branch.product(emit(term, negate) for term in node.terms)
 
 @emitter(eql.ast.Or)
-def emit_Or(node: eql.ast.Or, negate: bool) -> List[Constraints]:
+def emit_Or(node: eql.ast.Or, negate: bool) -> List[Branch]:
     return _nope(emit_OrTerms, negate)(node, negate)
 
 @emitter(eql.ast.And)
-def emit_And(node: eql.ast.And, negate: bool) -> List[Constraints]:
+def emit_And(node: eql.ast.And, negate: bool) -> List[Branch]:
     return _nope(emit_AndTerms, negate)(node, negate)
 
 @emitter(eql.ast.Not)
-def emit_Not(node: eql.ast.Not, negate: bool) -> List[Constraints]:
+def emit_Not(node: eql.ast.Not, negate: bool) -> List[Branch]:
     return emit(node.term, not negate)
 
 @emitter(eql.ast.IsNull)
-def emit_IsNull(node: eql.ast.IsNull, negate: bool) -> List[Constraints]:
-    if type(node.expr) == eql.ast.Field:
-        return [emit_Field(node.expr, None, negate)]
-    raise NotImplementedError(f"Unsupported expression type: {type(node.expr)}")
+def emit_IsNull(node: eql.ast.IsNull, negate: bool) -> List[Branch]:
+    if type(node.expr) != eql.ast.Field:
+        raise NotImplementedError(f"Unsupported expression type: {type(node.expr)}")
+    return emit_Field(node.expr, None, negate)
 
 @emitter(eql.ast.IsNotNull)
-def emit_IsNotNull(node: eql.ast.IsNotNull, negate: bool) -> List[Constraints]:
-    if type(node.expr) == eql.ast.Field:
-        return [emit_Field(node.expr, None, not negate)]
-    raise NotImplementedError(f"Unsupported expression type: {type(node.expr)}")
+def emit_IsNotNull(node: eql.ast.IsNotNull, negate: bool) -> List[Branch]:
+    if type(node.expr) != eql.ast.Field:
+        raise NotImplementedError(f"Unsupported expression type: {type(node.expr)}")
+    return emit_Field(node.expr, None, not negate)
 
 @emitter(eql.ast.InSet)
-def emit_InSet(node: eql.ast.InSet, negate: bool) -> List[Constraints]:
+def emit_InSet(node: eql.ast.InSet, negate: bool) -> List[Branch]:
     if type(node.expression) != eql.ast.Field:
         raise NotImplementedError(f"Unsupported expression type: {type(node.expression)}")
-    constraints = []
+    branches = []
     if negate:
         field = node.expression.render()
         c = Constraints()
         for term in node.container:
             c.append_constraint(field, "!=", term.value)
-        constraints.append(c)
+        branches.append(Branch([c]))
     else:
-        for term in emitter.iter(node.container):
-            constraints.append(emit_Field(node.expression, term.value, negate))
-    return constraints
+        for term in node.container:
+            branches.extend(emit_Field(node.expression, term.value, negate))
+    return branches
 
 @emitter(eql.ast.Comparison)
-def emit_Comparison(node: eql.ast.Comparison, negate: bool) -> List[Constraints]:
+def emit_Comparison(node: eql.ast.Comparison, negate: bool) -> List[Branch]:
     if type(node.left) != eql.ast.Field:
         raise NotImplementedError(f"Unsupported LHS type: {type(node.left)}")
-    return [Constraints(node.left.render(), _nope(node.comparator, negate), node.right.value)]
+    return [Branch([Constraints(node.left.render(), _nope(node.comparator, negate), node.right.value)])]
 
 @emitter(eql.ast.EventQuery)
-def emit_EventQuery(node: eql.ast.EventQuery, negate: bool) -> List[Constraints]:
+def emit_EventQuery(node: eql.ast.EventQuery, negate: bool) -> List[Branch]:
     if negate:
         raise NotImplementedError(f"Negation of {type(node)} is not supported")
     if type(node.event_type) != str:
         raise NotImplementedError(f"Unsupported event_type type: {type(node.event_type)}")
-    constraints = emit(node.query, negate)
+    branches = emit(node.query, negate)
     if node.event_type != "any":
-        for c in constraints:
+        for c in chain(*branches):
             c.append_constraint("event.category", "==", node.event_type)
-    return constraints
+    return branches
 
 @emitter(eql.ast.PipedQuery)
-def emit_PipedQuery(node: eql.ast.PipedQuery, negate: bool) -> List[Constraints]:
+def emit_PipedQuery(node: eql.ast.PipedQuery, negate: bool) -> List[Branch]:
     if negate:
         raise NotImplementedError(f"Negation of {type(node)} is not supported")
     if node.pipes:
@@ -131,9 +121,9 @@ def emit_SubqueryBy(node: eql.ast.SubqueryBy, negate: bool) -> List[Tuple[Constr
     if node.fork:
         raise NotImplementedError(f"Unsupported fork: {node.fork}")
     join_fields = [field.render() for field in node.join_values]
-    return [(c,join_fields) for c in emit(node.query, negate)]
+    return [[(c,join_fields) for c in branch] for branch in emit(node.query, negate)]
 
-def emit_JoinSeq(seq: List[Tuple[Constraints, List[str]]]) -> List[Constraints]:
+def emit_JoinBranch(seq: List[Tuple[Constraints, List[str]]]) -> Branch:
     constraints = []
     join_rows = []
     for c,join_fields in seq:
@@ -145,22 +135,19 @@ def emit_JoinSeq(seq: List[Tuple[Constraints, List[str]]]) -> List[Constraints]:
         for field,c in join_col:
             field0 = field0 or field
             constraints[0].append_constraint(field0, "join_value", (field,c))
-    return constraints
+    return Branch(constraints)
 
 @emitter(eql.ast.Sequence)
-def emit_Sequence(node: eql.ast.Sequence, negate: bool) -> List[Constraints]:
+def emit_Sequence(node: eql.ast.Sequence, negate: bool) -> List[Branch]:
     if negate:
         raise NotImplementedError(f"Negation of {type(node)} is not supported")
     queries = [emit_SubqueryBy(query, negate) for query in node.queries]
     if node.close:
-        queries.append([(c,[]) for c in emit(node.close, negate)])
-    constraints = []
-    for seq in itertools.chain(itertools.product(*queries)):
-        constraints.extend(emit_JoinSeq(seq))
-    return constraints
+        queries.append([[(c,[]) for c in branch] for branch in emit(node.close, negate)])
+    return [emit_JoinBranch(chain(*branches)) for branches in chain(product(*queries))]
 
 @emitter(eql.ast.FunctionCall)
-def emit_FunctionCall(node: eql.ast.FunctionCall, negate: bool) -> List[Constraints]:
+def emit_FunctionCall(node: eql.ast.FunctionCall, negate: bool) -> List[Branch]:
     if type(node.arguments[0]) != eql.ast.Field:
         raise NotImplementedError(f"Unsupported argument type: {type(node.argument[0])}")
     if any(type(arg) != eql.ast.String for arg in node.arguments[1:]):
@@ -174,11 +161,11 @@ def emit_FunctionCall(node: eql.ast.FunctionCall, negate: bool) -> List[Constrai
     else:
         raise NotImplementedError(f"Unsupported function: {node.name}")
 
-def emit_FnConstraints(node: eql.ast.FunctionCall, negate: bool, constraint_name: str) -> List[Constraints]:
+def emit_FnConstraints(node: eql.ast.FunctionCall, negate: bool, constraint_name: str) -> List[Branch]:
     field = node.arguments[0].render()
     constraint_name = constraint_name if not negate else f"not {constraint_name}"
     c = Constraints(field, constraint_name, tuple(arg.value for arg in node.arguments[1:]))
-    return [c]
+    return [Branch([c])]
 
 @emitter(eql.ast.BaseNode)
 @emitter(eql.ast.Expression)

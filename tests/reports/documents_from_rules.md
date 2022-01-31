@@ -13,9 +13,10 @@ Curious about the inner workings? Read [here](signals_generation.md).
       1. [Unsupported rule type: threat_match](#unsupported-rule-type-threat_match)
    1. [Generation errors](#generation-errors)
       1. [Constraints solver not implemented: wildcard](#constraints-solver-not-implemented-wildcard)
-      1. [Cannot trigger with any document](#cannot-trigger-with-any-document)
       1. [Unsupported function: match](#unsupported-function-match)
+      1. [Cannot trigger with any document](#cannot-trigger-with-any-document)
       1. [Unsupported LHS type: <class 'eql.ast.FunctionCall'>](#unsupported-lhs-type-class-eqlastfunctioncall)
+      1. [Unsolvable constraints ==: powershell.file.script_block_text (is already 'waveInGetNumDevs', cannot set to 'mciSendStringA')](#unsolvable-constraints--powershellfilescript_block_text-is-already-waveingetnumdevs-cannot-set-to-mcisendstringa)
       1. [Constraints solver not implemented: match_only_text](#constraints-solver-not-implemented-match_only_text)
       1. [Unsolvable constraints: process.name (wildcard(s) both included and excluded: 'rundll32.exe')](#unsolvable-constraints-processname-wildcards-both-included-and-excluded-rundll32exe)
 
@@ -118,9 +119,12 @@ Curious about the inner workings? Read [here](signals_generation.md).
 
 ### Constraints solver not implemented: wildcard
 
-35 rules:
+39 rules:
 * [Apple Scripting Execution with Administrator Privileges](../../rules/macos/privilege_escalation_applescript_with_admin_privs.toml)
+* [Attempt to Mount SMB Share via Command Line](../../rules/macos/lateral_movement_mounting_smb_share.toml)
+* [Attempt to Remove File Quarantine Attribute](../../rules/macos/defense_evasion_attempt_del_quarantine_attrib.toml)
 * [Command Shell Activity Started via RunDLL32](../../rules/windows/execution_command_shell_via_rundll32.toml)
+* [Component Object Model Hijacking](../../rules/windows/persistence_suspicious_com_hijack_registry.toml)
 * [Control Panel Process with Unusual Arguments](../../rules/windows/defense_evasion_execution_control_panel_suspicious_args.toml)
 * [Creation of Hidden Login Item via Apple Script](../../rules/macos/persistence_creation_hidden_login_item_osascript.toml)
 * [DNS-over-HTTPS Enabled via Registry](../../rules/windows/defense_evasion_dns_over_https_enabled.toml)
@@ -152,8 +156,18 @@ Curious about the inner workings? Read [here](signals_generation.md).
 * [Uncommon Registry Persistence Change](../../rules/windows/persistence_registry_uncommon.toml)
 * [Unusual Persistence via Services Registry](../../rules/windows/persistence_services_registry.toml)
 * [Unusual Print Spooler Child Process](../../rules/windows/privilege_escalation_unusual_printspooler_childprocess.toml)
+* [Virtual Private Network Connection Attempt](../../rules/macos/lateral_movement_vpn_connection_attempt.toml)
 * [Web Application Suspicious Activity: No User Agent](../../rules/apm/apm_null_user_agent.toml)
 * [Windows Defender Disabled via Registry Modification](../../rules/windows/defense_evasion_defender_disabled_via_registry.toml)
+
+### Unsupported function: match
+
+5 rules:
+* [Creation of Hidden Files and Directories](../../rules/linux/defense_evasion_hidden_file_dir_tmp.toml)
+* [Executable File Creation with Multiple Extensions](../../rules/windows/defense_evasion_file_creation_mult_extension.toml)
+* [Potential Credential Access via Windows Utilities](../../rules/windows/credential_access_cmdline_dump_tool.toml)
+* [Suspicious PowerShell Engine ImageLoad](../../rules/windows/execution_suspicious_powershell_imgload.toml)
+* [Whitespace Padding in Process Command Line](../../rules/windows/defense_evasion_whitespace_padding_in_command_line.toml)
 
 ### Cannot trigger with any document
 
@@ -164,20 +178,17 @@ Curious about the inner workings? Read [here](signals_generation.md).
 * [Potential Process Injection via PowerShell](../../rules/windows/defense_evasion_posh_process_injection.toml)
 * [SoftwareUpdate Preferences Modification](../../rules/macos/defense_evasion_apple_softupdates_modification.toml)
 
-### Unsupported function: match
-
-4 rules:
-* [Creation of Hidden Files and Directories](../../rules/linux/defense_evasion_hidden_file_dir_tmp.toml)
-* [Executable File Creation with Multiple Extensions](../../rules/windows/defense_evasion_file_creation_mult_extension.toml)
-* [Suspicious PowerShell Engine ImageLoad](../../rules/windows/execution_suspicious_powershell_imgload.toml)
-* [Whitespace Padding in Process Command Line](../../rules/windows/defense_evasion_whitespace_padding_in_command_line.toml)
-
 ### Unsupported LHS type: <class 'eql.ast.FunctionCall'>
 
 3 rules:
 * [Image File Execution Options Injection](../../rules/windows/persistence_evasion_registry_ifeo_injection.toml)
 * [Suspicious Execution - Short Program Name](../../rules/windows/execution_suspicious_short_program_name.toml)
 * [Suspicious Process Access via Direct System Call](../../rules/windows/defense_evasion_suspicious_process_access_direct_syscall.toml)
+
+### Unsolvable constraints ==: powershell.file.script_block_text (is already 'waveInGetNumDevs', cannot set to 'mciSendStringA')
+
+1 rules:
+* [PowerShell Suspicious Script with Audio Capture Capabilities](../../rules/windows/collection_posh_audio_capture.toml)
 
 ### Constraints solver not implemented: match_only_text
 

@@ -13,6 +13,7 @@ import json
 import eql
 import hashlib
 import textwrap
+from itertools import chain
 from pathlib import Path
 
 from detection_rules.rule_loader import RuleCollection
@@ -66,213 +67,213 @@ eql_event_docs_mappings = {
 eql_event_docs_complete = {
     """any where true
     """: [
-        {},
+        [{}],
     ],
 
     """any where not false
     """: [
-        {},
+        [{}],
     ],
 
     """any where not (true and false)
     """: [
-        {},
+        [{}],
     ],
 
     """any where not (false or false)
     """: [
-        {},
+        [{}],
     ],
 
     """network where source.port > 512 and source.port < 1024
     """: [
-        {"event": {"category": ["network"]}, "source": {"port": 859}},
+        [{"event": {"category": ["network"]}, "source": {"port": 859}}],
     ],
 
     """network where not (source.port > 512 and source.port < 1024)
     """: [
-        {"event": {"category": ["network"]}, "source": {"port": 236}},
-        {"event": {"category": ["network"]}, "source": {"port": 19581}},
+        [{"event": {"category": ["network"]}, "source": {"port": 236}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 19581}}],
     ],
 
     """network where source.port > 512 or source.port < 1024
     """: [
-        {"event": {"category": ["network"]}, "source": {"port": 44068}},
-        {"event": {"category": ["network"]}, "source": {"port": 609}},
+        [{"event": {"category": ["network"]}, "source": {"port": 44068}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 609}}],
     ],
 
     """network where not (source.port < 512 or source.port > 1024)
     """: [
-        {"event": {"category": ["network"]}, "source": {"port": 815}},
+        [{"event": {"category": ["network"]}, "source": {"port": 815}}],
     ],
 
     """network where source.port < 2000 and (source.port > 512 or source.port > 1024)
     """: [
-        {"event": {"category": ["network"]}, "source": {"port": 630}},
-        {"event": {"category": ["network"]}, "source": {"port": 1957}},
+        [{"event": {"category": ["network"]}, "source": {"port": 630}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 1957}}],
     ],
 
     """network where (source.port > 512 or source.port > 1024) and source.port < 2000
     """: [
-        {"event": {"category": ["network"]}, "source": {"port": 1105}},
-        {"event": {"category": ["network"]}, "source": {"port": 1448}},
+        [{"event": {"category": ["network"]}, "source": {"port": 1105}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 1448}}],
     ],
 
     """network where (source.port > 1024 or source.port < 2000) and (source.port < 4000 or source.port > 512)
     """: [
-        {"event": {"category": ["network"]}, "source": {"port": 2567}},
-        {"event": {"category": ["network"]}, "source": {"port": 569}},
-        {"event": {"category": ["network"]}, "source": {"port": 61845}},
-        {"event": {"category": ["network"]}, "source": {"port": 1670}},
+        [{"event": {"category": ["network"]}, "source": {"port": 2567}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 19206}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 1901}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 1670}}],
     ],
 
     """network where destination.port in (80, 443)
     """: [
-        {"event": {"category": ["network"]}, "destination": {"port": 80}},
-        {"event": {"category": ["network"]}, "destination": {"port": 443}},
+        [{"event": {"category": ["network"]}, "destination": {"port": 80}}],
+        [{"event": {"category": ["network"]}, "destination": {"port": 443}}],
     ],
 
     """network where destination.port not in (80, 443)
     """: [
-        {"event": {"category": ["network"]}, "destination": {"port": 35106}},
+        [{"event": {"category": ["network"]}, "destination": {"port": 35106}}],
     ],
 
     """network where not destination.port in (80, 443)
     """: [
-        {"event": {"category": ["network"]}, "destination": {"port": 58630}},
+        [{"event": {"category": ["network"]}, "destination": {"port": 58630}}],
     ],
 
     """network where destination.port == 22 and destination.port in (80, 443) or destination.port == 25
     """: [
-        {"event": {"category": ["network"]}, "destination": {"port": 25}},
+        [{"event": {"category": ["network"]}, "destination": {"port": 25}}],
     ],
 
     """process where process.name == "regsvr32.exe"
     """: [
-        {"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe"}},
+        [{"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe"}}],
     ],
 
     """process where process.name != "regsvr32.exe"
     """: [
-        {"event": {"category": ["process"]}, "process": {"name": "pki"}},
+        [{"event": {"category": ["process"]}, "process": {"name": "pki"}}],
     ],
 
     """process where process.pid != 0
     """: [
-        {"event": {"category": ["process"]}, "process": {"pid": 1565416049}},
+        [{"event": {"category": ["process"]}, "process": {"pid": 1565416049}}],
     ],
 
     """process where process.pid >= 0
     """: [
-        {"event": {"category": ["process"]}, "process": {"pid": 2413373806}},
+        [{"event": {"category": ["process"]}, "process": {"pid": 2413373806}}],
     ],
 
     """process where process.pid > 0
     """: [
-        {"event": {"category": ["process"]}, "process": {"pid": 57239544}},
+        [{"event": {"category": ["process"]}, "process": {"pid": 57239544}}],
     ],
 
     """process where process.code_signature.exists == true
     """: [
-        {"event": {"category": ["process"]}, "process": {"code_signature": {"exists": True}}},
+        [{"event": {"category": ["process"]}, "process": {"code_signature": {"exists": True}}}],
     ],
 
     """process where process.code_signature.exists != true
     """: [
-        {"event": {"category": ["process"]}, "process": {"code_signature": {"exists": False}}},
+        [{"event": {"category": ["process"]}, "process": {"code_signature": {"exists": False}}}],
     ],
 
     """any where network.protocol == "some protocol"
     """: [
-        {"network": {"protocol": "some protocol"}},
+        [{"network": {"protocol": "some protocol"}}],
     ],
 
     """any where process.pid == null
     """: [
-        {},
+        [{}],
     ],
 
     """any where not process.pid != null
     """: [
-        {},
+        [{}],
     ],
 
     """any where process.pid != null
     """: [
-        {"process": {"pid": 3617084353}},
+        [{"process": {"pid": 3617084353}}],
     ],
 
     """any where not process.pid == null
     """: [
-        {"process": {"pid": 3003800358}},
+        [{"process": {"pid": 3003800358}}],
     ],
 
     """process where process.name == "regsvr32.exe" and process.parent.name == "cmd.exe"
     """: [
-        {"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe", "parent": {"name": "cmd.exe"}}},
+        [{"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe", "parent": {"name": "cmd.exe"}}}],
     ],
 
     """process where process.name == "regsvr32.exe" or process.parent.name == "cmd.exe"
     """: [
-        {"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe"}},
-        {"event": {"category": ["process"]}, "process": {"parent": {"name": "cmd.exe"}}},
+        [{"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe"}}],
+        [{"event": {"category": ["process"]}, "process": {"parent": {"name": "cmd.exe"}}}],
     ],
 
     """process where process.name == "regsvr32.exe" or process.name == "cmd.exe" or process.name == "powershell.exe"
     """: [
-        {"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe"}},
-        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}},
-        {"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}},
+        [{"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe"}}],
+        [{"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}}],
+        [{"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}}],
     ],
 
     """process where process.name in ("regsvr32.exe", "cmd.exe", "powershell.exe")
     """: [
-        {"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe"}},
-        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}},
-        {"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}},
+        [{"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe"}}],
+        [{"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}}],
+        [{"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}}],
     ],
 
     """process where process.name in ("regsvr32.exe", "cmd.exe") or process.name == "powershell.exe"
     """: [
-        {"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe"}},
-        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}},
-        {"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}},
+        [{"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe"}}],
+        [{"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}}],
+        [{"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}}],
     ],
 
     """process where process.name : ("*.EXE", "*.DLL")
     """: [
-        {"event": {"category": ["process"]}, "process": {"name": "hhkrsftx.dll"}},
+        [{"event": {"category": ["process"]}, "process": {"name": "hhkrsftx.dll"}}],
     ],
 
     """process where event.type in ("start", "process_started") and process.args : "dump-keychain" and process.args : "-d"
     """: [
-        {"event": {"category": ["process"], "type": ["start"]}, "process": {"args": ["dump-keychain", "-d"]}},
-        {"event": {"category": ["process"], "type": ["process_started"]}, "process": {"args": ["dump-keychain", "-d"]}},
+        [{"event": {"category": ["process"], "type": ["start"]}, "process": {"args": ["dump-keychain", "-d"]}}],
+        [{"event": {"category": ["process"], "type": ["process_started"]}, "process": {"args": ["dump-keychain", "-d"]}}],
     ],
 
     """network where destination.ip == "127.0.0.1"
     """: [
-        {"event": {"category": ["network"]}, "destination": {"ip": "127.0.0.1"}},
+        [{"event": {"category": ["network"]}, "destination": {"ip": "127.0.0.1"}}],
     ],
 
     """network where cidrMatch(destination.ip, "10.0.0.0/8", "192.168.0.0/16")
     """: [
-        {"event": {"category": ["network"]}, "destination": {"ip": "192.168.129.181"}},
+        [{"event": {"category": ["network"]}, "destination": {"ip": "192.168.129.181"}}],
     ],
 
     """network where not cidrMatch(destination.ip, "10.0.0.0/8", "192.168.0.0/16")
     """: [
-        {"event": {"category": ["network"]}, "destination": {"ip": "106.218.221.201"}},
+        [{"event": {"category": ["network"]}, "destination": {"ip": "106.218.221.201"}}],
     ],
 
     """network where destination.ip == "::1"
     """: [
-        {"event": {"category": ["network"]}, "destination": {"ip": "::1"}},
+        [{"event": {"category": ["network"]}, "destination": {"ip": "::1"}}],
     ],
 
     """network where destination.ip == "822e::/16"
     """: [
-        {"event": {"category": ["network"]}, "destination": {"ip": "822e:d242:3361:b181:c4c:ee59:cfdb:60aa"}},
+        [{"event": {"category": ["network"]}, "destination": {"ip": "822e:d242:3361:b181:c4c:ee59:cfdb:60aa"}}],
     ],
 }
 
@@ -280,74 +281,82 @@ eql_sequence_docs_complete = {
     """sequence
         [process where process.name : "cmd.exe"]
         [process where process.parent.name : "cmd.exe"]
-    """: [
+    """: [[
         {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}},
         {"event": {"category": ["process"]}, "process": {"parent": {"name": "cmd.exe"}}},
-    ],
+    ]],
 
     """sequence by user.id
         [process where process.name : "cmd.exe"]
         [process where process.parent.name : "cmd.exe"]
-    """: [
+    """: [[
         {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "xgG"}},
         {"event": {"category": ["process"]}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"id": "xgG"}},
-    ],
+    ]],
 
     """sequence
         [process where process.name : "cmd.exe"] by user.id
         [process where process.parent.name : "cmd.exe"] by user.name
-    """: [
+    """: [[
         {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "Eev"}},
         {"event": {"category": ["process"]}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"name": "Eev"}},
-    ],
+    ]],
 
     """sequence
         [process where process.name : "cmd.exe"]
         [process where process.parent.name : "cmd.exe" or process.name : "powershell.exe"]
-    """: [
+    """: [[
         {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}},
         {"event": {"category": ["process"]}, "process": {"parent": {"name": "cmd.exe"}}},
+    ], [
         {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}},
         {"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}},
-    ],
+    ]],
 
     """sequence by user.id
         [process where process.name : "cmd.exe"]
         [process where process.parent.name : "cmd.exe" or process.name : "powershell.exe"]
-    """: [
+    """: [[
         {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "GuM"}},
         {"event": {"category": ["process"]}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"id": "GuM"}},
+    ], [
         {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "etd"}},
         {"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}, "user": {"id": "etd"}},
-    ],
+    ]],
 
     """sequence
         [process where process.name in ("cmd.exe", "powershell.exe")] by process.name
         [process where process.name in ("cmd.exe", "powershell.exe")] by process.parent.name
-    """: [
+    """: [[
         {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}},
         {"event": {"category": ["process"]}, "process": {"name": "cmd.exe", "parent": {"name": "cmd.exe"}}},
+    ], [
         {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}},
         {"event": {"category": ["process"]}, "process": {"name": "powershell.exe", "parent": {"name": "cmd.exe"}}},
+    ], [
         {"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}},
         {"event": {"category": ["process"]}, "process": {"name": "cmd.exe", "parent": {"name": "powershell.exe"}}},
+    ], [
         {"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}},
         {"event": {"category": ["process"]}, "process": {"name": "powershell.exe", "parent": {"name": "powershell.exe"}}},
-    ],
+    ]],
 
     """sequence by user.id
         [process where process.name in ("cmd.exe", "powershell.exe")] by process.name
         [process where process.name in ("cmd.exe", "powershell.exe")] by process.parent.name
-    """: [
+    """: [[
         {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "Tkx"}},
         {"event": {"category": ["process"]}, "process": {"name": "cmd.exe", "parent": {"name": "cmd.exe"}}, "user": {"id": "Tkx"}},
+    ], [
         {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "REt"}},
         {"event": {"category": ["process"]}, "process": {"name": "powershell.exe", "parent": {"name": "cmd.exe"}}, "user": {"id": "REt"}},
+    ], [
         {"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}, "user": {"id": "dLh"}},
         {"event": {"category": ["process"]}, "process": {"name": "cmd.exe", "parent": {"name": "powershell.exe"}}, "user": {"id": "dLh"}},
+    ], [
         {"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}, "user": {"id": "Bvu"}},
         {"event": {"category": ["process"]}, "process": {"name": "powershell.exe", "parent": {"name": "powershell.exe"}}, "user": {"id": "Bvu"}},
-    ],
+    ]],
 }
 
 eql_exceptions = {
@@ -427,6 +436,19 @@ eql_exceptions = {
 }
 
 
+def _get_rule_by_id(rules, rule_id):
+    for rule in rules:
+        if rule["id"] == rule_id:
+            return rule
+    raise KeyError(f"cannot to find rule by id: {rule_id}")
+
+def _get_rule_test_data(rules, rule_id):
+    return _get_rule_by_id(rules, rule_id)[".test_private"]
+
+def _filter_out_test_data(rules):
+    return [{k:v for k,v in rule.items() if k != ".test_private"} for rule in rules]
+
+
 def assertIdenticalFiles(tc, first, second):
     with open(first) as f:
         first_hash = hashlib.sha256(f.read().encode("utf-8")).hexdigest()
@@ -452,16 +474,17 @@ def assertReportUnchanged(tc, nb, report):
 class QueryTestCase:
 
     @classmethod
-    def QueryCell(cls, query, docs, **kwargs):
+    def QueryCell(cls, query, output, **kwargs):
         source = "emit('''\n    " + query.strip() + "\n''')"
-        output = docs if type(docs) == str else "[" + ",\n".join(str(doc) for doc in docs) + "]"
+        if type(output) != str:
+            output = "[[" + "],\n [".join(",\n  ".join(str(doc) for doc in branch) for branch in output) + "]]"
         return jupyter.Code(source, output, **kwargs)
 
-    def subTest(self, query):
+    def subTest(self, query, **kwargs):
         fuzziness = emitter.fuzziness()
         completeness = emitter.completeness()
         seed = f"{query} {completeness} {fuzziness}"
-        return super(QueryTestCase, self).subTest(query, completeness=completeness, fuzziness=fuzziness, seed=seed)
+        return super(QueryTestCase, self).subTest(query, **kwargs, completeness=completeness, fuzziness=fuzziness, seed=seed)
 
     def assertQuery(self, query, docs):
         self.assertEqual(docs, emitter.emit_docs(eql.parse_query(query)))
@@ -537,8 +560,8 @@ class TestQueries(QueryTestCase, utils.SeededTestCase, unittest.TestCase):
             branches are correctly visited.
         """))
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
-            for query, docs in eql_event_docs_complete.items():
-                with self.subTest(query):
+            for i, (query, docs) in enumerate(eql_event_docs_complete.items()):
+                with self.subTest(query, i=i):
                     self.assertQuery(query, docs)
                 cells.append(self.QueryCell(query, docs))
 
@@ -552,8 +575,8 @@ class TestQueries(QueryTestCase, utils.SeededTestCase, unittest.TestCase):
             are required for the signal to be generated.
         """))
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
-            for query, docs in eql_sequence_docs_complete.items():
-                with self.subTest(query):
+            for i, (query, docs) in enumerate(eql_sequence_docs_complete.items()):
+                with self.subTest(query, i=i):
                     self.assertQuery(query, docs)
                 cells.append(self.QueryCell(query, docs))
 
@@ -568,8 +591,8 @@ class TestQueries(QueryTestCase, utils.SeededTestCase, unittest.TestCase):
             and make sense to you.
         """))
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0):
-            for query, msg in eql_exceptions.items():
-                with self.subTest(query):
+            for i, (query, msg) in enumerate(eql_exceptions.items()):
+                with self.subTest(query, i=i):
                     with self.assertRaises(ValueError, msg=msg) as cm:
                         self.assertQuery(query, None)
                     self.assertEqual(msg, str(cm.exception))
@@ -707,17 +730,21 @@ class SignalsTestCase:
         for rule, ast in sorted(zip(rules, asts), key=lambda x: x[0]["name"]):
             with self.subTest(rule["query"]):
                 try:
-                    for doc in emitter.docs_from_ast(ast):
-                        bulk.append(json.dumps({"index": {"_index": rule["index"][0]}}))
-                        bulk.append(json.dumps(doc))
-                        if verbose > 2:
-                            sys.stderr.write(json.dumps(doc, sort_keys=True) + "\n")
-                            sys.stderr.flush()
+                    branches = emitter.docs_from_ast(ast)
                 except Exception as e:
+                    rule["enabled"] = False
                     if verbose > 2:
                         sys.stderr.write(f"{str(e)}\n")
                         sys.stderr.flush()
                     continue
+
+                rule[".test_private"]["branch_count"] = len(branches)
+                for doc in chain(*branches):
+                    bulk.append(json.dumps({"index": {"_index": rule["index"][0]}}))
+                    bulk.append(json.dumps(doc))
+                    if verbose > 2:
+                        sys.stderr.write(json.dumps(doc, sort_keys=True) + "\n")
+                        sys.stderr.flush()
         return (bulk, emitter.emit_mappings())
 
     def load_rules_and_docs(self, rules, asts, batch_size=100):
@@ -749,9 +776,12 @@ class SignalsTestCase:
                             sys.stderr.flush()
                 pos += batch_size
 
-        pending = self.kbn.create_detection_engine_rules(rules)
-        for rule, rule_id in zip(rules, pending):
+        ret = self.kbn.create_detection_engine_rules(_filter_out_test_data(rules))
+        pending = {}
+        for rule, rule_id in zip(rules, ret):
             rule["id"] = rule_id
+            if rule["enabled"]:
+                pending[rule_id] = ret[rule_id]
         return pending
 
     def wait_for_rules(self, pending, timeout=300, sleep=5):
@@ -790,7 +820,7 @@ class SignalsTestCase:
             return []
         return [hit["_source"] for hit in ret["hits"]["hits"]]
 
-    def get_signals_per_rule(self):
+    def get_signals_per_rule(self, rules):
         body = {
             "size": 0,
             "query": {
@@ -810,12 +840,16 @@ class SignalsTestCase:
             }
         }
         ret = self.kbn.search_detection_engine_signals(body)
-        return {bucket["key"]: bucket["doc_count"] for bucket in ret["aggregations"]["signals_per_rule"]["buckets"]}
+        signals = {}
+        for bucket in ret["aggregations"]["signals_per_rule"]["buckets"]:
+            branch_count = _get_rule_test_data(rules, bucket["key"])["branch_count"]
+            signals[bucket["key"]] = (bucket["doc_count"], branch_count)
+        return signals
 
     @classmethod
     def QueryCell(cls, query, docs, **kwargs):
         source = textwrap.dedent(query.strip())
-        output = docs if type(docs) == str else "[" + ",\n".join(str(doc) for doc in docs) + "]"
+        output = docs if type(docs) == str else "[" + ",\n ".join(str(doc) for doc in docs) + "]"
         return jupyter.Code(source, output, **kwargs)
 
     def report_rules(self, rules, rule_ids, title):
@@ -861,16 +895,18 @@ class SignalsTestCase:
 
     def check_signals(self, rules, pending):
         successful, failed = self.wait_for_rules(pending)
-        signals = self.get_signals_per_rule()
+        signals = self.get_signals_per_rule(rules)
 
         unsuccessful = set(signals) - set(successful)
-        too_few_signals = set(successful) - set(signals)
-        too_many_signals = {rule_id for rule_id,doc_count in signals.items() if doc_count > 1}
-        correct_signals = {rule_id for rule_id,doc_count in signals.items() if doc_count == 1}
+        no_signals = set(successful) - set(signals)
+        too_few_signals = {rule_id for rule_id,(signal_count,branch_count) in signals.items() if signal_count < branch_count}
+        correct_signals = {rule_id for rule_id,(signal_count,branch_count) in signals.items() if signal_count == branch_count}
+        too_many_signals = {rule_id for rule_id,(signal_count,branch_count) in signals.items() if signal_count > branch_count}
 
         rules = sorted(rules, key=lambda rule: rule["name"])
         self.assertSignals(rules, failed, "Failed rules")
         self.assertSignals(rules, unsuccessful, "Unsuccessful rules with signals")
+        self.assertSignals(rules, no_signals, "Rules with no signals")
         self.assertSignals(rules, too_few_signals, "Rules with too few signals")
         self.assertSignals(rules, too_many_signals, "Rules with too many signals")
         #self.report_rules(rules, correct_signals, "Rules with the correct signals")
@@ -906,6 +942,7 @@ class TestSignalsQueries(SignalsTestCase, OnlineTestCase, utils.SeededTestCase, 
                 "query": query,
                 "language": "eql",
                 "enabled": True,
+                ".test_private": {},  # private test data, not sent to Kibana
             })
             asts.append(eql.parse_query(query))
         return rules, asts
@@ -966,6 +1003,7 @@ class TestSignalsRules(SignalsTestCase, OnlineTestCase, utils.SeededTestCase, un
                 "query": rule.query,
                 "language": rule.language,
                 "enabled": True,
+                ".test_private": {},  # private test data, not sent to Kibana
             })
         return rules, asts
 

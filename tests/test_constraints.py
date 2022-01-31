@@ -10,7 +10,7 @@ import unittest
 from detection_rules import utils
 from detection_rules.ecs import get_schema
 from detection_rules.fuzzylib import fuzziness
-from detection_rules.constraints import Constraints, LongLimits
+from detection_rules.constraints import Constraints, Branch, LongLimits
 
 ecs_schema = get_schema()
 
@@ -487,6 +487,57 @@ constraints_keyword_exceptions = [
     ], "Unsolvable constraints: test_var (filtered wildcard(s): ('cmd.exe', 'powershell.exe') are filtered out by ('*.exe', 'cmd.*'))"),
 ]
 
+branch_products = [
+    ([
+        {"a": [(">=", 10), ("<=", 20)]},
+    ],[
+        {"b": [("==", 50)]},
+    ],[
+        {"a": [(">=", 10), ("<=", 20)], "b": [("==", 50)]},
+    ]),
+
+    ([
+        {"a": [(">=", 10), ("<=", 20)]},
+    ],[
+        {"a": [("!=", 15)]},
+    ],[
+        {"a": [(">=", 10), ("<=", 20), ("!=", 15)]},
+    ]),
+
+    ([
+        {"a": [(">=", 10), ("<=", 20)]},
+    ],[
+        {"a": [("!=", 15)]},
+        {"a": [("!=", 16)]},
+    ],[
+        {"a": [(">=", 10), ("<=", 20), ("!=", 15)]},
+        {"a": [(">=", 10), ("<=", 20), ("!=", 16)]},
+    ]),
+
+    ([
+        {"a": [(">=", 10), ("<=", 20)]},
+        {"a": [(">=", 100), ("<=", 200)]},
+    ],[
+        {"a": [("!=", 15)]},
+    ],[
+        {"a": [(">=", 10), ("<=", 20), ("!=", 15)]},
+        {"a": [(">=", 100), ("<=", 200), ("!=", 15)]},
+    ]),
+
+    ([
+        {"a": [(">=", 10), ("<=", 20)]},
+        {"b": [("wildcard", ("one", "two"))]},
+    ],[
+        {"a": [("!=", 15)], "c": [("!=", None)]},
+        {"b": [("not wildcard", "three")]},
+    ],[
+        {"a": [(">=", 10), ("<=", 20), ("!=", 15)], "c": [("!=", None)]},
+        {"a": [(">=", 10), ("<=", 20)], "b": [("not wildcard", "three")]},
+        {"b": [("wildcard", ("one", "two"))], "a": [("!=", 15)], "c": [("!=", None)]},
+        {"b": [("wildcard", ("one", "two")), ("not wildcard", "three")]},
+    ]),
+]
+
 
 class TestConstraints(utils.SeededTestCase, unittest.TestCase):
 
@@ -535,3 +586,14 @@ class TestConstraints(utils.SeededTestCase, unittest.TestCase):
                     with self.assertRaises(ValueError, msg=msg) as cm:
                         self.assertEqual(None, solver("test_var", None, constraints))
                     self.assertEqual(msg, str(cm.exception))
+
+
+class TestBranches(unittest.TestCase):
+
+    def test_product(self):
+        for a,b,c in branch_products:
+            a = Branch([Constraints.from_dict(x) for x in a])
+            b = Branch([Constraints.from_dict(x) for x in b])
+            c = Branch([Constraints.from_dict(x) for x in c])
+            with self.subTest(f"{a} * {b}"):
+                self.assertEqual(a*b, c)
