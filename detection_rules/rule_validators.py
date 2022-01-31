@@ -5,7 +5,7 @@
 
 """Validation logic for rules containing queries."""
 from functools import cached_property
-from typing import List
+from typing import List, Optional, Union
 
 import eql
 
@@ -104,3 +104,10 @@ class EQLValidator(QueryValidator):
             except Exception:
                 print(err_trailer)
                 raise
+
+
+def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
+    line = exc.source.splitlines()[exc.line]
+    start = exc.column
+    stop = start + len(exc.caret.strip())
+    return line[start:stop]

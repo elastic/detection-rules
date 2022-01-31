@@ -18,6 +18,7 @@ from detection_rules.version_lock import default_version_lock
 from detection_rules.rule import QueryRuleData
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.schemas import definitions
+from detection_rules.semver import Version
 from detection_rules.utils import get_path, load_etc_dump
 from rta import get_ttp_names
 from .base import BaseRuleTest
@@ -377,6 +378,8 @@ class TestRuleMetadata(BaseRuleTest):
 
     def test_deprecated_rules(self):
         """Test that deprecated rules are properly handled."""
+        from detection_rules.packaging import current_stack_version
+
         versions = default_version_lock.version_lock
         deprecations = load_etc_dump('deprecated_rules.json')
         deprecated_rules = {}
@@ -418,7 +421,15 @@ class TestRuleMetadata(BaseRuleTest):
         #           f'Re-add to the deprecated folder and update maturity to "deprecated": \n {missing_rule_strings}'
         # self.assertEqual([], missing_rules, err_msg)
 
+        stack_version = Version(current_stack_version())
         for rule_id, entry in deprecations.items():
+            # if a rule is deprecated and not backported in order to keep the rule active in older branches, then it
+            # will exist in the deprecated_rules.json file and not be in the _deprecated folder - this is expected.
+            # However, that should not occur except by exception - the proper way to handle this situation is to
+            # "fork" the existing rule by adding a new min_stack_version.
+            if stack_version < Version(entry['stack_version']):
+                continue
+
             rule_str = f'{rule_id} - {entry["rule_name"]} ->'
             self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
 
