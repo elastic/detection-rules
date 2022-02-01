@@ -525,7 +525,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 class TOMLRule:
     contents: TOMLRuleContents = field(hash=True)
     path: Optional[Path] = None
-    gh_pr: Any = field(hash=False, compare=False, default=None, repr=None)
+    gh_pr: Any = field(hash=False, compare=False, default=None, repr=False)
 
     @property
     def id(self):
