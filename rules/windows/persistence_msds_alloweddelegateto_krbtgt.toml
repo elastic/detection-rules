@@ -1,0 +1,74 @@
+[metadata]
+creation_date = "2022/01/27"
+maturity = "production"
+updated_date = "2022/01/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the modification of the msDS-AllowedToDelegateTo attribute to KRBTGT. Attackers can use this technique to
+maintain persistence to the domain by having the ability to request tickets for the KRBTGT service.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.*", "logs-system.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "KRBTGT Delegation Backdoor"
+note = """## Config
+
+The 'Audit User Account Management' logging policy must be configured for (Success, Failure).
+Steps to implement the logging policy with Advanced Audit Configuration:
+
+```
+Computer Configuration > 
+Policies > 
+Windows Settings > 
+Security Settings > 
+Advanced Audit Policies Configuration > 
+Audit Policies > 
+Account Management > 
+Audit User Account Management (Success,Failure)
+```
+"""
+references = [
+    "https://skyblue.team/posts/delegate-krbtgt",
+    "https://github.com/atc-project/atomic-threat-coverage/blob/master/Atomic_Threat_Coverage/Logging_Policies/LP_0026_windows_audit_user_account_management.md",
+]
+risk_score = 73
+rule_id = "e052c845-48d0-4f46-8a13-7d0aba05df82"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Active Directory"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.action:modified-user-account and event.code:4738 and winlog.event_data.AllowedToDelegateTo:*krbtgt*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+reference = "https://attack.mitre.org/techniques/T1098/"
+name = "Account Manipulation"
+
+[rule.threat.tactic]
+id = "TA0003"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+name = "Persistence"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1558"
+name = "Steal or Forge Kerberos Tickets"
+reference = "https://attack.mitre.org/techniques/T1558/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
