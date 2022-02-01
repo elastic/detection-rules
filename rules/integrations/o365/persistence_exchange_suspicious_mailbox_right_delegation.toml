@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/05/17"
 maturity = "production"
-updated_date = "2021/10/11"
+updated_date = "2022/01/31"
 integration = "o365"
 
 [rule]
@@ -28,7 +28,8 @@ type = "query"
 
 query = '''
 event.dataset:o365.audit and event.provider:Exchange and event.action:Add-MailboxPermission and 
-o365.audit.Parameters.AccessRights:(FullAccess or SendAs or SendOnBehalf) and event.outcome:success
+o365.audit.Parameters.AccessRights:(FullAccess or SendAs or SendOnBehalf) and event.outcome:success and
+not user.id : "NT AUTHORITY\SYSTEM (Microsoft.Exchange.Servicehost)"
 '''
 
 [[rule.threat]]
