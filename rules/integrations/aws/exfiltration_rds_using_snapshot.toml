@@ -1,0 +1,49 @@
+[metadata]
+creation_date = "2022/02/03"
+maturity = "production"
+updated_date = "2022/02/03"
+integration = "aws"
+
+[rule]
+author = ["Elastic", "Stijn Holzhauer"]
+description = """
+This detections monitors for the sharing of a snapshot with another AWS account.
+This could indicate the exfiltration of data using
+a provided mechanism without having to actually access the Database.
+"""
+false_positives = [
+    """
+    Sharing snapshots with another AWS account could be the architectural setup
+    for data backup in the case of a Disaster; If this is expected you can add an
+    exception on that specific AWS account id.
+    """,
+]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS RDS Snapshot Created and Shared"
+note = """## Config
+
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = ["https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ShareSnapshot.html"]
+risk_score = 21
+rule_id = "b3f1f90b-a0ad-4cd2-8942-60fb4fa96974"
+severity = "medium"
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Asset Visibility"]
+timestamp_override = "event.ingested"
+type = "kuery"
+
+query = '''
+event.provider:rds.amazonaws.com and event.action:ModifyDBSnapshotAttribute and aws.cloudtrail.flattened.request_parameters.attributeName:"restore" and aws.cloudtrail.flattened.request_parameters.valuesToAdd:*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Exfiltration"
+id = "TA0010"
+reference = "https://attack.mitre.org/tactics/TA0010/"
