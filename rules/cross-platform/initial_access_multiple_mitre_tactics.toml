@@ -1,0 +1,53 @@
+[metadata]
+creation_date = "2022/02/03"
+maturity = "production"
+updated_date = "2022/02/03"
+
+[rule]
+author = ["Elastic", "Stijn Holzhauer", "Aaron Jewitt"]
+description = """
+A Threshold rule that looks for unique count of more than 2 different kibana.alert.rule.threat.tactic.name values for a single host.name in the last 24h and generates a critical alert when they are observed. This could be an indicator of an ongoing attack impacting multiple parts of the kill chain.
+"""
+from = "now-24h"
+interval = "1h"
+index = [".siem-signals*"]
+language = "kuery"
+license = "Elastic License v2"
+max_signals = 100
+name = "Multiple MITRE tactics detected for a host"
+risk_score = 99
+rule_id = "cad80d23-7890-4c52-8a73-4db47f63e659"
+severity = "high"
+tags = ["Elastic", "Host", "Linux", "macOS"] #, "Threat Detection", "Initial Access"]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+signal.rule.name:* and kibana.alert.rule.threat.tactic.name:*
+'''
+[rule.threshold]
+field = ["host.name"]
+value = 1
+
+[[rule.threshold.cardinality]]
+field = "kibana.alert.rule.threat.tactic.name"
+value = 3
+
+#[[rule.threat]]
+#framework = "MITRE ATT&CK"
+#[[rule.threat.technique]]
+#id = "T1070"
+#name = "Indicator Removal on Host"
+#reference = "https://attack.mitre.org/techniques/T1070/"
+#[[rule.threat.technique.subtechnique]]
+#id = "T1070.006"
+#name = "Timestomp"
+#reference = "https://attack.mitre.org/techniques/T1070/006/"
+#
+#
+#
+#[rule.threat.tactic]
+#id = "TA0005"
+#name = "Defense Evasion"
+#reference = "https://attack.mitre.org/tactics/TA0005/"
+#
