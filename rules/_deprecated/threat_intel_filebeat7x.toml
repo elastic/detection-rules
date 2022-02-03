@@ -1,0 +1,191 @@
+[metadata]
+creation_date = "2021/04/21"
+deprecation_date = "2022/01/12"
+maturity = "deprecated"
+updated_date = "2022/01/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule is triggered when indicators from the Threat Intel Filebeat module (v7.x) has a match against local file or
+network observations.
+"""
+from = "now-65m"
+index = ["auditbeat-*", "endgame-*", "filebeat-*", "logs-*", "packetbeat-*", "winlogbeat-*"]
+interval = "1h"
+language = "kuery"
+license = "Elastic License v2"
+name = "Threat Intel Filebeat Module (v7.x) Indicator Match"
+note = """## Triage and Analysis
+
+### Investigating Threat Intel Indicator Matches
+
+Threat Intel indicator match rules allow matching from a local observation such as an endpoint event that records a file
+hash with an entry of a file hash stored within the Threat Intel Filebeat module. Other examples of matches can occur on
+an IP address, registry path, URL and imphash.
+
+The matches will be based on the incoming feed data so it's important to validate the data and review the results by
+investigating the associated activity to determine if it requires further investigation.
+
+If an indicator matches a local observation, the following enriched fields will be generated to identify the indicator, field, and type matched.
+
+- `threatintel.indicator.matched.atomic` - this identifies the atomic indicator that matched the local observation
+- `threatintel.indicator.matched.field` - this identifies the indicator field that matched the local observation
+- `threatintel.indicator.matched.type` - this identifies the indicator type that matched the local observation
+
+#### Possible investigation steps:
+- Investigation should be validated and reviewed based on the data (file hash, registry path, URL, imphash) that was matched
+and viewing the source of that activity.
+- Consider the history of the indicator that was matched. Has it happened before? Is it happening on multiple machines?
+These kinds of questions can help understand if the activity is related to legitimate behavior.
+- Consider the user and their role within the company, is this something related to their job or work function?
+
+### False Positive Analysis
+- For any matches found, it's important to consider the initial release date of that indicator. Threat intelligence can
+be a great tool for augmenting existing security processes, while at the same time it should be understood that threat
+intelligence can represent a specific set of activity observed at a point in time. For example, an IP address
+may have hosted malware observed in a Dridex campaign six months ago, but it's possible that IP has been remediated and
+no longer represents any threat.
+- Adversaries often use legitimate tools as network administrators such as `PsExec` or `AdFind`, these tools often find their
+way into indicator lists creating the potential for false positives.
+- It's possible after large and publicly written campaigns, curious employees might end up going directly to attacker infrastructure and generating these rules
+
+### Response and Remediation
+- If suspicious or malicious behavior is observed, immediate response should be taken to isolate activity to prevent further
+post-compromise behavior.
+- One example of a response if a machine matched a command and control IP address would be to add an entry to a network
+device such as a firewall or proxy appliance to prevent any outbound activity from leaving that machine.
+- Another example of a response with a malicious file hash match would involve validating if the file was properly quarantined,
+review current running processes looking for any abnormal activity, and investigating for any other follow-up actions such as persistence or lateral movement
+"""
+references = ["https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-threatintel.html"]
+risk_score = 99
+rule_id = "dc672cb7-d5df-4d1f-a6d7-0841b1caafb9"
+severity = "critical"
+tags = ["Elastic", "Windows", "Elastic Endgame", "Network", "Continuous Monitoring", "SecOps", "Monitoring"]
+threat_index = ["filebeat-*"]
+threat_indicator_path = "threatintel.indicator"
+threat_language = "kuery"
+threat_query = """
+@timestamp >= "now-30d" and event.module:threatintel and (threatintel.indicator.file.hash.*:* or
+threatintel.indicator.file.pe.imphash:* or threatintel.indicator.ip:* or threatintel.indicator.registry.path:* or
+threatintel.indicator.url.full:*)
+"""
+timeline_id = "495ad7a7-316e-4544-8a0f-9c098daee76e"
+timeline_title = "Generic Threat Match Timeline"
+type = "threat_match"
+
+query = '''
+file.hash.*:* or file.pe.imphash:* or source.ip:* or destination.ip:* or url.full:* or registry.path:*
+'''
+
+
+[[rule.threat_filters]]
+
+[rule.threat_filters."$state"]
+store = "appState"
+[rule.threat_filters.meta]
+negate = false
+disabled = false
+type = "phrase"
+key = "event.module"
+[rule.threat_filters.meta.params]
+query = "threatintel"
+[rule.threat_filters.query.match_phrase]
+"event.module" = "threatintel"
+[[rule.threat_filters]]
+
+[rule.threat_filters."$state"]
+store = "appState"
+[rule.threat_filters.meta]
+negate = false
+disabled = false
+type = "phrase"
+key = "event.category"
+[rule.threat_filters.meta.params]
+query = "threat"
+[rule.threat_filters.query.match_phrase]
+"event.category" = "threat"
+[[rule.threat_filters]]
+
+[rule.threat_filters."$state"]
+store = "appState"
+[rule.threat_filters.meta]
+negate = false
+disabled = false
+type = "phrase"
+key = "event.kind"
+[rule.threat_filters.meta.params]
+query = "enrichment"
+[rule.threat_filters.query.match_phrase]
+"event.kind" = "enrichment"
+[[rule.threat_filters]]
+
+[rule.threat_filters."$state"]
+store = "appState"
+[rule.threat_filters.meta]
+negate = false
+disabled = false
+type = "phrase"
+key = "event.type"
+[rule.threat_filters.meta.params]
+query = "indicator"
+[rule.threat_filters.query.match_phrase]
+"event.type" = "indicator"
+[[rule.threat_mapping]]
+
+[[rule.threat_mapping.entries]]
+value = "threatintel.indicator.file.hash.md5"
+field = "file.hash.md5"
+type = "mapping"
+
+[[rule.threat_mapping]]
+
+[[rule.threat_mapping.entries]]
+value = "threatintel.indicator.file.hash.sha1"
+field = "file.hash.sha1"
+type = "mapping"
+
+[[rule.threat_mapping]]
+
+[[rule.threat_mapping.entries]]
+value = "threatintel.indicator.file.hash.sha256"
+field = "file.hash.sha256"
+type = "mapping"
+
+[[rule.threat_mapping]]
+
+[[rule.threat_mapping.entries]]
+value = "threatintel.indicator.file.pe.imphash"
+field = "file.pe.imphash"
+type = "mapping"
+
+[[rule.threat_mapping]]
+
+[[rule.threat_mapping.entries]]
+value = "threatintel.indicator.ip"
+field = "source.ip"
+type = "mapping"
+
+[[rule.threat_mapping]]
+
+[[rule.threat_mapping.entries]]
+value = "threatintel.indicator.ip"
+field = "destination.ip"
+type = "mapping"
+
+[[rule.threat_mapping]]
+
+[[rule.threat_mapping.entries]]
+value = "threatintel.indicator.url.full"
+field = "url.full"
+type = "mapping"
+
+[[rule.threat_mapping]]
+
+[[rule.threat_mapping.entries]]
+value = "threatintel.indicator.registry.path"
+field = "registry.path"
+type = "mapping"
+
+

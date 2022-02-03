@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 # Name: Common Enumeration Commands
 # RTA: enum_commands.py
@@ -51,7 +52,7 @@ def main(args=None):
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', '--sample', dest="sample", default=len(commands), type=int,
-                        help="Number of commands to run, choosen at random from the list of enumeration commands")
+                        help="Number of commands to run, chosen at random from the list of enumeration commands")
     args = parser.parse_args(args)
     sample = min(len(commands), args.sample)
 
@@ -64,7 +65,7 @@ def main(args=None):
         common.log("About to call {}".format(command))
         if command in slow_commands:
             common.execute(command, kill=True, timeout=15)
-            common.log("[output surpressed]", log_type='-')
+            common.log("[output suppressed]", log_type='-')
         else:
             common.execute(command)
 

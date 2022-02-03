@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """Packaging and preparation for releases."""
 import base64
@@ -9,23 +10,34 @@ import hashlib
 import json
 import os
 import shutil
-from collections import defaultdict, OrderedDict
+import textwrap
+from collections import defaultdict
+from pathlib import Path
+from typing import Optional, Tuple
 
 import click
+import yaml
 
-from . import rule_loader
-from .misc import JS_LICENSE
-from .rule import Rule  # noqa: F401
-from .utils import get_path, get_etc_path, load_etc_dump, save_etc_dump
+from .misc import JS_LICENSE, cached
+from .rule import TOMLRule, QueryRuleData, ThreatMapping
+from .rule_loader import DeprecatedCollection, RuleCollection, DEFAULT_RULES_DIR
+from .schemas import definitions
+from .utils import Ndjson, get_path, get_etc_path, load_etc_dump
+from .version_lock import default_version_lock
 
 RELEASE_DIR = get_path("releases")
 PACKAGE_FILE = get_etc_path('packages.yml')
 NOTICE_FILE = get_path('NOTICE.txt')
+FLEET_PKG_LOGO = get_etc_path("security-logo-color-64px.svg")
 
 
-def filter_rule(rule: Rule, config_filter: dict, exclude_fields: dict) -> bool:
+# CHANGELOG_FILE = Path(get_etc_path('rules-changelog.json'))
+
+
+def filter_rule(rule: TOMLRule, config_filter: dict, exclude_fields: Optional[dict] = None) -> bool:
     """Filter a rule based off metadata and a package configuration."""
-    flat_rule = rule.flattened_contents
+    flat_rule = rule.contents.flattened_dict()
+
     for key, values in config_filter.items():
         if key not in flat_rule:
             return False
@@ -41,123 +53,55 @@ def filter_rule(rule: Rule, config_filter: dict, exclude_fields: dict) -> bool:
         if len(rule_values & values) == 0:
             return False
 
-    for index, fields in exclude_fields.items():
-        if rule.unique_fields and (rule.contents['index'] == index or index == 'any'):
-            if set(rule.unique_fields) & set(fields):
-                return False
+    exclude_fields = exclude_fields or {}
+    if exclude_fields:
+        from .rule import get_unique_query_fields
+
+        unique_fields = get_unique_query_fields(rule)
+
+        for index, fields in exclude_fields.items():
+            if unique_fields and (rule.contents.data.index == index or index == 'any'):
+                if set(unique_fields) & set(fields):
+                    return False
 
     return True
 
 
-def manage_versions(rules: list, deprecated_rules: list = None, current_versions: dict = None,
-                    exclude_version_update=False, add_new=True, save_changes=False, verbose=True) -> (list, list, list):
-    """Update the contents of the version.lock file and optionally save changes."""
-    new_rules = {}
-    changed_rules = []
-
-    if current_versions is None:
-        current_versions = load_etc_dump('version.lock.json')
-
-    for rule in rules:
-        # it is a new rule, so add it if specified, and add an initial version to the rule
-        if rule.id not in current_versions:
-            new_rules[rule.id] = {'rule_name': rule.name, 'version': 1, 'sha256': rule.get_hash()}
-            rule.contents['version'] = 1
-        else:
-            version_lock_info = current_versions.get(rule.id)
-            version = version_lock_info['version']
-            rule_hash = rule.get_hash()
-
-            # if it has been updated, then we need to bump the version info and optionally save the changes later
-            if rule_hash != version_lock_info['sha256']:
-                rule.contents['version'] = version + 1
-
-                if not exclude_version_update:
-                    version_lock_info['version'] = rule.contents['version']
-
-                version_lock_info.update(sha256=rule_hash, rule_name=rule.name)
-                changed_rules.append(rule.id)
-            else:
-                rule.contents['version'] = version
-
-    # manage deprecated rules
-    newly_deprecated = []
-    rule_deprecations = {}
-
-    if deprecated_rules:
-        rule_deprecations = load_etc_dump('deprecated_rules.json')
-
-        deprecation_date = str(datetime.date.today())
-
-        for rule in deprecated_rules:
-            if rule.id not in rule_deprecations:
-                rule_deprecations[rule.id] = {
-                    'rule_name': rule.name,
-                    'deprecation_date': deprecation_date
-                }
-                newly_deprecated.append(rule.id)
-
-    # update the document with the new rules
-    if new_rules or changed_rules or newly_deprecated:
-        if verbose:
-            click.echo('Rule hash changes detected!')
-
-        if save_changes:
-            if changed_rules or (new_rules and add_new):
-                current_versions.update(new_rules if add_new else {})
-                current_versions = OrderedDict(sorted(current_versions.items(), key=lambda x: x[1]['rule_name']))
-
-                save_etc_dump(current_versions, 'version.lock.json')
-
-                if verbose:
-                    click.echo('Updated version.lock.json file')
-
-            if newly_deprecated:
-                save_etc_dump(sorted(OrderedDict(rule_deprecations)), 'deprecated_rules.json')
-
-                if verbose:
-                    click.echo('Updated deprecated_rules.json file')
-        else:
-            if verbose:
-                click.echo('run `build-release --update-version-lock` to update the version.lock.json and '
-                           'deprecated_rules.json files')
-
-        if verbose:
-            if changed_rules:
-                click.echo(f' - {len(changed_rules)} changed rule version(s)')
-            if new_rules:
-                click.echo(f' - {len(new_rules)} new rule version addition(s)')
-            if newly_deprecated:
-                click.echo(f' - {len(newly_deprecated)} newly deprecated rule(s)')
-
-    return changed_rules, list(new_rules), newly_deprecated
+@cached
+def load_current_package_version() -> str:
+    """Load the current package version from config file."""
+    return load_etc_dump('packages.yml')['package']['name']
 
 
 class Package(object):
     """Packaging object for siem rules and releases."""
 
-    def __init__(self, rules, name, deprecated_rules=None, release=False, current_versions=None, min_version=None,
-                 max_version=None, update_version_lock=False):
+    def __init__(self, rules: RuleCollection, name: str, release: Optional[bool] = False,
+                 min_version: Optional[int] = None, max_version: Optional[int] = None,
+                 registry_data: Optional[dict] = None, verbose: Optional[bool] = True):
         """Initialize a package."""
-        self.rules = [r.copy() for r in rules]  # type: list[Rule]
         self.name = name
-        self.deprecated_rules = [r.copy() for r in deprecated_rules or []]  # type: list[Rule]
+        self.rules = rules
+        self.deprecated_rules: DeprecatedCollection = rules.deprecated
         self.release = release
+        self.registry_data = registry_data or {}
 
-        self.changed_rule_ids, self.new_rules_ids, self.removed_rule_ids = self._add_versions(current_versions,
-                                                                                              update_version_lock)
+        if min_version is not None:
+            self.rules = self.rules.filter(lambda r: min_version <= r.contents.latest_version)
 
-        if min_version or max_version:
-            self.rules = [r for r in self.rules
-                          if (min_version or 0) <= r.contents['version'] <= (max_version or r.contents['version'])]
+        if max_version is not None:
+            self.rules = self.rules.filter(lambda r: max_version >= r.contents.latest_version)
 
-    def _add_versions(self, current_versions, update_versions_lock=False):
-        """Add versions to rules at load time."""
-        return manage_versions(self.rules, deprecated_rules=self.deprecated_rules, current_versions=current_versions,
-                               save_changes=update_versions_lock)
+        self.changed_ids, self.new_ids, self.removed_ids = \
+            default_version_lock.manage_versions(self.rules, verbose=verbose, save_changes=False)
+
+    @classmethod
+    def load_configs(cls):
+        """Load configs from packages.yml."""
+        return load_etc_dump(PACKAGE_FILE)['package']
 
     @staticmethod
-    def _package_notice_file(save_dir):
+    def _package_kibana_notice_file(save_dir):
         """Convert and save notice file with package."""
         with open(NOTICE_FILE, 'rt') as f:
             notice_txt = f.read()
@@ -168,9 +112,9 @@ class Package(object):
             lines = lines + commented_notice + [' */', '']
             f.write('\n'.join(lines))
 
-    def _package_index_file(self, save_dir):
+    def _package_kibana_index_file(self, save_dir):
         """Convert and save index file with package."""
-        sorted_rules = sorted(self.rules, key=lambda k: (k.metadata['creation_date'], os.path.basename(k.path)))
+        sorted_rules = sorted(self.rules, key=lambda k: (k.contents.metadata.creation_date, os.path.basename(k.path)))
         comments = [
             '// Auto generated file from either:',
             '// - scripts/regen_prepackage_rules_index.sh',
@@ -197,20 +141,30 @@ class Package(object):
     def save_release_files(self, directory, changed_rules, new_rules, removed_rules):
         """Release a package."""
         summary, changelog = self.generate_summary_and_changelog(changed_rules, new_rules, removed_rules)
-
         with open(os.path.join(directory, f'{self.name}-summary.txt'), 'w') as f:
             f.write(summary)
         with open(os.path.join(directory, f'{self.name}-changelog-entry.md'), 'w') as f:
             f.write(changelog)
-        with open(os.path.join(directory, f'{self.name}-consolidated.json'), 'w') as f:
-            json.dump(json.loads(self.get_consolidated()), f, sort_keys=True, indent=2)
+
+        consolidated = json.loads(self.get_consolidated())
+        with open(os.path.join(directory, f'{self.name}-consolidated-rules.json'), 'w') as f:
+            json.dump(consolidated, f, sort_keys=True, indent=2)
+        consolidated_rules = Ndjson(consolidated)
+        consolidated_rules.dump(Path(directory).joinpath(f'{self.name}-consolidated-rules.ndjson'), sort_keys=True)
+
         self.generate_xslx(os.path.join(directory, f'{self.name}-summary.xlsx'))
+
+        bulk_upload, rules_ndjson = self.create_bulk_index_body()
+        bulk_upload.dump(Path(directory).joinpath(f'{self.name}-enriched-rules-index-uploadable.ndjson'),
+                         sort_keys=True)
+        rules_ndjson.dump(Path(directory).joinpath(f'{self.name}-enriched-rules-index-importable.ndjson'),
+                          sort_keys=True)
 
     def get_consolidated(self, as_api=True):
         """Get a consolidated package of the rules in a single file."""
         full_package = []
         for rule in self.rules:
-            full_package.append(rule.contents if as_api else rule.rule_format())
+            full_package.append(rule.contents.to_api_format() if as_api else rule.contents.to_dict())
 
         return json.dumps(full_package, sort_keys=True)
 
@@ -226,13 +180,14 @@ class Package(object):
         os.makedirs(extras_dir, exist_ok=True)
 
         for rule in self.rules:
-            rule.save(new_path=os.path.join(rules_dir, os.path.basename(rule.path)))
+            rule.save_json(Path(rules_dir).joinpath(rule.path.name).with_suffix('.json'))
 
-        self._package_notice_file(rules_dir)
-        self._package_index_file(rules_dir)
+        self._package_kibana_notice_file(rules_dir)
+        self._package_kibana_index_file(rules_dir)
 
         if self.release:
-            self.save_release_files(extras_dir, self.changed_rule_ids, self.new_rules_ids, self.removed_rule_ids)
+            self._generate_registry_package(save_dir)
+            self.save_release_files(extras_dir, self.changed_ids, self.new_ids, self.removed_ids)
 
             # zip all rules only and place in extras
             shutil.make_archive(os.path.join(extras_dir, self.name), 'zip', root_dir=os.path.dirname(rules_dir),
@@ -245,6 +200,13 @@ class Package(object):
         if verbose:
             click.echo('Package saved to: {}'.format(save_dir))
 
+    def export(self, outfile, downgrade_version=None, verbose=True, skip_unsupported=False):
+        """Export rules into a consolidated ndjson file."""
+        from .main import _export_rules
+
+        _export_rules(self.rules, outfile=outfile, downgrade_version=downgrade_version, verbose=verbose,
+                      skip_unsupported=skip_unsupported)
+
     def get_package_hash(self, as_api=True, verbose=True):
         """Get hash of package contents."""
         contents = base64.b64encode(self.get_consolidated(as_api=as_api).encode('utf-8'))
@@ -256,28 +218,24 @@ class Package(object):
         return sha256
 
     @classmethod
-    def from_config(cls, config: dict = None, update_version_lock: bool = False, verbose: bool = False) -> 'Package':
+    def from_config(cls, config: dict = None, verbose: bool = False) -> 'Package':
         """Load a rules package given a config."""
-        all_rules = rule_loader.load_rules(verbose=False).values()
+        all_rules = RuleCollection.default()
         config = config or {}
         exclude_fields = config.pop('exclude_fields', {})
-        log_deprecated = config.pop('log_deprecated', False)
+        # deprecated rules are now embedded in the RuleCollection.deprecated - this is left here for backwards compat
+        config.pop('log_deprecated', False)
         rule_filter = config.pop('filter', {})
 
-        deprecated_rules = [r for r in all_rules if r.metadata['maturity'] == 'deprecated'] if log_deprecated else []
-        rules = list(filter(lambda rule: filter_rule(rule, rule_filter, exclude_fields), all_rules))
+        rules = all_rules.filter(lambda r: filter_rule(r, rule_filter, exclude_fields))
+
+        # add back in deprecated fields
+        rules.deprecated = all_rules.deprecated
 
         if verbose:
             click.echo(f' - {len(all_rules) - len(rules)} rules excluded from package')
 
-        update = config.pop('update', {})
-        package = cls(rules, deprecated_rules=deprecated_rules, update_version_lock=update_version_lock, **config)
-
-        # Allow for some fields to be overwritten
-        if update.get('data', {}):
-            for rule in package.rules:
-                for sub_dict, values in update.items():
-                    rule.contents[sub_dict].update(values)
+        package = cls(rules, verbose=verbose, **config)
 
         return package
 
@@ -303,25 +261,28 @@ class Package(object):
         indexes = set()
         for rule in self.rules:
             longest_name = max(longest_name, len(rule.name))
-            index_list = rule.contents.get('index')
+            index_list = getattr(rule.contents.data, "index", [])
             if index_list:
                 indexes.update(index_list)
 
         letters = ascii_uppercase + ascii_lowercase
         index_map = {index: letters[i] for i, index in enumerate(sorted(indexes))}
 
-        def get_summary_rule_info(r: Rule):
-            rule_str = f'{r.name:<{longest_name}} (v:{r.contents.get("version")} t:{r.type}'
-            rule_str += f'-{r.contents["language"]})' if r.contents.get('language') else ')'
-            rule_str += f'(indexes:{"".join(index_map[i] for i in r.contents.get("index"))})' \
-                if r.contents.get('index') else ''
+        def get_summary_rule_info(r: TOMLRule):
+            r = r.contents
+            rule_str = f'{r.name:<{longest_name}} (v:{r.autobumped_version} t:{r.data.type}'
+            if isinstance(rule.contents.data, QueryRuleData):
+                rule_str += f'-{r.data.language}'
+                rule_str += f'(indexes:{"".join(index_map[idx] for idx in rule.contents.data.index) or "none"}'
+
             return rule_str
 
-        def get_markdown_rule_info(r: Rule, sd):
+        def get_markdown_rule_info(r: TOMLRule, sd):
             # lookup the rule in the GitHub tag v{major.minor.patch}
+            data = r.contents.data
             rules_dir_link = f'https://github.com/elastic/detection-rules/tree/v{self.name}/rules/{sd}/'
-            rule_type = r.contents['language'] if r.type in ('query', 'eql') else r.type
-            return f'`{r.id}` **[{r.name}]({rules_dir_link + os.path.basename(r.path)})** (_{rule_type}_)'
+            rule_type = data.language if isinstance(data, QueryRuleData) else data.type
+            return f'`{r.id}` **[{r.name}]({rules_dir_link + os.path.basename(str(r.path))})** (_{rule_type}_)'
 
         for rule in self.rules:
             sub_dir = os.path.basename(os.path.dirname(rule.path))
@@ -403,6 +364,102 @@ class Package(object):
         doc.populate()
         doc.close()
 
-    def bump_versions(self, save_changes=False, current_versions=None):
-        """Bump the versions of all production rules included in a release and optionally save changes."""
-        return manage_versions(self.rules, current_versions=current_versions, save_changes=save_changes)
+    def _generate_registry_package(self, save_dir):
+        """Generate the artifact for the oob package-storage."""
+        from .schemas.registry_package import RegistryPackageManifest
+
+        manifest = RegistryPackageManifest.from_dict(self.registry_data)
+
+        package_dir = Path(save_dir) / 'fleet' / manifest.version
+        docs_dir = package_dir / 'docs'
+        rules_dir = package_dir / 'kibana' / definitions.ASSET_TYPE
+
+        docs_dir.mkdir(parents=True)
+        rules_dir.mkdir(parents=True)
+
+        manifest_file = package_dir / 'manifest.yml'
+        readme_file = docs_dir / 'README.md'
+        notice_file = package_dir / 'NOTICE.txt'
+        logo_file = package_dir / 'img' / 'security-logo-color-64px.svg'
+
+        manifest_file.write_text(yaml.safe_dump(manifest.to_dict()))
+
+        logo_file.parent.mkdir(parents=True)
+        shutil.copyfile(FLEET_PKG_LOGO, logo_file)
+        # shutil.copyfile(CHANGELOG_FILE, str(rules_dir.joinpath('CHANGELOG.json')))
+
+        for rule in self.rules:
+            asset_path = rules_dir / f'{rule.id}.json'
+            asset_path.write_text(json.dumps(rule.get_asset(), indent=4, sort_keys=True), encoding="utf-8")
+
+        notice_contents = Path(NOTICE_FILE).read_text()
+        readme_text = textwrap.dedent("""
+        # Prebuilt Security Detection Rules
+
+        The detection rules package stores the prebuilt security rules for the Elastic Security [detection engine](https://www.elastic.co/guide/en/security/7.13/detection-engine-overview.html).
+
+        To download or update the rules, click **Settings** > **Install Prebuilt Security Detection Rules assets**.
+        Then [import](https://www.elastic.co/guide/en/security/master/rules-ui-management.html#load-prebuilt-rules)
+        the rules into the Detection engine.
+
+        ## License Notice
+
+        """).lstrip()  # noqa: E501
+
+        # notice only needs to be appended to the README for 7.13.x
+        # in 7.14+ there's a separate modal to display this
+        if self.name == "7.13":
+            textwrap.indent(notice_contents, prefix="    ")
+
+        readme_file.write_text(readme_text)
+        notice_file.write_text(notice_contents)
+
+    def create_bulk_index_body(self) -> Tuple[Ndjson, Ndjson]:
+        """Create a body to bulk index into a stack."""
+        package_hash = self.get_package_hash(verbose=False)
+        now = datetime.datetime.isoformat(datetime.datetime.utcnow())
+        create = {'create': {'_index': f'rules-repo-{self.name}-{package_hash}'}}
+
+        # first doc is summary stats
+        summary_doc = {
+            'group_hash': package_hash,
+            'package_version': self.name,
+            'rule_count': len(self.rules),
+            'rule_ids': [],
+            'rule_names': [],
+            'rule_hashes': [],
+            'source': 'repo',
+            'details': {'datetime_uploaded': now}
+        }
+        bulk_upload_docs = Ndjson([create, summary_doc])
+        importable_rules_docs = Ndjson()
+
+        for rule in self.rules:
+            summary_doc['rule_ids'].append(rule.id)
+            summary_doc['rule_names'].append(rule.name)
+            summary_doc['rule_hashes'].append(rule.contents.sha256())
+
+            if rule.id in self.new_ids:
+                status = 'new'
+            elif rule.id in self.changed_ids:
+                status = 'modified'
+            else:
+                status = 'unmodified'
+
+            bulk_upload_docs.append(create)
+            rule_doc = dict(hash=rule.contents.sha256(),
+                            source='repo',
+                            datetime_uploaded=now,
+                            status=status,
+                            package_version=self.name,
+                            flat_mitre=ThreatMapping.flatten(rule.contents.data.threat).to_dict(),
+                            relative_path=str(rule.path.resolve().relative_to(DEFAULT_RULES_DIR)))
+            bulk_upload_docs.append(rule_doc)
+            importable_rules_docs.append(rule_doc)
+
+        return bulk_upload_docs, importable_rules_docs
+
+
+@cached
+def current_stack_version() -> str:
+    return Package.load_configs()['name']

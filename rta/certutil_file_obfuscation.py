@@ -1,10 +1,12 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 # Name: Certutil Encode / Decode
 # RTA: certutil_file_obfuscation.py
 # ATT&CK: T1140
+# signal.rule.name: Encoding or Decoding Files via CertUtil
 # Description: Uses certutil to create an encoded copy of cmd.exe. Then uses certutil to decode that copy.
 
 import os

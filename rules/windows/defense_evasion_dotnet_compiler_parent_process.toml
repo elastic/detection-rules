@@ -1,36 +1,41 @@
 [metadata]
 creation_date = "2020/08/21"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/11/03"
+updated_date = "2021/09/23"
 
 [rule]
 author = ["Elastic"]
 description = "Identifies suspicious .NET code execution. connections."
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
-license = "Elastic License"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
 name = "Suspicious .NET Code Compilation"
 risk_score = 47
 rule_id = "201200f1-a99b-43fb-88ed-f65a45c4972c"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
-type = "query"
+timestamp_override = "event.ingested"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
-  process.name:(csc.exe or vbc.exe) and
-  process.parent.name:(wscript.exe or mshta.exe or wscript.exe or wmic.exe or svchost.exe or rundll32.exe or cmstp.exe or regsvr32.exe)
+process where event.type in ("start", "process_started") and
+  process.name : ("csc.exe", "vbc.exe") and
+  process.parent.name : ("wscript.exe", "mshta.exe", "cscript.exe", "wmic.exe", "svchost.exe", "rundll32.exe", "cmstp.exe", "regsvr32.exe")
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1055"
-name = "Process Injection"
-reference = "https://attack.mitre.org/techniques/T1055/"
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+  [[rule.threat.technique.subtechnique]]
+  id = "T1027.004"
+  name = "Compile After Delivery"
+  reference = "https://attack.mitre.org/techniques/T1027/004/"
 
 
 [rule.threat.tactic]

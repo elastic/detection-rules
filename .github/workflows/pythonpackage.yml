@@ -2,7 +2,7 @@ name: Unit Tests
 
 on:
   push:
-    branches: [ "*" ]
+    branches: [ "main", "7.*", "8.*" ]
   pull_request:
     branches: [ "*" ]
 
@@ -14,10 +14,10 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Set up Python 3.7
+    - name: Set up Python 3.8
       uses: actions/setup-python@v2
       with:
-        python-version: 3.7
+        python-version: 3.8
 
     - name: Install dependencies
       run: |
@@ -36,8 +36,10 @@ jobs:
       run: |
         python -m detection_rules dev build-release
 
-    - name: Archive production artifacts
+    - name: Archive production artifacts for branch builds
       uses: actions/upload-artifact@v2
+      if: |
+        github.event_name == 'push'
       with:
         name: release-files
         path: |

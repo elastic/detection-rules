@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """Wrapper around requests.Session for HTTP requests to Kibana."""
 import json
@@ -25,20 +26,32 @@ class Kibana(object):
         self.authenticated = False
         self.session = requests.Session()
         self.session.verify = verify
+        self.verify = verify
 
         self.cloud_id = cloud_id
-        self.kibana_url = kibana_url
+        self.kibana_url = kibana_url.rstrip('/') if kibana_url else None
         self.elastic_url = None
         self.space = space if space and space.lower() != 'default' else None
         self.status = None
+
+        self.provider_name = None
+        self.provider_type = None
 
         if self.cloud_id:
             self.cluster_name, cloud_info = self.cloud_id.split(":")
             self.domain, self.es_uuid, self.kibana_uuid = \
                 base64.b64decode(cloud_info.encode("utf-8")).decode("utf-8").split("$")
 
-            self.kibana_url = f"https://{self.kibana_uuid}.{self.domain}:9243"
+            kibana_url_from_cloud = f"https://{self.kibana_uuid}.{self.domain}:9243"
+            if self.kibana_url and self.kibana_url != kibana_url_from_cloud:
+                raise ValueError(f'kibana_url provided ({self.kibana_url}) does not match url derived from cloud_id '
+                                 f'{kibana_url_from_cloud}')
+            self.kibana_url = kibana_url_from_cloud
+
             self.elastic_url = f"https://{self.es_uuid}.{self.domain}:9243"
+
+            self.provider_name = 'cloud-basic'
+            self.provider_type = 'basic'
 
         self.session.headers.update({'Content-Type': "application/json", "kbn-xsrf": str(uuid.uuid4())})
         self.elasticsearch = elasticsearch
@@ -62,7 +75,7 @@ class Kibana(object):
             uri = "s/{}/{}".format(self.space, uri)
         return f"{self.kibana_url}/{uri}"
 
-    def request(self, method, uri, params=None, data=None, error=True, verbose=True, raw=False):
+    def request(self, method, uri, params=None, data=None, error=True, verbose=True, raw=False, **kwargs):
         """Perform a RESTful HTTP request with JSON responses."""
         params = params or {}
         url = self.url(uri)
@@ -71,7 +84,7 @@ class Kibana(object):
         if data is not None:
             body = json.dumps(data)
 
-        response = self.session.request(method, url, params=params, data=body)
+        response = self.session.request(method, url, params=params, data=body, **kwargs)
         if error:
             try:
                 response.raise_for_status()
@@ -105,7 +118,7 @@ class Kibana(object):
         """Perform an HTTP DELETE."""
         return self.request('DELETE', uri, params=params, error=error, **kwargs)
 
-    def login(self, kibana_username, kibana_password):
+    def login(self, kibana_username, kibana_password, provider_type=None, provider_name=None):
         """Authenticate to Kibana using the API to update our cookies."""
         payload = {'username': kibana_username, 'password': kibana_password}
         path = '/internal/security/login'
@@ -114,8 +127,19 @@ class Kibana(object):
             self.post(path, data=payload, error=True, verbose=False)
         except requests.HTTPError as e:
             # 7.10 changed the structure of the auth data
+            # providers dictated by Kibana configs in:
+            # https://www.elastic.co/guide/en/kibana/current/security-settings-kb.html#authentication-security-settings
+            # more details: https://discuss.elastic.co/t/kibana-7-10-login-issues/255201/2
             if e.response.status_code == 400 and '[undefined]' in e.response.text:
-                payload = {'params': payload, 'currentURL': '', 'providerType': 'basic', 'providerName': 'cloud-basic'}
+                provider_type = provider_type or self.provider_type or 'basic'
+                provider_name = provider_name or self.provider_name or 'basic'
+
+                payload = {
+                    'params': payload,
+                    'currentURL': '',
+                    'providerType': provider_type,
+                    'providerName': provider_name
+                }
                 self.post(path, data=payload, error=True)
             else:
                 raise
@@ -129,11 +153,19 @@ class Kibana(object):
 
         # create ES and force authentication
         if self.elasticsearch is None and self.elastic_url is not None:
-            self.elasticsearch = Elasticsearch(hosts=[self.elastic_url], http_auth=(kibana_username, kibana_password))
+            self.elasticsearch = Elasticsearch(hosts=[self.elastic_url], http_auth=(kibana_username, kibana_password),
+                                               verify_certs=self.verify)
             self.elasticsearch.info()
 
         # make chaining easier
         return self
+
+    def add_cookie(self, cookie):
+        """Add cookie to be used for auth (such as from an SSO session)."""
+        # the request to /api/status will also add the cookie to the cookie jar upon a successful response
+        self.session.headers['cookie'] = cookie
+        self.status = self.get('/api/status')
+        self.authenticated = True
 
     def logout(self):
         """Quit the current session."""
@@ -179,3 +211,8 @@ class Kibana(object):
         space_names = [s['name'] for s in spaces]
         if space not in space_names:
             raise ValueError(f'Unknown Kibana space: {space}')
+
+    def current_user(self):
+        """Retrieve info for currently authenticated user."""
+        if self.authenticated:
+            return self.get('/internal/security/me')

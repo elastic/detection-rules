@@ -1,0 +1,46 @@
+[metadata]
+creation_date = "2020/02/18"
+maturity = "production"
+updated_date = "2021/03/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Service Control (sc.exe) spawning from script interpreter processes to create, modify, or start services.
+This could be indicative of adversary lateral movement but will be noisy if commonly done by admins.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Service Control Spawned via Script Interpreter"
+risk_score = 21
+rule_id = "e8571d5f-bea1-46c2-9f56-998de2d3ed95"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and
+  (process.name : "sc.exe" or process.pe.original_file_name == "sc.exe") and
+  process.parent.name : ("cmd.exe", "wscript.exe", "rundll32.exe", "regsvr32.exe",
+                         "wmic.exe", "mshta.exe","powershell.exe", "pwsh.exe") and
+  process.args:("config", "create", "start", "delete", "stop", "pause") and
+  /* exclude SYSTEM SID - look for service creations by non-SYSTEM user */
+  not user.id : "S-1-5-18"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"

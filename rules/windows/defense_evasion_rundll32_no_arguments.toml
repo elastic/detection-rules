@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2020/09/02"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/11/03"
+updated_date = "2021/07/19"
 
 [rule]
 author = ["Elastic"]
@@ -10,10 +9,11 @@ description = """
 Identifies child processes of unusual instances of RunDLL32 where the command line parameters were suspicious. Misuse of
 RunDLL32 could indicate malicious activity.
 """
-from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*"]
+from = "now-60m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+interval = "30m"
 language = "eql"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Unusual Child Processes of RunDLL32"
 risk_score = 21
 rule_id = "f036953a-4615-4707-a1ca-dc53bf69dcd5"
@@ -24,9 +24,8 @@ type = "eql"
 query = '''
 sequence with maxspan=1h
   [process where event.type in ("start", "process_started") and
-                                    /* uncomment once in winlogbeat */
-     (process.name : "rundll32.exe" /* or process.pe.original_file_name == "RUNDLL32.EXE" */ ) and
-     process.args_count < 2
+     (process.name : "rundll32.exe" or process.pe.original_file_name == "RUNDLL32.EXE") and
+      process.args_count == 1
   ] by process.entity_id
   [process where event.type in ("start", "process_started") and process.parent.name : "rundll32.exe"
   ] by process.parent.entity_id
@@ -36,9 +35,14 @@ sequence with maxspan=1h
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1085"
+id = "T1218"
+name = "Signed Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.011"
 name = "Rundll32"
-reference = "https://attack.mitre.org/techniques/T1085/"
+reference = "https://attack.mitre.org/techniques/T1218/011/"
+
 
 
 [rule.threat.tactic]

@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 import eql
 
@@ -89,7 +90,7 @@ class KqlToEQL(BaseKqlParser):
         if eql.utils.is_string(value) and "*" in value:
             return eql.ast.FunctionCall("wildcard", [field, value_ast])
 
-        if self.get_field_type(field_name) == "ip" and "/" in value:
+        if self.get_field_types(field_name) == {"ip"} and "/" in value:
             return eql.ast.FunctionCall("cidrMatch", [field, value_ast])
 
         return eql.ast.Comparison(field, "==", value_ast)

@@ -1,0 +1,51 @@
+[metadata]
+creation_date = "2020/02/18"
+deprecation_date = "2020/10/30"
+maturity = "deprecated"
+updated_date = "2020/10/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies mshta.exe making a network connection. This may indicate adversarial activity, as mshta.exe is often
+leveraged by adversaries to execute malicious scripts and evade detection.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Network Connection via Mshta"
+references = ["https://www.fireeye.com/blog/threat-research/2017/05/cyber-espionage-apt32.html"]
+risk_score = 47
+rule_id = "a4ec1382-4557-452b-89ba-e413b22ed4b8"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+type = "eql"
+
+query = '''
+/* duplicate of Mshta Making Network Connections - c2d90150-0133-451c-a783-533e736c12d7 */
+
+sequence by process.entity_id
+  [process where process.name : "mshta.exe" and event.type == "start"]
+  [network where process.name : "mshta.exe"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "Signed Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.005"
+name = "Mshta"
+reference = "https://attack.mitre.org/techniques/T1218/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

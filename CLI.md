@@ -71,7 +71,7 @@ and will accept any valid rule in the following formats:
 #### `import-rules`
 
 ```console
-Usage: detection_rules import-rules [OPTIONS] [INFILE]...
+Usage: detection_rules import-rules [OPTIONS] [INPUT_FILE]...
 
   Import rules from json, toml, or Kibana exported rule file(s).
 
@@ -159,12 +159,40 @@ Options:
   --cloud-id TEXT
   -k, --kibana-url TEXT
 
-Usage: detection_rules kibana upload-rule [OPTIONS] TOML_FILES...
+Usage: detection_rules kibana upload-rule [OPTIONS]
 
   Upload a list of rule .toml files to Kibana.
 
 Options:
-  -h, --help  Show this message and exit.
+  -f, --rule-file FILE
+  -d, --directory DIRECTORY  Recursively export rules from a directory
+  -id, --rule-id TEXT
+  -r, --replace-id           Replace rule IDs with new IDs before export
+  -h, --help                 Show this message and exit.
+(detection-rules-build) (base) ➜  detection-rules git:(rule-loader) ✗
+```
+
+Alternatively, rules can be exported into a consolidated ndjson file which can be imported in the Kibana security app 
+directly.
+
+```console
+Usage: detection_rules export-rules [OPTIONS]
+
+  Export rule(s) into an importable ndjson file.
+
+Options:
+  -f, --rule-file FILE
+  -d, --directory DIRECTORY       Recursively export rules from a directory
+  -id, --rule-id TEXT
+  -o, --outfile FILE              Name of file for exported rules
+  -r, --replace-id                Replace rule IDs with new IDs before export
+  --stack-version [7.8|7.9|7.10|7.11|7.12]
+                                  Downgrade a rule version to be compatible
+                                  with older instances of Kibana
+  -s, --skip-unsupported          If `--stack-version` is passed, skip rule
+                                  types which are unsupported (an error will
+                                  be raised otherwise)
+  -h, --help                      Show this message and exit.
 ```
 
 _*To load a custom rule, the proper index must be setup first. The simplest way to do this is to click 

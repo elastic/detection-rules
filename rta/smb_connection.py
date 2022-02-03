@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 # Name: Outbound SMB from a User Process
 # RTA: smb_connection.py
@@ -25,7 +26,7 @@ def main(ip=None):
     s.connect((ip, 445))
     common.log("Sending HELLO")
     s.send(b"HELLO!")
-    common.log("Shutting down the conection...")
+    common.log("Shutting down the connection...")
     s.close()
     common.log("Closed connection to {}:{}".format(ip, SMB_PORT))
 

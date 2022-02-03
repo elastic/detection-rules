@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 """RTA to rule mappings."""
 import os
@@ -8,7 +9,6 @@ from collections import defaultdict
 
 from .schemas import validate_rta_mapping
 from .utils import load_etc_dump, save_etc_dump, get_path
-
 
 RTA_DIR = get_path("rta")
 

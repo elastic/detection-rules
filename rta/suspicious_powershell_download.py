@@ -1,9 +1,11 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 # Name: Suspicious PowerShell Download
 # RTA: suspicious_powershell_download.py
+# signal.rule.name: Suspicious MS Office Child Process
 # ATT&CK: T1086
 # Description: PowerShell using DownloadString or DownloadFile in suspicious context
 

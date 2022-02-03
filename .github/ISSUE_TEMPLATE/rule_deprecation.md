@@ -7,8 +7,9 @@ assignees: ''
 
 ---
 
+## Link to rule
+
+
 ## Description
 
 Provide a detailed description of why the rule should be deprecated
-
-- **Link to rule file:**

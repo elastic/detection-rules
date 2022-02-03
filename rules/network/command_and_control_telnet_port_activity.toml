@@ -1,16 +1,15 @@
 [metadata]
 creation_date = "2020/02/18"
-ecs_version = ["1.6.0"]
 maturity = "production"
-updated_date = "2020/11/03"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
 description = """
 This rule detects network events that may indicate the use of Telnet traffic. Telnet is commonly used by system
-administrators to remotely control older or embed ed systems using the command line shell. It should almost never be
+administrators to remotely control older or embedded systems using the command line shell. It should almost never be
 directly exposed to the Internet, as it is frequently targeted and exploited by threat actors as an initial access or
-back-door vector. As a plain-text protocol, it may also expose usernames and passwords to anyone capable of observing
+backdoor vector. As a plain-text protocol, it may also expose usernames and passwords to anyone capable of observing
 the traffic.
 """
 false_positives = [
@@ -21,14 +20,16 @@ false_positives = [
     server that has no known associated Telnet work-flow or business requirement is often suspicious.
     """,
 ]
-index = ["filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
+from = "now-9m"
+index = ["auditbeat-*", "filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
-license = "Elastic License"
+license = "Elastic License v2"
 name = "Telnet Port Activity"
 risk_score = 47
 rule_id = "34fde489-94b0-4500-a76f-b8a157cf9269"
 severity = "medium"
-tags = ["Elastic", "Host", "Network", "Threat Detection", "Command and Control"]
+tags = ["Elastic", "Host", "Network", "Threat Detection", "Command and Control", "Host"]
+timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
@@ -38,38 +39,32 @@ event.category:(network or network_traffic) and network.transport:tcp and destin
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1043"
-name = "Commonly Used Port"
-reference = "https://attack.mitre.org/techniques/T1043/"
-
 
 [rule.threat.tactic]
+reference = "https://attack.mitre.org/tactics/TA0011/"
 id = "TA0011"
 name = "Command and Control"
-reference = "https://attack.mitre.org/tactics/TA0011/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
+reference = "https://attack.mitre.org/techniques/T1021/"
 id = "T1021"
 name = "Remote Services"
-reference = "https://attack.mitre.org/techniques/T1021/"
 
 
 [rule.threat.tactic]
+reference = "https://attack.mitre.org/tactics/TA0008/"
 id = "TA0008"
 name = "Lateral Movement"
-reference = "https://attack.mitre.org/tactics/TA0008/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
+reference = "https://attack.mitre.org/techniques/T1190/"
 id = "T1190"
 name = "Exploit Public-Facing Application"
-reference = "https://attack.mitre.org/techniques/T1190/"
 
 
 [rule.threat.tactic]
+reference = "https://attack.mitre.org/tactics/TA0001/"
 id = "TA0001"
 name = "Initial Access"
-reference = "https://attack.mitre.org/tactics/TA0001/"
-

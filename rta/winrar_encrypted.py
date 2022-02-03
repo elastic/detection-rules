@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 # Name: Encrypting files with WinRAR
 # RTA: winrar_encrypted.py
@@ -86,7 +87,7 @@ def main(password="s0l33t"):
     #            original_file_name == "*rar*" - no
     #            signature_signer == "*win.rar*" -no
     #            output filename == "*.rar" - no
-    common.log("Test case 6: FP, shoudln't alert, run with myapp.exe", log_type="!")
+    common.log("Test case 6: FP, shouldn't alert, run with myapp.exe", log_type="!")
     common.execute([MY_APP, "-hpbadargument"])
 
     common.log("Cleanup", "-")

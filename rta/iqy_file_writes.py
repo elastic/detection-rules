@@ -1,6 +1,7 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 # Name: Suspicious IQY/PUB File Writes
 # RTA: iqy_file_writes.py
@@ -39,7 +40,7 @@ def main():
     fake_doc_iqy = os.path.abspath("test_word.iqy")
     common.execute([msoffice_path, "/c", "echo", "test", ">", fake_doc_iqy])
 
-    # Brwoser writing IQY file
+    # Browser writing IQY file
     fake_browser_iqy = os.path.abspath("test_browser.iqy")
     common.execute([browser_path, "/c", "echo", "test", ">", fake_browser_iqy])
 

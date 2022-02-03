@@ -1,9 +1,11 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 # Name: Clearing Windows Event Logs
 # RTA: wevutil_log_clear.py
+# signal.rule.name: Clearing Windows Event Logs
 # ATT&CK: T1070
 # Description: Uses the native Windows Event utility to clear the Security, Application and System event logs.
 

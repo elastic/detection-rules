@@ -1,10 +1,13 @@
 # Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
-# or more contributor license agreements. Licensed under the Elastic License;
-# you may not use this file except in compliance with the Elastic License.
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
 
 # Name: Network Traffic from InstallUtil
 # RTA: installutil_network.py
 # ATT&CK: T1118
+# Elastic detection: InstallUtil Process Making Network Connections
+# Elastic detection: Unusual Network Activity from a Windows System Binary
 # Description: Uses mock .NET malware and InstallUtil to create network activity from InstallUtil.
 
 import os
