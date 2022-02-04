@@ -203,7 +203,7 @@ class RuleCollection(BaseCollection):
 
         assert not self.frozen, f"Unable to add rule {rule.name} {rule.id} to a frozen collection"
         assert rule.id not in id_map, \
-            f"Rule ID {rule.id} for {rule.name} collides with rule {id_map.get(rule.id).get('name')}"
+            f"Rule ID {rule.id} for {rule.name} collides with rule {id_map.get(rule.id).name}"
 
         if rule.path is not None:
             rule_path = rule.path.resolve()
