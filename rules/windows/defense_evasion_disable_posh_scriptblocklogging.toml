@@ -6,8 +6,8 @@ updated_date = "2022/01/31"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies attempt to disable PowerShell Script Block Logging via registry modification. Attackers may disable the
-logging of PowerShell Scripts to conceal their activities in the host.
+Identifies attempts to disable PowerShell Script Block Logging via registry modification. Attackers may disable
+this logging to conceal their activities in the host and evade detection.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
@@ -25,7 +25,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where event.type : "change" and
+registry where event.type == "change" and
     registry.path : 
         "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging\\EnableScriptBlockLogging"
     and registry.data.strings : ("0", "0x00000000")
