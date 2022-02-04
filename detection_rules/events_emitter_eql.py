@@ -15,7 +15,6 @@ import eql
 
 from .utils import deep_merge, cached
 from .constraints import Constraints, Branch
-from .fuzzylib import *
 from .events_emitter import emitter
 
 __all__ = (

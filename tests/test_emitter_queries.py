@@ -64,22 +64,22 @@ eql_mono_branch_mono_doc = {
 
     """network where source.port > 512 and source.port < 1024
     """: [
-        [{"event": {"category": ["network"]}, "source": {"port": 859}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 794}}],
     ],
 
     """network where not (source.port < 512 or source.port > 1024)
     """: [
-        [{"event": {"category": ["network"]}, "source": {"port": 815}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 1021}}],
     ],
 
     """network where destination.port not in (80, 443)
     """: [
-        [{"event": {"category": ["network"]}, "destination": {"port": 35106}}],
+        [{"event": {"category": ["network"]}, "destination": {"port": 7564}}],
     ],
 
     """network where not destination.port in (80, 443)
     """: [
-        [{"event": {"category": ["network"]}, "destination": {"port": 58630}}],
+        [{"event": {"category": ["network"]}, "destination": {"port": 246}}],
     ],
 
     """network where destination.port == 22 and destination.port in (80, 443) or destination.port == 25
@@ -94,22 +94,22 @@ eql_mono_branch_mono_doc = {
 
     """process where process.name != "regsvr32.exe"
     """: [
-        [{"event": {"category": ["process"]}, "process": {"name": "pki"}}],
+        [{"event": {"category": ["process"]}, "process": {"name": "Bmc"}}],
     ],
 
     """process where process.pid != 0
     """: [
-        [{"event": {"category": ["process"]}, "process": {"pid": 1565416049}}],
+        [{"event": {"category": ["process"]}, "process": {"pid": 3009213395}}],
     ],
 
     """process where process.pid >= 0
     """: [
-        [{"event": {"category": ["process"]}, "process": {"pid": 2413373806}}],
+        [{"event": {"category": ["process"]}, "process": {"pid": 1706296503}}],
     ],
 
     """process where process.pid > 0
     """: [
-        [{"event": {"category": ["process"]}, "process": {"pid": 57239544}}],
+        [{"event": {"category": ["process"]}, "process": {"pid": 2505219495}}],
     ],
 
     """process where process.code_signature.exists == true
@@ -139,12 +139,12 @@ eql_mono_branch_mono_doc = {
 
     """any where process.pid != null
     """: [
-        [{"process": {"pid": 3617084353}}],
+        [{"process": {"pid": 102799507}}],
     ],
 
     """any where not process.pid == null
     """: [
-        [{"process": {"pid": 3003800358}}],
+        [{"process": {"pid": 2584819203}}],
     ],
 
     """process where process.name == "regsvr32.exe" and process.parent.name == "cmd.exe"
@@ -154,7 +154,7 @@ eql_mono_branch_mono_doc = {
 
     """process where process.name : ("*.EXE", "*.DLL")
     """: [
-        [{"event": {"category": ["process"]}, "process": {"name": "hhkrsftx.dll"}}],
+        [{"event": {"category": ["process"]}, "process": {"name": "leneqzksddgex.exe"}}],
     ],
 
     """network where destination.ip == "127.0.0.1"
@@ -164,12 +164,12 @@ eql_mono_branch_mono_doc = {
 
     """network where cidrMatch(destination.ip, "10.0.0.0/8", "192.168.0.0/16")
     """: [
-        [{"event": {"category": ["network"]}, "destination": {"ip": "192.168.129.181"}}],
+        [{"event": {"category": ["network"]}, "destination": {"ip": "10.77.153.19"}}],
     ],
 
     """network where not cidrMatch(destination.ip, "10.0.0.0/8", "192.168.0.0/16")
     """: [
-        [{"event": {"category": ["network"]}, "destination": {"ip": "106.218.221.201"}}],
+        [{"event": {"category": ["network"]}, "destination": {"ip": "0.225.250.37"}}],
     ],
 
     """network where destination.ip == "::1"
@@ -179,41 +179,41 @@ eql_mono_branch_mono_doc = {
 
     """network where destination.ip == "822e::/16"
     """: [
-        [{"event": {"category": ["network"]}, "destination": {"ip": "822e:d242:3361:b181:c4c:ee59:cfdb:60aa"}}],
+        [{"event": {"category": ["network"]}, "destination": {"ip": "822e:f740:dcc5:503a:946f:261:2c07:f7a5"}}],
     ],
 }
 
 eql_multi_branch_mono_doc = {
     """network where not (source.port > 512 and source.port < 1024)
     """: [
-        [{"event": {"category": ["network"]}, "source": {"port": 236}}],
-        [{"event": {"category": ["network"]}, "source": {"port": 19581}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 182}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 54422}}],
     ],
 
     """network where source.port > 512 or source.port < 1024
     """: [
-        [{"event": {"category": ["network"]}, "source": {"port": 44068}}],
-        [{"event": {"category": ["network"]}, "source": {"port": 609}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 44925}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 516}}],
     ],
 
     """network where source.port < 2000 and (source.port > 512 or source.port > 1024)
     """: [
-        [{"event": {"category": ["network"]}, "source": {"port": 630}}],
-        [{"event": {"category": ["network"]}, "source": {"port": 1957}}],
+        [{"event": {"category": ["network"]}, "source": {"port":  1334}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 1034}}],
     ],
 
     """network where (source.port > 512 or source.port > 1024) and source.port < 2000
     """: [
-        [{"event": {"category": ["network"]}, "source": {"port": 1105}}],
-        [{"event": {"category": ["network"]}, "source": {"port": 1448}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 575}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 1158}}],
     ],
 
     """network where (source.port > 1024 or source.port < 2000) and (source.port < 4000 or source.port > 512)
     """: [
-        [{"event": {"category": ["network"]}, "source": {"port": 2567}}],
-        [{"event": {"category": ["network"]}, "source": {"port": 19206}}],
-        [{"event": {"category": ["network"]}, "source": {"port": 1901}}],
-        [{"event": {"category": ["network"]}, "source": {"port": 1670}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 1970}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 52226}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 692}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 1464}}],
     ],
 
     """network where destination.port in (80, 443)
@@ -269,16 +269,16 @@ eql_mono_branch_multi_doc = {
         [process where process.name : "cmd.exe"]
         [process where process.parent.name : "cmd.exe"]
     """: [[
-        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "xgG"}},
-        {"event": {"category": ["process"]}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"id": "xgG"}},
+        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "klM"}},
+        {"event": {"category": ["process"]}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"id": "klM"}},
     ]],
 
     """sequence
         [process where process.name : "cmd.exe"] by user.id
         [process where process.parent.name : "cmd.exe"] by user.name
     """: [[
-        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "Eev"}},
-        {"event": {"category": ["process"]}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"name": "Eev"}},
+        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "fmC"}},
+        {"event": {"category": ["process"]}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"name": "fmC"}},
     ]],
 }
 
@@ -298,11 +298,11 @@ eql_multi_branch_multi_doc = {
         [process where process.name : "cmd.exe"]
         [process where process.parent.name : "cmd.exe" or process.name : "powershell.exe"]
     """: [[
-        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "GuM"}},
-        {"event": {"category": ["process"]}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"id": "GuM"}},
+        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "pKP"}},
+        {"event": {"category": ["process"]}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"id": "pKP"}},
     ], [
-        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "etd"}},
-        {"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}, "user": {"id": "etd"}},
+        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "dYR"}},
+        {"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}, "user": {"id": "dYR"}},
     ]],
 
     """sequence
@@ -326,17 +326,17 @@ eql_multi_branch_multi_doc = {
         [process where process.name in ("cmd.exe", "powershell.exe")] by process.name
         [process where process.name in ("cmd.exe", "powershell.exe")] by process.parent.name
     """: [[
-        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "Tkx"}},
-        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe", "parent": {"name": "cmd.exe"}}, "user": {"id": "Tkx"}},
+        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "aPd"}},
+        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe", "parent": {"name": "cmd.exe"}}, "user": {"id": "aPd"}},
     ], [
-        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "REt"}},
-        {"event": {"category": ["process"]}, "process": {"name": "powershell.exe", "parent": {"name": "cmd.exe"}}, "user": {"id": "REt"}},
+        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "aiW"}},
+        {"event": {"category": ["process"]}, "process": {"name": "powershell.exe", "parent": {"name": "cmd.exe"}}, "user": {"id": "aiW"}},
     ], [
-        {"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}, "user": {"id": "dLh"}},
-        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe", "parent": {"name": "powershell.exe"}}, "user": {"id": "dLh"}},
+        {"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}, "user": {"id": "tSw"}},
+        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe", "parent": {"name": "powershell.exe"}}, "user": {"id": "tSw"}},
     ], [
-        {"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}, "user": {"id": "Bvu"}},
-        {"event": {"category": ["process"]}, "process": {"name": "powershell.exe", "parent": {"name": "powershell.exe"}}, "user": {"id": "Bvu"}},
+        {"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}, "user": {"id": "JEL"}},
+        {"event": {"category": ["process"]}, "process": {"name": "powershell.exe", "parent": {"name": "powershell.exe"}}, "user": {"id": "JEL"}},
     ]],
 }
 
@@ -467,7 +467,7 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
         ]
 
     def test_mappings(self):
-        with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
+        with eql.parser.elasticsearch_syntax:
             for query, mappings in eql_event_docs_mappings.items():
                 with self.subTest(query):
                     emitter.reset_mappings()
@@ -486,7 +486,7 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
             documents is enough to trigger the signal but all were generated to prove that all the disjunction
             branches are correctly visited.
         """))
-        with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
+        with eql.parser.elasticsearch_syntax:
             for i, (query, docs) in enumerate(eql_mono_branch_mono_doc.items()):
                 with self.subTest(query, i=i):
                     self.assertEqual(len(docs), 1)
@@ -499,7 +499,7 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
         cells.append(jupyter.Markdown(
         """
         """))
-        with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
+        with eql.parser.elasticsearch_syntax:
             for i, (query, docs) in enumerate(eql_multi_branch_mono_doc.items()):
                 with self.subTest(query, i=i):
                     self.assertGreater(len(docs), 1)
@@ -517,7 +517,7 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
             of documents, with the appropriate relations, is generated each time and all the documents in the sequence
             are required for the signal to be generated.
         """))
-        with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
+        with eql.parser.elasticsearch_syntax:
             for i, (query, docs) in enumerate(eql_mono_branch_multi_doc.items()):
                 with self.subTest(query, i=i):
                     self.assertEqual(len(docs), 1)
@@ -530,7 +530,7 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
         cells.append(jupyter.Markdown(
         """
         """))
-        with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
+        with eql.parser.elasticsearch_syntax:
             for i, (query, docs) in enumerate(eql_multi_branch_multi_doc.items()):
                 with self.subTest(query, i=i):
                     self.assertGreater(len(docs), 1)
@@ -549,7 +549,7 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
             Here you can challenge the generation engine first hand and check that all the due errors are reported
             and make sense to you.
         """))
-        with eql.parser.elasticsearch_syntax, emitter.fuzziness(0):
+        with eql.parser.elasticsearch_syntax:
             for i, (query, msg) in enumerate(eql_exceptions.items()):
                 with self.subTest(query, i=i):
                     with self.assertRaises(ValueError, msg=msg) as cm:
@@ -607,7 +607,6 @@ class TestSignalsQueries(SignalsTestCase, OnlineTestCase, SeededTestCase, unitte
                   tuple(eql_mono_branch_multi_doc) + tuple(eql_multi_branch_multi_doc)
         with eql.parser.elasticsearch_syntax:
             rules, asts = self.parse_from_queries(queries)
-        with emitter.fuzziness(0), emitter.completeness(0):
-            pending = self.load_rules_and_docs(rules, asts)
+        pending = self.load_rules_and_docs(rules, asts)
         self.check_signals(rules, pending)
         assertReportUnchanged(self, self.nb, "alerts_from_queries.md")

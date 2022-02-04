@@ -9,35 +9,34 @@ import unittest
 
 from tests.utils import *
 from detection_rules.ecs import get_schema
-from detection_rules.fuzzylib import fuzziness
 from detection_rules.constraints import Constraints, Branch, LongLimits
 
 ecs_schema = get_schema()
 
 constraints_long = [
     ([
-    ], {"value": -403652431857158667, "min": LongLimits.MIN, "max": LongLimits.MAX}),
+    ], {"value": -447795966606097183, "min": LongLimits.MIN, "max": LongLimits.MAX}),
 
     ([
-    ], {"value": -403652431857158667, "min": LongLimits.MIN, "max": LongLimits.MAX}),
-
-    ([
-        ("!=", 0),
-    ], {"value": -403652431857158667, "min": LongLimits.MIN, "max": LongLimits.MAX}),
+    ], {"value": -447795966606097183, "min": LongLimits.MIN, "max": LongLimits.MAX}),
 
     ([
         ("!=", 0),
+    ], {"value": -447795966606097183, "min": LongLimits.MIN, "max": LongLimits.MAX}),
+
+    ([
         ("!=", 0),
-    ], {"value": -403652431857158667, "min": LongLimits.MIN, "max": LongLimits.MAX}),
+        ("!=", 0),
+    ], {"value": -447795966606097183, "min": LongLimits.MIN, "max": LongLimits.MAX}),
 
     ([
-        ("!=", -403652431857158667),
-    ], {"value": -7064441344606162906, "min": LongLimits.MIN, "max": LongLimits.MAX}),
+        ("!=", -447795966606097183),
+    ], {"value": -391848440526208070, "min": LongLimits.MIN, "max": LongLimits.MAX}),
 
     ([
-        ("!=", -403652431857158667),
-        ("!=", -7064441344606162906),
-    ], {"value": -2206653630641079109, "min": LongLimits.MIN, "max": LongLimits.MAX}),
+        ("!=", -447795966606097183),
+        ("!=", -391848440526208070),
+    ], {"value": -5754650716556900295, "min": LongLimits.MIN, "max": LongLimits.MAX}),
 
     ([
         ("==", 0),
@@ -60,75 +59,75 @@ constraints_long = [
 
     ([
         (">=", 10),
-    ], {"value": 4409859803525838335, "min": 10, "max": LongLimits.MAX}),
+    ], {"value": 8255703960756213835, "min": 10, "max": LongLimits.MAX}),
 
     ([
         (">=", 10000),
-    ], {"value": 4409859803525848325, "min": 10000, "max": LongLimits.MAX}),
+    ], {"value": 8255703960756223825, "min": 10000, "max": LongLimits.MAX}),
 
     ([
         (">=", 10000),
         (">=", 10),
-    ], {"value": 4409859803525848325, "min": 10000, "max": LongLimits.MAX}),
+    ], {"value": 8255703960756223825, "min": 10000, "max": LongLimits.MAX}),
 
     ([
         (">=", 10),
         (">=", 10000),
-    ], {"value": 4409859803525848325, "min": 10000, "max": LongLimits.MAX}),
+    ], {"value": 8255703960756223825, "min": 10000, "max": LongLimits.MAX}),
 
     ([
         (">", 20),
-    ], {"value": 4409859803525838346, "min": 21, "max": LongLimits.MAX}),
+    ], {"value": 8255703960756213846, "min": 21, "max": LongLimits.MAX}),
 
     ([
         (">", 20000),
-    ], {"value": 4409859803525858326, "min": 20001, "max": LongLimits.MAX}),
+    ], {"value": 8255703960756233826, "min": 20001, "max": LongLimits.MAX}),
 
     ([
         (">", 20000),
         (">", 20),
-    ], {"value": 4409859803525858326, "min": 20001, "max": LongLimits.MAX}),
+    ], {"value": 8255703960756233826, "min": 20001, "max": LongLimits.MAX}),
 
     ([
         (">", 20),
         (">", 20000),
-    ], {"value": 4409859803525858326, "min": 20001, "max": LongLimits.MAX}),
+    ], {"value": 8255703960756233826, "min": 20001, "max": LongLimits.MAX}),
 
     ([
         ("<=", 40),
-    ], {"value": -403652431857158667, "min": LongLimits.MIN, "max": 40}),
+    ], {"value": -1504411726168646672, "min": LongLimits.MIN, "max": 40}),
 
     ([
         ("<=", 40000),
-    ], {"value": -403652431857158667, "min": LongLimits.MIN, "max": 40000}),
+    ], {"value": -1504411726168646672, "min": LongLimits.MIN, "max": 40000}),
 
     ([
         ("<=", 40000),
         ("<=", 40),
-    ], {"value": -403652431857158667, "min": LongLimits.MIN, "max": 40}),
+    ], {"value": -1504411726168646672, "min": LongLimits.MIN, "max": 40}),
 
     ([
         ("<=", 40),
         ("<=", 40000),
-    ], {"value": -403652431857158667, "min": LongLimits.MIN, "max": 40}),
+    ], {"value": -1504411726168646672, "min": LongLimits.MIN, "max": 40}),
 
     ([
         ("<", 80),
-    ], {"value": -403652431857158667, "min": LongLimits.MIN, "max": 79}),
+    ], {"value": -1504411726168646672, "min": LongLimits.MIN, "max": 79}),
 
     ([
         ("<", 80000),
-    ], {"value": -403652431857158667, "min": LongLimits.MIN, "max": 79999}),
+    ], {"value": -1504411726168646672, "min": LongLimits.MIN, "max": 79999}),
 
     ([
         ("<", 80000),
         ("<", 80),
-    ], {"value": -403652431857158667, "min": LongLimits.MIN, "max": 79}),
+    ], {"value": -1504411726168646672, "min": LongLimits.MIN, "max": 79}),
 
     ([
         ("<", 80),
         ("<", 80000),
-    ], {"value": -403652431857158667, "min": LongLimits.MIN, "max": 79}),
+    ], {"value": -1504411726168646672, "min": LongLimits.MIN, "max": 79}),
 
     ([
         (">", 0),
@@ -208,16 +207,16 @@ constraints_long_exceptions = [
 
 constraints_ip = [
     ([
-    ], {"value": "122.101.240.65"}),
+    ], {"value": "107.31.65.130"}),
 
     ([
-        ("!=", "122.101.240.65"),
-    ], {"value": "174.42.176.39"}),
+        ("!=", "107.31.65.130"),
+    ], {"value": "229.172.181.141"}),
 
     ([
-        ("!=", "122.101.240.65"),
-        ("!=", "174.42.176.39"),
-    ], {"value": "110.236.17.111"}),
+        ("!=", "107.31.65.130"),
+        ("!=", "229.172.181.141"),
+    ], {"value": "122.143.223.236"}),
 
     ([
         ("==", "1.2.3.5"),
@@ -225,42 +224,42 @@ constraints_ip = [
 
     ([
         ("==", "122.110.117.0/24"),
-    ], {"value": "122.110.117.244"}),
+    ], {"value": "122.110.117.214"}),
 
     ([
         ("in", "122.110.117.0/24"),
-    ], {"value": "122.110.117.244"}),
+    ], {"value": "122.110.117.214"}),
 
     ([
-        ("!=", "122.101.240.0/24"),
-        ("!=", "174.42.176.0/24"),
-    ], {"value": "110.236.17.111"}),
+        ("!=", "107.31.65.0/24"),
+        ("!=", "229.172.181.0/24"),
+    ], {"value": "122.143.223.236"}),
 
     ([
-        ("not in", "122.101.240.0/24"),
-        ("not in", "174.42.176.0/24"),
-    ], {"value": "110.236.17.111"}),
+        ("not in", "107.31.65.0/24"),
+        ("not in", "229.172.181.0/24"),
+    ], {"value": "122.143.223.236"}),
 
     ([
-        ("not in", ("122.101.240.0/24", "174.42.176.0/24")),
-    ], {"value": "110.236.17.111"}),
+        ("not in", ("107.31.65.0/24", "229.172.181.0/24")),
+    ], {"value": "122.143.223.236"}),
 
     ([
         ("in", "127.0.0.0/8"),
-    ], {"value": "127.244.203.224"}),
+    ], {"value": "127.214.62.131"}),
 
     ([
         ("in", "169.254.0.0/16"),
-    ], {"value": "169.254.244.203"}),
+    ], {"value": "169.254.214.62"}),
 
     ([
         ("in", "10.0.0.0/8"),
         ("in", "192.168.0.0/16"),
-    ], {"value": "192.168.244.203"}),
+    ], {"value": "192.168.214.62"}),
 
     ([
         ("in", ("10.0.0.0/8", "192.168.0.0/16")),
-    ], {"value": "192.168.244.203"}),
+    ], {"value": "192.168.214.62"}),
 
     ([
         ("==", "::1"),
@@ -268,42 +267,42 @@ constraints_ip = [
 
     ([
         ("in", "fe80::/64"),
-    ], {"value": "fe80::8fd:f525:1b9:3e63"}),
+    ], {"value": "fe80::60a5:3ba:e6ea:94e4"}),
 
     ([
         ("in", "fe80:a::/64"),
         ("in", "fe80:b::/64"),
         ("in", "fe80:c::/64"),
         ("in", "fe80:d::/64"),
-    ], {"value": "fe80:d::8fd:f525:1b9:3e63"}),
+    ], {"value": "fe80:d::60a5:3ba:e6ea:94e4"}),
 
     ([
         ("in", ("fe80:a::/64", "fe80:b::/64", "fe80:c::/64", "fe80:d::/64")),
-    ], {"value": "fe80:d::8fd:f525:1b9:3e63"}),
+    ], {"value": "fe80:d::60a5:3ba:e6ea:94e4"}),
 
     ([
         ("!=", "127.0.0.1"),
         ("!=", "::1"),
-    ], {"value": "1df6:1006:ae2a:b026:b53:7e7c:7a65:f041"}),
+    ], {"value": "aa79:ec58:8d14:2981:f18d:f2a6:6b1f:4182"}),
 
     ([
-        ("!=", "1df6:1006:ae2a:b026:b53:7e7c:7a65:f041"),
-    ], {"value": "e66c:6e84:4aed:30c:6160:6436:db4f:fcbc"}),
+        ("!=", "aa79:ec58:8d14:2981:f18d:f2a6:6b1f:4182"),
+    ], {"value": "7a8f:dfeb:60a5:3ba:e6ea:94e4:e5ac:b58d"}),
 
     ([
-        ("!=", "1df6:1006:ae2a:b026:b53:7e7c:7a65:f041"),
-        ("!=", "e66c:6e84:4aed:30c:6160:6436:db4f:fcbc"),
-    ], {"value": "38bf:b937:846b:5047:57:75f:8fd:f526"}),
+        ("!=", "aa79:ec58:8d14:2981:f18d:f2a6:6b1f:4182"),
+        ("!=", "7a8f:dfeb:60a5:3ba:e6ea:94e4:e5ac:b58d"),
+    ], {"value": "a92d:c839:9a9f:e89a:c443:b67a:770a:2cd8"}),
 
     ([
-        ("not in", "1df6::/16"),
-        ("not in", "e66c::/16"),
-    ], {"value": "38bf:b937:846b:5047:57:75f:8fd:f526"}),
+        ("not in", "aa79::/16"),
+        ("not in", "7a8f::/16"),
+    ], {"value": "a92d:c839:9a9f:e89a:c443:b67a:770a:2cd8"}),
 
     ([
-        ("!=", "1df6::/16"),
-        ("!=", "e66c::/16"),
-    ], {"value": "38bf:b937:846b:5047:57:75f:8fd:f526"}),
+        ("!=", "aa79::/16"),
+        ("!=", "7a8f::/16"),
+    ], {"value": "a92d:c839:9a9f:e89a:c443:b67a:770a:2cd8"}),
 ]
 
 constraints_ip_exceptions = [
@@ -378,34 +377,34 @@ constraints_ip_exceptions = [
 
 constraints_keyword = [
     ([
-    ], {"value": "ycg"}),
+    ], {"value": "ZFy"}),
 
     ([
-    ], {"value": "ycg"}),
+    ], {"value": "ZFy"}),
 
     ([
-        ("!=", "ycg"),
-    ], {"value": "Spa"}),
+        ("!=", "ZFy"),
+    ], {"value": "XIU"}),
 
     ([
-        ("!=", "ycg"),
-        ("!=", "Spa"),
-    ], {"value": "alZ"}),
-
-    ([
-        ("wildcard", "*.exe"),
-    ], {"value": "cgspaalzajkedzp.exe"}),
+        ("!=", "ZFy"),
+        ("!=", "XIU"),
+    ], {"value": "tkN"}),
 
     ([
         ("wildcard", "*.exe"),
-        ("not wildcard", "cgsp*.exe"),
-    ], {"value": "iusssrheshoebe.exe"}),
+    ], {"value": "xiutknioixtfl.exe"}),
+
+    ([
+        ("wildcard", "*.exe"),
+        ("not wildcard", "xiut*.exe"),
+    ], {"value": "mxbnleoaaga.exe"}),
 
     ([
         ("wildcard", "*.exe"),
         ("not wildcard", "cgsp*.exe"),
         ("not wildcard", "iuss*.exe"),
-    ], {"value": "xuqtfxhxlb.exe"}),
+    ], {"value": "xiutknioixtfl.exe"}),
 
     ([
         ("==", "cmd.exe"),
@@ -432,7 +431,7 @@ constraints_keyword = [
 
     ([
         ("wildcard", ("cmd.exe", "powershell.exe", "regedit.exe")),
-    ], {"value": "powershell.exe"}),
+    ], {"value": "regedit.exe"}),
 ]
 
 constraints_keyword_exceptions = [
@@ -541,51 +540,44 @@ branch_products = [
 
 class TestConstraints(SeededTestCase, unittest.TestCase):
 
-    def subTest(self, *args, **kwargs):
-        kwargs["seed"] = str(fuzziness())
-        return super(TestConstraints, self).subTest(*args, **kwargs)
-
     def test_long(self):
         solver = Constraints.solve_long_constraints
 
-        with fuzziness(1):
-            for constraints, test_value in constraints_long:
-                with self.subTest(constraints):
-                    self.assertEqual(test_value, solver("test_var", None, constraints))
+        for i, (constraints, test_value) in enumerate(constraints_long):
+            with self.subTest(constraints, i=i):
+                self.assertEqual(test_value, solver("test_var", None, constraints))
 
-            for constraints, msg in constraints_long_exceptions:
-                with self.subTest(constraints):
-                    with self.assertRaises(ValueError, msg=msg) as cm:
-                        self.assertEqual(None, solver("test_var", None, constraints))
-                    self.assertEqual(msg, str(cm.exception))
+        for i, (constraints, msg) in enumerate(constraints_long_exceptions):
+            with self.subTest(constraints, i=i):
+                with self.assertRaises(ValueError, msg=msg) as cm:
+                    self.assertEqual(None, solver("test_var", None, constraints))
+                self.assertEqual(msg, str(cm.exception))
 
     def test_ip(self):
         solver = Constraints.solve_ip_constraints
 
-        with fuzziness(1):
-            for constraints, test_value in constraints_ip:
-                with self.subTest(constraints):
-                    self.assertEqual(test_value, solver("test_var", None, constraints))
+        for i, (constraints, test_value) in enumerate(constraints_ip):
+            with self.subTest(constraints, i=i):
+                self.assertEqual(test_value, solver("test_var", None, constraints))
 
-            for constraints, msg in constraints_ip_exceptions:
-                with self.subTest(constraints):
-                    with self.assertRaises(ValueError, msg=msg) as cm:
-                        self.assertEqual(None, solver("test_var", None, constraints))
-                    self.assertEqual(msg, str(cm.exception))
+        for i, (constraints, msg) in enumerate(constraints_ip_exceptions):
+            with self.subTest(constraints, i=i):
+                with self.assertRaises(ValueError, msg=msg) as cm:
+                    self.assertEqual(None, solver("test_var", None, constraints))
+                self.assertEqual(msg, str(cm.exception))
 
     def test_keyword(self):
         solver = Constraints.solve_keyword_constraints
 
-        with fuzziness(1):
-            for constraints, test_value in constraints_keyword:
-                with self.subTest(constraints):
-                    self.assertEqual(test_value, solver("test_var", None, constraints))
+        for i, (constraints, test_value) in enumerate(constraints_keyword):
+            with self.subTest(constraints, i=i):
+                self.assertEqual(test_value, solver("test_var", None, constraints))
 
-            for constraints, msg in constraints_keyword_exceptions:
-                with self.subTest(constraints):
-                    with self.assertRaises(ValueError, msg=msg) as cm:
-                        self.assertEqual(None, solver("test_var", None, constraints))
-                    self.assertEqual(msg, str(cm.exception))
+        for i, (constraints, msg) in enumerate(constraints_keyword_exceptions):
+            with self.subTest(constraints, i=i):
+                with self.assertRaises(ValueError, msg=msg) as cm:
+                    self.assertEqual(None, solver("test_var", None, constraints))
+                self.assertEqual(msg, str(cm.exception))
 
 
 class TestBranches(unittest.TestCase):

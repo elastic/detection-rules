@@ -15,7 +15,6 @@ from .ecs import get_schema, get_max_version
 from .rule import AnyRuleData
 from .utils import deep_merge
 from .constraints import Constraints
-import detection_rules.fuzzylib as fuzzylib
 
 __all__ = (
     "emit_docs",
@@ -37,9 +36,6 @@ class emitter:
     schema = deep_merge(custom_schema, ecs_schema)
 
     emitters = {}
-    completeness_level = 0
-    fuzziness = fuzzylib.fuzziness
-    fuzzy_iter = fuzzylib.fuzzy_iter
     mappings_fields = set()
 
     def __init__(self, node_type):
@@ -76,28 +72,6 @@ class emitter:
     @classmethod
     def get_ast_stats(cls):
         return {k.__name__: (v.successful, v.total) for k,v in cls.emitters.items()}
-
-    @classmethod
-    def completeness(cls, level=None):
-        if level is None:
-            return cls.completeness_level
-        @contextlib.contextmanager
-        def _completeness(level):
-            orig_level, cls.completeness_level = cls.completeness_level, level
-            try:
-                yield
-            finally:
-                cls.completeness_level = orig_level
-        return _completeness(level)
-
-    @classmethod
-    def complete_iter(cls, iterable):
-        max = 1 + round((len(iterable) - 1) * min(1, cls.completeness_level))
-        return iterable[:max]
-
-    @classmethod
-    def iter(cls, iterable):
-        return cls.complete_iter(cls.fuzzy_iter(iterable))
 
     @classmethod
     def emit_mappings(cls):

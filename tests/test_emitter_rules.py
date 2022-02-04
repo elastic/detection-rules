@@ -152,7 +152,6 @@ class TestSignalsRules(SignalsTestCase, OnlineTestCase, SeededTestCase, unittest
         collection = _get_collection("TEST_SIGNALS_RULES")
         with eql.parser.elasticsearch_syntax:
             rules, asts = self.parse_from_collection(collection)
-        with emitter.fuzziness(0), emitter.completeness(0):
-            pending = self.load_rules_and_docs(rules, asts)
+        pending = self.load_rules_and_docs(rules, asts)
         self.check_signals(rules, pending)
         assertReportUnchanged(self, self.nb, "alerts_from_rules.md")

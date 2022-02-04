@@ -280,8 +280,7 @@ def emit_events(ctx, paths, verbose):
     errors = []
     for rule in rules:
         try:
-            with emitter.completeness(1):
-                docs.extend(emit_docs(rule.contents.data))
+            docs.extend(emit_docs(rule.contents.data))
         except Exception as e:
             errors.append((str(e), rule.path.relative_to(get_path(".")), sys.exc_info()[2]))
 

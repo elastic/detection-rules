@@ -102,10 +102,7 @@ class QueryTestCase:
         return jupyter.Code(source, output, **kwargs)
 
     def subTest(self, query, **kwargs):
-        fuzziness = emitter.fuzziness()
-        completeness = emitter.completeness()
-        seed = f"{query} {completeness} {fuzziness}"
-        return super(QueryTestCase, self).subTest(query, **kwargs, completeness=completeness, fuzziness=fuzziness, seed=seed)
+        return super(QueryTestCase, self).subTest(query, **kwargs, seed=query)
 
     def assertQuery(self, query, docs):
         self.assertEqual(docs, emitter.emit_docs(eql.parse_query(query)))
