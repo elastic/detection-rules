@@ -1,0 +1,64 @@
+[metadata]
+creation_date = "2022/01/12"
+maturity = "production"
+updated_date = "2022/01/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Microsoft Office Products offers options for users and developers to control the security settings for running and using
+Macros. Adversaries may abuse these security settings to modify the default behavior of the Office Application to trust
+future macros and/or disable security warnings, which could increase their chances of establishing persistence.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "MS Office Macro Security Registry Modifications"
+risk_score = 47
+rule_id = "feeed87c-5e95-4339-aef1-47fd79bcfbe3"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where event.type == "change" and
+    registry.path : (
+        "HKU\\S-1-5-21-*\\SOFTWARE\\Microsoft\\Office\\*\\Security\\AccessVBOM",
+        "HKU\\S-1-5-21-*\\SOFTWARE\\Microsoft\\Office\\*\\Security\\VbaWarnings"
+        ) and 
+    registry.data.strings == "0x00000001" and
+    process.name : ("cscript.exe", "wscript.exe", "mshta.exe", "mshta.exe", "winword.exe", "excel.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+
+  [[rule.threat.technique.subtechnique]]
+  id = "T1204.002"
+  name = "Malicious File"
+  reference = "https://attack.mitre.org/techniques/T1204/002/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
