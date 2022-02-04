@@ -7,7 +7,7 @@
 
 import unittest
 
-from detection_rules import utils
+from tests.utils import *
 from detection_rules.ecs import get_schema
 from detection_rules.fuzzylib import fuzziness
 from detection_rules.constraints import Constraints, Branch, LongLimits
@@ -539,7 +539,7 @@ branch_products = [
 ]
 
 
-class TestConstraints(utils.SeededTestCase, unittest.TestCase):
+class TestConstraints(SeededTestCase, unittest.TestCase):
 
     def subTest(self, *args, **kwargs):
         kwargs["seed"] = str(fuzziness())

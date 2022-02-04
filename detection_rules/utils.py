@@ -18,7 +18,6 @@ import shutil
 import subprocess
 import time
 import zipfile
-import random
 from dataclasses import is_dataclass, astuple
 from datetime import datetime, date
 from pathlib import Path
@@ -399,38 +398,3 @@ def deep_merge(a, b, path=None):
         else:
             a[key] = b[key]
     return a
-
-
-class SeededTestCase:
-    """Make repeatable random choices in unit tests."""
-
-    @classmethod
-    def seedClass(cls, key):
-        return key
-
-    def seedTest(self, key):
-        return key
-
-    @classmethod
-    def setUpClass(cls):
-        cls.__saved_state = random.getstate()
-        random.seed(cls.seedClass("setUpClass"))
-        super(SeededTestCase, cls).setUpClass()
-
-    @classmethod
-    def tearDownClass(cls):
-        random.seed(cls.seedClass("tearDownClass"))
-        super(SeededTestCase, cls).tearDownClass()
-        random.setstate(cls.__saved_state)
-
-    def setUp(self):
-        random.seed(self.seedTest("setUp"))
-        super(SeededTestCase, self).setUp()
-
-    def tearDown(self):
-        random.seed(self.seedTest("tearDown"))
-        super(SeededTestCase, self).tearDown()
-
-    def subTest(self, *args, **kwargs):
-        random.seed(kwargs.pop("seed", "subTest"))
-        return super(SeededTestCase, self).subTest(*args, **kwargs)
