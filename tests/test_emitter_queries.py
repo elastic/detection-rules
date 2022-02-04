@@ -41,7 +41,7 @@ eql_event_docs_mappings = {
     },
 }
 
-eql_event_docs_complete = {
+eql_mono_branch_mono_doc = {
     """any where true
     """: [
         [{}],
@@ -67,47 +67,9 @@ eql_event_docs_complete = {
         [{"event": {"category": ["network"]}, "source": {"port": 859}}],
     ],
 
-    """network where not (source.port > 512 and source.port < 1024)
-    """: [
-        [{"event": {"category": ["network"]}, "source": {"port": 236}}],
-        [{"event": {"category": ["network"]}, "source": {"port": 19581}}],
-    ],
-
-    """network where source.port > 512 or source.port < 1024
-    """: [
-        [{"event": {"category": ["network"]}, "source": {"port": 44068}}],
-        [{"event": {"category": ["network"]}, "source": {"port": 609}}],
-    ],
-
     """network where not (source.port < 512 or source.port > 1024)
     """: [
         [{"event": {"category": ["network"]}, "source": {"port": 815}}],
-    ],
-
-    """network where source.port < 2000 and (source.port > 512 or source.port > 1024)
-    """: [
-        [{"event": {"category": ["network"]}, "source": {"port": 630}}],
-        [{"event": {"category": ["network"]}, "source": {"port": 1957}}],
-    ],
-
-    """network where (source.port > 512 or source.port > 1024) and source.port < 2000
-    """: [
-        [{"event": {"category": ["network"]}, "source": {"port": 1105}}],
-        [{"event": {"category": ["network"]}, "source": {"port": 1448}}],
-    ],
-
-    """network where (source.port > 1024 or source.port < 2000) and (source.port < 4000 or source.port > 512)
-    """: [
-        [{"event": {"category": ["network"]}, "source": {"port": 2567}}],
-        [{"event": {"category": ["network"]}, "source": {"port": 19206}}],
-        [{"event": {"category": ["network"]}, "source": {"port": 1901}}],
-        [{"event": {"category": ["network"]}, "source": {"port": 1670}}],
-    ],
-
-    """network where destination.port in (80, 443)
-    """: [
-        [{"event": {"category": ["network"]}, "destination": {"port": 80}}],
-        [{"event": {"category": ["network"]}, "destination": {"port": 443}}],
     ],
 
     """network where destination.port not in (80, 443)
@@ -190,42 +152,9 @@ eql_event_docs_complete = {
         [{"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe", "parent": {"name": "cmd.exe"}}}],
     ],
 
-    """process where process.name == "regsvr32.exe" or process.parent.name == "cmd.exe"
-    """: [
-        [{"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe"}}],
-        [{"event": {"category": ["process"]}, "process": {"parent": {"name": "cmd.exe"}}}],
-    ],
-
-    """process where process.name == "regsvr32.exe" or process.name == "cmd.exe" or process.name == "powershell.exe"
-    """: [
-        [{"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe"}}],
-        [{"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}}],
-        [{"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}}],
-    ],
-
-    """process where process.name in ("regsvr32.exe", "cmd.exe", "powershell.exe")
-    """: [
-        [{"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe"}}],
-        [{"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}}],
-        [{"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}}],
-    ],
-
-    """process where process.name in ("regsvr32.exe", "cmd.exe") or process.name == "powershell.exe"
-    """: [
-        [{"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe"}}],
-        [{"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}}],
-        [{"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}}],
-    ],
-
     """process where process.name : ("*.EXE", "*.DLL")
     """: [
         [{"event": {"category": ["process"]}, "process": {"name": "hhkrsftx.dll"}}],
-    ],
-
-    """process where event.type in ("start", "process_started") and process.args : "dump-keychain" and process.args : "-d"
-    """: [
-        [{"event": {"category": ["process"], "type": ["start"]}, "process": {"args": ["dump-keychain", "-d"]}}],
-        [{"event": {"category": ["process"], "type": ["process_started"]}, "process": {"args": ["dump-keychain", "-d"]}}],
     ],
 
     """network where destination.ip == "127.0.0.1"
@@ -254,7 +183,80 @@ eql_event_docs_complete = {
     ],
 }
 
-eql_sequence_docs_complete = {
+eql_multi_branch_mono_doc = {
+    """network where not (source.port > 512 and source.port < 1024)
+    """: [
+        [{"event": {"category": ["network"]}, "source": {"port": 236}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 19581}}],
+    ],
+
+    """network where source.port > 512 or source.port < 1024
+    """: [
+        [{"event": {"category": ["network"]}, "source": {"port": 44068}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 609}}],
+    ],
+
+    """network where source.port < 2000 and (source.port > 512 or source.port > 1024)
+    """: [
+        [{"event": {"category": ["network"]}, "source": {"port": 630}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 1957}}],
+    ],
+
+    """network where (source.port > 512 or source.port > 1024) and source.port < 2000
+    """: [
+        [{"event": {"category": ["network"]}, "source": {"port": 1105}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 1448}}],
+    ],
+
+    """network where (source.port > 1024 or source.port < 2000) and (source.port < 4000 or source.port > 512)
+    """: [
+        [{"event": {"category": ["network"]}, "source": {"port": 2567}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 19206}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 1901}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 1670}}],
+    ],
+
+    """network where destination.port in (80, 443)
+    """: [
+        [{"event": {"category": ["network"]}, "destination": {"port": 80}}],
+        [{"event": {"category": ["network"]}, "destination": {"port": 443}}],
+    ],
+
+    """process where process.name == "regsvr32.exe" or process.parent.name == "cmd.exe"
+    """: [
+        [{"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe"}}],
+        [{"event": {"category": ["process"]}, "process": {"parent": {"name": "cmd.exe"}}}],
+    ],
+
+    """process where process.name == "regsvr32.exe" or process.name == "cmd.exe" or process.name == "powershell.exe"
+    """: [
+        [{"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe"}}],
+        [{"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}}],
+        [{"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}}],
+    ],
+
+    """process where process.name in ("regsvr32.exe", "cmd.exe", "powershell.exe")
+    """: [
+        [{"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe"}}],
+        [{"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}}],
+        [{"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}}],
+    ],
+
+    """process where process.name in ("regsvr32.exe", "cmd.exe") or process.name == "powershell.exe"
+    """: [
+        [{"event": {"category": ["process"]}, "process": {"name": "regsvr32.exe"}}],
+        [{"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}}],
+        [{"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}}],
+    ],
+
+    """process where event.type in ("start", "process_started") and process.args : "dump-keychain" and process.args : "-d"
+    """: [
+        [{"event": {"category": ["process"], "type": ["start"]}, "process": {"args": ["dump-keychain", "-d"]}}],
+        [{"event": {"category": ["process"], "type": ["process_started"]}, "process": {"args": ["dump-keychain", "-d"]}}],
+    ],
+}
+
+eql_mono_branch_multi_doc = {
     """sequence
         [process where process.name : "cmd.exe"]
         [process where process.parent.name : "cmd.exe"]
@@ -278,7 +280,9 @@ eql_sequence_docs_complete = {
         {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "Eev"}},
         {"event": {"category": ["process"]}, "process": {"parent": {"name": "cmd.exe"}}, "user": {"name": "Eev"}},
     ]],
+}
 
+eql_multi_branch_multi_doc = {
     """sequence
         [process where process.name : "cmd.exe"]
         [process where process.parent.name : "cmd.exe" or process.name : "powershell.exe"]
@@ -470,8 +474,8 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
                     _ = emitter.emit_docs(eql.parse_query(query))
                     self.assertEqual(mappings, emitter.emit_mappings())
 
-    @nb.chapter("## Simple queries")
-    def test_eql_events_complete(self, cells):
+    @nb.chapter("## Mono-branch mono-document")
+    def test_eql_mono_branch_mono_doc(self, cells):
         cells.append(jupyter.Markdown(
         """
             What follow are all queries that may trigger a signal just with a single _minimal matching document_,
@@ -483,13 +487,29 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
             branches are correctly visited.
         """))
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
-            for i, (query, docs) in enumerate(eql_event_docs_complete.items()):
+            for i, (query, docs) in enumerate(eql_mono_branch_mono_doc.items()):
                 with self.subTest(query, i=i):
+                    self.assertEqual(len(docs), 1)
+                    self.assertEqual(len(docs[0]), 1)
                     self.assertQuery(query, docs)
                 cells.append(self.QueryCell(query, docs))
 
-    @nb.chapter("## Sequence queries")
-    def test_eql_sequence_complete(self, cells):
+    @nb.chapter("## Multi-branch mono-document")
+    def test_eql_multi_branch_mono_doc(self, cells):
+        cells.append(jupyter.Markdown(
+        """
+        """))
+        with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
+            for i, (query, docs) in enumerate(eql_multi_branch_mono_doc.items()):
+                with self.subTest(query, i=i):
+                    self.assertGreater(len(docs), 1)
+                    for branch in docs:
+                        self.assertEqual(len(branch), 1)
+                    self.assertQuery(query, docs)
+                cells.append(self.QueryCell(query, docs))
+
+    @nb.chapter("## Mono-branch multi-document")
+    def test_eql_mono_branch_multi_doc(self, cells):
         cells.append(jupyter.Markdown(
         """
             Following queries instead require multiple _minimal matching documents_, it's not only the content of
@@ -498,8 +518,24 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
             are required for the signal to be generated.
         """))
         with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
-            for i, (query, docs) in enumerate(eql_sequence_docs_complete.items()):
+            for i, (query, docs) in enumerate(eql_mono_branch_multi_doc.items()):
                 with self.subTest(query, i=i):
+                    self.assertEqual(len(docs), 1)
+                    self.assertGreater(len(docs[0]), 1)
+                    self.assertQuery(query, docs)
+                cells.append(self.QueryCell(query, docs))
+
+    @nb.chapter("## Multi-branch multi-document")
+    def test_eql_multi_branch_multi_doc(self, cells):
+        cells.append(jupyter.Markdown(
+        """
+        """))
+        with eql.parser.elasticsearch_syntax, emitter.fuzziness(0), emitter.completeness(1):
+            for i, (query, docs) in enumerate(eql_multi_branch_multi_doc.items()):
+                with self.subTest(query, i=i):
+                    self.assertGreater(len(docs), 1)
+                    for branch in docs:
+                        self.assertGreater(len(branch), 1)
                     self.assertQuery(query, docs)
                 cells.append(self.QueryCell(query, docs))
 
@@ -567,7 +603,8 @@ class TestSignalsQueries(SignalsTestCase, OnlineTestCase, SeededTestCase, unitte
         return rules, asts
 
     def test_queries(self):
-        queries = tuple(eql_event_docs_complete) + tuple(eql_sequence_docs_complete)
+        queries = tuple(eql_mono_branch_mono_doc) + tuple(eql_multi_branch_mono_doc) + \
+                  tuple(eql_mono_branch_multi_doc) + tuple(eql_multi_branch_multi_doc)
         with eql.parser.elasticsearch_syntax:
             rules, asts = self.parse_from_queries(queries)
         with emitter.fuzziness(0), emitter.completeness(0):
