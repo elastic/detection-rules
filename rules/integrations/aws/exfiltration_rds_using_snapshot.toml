@@ -5,11 +5,9 @@ updated_date = "2022/02/03"
 integration = "aws"
 
 [rule]
-author = ["Elastic", "Stijn Holzhauer"]
+author = ["Stijn Holzhauer"]
 description = """
-This detections monitors for the sharing of a snapshot with another AWS account.
-This could indicate the exfiltration of data using
-a provided mechanism without having to actually access the Database.
+This detections monitors for the sharing of a snapshot with another AWS account. This could indicate the exfiltration of data using a provided mechanism without having to actually access the Database.
 """
 false_positives = [
     """
@@ -37,14 +35,24 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.provider:rds.amazonaws.com and event.action:ModifyDBSnapshotAttribute and aws.cloudtrail.flattened.request_parameters.attributeName:"restore" and aws.cloudtrail.flattened.request_parameters.valuesToAdd:*
+event.provider:rds.amazonaws.com and event.action:ModifyDBSnapshotAttribute and
+  aws.cloudtrail.flattened.request_parameters.attributeName:"restore" and
+  aws.cloudtrail.flattened.request_parameters.valuesToAdd:*
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
+[[rule.threat.technique.subtechnique]]
+id = "T1578.001"
+name = "Create Snapshot"
+reference = "https://attack.mitre.org/techniques/T1578/001/"
 
 [rule.threat.tactic]
-name = "Exfiltration"
-id = "TA0010"
-reference = "https://attack.mitre.org/tactics/TA0010/"
+name = "Defense Evasion"
+id = "TA0005"
+reference = "https://attack.mitre.org/tactics/TA0005/"
