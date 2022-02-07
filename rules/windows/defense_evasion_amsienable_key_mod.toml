@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/06/01"
 maturity = "production"
-updated_date = "2021/06/01"
+updated_date = "2022/02/07"
 
 [rule]
 author = ["Elastic"]
@@ -28,8 +28,11 @@ type = "eql"
 
 query = '''
 registry where event.type in ("creation", "change") and
-  registry.path: "HKEY_USERS\\*\\Software\\Microsoft\\Windows Script\\Settings\\AmsiEnable" and
-  registry.data.strings: "0"
+  registry.path : (
+    "HKEY_USERS\\*\\Software\\Microsoft\\Windows Script\\Settings\\AmsiEnable",
+    "HKU\\*\\Software\\Microsoft\\Windows Script\\Settings\\AmsiEnable"
+  ) and
+  registry.data.strings: ("0", "0x00000000")
 '''
 
 
