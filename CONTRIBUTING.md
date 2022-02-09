@@ -8,6 +8,7 @@ These guidelines will also help you post meaningful issues that will be more eas
 
 ## Table of Contents
 
+- [Pre-Requisites](#pre-requisites)
 - [Effective issue creation in Detection Rules](#effective-issue-creation-in-detection-rules)
   - [Why we create issues before contributing code or new rules](#why-we-create-issues-before-contributing-code-or-new-rules)
   - [What a good issue looks like](#what-a-good-issue-looks-like)
@@ -29,6 +30,13 @@ These guidelines will also help you post meaningful issues that will be more eas
   - [What to expect from a code review](#what-to-expect-from-a-code-review)
   - [How we handle merges](#how-we-handle-merges)
 
+
+## Pre-Requisites
+
+Some contribution work, especially Python development, may require additional installed dependencies. To install developer dependencies, execute:
+```
+pip install .[dev]
+```
 
 ## Effective issue creation in Detection Rules
 

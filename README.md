@@ -37,18 +37,12 @@ Detection Rules contains more than just static rule files. This repository also 
 
 Although rules can be added by manually creating `.toml` files, we don't recommend it. This repository also consists of a python module that aids rule creation and unit testing. Assuming you have Python 3.8+, run the below command to install the dependencies:
 ```console
-$ pip install -r requirements.txt
-Collecting jsl==0.2.4
-  Downloading jsl-0.2.4.tar.gz (21 kB)
-Collecting jsonschema==3.2.0
-  Downloading jsonschema-3.2.0-py2.py3-none-any.whl (56 kB)
-     |████████████████████████████████| 56 kB 318 kB/s 
-Collecting requests==2.22.0
-  Downloading requests-2.22.0-py2.py3-none-any.whl (57 kB)
-     |████████████████████████████████| 57 kB 1.2 MB/s 
-Collecting Click==7.0
-  Downloading Click-7.0-py2.py3-none-any.whl (81 kB)
-     |████████████████████████████████| 81 kB 2.6 MB/s 
+$ pip install .
+Processing detection-rules
+  Installing build dependencies ... done
+  Getting requirements to build wheel ... done
+  Installing backend dependencies ... done
+    Preparing wheel metadata ... done
 ...
 ```
 
