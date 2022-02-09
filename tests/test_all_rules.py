@@ -602,7 +602,7 @@ class TestIntegrationRules(BaseRuleTest):
             'cyberarkpas': render('CyberArk Privileged Access Security (PAS)'),
             'gcp': render('GCP'),
             'google_workspace': render('Google Workspace'),
-            'o365': render('Microsoft 365'),
+            'o365': render('Office 365 Logs'),
             'okta': render('Okta'),
         }
 
