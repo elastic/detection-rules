@@ -104,7 +104,7 @@ class GithubClient:
     def __init__(self, token: Optional[str] = None):
         """Get an unauthenticated client, verified authenticated client, or a default client."""
         if not Github:
-            raise ModuleNotFoundError('Missing PyGithub - try running `pip install -r requirements-dev.txt`')
+            raise ModuleNotFoundError('Missing PyGithub - try running `pip install .[dev]`')
 
         self.client: Github = Github(token)
         self.unauthenticated_client = Github()
