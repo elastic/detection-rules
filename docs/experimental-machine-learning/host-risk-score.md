@@ -31,7 +31,7 @@ The Host Risk Score functionality is space aware for privacy. Downloaded artifac
 
  - Find a new folder named after your space in the unzipped directory. **You will be using the scripts within this directory for the next steps.**
 
- **Note:** Host Risk Score artifacts should be updated if/when you update to a newer Elastic Stack version. To do this, simply download a release bundle that is compatible with your new Stack version and repeat all the steps. Backwards compatibility of release bundles cannot be guranteed.**
+ **Note:** Host Risk Score artifacts should be updated if/when you update to a newer Elastic Stack version. To do this, simply download a release bundle that is compatible with your new Stack version and repeat all the steps. Backwards compatibility of release bundles cannot be guaranteed.**
 
 
 <h3 id="upload-scripts">2. Upload scripts</h3>
