@@ -59,7 +59,7 @@ PUT _scripts/ml_hostriskscore_reduce_script_&lt;your-space-name&gt;
 {contents of ml_hostriskscore_reduce_script.json file}
 </code></pre></div>
 
-<i>8.1+ only</i>
+<i>For Elastic Stack version 8.1+ only</i>
 <div style="margin-left: 40px">
    <pre><code>
 PUT _scripts/ml_hostriskscore_init_script_&lt;your-space-name&gt;
@@ -196,7 +196,7 @@ _Host Risk Score card on the Overview page_
 _Host Risk Keyword on Alert Details Flyout_
 ![Host Risk Keyword](./images/0b_alert_summary.png)
 
-The following features will be available in Stack versions 8.1+ only:
+For Elastic Stack version 8.1+ only:
 
 _Host risk classification column in the All hosts table on the Hosts page_
 ![Hosts page risk classification column](./images/0c_host_page_risk_column.png)
