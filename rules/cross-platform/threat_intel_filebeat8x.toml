@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/11/24"
 maturity = "production"
-updated_date = "2021/11/24"
+updated_date = "2022/02/10"
 min_stack_comments = "Threat index is ECS 1.11 compliant (8.0)."
 min_stack_version = "8.0"
 
@@ -21,8 +21,8 @@ note = """## Triage and Analysis
 ### Investigating Threat Intel Indicator Matches
 
 Threat Intel indicator match rules allow matching from a local observation such as an endpoint event that records a file
-hash with an entry of a file hash stored within the Threat Intel integrations. Other examples of matches can occur on
-an IP address, registry path, URL and imphash.
+hash with an entry of a file hash stored within the Threat Intel integrations. Matches can also occur on
+an IP address, registry path, URL, or imphash.
 
 The matches will be based on the incoming last 30 days feed data so it's important to validate the data and review the results by
 investigating the associated activity to determine if it requires further investigation.
@@ -48,15 +48,15 @@ may have hosted malware observed in a Dridex campaign month ago, but it's possib
 no longer represents any threat.
 - Adversaries often use legitimate tools as network administrators such as `PsExec` or `AdFind`, these tools often find their
 way into indicator lists creating the potential for false positives.
-- It's possible after large and publicly written campaigns, curious employees might end up going directly to attacker infrastructure and generating these rules
+- It's possible after large and publicly written campaigns, curious employees might end up going directly to attacker infrastructure and triggering these rules.
 
 ### Response and Remediation
-- If suspicious or malicious behavior is observed, immediate response should be taken to isolate activity to prevent further
+- If suspicious or malicious behavior is observed, take immediate action to isolate activity to prevent further
 post-compromise behavior.
 - One example of a response if a machine matched a command and control IP address would be to add an entry to a network
 device such as a firewall or proxy appliance to prevent any outbound activity from leaving that machine.
 - Another example of a response with a malicious file hash match would involve validating if the file was properly quarantined,
-review current running processes looking for any abnormal activity, and investigating for any other follow-up actions such as persistence or lateral movement
+reviewing current running processes for any abnormal activity, and investigating for any other follow-up actions such as persistence or lateral movement.
 """
 references = [ "https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-threatintel.html"]
 risk_score = 99
@@ -72,7 +72,7 @@ threat_indicator_path = "threat.indicator"
 threat_language = "kuery"
 
 threat_query = '''
-@timestamp >= "now-30d" and event.dataset:ti_* and
+@timestamp >= "now-30d/d" and event.module:threatintel and
   (threat.indicator.file.hash.*:* or threat.indicator.file.pe.imphash:* or threat.indicator.ip:* or
      threat.indicator.registry.path:* or threat.indicator.url.full:*)
 '''
@@ -89,11 +89,11 @@ store = "appState"
 negate = false
 disabled = false
 type = "phrase"
-key = "event.dataset"
+key = "event.module"
 [rule.threat_filters.meta.params]
-query = "ti_*"
+query = "threatintel"
 [rule.threat_filters.query.match_phrase]
-"event.dataset" = "ti_*"
+"event.module" = "threatintel"
 
 [[rule.threat_filters]]
 [rule.threat_filters."$state"]
