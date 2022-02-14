@@ -3,7 +3,6 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 """Rule object."""
-from collections import OrderedDict
 import copy
 import dataclasses
 import json
@@ -540,26 +539,9 @@ class TOMLRule:
         """Generate the relevant fleet compatible asset."""
         return {"id": self.id, "attributes": self.contents.to_api_format(), "type": definitions.SAVED_OBJECT_TYPE}
 
-
-    def order_rule(self, threat_obj):
-        if isinstance(threat_obj, dict):
-            threat_obj = OrderedDict(sorted(threat_obj.items()))
-            for k, v in threat_obj.items():
-                if isinstance(v, dict) or isinstance(v, list):
-                    threat_obj[k] = self.order_rule(v)
-
-        if isinstance(threat_obj, list):
-            for i, v in enumerate(threat_obj):
-                if isinstance(v, dict) or isinstance(v, list):
-                    threat_obj[i] = self.order_rule(v)
-            threat_obj = sorted(threat_obj, key=lambda x: json.dumps(x))
-
-        return threat_obj
-
     def save_toml(self):
         assert self.path is not None, f"Can't save rule {self.name} (self.id) without a path"
         converted = self.contents.to_dict()
-        self.order_rule(converted)
         toml_write(converted, str(self.path.absolute()))
 
     def save_json(self, path: Path, include_version: bool = True):
