@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/03/18"
 maturity = "production"
-updated_date = "2021/09/23"
+updated_date = "2022/02/10"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +23,8 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and 
-  user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
+  (process.Ext.token.integrity_level_name : "System" or
+  winlog.event_data.IntegrityLevel : "System") and
   process.name : "whoami.exe" or
   (process.name : "net1.exe" and not process.parent.name : "net.exe")
 '''
