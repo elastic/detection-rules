@@ -13,10 +13,9 @@ import random
 import hashlib
 import textwrap
 import itertools
-import eql
 
 from detection_rules import utils, jupyter
-from detection_rules.events_emitter import emitter
+from detection_rules.events_emitter import emitter, guess_from_query
 
 __all__ = (
     "SeededTestCase",
@@ -105,7 +104,7 @@ class QueryTestCase:
         return super(QueryTestCase, self).subTest(query, **kwargs, seed=query)
 
     def assertQuery(self, query, docs):
-        self.assertEqual(docs, emitter.emit_docs(eql.parse_query(query)))
+        self.assertEqual(docs, emitter.emit_docs(guess_from_query(query).ast))
 
 
 class OnlineTestCase:

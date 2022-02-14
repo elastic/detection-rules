@@ -6,15 +6,14 @@
 """Test emitter with querie."""
 
 import os
-import eql
 import unittest
 
 from tests.utils import *
-from detection_rules.events_emitter import emitter
+from detection_rules.events_emitter import emitter, guess_from_query
 from detection_rules import jupyter
 
 
-eql_event_docs_mappings = {
+event_docs_mappings = {
     """process where process.name == "regsvr32.exe"
     """: {
         "properties": {
@@ -41,7 +40,7 @@ eql_event_docs_mappings = {
     },
 }
 
-eql_mono_branch_mono_doc = {
+mono_branch_mono_doc = {
     """any where true
     """: [
         [{}],
@@ -181,9 +180,14 @@ eql_mono_branch_mono_doc = {
     """: [
         [{"event": {"category": ["network"]}, "destination": {"ip": "822e:f740:dcc5:503a:946f:261:2c07:f7a5"}}],
     ],
+
+    """event.category:network and destination.ip:"822e::/16"
+    """: [
+        [{"event": {"category": ["network"]}, "destination": {"ip": "822e:f477:4aa3:d9c5:7494:c408:2f13:daeb"}}],
+    ],
 }
 
-eql_multi_branch_mono_doc = {
+multi_branch_mono_doc = {
     """network where not (source.port > 512 and source.port < 1024)
     """: [
         [{"event": {"category": ["network"]}, "source": {"port": 182}}],
@@ -254,9 +258,15 @@ eql_multi_branch_mono_doc = {
         [{"event": {"category": ["process"], "type": ["start"]}, "process": {"args": ["dump-keychain", "-d"]}}],
         [{"event": {"category": ["process"], "type": ["process_started"]}, "process": {"args": ["dump-keychain", "-d"]}}],
     ],
+
+    """event.type:(start or process_started) and (process.args:"dump-keychain" and process.args:"-d")
+    """: [
+        [{"event": {"type": ["start"]}, "process": {"args": ["dump-keychain", "-d"]}}],
+        [{"event": {"type": ["process_started"]}, "process": {"args": ["dump-keychain", "-d"]}}],
+    ],
 }
 
-eql_mono_branch_multi_doc = {
+mono_branch_multi_doc = {
     """sequence
         [process where process.name : "cmd.exe"]
         [process where process.parent.name : "cmd.exe"]
@@ -282,7 +292,7 @@ eql_mono_branch_multi_doc = {
     ]],
 }
 
-eql_multi_branch_multi_doc = {
+multi_branch_multi_doc = {
     """sequence
         [process where process.name : "cmd.exe"]
         [process where process.parent.name : "cmd.exe" or process.name : "powershell.exe"]
@@ -340,7 +350,7 @@ eql_multi_branch_multi_doc = {
     ]],
 }
 
-eql_exceptions = {
+exceptions = {
     """any where false
     """:
         "Cannot trigger with any document",
@@ -416,7 +426,6 @@ eql_exceptions = {
         "Unsolvable constraints: process.name (cannot be non-null)",
 }
 
-
 class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
     maxDiff = None
     nb = jupyter.Notebook()
@@ -442,15 +451,13 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
             """),
             jupyter.Code("""
                 import os; os.chdir('../..')  # use the repo's root as base for local modules import
-                import eql
-                from detection_rules.events_emitter import emitter
+                from detection_rules.events_emitter import emitter, guess_from_query
 
                 def emit(query):
-                    with eql.parser.elasticsearch_syntax:
-                        try:
-                            return emitter.emit_docs(eql.parse_query(query))
-                        except Exception as e:
-                            print(e)
+                    try:
+                        return emitter.emit_docs(guess_from_query(query).ast)
+                    except Exception as e:
+                        print(e)
             """),
             jupyter.Markdown("""
                 ## How to read the test results
@@ -467,15 +474,14 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
         ]
 
     def test_mappings(self):
-        with eql.parser.elasticsearch_syntax:
-            for query, mappings in eql_event_docs_mappings.items():
-                with self.subTest(query):
-                    emitter.reset_mappings()
-                    _ = emitter.emit_docs(eql.parse_query(query))
-                    self.assertEqual(mappings, emitter.emit_mappings())
+        for query, mappings in event_docs_mappings.items():
+            with self.subTest(query):
+                emitter.reset_mappings()
+                _ = emitter.emit_docs(guess_from_query(query).ast)
+                self.assertEqual(mappings, emitter.emit_mappings())
 
     @nb.chapter("## Mono-branch mono-document")
-    def test_eql_mono_branch_mono_doc(self, cells):
+    def test_mono_branch_mono_doc(self, cells):
         cells.append(jupyter.Markdown(
         """
             What follow are all queries that may trigger a signal just with a single _minimal matching document_,
@@ -486,30 +492,28 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
             documents is enough to trigger the signal but all were generated to prove that all the disjunction
             branches are correctly visited.
         """))
-        with eql.parser.elasticsearch_syntax:
-            for i, (query, docs) in enumerate(eql_mono_branch_mono_doc.items()):
-                with self.subTest(query, i=i):
-                    self.assertEqual(len(docs), 1)
-                    self.assertEqual(len(docs[0]), 1)
-                    self.assertQuery(query, docs)
-                cells.append(self.QueryCell(query, docs))
+        for i, (query, docs) in enumerate(mono_branch_mono_doc.items()):
+            with self.subTest(query, i=i):
+                self.assertEqual(len(docs), 1)
+                self.assertEqual(len(docs[0]), 1)
+                self.assertQuery(query, docs)
+            cells.append(self.QueryCell(query, docs))
 
     @nb.chapter("## Multi-branch mono-document")
-    def test_eql_multi_branch_mono_doc(self, cells):
+    def test_multi_branch_mono_doc(self, cells):
         cells.append(jupyter.Markdown(
         """
         """))
-        with eql.parser.elasticsearch_syntax:
-            for i, (query, docs) in enumerate(eql_multi_branch_mono_doc.items()):
-                with self.subTest(query, i=i):
-                    self.assertGreater(len(docs), 1)
-                    for branch in docs:
-                        self.assertEqual(len(branch), 1)
-                    self.assertQuery(query, docs)
-                cells.append(self.QueryCell(query, docs))
+        for i, (query, docs) in enumerate(multi_branch_mono_doc.items()):
+            with self.subTest(query, i=i):
+                self.assertGreater(len(docs), 1)
+                for branch in docs:
+                    self.assertEqual(len(branch), 1)
+                self.assertQuery(query, docs)
+            cells.append(self.QueryCell(query, docs))
 
     @nb.chapter("## Mono-branch multi-document")
-    def test_eql_mono_branch_multi_doc(self, cells):
+    def test_mono_branch_multi_doc(self, cells):
         cells.append(jupyter.Markdown(
         """
             Following queries instead require multiple _minimal matching documents_, it's not only the content of
@@ -517,30 +521,28 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
             of documents, with the appropriate relations, is generated each time and all the documents in the sequence
             are required for the signal to be generated.
         """))
-        with eql.parser.elasticsearch_syntax:
-            for i, (query, docs) in enumerate(eql_mono_branch_multi_doc.items()):
-                with self.subTest(query, i=i):
-                    self.assertEqual(len(docs), 1)
-                    self.assertGreater(len(docs[0]), 1)
-                    self.assertQuery(query, docs)
-                cells.append(self.QueryCell(query, docs))
+        for i, (query, docs) in enumerate(mono_branch_multi_doc.items()):
+            with self.subTest(query, i=i):
+                self.assertEqual(len(docs), 1)
+                self.assertGreater(len(docs[0]), 1)
+                self.assertQuery(query, docs)
+            cells.append(self.QueryCell(query, docs))
 
     @nb.chapter("## Multi-branch multi-document")
-    def test_eql_multi_branch_multi_doc(self, cells):
+    def test_multi_branch_multi_doc(self, cells):
         cells.append(jupyter.Markdown(
         """
         """))
-        with eql.parser.elasticsearch_syntax:
-            for i, (query, docs) in enumerate(eql_multi_branch_multi_doc.items()):
-                with self.subTest(query, i=i):
-                    self.assertGreater(len(docs), 1)
-                    for branch in docs:
-                        self.assertGreater(len(branch), 1)
-                    self.assertQuery(query, docs)
-                cells.append(self.QueryCell(query, docs))
+        for i, (query, docs) in enumerate(multi_branch_multi_doc.items()):
+            with self.subTest(query, i=i):
+                self.assertGreater(len(docs), 1)
+                for branch in docs:
+                    self.assertGreater(len(branch), 1)
+                self.assertQuery(query, docs)
+            cells.append(self.QueryCell(query, docs))
 
     @nb.chapter("## Error conditions")
-    def test_eql_exceptions(self, cells):
+    def test_exceptions(self, cells):
         cells.append(jupyter.Markdown(
         """
             Not all the queries make sense, no documents can be generated for those that cannot logically be ever
@@ -549,13 +551,12 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
             Here you can challenge the generation engine first hand and check that all the due errors are reported
             and make sense to you.
         """))
-        with eql.parser.elasticsearch_syntax:
-            for i, (query, msg) in enumerate(eql_exceptions.items()):
-                with self.subTest(query, i=i):
-                    with self.assertRaises(ValueError, msg=msg) as cm:
-                        self.assertQuery(query, None)
-                    self.assertEqual(msg, str(cm.exception))
-                    cells.append(self.QueryCell(query, str(cm.exception), output_type="stream"))
+        for i, (query, msg) in enumerate(exceptions.items()):
+            with self.subTest(query, i=i):
+                with self.assertRaises(ValueError, msg=msg) as cm:
+                    self.assertQuery(query, None)
+                self.assertEqual(msg, str(cm.exception))
+                cells.append(self.QueryCell(query, str(cm.exception), output_type="stream"))
 
     @nb.chapter("## Any oddities?")
     def test_unchanged(self, cells):
@@ -583,6 +584,7 @@ class TestSignalsQueries(SignalsTestCase, OnlineTestCase, SeededTestCase, unitte
         rules = []
         asts = []
         for i,query in enumerate(queries):
+            guess = guess_from_query(query)
             index_name = "{:s}-{:03d}".format(self.index_template, i)
             rules.append({
                 "rule_id": "test_{:03d}".format(i),
@@ -593,20 +595,19 @@ class TestSignalsQueries(SignalsTestCase, OnlineTestCase, SeededTestCase, unitte
                 "interval": "3s",
                 "from": "now-5m",
                 "severity": "low",
-                "type": "eql",
+                "type": guess.type,
                 "query": query,
-                "language": "eql",
+                "language": guess.language,
                 "enabled": True,
                 ".test_private": {},  # private test data, not sent to Kibana
             })
-            asts.append(eql.parse_query(query))
+            asts.append(guess.ast)
         return rules, asts
 
     def test_queries(self):
-        queries = tuple(eql_mono_branch_mono_doc) + tuple(eql_multi_branch_mono_doc) + \
-                  tuple(eql_mono_branch_multi_doc) + tuple(eql_multi_branch_multi_doc)
-        with eql.parser.elasticsearch_syntax:
-            rules, asts = self.parse_from_queries(queries)
+        queries = tuple(mono_branch_mono_doc) + tuple(multi_branch_mono_doc) + \
+                  tuple(mono_branch_multi_doc) + tuple(multi_branch_multi_doc)
+        rules, asts = self.parse_from_queries(queries)
         pending = self.load_rules_and_docs(rules, asts)
         self.check_signals(rules, pending)
         assertReportUnchanged(self, self.nb, "alerts_from_queries.md")

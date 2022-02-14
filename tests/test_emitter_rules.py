@@ -6,13 +6,12 @@
 """Test emitter with rules."""
 
 import os
-import eql
 import unittest
 from pathlib import Path
 
 from tests.utils import *
 from detection_rules.rule_loader import RuleCollection
-from detection_rules.events_emitter import emitter
+from detection_rules.events_emitter import emitter, ast_from_rule
 from detection_rules import utils, jupyter
 
 
@@ -52,7 +51,7 @@ class TestRules(QueryTestCase, SeededTestCase, unittest.TestCase):
         errors = {}
         for rule in collection:
             try:
-                asts.append(emitter.ast_from_rule(rule.contents.data))
+                asts.append(ast_from_rule(rule.contents.data))
                 rules.append(rule)
             except Exception as e:
                 errors.setdefault(str(e), []).append(rule)
@@ -93,8 +92,7 @@ class TestRules(QueryTestCase, SeededTestCase, unittest.TestCase):
 
     def test_rules_collection(self):
         collection = RuleCollection.default()
-        with eql.parser.elasticsearch_syntax:
-            rules, asts = self.parse_from_collection(collection)
+        rules, asts = self.parse_from_collection(collection)
         self.generate_docs(rules, asts)
 
     def test_unchanged(self):
@@ -127,7 +125,7 @@ class TestSignalsRules(SignalsTestCase, OnlineTestCase, SeededTestCase, unittest
         for i,rule in enumerate(collection):
             rule = rule.contents.data
             try:
-                asts.append(emitter.ast_from_rule(rule))
+                asts.append(ast_from_rule(rule))
             except:
                 continue
             index_name = "{:s}-{:03d}".format(self.index_template, i)
@@ -150,8 +148,7 @@ class TestSignalsRules(SignalsTestCase, OnlineTestCase, SeededTestCase, unittest
 
     def test_rules(self):
         collection = _get_collection("TEST_SIGNALS_RULES")
-        with eql.parser.elasticsearch_syntax:
-            rules, asts = self.parse_from_collection(collection)
+        rules, asts = self.parse_from_collection(collection)
         pending = self.load_rules_and_docs(rules, asts)
         self.check_signals(rules, pending)
         assertReportUnchanged(self, self.nb, "alerts_from_rules.md")
