@@ -53,7 +53,7 @@ def expand_wildcards(value, allowed_chars):
         if c == '?':
             chars.append(random.choice(allowed_chars))
         elif c == "*":
-            chars.extend(random.choices(allowed_chars, k=random.randrange(16)))
+            chars.extend(random.choices(allowed_chars, k=random.randrange(1, 16)))
         else:
             chars.append(c)
     return "".join(chars)

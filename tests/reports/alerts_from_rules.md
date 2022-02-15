@@ -91,7 +91,7 @@ event.category:file and not event.type:deletion and
 ```
 
 ```python
-[{'event': {'category': ['file'], 'type': ['ZFy']}, 'file': {'path': '/library/security/securityagentplugins/yyfjsviloooh'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'category': ['file'], 'type': ['ZFy']}, 'file': {'path': '/library/security/securityagentplugins/uyyfjsvilooohmx'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -122,8 +122,8 @@ event.outcome:(Success or success)
 ```
 
 ```python
-[{'event': {'dataset': 'azure.activitylogs', 'outcome': 'Success'}, 'azure': {'activitylogs': {'operation_name': 'microsoft.network/vcfuyyfjsvilooo/vpnconnections/startpacketcapture/action'}}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
- {'event': {'dataset': 'azure.activitylogs', 'outcome': 'success'}, 'azure': {'activitylogs': {'operation_name': 'microsoft.network/mxbnleoaaga/vpnconnections/startpacketcapture/action'}}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'dataset': 'azure.activitylogs', 'outcome': 'Success'}, 'azure': {'activitylogs': {'operation_name': 'microsoft.network/yxiutknioixtfl/vpnconnections/startpacketcapture/action'}}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
+ {'event': {'dataset': 'azure.activitylogs', 'outcome': 'success'}, 'azure': {'activitylogs': {'operation_name': 'microsoft.network/zswueexpwqnvr/vpnconnections/startpacketcapture/action'}}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -154,8 +154,8 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin
 ```
 
 ```python
-[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.iam.admin.vxiutknioixtfl.createrole', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
- {'event': {'dataset': 'gcp.audit', 'action': 'google.iam.admin.vmxbnleoaaga.createrole', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.iam.admin.vxiutkni.createrole', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
+ {'event': {'dataset': 'gcp.audit', 'action': 'google.iam.admin.vixtflezswueexp.createrole', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -167,8 +167,8 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin
 ```
 
 ```python
-[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.iam.admin.vxiutknioixtfl.deleterole', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
- {'event': {'dataset': 'gcp.audit', 'action': 'google.iam.admin.vmxbnleoaaga.deleterole', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.iam.admin.vxiutkni.deleterole', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
+ {'event': {'dataset': 'gcp.audit', 'action': 'google.iam.admin.vixtflezswueexp.deleterole', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -180,8 +180,8 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin
 ```
 
 ```python
-[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.iam.admin.vxiutknioixtfl.deleteserviceaccountkey', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
- {'event': {'dataset': 'gcp.audit', 'action': 'google.iam.admin.vmxbnleoaaga.deleteserviceaccountkey', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.iam.admin.vxiutkni.deleteserviceaccountkey', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
+ {'event': {'dataset': 'gcp.audit', 'action': 'google.iam.admin.vixtflezswueexp.deleteserviceaccountkey', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -193,8 +193,8 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.logging.v
 ```
 
 ```python
-[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.logging.vxiutknioixtfl.configservicevhmxbnleoaagaifq.deletebucket', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
- {'event': {'dataset': 'gcp.audit', 'action': 'google.logging.vewvpymgznfmlop.configservicevolw.deletebucket', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.logging.vxiutkni.configservicevsvilo.deletebucket', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
+ {'event': {'dataset': 'gcp.audit', 'action': 'google.logging.vohmxbnleoa.configservicevn.deletebucket', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -206,8 +206,8 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.logging.v
 ```
 
 ```python
-[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.logging.vxiutknioixtfl.configservicevhmxbnleoaagaifq.deletesink', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
- {'event': {'dataset': 'gcp.audit', 'action': 'google.logging.vewvpymgznfmlop.configservicevolw.deletesink', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.logging.vxiutkni.configservicevsvilo.deletesink', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
+ {'event': {'dataset': 'gcp.audit', 'action': 'google.logging.vohmxbnleoa.configservicevn.deletesink', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -219,8 +219,8 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.logging.v
 ```
 
 ```python
-[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.logging.vxiutknioixtfl.configservicevhmxbnleoaagaifq.updatesink', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
- {'event': {'dataset': 'gcp.audit', 'action': 'google.logging.vewvpymgznfmlop.configservicevolw.updatesink', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.logging.vxiutkni.configservicevsvilo.updatesink', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
+ {'event': {'dataset': 'gcp.audit', 'action': 'google.logging.vohmxbnleoa.configservicevn.updatesink', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -232,8 +232,8 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.pubsub.v*
 ```
 
 ```python
-[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.pubsub.vxiutknioixtfl.subscriber.createsubscription', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
- {'event': {'dataset': 'gcp.audit', 'action': 'google.pubsub.vmxbnleoaaga.subscriber.createsubscription', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.pubsub.vxiutkni.subscriber.createsubscription', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
+ {'event': {'dataset': 'gcp.audit', 'action': 'google.pubsub.vixtflezswueexp.subscriber.createsubscription', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -245,8 +245,8 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.pubsub.v*
 ```
 
 ```python
-[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.pubsub.vxiutknioixtfl.subscriber.deletesubscription', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
- {'event': {'dataset': 'gcp.audit', 'action': 'google.pubsub.vmxbnleoaaga.subscriber.deletesubscription', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.pubsub.vxiutkni.subscriber.deletesubscription', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
+ {'event': {'dataset': 'gcp.audit', 'action': 'google.pubsub.vixtflezswueexp.subscriber.deletesubscription', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -258,8 +258,8 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.pubsub.v*
 ```
 
 ```python
-[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.pubsub.vxiutknioixtfl.publisher.createtopic', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
- {'event': {'dataset': 'gcp.audit', 'action': 'google.pubsub.vmxbnleoaaga.publisher.createtopic', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.pubsub.vxiutkni.publisher.createtopic', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
+ {'event': {'dataset': 'gcp.audit', 'action': 'google.pubsub.vixtflezswueexp.publisher.createtopic', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -271,8 +271,8 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.pubsub.v*
 ```
 
 ```python
-[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.pubsub.vxiutknioixtfl.publisher.deletetopic', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
- {'event': {'dataset': 'gcp.audit', 'action': 'google.pubsub.vmxbnleoaaga.publisher.deletetopic', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.pubsub.vxiutkni.publisher.deletetopic', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
+ {'event': {'dataset': 'gcp.audit', 'action': 'google.pubsub.vixtflezswueexp.publisher.deletetopic', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -284,8 +284,8 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin
 ```
 
 ```python
-[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.iam.admin.vxiutknioixtfl.createserviceaccount', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
- {'event': {'dataset': 'gcp.audit', 'action': 'google.iam.admin.vmxbnleoaaga.createserviceaccount', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.iam.admin.vxiutkni.createserviceaccount', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
+ {'event': {'dataset': 'gcp.audit', 'action': 'google.iam.admin.vixtflezswueexp.createserviceaccount', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -297,8 +297,8 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin
 ```
 
 ```python
-[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.iam.admin.vxiutknioixtfl.deleteserviceaccount', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
- {'event': {'dataset': 'gcp.audit', 'action': 'google.iam.admin.vmxbnleoaaga.deleteserviceaccount', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.iam.admin.vxiutkni.deleteserviceaccount', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
+ {'event': {'dataset': 'gcp.audit', 'action': 'google.iam.admin.vixtflezswueexp.deleteserviceaccount', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -310,8 +310,8 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin
 ```
 
 ```python
-[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.iam.admin.vxiutknioixtfl.disableserviceaccount', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
- {'event': {'dataset': 'gcp.audit', 'action': 'google.iam.admin.vmxbnleoaaga.disableserviceaccount', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.iam.admin.vxiutkni.disableserviceaccount', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
+ {'event': {'dataset': 'gcp.audit', 'action': 'google.iam.admin.vixtflezswueexp.disableserviceaccount', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -323,8 +323,8 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin
 ```
 
 ```python
-[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.iam.admin.vxiutknioixtfl.createserviceaccountkey', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
- {'event': {'dataset': 'gcp.audit', 'action': 'google.iam.admin.vmxbnleoaaga.createserviceaccountkey', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'dataset': 'googlecloud.audit', 'action': 'google.iam.admin.vxiutkni.createserviceaccountkey', 'outcome': 'success'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
+ {'event': {'dataset': 'gcp.audit', 'action': 'google.iam.admin.vixtflezswueexp.createserviceaccountkey', 'outcome': 'success'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -338,14 +338,14 @@ sequence by host.id with maxspan=1m
 ```
 
 ```python
-[{'event': {'type': ['ZFy'], 'category': ['file']}, 'file': {'path': '/system/library/launchdaemons/yyfjsviloooh'}, 'host': {'id': 'mxB'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'launchctl', 'args': ['load']}, 'host': {'id': 'mxB'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}},
- {'event': {'type': ['nLe'], 'category': ['file']}, 'file': {'path': '/system/library/launchdaemons/'}, 'host': {'id': 'NVR'}, '@timestamp': 2, 'ecs': {'version': '1.12.1'}},
- {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'name': 'launchctl', 'args': ['load']}, 'host': {'id': 'NVR'}, '@timestamp': 3, 'ecs': {'version': '1.12.1'}},
- {'event': {'type': ['cym'], 'category': ['file']}, 'file': {'path': ' /library/launchdaemons/wvpymgznfmlopzr'}, 'host': {'id': 'gUv'}, '@timestamp': 4, 'ecs': {'version': '1.12.1'}},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'launchctl', 'args': ['load']}, 'host': {'id': 'gUv'}, '@timestamp': 5, 'ecs': {'version': '1.12.1'}},
- {'event': {'type': ['WCi'], 'category': ['file']}, 'file': {'path': ' /library/launchdaemons/fhat'}, 'host': {'id': 'Dgz'}, '@timestamp': 6, 'ecs': {'version': '1.12.1'}},
- {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'name': 'launchctl', 'args': ['load']}, 'host': {'id': 'Dgz'}, '@timestamp': 7, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'type': ['ZFy'], 'category': ['file']}, 'file': {'path': '/system/library/launchdaemons/uyyfjsvilooohmx'}, 'host': {'id': 'BnL'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'launchctl', 'args': ['load']}, 'host': {'id': 'BnL'}, '@timestamp': 1, 'ecs': {'version': '1.12.1'}},
+ {'event': {'type': ['eOA'], 'category': ['file']}, 'file': {'path': '/system/library/launchdaemons/gaifqsyzknyyq'}, 'host': {'id': 'DpU'}, '@timestamp': 2, 'ecs': {'version': '1.12.1'}},
+ {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'name': 'launchctl', 'args': ['load']}, 'host': {'id': 'DpU'}, '@timestamp': 3, 'ecs': {'version': '1.12.1'}},
+ {'event': {'type': ['EUD'], 'category': ['file']}, 'file': {'path': ' /library/launchdaemons/xvtolwtimrfgt'}, 'host': {'id': 'msh'}, '@timestamp': 4, 'ecs': {'version': '1.12.1'}},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'launchctl', 'args': ['load']}, 'host': {'id': 'msh'}, '@timestamp': 5, 'ecs': {'version': '1.12.1'}},
+ {'event': {'type': ['CeL'], 'category': ['file']}, 'file': {'path': ' /library/launchdaemons/l'}, 'host': {'id': 'Sjo'}, '@timestamp': 6, 'ecs': {'version': '1.12.1'}},
+ {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'name': 'launchctl', 'args': ['load']}, 'host': {'id': 'Sjo'}, '@timestamp': 7, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -358,7 +358,7 @@ event.category:file and not event.type:deletion and
 ```
 
 ```python
-[{'event': {'category': ['file'], 'type': ['ZFy']}, 'file': {'path': '/library/directoryservices/plugins/yyfjsviloooh.dsplug'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'category': ['file'], 'type': ['ZFy']}, 'file': {'path': '/library/directoryservices/plugins/uyyfjsvilooohmx.dsplug'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -372,7 +372,7 @@ event.category : file and event.action : modification and
 ```
 
 ```python
-[{'event': {'category': ['file'], 'action': 'modification'}, 'file': {'path': '/users/xiutknioixtfl/library/preferences/com.apple.dock.plist'}, 'process': {'name': 'Ezs'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'category': ['file'], 'action': 'modification'}, 'file': {'path': '/users/xiutkni/library/preferences/com.apple.dock.plist'}, 'process': {'name': 'oix'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -385,7 +385,7 @@ event.category:"file" and not event.type:"deletion" and
 ```
 
 ```python
-[{'event': {'category': ['file'], 'type': ['ZFy']}, 'file': {'path': '/users/yyfjsviloooh/.atom/init.coffee'}, 'process': {'name': 'mxB'}, 'user': {'name': 'nLe'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'category': ['file'], 'type': ['ZFy']}, 'file': {'path': '/users/uyyfjsvilooohmx/.atom/init.coffee'}, 'process': {'name': 'BnL'}, 'user': {'name': 'eOA'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}}]
 ```
 
 
@@ -408,7 +408,7 @@ event.category:file and event.action:modification and
 ```
 
 ```python
-[{'event': {'category': ['file'], 'action': 'modification'}, 'file': {'path': '/users/xiutknioixtfl/library/calendars/hmxbnleoaagaifq.calendar/events/eewvpymgznf.ics'}, 'process': {'executable': 'mlO'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}}]
+[{'event': {'category': ['file'], 'action': 'modification'}, 'file': {'path': '/users/xiutkni/library/calendars/svilo.calendar/events/ezswu.ics'}, 'process': {'executable': 'EEX'}, '@timestamp': 0, 'ecs': {'version': '1.12.1'}}]
 ```
 
 

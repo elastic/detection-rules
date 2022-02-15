@@ -393,18 +393,18 @@ constraints_keyword = [
 
     ([
         ("wildcard", "*.exe"),
-    ], {"value": "xiutknioixtfl.exe"}),
+    ], {"value": "xiutkni.exe"}),
 
     ([
         ("wildcard", "*.exe"),
         ("not wildcard", "xiut*.exe"),
-    ], {"value": "mxbnleoaaga.exe"}),
+    ], {"value": "ixtflezswueexp.exe"}),
 
     ([
         ("wildcard", "*.exe"),
-        ("not wildcard", "cgsp*.exe"),
-        ("not wildcard", "iuss*.exe"),
-    ], {"value": "xiutknioixtfl.exe"}),
+        ("not wildcard", "xiut*.exe"),
+        ("not wildcard", "ixtf*.exe"),
+    ], {"value": "n.exe"}),
 
     ([
         ("==", "cmd.exe"),

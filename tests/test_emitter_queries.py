@@ -153,7 +153,7 @@ mono_branch_mono_doc = {
 
     """process where process.name : ("*.EXE", "*.DLL")
     """: [
-        [{"event": {"category": ["process"]}, "process": {"name": "leneqzksddgex.exe"}}],
+        [{"event": {"category": ["process"]}, "process": {"name": "leneqzk.exe"}}],
     ],
 
     """network where destination.ip == "127.0.0.1"
