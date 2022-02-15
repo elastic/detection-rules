@@ -204,7 +204,7 @@ _Host risk classification column in the All hosts table on the Hosts page_
 _Hosts by risk tab on the Hosts page_
 ![Hosts Risk Tab](./images/0d_host_page_hosts_by_risk_tab.png)
 
-The host risk table is not affected by the KQL time range. This table shows the latest recorded risk score for each host.
+The host risk table in the above tab is not affected by the KQL time range. The table shows the latest recorded risk score for each host.
 
 _Host risk overview on the Host details page_
 ![Host risk overview](./images/0e_host_details_page_risk_overview.png)
