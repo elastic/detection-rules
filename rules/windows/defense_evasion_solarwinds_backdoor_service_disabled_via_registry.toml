@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/12/14"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2022/02/14"
 
 [rule]
 author = ["Elastic"]
@@ -25,15 +25,16 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where registry.path : "HKLM\\SYSTEM\\*ControlSet*\\Services\\*\\Start" and registry.data.strings == "4" and
- process.name : (
-     "SolarWinds.BusinessLayerHost*.exe", 
-     "ConfigurationWizard*.exe", 
-     "NetflowDatabaseMaintenance*.exe", 
-     "NetFlowService*.exe", 
-     "SolarWinds.Administration*.exe", 
-     "SolarWinds.Collector.Service*.exe" , 
-     "SolarwindsDiagnostics*.exe")
+registry where registry.path : "HKLM\\SYSTEM\\*ControlSet*\\Services\\*\\Start" and
+  registry.data.strings : ("4", "0x00000004") and
+  process.name : (
+      "SolarWinds.BusinessLayerHost*.exe", 
+      "ConfigurationWizard*.exe", 
+      "NetflowDatabaseMaintenance*.exe", 
+      "NetFlowService*.exe", 
+      "SolarWinds.Administration*.exe", 
+      "SolarWinds.Collector.Service*.exe" , 
+      "SolarwindsDiagnostics*.exe")
 '''
 
 
