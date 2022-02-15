@@ -156,7 +156,6 @@ class emitter:
         docs = cls.emit_docs(ast)
         for t,doc in enumerate(chain(*docs)):
             deep_merge(doc, cls.emit_field("@timestamp", int(time.time() * 1000) + t))
-            deep_merge(doc, cls.emit_field("ecs.version", cls.ecs_version))
         return docs
 
 
