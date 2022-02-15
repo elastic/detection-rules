@@ -98,43 +98,46 @@ class solver:
 
 class Constraints:
     def __init__(self, field=None, name=None, value=None):
-        self.constraints = {}
+        self.__constraints = {}
         if field is not None:
             self.append_constraint(field, name, value)
 
     def clone(self):
         c = Constraints()
-        c.constraints = copy.deepcopy(self.constraints)
+        c.__constraints = copy.deepcopy(self.__constraints)
         return c
 
     def append_constraint(self, field, name=None, value=None):
-        if field not in self.constraints:
+        if field not in self.__constraints:
             if name == "==" and value is None:
-                self.constraints[field] = None
+                self.__constraints[field] = None
             else:
-                self.constraints[field] = []
-        if self.constraints[field] is None:
+                self.__constraints[field] = []
+        if self.__constraints[field] is None:
             if name != "==" or value is not None:
                 raise ConflictError(f"cannot be non-null", field)
         else:
             if name == "==" and value is None:
                 raise ConflictError(f"cannot be null", field)
             if name is not None and not (name == "!=" and value is None):
-                self.constraints[field].append((name,value))
+                self.__constraints[field].append((name,value))
 
     def extend_constraints(self, field, constraints):
-        if field not in self.constraints:
-            self.constraints[field] = copy.deepcopy(constraints)
-        elif self.constraints[field] is None:
+        if field not in self.__constraints:
+            self.__constraints[field] = copy.deepcopy(constraints)
+        elif self.__constraints[field] is None:
             if constraints is not None:
                 raise ConflictError(f"cannot be non-null", field)
         else:
             if constraints is None:
                 raise ConflictError(f"cannot be null", field)
-            self.constraints[field].extend(constraints)
+            self.__constraints[field].extend(constraints)
+
+    def fields(self):
+        return set(self.__constraints)
 
     def __iadd__(self, other):
-        for field,constraints in other.constraints.items():
+        for field,constraints in other.__constraints.items():
             self.extend_constraints(field, constraints)
         return self
 
@@ -144,7 +147,7 @@ class Constraints:
         return c
 
     def __eq__(self, other):
-        return self.constraints == other.constraints
+        return self.__constraints == other.__constraints
 
     @staticmethod
     def from_dict(other):
@@ -421,8 +424,8 @@ class Constraints:
             value = None
         return solver(field, value, constraints)["value"]
 
-    def resolve(self, schema):
-        for field,constraints in self.constraints.items():
+    def solve(self, schema):
+        for field,constraints in self.__constraints.items():
             value = None
             if constraints is not None:
                 field_schema = schema.get(field, {})
@@ -430,15 +433,38 @@ class Constraints:
             yield field, value
 
 class Branch(List[Constraints]):
+    def __iter__(self):
+        if not self:
+            raise ValueError("Branch without constraints")
+        return super(Branch, self).__iter__()
+
     def __mul__(self, other):
-        return Branch([x+y for x in self for y in other])
+        return Branch(x+y for x in self for y in other)
 
-    @classmethod
-    def chain(cls, branches):
-        return list(chain(*branches))
+    def fields(self):
+        return set(chain(*(constraints.fields() for constraints in self)))
 
-    @classmethod
-    def product(cls, branches):
-        return [reduce(operator.mul, p, cls.Identity) for p in product(*branches)]
+    def solve(self, schema):
+        return (constraints.solve(schema) for constraints in self)
 
 Branch.Identity = Branch([Constraints()])
+
+class Root(List[Branch]):
+    def __iter__(self):
+        if not self:
+            raise ValueError("Root without branches")
+        return super(Root, self).__iter__()
+
+    def fields(self):
+        return set(["@timestamp"]) | set(chain(*(branch.fields() for branch in self)))
+
+    def constraints(self):
+        return chain(*self)
+
+    @classmethod
+    def chain(cls, roots):
+        return Root(chain(*roots))
+
+    @classmethod
+    def product(cls, roots):
+        return Root(reduce(operator.mul, branches, Branch.Identity) for branches in product(*roots))

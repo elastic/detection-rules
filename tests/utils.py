@@ -12,10 +12,11 @@ import json
 import random
 import hashlib
 import textwrap
+import unittest
 import itertools
 
 from detection_rules import utils, jupyter
-from detection_rules.events_emitter import emitter, guess_from_query
+from detection_rules.events_emitter import SourceEvents
 
 __all__ = (
     "SeededTestCase",
@@ -104,7 +105,7 @@ class QueryTestCase:
         return super(QueryTestCase, self).subTest(query, **kwargs, seed=query)
 
     def assertQuery(self, query, docs):
-        self.assertEqual(docs, emitter.emit_docs(guess_from_query(query).ast))
+        self.assertEqual(docs, SourceEvents.from_query(query).emit(timestamp=False, complete=True))
 
 
 class OnlineTestCase:
@@ -153,13 +154,14 @@ class SignalsTestCase:
     """Generate documents, load rules and documents, check triggered signals in unit tests."""
 
     def generate_docs_and_mappings(self, rules, asts):
-        emitter.reset_mappings()
+        se = SourceEvents()
 
         bulk = []
         for rule, ast in sorted(zip(rules, asts), key=lambda x: x[0]["name"]):
             with self.subTest(rule["query"]):
                 try:
-                    branches = emitter.docs_from_ast(ast)
+                    root = se.add_ast(ast)
+                    docs = se.emit(root, complete=True)
                 except Exception as e:
                     rule["enabled"] = False
                     if verbose > 2:
@@ -167,14 +169,14 @@ class SignalsTestCase:
                         sys.stderr.flush()
                     continue
 
-                rule[".test_private"]["branch_count"] = len(branches)
-                for doc in itertools.chain(*branches):
+                rule[".test_private"]["branch_count"] = len(root)
+                for doc in itertools.chain(*docs):
                     bulk.append(json.dumps({"index": {"_index": rule["index"][0]}}))
                     bulk.append(json.dumps(doc))
                     if verbose > 2:
                         sys.stderr.write(json.dumps(doc, sort_keys=True) + "\n")
                         sys.stderr.flush()
-        return (bulk, emitter.emit_mappings())
+        return (bulk, se.mappings())
 
     def load_rules_and_docs(self, rules, asts, batch_size=100):
         docs, mappings = self.generate_docs_and_mappings(rules, asts)

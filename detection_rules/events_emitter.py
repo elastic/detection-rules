@@ -9,20 +9,21 @@ import time
 import random
 import contextlib
 from collections import namedtuple
+from functools import wraps
 from itertools import chain
 from typing import List
+from copy import deepcopy
 
 from .ecs import get_schema, get_max_version
 from .rule import AnyRuleData
-from .utils import deep_merge
-from .constraints import Constraints
+from .utils import deep_merge, cached
+from .constraints import Root
 
 __all__ = (
-    "emit_docs",
-    "get_ast_stats",
+    "SourceEvents",
 )
 
-custom_schema = {
+default_custom_schema = {
     "file.Ext.windows.zone_identifier": {
         "type": "long",
     },
@@ -42,6 +43,7 @@ def ast_from_kql_query(query):
     import kql
     return kql.to_eql(query)
 
+@cached
 def guess_from_query(query):
     exceptions = []
     try:
@@ -60,6 +62,7 @@ def guess_from_query(query):
     raise ValueError(f"{lang} query error: {error}")
 
 def ast_from_rule(rule):
+    rule = rule.contents.data
     if rule.type not in ("query", "eql"):
         raise NotImplementedError(f"Unsupported rule type: {rule.type}")
     elif rule.language == "eql":
@@ -69,13 +72,42 @@ def ast_from_rule(rule):
     else:
         raise NotImplementedError(f"Unsupported query language: {rule.language}")
 
-class emitter:
-    ecs_version = get_max_version()
-    ecs_schema = get_schema(version=ecs_version)
-    schema = deep_merge(custom_schema, ecs_schema)
+def emit_mappings(fields, schema):
+    mappings = {}
+    for field in fields:
+        try:
+            field_type = schema[field]["type"]
+        except KeyError:
+            field_type = "keyword"
+        value = {"type": field_type}
+        for part in reversed(field.split(".")):
+            value = {"properties": {part: value}}
+        deep_merge(mappings, value)
+    return mappings
 
+def emit_field(field, value):
+    for part in reversed(field.split(".")):
+        value = {part: value}
+    return value
+
+def docs_from_branch(branch, schema, timestamp):
+    docs = []
+    for solution in branch.solve(schema):
+        doc = {}
+        for field,value in solution:
+            if value is not None:
+                deep_merge(doc, emit_field(field, value))
+        if timestamp:
+            deep_merge(doc, emit_field("@timestamp", timestamp[0]))
+            timestamp[0] += 1
+        docs.append(doc)
+    return docs
+
+def docs_from_root(root, schema, timestamp):
+    return [docs_from_branch(branch, schema, timestamp) for branch in root]
+
+class emitter:
     emitters = {}
-    mappings_fields = set()
 
     def __init__(self, node_type):
         self.node_type = node_type
@@ -87,6 +119,7 @@ class emitter:
             raise ValueError(f"Duplicate emitter for {self.node_type}: {func.__name__}")
         self.emitters[self.node_type] = self
 
+        @wraps(func)
         def wrapper(*args, **kwargs):
             self.total += 1
             ret = func(*args, **kwargs)
@@ -97,14 +130,6 @@ class emitter:
         return wrapper
 
     @classmethod
-    def add_mappings_field(cls, field):
-        cls.mappings_fields.add(field)
-
-    @classmethod
-    def reset_mappings(cls):
-        cls.mappings_fields = set()
-
-    @classmethod
     def emit(cls, node, negate=False):
         return cls.emitters[type(node)].wrapper(node, negate)
 
@@ -112,61 +137,80 @@ class emitter:
     def get_ast_stats(cls):
         return {k.__name__: (v.successful, v.total) for k,v in cls.emitters.items()}
 
-    @classmethod
-    def emit_mappings(cls):
-        mappings = {}
-        for field in cls.mappings_fields:
-            try:
-                field_type = cls.schema[field]["type"]
-            except KeyError:
-                field_type = "keyword"
-            value = {"type": field_type}
-            for part in reversed(field.split(".")):
-                value = {"properties": {part: value}}
-            deep_merge(mappings, value)
-        return mappings
+class SourceEvents:
+    ecs_version = get_max_version()
+    ecs_schema = get_schema(version=ecs_version)
+    custom_schema = deepcopy(default_custom_schema)
+
+    def __init__(self, *, schema=None):
+        self.__roots = []
+        self.schema = deep_merge(deepcopy(self.custom_schema), self.ecs_schema) if schema is None else schema
 
     @classmethod
-    def emit_field(cls, field, value):
-        cls.add_mappings_field(field)
-        for part in reversed(field.split(".")):
-            value = {part: value}
-        return value
+    def from_ast(cls, ast):
+        se = SourceEvents()
+        se.add_ast(ast)
+        return se
 
     @classmethod
-    def docs_from_branch(cls, branch):
-        docs = []
-        for constraints in branch:
-            doc = {}
-            for field,value in constraints.resolve(cls.schema):
-                if value is not None:
-                    deep_merge(doc, cls.emit_field(field, value))
-            docs.append(doc)
-        return docs
+    def from_query(cls, query):
+        se = SourceEvents()
+        se.add_query(query)
+        return se
 
     @classmethod
-    def emit_docs(cls, ast):
-        branches = cls.emit(ast)
-        if not branches:
-            raise ValueError("Cannot trigger with any document")
-        return [cls.docs_from_branch(branch) for branch in branches]
+    def from_rule(cls, rule):
+        se = SourceEvents()
+        se.add_rule(rule)
+        return se
 
-    @classmethod
-    def docs_from_ast(cls, ast):
-        docs = cls.emit_docs(ast)
-        for t,doc in enumerate(chain(*docs)):
-            deep_merge(doc, cls.emit_field("@timestamp", int(time.time() * 1000) + t))
-        return docs
+    def add_ast(self, ast):
+        root = emitter.emit(ast)
+        self.try_emit(root)
+        self.__roots.append(root)
+        return root
 
+    def add_query(self, query):
+        ast = guess_from_query(query).ast
+        return self.add_ast(ast)
 
-def emit_docs(rule: AnyRuleData) -> List[str]:
-    ast = ast_from_rule(rule)
-    return list(chain(*emitter.docs_from_ast(ast)))
+    def add_rule(self, rule):
+        ast = ast_from_rule(rule)
+        return self.add_ast(ast)
 
+    def fields(self):
+        return set(chain(*(root.fields() for root in self.__roots)))
 
-def get_ast_stats():
-    return emitter.get_ast_stats()
+    def mappings(self, root=None):
+        fields = self.fields() if root is None else root.fields()
+        return emit_mappings(fields, self.schema)
 
+    def roots(self):
+        return iter(self.__roots)
+
+    def emit(self, root=None, *, timestamp=True, complete=False):
+        if timestamp:
+            timestamp = [int(time.time() * 1000)]
+        if not complete:
+            branch = random.choice(root or random.choice(self.__roots))
+            return docs_from_branch(branch, self.schema, timestamp)
+        if root is not None:
+            return docs_from_root(root, self.schema, timestamp)
+        docs = (docs_from_root(root, self.schema, timestamp) for root in self.__roots)
+        return list(chain(*docs))
+
+    def try_emit(self, root):
+        state = random.getstate()
+        try:
+            _ = docs_from_root(root, self.schema, timestamp=False)
+        finally:
+            random.setstate(state)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self.emit()
 
 # circular dependency
 import detection_rules.events_emitter_eql  # noqa: E402

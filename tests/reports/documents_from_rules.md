@@ -14,7 +14,7 @@ Curious about the inner workings? Read [here](signals_generation.md).
    1. [Generation errors](#generation-errors)
       1. [Constraints solver not implemented: wildcard](#constraints-solver-not-implemented-wildcard)
       1. [Unsupported function: match](#unsupported-function-match)
-      1. [Cannot trigger with any document](#cannot-trigger-with-any-document)
+      1. [Root without branches](#root-without-branches)
       1. [Unsupported LHS type: <class 'eql.ast.FunctionCall'>](#unsupported-lhs-type-class-eqlastfunctioncall)
       1. [Unsolvable constraints ==: powershell.file.script_block_text (is already 'waveInGetNumDevs', cannot set to 'mciSendStringA')](#unsolvable-constraints--powershellfilescript_block_text-is-already-waveingetnumdevs-cannot-set-to-mcisendstringa)
       1. [Constraints solver not implemented: match_only_text](#constraints-solver-not-implemented-match_only_text)
@@ -169,7 +169,7 @@ Curious about the inner workings? Read [here](signals_generation.md).
 * [Suspicious PowerShell Engine ImageLoad](../../rules/windows/execution_suspicious_powershell_imgload.toml)
 * [Whitespace Padding in Process Command Line](../../rules/windows/defense_evasion_whitespace_padding_in_command_line.toml)
 
-### Cannot trigger with any document
+### Root without branches
 
 5 rules:
 * [Persistence via Login or Logout Hook](../../rules/macos/persistence_login_logout_hooks_defaults.toml)

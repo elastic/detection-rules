@@ -264,7 +264,7 @@ def validate_all(fail):
 def emit_events(ctx, paths, verbose):
     """Generate events that would trigger the given rule(s)"""
     from collections import Counter
-    from .events_emitter import emitter, emit_docs, get_ast_stats
+    from .events_emitter import SourceEvents, emitter
 
     if paths:
         rules = RuleCollection()
@@ -278,16 +278,18 @@ def emit_events(ctx, paths, verbose):
 
     docs = []
     errors = []
+    se = SourceEvents()
     for rule in rules:
         try:
-            docs.extend(emit_docs(rule.contents.data))
+            root = se.add_rule(rule)
+            docs += se.emit(root)
         except Exception as e:
             errors.append((str(e), rule.path.relative_to(get_path(".")), sys.exc_info()[2]))
 
-    docs.insert(0, emitter.emit_mappings())
+    docs.insert(0, se.mappings())
 
     click.echo("\n".join(json.dumps(doc, sort_keys=True) for doc in docs))
-    stats = sorted(get_ast_stats().items(), key=lambda x: x[1][1], reverse=True)
+    stats = sorted(emitter.get_ast_stats().items(), key=lambda x: x[1][1], reverse=True)
     click.echo("AST stats:\n  " + "\n  ".join("{:d}/{:d}: {:s}".format(v[0], v[1], k) for k,v in stats if v[1]), err=True)
     if errors:
         error_stats = sorted(Counter(e[0] for e in errors).items(), key=lambda item: item[1], reverse=True)
@@ -310,37 +312,6 @@ def emit_events(ctx, paths, verbose):
     if errors:
         ctx.exit(1)
 
-
-@root.command('rule-trigger')
-@click.argument('paths', type=Path, nargs=-1)
-def emit_events(paths):
-    """Generate events that would trigger the given rule(s)"""
-    from collections import Counter
-    from .events_emitter import emit_events, get_ast_stats
-
-    if paths:
-        rules = RuleCollection()
-        for path in paths:
-            if os.path.isdir(path):
-                rules.load_directory(path)
-            else:
-                rules.load_file(path)
-    else:
-        rules = RuleCollection.default()
-
-    pwd = Path(get_path(".")).absolute()
-    def get_gen_path(rule):
-        path = os.path.join("triggers", *rule.path.relative_to(pwd).parts[1:])
-        return Path(path).with_suffix('.json')
-
-    for rule in rules:
-        path = get_gen_path(rule)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.unlink(missing_ok=True)
-        docs = emit_events(rule.contents.data)
-        with open(str(path), 'w', newline='\n') as f:
-            for doc in docs:
-                f.write(json.dumps(doc, sort_keys=True) + "\n")
 
 @root.command('rule-search')
 @click.argument('query', required=False)

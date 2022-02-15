@@ -9,7 +9,7 @@ import os
 import unittest
 
 from tests.utils import *
-from detection_rules.events_emitter import emitter, guess_from_query
+from detection_rules.events_emitter import SourceEvents, guess_from_query
 from detection_rules import jupyter
 
 
@@ -17,6 +17,7 @@ event_docs_mappings = {
     """process where process.name == "regsvr32.exe"
     """: {
         "properties": {
+            "@timestamp": {"type": "date"},
             "event": {"properties": {"category": {"type": "keyword"}}},
             "process": {"properties": {"name": {"type": "keyword"}}},
         },
@@ -25,6 +26,7 @@ event_docs_mappings = {
     """network where source.ip == "::1" or destination.ip == "::1"
     """: {
         "properties": {
+            "@timestamp": {"type": "date"},
             "event": {"properties": {"category": {"type": "keyword"}}},
             "destination": {"properties": {"ip": {"type": "ip"}}},
             "source": {"properties": {"ip": {"type": "ip"}}},
@@ -34,6 +36,7 @@ event_docs_mappings = {
     """process where process.code_signature.exists == false and process.pid > 1024
     """: {
         "properties": {
+            "@timestamp": {"type": "date"},
             "event": {"properties": {"category": {"type": "keyword"}}},
             "process": {"properties": {"code_signature": {"properties": {"exists": {"type": "boolean"}}}, "pid": {"type": "long"}}},
         },
@@ -353,19 +356,19 @@ multi_branch_multi_doc = {
 exceptions = {
     """any where false
     """:
-        "Cannot trigger with any document",
+        "Root without branches",
 
     """any where not true
     """:
-        "Cannot trigger with any document",
+        "Root without branches",
 
     """any where not (true and true)
     """:
-        "Cannot trigger with any document",
+        "Root without branches",
 
     """any where not (true or false)
     """:
-        "Cannot trigger with any document",
+        "Root without branches",
 
     """any where process.pid == null and process.pid != null
     """:
@@ -401,7 +404,7 @@ exceptions = {
 
     """network where destination.port == 22 and destination.port in (80, 443)
     """:
-        "Cannot trigger with any document",
+        "Root without branches",
 
     """network where not (source.port > 512 or source.port < 1024)
     """:
@@ -436,6 +439,8 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
         This Jupyter Notebook captures the unit test results of documents generation from queries.
         Here you can learn what kind of queries the emitter handles and the documents it generates.
 
+        To edit an input cell, just click in its gray area. To execute it, press Ctrl+Enter.
+
         Curious about the inner workings? Read [here](signals_generation.md). Need help in using a Jupyter Notebook?
         Read [here](https://jupyter-notebook.readthedocs.io/en/stable/notebook.html#structure-of-a-notebook-document).
     """))
@@ -451,11 +456,11 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
             """),
             jupyter.Code("""
                 import os; os.chdir('../..')  # use the repo's root as base for local modules import
-                from detection_rules.events_emitter import emitter, guess_from_query
+                from detection_rules.events_emitter import SourceEvents
 
-                def emit(query):
+                def emit(query, timestamp=False, complete=True):
                     try:
-                        return emitter.emit_docs(guess_from_query(query).ast)
+                        return SourceEvents.from_query(query).emit(timestamp=timestamp, complete=complete)
                     except Exception as e:
                         print(e)
             """),
@@ -476,21 +481,17 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
     def test_mappings(self):
         for query, mappings in event_docs_mappings.items():
             with self.subTest(query):
-                emitter.reset_mappings()
-                _ = emitter.emit_docs(guess_from_query(query).ast)
-                self.assertEqual(mappings, emitter.emit_mappings())
+                se = SourceEvents()
+                root = se.add_query(query)
+                self.assertEqual(mappings, se.mappings(root))
+                self.assertEqual(mappings, se.mappings())
 
     @nb.chapter("## Mono-branch mono-document")
     def test_mono_branch_mono_doc(self, cells):
         cells.append(jupyter.Markdown(
         """
-            What follow are all queries that may trigger a signal just with a single _minimal matching document_,
+            What follows are queries that shall trigger a signal with just a single source event,
             therefore at most one document is generated for each execution.
-
-            You will notice that some queries actually generate multiple documents, this happens when
-            the query is disjunctive (e.g. contains an _or_ operator). In these cases each of the generated
-            documents is enough to trigger the signal but all were generated to prove that all the disjunction
-            branches are correctly visited.
         """))
         for i, (query, docs) in enumerate(mono_branch_mono_doc.items()):
             with self.subTest(query, i=i):
@@ -503,6 +504,8 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
     def test_multi_branch_mono_doc(self, cells):
         cells.append(jupyter.Markdown(
         """
+            Following queries have one or more disjunctive operators (eg. _or_) which split the query
+            in multiple _branches_. Each branch shall generate a single source event.
         """))
         for i, (query, docs) in enumerate(multi_branch_mono_doc.items()):
             with self.subTest(query, i=i):
@@ -516,10 +519,9 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
     def test_mono_branch_multi_doc(self, cells):
         cells.append(jupyter.Markdown(
         """
-            Following queries instead require multiple _minimal matching documents_, it's not only the content of
-            a single document that is analyzed but also the relation with the subsequent ones. Therefore a senquence
-            of documents, with the appropriate relations, is generated each time and all the documents in the sequence
-            are required for the signal to be generated.
+            Following queries instead require multiple related source events, it's not analyzed only each
+            event content but also the relation with each others. Therefore a senquence of documents is generated
+            each time and all the documents in the sequence are required for one signal to be generated.
         """))
         for i, (query, docs) in enumerate(mono_branch_multi_doc.items()):
             with self.subTest(query, i=i):
@@ -532,6 +534,8 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
     def test_multi_branch_multi_doc(self, cells):
         cells.append(jupyter.Markdown(
         """
+            Same as above but one or more queries in the sequence have a disjunction (eg. _or_ operator) therefore
+            multiple sequences shall be generated.
         """))
         for i, (query, docs) in enumerate(multi_branch_multi_doc.items()):
             with self.subTest(query, i=i):

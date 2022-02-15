@@ -486,6 +486,15 @@ constraints_keyword_exceptions = [
     ], "Unsolvable constraints: test_var (filtered wildcard(s): ('cmd.exe', 'powershell.exe') are filtered out by ('*.exe', 'cmd.*'))"),
 ]
 
+branch_fields = [
+    ([
+        {"a": [(">=", 10), ("<=", 20)], "b": [("!=", 0)]},
+        {"c": [("==", "any")]},
+    ],{
+        "a", "b", "c",
+    }),
+]
+
 branch_products = [
     ([
         {"a": [(">=", 10), ("<=", 20)]},
@@ -581,6 +590,12 @@ class TestConstraints(SeededTestCase, unittest.TestCase):
 
 
 class TestBranches(unittest.TestCase):
+
+    def test_fields(self):
+        for a,fields in branch_fields:
+            a = Branch([Constraints.from_dict(x) for x in a])
+            with self.subTest(f"{a}"):
+                self.assertEqual(fields, a.fields())
 
     def test_product(self):
         for a,b,c in branch_products:

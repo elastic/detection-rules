@@ -149,7 +149,7 @@ def docs_from_ast(cls, ast):
     docs = []
     for constraint in cls.emit(ast):
         doc = {}
-        for field,value in constraint.resolve(cls.schema):
+        for field,value in constraint.solve(cls.schema):
             if value is not None:
                 deep_merge(doc, cls.emit_field(field, value))
         docs.append(doc)
