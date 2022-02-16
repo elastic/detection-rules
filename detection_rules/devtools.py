@@ -442,6 +442,13 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     client = github.authenticated_client
     repo = client.get_repo(github_repo)
 
+    # Use elastic-package to format and lint
+    gopath = utils.gopath()
+    assert gopath is not None, "$GOPATH isn't set"
+
+    err = 'elastic-package missing, run: go install github.com/elastic/elastic-package@latest'
+    assert subprocess.check_output(['elastic-package'], stderr=subprocess.DEVNULL), err
+
     local_repo = os.path.abspath(local_repo)
     stack_version = Package.load_configs()["name"]
     package_version = Package.load_configs()["registry_data"]["version"]
@@ -502,10 +509,6 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
             yaml.dump(changelog_entries, f, allow_unicode=True, default_flow_style=False, indent=2)
 
     save_changelog()
-
-    # Use elastic-package to format and lint
-    gopath = utils.gopath()
-    assert gopath is not None, "$GOPATH isn't set"
 
     def elastic_pkg(*args):
         """Run a command with $GOPATH/bin/elastic-package in the package directory."""
