@@ -1,13 +1,13 @@
 [metadata]
 creation_date = "2021/11/08"
 maturity = "production"
-updated_date = "2021/11/08"
+updated_date = "2022/02/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the first occurrence of a modification to Group Policy Object Attributes to add privileges to user accounts or use them to
-add users as local admins.
+Detects the first occurrence of a modification to Group Policy Object Attributes to add privileges to user accounts or
+use them to add users as local admins.
 """
 index = ["winlogbeat-*", "logs-system.*"]
 language = "kuery"
@@ -17,29 +17,29 @@ note = """## Triage and analysis
 
 ### Investigating Group Policy Abuse for Privilege Addition
 
-Group Policy Objects can be used to add rights and/or modify Group Membership on GPOs by changing the contents of an INF file named
-GptTmpl.inf, which is responsible for storing every setting under the Security Settings container in the GPO, this file is unique
-for each GPO, and only exists if the GPO contains security settings.
+Group Policy Objects can be used to add rights and/or modify Group Membership on GPOs by changing the contents of an INF
+file named GptTmpl.inf, which is responsible for storing every setting under the Security Settings container in the GPO.
+This file is unique for each GPO, and only exists if the GPO contains security settings.
 Example Path: "\\\\DC.com\\SysVol\\DC.com\\Policies\\{21B9B880-B2FB-4836-9C2D-2013E0D832E9}\\Machine\\Microsoft\\Windows NT\\SecEdit\\GptTmpl.inf"
 
 #### Possible investigation steps:
-- This attack abuses a legitimate mechanism of the Active Directory, so it is important to determine whether the activity is legitimate
-and the administrator is authorized to perform this operation.
-- Retrieve the contents of the `GptTmpl.inf` file, under the `Privilege Rights` section, look for potentially dangerous high privileges,
-for example: SeTakeOwnershipPrivilege, SeEnableDelegationPrivilege, etc.
+- This attack abuses a legitimate mechanism of the Active Directory, so it is important to determine whether the activity
+is legitimate and the administrator is authorized to perform this operation.
+- Retrieve the contents of the `GptTmpl.inf` file, and under the `Privilege Rights` section, look for potentially
+dangerous high privileges, for example: SeTakeOwnershipPrivilege, SeEnableDelegationPrivilege, etc.
 - Inspect the user SIDs associated with these privileges
 
 ### False Positive Analysis
 - Verify if these User SIDs should have these privileges enabled.
 - Inspect whether the user that has done these modifications should be allowed to do it. The user name can be found in the
-`winlog.event_data.SubjectUserName` field
+`winlog.event_data.SubjectUserName` field.
 
 ### Related Rules
 - Scheduled Task Execution at Scale via GPO
 - Startup/Logon Script added to Group Policy Object
 
 ### Response and Remediation
-- Immediate response should be taken to validate activity, investigate and potentially isolate activity to prevent further
+- Immediate response should be taken to validate activity, investigate, and potentially isolate activity to prevent further
 post-compromise behavior.
 
 ## Config
