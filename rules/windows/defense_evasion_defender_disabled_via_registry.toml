@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/12/23"
 maturity = "production"
-updated_date = "2021/05/10"
+updated_date = "2022/02/14"
 
 [rule]
 author = ["Elastic"]
@@ -27,10 +27,16 @@ type = "eql"
 
 query = '''
 registry where event.type in ("creation", "change") and
-  ((registry.path:"HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\DisableAntiSpyware" and
-     registry.data.strings:"1") or
-  (registry.path:"HKLM\\System\\ControlSet*\\Services\\WinDefend\\Start" and
-     registry.data.strings in ("3", "4")))
+  (
+    (
+      registry.path:"HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\DisableAntiSpyware" and
+      registry.data.strings: ("1", "0x00000001")
+   ) or
+   (
+      registry.path:"HKLM\\System\\*ControlSet*\\Services\\WinDefend\\Start" and
+      registry.data.strings in ("3", "4", "0x00000003", "0x00000004")
+   )
+  )
 '''
 
 
