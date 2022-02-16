@@ -10,7 +10,7 @@ Identifies Service Control (sc.exe) spawning from script interpreter processes t
 This could be indicative of adversary lateral movement but will be noisy if commonly done by admins.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "logs-system.*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Service Control Spawned via Script Interpreter"
@@ -22,6 +22,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
+/* This rule is not compatible with Sysmon due to user.id issues */
+
 process where event.type == "start" and
   (process.name : "sc.exe" or process.pe.original_file_name == "sc.exe") and
   process.parent.name : ("cmd.exe", "wscript.exe", "rundll32.exe", "regsvr32.exe",
