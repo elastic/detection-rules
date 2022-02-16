@@ -379,13 +379,15 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
 def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...], draft: bool, fork_owner: str,
               token: str, **kwargs):
     """Create a pull request to Kibana."""
+    github = GithubClient(token)
+    github.assert_github()
+    client = github.authenticated_client
+    repo = client.get_repo(kwargs["github_repo"])
+
     branch_name, commit_hash = ctx.invoke(kibana_commit, push=True, **kwargs)
 
     if fork_owner:
         branch_name = f'{fork_owner}:{branch_name}'
-
-    client = GithubClient(token).authenticated_client
-    repo = client.get_repo(kwargs["github_repo"])
 
     title = f"[Detection Engine] Adds {current_stack_version()} rules"
     body = textwrap.dedent(f"""
@@ -435,6 +437,11 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
                     pkg_directory: str, base_branch: str, remote: str,
                     branch_name: Optional[str], github_repo: str, assign: Tuple[str, ...], label: Tuple[str, ...]):
     """Create a pull request to publish the Fleet package to elastic/integrations."""
+    github = GithubClient(token)
+    github.assert_github()
+    client = github.authenticated_client
+    repo = client.get_repo(github_repo)
+
     local_repo = os.path.abspath(local_repo)
     stack_version = Package.load_configs()["name"]
     package_version = Package.load_configs()["registry_data"]["version"]
@@ -519,8 +526,6 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     git("push", "--set-upstream", remote, branch_name)
 
     # Create a pull request (not done yet, but we need the PR number)
-    client = GithubClient(token).authenticated_client
-    repo = client.get_repo(github_repo)
     body = textwrap.dedent(f"""
     ## What does this PR do?
     Update the Security Rules package to version {package_version}.
