@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/07/06"
 maturity = "production"
-updated_date = "2021/07/21"
+updated_date = "2022/02/14"
 
 [rule]
 author = ["Elastic"]
@@ -33,7 +33,9 @@ type = "eql"
 
 query = '''
 process where event.type == "start" and
- process.parent.name : "spoolsv.exe" and user.id : "S-1-5-18" and
+ process.parent.name : "spoolsv.exe" and
+ (process.Ext.token.integrity_level_name : "System" or
+ winlog.event_data.IntegrityLevel : "System") and
 
  /* exclusions for FP control below */
  not process.name : ("splwow64.exe", "PDFCreator.exe", "acrodist.exe", "spoolsv.exe", "msiexec.exe", "route.exe", "WerFault.exe") and
