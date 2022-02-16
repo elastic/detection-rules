@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/03/15"
+updated_date = "2022/02/14"
 
 [rule]
 author = ["Elastic"]
@@ -10,7 +10,7 @@ Identifies Service Control (sc.exe) spawning from script interpreter processes t
 This could be indicative of adversary lateral movement but will be noisy if commonly done by admins.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["logs-endpoint.events.*", "logs-system.*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Service Control Spawned via Script Interpreter"
@@ -22,6 +22,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
+/* This rule is not compatible with Sysmon due to user.id issues */
+
 process where event.type == "start" and
   (process.name : "sc.exe" or process.pe.original_file_name == "sc.exe") and
   process.parent.name : ("cmd.exe", "wscript.exe", "rundll32.exe", "regsvr32.exe",
