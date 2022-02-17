@@ -58,6 +58,15 @@ def expand_wildcards(value, allowed_chars):
             chars.append(c)
     return "".join(chars)
 
+def delete_by_cond(list, cond):
+    for i in reversed([i for i,x in enumerate(list) if cond(x)]):
+        del(list[i])
+
+def delete_use_once(list):
+    def is_use_once(item):
+        return len(item) > 2 and item[2] and item[2].get("use_once", False)
+    delete_by_cond(list, is_use_once)
+
 class ConflictError(ValueError):
     def __init__(self, msg, field, name=None):
         name = f" {name}" if name else ""
@@ -73,8 +82,8 @@ class solver:
         def _solver(cls, field, value, constraints):
             join_values = []
             max_attempts = None
-            constraints = constraints + get_ecs_constraints(field)
-            for k,v in constraints:
+            augmented_constraints = constraints + get_ecs_constraints(field)
+            for k,v,*_ in augmented_constraints:
                 if k not in self.valid_constraints:
                     raise NotImplementedError(f"Unsupported {self.field_type} constraint: {k}")
                 if k == "join_value":
@@ -87,12 +96,13 @@ class solver:
                         max_attempts = v
             if max_attempts is None:
                 max_attempts = _max_attempts
-            value = func(cls, field, value, constraints, max_attempts + 1)
+            value = func(cls, field, value, augmented_constraints, max_attempts + 1)
             if not value["left_attempts"]:
                 raise ConflictError(f"attempts exausted: {max_attempts}", field)
             del(value["left_attempts"])
             for field,constraint in join_values:
-                constraint.append_constraint(field, "==", value["value"])
+                constraint.append_constraint(field, "==", value["value"], {"use_once": True})
+            delete_use_once(constraints)
             return value
         return _solver
 
@@ -107,7 +117,7 @@ class Constraints:
         c.__constraints = copy.deepcopy(self.__constraints)
         return c
 
-    def append_constraint(self, field, name=None, value=None):
+    def append_constraint(self, field, name=None, value=None, flags=None):
         if field not in self.__constraints:
             if name == "==" and value is None:
                 self.__constraints[field] = None
@@ -120,7 +130,7 @@ class Constraints:
             if name == "==" and value is None:
                 raise ConflictError(f"cannot be null", field)
             if name is not None and not (name == "!=" and value is None):
-                self.__constraints[field].append((name,value))
+                self.__constraints[field].append((name, value, flags or {}))
 
     def extend_constraints(self, field, constraints):
         if field not in self.__constraints:
@@ -159,7 +169,7 @@ class Constraints:
     @classmethod
     @solver("boolean", "==", "!=")
     def solve_boolean_constraints(cls, field, value, constraints, left_attempts):
-        for k,v in constraints:
+        for k,v,*_ in constraints:
             if k == "==":
                 v = bool(v)
                 if value is None or value == v:
@@ -185,7 +195,7 @@ class Constraints:
         max_value = LongLimits.MAX
         exclude_values = set()
 
-        for k,v in constraints:
+        for k,v,*_ in constraints:
             if k == ">=":
                 v = int(v)
                 if min_value < v:
@@ -202,7 +212,7 @@ class Constraints:
                 v = int(v)
                 if max_value > v - 1:
                     max_value = v - 1
-        for k,v in constraints:
+        for k,v,*_ in constraints:
             if k == "==":
                 v = int(v)
                 if value is None or value == v:
@@ -234,7 +244,7 @@ class Constraints:
     @classmethod
     @solver("date", "==")
     def solve_date_constraints(cls, field, value, constraints, left_attempts):
-        for k,v in constraints:
+        for k,v,*_ in constraints:
             if k == "==":
                 if value is None or value == v:
                     value = v
@@ -253,7 +263,7 @@ class Constraints:
         exclude_nets = set()
         exclude_addrs = set()
 
-        for k,v in constraints:
+        for k,v,*_ in constraints:
             if k == "==":
                 v = str(v)
                 try:
@@ -329,7 +339,7 @@ class Constraints:
         exclude_values = set()
         min_length = 3
 
-        for k,v in constraints:
+        for k,v,*_ in constraints:
             if k == "wildcard":
                 if type(v) == tuple and len(v) == 1:
                     v = v[0]
@@ -346,7 +356,7 @@ class Constraints:
                 for v in values:
                     exclude_wildcards.add(v.lower())
 
-        for k,v in constraints:
+        for k,v,*_ in constraints:
             if k == "min_length":
                 if v >= min_length:
                     min_length = v

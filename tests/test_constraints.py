@@ -589,7 +589,7 @@ class TestConstraints(SeededTestCase, unittest.TestCase):
                 self.assertEqual(msg, str(cm.exception))
 
 
-class TestBranches(unittest.TestCase):
+class TestBranches(SeededTestCase, unittest.TestCase):
 
     def test_fields(self):
         for a,fields in branch_fields:
@@ -604,3 +604,32 @@ class TestBranches(unittest.TestCase):
             c = Branch([Constraints.from_dict(x) for x in c])
             with self.subTest(f"{a} * {b}"):
                 self.assertEqual(a*b, c)
+
+    def test_join_fields(self):
+        schema = {}
+        c1 = Constraints()
+        c2 = Constraints()
+        c3 = Constraints()
+        branch = Branch([c1, c2, c3])
+
+        c1.append_constraint("process.name", "wildcard", ("*.exe", "*.bat"))
+        c2.append_constraint("process.name", "wildcard", ("*.dll", "*.scr"))
+        c3.append_constraint("process.name", "wildcard", ("*.com"))
+        c1.append_constraint("process.name", "join_value", ("process.parent.name", c2))
+        c2.append_constraint("process.name", "join_value", ("process.parent.name", c3))
+
+        self.assertEqual([
+            [('process.name', 'lbs.exe')],
+            [('process.name', 'lwffiaxqgmefk.dll'), ('process.parent.name', 'lbs.exe')],
+            [('process.name', 'owrl.com'), ('process.parent.name', 'lwffiaxqgmefk.dll')],
+        ], [sorted(x) for x in branch.solve(schema)])
+        self.assertEqual([
+            [('process.name', 'lywc.exe')],
+            [('process.name', 'likqw.dll'), ('process.parent.name', 'lywc.exe')],
+            [('process.name', 'uxrwqyk.com'), ('process.parent.name', 'likqw.dll')],
+        ], [sorted(x) for x in branch.solve(schema)])
+        self.assertEqual([
+            [('process.name', 'gkuauecromcat.exe')],
+            [('process.name', 'kpkxksopnatgxr.scr'), ('process.parent.name', 'gkuauecromcat.exe')],
+            [('process.name', 'lwpdtglbrih.com'), ('process.parent.name', 'kpkxksopnatgxr.scr')],
+        ], [sorted(x) for x in branch.solve(schema)])

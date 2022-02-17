@@ -334,11 +334,11 @@ sequence by host.id with maxspan=1m
 ```python
 [{'event': {'type': ['ZFy'], 'category': ['file']}, 'file': {'path': '/system/library/launchdaemons/uyyfjsvilooohmx'}, 'host': {'id': 'BnL'}, '@timestamp': 0},
  {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'launchctl', 'args': ['load']}, 'host': {'id': 'BnL'}, '@timestamp': 1},
- {'event': {'type': ['BnL'], 'category': ['file']}, 'file': {'path': '/system/library/launchdaemons/oaaga'}, 'host': {'id': 'DpU'}, '@timestamp': 2},
+ {'event': {'type': ['eOA'], 'category': ['file']}, 'file': {'path': '/system/library/launchdaemons/gaifqsyzknyyq'}, 'host': {'id': 'DpU'}, '@timestamp': 2},
  {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'name': 'launchctl', 'args': ['load']}, 'host': {'id': 'DpU'}, '@timestamp': 3},
- {'event': {'type': ['iFq'], 'category': ['file']}, 'file': {'path': ' /library/launchdaemons/yzknyyqdpu'}, 'host': {'id': 'msh'}, '@timestamp': 4},
+ {'event': {'type': ['EUD'], 'category': ['file']}, 'file': {'path': ' /library/launchdaemons/xvtolwtimrfgt'}, 'host': {'id': 'msh'}, '@timestamp': 4},
  {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'launchctl', 'args': ['load']}, 'host': {'id': 'msh'}, '@timestamp': 5},
- {'event': {'type': ['EUD'], 'category': ['file']}, 'file': {'path': ' /library/launchdaemons/xvtolwtimrfgt'}, 'host': {'id': 'Sjo'}, '@timestamp': 6},
+ {'event': {'type': ['CeL'], 'category': ['file']}, 'file': {'path': ' /library/launchdaemons/l'}, 'host': {'id': 'Sjo'}, '@timestamp': 6},
  {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'name': 'launchctl', 'args': ['load']}, 'host': {'id': 'Sjo'}, '@timestamp': 7}]
 ```
 
