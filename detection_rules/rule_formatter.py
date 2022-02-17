@@ -149,20 +149,20 @@ def toml_write(rule_contents, outfile=None):
     contents = copy.deepcopy(rule_contents)
     needs_close = False
 
-    def order_rule(threat_obj):
-        if isinstance(threat_obj, dict):
-            threat_obj = OrderedDict(sorted(threat_obj.items()))
-            for k, v in threat_obj.items():
+    def order_rule(obj):
+        if isinstance(obj, dict):
+            obj = OrderedDict(sorted(obj.items()))
+            for k, v in obj.items():
                 if isinstance(v, dict) or isinstance(v, list):
-                    threat_obj[k] = order_rule(v)
+                    obj[k] = order_rule(v)
 
-        if isinstance(threat_obj, list):
-            for i, v in enumerate(threat_obj):
+        if isinstance(obj, list):
+            for i, v in enumerate(obj):
                 if isinstance(v, dict) or isinstance(v, list):
-                    threat_obj[i] = order_rule(v)
-            threat_obj = sorted(threat_obj, key=lambda x: json.dumps(x))
+                    obj[i] = order_rule(v)
+            obj = sorted(obj, key=lambda x: json.dumps(x))
 
-        return threat_obj
+        return obj
 
     def _do_write(_data, _contents):
         query = None
