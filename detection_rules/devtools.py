@@ -446,7 +446,7 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     gopath = utils.gopath()
     assert gopath is not None, "$GOPATH isn't set"
 
-    err = 'elastic-package missing, run: go install github.com/elastic/elastic-package@latest'
+    err = 'elastic-package missing, run: go install github.com/elastic/elastic-package@latest and verify go bin path'
     assert subprocess.check_output(['elastic-package'], stderr=subprocess.DEVNULL), err
 
     local_repo = os.path.abspath(local_repo)
