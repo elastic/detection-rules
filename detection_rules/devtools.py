@@ -380,7 +380,6 @@ def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...
               token: str, **kwargs):
     """Create a pull request to Kibana."""
     github = GithubClient(token)
-    github.assert_github()
     client = github.authenticated_client
     repo = client.get_repo(kwargs["github_repo"])
 
