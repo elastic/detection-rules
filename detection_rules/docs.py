@@ -271,8 +271,8 @@ def base_navigator(name: str, attack_version: str, techniques: list, **kwargs) -
         "metadata": [],
         "links": [
             {
-                "name": "repo",
-                "value": "https://github.com/elastic/detection-rules"
+                "label": "repo",
+                "url": "https://github.com/elastic/detection-rules"
             }
         ],
         "showTacticRowBackground": False,
