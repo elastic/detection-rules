@@ -14,6 +14,7 @@ import subprocess
 import textwrap
 import time
 import typing
+import urllib.parse
 from pathlib import Path
 from typing import Dict, Optional, Tuple, List
 
@@ -26,7 +27,7 @@ from . import rule_loader, utils
 from .cli_utils import single_collection
 from .docs import IntegrationSecurityDocs
 from .eswrap import CollectEvents, add_range_to_dsl
-from .ghwrap import GithubClient
+from .ghwrap import GithubClient, update_gist
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import PACKAGE_FILE, Package, RELEASE_DIR, current_stack_version
@@ -39,6 +40,7 @@ from .utils import dict_hash, get_path, load_dump
 
 RULES_DIR = get_path('rules')
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
+NAVIGATOR_GIST_ID = '1a3f65224822a30a8228a8ed20289a89'
 
 
 def get_github_token() -> Optional[str]:
@@ -730,6 +732,33 @@ def update_schemas():
 
     for cls in classes:
         cls.save_schema()
+
+
+@dev_group.command('update-navigator-gists')
+@click.argument('directory', type=Path)
+@click.option('--token', required=True, prompt=get_github_token() is None, default=get_github_token(),
+              help='GitHub token to push to gist', hide_input=True)
+@click.option('--gist-id', default=NAVIGATOR_GIST_ID, help='Gist ID to be updated (must exist).')
+@click.option('--print-urls', is_flag=True, help='Print the generated urls')
+def update_navigator_gists(directory: Path, token: str, gist_id: str, print_urls: bool) -> list:
+    """Update the gists with new navigator files."""
+    assert directory.exists(), f'{directory} does not exist'
+
+    file_map = {f: f.read_text() for f in directory.glob('*.json')}
+    response = update_gist(token, file_map, description='ATT&CK Navigator layer files.', gist_id=gist_id)
+    response_data = response.json()
+    raw_urls = [data['raw_url'] for name, data in response_data['files'].items()]
+
+    generated = []
+    for url in raw_urls:
+        query = urllib.parse.quote_plus(url)
+        url = f'https://mitre-attack.github.io/attack-navigator/#layerURL={query}&leave_site_dialog=false&tabs=false'
+
+        if print_urls:
+            click.echo(url)
+
+    click.echo(f'{response.status_code} {response.reason}')
+    return generated
 
 
 @dev_group.group('test')

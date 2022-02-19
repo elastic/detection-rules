@@ -19,6 +19,7 @@ from zipfile import ZipFile
 
 import click
 import requests
+from requests import Response
 
 from .schemas import definitions
 
@@ -96,6 +97,22 @@ def download_gh_asset(url: str, path: str, overwrite=False):
     click.echo(f'files saved to {path}')
 
     z.close()
+
+
+def update_gist(token: str, file_map: Dict[Path, str], description: str, gist_id: str, public=False) -> Response:
+    """Update existing gist."""
+    headers = {
+        'accept': 'application/vnd.github.v3+json',
+        'Authorization': f'token {token}'
+    }
+    body = {
+        'description': description,
+        'files': {path.name: {'content': contents} for path, contents in file_map.items()},
+        'public': public
+    }
+    request = requests.patch(f'https://api.github.com/gists/{gist_id}', headers=headers, json=body)
+    request.raise_for_status()
+    return request
 
 
 class GithubClient:
