@@ -747,15 +747,15 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_urls
     file_map = {f: f.read_text() for f in directory.glob('*.json')}
     response = update_gist(token, file_map, description='ATT&CK Navigator layer files.', gist_id=gist_id)
     response_data = response.json()
-    raw_urls = [data['raw_url'] for name, data in response_data['files'].items()]
+    raw_urls = {name: data['raw_url'] for name, data in response_data['files'].items()}
 
     generated = []
-    for url in raw_urls:
+    for name, url in raw_urls.items():
         query = urllib.parse.quote_plus(url)
         url = f'https://mitre-attack.github.io/attack-navigator/#layerURL={query}&leave_site_dialog=false&tabs=false'
 
         if print_urls:
-            click.echo(url)
+            click.echo(f'|[{name}]({url})|')
 
     click.echo(f'{response.status_code} {response.reason}')
     return generated
