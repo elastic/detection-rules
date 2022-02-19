@@ -73,6 +73,9 @@ def load_current_package_version() -> str:
     return load_etc_dump('packages.yml')['package']['name']
 
 
+CURRENT_RELEASE_PATH = Path(RELEASE_DIR) / load_current_package_version()
+
+
 class Package(object):
     """Packaging object for siem rules and releases."""
 

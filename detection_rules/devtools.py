@@ -30,7 +30,7 @@ from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
-from .packaging import PACKAGE_FILE, Package, RELEASE_DIR, current_stack_version
+from .packaging import PACKAGE_FILE, RELEASE_DIR, CURRENT_RELEASE_PATH, Package, current_stack_version
 from .version_lock import default_version_lock
 from .rule import AnyRuleData, BaseRuleData, QueryRuleData, TOMLRule
 from .rule_loader import RuleCollection, production_filter
@@ -735,7 +735,7 @@ def update_schemas():
 
 
 @dev_group.command('update-navigator-gists')
-@click.argument('directory', type=Path)
+@click.option('--directory', type=Path, default=CURRENT_RELEASE_PATH, help='Directory containing only navigator files.')
 @click.option('--token', required=True, prompt=get_github_token() is None, default=get_github_token(),
               help='GitHub token to push to gist', hide_input=True)
 @click.option('--gist-id', default=NAVIGATOR_GIST_ID, help='Gist ID to be updated (must exist).')
