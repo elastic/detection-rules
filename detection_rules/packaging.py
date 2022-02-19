@@ -13,7 +13,7 @@ import shutil
 import textwrap
 from collections import defaultdict
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import click
 import yaml
@@ -138,13 +138,15 @@ class Package(object):
         with open(os.path.join(save_dir, 'index.ts'), 'wt') as f:
             f.write('\n'.join(index_ts))
 
-    def save_release_files(self, directory, changed_rules, new_rules, removed_rules):
+    def save_release_files(self, directory: str, changed_rules: list, new_rules: list, removed_rules: list):
         """Release a package."""
         summary, changelog = self.generate_summary_and_changelog(changed_rules, new_rules, removed_rules)
         with open(os.path.join(directory, f'{self.name}-summary.txt'), 'w') as f:
             f.write(summary)
         with open(os.path.join(directory, f'{self.name}-changelog-entry.md'), 'w') as f:
             f.write(changelog)
+
+        self.generate_attack_navigator(Path(directory))
 
         consolidated = json.loads(self.get_consolidated())
         with open(os.path.join(directory, f'{self.name}-consolidated-rules.json'), 'w') as f:
@@ -355,6 +357,15 @@ class Package(object):
         ])
 
         return summary_str, changelog_str
+
+    def generate_attack_navigator(self, path: Path) -> Dict[Path, dict]:
+        """Generate ATT&CK navigator layer files."""
+        from .docs import Navigator
+
+        save_dir = path / 'navigator_layers'
+        save_dir.mkdir()
+        lb = Navigator(self.rules.rules)
+        return lb.save_all(save_dir, verbose=False)
 
     def generate_xslx(self, path):
         """Generate a detailed breakdown of a package in an excel file."""
