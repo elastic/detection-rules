@@ -142,11 +142,11 @@ class OnlineTestCase:
 
         self.kbn.delete_detection_engine_rules()
 
-        if self.es_indices.exists_index_template(self.index_template):
-            self.es_indices.delete_index_template(self.index_template)
+        if self.es_indices.exists_index_template(name=self.index_template):
+            self.es_indices.delete_index_template(name=self.index_template)
 
-        self.es_indices.delete(f"{self.index_template}-*")
-        self.es.delete_by_query(".siem-signals-default-000001", body={"query": {"match_all": {}}})
+        self.es_indices.delete(index=f"{self.index_template}-*")
+        self.es.delete_by_query(index=".siem-signals-default-000001", body={"query": {"match_all": {}}})
 
 
 class SignalsTestCase:
@@ -191,12 +191,12 @@ class SignalsTestCase:
                 "mappings": mappings,
             },
         }
-        self.es_indices.put_index_template(self.index_template, body=template)
+        self.es_indices.put_index_template(name=self.index_template, body=template)
 
         with self.nb.chapter("## Rejected documents") as cells:
             pos = 0
             while docs[pos:pos+batch_size]:
-                ret = self.es.bulk("\n".join(docs[pos:pos+batch_size]))
+                ret = self.es.bulk(body="\n".join(docs[pos:pos+batch_size]))
                 for i,item in enumerate(ret["items"]):
                     if item["index"]["status"] != 201:
                         cells.append(jupyter.Markdown(str(item['index'])))
