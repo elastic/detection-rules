@@ -753,6 +753,7 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_urls
     for name, url in raw_urls.items():
         query = urllib.parse.quote_plus(url)
         url = f'https://mitre-attack.github.io/attack-navigator/#layerURL={query}&leave_site_dialog=false&tabs=false'
+        generated.append(url)
 
         if print_urls:
             click.echo(f'|[{name}]({url})|')

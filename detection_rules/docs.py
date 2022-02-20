@@ -374,7 +374,8 @@ class Navigator:
     def build_layer(self, layer_name: str, layer_key: Optional[str] = None) -> dict:
         populated = []
         layer = self.get_layer(layer_name, layer_key)
-        name = f'{layer_name}-{layer_key}' if layer_key else layer_name
+        base_name = f'{layer_name}-{layer_key}' if layer_key else layer_name
+        name = f'Elastic-detection-rules-{base_name}'
 
         for tactic, techniques in layer.items():
             tactic_normalized = '-'.join(tactic.lower().split())
