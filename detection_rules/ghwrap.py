@@ -99,20 +99,38 @@ def download_gh_asset(url: str, path: str, overwrite=False):
     z.close()
 
 
-def update_gist(token: str, file_map: Dict[Path, str], description: str, gist_id: str, public=False) -> Response:
+def update_gist(token: str,
+                file_map: Dict[Path, str],
+                description: str,
+                gist_id: str,
+                public=False,
+                pre_purge=False) -> Response:
     """Update existing gist."""
+    url = f'https://api.github.com/gists/{gist_id}'
     headers = {
         'accept': 'application/vnd.github.v3+json',
         'Authorization': f'token {token}'
     }
     body = {
         'description': description,
-        'files': {path.name: {'content': contents} for path, contents in file_map.items()},
+        'files': {},  # {path.name: {'content': contents} for path, contents in file_map.items()},
         'public': public
     }
-    request = requests.patch(f'https://api.github.com/gists/{gist_id}', headers=headers, json=body)
-    request.raise_for_status()
-    return request
+
+    if pre_purge:
+        # retrieve all existing file names and overwrite them to empty to delete files
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        files = list(data['files'])
+        body['files'] = {file: {} for file in files}
+        response = requests.patch(url, headers=headers, json=body)
+        response.raise_for_status()
+
+    body['files'] = {path.name: {'content': contents} for path, contents in file_map.items()}
+    response = requests.patch(url, headers=headers, json=body)
+    response.raise_for_status()
+    return response
 
 
 class GithubClient:

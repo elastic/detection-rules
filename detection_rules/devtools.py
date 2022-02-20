@@ -735,7 +735,8 @@ def update_schemas():
 
 
 @dev_group.command('update-navigator-gists')
-@click.option('--directory', type=Path, default=CURRENT_RELEASE_PATH, help='Directory containing only navigator files.')
+@click.option('--directory', type=Path, default=CURRENT_RELEASE_PATH.joinpath('extras', 'navigator_layers'),
+              help='Directory containing only navigator files.')
 @click.option('--token', required=True, prompt=get_github_token() is None, default=get_github_token(),
               help='GitHub token to push to gist', hide_input=True)
 @click.option('--gist-id', default=NAVIGATOR_GIST_ID, help='Gist ID to be updated (must exist).')
@@ -745,7 +746,11 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_urls
     assert directory.exists(), f'{directory} does not exist'
 
     file_map = {f: f.read_text() for f in directory.glob('*.json')}
-    response = update_gist(token, file_map, description='ATT&CK Navigator layer files.', gist_id=gist_id)
+    response = update_gist(token,
+                           file_map,
+                           description='ATT&CK Navigator layer files.',
+                           gist_id=gist_id,
+                           pre_purge=True)
     response_data = response.json()
     raw_urls = {name: data['raw_url'] for name, data in response_data['files'].items()}
 
@@ -756,7 +761,8 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_urls
         generated.append(url)
 
         if print_urls:
-            click.echo(f'|[{name}]({url})|')
+            link_name = name.split('.')[0]
+            click.echo(f'|[{link_name}]({url})|')
 
     click.echo(f'{response.status_code} {response.reason}')
     return generated
