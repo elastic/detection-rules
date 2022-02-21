@@ -351,11 +351,11 @@ class Navigator:
                               f'{r.contents.data.type}/{r.contents.data.get("language")}')
             self.update_layer('platforms', *ttp, r.name, r.path.parent.name)
 
-            for index in rule.contents.data.get('index', []):
-                self.update_layer('indexes', *ttp, rule.id, rule.name, layer_key=index.lower())
+            for index in r.contents.data.get('index', []):
+                self.update_layer('indexes', *ttp, r.name, r.id, layer_key=index.lower())
 
-            for tag in rule.contents.data.get('tags', []):
-                self.update_layer('tags', *ttp, rule.id, rule.name, layer_key=tag.replace(' ', '-').lower())
+            for tag in r.contents.data.get('tags', []):
+                self.update_layer('tags', *ttp, r.name, r.id, layer_key=tag.replace(' ', '-').lower())
 
         for rule in self.detection_rules:
             threat = rule.contents.data.threat

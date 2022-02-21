@@ -41,6 +41,10 @@ from .utils import dict_hash, get_path, load_dump
 RULES_DIR = get_path('rules')
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
 NAVIGATOR_GIST_ID = '1a3f65224822a30a8228a8ed20289a89'
+NAVIGATOR_URL = 'https://ela.st/detection-rules-navigator'
+NAVIGATOR_BADGE = (
+    f'[![ATT&CK navigator coverage](https://img.shields.io/badge/ATT&CK-Navigator-red.svg)]({NAVIGATOR_URL})'
+)
 
 
 def get_github_token() -> Optional[str]:
@@ -740,8 +744,8 @@ def update_schemas():
 @click.option('--token', required=True, prompt=get_github_token() is None, default=get_github_token(),
               help='GitHub token to push to gist', hide_input=True)
 @click.option('--gist-id', default=NAVIGATOR_GIST_ID, help='Gist ID to be updated (must exist).')
-@click.option('--print-urls', is_flag=True, help='Print the generated urls')
-def update_navigator_gists(directory: Path, token: str, gist_id: str, print_urls: bool) -> list:
+@click.option('--print-markdown', is_flag=True, help='Print the generated urls')
+def update_navigator_gists(directory: Path, token: str, gist_id: str, print_markdown: bool) -> list:
     """Update the gists with new navigator files."""
     assert directory.exists(), f'{directory} does not exist'
 
@@ -754,18 +758,34 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_urls
     response_data = response.json()
     raw_urls = {name: data['raw_url'] for name, data in response_data['files'].items()}
 
-    generated = []
-    for name, url in raw_urls.items():
-        query = urllib.parse.quote_plus(url)
+    base_url = 'https://mitre-attack.github.io/attack-navigator/#layerURL={}&leave_site_dialog=false&tabs=false'
+
+    # pull out full and platform coverage to print on top of markdown table
+    all_url = base_url.format(urllib.parse.quote_plus(raw_urls.pop('Elastic-detection-rules-all.json')))
+    platforms_url = base_url.format(urllib.parse.quote_plus(raw_urls.pop('Elastic-detection-rules-platforms.json')))
+
+    generated_urls = [all_url, platforms_url]
+    markdown_links = []
+    for name, gist_url in raw_urls.items():
+        query = urllib.parse.quote_plus(gist_url)
         url = f'https://mitre-attack.github.io/attack-navigator/#layerURL={query}&leave_site_dialog=false&tabs=false'
-        generated.append(url)
+        generated_urls.append(url)
+        link_name = name.split('.')[0]
+        markdown_links.append(f'|[{link_name}]({url})|')
 
-        if print_urls:
-            link_name = name.split('.')[0]
-            click.echo(f'|[{link_name}]({url})|')
+    if print_markdown:
+        markdown = [
+            f'**Full coverage**: {NAVIGATOR_BADGE}',
+            '\n',
+            f'**Coverage by platform**: [navigator]({platforms_url})',
+            '\n',
+            '| other navigator links by rule attributes |',
+            '|------------------------------------------|',
+        ] + markdown_links
+        click.echo('\n'.join(markdown) + '\n')
 
-    click.echo(f'{response.status_code} {response.reason}')
-    return generated
+    click.echo(f'Gist update status: {response.status_code} {response.reason}')
+    return generated_urls
 
 
 @dev_group.group('test')
