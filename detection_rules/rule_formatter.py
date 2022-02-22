@@ -7,6 +7,7 @@
 import copy
 import dataclasses
 import io
+import json
 import textwrap
 import typing
 from collections import OrderedDict
@@ -148,6 +149,21 @@ def toml_write(rule_contents, outfile=None):
     contents = copy.deepcopy(rule_contents)
     needs_close = False
 
+    def order_rule(obj):
+        if isinstance(obj, dict):
+            obj = OrderedDict(sorted(obj.items()))
+            for k, v in obj.items():
+                if isinstance(v, dict) or isinstance(v, list):
+                    obj[k] = order_rule(v)
+
+        if isinstance(obj, list):
+            for i, v in enumerate(obj):
+                if isinstance(v, dict) or isinstance(v, list):
+                    obj[i] = order_rule(v)
+            obj = sorted(obj, key=lambda x: json.dumps(x))
+
+        return obj
+
     def _do_write(_data, _contents):
         query = None
 
@@ -203,6 +219,7 @@ def toml_write(rule_contents, outfile=None):
 
         for data in ('metadata', 'rule'):
             _contents = contents.get(data, {})
+            order_rule(_contents)
             _do_write(data, _contents)
 
     finally:
