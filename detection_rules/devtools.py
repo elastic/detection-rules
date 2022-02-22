@@ -749,6 +749,11 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
     """Update the gists with new navigator files."""
     assert directory.exists(), f'{directory} does not exist'
 
+    def raw_permalink(raw_link):
+        # Gist file URLs change with each revision, but can be permalinked to the latest by removing the hash after raw
+        prefix, _, suffix = raw_link.rsplit('/', 2)
+        return '/'.join([prefix, suffix])
+
     file_map = {f: f.read_text() for f in directory.glob('*.json')}
     response = update_gist(token,
                            file_map,
@@ -756,7 +761,7 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
                            gist_id=gist_id,
                            pre_purge=True)
     response_data = response.json()
-    raw_urls = {name: data['raw_url'] for name, data in response_data['files'].items()}
+    raw_urls = {name: raw_permalink(data['raw_url']) for name, data in response_data['files'].items()}
 
     base_url = 'https://mitre-attack.github.io/attack-navigator/#layerURL={}&leave_site_dialog=false&tabs=false'
 
