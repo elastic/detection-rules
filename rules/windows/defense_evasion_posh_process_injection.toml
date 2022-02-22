@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/10/14"
 maturity = "production"
-updated_date = "2021/11/30"
+updated_date = "2022/02/16"
 
 [rule]
 author = ["Elastic"]
@@ -9,7 +9,7 @@ description = """
 Detects the use of Windows API functions that are commonly abused by malware and security tools to load 
 malicious code or inject it into remote processes.
 """
-false_positives = ["Legitimate Powershell Scripts that make use of these Functions"]
+false_positives = ["Legitimate PowerShell scripts that make use of these functions."]
 from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.*"]
 language = "kuery"
@@ -24,14 +24,14 @@ PowerShell is one of the main tools used by system administrators for automation
 PowerShell also has solid capabilities to make the interaction with the Win32 API in an uncomplicated and reliable way,
 like the execution of inline C# code, PSReflect, Get-ProcAddress, etc.
 
-Red Team tooling and Malware Developers take advantage of these capabilities to develop stagers and loaders that inject
+Red Team tooling and malware developers take advantage of these capabilities to develop stagers and loaders that inject
 payloads directly into the memory, without touching the disk.
 
 #### Possible investigation steps:
 
 - Examine script content that triggered the detection. 
-- Investigate script execution chain (parent process tree)
-- Inspect any file or network events from the suspicious powershell host process instance.
+- Investigate script execution chain (parent process tree).
+- Inspect any file or network events from the suspicious PowerShell host process instance.
 - If the action is suspicious for the user, check for any other activities done by the user in the last 48 hours.
 
 ### False Positive Analysis
