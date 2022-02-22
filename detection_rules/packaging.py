@@ -19,6 +19,7 @@ import click
 import yaml
 
 from .misc import JS_LICENSE, cached
+from .navigator import NavigatorBuilder, Navigator
 from .rule import TOMLRule, QueryRuleData, ThreatMapping
 from .rule_loader import DeprecatedCollection, RuleCollection, DEFAULT_RULES_DIR
 from .schemas import definitions
@@ -361,13 +362,11 @@ class Package(object):
 
         return summary_str, changelog_str
 
-    def generate_attack_navigator(self, path: Path) -> Dict[Path, dict]:
+    def generate_attack_navigator(self, path: Path) -> Dict[Path, Navigator]:
         """Generate ATT&CK navigator layer files."""
-        from .docs import Navigator
-
         save_dir = path / 'navigator_layers'
         save_dir.mkdir()
-        lb = Navigator(self.rules.rules)
+        lb = NavigatorBuilder(self.rules.rules)
         return lb.save_all(save_dir, verbose=False)
 
     def generate_xslx(self, path):

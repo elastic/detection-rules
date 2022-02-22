@@ -118,12 +118,13 @@ def update_gist(token: str,
     }
 
     if pre_purge:
-        # retrieve all existing file names and overwrite them to empty to delete files
+        # retrieve all existing file names which are not in the file_map and overwrite them to empty to delete files
+        # only. When a file is completely deleted and updated, the raw URL changes
         response = requests.get(url)
         response.raise_for_status()
         data = response.json()
         files = list(data['files'])
-        body['files'] = {file: {} for file in files}
+        body['files'] = {file: {} for file in files if file not in file_map}
         response = requests.patch(url, headers=headers, json=body)
         response.raise_for_status()
 

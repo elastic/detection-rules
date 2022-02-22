@@ -784,7 +784,7 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
         ] + markdown_links
         click.echo('\n'.join(markdown) + '\n')
 
-    click.echo(f'Gist update status: {response.status_code} {response.reason}')
+    click.echo(f'Gist update status on {len(generated_urls)} files: {response.status_code} {response.reason}')
     return generated_urls
 
 
