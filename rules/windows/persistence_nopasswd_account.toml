@@ -1,0 +1,45 @@
+[metadata]
+creation_date = "2022/02/22"
+maturity = "production"
+updated_date = "2022/02/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the creation and modification of an account with the "Don't Expire Password" option Enabled. Attackers can abuse
+this misconfiguration to persist in the domain and maintain long-term access using compromised accounts with this
+property.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-system.*"]
+language = "lucene"
+license = "Elastic License v2"
+name = "Account configured with never Expiring Password"
+references = [
+    "https://www.cert.ssi.gouv.fr/uploads/guide-ad.html#dont_expire",
+]
+risk_score = 47
+rule_id = "62a70f6f-3c37-43df-a556-f64fa475fba2"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Credential Access", "Active Directory"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+message:"'Don't Expire Password' - Enabled" AND NOT user.id:"S-1-5-18"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
