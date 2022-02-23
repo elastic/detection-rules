@@ -7,22 +7,22 @@ Curious about the inner workings? Read [here](signals_generation.md).
 
 ## Table of contents
    1. [Skipped rules](#skipped-rules)
-      1. [Unsupported rule type: machine_learning](#unsupported-rule-type-machine_learning)
-      1. [Unsupported rule type: threshold](#unsupported-rule-type-threshold)
-      1. [Unsupported query language: lucene](#unsupported-query-language-lucene)
-      1. [Unsupported rule type: threat_match](#unsupported-rule-type-threat_match)
+      1. [Unsupported rule type: machine_learning (50)](#unsupported-rule-type-machine_learning-50)
+      1. [Unsupported rule type: threshold (14)](#unsupported-rule-type-threshold-14)
+      1. [Unsupported query language: lucene (6)](#unsupported-query-language-lucene-6)
+      1. [Unsupported rule type: threat_match (3)](#unsupported-rule-type-threat_match-3)
    1. [Generation errors](#generation-errors)
-      1. [Constraints solver not implemented: wildcard](#constraints-solver-not-implemented-wildcard)
-      1. [Unsupported function: match](#unsupported-function-match)
-      1. [Root without branches](#root-without-branches)
-      1. [Unsupported LHS type: <class 'eql.ast.FunctionCall'>](#unsupported-lhs-type-class-eqlastfunctioncall)
-      1. [Unsolvable constraints ==: powershell.file.script_block_text (is already 'waveInGetNumDevs', cannot set to 'mciSendStringA')](#unsolvable-constraints--powershellfilescript_block_text-is-already-waveingetnumdevs-cannot-set-to-mcisendstringa)
-      1. [Constraints solver not implemented: match_only_text](#constraints-solver-not-implemented-match_only_text)
-      1. [Unsolvable constraints: process.name (wildcard(s) both included and excluded: 'rundll32.exe')](#unsolvable-constraints-processname-wildcards-both-included-and-excluded-rundll32exe)
+      1. [Constraints solver not implemented: wildcard (39)](#constraints-solver-not-implemented-wildcard-39)
+      1. [Unsupported function: match (5)](#unsupported-function-match-5)
+      1. [Root without branches (5)](#root-without-branches-5)
+      1. [Unsupported LHS type: <class 'eql.ast.FunctionCall'> (3)](#unsupported-lhs-type-class-eqlastfunctioncall-3)
+      1. [Unsolvable constraints ==: powershell.file.script_block_text (is already 'waveInGetNumDevs', cannot set to 'mciSendStringA') (1)](#unsolvable-constraints--powershellfilescript_block_text-is-already-waveingetnumdevs-cannot-set-to-mcisendstringa-1)
+      1. [Constraints solver not implemented: match_only_text (1)](#constraints-solver-not-implemented-match_only_text-1)
+      1. [Unsolvable constraints: process.name (wildcard(s) both included and excluded: 'rundll32.exe') (1)](#unsolvable-constraints-processname-wildcards-both-included-and-excluded-rundll32exe-1)
 
 ## Skipped rules
 
-### Unsupported rule type: machine_learning
+### Unsupported rule type: machine_learning (50)
 
 50 rules:
 
@@ -77,7 +77,7 @@ Curious about the inner workings? Read [here](signals_generation.md).
 * [Unusual Windows User Privilege Elevation Activity](../../rules/ml/ml_windows_rare_user_runas_event.toml)
 * [Unusual Windows Username](../../rules/ml/ml_windows_anomalous_user_name.toml)
 
-### Unsupported rule type: threshold
+### Unsupported rule type: threshold (14)
 
 14 rules:
 
@@ -96,7 +96,7 @@ Curious about the inner workings? Read [here](signals_generation.md).
 * [Potential SSH Brute Force Detected](../../rules/macos/credential_access_potential_ssh_bruteforce.toml)
 * [Sudo Heap-Based Buffer Overflow Attempt](../../rules/cross-platform/privilege_escalation_sudo_buffer_overflow.toml)
 
-### Unsupported query language: lucene
+### Unsupported query language: lucene (6)
 
 6 rules:
 
@@ -107,7 +107,7 @@ Curious about the inner workings? Read [here](signals_generation.md).
 * [Roshal Archive (RAR) or PowerShell File Downloaded from the Internet](../../rules/network/command_and_control_download_rar_powershell_from_internet.toml)
 * [Setuid / Setgid Bit Set via chmod](../../rules/cross-platform/privilege_escalation_setuid_setgid_bit_set_via_chmod.toml)
 
-### Unsupported rule type: threat_match
+### Unsupported rule type: threat_match (3)
 
 3 rules:
 
@@ -117,7 +117,7 @@ Curious about the inner workings? Read [here](signals_generation.md).
 
 ## Generation errors
 
-### Constraints solver not implemented: wildcard
+### Constraints solver not implemented: wildcard (39)
 
 39 rules:
 * [Apple Scripting Execution with Administrator Privileges](../../rules/macos/privilege_escalation_applescript_with_admin_privs.toml)
@@ -160,7 +160,7 @@ Curious about the inner workings? Read [here](signals_generation.md).
 * [Web Application Suspicious Activity: No User Agent](../../rules/apm/apm_null_user_agent.toml)
 * [Windows Defender Disabled via Registry Modification](../../rules/windows/defense_evasion_defender_disabled_via_registry.toml)
 
-### Unsupported function: match
+### Unsupported function: match (5)
 
 5 rules:
 * [Creation of Hidden Files and Directories](../../rules/linux/defense_evasion_hidden_file_dir_tmp.toml)
@@ -169,7 +169,7 @@ Curious about the inner workings? Read [here](signals_generation.md).
 * [Suspicious PowerShell Engine ImageLoad](../../rules/windows/execution_suspicious_powershell_imgload.toml)
 * [Whitespace Padding in Process Command Line](../../rules/windows/defense_evasion_whitespace_padding_in_command_line.toml)
 
-### Root without branches
+### Root without branches (5)
 
 5 rules:
 * [Persistence via Login or Logout Hook](../../rules/macos/persistence_login_logout_hooks_defaults.toml)
@@ -178,24 +178,24 @@ Curious about the inner workings? Read [here](signals_generation.md).
 * [Potential Process Injection via PowerShell](../../rules/windows/defense_evasion_posh_process_injection.toml)
 * [SoftwareUpdate Preferences Modification](../../rules/macos/defense_evasion_apple_softupdates_modification.toml)
 
-### Unsupported LHS type: <class 'eql.ast.FunctionCall'>
+### Unsupported LHS type: <class 'eql.ast.FunctionCall'> (3)
 
 3 rules:
 * [Image File Execution Options Injection](../../rules/windows/persistence_evasion_registry_ifeo_injection.toml)
 * [Suspicious Execution - Short Program Name](../../rules/windows/execution_suspicious_short_program_name.toml)
 * [Suspicious Process Access via Direct System Call](../../rules/windows/defense_evasion_suspicious_process_access_direct_syscall.toml)
 
-### Unsolvable constraints ==: powershell.file.script_block_text (is already 'waveInGetNumDevs', cannot set to 'mciSendStringA')
+### Unsolvable constraints ==: powershell.file.script_block_text (is already 'waveInGetNumDevs', cannot set to 'mciSendStringA') (1)
 
 1 rules:
 * [PowerShell Suspicious Script with Audio Capture Capabilities](../../rules/windows/collection_posh_audio_capture.toml)
 
-### Constraints solver not implemented: match_only_text
+### Constraints solver not implemented: match_only_text (1)
 
 1 rules:
 * [Windows CryptoAPI Spoofing Vulnerability (CVE-2020-0601 - CurveBall)](../../rules/windows/defense_evasion_cve_2020_0601.toml)
 
-### Unsolvable constraints: process.name (wildcard(s) both included and excluded: 'rundll32.exe')
+### Unsolvable constraints: process.name (wildcard(s) both included and excluded: 'rundll32.exe') (1)
 
 1 rules:
 * [Execution from Unusual Directory - Command Line](../../rules/windows/execution_from_unusual_path_cmdline.toml)

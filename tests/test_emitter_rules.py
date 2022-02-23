@@ -64,7 +64,7 @@ class TestRules(tu.QueryTestCase, tu.SeededTestCase, unittest.TestCase):
                 for rule in sorted(errors[err], key=lambda r: r.contents.data.name):
                     path = rule.path.relative_to(utils.ROOT_DIR)
                     bullets.append(f"* [{rule.contents.data.name}](../../{path})")
-                with self.nb.chapter(f"### {err}") as cells:
+                with self.nb.chapter(f"### {err} ({len(errors[err])})") as cells:
                     cells.append(jupyter.Markdown(heading + sorted(bullets)))
 
         return rules, asts
@@ -86,7 +86,7 @@ class TestRules(tu.QueryTestCase, tu.SeededTestCase, unittest.TestCase):
                 for rule in sorted(errors[err], key=lambda r: r.contents.data.name):
                     path = rule.path.relative_to(utils.ROOT_DIR)
                     bullets.append(f"* [{rule.contents.data.name}](../../{path})")
-                with self.nb.chapter(f"### {err}") as cells:
+                with self.nb.chapter(f"### {err} ({len(errors[err])})") as cells:
                     cells.append(jupyter.Markdown(heading + sorted(bullets)))
 
     def test_rules_collection(self):

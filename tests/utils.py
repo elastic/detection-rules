@@ -14,6 +14,7 @@ import hashlib
 import textwrap
 import unittest
 import itertools
+import subprocess
 
 from detection_rules import utils, jupyter
 from detection_rules.events_emitter import SourceEvents
@@ -52,7 +53,14 @@ def assertIdenticalFiles(tc, first, second):  # noqa: N802
         first_hash = hashlib.sha256(f.read().encode("utf-8")).hexdigest()
     with open(second) as f:
         second_hash = hashlib.sha256(f.read().encode("utf-8")).hexdigest()
-    tc.assertEqual(first_hash, second_hash)
+    with subprocess.Popen(("diff", "-u", first, second), stdout=subprocess.PIPE) as p:
+        try:
+            out = p.communicate(timeout=30)[0]
+        except subprocess.TimeoutExpired:
+            p.kill()
+            out = p.communicate()[0]
+        msg = "\n" + out.decode("utf-8")
+    tc.assertEqual(first_hash, second_hash, msg=msg)
 
 
 def assertReportUnchanged(tc, nb, report):  # noqa: N802
@@ -225,14 +233,17 @@ class SignalsTestCase:
         successful = {}
         failed = {}
         while (time.time() - start) < timeout:
-            self.check_rules(pending, successful, failed)
             if verbose:
                 sys.stderr.write(f"{len(pending)} ")
                 sys.stderr.flush()
+            self.check_rules(pending, successful, failed)
             if pending:
                 time.sleep(sleep)
             else:
                 break
+        if verbose:
+            sys.stderr.write(f"{len(pending)} ")
+            sys.stderr.flush()
         return successful, failed
 
     def check_rules(self, pending, successful, failed):
@@ -293,7 +304,7 @@ class SignalsTestCase:
         return jupyter.Code(source, output, **kwargs)
 
     def report_rules(self, rules, rule_ids, title):
-        with self.nb.chapter(f"## {title}") as cells:
+        with self.nb.chapter(f"## {title} ({len(rule_ids)})") as cells:
             for rule in rules:
                 if rule["id"] in rule_ids:
                     docs = self.check_docs(rule)
@@ -350,4 +361,4 @@ class SignalsTestCase:
         self.assertSignals(rules, no_signals, "Rules with no signals")
         self.assertSignals(rules, too_few_signals, "Rules with too few signals")
         self.assertSignals(rules, too_many_signals, "Rules with too many signals")
-        # self.report_rules(rules, correct_signals, "Rules with the correct signals")
+        self.report_rules(rules, correct_signals, "Rules with the correct signals")
