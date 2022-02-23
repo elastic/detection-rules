@@ -8,7 +8,6 @@
 import os
 import random
 import string
-import json
 import uuid
 import textwrap
 import nbformat as nbf
@@ -28,6 +27,7 @@ github_user = "elastic"
 github_repo = "detection-rules"
 github_branch = "main"
 
+
 def to_notebook(cells):
     metadata = {
         "language_info": {
@@ -40,11 +40,13 @@ def to_notebook(cells):
     nb.cells = [cell.to_cell() for cell in cells]
     return nb
 
+
 def to_markdown(cells):
     text = "".join(line for cell in cells for line in cell.to_markdown() + ["\n\n"])
     while len(text) > 1 and text[-2:] == "\n\n":
         text = text[:-1]
     return text
+
 
 def _get_nb_badges(filename):
     _nbviewer_badge_url = "https://raw.githubusercontent.com/jupyter/design/master/logos/Badges/nbviewer_badge.svg"
@@ -61,6 +63,7 @@ def _get_nb_badges(filename):
         [![Binder]({_binder_badge_url})]({_binder_base_url}/{github_user}/{github_repo}/{github_branch}?labpath={path})
     """)]
 
+
 def to_file(filename, cells):
     ext = os.path.splitext(filename)[1][1:]
     if ext == "ipynb":
@@ -72,6 +75,7 @@ def to_file(filename, cells):
             f.write(md)
     else:
         raise ValueError(f"unknown extension: {ext}")
+
 
 def to_multiline(lines):
     if type(lines) == str:
@@ -85,9 +89,11 @@ def to_multiline(lines):
         lines[-1] = lines[-1][:-1]
     return lines
 
+
 def _rewrite_id(cell):
     cell.id = uuid.UUID(int=random.getrandbits(128)).hex[:8]
     return cell
+
 
 class Markdown:
     def __init__(self, text):
@@ -101,6 +107,7 @@ class Markdown:
 
     def to_markdown(self):
         return to_multiline(self.text)
+
 
 class Code:
     def __init__(self, code, output=None, output_type="execute_result", execution_count=None):
@@ -147,8 +154,11 @@ class Code:
             lines += ["```python\n"] + output + ["```\n\n"]
         return lines
 
+
 _markdown_punctuation = string.punctuation.translate(str.maketrans("", "", "-_"))
 _markdown_anchor_trans = str.maketrans(" ", "-", _markdown_punctuation)
+
+
 def _toc_entry(title, toc_style):
     indent = "   " * max(0, title.count("#") - 1)
     title = title.replace("#", "").strip()
@@ -160,6 +170,7 @@ def _toc_entry(title, toc_style):
     else:
         raise ValueError(f"unknown toc style: {toc_style}")
     return f"{indent}1. [{title}](#{link})"
+
 
 class Notebook:
     def __init__(self):
@@ -191,7 +202,7 @@ class Notebook:
         toc_style = os.path.splitext(filename)[1][1:]
         toc = []
         cells = []
-        for chap_title,chap_cells in self.chapters:
+        for chap_title, chap_cells in self.chapters:
             if chap_title and chap_cells:
                 toc.append(_toc_entry(chap_title, toc_style))
                 cells.append(Markdown(f"{chap_title}"))

@@ -20,7 +20,7 @@ import ipaddress
 NumberLimits = namedtuple("NumberLimits", ["MIN", "MAX"])
 
 # https://www.elastic.co/guide/en/elasticsearch/reference/current/number.html
-LongLimits = NumberLimits(-2**63, 2**63-1)
+LongLimits = NumberLimits(-2**63, 2**63 - 1)
 
 _max_attempts = 100000
 
@@ -28,6 +28,7 @@ ecs_constraints = {
     "pid": [(">", 0), ("<", 2**32)],
     "port": [(">", 0), ("<", 2**16)],
 }
+
 
 def get_ecs_constraints(field):
     if field in ecs_constraints:
@@ -37,15 +38,18 @@ def get_ecs_constraints(field):
         return ecs_constraints[field]
     return []
 
+
 def has_wildcards(value):
     if type(value) == str:
         return value.find("?") + value.find("*") > -2
     return False
 
+
 def match_wildcards(values, wildcards):
     if type(values) != list:
         values = [values]
     return any(fnmatch(v, wc) for v in values for wc in wildcards)
+
 
 def expand_wildcards(value, allowed_chars):
     chars = []
@@ -58,21 +62,25 @@ def expand_wildcards(value, allowed_chars):
             chars.append(c)
     return "".join(chars)
 
+
 def delete_by_cond(list, cond):
-    for i in reversed([i for i,x in enumerate(list) if cond(x)]):
+    for i in reversed([i for i, x in enumerate(list) if cond(x)]):
         del(list[i])
+
 
 def delete_use_once(list):
     def is_use_once(item):
         return len(item) > 2 and item[2] and item[2].get("use_once", False)
     delete_by_cond(list, is_use_once)
 
+
 class ConflictError(ValueError):
     def __init__(self, msg, field, name=None):
         name = f" {name}" if name else ""
-        super(ConflictError,self).__init__(f"Unsolvable constraints{name}: {field} ({msg})")
+        super(ConflictError, self).__init__(f"Unsolvable constraints{name}: {field} ({msg})")
 
-class solver:
+
+class solver:  # noqa: N801
     def __init__(self, field_type, *args):
         self.field_type = field_type
         self.valid_constraints = ("join_value", "max_attempts") + args
@@ -83,7 +91,7 @@ class solver:
             join_values = []
             max_attempts = None
             augmented_constraints = constraints + get_ecs_constraints(field)
-            for k,v,*_ in augmented_constraints:
+            for k, v, *_ in augmented_constraints:
                 if k not in self.valid_constraints:
                     raise NotImplementedError(f"Unsupported {self.field_type} constraint: {k}")
                 if k == "join_value":
@@ -100,11 +108,12 @@ class solver:
             if not value["left_attempts"]:
                 raise ConflictError(f"attempts exausted: {max_attempts}", field)
             del(value["left_attempts"])
-            for field,constraint in join_values:
+            for field, constraint in join_values:
                 constraint.append_constraint(field, "==", value["value"], {"use_once": True})
             delete_use_once(constraints)
             return value
         return _solver
+
 
 class Constraints:
     def __init__(self, field=None, name=None, value=None):
@@ -125,10 +134,10 @@ class Constraints:
                 self.__constraints[field] = []
         if self.__constraints[field] is None:
             if name != "==" or value is not None:
-                raise ConflictError(f"cannot be non-null", field)
+                raise ConflictError("cannot be non-null", field)
         else:
             if name == "==" and value is None:
-                raise ConflictError(f"cannot be null", field)
+                raise ConflictError("cannot be null", field)
             if name is not None and not (name == "!=" and value is None):
                 self.__constraints[field].append((name, value, flags or {}))
 
@@ -137,17 +146,17 @@ class Constraints:
             self.__constraints[field] = copy.deepcopy(constraints)
         elif self.__constraints[field] is None:
             if constraints is not None:
-                raise ConflictError(f"cannot be non-null", field)
+                raise ConflictError("cannot be non-null", field)
         else:
             if constraints is None:
-                raise ConflictError(f"cannot be null", field)
+                raise ConflictError("cannot be null", field)
             self.__constraints[field].extend(constraints)
 
     def fields(self):
         return set(self.__constraints)
 
     def __iadd__(self, other):
-        for field,constraints in other.__constraints.items():
+        for field, constraints in other.__constraints.items():
             self.extend_constraints(field, constraints)
         return self
 
@@ -162,14 +171,14 @@ class Constraints:
     @staticmethod
     def from_dict(other):
         c = Constraints()
-        for field,constraints in other.items():
+        for field, constraints in other.items():
             c.extend_constraints(field, constraints)
         return c
 
     @classmethod
     @solver("boolean", "==", "!=")
     def solve_boolean_constraints(cls, field, value, constraints, left_attempts):
-        for k,v,*_ in constraints:
+        for k, v, *_ in constraints:
             if k == "==":
                 v = bool(v)
                 if value is None or value == v:
@@ -195,7 +204,7 @@ class Constraints:
         max_value = LongLimits.MAX
         exclude_values = set()
 
-        for k,v,*_ in constraints:
+        for k, v, *_ in constraints:
             if k == ">=":
                 v = int(v)
                 if min_value < v:
@@ -212,7 +221,7 @@ class Constraints:
                 v = int(v)
                 if max_value > v - 1:
                     max_value = v - 1
-        for k,v,*_ in constraints:
+        for k, v, *_ in constraints:
             if k == "==":
                 v = int(v)
                 if value is None or value == v:
@@ -244,7 +253,7 @@ class Constraints:
     @classmethod
     @solver("date", "==")
     def solve_date_constraints(cls, field, value, constraints, left_attempts):
-        for k,v,*_ in constraints:
+        for k, v, *_ in constraints:
             if k == "==":
                 if value is None or value == v:
                     value = v
@@ -263,7 +272,7 @@ class Constraints:
         exclude_nets = set()
         exclude_addrs = set()
 
-        for k,v,*_ in constraints:
+        for k, v, *_ in constraints:
             if k == "==":
                 v = str(v)
                 try:
@@ -306,18 +315,20 @@ class Constraints:
                         raise ValueError(f"Not an IP network: {str(v)}")
 
         if include_nets & exclude_nets:
-            raise ConflictError("net(s) both included and excluded: " +
-                f"{', '.join(str(net) for net in sorted(include_nets & exclude_nets))}", field)
+            intersecting_nets = ", ".join(str(net) for net in sorted(include_nets & exclude_nets))
+            raise ConflictError(f"net(s) both included and excluded: {intersecting_nets}", field)
         if value is not None and value in exclude_addrs:
             if len(exclude_addrs) == 1:
                 raise ConflictError(f"cannot be {exclude_addrs.pop()}", field)
             else:
-                raise ConflictError(f"cannot be any of ({', '.join(str(v) for v in sorted(exclude_addrs))})", field)
+                exclude_addrs = ", ".join(str(v) for v in sorted(exclude_addrs))
+                raise ConflictError(f"cannot be any of ({exclude_addrs})", field)
         if value is not None and any(value in net for net in exclude_nets):
             if len(exclude_nets) == 1:
                 raise ConflictError(f"cannot be in net {exclude_nets.pop()}", field)
             else:
-                raise ConflictError(f"cannot be in any of nets ({', '.join(str(v) for v in sorted(exclude_nets))})", field)
+                exclude_nets = ", ".join(str(v) for v in sorted(exclude_nets))
+                raise ConflictError(f"cannot be in any of nets ({exclude_nets})", field)
         ip_versions = sorted(ip.version for ip in include_nets | exclude_nets | exclude_addrs) or [4]
         include_nets = sorted(include_nets, key=lambda x: (x.version, x))
         while left_attempts and (value is None or value in exclude_addrs or any(value in net for net in exclude_nets)):
@@ -339,7 +350,7 @@ class Constraints:
         exclude_values = set()
         min_length = 3
 
-        for k,v,*_ in constraints:
+        for k, v, *_ in constraints:
             if k == "wildcard":
                 if type(v) == tuple and len(v) == 1:
                     v = v[0]
@@ -356,7 +367,7 @@ class Constraints:
                 for v in values:
                     exclude_wildcards.add(v.lower())
 
-        for k,v,*_ in constraints:
+        for k, v, *_ in constraints:
             if k == "min_length":
                 if v >= min_length:
                     min_length = v
@@ -383,9 +394,9 @@ class Constraints:
         if include_wildcards:
             filtered_wildcards = {wc for wc in include_wildcards if not match_wildcards(wc, exclude_wildcards)}
             if not filtered_wildcards:
-                include_wildcards = "', '".join(sorted(include_wildcards))
-                exclude_wildcards = "', '".join(sorted(exclude_wildcards))
-                raise ConflictError(f"filtered wildcard(s): ('{include_wildcards}') are filtered out by ('{exclude_wildcards}')", field)
+                incl_wc = "', '".join(sorted(include_wildcards))
+                excl_wc = "', '".join(sorted(exclude_wildcards))
+                raise ConflictError(f"filtered wildcard(s): ('{incl_wc}') are filtered out by ('{excl_wc}')", field)
             include_wildcards = filtered_wildcards
         if value is not None and set(value if type(value) == list else [value]) & exclude_values:
             if len(exclude_values) == 1:
@@ -399,7 +410,7 @@ class Constraints:
             else:
                 exclude_wildcards = "', '".join(sorted(exclude_wildcards))
                 raise ConflictError(f"cannot match any of ('{exclude_wildcards}')", field)
-        if value in (None,[]):
+        if value in (None, []):
             include_wildcards = sorted(include_wildcards)
         elif has_wildcards(value):
             include_wildcards = [value]
@@ -410,9 +421,9 @@ class Constraints:
             else:
                 include_wildcards = "', '".join(sorted(include_wildcards))
                 raise ConflictError(f"does not match any of ('{include_wildcards}')", field)
-        while left_attempts and (value in (None,[]) \
-                or set(value if type(value) == list else [value]) & exclude_values \
-                or match_wildcards(value, exclude_wildcards)):
+        while left_attempts and (value in (None, [])
+                                 or set(value if type(value) == list else [value]) & exclude_values  # noqa: W503
+                                 or match_wildcards(value, exclude_wildcards)):  # noqa: W503
             if include_wildcards:
                 wc = random.choice(include_wildcards)
                 v = expand_wildcards(wc, allowed_chars).lower()
@@ -435,12 +446,13 @@ class Constraints:
         return solver(field, value, constraints)["value"]
 
     def solve(self, schema):
-        for field,constraints in self.__constraints.items():
+        for field, constraints in self.__constraints.items():
             value = None
             if constraints is not None:
                 field_schema = schema.get(field, {})
                 value = self.solve_constraints(field, constraints, field_schema)
             yield field, value
+
 
 class Branch(List[Constraints]):
     def __iter__(self):
@@ -449,7 +461,7 @@ class Branch(List[Constraints]):
         return super(Branch, self).__iter__()
 
     def __mul__(self, other):
-        return Branch(x+y for x in self for y in other)
+        return Branch(x + y for x in self for y in other)
 
     def fields(self):
         return set(chain(*(constraints.fields() for constraints in self)))
@@ -457,7 +469,9 @@ class Branch(List[Constraints]):
     def solve(self, schema):
         return (constraints.solve(schema) for constraints in self)
 
+
 Branch.Identity = Branch([Constraints()])
+
 
 class Root(List[Branch]):
     def __iter__(self):

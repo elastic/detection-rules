@@ -9,7 +9,7 @@ import os
 import unittest
 from pathlib import Path
 
-from tests.utils import *
+import tests.utils as tu
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.events_emitter import SourceEvents, ast_from_rule
 from detection_rules import utils, jupyter
@@ -28,11 +28,10 @@ def _get_collection(var_name):
     return collection
 
 
-class TestRules(QueryTestCase, SeededTestCase, unittest.TestCase):
+class TestRules(tu.QueryTestCase, tu.SeededTestCase, unittest.TestCase):
     maxDiff = None
     nb = jupyter.Notebook()
-    nb.cells.append(jupyter.Markdown(
-    """
+    nb.cells.append(jupyter.Markdown("""
         # Documents generation from detection rules
 
         This report captures the error reported while generating documents from detection rules. Here you
@@ -72,7 +71,7 @@ class TestRules(QueryTestCase, SeededTestCase, unittest.TestCase):
 
     def generate_docs(self, rules, asts):
         errors = {}
-        for rule,ast in zip(rules, asts):
+        for rule, ast in zip(rules, asts):
             try:
                 _ = SourceEvents.from_ast(ast).emit(timestamp=False, complete=True)
             except Exception as e:
@@ -96,15 +95,14 @@ class TestRules(QueryTestCase, SeededTestCase, unittest.TestCase):
         self.generate_docs(rules, asts)
 
     def test_unchanged(self):
-        assertReportUnchanged(self, self.nb, "documents_from_rules.md")
+        tu.assertReportUnchanged(self, self.nb, "documents_from_rules.md")
 
 
 @unittest.skipIf(os.getenv("TEST_SIGNALS_RULES", "0").lower() in ("0", "false", "no", ""), "Slow online test")
-class TestSignalsRules(SignalsTestCase, OnlineTestCase, SeededTestCase, unittest.TestCase):
+class TestSignalsRules(tu.SignalsTestCase, tu.OnlineTestCase, tu.SeededTestCase, unittest.TestCase):
     maxDiff = None
     nb = jupyter.Notebook()
-    nb.cells.append(jupyter.Markdown(
-    """
+    nb.cells.append(jupyter.Markdown("""
         # Alerts generation from detection rules
 
         This report captures the detection rules signals generation coverage. Here you can
@@ -116,10 +114,10 @@ class TestSignalsRules(SignalsTestCase, OnlineTestCase, SeededTestCase, unittest
     def parse_from_collection(self, collection):
         rules = []
         asts = []
-        for i,rule in enumerate(collection):
+        for i, rule in enumerate(collection):
             try:
                 asts.append(ast_from_rule(rule))
-            except:
+            except Exception:
                 continue
             index_name = "{:s}-{:03d}".format(self.index_template, i)
             rule = rule.contents.data
@@ -145,4 +143,4 @@ class TestSignalsRules(SignalsTestCase, OnlineTestCase, SeededTestCase, unittest
         rules, asts = self.parse_from_collection(collection)
         pending = self.load_rules_and_docs(rules, asts)
         self.check_signals(rules, pending)
-        assertReportUnchanged(self, self.nb, "alerts_from_rules.md")
+        tu.assertReportUnchanged(self, self.nb, "alerts_from_rules.md")

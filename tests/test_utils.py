@@ -102,6 +102,7 @@ class TestTimeUtils(unittest.TestCase):
         self.assertEqual(increment(None), 7)
         self.assertEqual(increment(1), 8)
 
+
 class TestDictUtils(unittest.TestCase):
     """Test dictionary helpers."""
 

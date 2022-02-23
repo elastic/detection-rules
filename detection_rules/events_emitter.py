@@ -14,7 +14,7 @@ from copy import deepcopy
 from .ecs import get_schema, get_max_version
 from .utils import deep_merge, cached
 from .events_emitter_eql import collect_constraints as collect_constraints_eql
-from .events_emitter_eql import get_ast_stats
+from .events_emitter_eql import get_ast_stats  # noqa: F401
 
 __all__ = (
     "SourceEvents",
@@ -31,14 +31,17 @@ default_custom_schema = {
 
 QueryGuess = namedtuple("QueryGuess", ["query", "type", "language", "ast"])
 
+
 def ast_from_eql_query(query):
     import eql
     with eql.parser.elasticsearch_syntax:
         return eql.parse_query(query)
 
+
 def ast_from_kql_query(query):
     import kql
     return kql.to_eql(query)
+
 
 @cached
 def guess_from_query(query):
@@ -51,12 +54,15 @@ def guess_from_query(query):
         return QueryGuess(query, "query", "kuery", ast_from_kql_query(query))
     except Exception as e:
         exceptions.append(("Kuery", e))
+
     def rank(e):
         line = getattr(e[1], "line", -1)
         column = getattr(e[1], "column", -1)
         return (line, column)
-    lang,error = sorted(exceptions, key=rank)[-1]
+
+    lang, error = sorted(exceptions, key=rank)[-1]
     raise ValueError(f"{lang} query error: {error}")
+
 
 def ast_from_rule(rule):
     rule = rule.contents.data
@@ -65,9 +71,10 @@ def ast_from_rule(rule):
     elif rule.language == "eql":
         return rule.validator.ast
     elif rule.language == "kuery":
-        return rule.validator.to_eql() # shortcut?
+        return rule.validator.to_eql()  # shortcut?
     else:
         raise NotImplementedError(f"Unsupported query language: {rule.language}")
+
 
 def emit_mappings(fields, schema):
     mappings = {}
@@ -82,16 +89,18 @@ def emit_mappings(fields, schema):
         deep_merge(mappings, value)
     return mappings
 
+
 def emit_field(field, value):
     for part in reversed(field.split(".")):
         value = {part: value}
     return value
 
+
 def docs_from_branch(branch, schema, timestamp):
     docs = []
     for solution in branch.solve(schema):
         doc = {}
-        for field,value in solution:
+        for field, value in solution:
             if value is not None:
                 deep_merge(doc, emit_field(field, value))
         if timestamp:
@@ -100,8 +109,10 @@ def docs_from_branch(branch, schema, timestamp):
         docs.append(doc)
     return docs
 
+
 def docs_from_root(root, schema, timestamp):
     return [docs_from_branch(branch, schema, timestamp) for branch in root]
+
 
 class SourceEvents:
     ecs_version = get_max_version()

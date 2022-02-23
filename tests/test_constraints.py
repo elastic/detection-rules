@@ -7,7 +7,7 @@
 
 import unittest
 
-from tests.utils import *
+import tests.utils as tu
 from detection_rules.ecs import get_schema
 from detection_rules.constraints import Constraints, Branch, LongLimits
 
@@ -478,19 +478,19 @@ constraints_keyword_exceptions = [
     ([
         ("wildcard", ("cmd.exe", "powershell.exe")),
         ("not wildcard", "*.exe"),
-    ], "Unsolvable constraints: test_var (filtered wildcard(s): ('cmd.exe', 'powershell.exe') are filtered out by ('*.exe'))"),
+    ], "Unsolvable constraints: test_var (filtered wildcard(s): ('cmd.exe', 'powershell.exe') are filtered out by ('*.exe'))"),   # noqa: E501
 
     ([
         ("wildcard", ("cmd.exe", "powershell.exe")),
         ("not wildcard", ("*.exe", "cmd.*")),
-    ], "Unsolvable constraints: test_var (filtered wildcard(s): ('cmd.exe', 'powershell.exe') are filtered out by ('*.exe', 'cmd.*'))"),
+    ], "Unsolvable constraints: test_var (filtered wildcard(s): ('cmd.exe', 'powershell.exe') are filtered out by ('*.exe', 'cmd.*'))"),   # noqa: E501
 ]
 
 branch_fields = [
     ([
         {"a": [(">=", 10), ("<=", 20)], "b": [("!=", 0)]},
         {"c": [("==", "any")]},
-    ],{
+    ], {
         "a", "b", "c",
     }),
 ]
@@ -498,26 +498,26 @@ branch_fields = [
 branch_products = [
     ([
         {"a": [(">=", 10), ("<=", 20)]},
-    ],[
+    ], [
         {"b": [("==", 50)]},
-    ],[
+    ], [
         {"a": [(">=", 10), ("<=", 20)], "b": [("==", 50)]},
     ]),
 
     ([
         {"a": [(">=", 10), ("<=", 20)]},
-    ],[
+    ], [
         {"a": [("!=", 15)]},
-    ],[
+    ], [
         {"a": [(">=", 10), ("<=", 20), ("!=", 15)]},
     ]),
 
     ([
         {"a": [(">=", 10), ("<=", 20)]},
-    ],[
+    ], [
         {"a": [("!=", 15)]},
         {"a": [("!=", 16)]},
-    ],[
+    ], [
         {"a": [(">=", 10), ("<=", 20), ("!=", 15)]},
         {"a": [(">=", 10), ("<=", 20), ("!=", 16)]},
     ]),
@@ -525,9 +525,9 @@ branch_products = [
     ([
         {"a": [(">=", 10), ("<=", 20)]},
         {"a": [(">=", 100), ("<=", 200)]},
-    ],[
+    ], [
         {"a": [("!=", 15)]},
-    ],[
+    ], [
         {"a": [(">=", 10), ("<=", 20), ("!=", 15)]},
         {"a": [(">=", 100), ("<=", 200), ("!=", 15)]},
     ]),
@@ -535,10 +535,10 @@ branch_products = [
     ([
         {"a": [(">=", 10), ("<=", 20)]},
         {"b": [("wildcard", ("one", "two"))]},
-    ],[
+    ], [
         {"a": [("!=", 15)], "c": [("!=", None)]},
         {"b": [("not wildcard", "three")]},
-    ],[
+    ], [
         {"a": [(">=", 10), ("<=", 20), ("!=", 15)], "c": [("!=", None)]},
         {"a": [(">=", 10), ("<=", 20)], "b": [("not wildcard", "three")]},
         {"b": [("wildcard", ("one", "two"))], "a": [("!=", 15)], "c": [("!=", None)]},
@@ -547,7 +547,7 @@ branch_products = [
 ]
 
 
-class TestConstraints(SeededTestCase, unittest.TestCase):
+class TestConstraints(tu.SeededTestCase, unittest.TestCase):
 
     def test_long(self):
         solver = Constraints.solve_long_constraints
@@ -589,21 +589,21 @@ class TestConstraints(SeededTestCase, unittest.TestCase):
                 self.assertEqual(msg, str(cm.exception))
 
 
-class TestBranches(SeededTestCase, unittest.TestCase):
+class TestBranches(tu.SeededTestCase, unittest.TestCase):
 
     def test_fields(self):
-        for a,fields in branch_fields:
+        for a, fields in branch_fields:
             a = Branch([Constraints.from_dict(x) for x in a])
             with self.subTest(f"{a}"):
                 self.assertEqual(fields, a.fields())
 
     def test_product(self):
-        for a,b,c in branch_products:
+        for a, b, c in branch_products:
             a = Branch([Constraints.from_dict(x) for x in a])
             b = Branch([Constraints.from_dict(x) for x in b])
             c = Branch([Constraints.from_dict(x) for x in c])
             with self.subTest(f"{a} * {b}"):
-                self.assertEqual(a*b, c)
+                self.assertEqual(a * b, c)
 
     def test_join_fields(self):
         schema = {}

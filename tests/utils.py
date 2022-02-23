@@ -31,26 +31,31 @@ verbose = sum(arg.count('v') for arg in sys.argv if arg.startswith("-") and not 
 jupyter.github_user = "cavokz"
 jupyter.github_branch = "emit-events"
 
+
 def get_rule_by_id(rules, rule_id):
     for rule in rules:
         if rule["id"] == rule_id:
             return rule
     raise KeyError(f"cannot to find rule by id: {rule_id}")
 
+
 def get_rule_test_data(rules, rule_id):
     return get_rule_by_id(rules, rule_id)[".test_private"]
 
-def filter_out_test_data(rules):
-    return [{k:v for k,v in rule.items() if k != ".test_private"} for rule in rules]
 
-def assertIdenticalFiles(tc, first, second):
+def filter_out_test_data(rules):
+    return [{k: v for k, v in rule.items() if k != ".test_private"} for rule in rules]
+
+
+def assertIdenticalFiles(tc, first, second):  # noqa: N802
     with open(first) as f:
         first_hash = hashlib.sha256(f.read().encode("utf-8")).hexdigest()
     with open(second) as f:
         second_hash = hashlib.sha256(f.read().encode("utf-8")).hexdigest()
     tc.assertEqual(first_hash, second_hash)
 
-def assertReportUnchanged(tc, nb, report):
+
+def assertReportUnchanged(tc, nb, report):  # noqa: N802
     filename = utils.get_path("tests", "reports", report)
     old_filename = "{:s}.old{:s}".format(*os.path.splitext(filename))
     new_filename = "{:s}.new{:s}".format(*os.path.splitext(filename))
@@ -87,7 +92,7 @@ class SeededTestCase:
         random.seed("tearDown")
         super(SeededTestCase, self).tearDown()
 
-    def subTest(self, *args, **kwargs):
+    def subTest(self, *args, **kwargs):  # noqa: N802
         random.seed(kwargs.pop("seed", "subTest"))
         return super(SeededTestCase, self).subTest(*args, **kwargs)
 
@@ -95,16 +100,16 @@ class SeededTestCase:
 class QueryTestCase:
 
     @classmethod
-    def QueryCell(cls, query, output, **kwargs):
+    def query_cell(cls, query, output, **kwargs):
         source = "emit('''\n    " + query.strip() + "\n''')"
         if type(output) != str:
             output = "[[" + "],\n [".join(",\n  ".join(str(doc) for doc in branch) for branch in output) + "]]"
         return jupyter.Code(source, output, **kwargs)
 
-    def subTest(self, query, **kwargs):
+    def subTest(self, query, **kwargs):  # noqa: N802
         return super(QueryTestCase, self).subTest(query, **kwargs, seed=query)
 
-    def assertQuery(self, query, docs):
+    def assertQuery(self, query, docs):  # noqa: N802
         self.assertEqual(docs, SourceEvents.from_query(query).emit(timestamp=False, complete=True))
 
 
@@ -197,9 +202,9 @@ class SignalsTestCase:
 
         with self.nb.chapter("## Rejected documents") as cells:
             pos = 0
-            while docs[pos:pos+batch_size]:
-                ret = self.es.bulk(body="\n".join(docs[pos:pos+batch_size]))
-                for i,item in enumerate(ret["items"]):
+            while docs[pos:pos + batch_size]:
+                ret = self.es.bulk(body="\n".join(docs[pos:pos + batch_size]))
+                for i, item in enumerate(ret["items"]):
                     if item["index"]["status"] != 201:
                         cells.append(jupyter.Markdown(str(item['index'])))
                         if verbose > 1:
@@ -257,7 +262,11 @@ class SignalsTestCase:
             "query": {
                 "bool": {
                     "must_not": [
-                        { "exists": { "field": "signal.rule.building_block_type" }},
+                        {
+                            "exists": {
+                                "field": "signal.rule.building_block_type"
+                            }
+                        },
                     ]
                 }
             },
@@ -278,7 +287,7 @@ class SignalsTestCase:
         return signals
 
     @classmethod
-    def QueryCell(cls, query, docs, **kwargs):
+    def query_cell(cls, query, docs, **kwargs):
         source = textwrap.dedent(query.strip())
         output = docs if type(docs) == str else "[" + ",\n ".join(str(doc) for doc in docs) + "]"
         return jupyter.Code(source, output, **kwargs)
@@ -293,11 +302,12 @@ class SignalsTestCase:
                         t0 = t0 or docs[0]["@timestamp"]
                         doc["@timestamp"] -= t0
                     cells.append(jupyter.Markdown(f"### {rule['name']}"))
-                    cells.append(self.QueryCell(rule["query"], docs))
+                    cells.append(self.query_cell(rule["query"], docs))
                     if type(rule_ids) == dict:
                         rule_status = rule_ids[rule["id"]].get("current_status", {})
-                        failure_message = rule_status.get("last_failure_message", "").replace(rule["id"], "<i>&lt;redacted&gt;</i>")
+                        failure_message = rule_status.get("last_failure_message", "")
                         if failure_message:
+                            failure_message = failure_message.replace(rule["id"], "<i>&lt;redacted&gt;</i>")
                             cells.append(jupyter.Markdown(f"SDE says:\n> {failure_message}"))
 
     def debug_rules(self, rules, rule_ids):
@@ -317,7 +327,7 @@ class SignalsTestCase:
                         lines.append(f"  {failure_message}")
         return "\n" + "\n".join(lines)
 
-    def assertSignals(self, rules, rule_ids, msg):
+    def assertSignals(self, rules, rule_ids, msg):  # noqa: N802
         if rule_ids:
             self.report_rules(rules, rule_ids, msg)
         with self.subTest(msg):
@@ -330,9 +340,9 @@ class SignalsTestCase:
 
         unsuccessful = set(signals) - set(successful)
         no_signals = set(successful) - set(signals)
-        too_few_signals = {rule_id for rule_id,(signal_count,branch_count) in signals.items() if signal_count < branch_count}
-        correct_signals = {rule_id for rule_id,(signal_count,branch_count) in signals.items() if signal_count == branch_count}
-        too_many_signals = {rule_id for rule_id,(signal_count,branch_count) in signals.items() if signal_count > branch_count}
+        too_few_signals = {rule_id for rule_id, (signals, branches) in signals.items() if signals < branches}
+        correct_signals = {rule_id for rule_id, (signals, branches) in signals.items() if signals == branches}
+        too_many_signals = {rule_id for rule_id, (signals, branches) in signals.items() if signals > branches}
 
         rules = sorted(rules, key=lambda rule: rule["name"])
         self.assertSignals(rules, failed, "Failed rules")
@@ -340,4 +350,4 @@ class SignalsTestCase:
         self.assertSignals(rules, no_signals, "Rules with no signals")
         self.assertSignals(rules, too_few_signals, "Rules with too few signals")
         self.assertSignals(rules, too_many_signals, "Rules with too many signals")
-        #self.report_rules(rules, correct_signals, "Rules with the correct signals")
+        # self.report_rules(rules, correct_signals, "Rules with the correct signals")

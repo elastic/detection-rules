@@ -99,37 +99,39 @@ md_code = [
     ]),
 ]
 
+
 class TestJupyter(unittest.TestCase):
     maxDiff = None
 
-    def subTest(self, *args, **kwargs):
+    def subTest(self, *args, **kwargs):  # noqa: N802
         jupyter.random.seed(str(args[0]))
         return super(TestJupyter, self).subTest(*args, **kwargs)
 
     def test_markdown(self):
-        for markdown,cell in cells_markdown:
+        for markdown, cell in cells_markdown:
             with self.subTest(markdown):
                 self.assertEqual(cell, jupyter.Markdown(markdown).to_cell())
 
     def test_code(self):
-        for i,(code,output,cell) in enumerate(cells_code):
+        for i, (code, output, cell) in enumerate(cells_code):
             with self.subTest(code):
-                self.assertEqual(cell, jupyter.Code(code, output, execution_count=i+1).to_cell())
+                self.assertEqual(cell, jupyter.Code(code, output, execution_count=i + 1).to_cell())
 
     def test_notebook(self):
-        for cells,nb in notebooks:
+        for cells, nb in notebooks:
             with self.subTest(cells):
                 self.assertEqual(nb, jupyter.to_notebook(cells))
+
 
 class TestMarkdown(unittest.TestCase):
     maxDiff = None
 
     def test_markdown(self):
-        for md,expected in md_markdown:
+        for md, expected in md_markdown:
             with self.subTest(md):
                 self.assertEqual(expected, jupyter.Markdown(md).to_markdown())
 
     def test_code(self):
-        for i,(code,output,expected) in enumerate(md_code):
+        for i, (code, output, expected) in enumerate(md_code):
             with self.subTest(code):
-                self.assertEqual(expected, jupyter.Code(code, output, execution_count=i+1).to_markdown())
+                self.assertEqual(expected, jupyter.Code(code, output, execution_count=i + 1).to_markdown())

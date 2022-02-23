@@ -8,7 +8,7 @@
 import os
 import unittest
 
-from tests.utils import *
+import tests.utils as tu
 from detection_rules.events_emitter import SourceEvents, guess_from_query
 from detection_rules import jupyter
 
@@ -38,7 +38,7 @@ event_docs_mappings = {
         "properties": {
             "@timestamp": {"type": "date"},
             "event": {"properties": {"category": {"type": "keyword"}}},
-            "process": {"properties": {"code_signature": {"properties": {"exists": {"type": "boolean"}}}, "pid": {"type": "long"}}},
+            "process": {"properties": {"code_signature": {"properties": {"exists": {"type": "boolean"}}}, "pid": {"type": "long"}}},  # noqa: E501
         },
     },
 }
@@ -205,7 +205,7 @@ multi_branch_mono_doc = {
 
     """network where source.port < 2000 and (source.port > 512 or source.port > 1024)
     """: [
-        [{"event": {"category": ["network"]}, "source": {"port":  1334}}],
+        [{"event": {"category": ["network"]}, "source": {"port": 1334}}],
         [{"event": {"category": ["network"]}, "source": {"port": 1034}}],
     ],
 
@@ -259,7 +259,7 @@ multi_branch_mono_doc = {
     """process where event.type in ("start", "process_started") and process.args : "dump-keychain" and process.args : "-d"
     """: [
         [{"event": {"category": ["process"], "type": ["start"]}, "process": {"args": ["dump-keychain", "-d"]}}],
-        [{"event": {"category": ["process"], "type": ["process_started"]}, "process": {"args": ["dump-keychain", "-d"]}}],
+        [{"event": {"category": ["process"], "type": ["process_started"]}, "process": {"args": ["dump-keychain", "-d"]}}],  # noqa: E501
     ],
 
     """event.type:(start or process_started) and (process.args:"dump-keychain" and process.args:"-d")
@@ -332,7 +332,7 @@ multi_branch_multi_doc = {
         {"event": {"category": ["process"]}, "process": {"name": "cmd.exe", "parent": {"name": "powershell.exe"}}},
     ], [
         {"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}},
-        {"event": {"category": ["process"]}, "process": {"name": "powershell.exe", "parent": {"name": "powershell.exe"}}},
+        {"event": {"category": ["process"]}, "process": {"name": "powershell.exe", "parent": {"name": "powershell.exe"}}},  # noqa: E501
     ]],
 
     """sequence by user.id
@@ -340,16 +340,16 @@ multi_branch_multi_doc = {
         [process where process.name in ("cmd.exe", "powershell.exe")] by process.parent.name
     """: [[
         {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "aPd"}},
-        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe", "parent": {"name": "cmd.exe"}}, "user": {"id": "aPd"}},
+        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe", "parent": {"name": "cmd.exe"}}, "user": {"id": "aPd"}},  # noqa: E501
     ], [
         {"event": {"category": ["process"]}, "process": {"name": "cmd.exe"}, "user": {"id": "aiW"}},
-        {"event": {"category": ["process"]}, "process": {"name": "powershell.exe", "parent": {"name": "cmd.exe"}}, "user": {"id": "aiW"}},
+        {"event": {"category": ["process"]}, "process": {"name": "powershell.exe", "parent": {"name": "cmd.exe"}}, "user": {"id": "aiW"}},  # noqa: E501
     ], [
         {"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}, "user": {"id": "tSw"}},
-        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe", "parent": {"name": "powershell.exe"}}, "user": {"id": "tSw"}},
+        {"event": {"category": ["process"]}, "process": {"name": "cmd.exe", "parent": {"name": "powershell.exe"}}, "user": {"id": "tSw"}},  # noqa: E501
     ], [
         {"event": {"category": ["process"]}, "process": {"name": "powershell.exe"}, "user": {"id": "JEL"}},
-        {"event": {"category": ["process"]}, "process": {"name": "powershell.exe", "parent": {"name": "powershell.exe"}}, "user": {"id": "JEL"}},
+        {"event": {"category": ["process"]}, "process": {"name": "powershell.exe", "parent": {"name": "powershell.exe"}}, "user": {"id": "JEL"}},  # noqa: E501
     ]],
 }
 
@@ -429,11 +429,11 @@ exceptions = {
         "Unsolvable constraints: process.name (cannot be non-null)",
 }
 
-class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
+
+class TestQueries(tu.QueryTestCase, tu.SeededTestCase, unittest.TestCase):
     maxDiff = None
     nb = jupyter.Notebook()
-    nb.cells.append(jupyter.Markdown(
-    """
+    nb.cells.append(jupyter.Markdown("""
         # Documents generation from test queries
 
         This Jupyter Notebook captures the unit test results of documents generation from queries.
@@ -488,8 +488,7 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
 
     @nb.chapter("## Mono-branch mono-document")
     def test_mono_branch_mono_doc(self, cells):
-        cells.append(jupyter.Markdown(
-        """
+        cells.append(jupyter.Markdown("""
             What follows are queries that shall trigger a signal with just a single source event,
             therefore at most one document is generated for each execution.
         """))
@@ -498,12 +497,11 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
                 self.assertEqual(len(docs), 1)
                 self.assertEqual(len(docs[0]), 1)
                 self.assertQuery(query, docs)
-            cells.append(self.QueryCell(query, docs))
+            cells.append(self.query_cell(query, docs))
 
     @nb.chapter("## Multi-branch mono-document")
     def test_multi_branch_mono_doc(self, cells):
-        cells.append(jupyter.Markdown(
-        """
+        cells.append(jupyter.Markdown("""
             Following queries have one or more disjunctive operators (eg. _or_) which split the query
             in multiple _branches_. Each branch shall generate a single source event.
         """))
@@ -513,12 +511,11 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
                 for branch in docs:
                     self.assertEqual(len(branch), 1)
                 self.assertQuery(query, docs)
-            cells.append(self.QueryCell(query, docs))
+            cells.append(self.query_cell(query, docs))
 
     @nb.chapter("## Mono-branch multi-document")
     def test_mono_branch_multi_doc(self, cells):
-        cells.append(jupyter.Markdown(
-        """
+        cells.append(jupyter.Markdown("""
             Following queries instead require multiple related source events, it's not analyzed only each
             event content but also the relation with each others. Therefore a senquence of documents is generated
             each time and all the documents in the sequence are required for one signal to be generated.
@@ -528,12 +525,11 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
                 self.assertEqual(len(docs), 1)
                 self.assertGreater(len(docs[0]), 1)
                 self.assertQuery(query, docs)
-            cells.append(self.QueryCell(query, docs))
+            cells.append(self.query_cell(query, docs))
 
     @nb.chapter("## Multi-branch multi-document")
     def test_multi_branch_multi_doc(self, cells):
-        cells.append(jupyter.Markdown(
-        """
+        cells.append(jupyter.Markdown("""
             Same as above but one or more queries in the sequence have a disjunction (eg. _or_ operator) therefore
             multiple sequences shall be generated.
         """))
@@ -543,12 +539,11 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
                 for branch in docs:
                     self.assertGreater(len(branch), 1)
                 self.assertQuery(query, docs)
-            cells.append(self.QueryCell(query, docs))
+            cells.append(self.query_cell(query, docs))
 
     @nb.chapter("## Error conditions")
     def test_exceptions(self, cells):
-        cells.append(jupyter.Markdown(
-        """
+        cells.append(jupyter.Markdown("""
             Not all the queries make sense, no documents can be generated for those that cannot logically be ever
             matched. In such cases an error is reported, as the following cells show.
 
@@ -560,24 +555,22 @@ class TestQueries(QueryTestCase, SeededTestCase, unittest.TestCase):
                 with self.assertRaises(ValueError, msg=msg) as cm:
                     self.assertQuery(query, None)
                 self.assertEqual(msg, str(cm.exception))
-                cells.append(self.QueryCell(query, str(cm.exception), output_type="stream"))
+                cells.append(self.query_cell(query, str(cm.exception), output_type="stream"))
 
     @nb.chapter("## Any oddities?")
     def test_unchanged(self, cells):
-        cells.append(jupyter.Markdown(
-        """
+        cells.append(jupyter.Markdown("""
             Did you find anything odd reviewing the report or playing with the documents emitter?
             We are interested to know.
         """))
-        assertReportUnchanged(self, self.nb, "documents_from_queries.ipynb")
+        tu.assertReportUnchanged(self, self.nb, "documents_from_queries.ipynb")
 
 
 @unittest.skipIf(os.getenv("TEST_SIGNALS_QUERIES", "0").lower() in ("0", "false", "no", ""), "Slow online test")
-class TestSignalsQueries(SignalsTestCase, OnlineTestCase, SeededTestCase, unittest.TestCase):
+class TestSignalsQueries(tu.SignalsTestCase, tu.OnlineTestCase, tu.SeededTestCase, unittest.TestCase):
     maxDiff = None
     nb = jupyter.Notebook()
-    nb.cells.append(jupyter.Markdown(
-    """
+    nb.cells.append(jupyter.Markdown("""
         # Alerts generation from test queries
 
         This report captures the unit test queries signals generation coverage.
@@ -587,7 +580,7 @@ class TestSignalsQueries(SignalsTestCase, OnlineTestCase, SeededTestCase, unitte
     def parse_from_queries(self, queries):
         rules = []
         asts = []
-        for i,query in enumerate(queries):
+        for i, query in enumerate(queries):
             guess = guess_from_query(query)
             index_name = "{:s}-{:03d}".format(self.index_template, i)
             rules.append({
@@ -609,9 +602,9 @@ class TestSignalsQueries(SignalsTestCase, OnlineTestCase, SeededTestCase, unitte
         return rules, asts
 
     def test_queries(self):
-        queries = tuple(mono_branch_mono_doc) + tuple(multi_branch_mono_doc) + \
-                  tuple(mono_branch_multi_doc) + tuple(multi_branch_multi_doc)
+        queries = tuple(mono_branch_mono_doc) + tuple(multi_branch_mono_doc) \
+            + tuple(mono_branch_multi_doc) + tuple(multi_branch_multi_doc)
         rules, asts = self.parse_from_queries(queries)
         pending = self.load_rules_and_docs(rules, asts)
         self.check_signals(rules, pending)
-        assertReportUnchanged(self, self.nb, "alerts_from_queries.md")
+        tu.assertReportUnchanged(self, self.nb, "alerts_from_queries.md")
