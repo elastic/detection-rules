@@ -6,76 +6,23 @@ learn what rules are supported and what not and why.
 Curious about the inner workings? Read [here](signals_generation.md).
 
 ## Table of contents
-   1. [Failed rules (2)](#failed-rules-2)
-   1. [Rules with no signals (23)](#rules-with-no-signals-23)
+   1. [Rules with no signals (25)](#rules-with-no-signals-25)
    1. [Rules with too few signals (1)](#rules-with-too-few-signals-1)
-   1. [Rules with the correct signals (478)](#rules-with-the-correct-signals-478)
+   1. [Rules with the correct signals (510)](#rules-with-the-correct-signals-510)
 
-## Failed rules (2)
+## Rules with no signals (25)
 
-### Account Password Reset Remotely
+### AdminSDHolder Backdoor
 
 ```python
-sequence by host.id with maxspan=5m
-  [authentication where event.action == "logged-in" and
-    /* event 4624 need to be logged */
-    winlog.logon.type : "Network" and event.outcome == "success" and source.ip != null and
-    not source.ip in ("127.0.0.1", "::1")] by winlog.event_data.TargetLogonId
-   /* event 4724 need to be logged */
-  [iam where event.action == "reset-password"] by winlog.event_data.SubjectLogonId
+event.action:"Directory Service Changes" and event.code:5136 and winlog.event_data.ObjectDN:CN=AdminSDHolder,CN=System*
 ```
 
 ```python
-[{'event': {'action': 'logged-in', 'outcome': 'success', 'category': ['authentication']}, 'winlog': {'logon': {'type': 'Network'}, 'event_data': {'TargetLogonId': 'yFj'}}, 'source': {'ip': 'aa79:ec58:8d14:2981:f18d:f2a6:6b1f:4182'}, 'host': {'id': 'fUy'}, '@timestamp': 0},
- {'event': {'action': 'reset-password', 'category': ['iam']}, 'host': {'id': 'fUy'}, 'winlog': {'event_data': {'SubjectLogonId': 'yFj'}}, '@timestamp': 1}]
+[{'event': {'action': 'Directory Service Changes', 'code': 5136}, 'winlog': {'event_data': {'ObjectDN': 'cn=adminsdholder,cn=systemxiutkni'}}, '@timestamp': 0}]
 ```
 
 
-
-SDE says:
-> An error occurred during rule execution: message: "verification_exception: [verification_exception] Reason: Found 1 problem
-line 5:9: 1st argument of [source.ip in ("127.0.0.1", "::1")] must be [ip], found value ["127.0.0.1"] type [keyword]" name: "Account Password Reset Remotely" id: "<i>&lt;redacted&gt;</i>" rule id: "2820c9c2-bcd7-4d6e-9eba-faf3891ba450" signals index: ".siem-signals-default"
-
-### Azure Virtual Network Device Modified or Deleted
-
-```python
-event.dataset:azure.activitylogs and azure.activitylogs.operation_name:("MICROSOFT.NETWORK/NETWORKINTERFACES/TAPCONFIGURATIONS/WRITE" or
-"MICROSOFT.NETWORK/NETWORKINTERFACES/TAPCONFIGURATIONS/DELETE" or "MICROSOFT.NETWORK/NETWORKINTERFACES/WRITE" or
-"MICROSOFT.NETWORK/NETWORKINTERFACES/JOIN/ACTION" or "MICROSOFT.NETWORK/NETWORKINTERFACES/DELETE"or
-"MICROSOFT.NETWORK/NETWORKVIRTUALAPPLIANCES/DELETE" or "MICROSOFT.NETWORK/NETWORKVIRTUALAPPLIANCES/WRITE" or
-"MICROSOFT.NETWORK/VIRTUALHUBS/DELETE" or "MICROSOFT.NETWORK/VIRTUALHUBS/WRITE" or
-"MICROSOFT.NETWORK/VIRTUALROUTERS/WRITE" or "MICROSOFT.NETWORK/VIRTUALROUTERS/DELETE") and 
-event.outcome:(Success or success)
-```
-
-```python
-[{'event': {'dataset': 'azure.activitylogs', 'outcome': 'Success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/TAPCONFIGURATIONS/WRITE'}}, '@timestamp': 0},
- {'event': {'dataset': 'azure.activitylogs', 'outcome': 'success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/TAPCONFIGURATIONS/WRITE'}}, '@timestamp': 1},
- {'event': {'dataset': 'azure.activitylogs', 'outcome': 'Success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/TAPCONFIGURATIONS/DELETE'}}, '@timestamp': 2},
- {'event': {'dataset': 'azure.activitylogs', 'outcome': 'success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/TAPCONFIGURATIONS/DELETE'}}, '@timestamp': 3},
- {'event': {'dataset': 'azure.activitylogs', 'outcome': 'Success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/WRITE'}}, '@timestamp': 4},
- {'event': {'dataset': 'azure.activitylogs', 'outcome': 'success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/WRITE'}}, '@timestamp': 5},
- {'event': {'dataset': 'azure.activitylogs', 'outcome': 'Success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/JOIN/ACTION'}}, '@timestamp': 6},
- {'event': {'dataset': 'azure.activitylogs', 'outcome': 'success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/JOIN/ACTION'}}, '@timestamp': 7},
- {'event': {'dataset': 'azure.activitylogs', 'outcome': 'Success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/DELETE'}}, '@timestamp': 8},
- {'event': {'dataset': 'azure.activitylogs', 'outcome': 'success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/DELETE'}}, '@timestamp': 9}]
-```
-
-
-
-SDE says:
-> An error occurred during rule execution: message: "Expected ")", AND, OR, whitespace but "o" found.
-event.dataset:azure.activitylogs and azure.activitylogs.operation_name:("MICROSOFT.NETWORK/NETWORKINTERFACES/TAPCONFIGURATIONS/WRITE" or
-"MICROSOFT.NETWORK/NETWORKINTERFACES/TAPCONFIGURATIONS/DELETE" or "MICROSOFT.NETWORK/NETWORKINTERFACES/WRITE" or
-"MICROSOFT.NETWORK/NETWORKINTERFACES/JOIN/ACTION" or "MICROSOFT.NETWORK/NETWORKINTERFACES/DELETE"or
-"MICROSOFT.NETWORK/NETWORKVIRTUALAPPLIANCES/DELETE" or "MICROSOFT.NETWORK/NETWORKVIRTUALAPPLIANCES/WRITE" or
-"MICROSOFT.NETWORK/VIRTUALHUBS/DELETE" or "MICROSOFT.NETWORK/VIRTUALHUBS/WRITE" or
-"MICROSOFT.NETWORK/VIRTUALROUTERS/WRITE" or "MICROSOFT.NETWORK/VIRTUALROUTERS/DELETE") and 
-event.outcome:(Success or success)
-
------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------^" name: "Azure Virtual Network Device Modified or Deleted" id: "<i>&lt;redacted&gt;</i>" rule id: "573f6e7a-7acf-4bcd-ad42-c4969124d3c0" signals index: ".siem-signals-default"
-
-## Rules with no signals (23)
 
 ### Authorization Plugin Modification
 
@@ -87,6 +34,20 @@ event.category:file and not event.type:deletion and
 
 ```python
 [{'event': {'category': ['file'], 'type': ['ZFy']}, 'file': {'path': '/library/security/securityagentplugins/uyyfjsvilooohmx'}, '@timestamp': 0}]
+```
+
+
+
+### Azure AD Global Administrator Role Assigned
+
+```python
+event.dataset:azure.auditlogs and azure.auditlogs.properties.category:RoleManagement and
+azure.auditlogs.operation_name:"Add member to role" and
+azure.auditlogs.properties.target_resources.0.modified_properties.1.new_value:"\"Global Administrator\""
+```
+
+```python
+[{'event': {'dataset': 'azure.auditlogs'}, 'azure': {'auditlogs': {'properties': {'category': 'RoleManagement', 'target_resources': {'`0`': {'modified_properties': {'`1`': {'new_value': '"Global Administrator"'}}}}}, 'operation_name': 'Add member to role'}}, '@timestamp': 0}]
 ```
 
 
@@ -328,7 +289,7 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin
 
 ```python
 sequence by host.id with maxspan=1m
- [file where event.type != "deletion" and file.path in ("/System/Library/LaunchDaemons/*", " /Library/LaunchDaemons/*")]
+ [file where event.type != "deletion" and file.path in ("/System/Library/LaunchDaemons/*", "/Library/LaunchDaemons/*")]
  [process where event.type in ("start", "process_started") and process.name == "launchctl" and process.args == "load"]
 ```
 
@@ -337,9 +298,9 @@ sequence by host.id with maxspan=1m
  {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'launchctl', 'args': ['load']}, 'host': {'id': 'BnL'}, '@timestamp': 1},
  {'event': {'type': ['eOA'], 'category': ['file']}, 'file': {'path': '/system/library/launchdaemons/gaifqsyzknyyq'}, 'host': {'id': 'DpU'}, '@timestamp': 2},
  {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'name': 'launchctl', 'args': ['load']}, 'host': {'id': 'DpU'}, '@timestamp': 3},
- {'event': {'type': ['EUD'], 'category': ['file']}, 'file': {'path': ' /library/launchdaemons/xvtolwtimrfgt'}, 'host': {'id': 'msh'}, '@timestamp': 4},
+ {'event': {'type': ['EUD'], 'category': ['file']}, 'file': {'path': '/library/launchdaemons/xvtolwtimrfgt'}, 'host': {'id': 'msh'}, '@timestamp': 4},
  {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'launchctl', 'args': ['load']}, 'host': {'id': 'msh'}, '@timestamp': 5},
- {'event': {'type': ['CeL'], 'category': ['file']}, 'file': {'path': ' /library/launchdaemons/l'}, 'host': {'id': 'Sjo'}, '@timestamp': 6},
+ {'event': {'type': ['CeL'], 'category': ['file']}, 'file': {'path': '/library/launchdaemons/l'}, 'host': {'id': 'Sjo'}, '@timestamp': 6},
  {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'name': 'launchctl', 'args': ['load']}, 'host': {'id': 'Sjo'}, '@timestamp': 7}]
 ```
 
@@ -440,7 +401,7 @@ sequence by agent.id, user.name with maxspan=1m
 
 
 
-## Rules with the correct signals (478)
+## Rules with the correct signals (510)
 
 ### AWS Access Secret in Secrets Manager
 
@@ -1199,6 +1160,25 @@ process where event.type in ("start", "process_started") and
 
 
 
+### Account Password Reset Remotely
+
+```python
+sequence by host.id with maxspan=5m
+  [authentication where event.action == "logged-in" and
+    /* event 4624 need to be logged */
+    winlog.logon.type : "Network" and event.outcome == "success" and source.ip != null and
+    source.ip != "127.0.0.1" and source.ip != "::1"] by winlog.event_data.TargetLogonId
+   /* event 4724 need to be logged */
+  [iam where event.action == "reset-password"] by winlog.event_data.SubjectLogonId
+```
+
+```python
+[{'event': {'action': 'logged-in', 'outcome': 'success', 'category': ['authentication']}, 'winlog': {'logon': {'type': 'Network'}, 'event_data': {'TargetLogonId': 'yFj'}}, 'source': {'ip': 'aa79:ec58:8d14:2981:f18d:f2a6:6b1f:4182'}, 'host': {'id': 'fUy'}, '@timestamp': 0},
+ {'event': {'action': 'reset-password', 'category': ['iam']}, 'host': {'id': 'fUy'}, 'winlog': {'event_data': {'SubjectLogonId': 'yFj'}}, '@timestamp': 1}]
+```
+
+
+
 ### AdFind Command Activity
 
 ```python
@@ -1323,12 +1303,11 @@ sequence by host.id, process.entity_id with maxspan=30s
 ### Application Added to Google Workspace Domain
 
 ```python
-event.dataset:(gsuite.admin or google_workspace.admin) and event.provider:admin and event.category:iam and event.action:ADD_APPLICATION
+event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:ADD_APPLICATION
 ```
 
 ```python
-[{'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ADD_APPLICATION'}, '@timestamp': 0},
- {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ADD_APPLICATION'}, '@timestamp': 1}]
+[{'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ADD_APPLICATION'}, '@timestamp': 0}]
 ```
 
 
@@ -1745,6 +1724,19 @@ event.dataset:azure.signinlogs and
 
 
 
+### Azure Alert Suppression Rule Created or Modified
+
+```python
+event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.SECURITY/ALERTSSUPPRESSIONRULES/WRITE" and 
+event.outcome: "success"
+```
+
+```python
+[{'event': {'dataset': 'azure.activitylogs', 'outcome': 'success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.SECURITY/ALERTSSUPPRESSIONRULES/WRITE'}}, '@timestamp': 0}]
+```
+
+
+
 ### Azure Application Credential Modification
 
 ```python
@@ -1877,22 +1869,14 @@ event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOF
 
 ```python
 event.dataset:(azure.activitylogs or azure.auditlogs) and
-  (
-    azure.activitylogs.operation_name:"Update policy" or
-    azure.auditlogs.operation_name:"Update policy"
-  ) and
-  event.outcome:(Success or success)
+event.action:"Update conditional access policy" and event.outcome:(Success or success)
 ```
 
 ```python
-[{'event': {'dataset': 'azure.activitylogs', 'outcome': 'Success'}, 'azure': {'activitylogs': {'operation_name': 'Update policy'}}, '@timestamp': 0},
- {'event': {'dataset': 'azure.activitylogs', 'outcome': 'success'}, 'azure': {'activitylogs': {'operation_name': 'Update policy'}}, '@timestamp': 1},
- {'event': {'dataset': 'azure.activitylogs', 'outcome': 'Success'}, 'azure': {'auditlogs': {'operation_name': 'Update policy'}}, '@timestamp': 2},
- {'event': {'dataset': 'azure.activitylogs', 'outcome': 'success'}, 'azure': {'auditlogs': {'operation_name': 'Update policy'}}, '@timestamp': 3},
- {'event': {'dataset': 'azure.auditlogs', 'outcome': 'Success'}, 'azure': {'activitylogs': {'operation_name': 'Update policy'}}, '@timestamp': 4},
- {'event': {'dataset': 'azure.auditlogs', 'outcome': 'success'}, 'azure': {'activitylogs': {'operation_name': 'Update policy'}}, '@timestamp': 5},
- {'event': {'dataset': 'azure.auditlogs', 'outcome': 'Success'}, 'azure': {'auditlogs': {'operation_name': 'Update policy'}}, '@timestamp': 6},
- {'event': {'dataset': 'azure.auditlogs', 'outcome': 'success'}, 'azure': {'auditlogs': {'operation_name': 'Update policy'}}, '@timestamp': 7}]
+[{'event': {'dataset': 'azure.activitylogs', 'action': 'Update conditional access policy', 'outcome': 'Success'}, '@timestamp': 0},
+ {'event': {'dataset': 'azure.activitylogs', 'action': 'Update conditional access policy', 'outcome': 'success'}, '@timestamp': 1},
+ {'event': {'dataset': 'azure.auditlogs', 'action': 'Update conditional access policy', 'outcome': 'Success'}, '@timestamp': 2},
+ {'event': {'dataset': 'azure.auditlogs', 'action': 'Update conditional access policy', 'outcome': 'success'}, '@timestamp': 3}]
 ```
 
 
@@ -2076,12 +2060,12 @@ event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Add service pr
 ### Azure Service Principal Credentials Added
 
 ```python
-event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Add service principal credentials." and event.outcome:(success or Success)
+event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Add service principal credentials" and event.outcome:(success or Success)
 ```
 
 ```python
-[{'event': {'dataset': 'azure.auditlogs', 'outcome': 'success'}, 'azure': {'auditlogs': {'operation_name': 'Add service principal credentials.'}}, '@timestamp': 0},
- {'event': {'dataset': 'azure.auditlogs', 'outcome': 'Success'}, 'azure': {'auditlogs': {'operation_name': 'Add service principal credentials.'}}, '@timestamp': 1}]
+[{'event': {'dataset': 'azure.auditlogs', 'outcome': 'success'}, 'azure': {'auditlogs': {'operation_name': 'Add service principal credentials'}}, '@timestamp': 0},
+ {'event': {'dataset': 'azure.auditlogs', 'outcome': 'Success'}, 'azure': {'auditlogs': {'operation_name': 'Add service principal credentials'}}, '@timestamp': 1}]
 ```
 
 
@@ -2095,6 +2079,33 @@ event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOF
 ```python
 [{'event': {'dataset': 'azure.activitylogs', 'outcome': 'Success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.STORAGE/STORAGEACCOUNTS/REGENERATEKEY/ACTION'}}, '@timestamp': 0},
  {'event': {'dataset': 'azure.activitylogs', 'outcome': 'success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.STORAGE/STORAGEACCOUNTS/REGENERATEKEY/ACTION'}}, '@timestamp': 1}]
+```
+
+
+
+### Azure Virtual Network Device Modified or Deleted
+
+```python
+event.dataset:azure.activitylogs and azure.activitylogs.operation_name:("MICROSOFT.NETWORK/NETWORKINTERFACES/TAPCONFIGURATIONS/WRITE" or
+"MICROSOFT.NETWORK/NETWORKINTERFACES/TAPCONFIGURATIONS/DELETE" or "MICROSOFT.NETWORK/NETWORKINTERFACES/WRITE" or
+"MICROSOFT.NETWORK/NETWORKINTERFACES/JOIN/ACTION" or "MICROSOFT.NETWORK/NETWORKINTERFACES/DELETE" or
+"MICROSOFT.NETWORK/NETWORKVIRTUALAPPLIANCES/DELETE" or "MICROSOFT.NETWORK/NETWORKVIRTUALAPPLIANCES/WRITE" or
+"MICROSOFT.NETWORK/VIRTUALHUBS/DELETE" or "MICROSOFT.NETWORK/VIRTUALHUBS/WRITE" or
+"MICROSOFT.NETWORK/VIRTUALROUTERS/WRITE" or "MICROSOFT.NETWORK/VIRTUALROUTERS/DELETE") and 
+event.outcome:(Success or success)
+```
+
+```python
+[{'event': {'dataset': 'azure.activitylogs', 'outcome': 'Success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/TAPCONFIGURATIONS/WRITE'}}, '@timestamp': 0},
+ {'event': {'dataset': 'azure.activitylogs', 'outcome': 'success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/TAPCONFIGURATIONS/WRITE'}}, '@timestamp': 1},
+ {'event': {'dataset': 'azure.activitylogs', 'outcome': 'Success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/TAPCONFIGURATIONS/DELETE'}}, '@timestamp': 2},
+ {'event': {'dataset': 'azure.activitylogs', 'outcome': 'success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/TAPCONFIGURATIONS/DELETE'}}, '@timestamp': 3},
+ {'event': {'dataset': 'azure.activitylogs', 'outcome': 'Success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/WRITE'}}, '@timestamp': 4},
+ {'event': {'dataset': 'azure.activitylogs', 'outcome': 'success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/WRITE'}}, '@timestamp': 5},
+ {'event': {'dataset': 'azure.activitylogs', 'outcome': 'Success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/JOIN/ACTION'}}, '@timestamp': 6},
+ {'event': {'dataset': 'azure.activitylogs', 'outcome': 'success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/JOIN/ACTION'}}, '@timestamp': 7},
+ {'event': {'dataset': 'azure.activitylogs', 'outcome': 'Success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/DELETE'}}, '@timestamp': 8},
+ {'event': {'dataset': 'azure.activitylogs', 'outcome': 'success'}, 'azure': {'activitylogs': {'operation_name': 'MICROSOFT.NETWORK/NETWORKINTERFACES/DELETE'}}, '@timestamp': 9}]
 ```
 
 
@@ -2363,7 +2374,10 @@ network where network.protocol == "dns" and
         "paste.nrecom.net",
         "zerobin.net",
         "controlc.com",
-        "requestbin.net"
+        "requestbin.net",
+        "cdn.discordapp.com",
+        "discordapp.com",
+        "discord.com"
     ) and
     /* Insert noisy false positives here */
     not process.executable :
@@ -2379,7 +2393,8 @@ network where network.protocol == "dns" and
       "?:\\Users\\*\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
       "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
       "?:\\Windows\\system32\\mobsync.exe",
-      "?:\\Windows\\SysWOW64\\mobsync.exe"
+      "?:\\Windows\\SysWOW64\\mobsync.exe",
+      "?:\\Users\\*\\AppData\\Local\\Discord\\-*\\Discord.exe"
     )
 ```
 
@@ -2816,12 +2831,11 @@ process where event.type == "start" and
 ### Domain Added to Google Workspace Trusted Domains
 
 ```python
-event.dataset:(gsuite.admin or google_workspace.admin) and event.provider:admin and event.category:iam and event.action:ADD_TRUSTED_DOMAINS
+event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:ADD_TRUSTED_DOMAINS
 ```
 
 ```python
-[{'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ADD_TRUSTED_DOMAINS'}, '@timestamp': 0},
- {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ADD_TRUSTED_DOMAINS'}, '@timestamp': 1}]
+[{'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ADD_TRUSTED_DOMAINS'}, '@timestamp': 0}]
 ```
 
 
@@ -3058,6 +3072,41 @@ event.category:process and event.type:(start or process_started) and
 ```python
 [{'event': {'category': ['process'], 'type': ['start']}, 'process': {'args': ['kmod', 'list', 'sudo']}, '@timestamp': 0},
  {'event': {'category': ['process'], 'type': ['process_started']}, 'process': {'args': ['kmod', 'list', 'sudo']}, '@timestamp': 1}]
+```
+
+
+
+### Enumeration of Privileged Local Groups Membership
+
+```python
+iam where event.action == "user-member-enumerated" and
+
+ /* noisy and usual legit processes excluded */
+ not winlog.event_data.CallerProcessName:
+              ("?:\\Windows\\System32\\VSSVC.exe",
+               "?:\\Windows\\System32\\SearchIndexer.exe",
+               "?:\\Windows\\System32\\CompatTelRunner.exe",
+               "?:\\Windows\\System32\\oobe\\msoobe.exe",
+               "?:\\Windows\\System32\\net1.exe",
+               "?:\\Windows\\System32\\svchost.exe",
+               "?:\\Windows\\System32\\Netplwiz.exe",
+               "?:\\Windows\\System32\\msiexec.exe",
+               "?:\\Windows\\System32\\CloudExperienceHostBroker.exe",
+               "?:\\Windows\\System32\\wbem\\WmiPrvSE.exe",
+               "?:\\Windows\\System32\\SrTasks.exe",
+               "?:\\Windows\\System32\\lsass.exe",
+               "?:\\Windows\\System32\\diskshadow.exe",
+               "?:\\Windows\\System32\\dfsrs.exe",
+               "?:\\Program Files\\*.exe",
+               "?:\\Program Files (x86)\\*.exe") and
+  /* privileged local groups */
+ (group.name:("admin*","RemoteDesktopUsers") or
+  winlog.event_data.TargetSid:("S-1-5-32-544","S-1-5-32-555"))
+```
+
+```python
+[{'event': {'action': 'user-member-enumerated', 'category': ['iam']}, 'winlog': {'event_data': {'CallerProcessName': 'ZFy'}}, 'group': {'name': 'adminuyyfjsvilooohmx'}, '@timestamp': 0},
+ {'event': {'action': 'user-member-enumerated', 'category': ['iam']}, 'winlog': {'event_data': {'CallerProcessName': 'BnL', 'TargetSid': 's-1-5-32-544'}}, '@timestamp': 1}]
 ```
 
 
@@ -3494,17 +3543,18 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:v*.compute.firew
 
 
 
-### GCP Kubernetes Rolebindings Created or Patched 
+### GCP Kubernetes Rolebindings Created or Patched
 
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:(io.k8s.authorization.rbac.v*.clusterrolebindings.create or 
 io.k8s.authorization.rbac.v*.rolebindings.create or io.k8s.authorization.rbac.v*.clusterrolebindings.patch or 
-io.k8s.authorization.rbac.v*.rolebindings.patch) and event.outcome:success
+io.k8s.authorization.rbac.v*.rolebindings.patch) and event.outcome:success and
+not gcp.audit.authentication_info.principal_email:"system:addon-manager"
 ```
 
 ```python
-[{'event': {'dataset': 'googlecloud.audit', 'action': 'io.k8s.authorization.rbac.vxiutkni.rolebindings.patch', 'outcome': 'success'}, '@timestamp': 0},
- {'event': {'dataset': 'gcp.audit', 'action': 'io.k8s.authorization.rbac.vixtflezswueexp.rolebindings.create', 'outcome': 'success'}, '@timestamp': 1}]
+[{'event': {'dataset': 'googlecloud.audit', 'action': 'io.k8s.authorization.rbac.vxiutkni.rolebindings.patch', 'outcome': 'success'}, 'gcp': {'audit': {'authentication_info': {'principal_email': 'oix'}}}, '@timestamp': 0},
+ {'event': {'dataset': 'gcp.audit', 'action': 'io.k8s.authorization.rbac.vezswu.clusterrolebindings.patch', 'outcome': 'success'}, 'gcp': {'audit': {'authentication_info': {'principal_email': 'EEX'}}}, '@timestamp': 1}]
 ```
 
 
@@ -3592,12 +3642,11 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:v*.compute.route
 ### Google Workspace API Access Granted via Domain-Wide Delegation of Authority
 
 ```python
-event.dataset:(gsuite.admin or google_workspace.admin) and event.provider:admin and event.category:iam and event.action:AUTHORIZE_API_CLIENT_ACCESS
+event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:AUTHORIZE_API_CLIENT_ACCESS
 ```
 
 ```python
-[{'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'AUTHORIZE_API_CLIENT_ACCESS'}, '@timestamp': 0},
- {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'AUTHORIZE_API_CLIENT_ACCESS'}, '@timestamp': 1}]
+[{'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'AUTHORIZE_API_CLIENT_ACCESS'}, '@timestamp': 0}]
 ```
 
 
@@ -3605,12 +3654,11 @@ event.dataset:(gsuite.admin or google_workspace.admin) and event.provider:admin 
 ### Google Workspace Admin Role Assigned to a User
 
 ```python
-event.dataset:(gsuite.admin or google_workspace.admin) and event.provider:admin and event.category:iam and event.action:ASSIGN_ROLE
+event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:ASSIGN_ROLE
 ```
 
 ```python
-[{'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ASSIGN_ROLE'}, '@timestamp': 0},
- {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ASSIGN_ROLE'}, '@timestamp': 1}]
+[{'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ASSIGN_ROLE'}, '@timestamp': 0}]
 ```
 
 
@@ -3618,12 +3666,11 @@ event.dataset:(gsuite.admin or google_workspace.admin) and event.provider:admin 
 ### Google Workspace Admin Role Deletion
 
 ```python
-event.dataset:(gsuite.admin or google_workspace.admin) and event.provider:admin and event.category:iam and event.action:DELETE_ROLE
+event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:DELETE_ROLE
 ```
 
 ```python
-[{'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'DELETE_ROLE'}, '@timestamp': 0},
- {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'DELETE_ROLE'}, '@timestamp': 1}]
+[{'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'DELETE_ROLE'}, '@timestamp': 0}]
 ```
 
 
@@ -3631,12 +3678,11 @@ event.dataset:(gsuite.admin or google_workspace.admin) and event.provider:admin 
 ### Google Workspace Custom Admin Role Created
 
 ```python
-event.dataset:(gsuite.admin or google_workspace.admin) and event.provider:admin and event.category:iam and event.action:CREATE_ROLE
+event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:CREATE_ROLE
 ```
 
 ```python
-[{'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CREATE_ROLE'}, '@timestamp': 0},
- {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CREATE_ROLE'}, '@timestamp': 1}]
+[{'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CREATE_ROLE'}, '@timestamp': 0}]
 ```
 
 
@@ -3644,14 +3690,11 @@ event.dataset:(gsuite.admin or google_workspace.admin) and event.provider:admin 
 ### Google Workspace MFA Enforcement Disabled
 
 ```python
-event.dataset:(gsuite.admin or google_workspace.admin) and event.provider:admin and event.category:iam and event.action:ENFORCE_STRONG_AUTHENTICATION and (gsuite.admin.new_value:false or google_workspace.admin.new_value:false)
+event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:ENFORCE_STRONG_AUTHENTICATION and google_workspace.admin.new_value:false
 ```
 
 ```python
-[{'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ENFORCE_STRONG_AUTHENTICATION'}, 'gsuite': {'admin': {'new_value': False}}, '@timestamp': 0},
- {'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ENFORCE_STRONG_AUTHENTICATION'}, 'google_workspace': {'admin': {'new_value': False}}, '@timestamp': 1},
- {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ENFORCE_STRONG_AUTHENTICATION'}, 'gsuite': {'admin': {'new_value': False}}, '@timestamp': 2},
- {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ENFORCE_STRONG_AUTHENTICATION'}, 'google_workspace': {'admin': {'new_value': False}}, '@timestamp': 3}]
+[{'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ENFORCE_STRONG_AUTHENTICATION'}, 'google_workspace': {'admin': {'new_value': False}}, '@timestamp': 0}]
 ```
 
 
@@ -3659,17 +3702,8 @@ event.dataset:(gsuite.admin or google_workspace.admin) and event.provider:admin 
 ### Google Workspace Password Policy Modified
 
 ```python
-event.dataset:(gsuite.admin or google_workspace.admin) and
-  event.provider:admin and event.category:iam and
+event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and
   event.action:(CHANGE_APPLICATION_SETTING or CREATE_APPLICATION_SETTING) and
-  gsuite.admin.setting.name:(
-    "Password Management - Enforce strong password" or
-    "Password Management - Password reset frequency" or
-    "Password Management - Enable password reuse" or
-    "Password Management - Enforce password policy at next login" or
-    "Password Management - Minimum password length" or
-    "Password Management - Maximum password length"
-  ) or
   google_workspace.admin.setting.name:(
     "Password Management - Enforce strong password" or
     "Password Management - Password reset frequency" or
@@ -3681,16 +3715,16 @@ event.dataset:(gsuite.admin or google_workspace.admin) and
 ```
 
 ```python
-[{'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CHANGE_APPLICATION_SETTING'}, 'gsuite': {'admin': {'setting': {'name': 'Password Management - Enforce strong password'}}}, '@timestamp': 0},
- {'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CHANGE_APPLICATION_SETTING'}, 'gsuite': {'admin': {'setting': {'name': 'Password Management - Password reset frequency'}}}, '@timestamp': 1},
- {'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CHANGE_APPLICATION_SETTING'}, 'gsuite': {'admin': {'setting': {'name': 'Password Management - Enable password reuse'}}}, '@timestamp': 2},
- {'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CHANGE_APPLICATION_SETTING'}, 'gsuite': {'admin': {'setting': {'name': 'Password Management - Enforce password policy at next login'}}}, '@timestamp': 3},
- {'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CHANGE_APPLICATION_SETTING'}, 'gsuite': {'admin': {'setting': {'name': 'Password Management - Minimum password length'}}}, '@timestamp': 4},
- {'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CHANGE_APPLICATION_SETTING'}, 'gsuite': {'admin': {'setting': {'name': 'Password Management - Maximum password length'}}}, '@timestamp': 5},
- {'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CREATE_APPLICATION_SETTING'}, 'gsuite': {'admin': {'setting': {'name': 'Password Management - Enforce strong password'}}}, '@timestamp': 6},
- {'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CREATE_APPLICATION_SETTING'}, 'gsuite': {'admin': {'setting': {'name': 'Password Management - Password reset frequency'}}}, '@timestamp': 7},
- {'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CREATE_APPLICATION_SETTING'}, 'gsuite': {'admin': {'setting': {'name': 'Password Management - Enable password reuse'}}}, '@timestamp': 8},
- {'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CREATE_APPLICATION_SETTING'}, 'gsuite': {'admin': {'setting': {'name': 'Password Management - Enforce password policy at next login'}}}, '@timestamp': 9}]
+[{'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CHANGE_APPLICATION_SETTING'}, 'google_workspace': {'admin': {'setting': {'name': 'Password Management - Enforce strong password'}}}, '@timestamp': 0},
+ {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CHANGE_APPLICATION_SETTING'}, 'google_workspace': {'admin': {'setting': {'name': 'Password Management - Password reset frequency'}}}, '@timestamp': 1},
+ {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CHANGE_APPLICATION_SETTING'}, 'google_workspace': {'admin': {'setting': {'name': 'Password Management - Enable password reuse'}}}, '@timestamp': 2},
+ {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CHANGE_APPLICATION_SETTING'}, 'google_workspace': {'admin': {'setting': {'name': 'Password Management - Enforce password policy at next login'}}}, '@timestamp': 3},
+ {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CHANGE_APPLICATION_SETTING'}, 'google_workspace': {'admin': {'setting': {'name': 'Password Management - Minimum password length'}}}, '@timestamp': 4},
+ {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CHANGE_APPLICATION_SETTING'}, 'google_workspace': {'admin': {'setting': {'name': 'Password Management - Maximum password length'}}}, '@timestamp': 5},
+ {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CREATE_APPLICATION_SETTING'}, 'google_workspace': {'admin': {'setting': {'name': 'Password Management - Enforce strong password'}}}, '@timestamp': 6},
+ {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CREATE_APPLICATION_SETTING'}, 'google_workspace': {'admin': {'setting': {'name': 'Password Management - Password reset frequency'}}}, '@timestamp': 7},
+ {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CREATE_APPLICATION_SETTING'}, 'google_workspace': {'admin': {'setting': {'name': 'Password Management - Enable password reuse'}}}, '@timestamp': 8},
+ {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'CREATE_APPLICATION_SETTING'}, 'google_workspace': {'admin': {'setting': {'name': 'Password Management - Enforce password policy at next login'}}}, '@timestamp': 9}]
 ```
 
 
@@ -3698,14 +3732,12 @@ event.dataset:(gsuite.admin or google_workspace.admin) and
 ### Google Workspace Role Modified
 
 ```python
-event.dataset:(gsuite.admin or google_workspace.admin) and event.provider:admin and event.category:iam and event.action:(ADD_PRIVILEGE or UPDATE_ROLE)
+event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:(ADD_PRIVILEGE or UPDATE_ROLE)
 ```
 
 ```python
-[{'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ADD_PRIVILEGE'}, '@timestamp': 0},
- {'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'UPDATE_ROLE'}, '@timestamp': 1},
- {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ADD_PRIVILEGE'}, '@timestamp': 2},
- {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'UPDATE_ROLE'}, '@timestamp': 3}]
+[{'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ADD_PRIVILEGE'}, '@timestamp': 0},
+ {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'UPDATE_ROLE'}, '@timestamp': 1}]
 ```
 
 
@@ -3821,15 +3853,15 @@ sequence with maxspan=1m
   ] by host.id, process.entity_id
   [network where event.type == "start" and process.name : "mshta.exe" and 
      network.direction : ("incoming", "ingress") and network.transport == "tcp" and
-     source.port > 49151 and destination.port > 49151 and not source.address in ("127.0.0.1", "::1")
+     source.port > 49151 and destination.port > 49151 and source.ip != "127.0.0.1" and source.ip != "::1"
   ] by host.id, process.entity_id
 ```
 
 ```python
 [{'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'mshta.exe', 'args': ['-Embedding'], 'entity_id': 'XIU'}, 'host': {'id': 'ZFy'}, '@timestamp': 0},
- {'event': {'type': ['start'], 'category': ['network']}, 'process': {'name': 'mshta.exe', 'entity_id': 'XIU'}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'source': {'port': 64839, 'address': 'yFj'}, 'destination': {'port': 56065}, 'host': {'id': 'ZFy'}, '@timestamp': 1},
- {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'name': 'mshta.exe', 'args': ['-Embedding'], 'entity_id': 'LOo'}, 'host': {'id': 'SvI'}, '@timestamp': 2},
- {'event': {'type': ['start'], 'category': ['network']}, 'process': {'name': 'mshta.exe', 'entity_id': 'LOo'}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'source': {'port': 61095, 'address': 'wuE'}, 'destination': {'port': 57092}, 'host': {'id': 'SvI'}, '@timestamp': 3}]
+ {'event': {'type': ['start'], 'category': ['network']}, 'process': {'name': 'mshta.exe', 'entity_id': 'XIU'}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'source': {'port': 64839, 'ip': '3023:5fa9:a92d:c839:9a9f:e89a:c443:b67b'}, 'destination': {'port': 56065}, 'host': {'id': 'ZFy'}, '@timestamp': 1},
+ {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'name': 'mshta.exe', 'args': ['-Embedding'], 'entity_id': 'TFl'}, 'host': {'id': 'oix'}, '@timestamp': 2},
+ {'event': {'type': ['start'], 'category': ['network']}, 'process': {'name': 'mshta.exe', 'entity_id': 'TFl'}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'source': {'port': 61095, 'ip': '9566:7ca7:8676:5e58:62bd:10db:7472:f04c'}, 'destination': {'port': 57092}, 'host': {'id': 'oix'}, '@timestamp': 3}]
 ```
 
 
@@ -3838,8 +3870,8 @@ sequence with maxspan=1m
 
 ```python
 sequence by host.id with maxspan=1m
- [network where event.type == "start" and process.name : "mmc.exe" and
-  source.port >= 49152 and destination.port >= 49152 and source.address not in ("127.0.0.1", "::1") and
+ [network where event.type == "start" and process.name : "mmc.exe" and source.port >= 49152 and
+ destination.port >= 49152 and source.ip != "127.0.0.1" and source.ip != "::1" and
   network.direction : ("incoming", "ingress") and network.transport == "tcp"
  ] by process.entity_id
  [process where event.type in ("start", "process_started") and process.parent.name : "mmc.exe"
@@ -3847,10 +3879,10 @@ sequence by host.id with maxspan=1m
 ```
 
 ```python
-[{'event': {'type': ['start'], 'category': ['network']}, 'process': {'name': 'mmc.exe', 'entity_id': 'jSv'}, 'source': {'port': 64740, 'address': 'XIU'}, 'destination': {'port': 62863}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'host': {'id': 'yyF'}, '@timestamp': 0},
+[{'event': {'type': ['start'], 'category': ['network']}, 'process': {'name': 'mmc.exe', 'entity_id': 'jSv'}, 'source': {'port': 64740, 'ip': '229.172.181.141'}, 'destination': {'port': 62863}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'host': {'id': 'yyF'}, '@timestamp': 0},
  {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'mmc.exe', 'entity_id': 'jSv'}}, 'host': {'id': 'yyF'}, '@timestamp': 1},
- {'event': {'type': ['start'], 'category': ['network']}, 'process': {'name': 'mmc.exe', 'entity_id': 'LeO'}, 'source': {'port': 56259, 'address': 'Ezs'}, 'destination': {'port': 58173}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'host': {'id': 'xBn'}, '@timestamp': 2},
- {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'parent': {'name': 'mmc.exe', 'entity_id': 'LeO'}}, 'host': {'id': 'xBn'}, '@timestamp': 3}]
+ {'event': {'type': ['start'], 'category': ['network']}, 'process': {'name': 'mmc.exe', 'entity_id': 'XpW'}, 'source': {'port': 56259, 'ip': '708d:b945:3e09:df7f:5d4f:9e31:a728:d9ac'}, 'destination': {'port': 58173}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'host': {'id': 'uEE'}, '@timestamp': 2},
+ {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'parent': {'name': 'mmc.exe', 'entity_id': 'XpW'}}, 'host': {'id': 'uEE'}, '@timestamp': 3}]
 ```
 
 
@@ -3861,7 +3893,7 @@ sequence by host.id with maxspan=1m
 sequence by host.id with maxspan=5s
  [network where event.type == "start" and process.name : "explorer.exe" and
   network.direction : ("incoming", "ingress") and network.transport == "tcp" and
-  source.port > 49151 and destination.port > 49151 and not source.address in ("127.0.0.1", "::1")
+  source.port > 49151 and destination.port > 49151 and source.ip != "127.0.0.1" and source.ip != "::1"
  ] by process.entity_id
  [process where event.type in ("start", "process_started") and
   process.parent.name : "explorer.exe"
@@ -3869,9 +3901,9 @@ sequence by host.id with maxspan=5s
 ```
 
 ```python
-[{'event': {'type': ['start'], 'category': ['network']}, 'process': {'name': 'explorer.exe', 'entity_id': 'ixT'}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'source': {'port': 62863, 'address': 'Utk'}, 'destination': {'port': 52641}, 'host': {'id': 'NIo'}, '@timestamp': 0},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'explorer.exe', 'entity_id': 'ixT'}}, 'host': {'id': 'NIo'}, '@timestamp': 1},
- {'event': {'type': ['start'], 'category': ['network']}, 'process': {'name': 'explorer.exe', 'entity_id': 'eOA'}, 'network': {'direction': 'incoming', 'transport': 'tcp'}, 'source': {'port': 58173, 'address': 'Hmx'}, 'destination': {'port': 65131}, 'host': {'id': 'BnL'}, '@timestamp': 2},
+[{'event': {'type': ['start'], 'category': ['network']}, 'process': {'name': 'explorer.exe', 'entity_id': 'vIL'}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'source': {'port': 62863, 'ip': 'c443:b67a:770a:2cd7:3602:9e1d:7a8f:dfec'}, 'destination': {'port': 52641}, 'host': {'id': 'FjS'}, '@timestamp': 0},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'explorer.exe', 'entity_id': 'vIL'}}, 'host': {'id': 'FjS'}, '@timestamp': 1},
+ {'event': {'type': ['start'], 'category': ['network']}, 'process': {'name': 'explorer.exe', 'entity_id': 'eOA'}, 'network': {'direction': 'incoming', 'transport': 'tcp'}, 'source': {'port': 58173, 'ip': '62bd:10db:7472:f04b:708d:b945:3e09:df80'}, 'destination': {'port': 65131}, 'host': {'id': 'BnL'}, '@timestamp': 2},
  {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'parent': {'name': 'explorer.exe', 'entity_id': 'eOA'}}, 'host': {'id': 'BnL'}, '@timestamp': 3}]
 ```
 
@@ -3882,16 +3914,16 @@ sequence by host.id with maxspan=5s
 ```python
 sequence by host.id with maxspan = 30s
    [network where network.direction : ("incoming", "ingress") and destination.port in (5985, 5986) and
-    network.protocol == "http" and source.address != "127.0.0.1" and source.address != "::1"
+    network.protocol == "http" and source.ip != "127.0.0.1" and source.ip != "::1"
    ]
    [process where event.type == "start" and process.parent.name : "wsmprovhost.exe" and not process.name : "conhost.exe"]
 ```
 
 ```python
-[{'network': {'direction': 'ingress', 'protocol': 'http'}, 'destination': {'port': 5985}, 'source': {'address': 'vCf'}, 'event': {'category': ['network']}, 'host': {'id': 'Uyy'}, '@timestamp': 0},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'wsmprovhost.exe'}, 'name': 'FjS'}, 'host': {'id': 'Uyy'}, '@timestamp': 1},
- {'network': {'direction': 'ingress', 'protocol': 'http'}, 'destination': {'port': 5986}, 'source': {'address': 'xTF'}, 'event': {'category': ['network']}, 'host': {'id': 'lEz'}, '@timestamp': 2},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'wsmprovhost.exe'}, 'name': 'swu'}, 'host': {'id': 'lEz'}, '@timestamp': 3}]
+[{'network': {'direction': 'ingress', 'protocol': 'http'}, 'destination': {'port': 5985}, 'source': {'ip': '1b43:3a53:aa79:ec58:8d14:2981:f18d:f2a7'}, 'event': {'category': ['network']}, 'host': {'id': 'Utk'}, '@timestamp': 0},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'wsmprovhost.exe'}, 'name': 'NIo'}, 'host': {'id': 'Utk'}, '@timestamp': 1},
+ {'network': {'direction': 'incoming', 'protocol': 'http'}, 'destination': {'port': 5986}, 'source': {'ip': 'baf5:6682:de3c:cb58:a9e1:79f2:73bd:f2be'}, 'event': {'category': ['network']}, 'host': {'id': 'FlE'}, '@timestamp': 2},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'wsmprovhost.exe'}, 'name': 'zsw'}, 'host': {'id': 'FlE'}, '@timestamp': 3}]
 ```
 
 
@@ -3901,16 +3933,16 @@ sequence by host.id with maxspan = 30s
 ```python
 sequence by host.id with maxspan=30s
    [network where process.pid == 4 and network.direction : ("incoming", "ingress") and
-    destination.port in (5985, 5986) and network.protocol == "http" and not source.address in ("::1", "127.0.0.1")
+    destination.port in (5985, 5986) and network.protocol == "http" and source.ip != "127.0.0.1" and source.ip != "::1"
    ]
    [process where event.type == "start" and process.parent.name : "winrshost.exe" and not process.name : "conhost.exe"]
 ```
 
 ```python
-[{'process': {'pid': 4}, 'network': {'direction': 'ingress', 'protocol': 'http'}, 'destination': {'port': 5985}, 'source': {'address': 'vCf'}, 'event': {'category': ['network']}, 'host': {'id': 'Uyy'}, '@timestamp': 0},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'winrshost.exe'}, 'name': 'FjS'}, 'host': {'id': 'Uyy'}, '@timestamp': 1},
- {'process': {'pid': 4}, 'network': {'direction': 'ingress', 'protocol': 'http'}, 'destination': {'port': 5986}, 'source': {'address': 'xTF'}, 'event': {'category': ['network']}, 'host': {'id': 'lEz'}, '@timestamp': 2},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'winrshost.exe'}, 'name': 'swu'}, 'host': {'id': 'lEz'}, '@timestamp': 3}]
+[{'process': {'pid': 4}, 'network': {'direction': 'ingress', 'protocol': 'http'}, 'destination': {'port': 5985}, 'source': {'ip': '1b43:3a53:aa79:ec58:8d14:2981:f18d:f2a7'}, 'event': {'category': ['network']}, 'host': {'id': 'Utk'}, '@timestamp': 0},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'winrshost.exe'}, 'name': 'NIo'}, 'host': {'id': 'Utk'}, '@timestamp': 1},
+ {'process': {'pid': 4}, 'network': {'direction': 'incoming', 'protocol': 'http'}, 'destination': {'port': 5986}, 'source': {'ip': 'baf5:6682:de3c:cb58:a9e1:79f2:73bd:f2be'}, 'event': {'category': ['network']}, 'host': {'id': 'FlE'}, '@timestamp': 2},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'winrshost.exe'}, 'name': 'zsw'}, 'host': {'id': 'FlE'}, '@timestamp': 3}]
 ```
 
 
@@ -3963,13 +3995,13 @@ sequence by process.entity_id with maxspan = 5m
 
 ```python
 registry where
-   registry.path : ("HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\Security Packages*", 
-                    "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa\\OSConfig\\Security Packages*") and
+   registry.path : ("HKLM\\SYSTEM\\*ControlSet*\\Control\\Lsa\\Security Packages*", 
+                    "HKLM\\SYSTEM\\*ControlSet*\\Control\\Lsa\\OSConfig\\Security Packages*") and
    not process.executable : ("C:\\Windows\\System32\\msiexec.exe", "C:\\Windows\\SysWOW64\\msiexec.exe")
 ```
 
 ```python
-[{'registry': {'path': 'hklm\\system\\currentcontrolset\\control\\lsa\\security packagesxiutkni'}, 'process': {'executable': 'oix'}, 'event': {'category': ['registry']}, '@timestamp': 0}]
+[{'registry': {'path': 'hklm\\system\\xiutknicontrolsetsvilo\\control\\lsa\\security packagesezswu'}, 'process': {'executable': 'EEX'}, 'event': {'category': ['registry']}, '@timestamp': 0}]
 ```
 
 
@@ -4012,6 +4044,18 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 
 
+### KRBTGT Delegation Backdoor
+
+```python
+event.action:modified-user-account and event.code:4738 and winlog.event_data.AllowedToDelegateTo:*krbtgt*
+```
+
+```python
+[{'event': {'action': 'modified-user-account', 'code': 4738}, 'winlog': {'event_data': {'AllowedToDelegateTo': 'xiutknikrbtgtsvilo'}}, '@timestamp': 0}]
+```
+
+
+
 ### Kerberos Cached Credentials Dumping
 
 ```python
@@ -4033,7 +4077,7 @@ event.category:process and event.type:(start or process_started) and
 network where event.type == "start" and network.direction : ("outgoing", "egress") and
  destination.port == 88 and source.port >= 49152 and
  process.executable != "C:\\Windows\\System32\\lsass.exe" and destination.address !="127.0.0.1" and destination.address !="::1" and
- /* insert False Positives here */
+ /* insert false positives here */
  not process.name in ("swi_fc.exe", "fsIPcam.exe", "IPCamera.exe", "MicrosoftEdgeCP.exe", "MicrosoftEdge.exe", "iexplore.exe", "chrome.exe", "msedge.exe", "opera.exe", "firefox.exe")
 ```
 
@@ -4084,6 +4128,41 @@ file where file.name : ("lsass*.dmp", "dumpert.dmp", "Andrew.dmp", "SQLDmpr*.mdm
 
 
 
+### LSASS Memory Dump Handle Access
+
+```python
+any where event.action == "File System" and event.code == "4656" and
+
+    winlog.event_data.ObjectName : (
+        "?:\\Windows\\System32\\lsass.exe",
+        "\\Device\\HarddiskVolume?\\Windows\\System32\\lsass.exe",
+        "\\Device\\HarddiskVolume??\\Windows\\System32\\lsass.exe") and
+
+    /* The right to perform an operation controlled by an extended access right. */
+
+    (winlog.event_data.AccessMask : ("0x1fffff" , "0x1010", "0x120089", "0x1F3FFF") or
+     winlog.event_data.AccessMaskDescription : ("READ_CONTROL", "Read from process memory"))
+
+     /* Common Noisy False Positives */
+
+    and not winlog.event_data.ProcessName : (
+        "?:\\Program Files\\*.exe",
+        "?:\\Program Files (x86)\\*.exe",
+        "?:\\Windows\\system32\\wbem\\WmiPrvSE.exe",
+        "?:\\Windows\\System32\\dllhost.exe",
+        "?:\\Windows\\System32\\svchost.exe",
+        "?:\\Windows\\System32\\msiexec.exe",
+        "?:\\ProgramData\\Microsoft\\Windows Defender\\*.exe",
+        "?:\\Windows\\explorer.exe")
+```
+
+```python
+[{'event': {'action': 'File System', 'code': '4656'}, 'winlog': {'event_data': {'ObjectName': '\\device\\harddiskvolumee\\windows\\system32\\lsass.exe', 'AccessMask': '0x1fffff', 'ProcessName': 'XIU'}}, '@timestamp': 0},
+ {'event': {'action': 'File System', 'code': '4656'}, 'winlog': {'event_data': {'ObjectName': '\\device\\harddiskvolumeen\\windows\\system32\\lsass.exe', 'AccessMaskDescription': 'read_control', 'ProcessName': 'NIo'}}, '@timestamp': 1}]
+```
+
+
+
 ### Lateral Movement via Startup Folder
 
 ```python
@@ -4107,18 +4186,18 @@ file where event.type in ("creation", "change") and
 ```python
 sequence by host.id with maxspan=30s
   [network where event.type == "start" and process.pid == 4 and destination.port == 445 and
-   network.direction : ("incoming", "ingress") and network.transport == "tcp" and
-   source.address != "127.0.0.1" and source.address != "::1"
+   network.direction : ("incoming", "ingress") and
+   network.transport == "tcp" and source.ip != "127.0.0.1" and source.ip != "::1"
   ] by process.entity_id
   /* add more executable extensions here if they are not noisy in your environment */
   [file where event.type in ("creation", "change") and process.pid == 4 and file.extension : ("exe", "dll", "bat", "cmd")] by process.entity_id
 ```
 
 ```python
-[{'event': {'type': ['start'], 'category': ['network']}, 'process': {'pid': 4, 'entity_id': 'FjS'}, 'destination': {'port': 445}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'source': {'address': 'vCf'}, 'host': {'id': 'Uyy'}, '@timestamp': 0},
- {'event': {'type': ['creation'], 'category': ['file']}, 'process': {'pid': 4, 'entity_id': 'FjS'}, 'file': {'extension': 'exe'}, 'host': {'id': 'Uyy'}, '@timestamp': 1},
- {'event': {'type': ['start'], 'category': ['network']}, 'process': {'pid': 4, 'entity_id': 'mxB'}, 'destination': {'port': 445}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'source': {'address': 'ILO'}, 'host': {'id': 'oOH'}, '@timestamp': 2},
- {'event': {'type': ['change'], 'category': ['file']}, 'process': {'pid': 4, 'entity_id': 'mxB'}, 'file': {'extension': 'dll'}, 'host': {'id': 'oOH'}, '@timestamp': 3}]
+[{'event': {'type': ['start'], 'category': ['network']}, 'process': {'pid': 4, 'entity_id': 'NIo'}, 'destination': {'port': 445}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'source': {'ip': '1b43:3a53:aa79:ec58:8d14:2981:f18d:f2a7'}, 'host': {'id': 'Utk'}, '@timestamp': 0},
+ {'event': {'type': ['creation'], 'category': ['file']}, 'process': {'pid': 4, 'entity_id': 'NIo'}, 'file': {'extension': 'cmd'}, 'host': {'id': 'Utk'}, '@timestamp': 1},
+ {'event': {'type': ['start'], 'category': ['network']}, 'process': {'pid': 4, 'entity_id': 'Hmx'}, 'destination': {'port': 445}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'source': {'ip': '9a3d:9c72:baf5:6682:de3c:cb58:a9e1:79f3'}, 'host': {'id': 'OoO'}, '@timestamp': 2},
+ {'event': {'type': ['change'], 'category': ['file']}, 'process': {'pid': 4, 'entity_id': 'Hmx'}, 'file': {'extension': 'dll'}, 'host': {'id': 'OoO'}, '@timestamp': 3}]
 ```
 
 
@@ -4142,6 +4221,64 @@ sequence by host.id with maxspan=1m
 
 
 
+### Linux Restricted Shell Breakout via  apt/apt-get Changelog Escape
+
+```python
+sequence by host.id, process.pid with maxspan=1m 
+  [process where process.name : ("apt", "apt-get") and process.args : "changelog"] 
+  [process where process.name : "sensible-pager" and process.args : ("/bin/sh", "/bin/bash") and 
+   process.parent.name : ("apt", "apt-get")]
+```
+
+```python
+[{'process': {'name': 'apt-get', 'args': ['changelog'], 'pid': 3874133221}, 'event': {'category': ['process']}, 'host': {'id': 'vCf'}, '@timestamp': 0},
+ {'process': {'name': 'sensible-pager', 'args': ['/bin/sh', '/bin/bash'], 'parent': {'name': 'apt-get'}, 'pid': 3874133221}, 'event': {'category': ['process']}, 'host': {'id': 'vCf'}, '@timestamp': 1}]
+```
+
+
+
+### Linux Restricted Shell Breakout via awk Commands
+
+```python
+sequence by host.id, process.pid with maxspan=1m 
+  [process where process.name : ("nawk", "mawk", "awk", "gawk") and process.args : "BEGIN {system(*)}"] 
+  [process where process.parent.name : ("nawk", "mawk", "awk", "gawk") and process.name : ("sh", "bash")]
+```
+
+```python
+[{'process': {'name': 'nawk', 'args': ['BEGIN {system(*)}'], 'pid': 3874133221}, 'event': {'category': ['process']}, 'host': {'id': 'vCf'}, '@timestamp': 0},
+ {'process': {'parent': {'name': 'nawk'}, 'name': 'sh', 'pid': 3874133221}, 'event': {'category': ['process']}, 'host': {'id': 'vCf'}, '@timestamp': 1}]
+```
+
+
+
+### Linux Restricted Shell Breakout via env Shell Evasion
+
+```python
+process where event.type == "start" and process.name : "env" and process.args_count == 2 and process.args : ("/bin/sh", "/bin/bash", "sh", "bash")
+```
+
+```python
+[{'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'env', 'args_count': 2, 'args': ['/bin/sh', '/bin/bash', 'sh', 'bash']}, '@timestamp': 0}]
+```
+
+
+
+### Linux Restricted Shell Breakout via the find command
+
+```python
+sequence by host.id, process.pid with maxspan=1m
+[process where process.name == "find" and process.args : "-exec" and process.args : ("/bin/bash", "/bin/sh", "bash", "sh") and process.args : ";"]
+[process where process.parent.name == "find" and process.name : ("bash", "sh")]
+```
+
+```python
+[{'process': {'name': 'find', 'args': ['-exec', '/bin/bash', '/bin/sh', 'bash', 'sh', ';'], 'pid': 4052611751}, 'event': {'category': ['process']}, 'host': {'id': 'ZFy'}, '@timestamp': 0},
+ {'process': {'parent': {'name': 'find'}, 'name': 'bash', 'pid': 4052611751}, 'event': {'category': ['process']}, 'host': {'id': 'ZFy'}, '@timestamp': 1}]
+```
+
+
+
 ### Local Scheduled Task Creation
 
 ```python
@@ -4156,21 +4293,22 @@ sequence with maxspan=1m
   [process where event.type == "start" and
     (process.name : "schtasks.exe" or process.pe.original_file_name == "schtasks.exe") and
     process.args : ("/create", "-create") and process.args : ("/RU", "/SC", "/TN", "/TR", "/F", "/XML") and
-    /* exclude SYSTEM SIDs - look for task creations by non-SYSTEM user */
-    not user.id : ("S-1-5-18", "S-1-5-19", "S-1-5-20")] by process.parent.entity_id
+    /* exclude SYSTEM Integrity Level - look for task creations by non-SYSTEM user */
+    not (process.Ext.token.integrity_level_name : "System" or winlog.event_data.IntegrityLevel : "System")
+  ] by process.parent.entity_id
 ```
 
 ```python
 [{'event': {'type': ['ZFy'], 'category': ['process']}, 'process': {'name': 'wmic.exe', 'entity_id': 'IUt'}, '@timestamp': 0},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'schtasks.exe', 'args': ['/create', '-create', '/RU', '/SC', '/TN', '/TR', '/F', '/XML'], 'parent': {'entity_id': 'IUt'}}, 'user': {'id': 'kNI'}, '@timestamp': 1},
- {'event': {'type': ['oix'], 'category': ['process']}, 'process': {'name': 'wsmprovhost.exe', 'entity_id': 'FlE'}, '@timestamp': 2},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'schtasks.exe'}, 'args': ['/create', '-create', '/RU', '/SC', '/TN', '/TR', '/F', '/XML'], 'parent': {'entity_id': 'FlE'}}, 'user': {'id': 'zsw'}, '@timestamp': 3},
- {'event': {'type': ['uEE'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'mshta.exe'}, 'entity_id': 'pWq'}, '@timestamp': 4},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'schtasks.exe', 'args': ['/create', '-create', '/RU', '/SC', '/TN', '/TR', '/F', '/XML'], 'parent': {'entity_id': 'pWq'}}, 'user': {'id': 'NVR'}, '@timestamp': 5},
- {'event': {'type': ['cym'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'wmiprvse.exe'}, 'entity_id': 'yzK'}, '@timestamp': 6},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'schtasks.exe'}, 'args': ['/create', '-create', '/RU', '/SC', '/TN', '/TR', '/F', '/XML'], 'parent': {'entity_id': 'yzK'}}, 'user': {'id': 'Nyy'}, '@timestamp': 7},
- {'event': {'type': ['QDp'], 'category': ['process']}, 'process': {'code_signature': {'trusted': False}, 'entity_id': 'UEU'}, '@timestamp': 8},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'schtasks.exe', 'args': ['/create', '-create', '/RU', '/SC', '/TN', '/TR', '/F', '/XML'], 'parent': {'entity_id': 'UEU'}}, 'user': {'id': 'Dqx'}, '@timestamp': 9}]
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'schtasks.exe', 'args': ['/create', '-create', '/RU', '/SC', '/TN', '/TR', '/F', '/XML'], 'Ext': {'token': {'integrity_level_name': 'kNI'}}, 'parent': {'entity_id': 'IUt'}}, 'winlog': {'event_data': {'IntegrityLevel': 'oix'}}, '@timestamp': 1},
+ {'event': {'type': ['TFl'], 'category': ['process']}, 'process': {'name': 'wmiprvse.exe', 'entity_id': 'OHm'}, '@timestamp': 2},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'schtasks.exe'}, 'args': ['/create', '-create', '/RU', '/SC', '/TN', '/TR', '/F', '/XML'], 'Ext': {'token': {'integrity_level_name': 'xBn'}}, 'parent': {'entity_id': 'OHm'}}, 'winlog': {'event_data': {'IntegrityLevel': 'LeO'}}, '@timestamp': 3},
+ {'event': {'type': ['Aag'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'cmd.exe'}, 'entity_id': 'Rcy'}, '@timestamp': 4},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'schtasks.exe', 'args': ['/create', '-create', '/RU', '/SC', '/TN', '/TR', '/F', '/XML'], 'Ext': {'token': {'integrity_level_name': 'mEE'}}, 'parent': {'entity_id': 'Rcy'}}, 'winlog': {'event_data': {'IntegrityLevel': 'wVP'}}, '@timestamp': 5},
+ {'event': {'type': ['YMG'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'winrshost.exe'}, 'entity_id': 'pUE'}, '@timestamp': 6},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'schtasks.exe'}, 'args': ['/create', '-create', '/RU', '/SC', '/TN', '/TR', '/F', '/XML'], 'Ext': {'token': {'integrity_level_name': 'UDq'}}, 'parent': {'entity_id': 'pUE'}}, 'winlog': {'event_data': {'IntegrityLevel': 'xVT'}}, '@timestamp': 7},
+ {'event': {'type': ['OLW'], 'category': ['process']}, 'process': {'code_signature': {'trusted': False}, 'entity_id': 'tim'}, '@timestamp': 8},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'schtasks.exe', 'args': ['/create', '-create', '/RU', '/SC', '/TN', '/TR', '/F', '/XML'], 'Ext': {'token': {'integrity_level_name': 'rFg'}}, 'parent': {'entity_id': 'tim'}}, 'winlog': {'event_data': {'IntegrityLevel': 'Tms'}}, '@timestamp': 9}]
 ```
 
 
@@ -4178,18 +4316,12 @@ sequence with maxspan=1m
 ### MFA Disabled for Google Workspace Organization
 
 ```python
-event.dataset:(gsuite.admin or google_workspace.admin) and event.provider:admin and event.category:iam and event.action:(ENFORCE_STRONG_AUTHENTICATION or ALLOW_STRONG_AUTHENTICATION) and (gsuite.admin.new_value:false or google_workspace.admin.new_value:false)
+event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:(ENFORCE_STRONG_AUTHENTICATION or ALLOW_STRONG_AUTHENTICATION) and google_workspace.admin.new_value:false
 ```
 
 ```python
-[{'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ENFORCE_STRONG_AUTHENTICATION'}, 'gsuite': {'admin': {'new_value': False}}, '@timestamp': 0},
- {'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ENFORCE_STRONG_AUTHENTICATION'}, 'google_workspace': {'admin': {'new_value': False}}, '@timestamp': 1},
- {'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ALLOW_STRONG_AUTHENTICATION'}, 'gsuite': {'admin': {'new_value': False}}, '@timestamp': 2},
- {'event': {'dataset': 'gsuite.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ALLOW_STRONG_AUTHENTICATION'}, 'google_workspace': {'admin': {'new_value': False}}, '@timestamp': 3},
- {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ENFORCE_STRONG_AUTHENTICATION'}, 'gsuite': {'admin': {'new_value': False}}, '@timestamp': 4},
- {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ENFORCE_STRONG_AUTHENTICATION'}, 'google_workspace': {'admin': {'new_value': False}}, '@timestamp': 5},
- {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ALLOW_STRONG_AUTHENTICATION'}, 'gsuite': {'admin': {'new_value': False}}, '@timestamp': 6},
- {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ALLOW_STRONG_AUTHENTICATION'}, 'google_workspace': {'admin': {'new_value': False}}, '@timestamp': 7}]
+[{'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ENFORCE_STRONG_AUTHENTICATION'}, 'google_workspace': {'admin': {'new_value': False}}, '@timestamp': 0},
+ {'event': {'dataset': 'google_workspace.admin', 'provider': 'admin', 'category': ['iam'], 'action': 'ALLOW_STRONG_AUTHENTICATION'}, 'google_workspace': {'admin': {'new_value': False}}, '@timestamp': 1}]
 ```
 
 
@@ -4355,6 +4487,19 @@ event.dataset:o365.audit and event.provider:Exchange and event.category:web and 
 
 
 
+### Microsoft 365 Global Administrator Role Assigned
+
+```python
+event.dataset:o365.audit and event.code:"AzureActiveDirectory" and event.action:"Add member to role." and
+o365.audit.ModifiedProperties.Role_DisplayName.NewValue:"Global Administrator"
+```
+
+```python
+[{'event': {'dataset': 'o365.audit', 'code': 'AzureActiveDirectory', 'action': 'Add member to role.'}, 'o365': {'audit': {'ModifiedProperties': {'Role_DisplayName': {'NewValue': 'Global Administrator'}}}}, '@timestamp': 0}]
+```
+
+
+
 ### Microsoft 365 Impossible travel activity
 
 ```python
@@ -4367,6 +4512,27 @@ event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.c
 
 
 
+### Microsoft 365 Inbox Forwarding Rule Created
+
+```python
+event.dataset:o365.audit and event.provider:Exchange and
+event.category:web and event.action:"New-InboxRule" and
+    (
+        o365audit.Parameters.ForwardTo:* or
+        o365audit.Parameters.ForwardAsAttachmentTo:* or
+        o365audit.Parameters.RedirectTo:*
+    ) 
+    and event.outcome:success
+```
+
+```python
+[{'event': {'dataset': 'o365.audit', 'provider': 'Exchange', 'category': ['web'], 'action': 'New-InboxRule', 'outcome': 'success'}, 'o365audit': {'Parameters': {'ForwardTo': 'ZFy'}}, '@timestamp': 0},
+ {'event': {'dataset': 'o365.audit', 'provider': 'Exchange', 'category': ['web'], 'action': 'New-InboxRule', 'outcome': 'success'}, 'o365audit': {'Parameters': {'ForwardAsAttachmentTo': 'XIU'}}, '@timestamp': 1},
+ {'event': {'dataset': 'o365.audit', 'provider': 'Exchange', 'category': ['web'], 'action': 'New-InboxRule', 'outcome': 'success'}, 'o365audit': {'Parameters': {'RedirectTo': 'tkN'}}, '@timestamp': 2}]
+```
+
+
+
 ### Microsoft 365 Mass download by a single user
 
 ```python
@@ -4375,18 +4541,6 @@ event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.c
 
 ```python
 [{'event': {'dataset': 'o365.audit', 'provider': 'SecurityComplianceCenter', 'category': ['web'], 'action': 'Mass download by a single user', 'outcome': 'success'}, '@timestamp': 0}]
-```
-
-
-
-### Microsoft 365 New Inbox Rule Created
-
-```python
-event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:"New-InboxRule" and event.outcome:success
-```
-
-```python
-[{'event': {'dataset': 'o365.audit', 'provider': 'Exchange', 'category': ['web'], 'action': 'New-InboxRule', 'outcome': 'success'}, '@timestamp': 0}]
 ```
 
 
@@ -4991,19 +5145,18 @@ process where event.type in ("start", "process_started") and
 
 ```python
 process where event.type in ("start", "process_started") and 
-  user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
+  (process.Ext.token.integrity_level_name : "System" or
+  winlog.event_data.IntegrityLevel : "System") and
   process.name : "whoami.exe" or
   (process.name : "net1.exe" and not process.parent.name : "net.exe")
 ```
 
 ```python
-[{'event': {'type': ['start'], 'category': ['process']}, 'user': {'id': 'S-1-5-18'}, 'process': {'name': 'whoami.exe'}, '@timestamp': 0},
- {'event': {'type': ['start'], 'category': ['process']}, 'user': {'id': 'S-1-5-19'}, 'process': {'name': 'whoami.exe'}, '@timestamp': 1},
- {'event': {'type': ['start'], 'category': ['process']}, 'user': {'id': 'S-1-5-20'}, 'process': {'name': 'whoami.exe'}, '@timestamp': 2},
- {'event': {'type': ['process_started'], 'category': ['process']}, 'user': {'id': 'S-1-5-18'}, 'process': {'name': 'whoami.exe'}, '@timestamp': 3},
- {'event': {'type': ['process_started'], 'category': ['process']}, 'user': {'id': 'S-1-5-19'}, 'process': {'name': 'whoami.exe'}, '@timestamp': 4},
- {'event': {'type': ['process_started'], 'category': ['process']}, 'user': {'id': 'S-1-5-20'}, 'process': {'name': 'whoami.exe'}, '@timestamp': 5},
- {'process': {'name': 'net1.exe', 'parent': {'name': 'ZFy'}}, 'event': {'category': ['process']}, '@timestamp': 6}]
+[{'event': {'type': ['start'], 'category': ['process']}, 'process': {'Ext': {'token': {'integrity_level_name': 'System'}}, 'name': 'whoami.exe'}, '@timestamp': 0},
+ {'event': {'type': ['start'], 'category': ['process']}, 'winlog': {'event_data': {'IntegrityLevel': 'System'}}, 'process': {'name': 'whoami.exe'}, '@timestamp': 1},
+ {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'Ext': {'token': {'integrity_level_name': 'System'}}, 'name': 'whoami.exe'}, '@timestamp': 2},
+ {'event': {'type': ['process_started'], 'category': ['process']}, 'winlog': {'event_data': {'IntegrityLevel': 'System'}}, 'process': {'name': 'whoami.exe'}, '@timestamp': 3},
+ {'process': {'name': 'net1.exe', 'parent': {'name': 'ZFy'}}, 'event': {'category': ['process']}, '@timestamp': 4}]
 ```
 
 
@@ -5102,7 +5255,7 @@ sequence by process.entity_id
   [process where event.type == "start" and
    process.name : ("regsvr32.exe", "RegAsm.exe", "RegSvcs.exe") and
    not (
-         user.id == "S-1-5-18" and
+         (process.Ext.token.integrity_level_name : "System" or winlog.event_data.IntegrityLevel : "System") and
          (process.parent.name : "msiexec.exe" or process.parent.executable : ("C:\\Program Files (x86)\\*.exe", "C:\\Program Files\\*.exe"))
        )
    ]
@@ -5115,10 +5268,10 @@ sequence by process.entity_id
 ```
 
 ```python
-[{'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'regsvr32.exe', 'entity_id': 'fUy'}, 'user': {'id': 'TvC'}, '@timestamp': 0},
- {'process': {'name': 'regsvcs.exe', 'entity_id': 'fUy'}, 'destination': {'ip': '499d:4f18:3023:5fa9:a92d:c839:9a9f:e89b'}, 'network': {'protocol': 'SvI'}, 'event': {'category': ['network']}, '@timestamp': 1},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'regsvr32.exe', 'parent': {'name': 'FlE', 'executable': 'zsw'}, 'entity_id': 'uEE'}, '@timestamp': 2},
- {'process': {'name': 'regasm.exe', 'entity_id': 'uEE'}, 'destination': {'ip': '197.7.114.246'}, 'network': {'protocol': 'WqN'}, 'event': {'category': ['network']}, '@timestamp': 3}]
+[{'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'regsvr32.exe', 'Ext': {'token': {'integrity_level_name': 'TvC'}}, 'entity_id': 'yFj'}, 'winlog': {'event_data': {'IntegrityLevel': 'fUy'}}, '@timestamp': 0},
+ {'process': {'name': 'regasm.exe', 'entity_id': 'yFj'}, 'destination': {'ip': '115.189.242.190'}, 'network': {'protocol': 'ILO'}, 'event': {'category': ['network']}, '@timestamp': 1},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'regsvcs.exe', 'parent': {'name': 'Ezs', 'executable': 'wuE'}, 'entity_id': 'EXp'}, '@timestamp': 2},
+ {'process': {'name': 'regsvr32.exe', 'entity_id': 'EXp'}, 'destination': {'ip': '0.167.86.71'}, 'network': {'protocol': 'NVR'}, 'event': {'category': ['network']}, '@timestamp': 3}]
 ```
 
 
@@ -5192,17 +5345,54 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 
 
+### O365 Email Reported by User as Malware or Phish
+
+```python
+event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.action:AlertTriggered and rule.name:"Email reported by user as malware or phish"
+```
+
+```python
+[{'event': {'dataset': 'o365.audit', 'provider': 'SecurityComplianceCenter', 'action': 'AlertTriggered'}, 'rule': {'name': 'Email reported by user as malware or phish'}, '@timestamp': 0}]
+```
+
+
+
 ### O365 Exchange Suspicious Mailbox Right Delegation
 
 ```python
 event.dataset:o365.audit and event.provider:Exchange and event.action:Add-MailboxPermission and 
-o365.audit.Parameters.AccessRights:(FullAccess or SendAs or SendOnBehalf) and event.outcome:success
+o365.audit.Parameters.AccessRights:(FullAccess or SendAs or SendOnBehalf) and event.outcome:success and
+not user.id : "NT AUTHORITY\SYSTEM (Microsoft.Exchange.Servicehost)"
 ```
 
 ```python
-[{'event': {'dataset': 'o365.audit', 'provider': 'Exchange', 'action': 'Add-MailboxPermission', 'outcome': 'success'}, 'o365': {'audit': {'Parameters': {'AccessRights': 'FullAccess'}}}, '@timestamp': 0},
- {'event': {'dataset': 'o365.audit', 'provider': 'Exchange', 'action': 'Add-MailboxPermission', 'outcome': 'success'}, 'o365': {'audit': {'Parameters': {'AccessRights': 'SendAs'}}}, '@timestamp': 1},
- {'event': {'dataset': 'o365.audit', 'provider': 'Exchange', 'action': 'Add-MailboxPermission', 'outcome': 'success'}, 'o365': {'audit': {'Parameters': {'AccessRights': 'SendOnBehalf'}}}, '@timestamp': 2}]
+[{'event': {'dataset': 'o365.audit', 'provider': 'Exchange', 'action': 'Add-MailboxPermission', 'outcome': 'success'}, 'o365': {'audit': {'Parameters': {'AccessRights': 'FullAccess'}}}, 'user': {'id': 'ZFy'}, '@timestamp': 0},
+ {'event': {'dataset': 'o365.audit', 'provider': 'Exchange', 'action': 'Add-MailboxPermission', 'outcome': 'success'}, 'o365': {'audit': {'Parameters': {'AccessRights': 'SendAs'}}}, 'user': {'id': 'XIU'}, '@timestamp': 1},
+ {'event': {'dataset': 'o365.audit', 'provider': 'Exchange', 'action': 'Add-MailboxPermission', 'outcome': 'success'}, 'o365': {'audit': {'Parameters': {'AccessRights': 'SendOnBehalf'}}}, 'user': {'id': 'tkN'}, '@timestamp': 2}]
+```
+
+
+
+### O365 Mailbox Audit Logging Bypass
+
+```python
+event.dataset:o365.audit and event.provider:Exchange and event.action:Set-MailboxAuditBypassAssociation and event.outcome:success
+```
+
+```python
+[{'event': {'dataset': 'o365.audit', 'provider': 'Exchange', 'action': 'Set-MailboxAuditBypassAssociation', 'outcome': 'success'}, '@timestamp': 0}]
+```
+
+
+
+### OneDrive Malware File Upload
+
+```python
+event.dataset:o365.audit and event.provider:OneDrive and event.code:SharePointFileOperation and event.action:FileMalwareDetected
+```
+
+```python
+[{'event': {'dataset': 'o365.audit', 'provider': 'OneDrive', 'code': 'SharePointFileOperation', 'action': 'FileMalwareDetected'}, '@timestamp': 0}]
 ```
 
 
@@ -5331,20 +5521,20 @@ process where event.type == "start" and
 ```python
 sequence by host.id with maxspan=5s
  [process where event.type in ("start", "process_started", "info") and process.name == "com.apple.foundation.UserScriptService"] by process.pid
- [process where event.type in ("start", "process_started") and process.name in ("osascript", "sh")] by process.parent.pid
+ [process where event.type in ("start", "process_started") and process.name in ("osascript", "python", "tcl", "node", "perl", "ruby", "php", "bash", "csh", "zsh", "sh")] by process.parent.pid
 ```
 
 ```python
 [{'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'com.apple.foundation.UserScriptService', 'pid': 4052611751}, 'host': {'id': 'ZFy'}, '@timestamp': 0},
  {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'osascript', 'parent': {'pid': 4052611751}}, 'host': {'id': 'ZFy'}, '@timestamp': 1},
  {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'com.apple.foundation.UserScriptService', 'pid': 2056249324}, 'host': {'id': 'CfU'}, '@timestamp': 2},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'sh', 'parent': {'pid': 2056249324}}, 'host': {'id': 'CfU'}, '@timestamp': 3},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'python', 'parent': {'pid': 2056249324}}, 'host': {'id': 'CfU'}, '@timestamp': 3},
  {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'com.apple.foundation.UserScriptService', 'pid': 1235046169}, 'host': {'id': 'kNI'}, '@timestamp': 4},
- {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'name': 'osascript', 'parent': {'pid': 1235046169}}, 'host': {'id': 'kNI'}, '@timestamp': 5},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'tcl', 'parent': {'pid': 1235046169}}, 'host': {'id': 'kNI'}, '@timestamp': 5},
  {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'com.apple.foundation.UserScriptService', 'pid': 3136644739}, 'host': {'id': 'SvI'}, '@timestamp': 6},
- {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'name': 'sh', 'parent': {'pid': 3136644739}}, 'host': {'id': 'SvI'}, '@timestamp': 7},
- {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'name': 'com.apple.foundation.UserScriptService', 'pid': 2094521982}, 'host': {'id': 'FlE'}, '@timestamp': 8},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'osascript', 'parent': {'pid': 2094521982}}, 'host': {'id': 'FlE'}, '@timestamp': 9}]
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'node', 'parent': {'pid': 3136644739}}, 'host': {'id': 'SvI'}, '@timestamp': 7},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'com.apple.foundation.UserScriptService', 'pid': 2094521982}, 'host': {'id': 'FlE'}, '@timestamp': 8},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'perl', 'parent': {'pid': 2094521982}}, 'host': {'id': 'FlE'}, '@timestamp': 9}]
 ```
 
 
@@ -5354,10 +5544,12 @@ sequence by host.id with maxspan=5s
 ```python
 /* Registry Path ends with backslash */
 registry where /* length(registry.data.strings) > 0 and */
- registry.path : ("HKEY_USERS\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\", 
+ registry.path : ("HKEY_USERS\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\",
+                  "HKU\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\",
                   "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\", 
                   "HKLM\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run\\", 
-                  "HKEY_USERS\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run\\", 
+                  "HKEY_USERS\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run\\",
+                  "HKU\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run\\",
                   "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run\\")
 ```
 
@@ -5525,11 +5717,11 @@ file where event.type != "deletion" and user.domain != "NT AUTHORITY" and
 ### Port Forwarding Rule Addition
 
 ```python
-registry where registry.path : "HKLM\\SYSTEM\\ControlSet*\\Services\\PortProxy\\v4tov4\\*"
+registry where registry.path : "HKLM\\SYSTEM\\*ControlSet*\\Services\\PortProxy\\v4tov4\\*"
 ```
 
 ```python
-[{'registry': {'path': 'hklm\\system\\controlsetxiutkni\\services\\portproxy\\v4tov4\\svilo'}, 'event': {'category': ['registry']}, '@timestamp': 0}]
+[{'registry': {'path': 'hklm\\system\\xiutknicontrolsetsvilo\\services\\portproxy\\v4tov4\\ezswu'}, 'event': {'category': ['registry']}, '@timestamp': 0}]
 ```
 
 
@@ -5576,6 +5768,23 @@ event.dataset:okta.system and event.action:(application.integration.rate_limit_e
 
 
 
+### Potential Abuse of Repeated MFA Push Notifications
+
+```python
+sequence by user.email with maxspan=10m
+  [any where event.module == "okta" and event.action == "user.mfa.okta_verify.deny_push"]
+  [any where event.module == "okta" and event.action == "user.mfa.okta_verify.deny_push"]
+  [any where event.module == "okta" and event.action == "user.authentication.sso"]
+```
+
+```python
+[{'event': {'module': 'okta', 'action': 'user.mfa.okta_verify.deny_push'}, 'user': {'email': 'ZFy'}, '@timestamp': 0},
+ {'event': {'module': 'okta', 'action': 'user.mfa.okta_verify.deny_push'}, 'user': {'email': 'ZFy'}, '@timestamp': 1},
+ {'event': {'module': 'okta', 'action': 'user.authentication.sso'}, 'user': {'email': 'ZFy'}, '@timestamp': 2}]
+```
+
+
+
 ### Potential Application Shimming via Sdbinst
 
 ```python
@@ -5592,7 +5801,7 @@ process where event.type in ("start", "process_started") and process.name : "sdb
 ### Potential Command and Control via Internet Explorer
 
 ```python
-sequence by host.id, user.id with maxspan = 5s
+sequence by host.id, user.name with maxspan = 5s
   [library where dll.name : "IEProxy.dll" and process.name : ("rundll32.exe", "regsvr32.exe")]
   [process where event.type == "start" and process.parent.name : "iexplore.exe" and process.parent.args : "-Embedding"]
   /* IE started via COM in normal conditions makes few connections, mainly to Microsoft and OCSP related domains, add FPs here */
@@ -5609,13 +5818,13 @@ sequence by host.id, user.id with maxspan = 5s
     "*.office365.com",
     "*.office.com"
     )
-  ]
+  ] /* with runs=5 */
 ```
 
 ```python
-[{'dll': {'name': 'IEProxy.dll'}, 'process': {'name': 'rundll32.exe'}, 'event': {'category': ['library']}, 'host': {'id': 'vCf'}, 'user': {'id': 'Uyy'}, '@timestamp': 0},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'iexplore.exe', 'args': ['-Embedding']}}, 'host': {'id': 'vCf'}, 'user': {'id': 'Uyy'}, '@timestamp': 1},
- {'network': {'protocol': 'dns'}, 'process': {'name': 'iexplore.exe'}, 'dns': {'question': {'name': 'FjS'}}, 'event': {'category': ['network']}, 'host': {'id': 'vCf'}, 'user': {'id': 'Uyy'}, '@timestamp': 2}]
+[{'dll': {'name': 'IEProxy.dll'}, 'process': {'name': 'rundll32.exe'}, 'event': {'category': ['library']}, 'host': {'id': 'vCf'}, 'user': {'name': 'Uyy'}, '@timestamp': 0},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'iexplore.exe', 'args': ['-Embedding']}}, 'host': {'id': 'vCf'}, 'user': {'name': 'Uyy'}, '@timestamp': 1},
+ {'network': {'protocol': 'dns'}, 'process': {'name': 'iexplore.exe'}, 'dns': {'question': {'name': 'FjS'}}, 'event': {'category': ['network']}, 'host': {'id': 'vCf'}, 'user': {'name': 'Uyy'}, '@timestamp': 2}]
 ```
 
 
@@ -5653,6 +5862,36 @@ process where event.type in ("start", "process_started", "info") and
 
 
 
+### Potential Credential Access via DCSync
+
+```python
+any where event.action == "Directory Service Access" and
+  event.code == "4662" and winlog.event_data.Properties : (
+
+    /* Control Access Rights/Permissions Symbol */
+
+    "*DS-Replication-Get-Changes*",
+    "*DS-Replication-Get-Changes-All*",
+    "*DS-Replication-Get-Changes-In-Filtered-Set*",
+
+    /* Identifying GUID used in ACE */
+
+    "*1131f6ad-9c07-11d1-f79f-00c04fc2dcd2*",
+    "*1131f6aa-9c07-11d1-f79f-00c04fc2dcd2*",
+    "*89e95b76-444d-4c62-991a-0facbeda640c*") 
+
+    /* The right to perform an operation controlled by an extended access right. */
+
+    and winlog.event_data.AccessMask : "0x100" and
+    not winlog.event_data.SubjectUserName : ("*$", "MSOL_*")
+```
+
+```python
+[{'event': {'action': 'Directory Service Access', 'code': '4662'}, 'winlog': {'event_data': {'Properties': 'yxiutknioixtflds-replication-get-changes-allohmxbnleoa', 'AccessMask': '0x100', 'SubjectUserName': 'aga'}}, '@timestamp': 0}]
+```
+
+
+
 ### Potential Credential Access via DuplicateHandle in LSASS
 
 ```python
@@ -5678,7 +5917,7 @@ process where event.code == "10" and
   winlog.event_data.TargetImage : "?:\\WINDOWS\\system32\\lsass.exe" and
 
    /* DLLs exporting MiniDumpWriteDump API to create an lsass mdmp*/
-  winlog.event_data.CallTrace : ("*dbhelp*", "*dbgcore*") and
+  winlog.event_data.CallTrace : ("*dbghelp*", "*dbgcore*") and
 
    /* case of lsass crashing */
   not process.executable : ("?:\\Windows\\System32\\WerFault.exe", "?:\\Windows\\System32\\WerFaultSecure.exe")
@@ -5797,6 +6036,51 @@ process where event.type in ("start", "process_started") and
 
 
 
+### Potential JAVA/JNDI Exploitation Attempt
+
+```python
+sequence by host.id with maxspan=1m
+ [network where event.action == "connection_attempted" and
+  process.name : "java" and
+  /*
+     outbound connection attempt to
+     LDAP, RMI or DNS standard ports
+     by JAVA process
+   */
+  destination.port in (1389, 389, 1099, 53, 5353)] by process.pid
+ [process where event.type == "start" and
+
+  /* Suspicious JAVA child process */
+  process.parent.name : "java" and
+   process.name : ("sh",
+                   "bash",
+                   "dash",
+                   "ksh",
+                   "tcsh",
+                   "zsh",
+                   "curl",
+                   "perl*",
+                   "python*",
+                   "ruby*",
+                   "php*",
+                   "wget")] by process.parent.pid
+```
+
+```python
+[{'event': {'action': 'connection_attempted', 'category': ['network']}, 'process': {'name': 'java', 'pid': 4052611751}, 'destination': {'port': 1389}, 'host': {'id': 'ZFy'}, '@timestamp': 0},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'java', 'pid': 4052611751}, 'name': 'sh'}, 'host': {'id': 'ZFy'}, '@timestamp': 1},
+ {'event': {'action': 'connection_attempted', 'category': ['network']}, 'process': {'name': 'java', 'pid': 906141214}, 'destination': {'port': 389}, 'host': {'id': 'IUt'}, '@timestamp': 2},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'java', 'pid': 906141214}, 'name': 'rubyfjsvilooohmxb'}, 'host': {'id': 'IUt'}, '@timestamp': 3},
+ {'event': {'action': 'connection_attempted', 'category': ['network']}, 'process': {'name': 'java', 'pid': 3305599734}, 'destination': {'port': 1099}, 'host': {'id': 'nLe'}, '@timestamp': 4},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'java', 'pid': 3305599734}, 'name': 'sh'}, 'host': {'id': 'nLe'}, '@timestamp': 5},
+ {'event': {'action': 'connection_attempted', 'category': ['network']}, 'process': {'name': 'java', 'pid': 3588492870}, 'destination': {'port': 53}, 'host': {'id': 'qNV'}, '@timestamp': 6},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'java', 'pid': 3588492870}, 'name': 'dash'}, 'host': {'id': 'qNV'}, '@timestamp': 7},
+ {'event': {'action': 'connection_attempted', 'category': ['network']}, 'process': {'name': 'java', 'pid': 2543124572}, 'destination': {'port': 5353}, 'host': {'id': 'cym'}, '@timestamp': 8},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'java', 'pid': 2543124572}, 'name': 'rubyzknyyqdpue'}, 'host': {'id': 'cym'}, '@timestamp': 9}]
+```
+
+
+
 ### Potential Kerberos Attack via Bifrost
 
 ```python
@@ -5826,6 +6110,20 @@ registry where event.type == "change" and
 
 ```python
 [{'event': {'type': ['change'], 'category': ['registry']}, 'registry': {'path': 'hklm\\system\\xiutknicontrolsetsvilo\\control\\lsa\\authentication packages'}, 'user': {'id': 'oOH'}, '@timestamp': 0}]
+```
+
+
+
+### Potential LSASS Clone Creation via PssCaptureSnapShot
+
+```python
+process where event.code:"4688" and
+  process.executable : "?:\\Windows\\System32\\lsass.exe" and
+  process.parent.executable : "?:\\Windows\\System32\\lsass.exe"
+```
+
+```python
+[{'event': {'code': '4688', 'category': ['process']}, 'process': {'executable': 'a:\\windows\\system32\\lsass.exe', 'parent': {'executable': 'y:\\windows\\system32\\lsass.exe'}}, '@timestamp': 0}]
 ```
 
 
@@ -5985,6 +6283,44 @@ process where event.type in ("start", "process_started") and process.name : "sql
 
 
 
+### Potential Privilege Escalation via InstallerFileTakeOver
+
+```python
+/* This rule is compatible with both Sysmon and Elastic Endpoint */
+
+process where event.type == "start" and 
+    (process.Ext.token.integrity_level_name : "System" or
+    winlog.event_data.IntegrityLevel : "System") and
+    (
+      (process.name : "elevation_service.exe" and 
+       not process.pe.original_file_name == "elevation_service.exe") or
+
+      (process.parent.name : "elevation_service.exe" and 
+       process.name : ("rundll32.exe", "cmd.exe", "powershell.exe")) 
+    )
+```
+
+```python
+[{'event': {'type': ['start'], 'category': ['process']}, 'process': {'Ext': {'token': {'integrity_level_name': 'System'}}, 'name': 'elevation_service.exe', 'pe': {'original_file_name': 'ZFy'}}, '@timestamp': 0},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'Ext': {'token': {'integrity_level_name': 'System'}}, 'parent': {'name': 'elevation_service.exe'}, 'name': 'rundll32.exe'}, '@timestamp': 1},
+ {'event': {'type': ['start'], 'category': ['process']}, 'winlog': {'event_data': {'IntegrityLevel': 'System'}}, 'process': {'name': 'elevation_service.exe', 'pe': {'original_file_name': 'IUt'}}, '@timestamp': 2},
+ {'event': {'type': ['start'], 'category': ['process']}, 'winlog': {'event_data': {'IntegrityLevel': 'System'}}, 'process': {'parent': {'name': 'elevation_service.exe'}, 'name': 'cmd.exe'}, '@timestamp': 3}]
+```
+
+
+
+### Potential Privilege Escalation via PKEXEC
+
+```python
+file where file.path : "/*GCONV_PATH*"
+```
+
+```python
+[{'file': {'path': '/xiutknigconv_pathsvilo'}, 'event': {'category': ['file']}, '@timestamp': 0}]
+```
+
+
+
 ### Potential Privilege Escalation via Sudoers File Modification
 
 ```python
@@ -5993,6 +6329,20 @@ event.category:process and event.type:start and process.args:(echo and *NOPASSWD
 
 ```python
 [{'event': {'category': ['process'], 'type': ['start']}, 'process': {'args': ['*NOPASSWD*ALL*', 'echo']}, '@timestamp': 0}]
+```
+
+
+
+### Potential Privileged Escalation via SamAccountName Spoofing
+
+```python
+iam where event.action == "renamed-user-account" and
+  /* machine account name renamed to user like account name */
+  winlog.event_data.OldTargetUserName : "*$" and not winlog.event_data.NewTargetUserName : "*$"
+```
+
+```python
+[{'event': {'action': 'renamed-user-account', 'category': ['iam']}, 'winlog': {'event_data': {'OldTargetUserName': 'xiutkni$', 'NewTargetUserName': 'oix'}}, '@timestamp': 0}]
 ```
 
 
@@ -6100,6 +6450,18 @@ file where event.type == "change" and file.name : "*AAA.AAA"
 
 
 
+### Potential Shadow Credentials added to AD Object
+
+```python
+event.action:"Directory Service Changes" and event.code:"5136" and winlog.event_data.AttributeLDAPDisplayName:"msDS-KeyCredentialLink"
+```
+
+```python
+[{'event': {'action': 'Directory Service Changes', 'code': '5136'}, 'winlog': {'event_data': {'AttributeLDAPDisplayName': 'msDS-KeyCredentialLink'}}, '@timestamp': 0}]
+```
+
+
+
 ### Potential Shell via Web Server
 
 ```python
@@ -6139,13 +6501,31 @@ sequence by host.id, process.entity_id with maxspan = 5s
 
 
 
+### PowerShell Kerberos Ticket Request
+
+```python
+event.category:process and 
+  powershell.file.script_block_text : (
+    KerberosRequestorSecurityToken
+  )
+```
+
+```python
+[{'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'KerberosRequestorSecurityToken'}}, '@timestamp': 0}]
+```
+
+
+
 ### PowerShell Keylogging Script
 
 ```python
 event.category:process and 
   ( 
-   powershell.file.script_block_text : (GetAsyncKeyState or NtUserGetAsyncKeyState or GetKeyboardState or Get-Keystrokes) or 
-   powershell.file.script_block_text : ((SetWindowsHookA or SetWindowsHookW or SetWindowsHookEx or SetWindowsHookExA or NtUserSetWindowsHookEx) and (GetForegroundWindow or GetWindowTextA or GetWindowTextW or WM_KEYBOARD_LL))
+   powershell.file.script_block_text : (GetAsyncKeyState or NtUserGetAsyncKeyState or GetKeyboardState or "Get-Keystrokes") or 
+   powershell.file.script_block_text : (
+        (SetWindowsHookA or SetWindowsHookW or SetWindowsHookEx or SetWindowsHookExA or NtUserSetWindowsHookEx) and
+        (GetForegroundWindow or GetWindowTextA or GetWindowTextW or "WM_KEYBOARD_LL")
+   )
    )
 ```
 
@@ -6161,13 +6541,44 @@ event.category:process and
 ### PowerShell MiniDump Script
 
 ```python
-event.code:"4104" and powershell.file.script_block_text:(MiniDumpWriteDump or MiniDumpWithFullMemory or pmuDetirWpmuDiniM)
+event.category:process and powershell.file.script_block_text:(MiniDumpWriteDump or MiniDumpWithFullMemory or pmuDetirWpmuDiniM)
 ```
 
 ```python
-[{'event': {'code': '4104'}, 'powershell': {'file': {'script_block_text': 'MiniDumpWriteDump'}}, '@timestamp': 0},
- {'event': {'code': '4104'}, 'powershell': {'file': {'script_block_text': 'MiniDumpWithFullMemory'}}, '@timestamp': 1},
- {'event': {'code': '4104'}, 'powershell': {'file': {'script_block_text': 'pmuDetirWpmuDiniM'}}, '@timestamp': 2}]
+[{'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'MiniDumpWriteDump'}}, '@timestamp': 0},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'MiniDumpWithFullMemory'}}, '@timestamp': 1},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'pmuDetirWpmuDiniM'}}, '@timestamp': 2}]
+```
+
+
+
+### PowerShell PSReflect Script
+
+```python
+event.category:process and 
+  powershell.file.script_block_text:(
+    "New-InMemoryModule" or
+    "Add-Win32Type" or
+    psenum or
+    DefineDynamicAssembly or
+    DefineDynamicModule or
+    "Reflection.TypeAttributes" or
+    "Reflection.Emit.OpCodes" or
+    "Reflection.Emit.CustomAttributeBuilder" or
+    "Runtime.InteropServices.DllImportAttribute"
+  )
+```
+
+```python
+[{'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'New-InMemoryModule'}}, '@timestamp': 0},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'Add-Win32Type'}}, '@timestamp': 1},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'psenum'}}, '@timestamp': 2},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'DefineDynamicAssembly'}}, '@timestamp': 3},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'DefineDynamicModule'}}, '@timestamp': 4},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'Reflection.TypeAttributes'}}, '@timestamp': 5},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'Reflection.Emit.OpCodes'}}, '@timestamp': 6},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'Reflection.Emit.CustomAttributeBuilder'}}, '@timestamp': 7},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'Runtime.InteropServices.DllImportAttribute'}}, '@timestamp': 8}]
 ```
 
 
@@ -6175,7 +6586,7 @@ event.code:"4104" and powershell.file.script_block_text:(MiniDumpWriteDump or Mi
 ### PowerShell Suspicious Discovery Related Windows API Functions
 
 ```python
-event.code:"4104" and 
+event.category:process and 
   powershell.file.script_block_text : (
     NetShareEnum or
     NetWkstaUserEnum or
@@ -6192,16 +6603,16 @@ event.code:"4104" and
 ```
 
 ```python
-[{'event': {'code': '4104'}, 'powershell': {'file': {'script_block_text': 'NetShareEnum'}}, '@timestamp': 0},
- {'event': {'code': '4104'}, 'powershell': {'file': {'script_block_text': 'NetWkstaUserEnum'}}, '@timestamp': 1},
- {'event': {'code': '4104'}, 'powershell': {'file': {'script_block_text': 'NetSessionEnum'}}, '@timestamp': 2},
- {'event': {'code': '4104'}, 'powershell': {'file': {'script_block_text': 'NetLocalGroupEnum'}}, '@timestamp': 3},
- {'event': {'code': '4104'}, 'powershell': {'file': {'script_block_text': 'NetLocalGroupGetMembers'}}, '@timestamp': 4},
- {'event': {'code': '4104'}, 'powershell': {'file': {'script_block_text': 'DsGetSiteName'}}, '@timestamp': 5},
- {'event': {'code': '4104'}, 'powershell': {'file': {'script_block_text': 'DsEnumerateDomainTrusts'}}, '@timestamp': 6},
- {'event': {'code': '4104'}, 'powershell': {'file': {'script_block_text': 'WTSEnumerateSessionsEx'}}, '@timestamp': 7},
- {'event': {'code': '4104'}, 'powershell': {'file': {'script_block_text': 'WTSQuerySessionInformation'}}, '@timestamp': 8},
- {'event': {'code': '4104'}, 'powershell': {'file': {'script_block_text': 'LsaGetLogonSessionData'}}, '@timestamp': 9}]
+[{'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'NetShareEnum'}}, '@timestamp': 0},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'NetWkstaUserEnum'}}, '@timestamp': 1},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'NetSessionEnum'}}, '@timestamp': 2},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'NetLocalGroupEnum'}}, '@timestamp': 3},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'NetLocalGroupGetMembers'}}, '@timestamp': 4},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'DsGetSiteName'}}, '@timestamp': 5},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'DsEnumerateDomainTrusts'}}, '@timestamp': 6},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'WTSEnumerateSessionsEx'}}, '@timestamp': 7},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'WTSQuerySessionInformation'}}, '@timestamp': 8},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'LsaGetLogonSessionData'}}, '@timestamp': 9}]
 ```
 
 
@@ -6219,6 +6630,20 @@ process where event.type in ("start", "process_started") and
  {'event': {'type': ['start'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'PowerShell.EXE'}, 'args': ['echo', '>', '\\\\.\\pipe\\*']}, '@timestamp': 1},
  {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'Cmd.Exe'}, 'args': ['echo', '>', '\\\\.\\pipe\\*']}, '@timestamp': 2},
  {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'PowerShell.EXE'}, 'args': ['echo', '>', '\\\\.\\pipe\\*']}, '@timestamp': 3}]
+```
+
+
+
+### Privilege Escalation via Rogue Named Pipe Impersonation
+
+```python
+file where event.action : "Pipe Created*" and
+ /* normal sysmon named pipe creation events truncate the pipe keyword */
+  file.name : "\\*\\Pipe\\*"
+```
+
+```python
+[{'event': {'action': 'pipe createdxiutkni', 'category': ['file']}, 'file': {'name': '\\ixtflezswueexp\\pipe\\aagaifqsyzknyyq'}, '@timestamp': 0}]
 ```
 
 
@@ -6568,16 +6993,31 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:prevention a
 
 
 
+### Registry Hive File Creation via SMB
+
+```python
+file where event.type == "creation" and
+ /* regf file header */
+ file.Ext.header_bytes : "72656766*" and file.size >= 30000 and
+ process.pid == 4 and user.id : "s-1-5-21*"
+```
+
+```python
+[{'event': {'type': ['creation'], 'category': ['file']}, 'file': {'Ext': {'header_bytes': '72656766xiutkni'}, 'size': 7897998920714667080}, 'process': {'pid': 4}, 'user': {'id': 's-1-5-21xtflezs'}, '@timestamp': 0}]
+```
+
+
+
 ### Registry Persistence via AppCert DLL
 
 ```python
 registry where
 /* uncomment once stable length(bytes_written_string) > 0 and */
-  registry.path : "HKLM\\SYSTEM\\ControlSet*\\Control\\Session Manager\\AppCertDLLs\\*"
+  registry.path : "HKLM\\SYSTEM\\*ControlSet*\\Control\\Session Manager\\AppCertDLLs\\*"
 ```
 
 ```python
-[{'registry': {'path': 'hklm\\system\\controlsetxiutkni\\control\\session manager\\appcertdlls\\svilo'}, 'event': {'category': ['registry']}, '@timestamp': 0}]
+[{'registry': {'path': 'hklm\\system\\xiutknicontrolsetsvilo\\control\\session manager\\appcertdlls\\ezswu'}, 'event': {'category': ['registry']}, '@timestamp': 0}]
 ```
 
 
@@ -6757,14 +7197,14 @@ event.category:process and event.type:(start or process_started) and
 sequence by host.id, process.entity_id with maxspan = 1m
    [network where process.name : "svchost.exe" and
    network.direction : ("incoming", "ingress") and source.port >= 49152 and destination.port >= 49152 and
-   source.address != "127.0.0.1" and source.address != "::1"
+   source.ip != "127.0.0.1" and source.ip != "::1"
    ]
    [registry where registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\*\\Actions"]
 ```
 
 ```python
-[{'process': {'name': 'svchost.exe', 'entity_id': 'ixT'}, 'network': {'direction': 'ingress'}, 'source': {'port': 62863, 'address': 'Utk'}, 'destination': {'port': 52641}, 'event': {'category': ['network']}, 'host': {'id': 'NIo'}, '@timestamp': 0},
- {'registry': {'path': 'hklm\\software\\microsoft\\windows nt\\currentversion\\schedule\\taskcache\\tasks\\ezswu\\actions'}, 'event': {'category': ['registry']}, 'host': {'id': 'NIo'}, 'process': {'entity_id': 'ixT'}, '@timestamp': 1}]
+[{'process': {'name': 'svchost.exe', 'entity_id': 'vIL'}, 'network': {'direction': 'ingress'}, 'source': {'port': 62863, 'ip': 'c443:b67a:770a:2cd7:3602:9e1d:7a8f:dfec'}, 'destination': {'port': 52641}, 'event': {'category': ['network']}, 'host': {'id': 'FjS'}, '@timestamp': 0},
+ {'registry': {'path': 'hklm\\software\\microsoft\\windows nt\\currentversion\\schedule\\taskcache\\tasks\\ezswu\\actions'}, 'event': {'category': ['registry']}, 'host': {'id': 'FjS'}, 'process': {'entity_id': 'vIL'}, '@timestamp': 1}]
 ```
 
 
@@ -6791,7 +7231,7 @@ process where event.type in ("start", "process_started") and
 sequence with maxspan=1s
    [network where process.name : "services.exe" and
       network.direction : ("incoming", "ingress") and network.transport == "tcp" and 
-      source.port >= 49152 and destination.port >= 49152 and source.address not in ("127.0.0.1", "::1")
+      source.port >= 49152 and destination.port >= 49152 and source.ip != "127.0.0.1" and source.ip != "::1"
    ] by host.id, process.entity_id
 
    [process where event.type in ("start", "process_started") and process.parent.name : "services.exe" and 
@@ -6804,16 +7244,16 @@ sequence with maxspan=1s
 ```
 
 ```python
-[{'process': {'name': 'services.exe', 'entity_id': 'ixT'}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'source': {'port': 62863, 'address': 'Utk'}, 'destination': {'port': 52641}, 'event': {'category': ['network']}, 'host': {'id': 'NIo'}, '@timestamp': 0},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'services.exe', 'entity_id': 'ixT'}, 'name': 'FlE'}, 'host': {'id': 'NIo'}, '@timestamp': 1},
- {'process': {'name': 'services.exe', 'entity_id': 'WqN'}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'source': {'port': 61095, 'address': 'wuE'}, 'destination': {'port': 57092}, 'event': {'category': ['network']}, 'host': {'id': 'EXp'}, '@timestamp': 2},
+[{'process': {'name': 'services.exe', 'entity_id': 'vIL'}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'source': {'port': 62863, 'ip': 'c443:b67a:770a:2cd7:3602:9e1d:7a8f:dfec'}, 'destination': {'port': 52641}, 'event': {'category': ['network']}, 'host': {'id': 'FjS'}, '@timestamp': 0},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'services.exe', 'entity_id': 'vIL'}, 'name': 'OoO'}, 'host': {'id': 'FjS'}, '@timestamp': 1},
+ {'process': {'name': 'services.exe', 'entity_id': 'WqN'}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'source': {'port': 57092, 'ip': '42e0:603d:9566:7ca7:8676:5e58:62bd:10dc'}, 'destination': {'port': 63558}, 'event': {'category': ['network']}, 'host': {'id': 'EXp'}, '@timestamp': 2},
  {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'services.exe', 'entity_id': 'WqN'}, 'name': 'VRc', 'args': ['ymE']}, 'host': {'id': 'EXp'}, '@timestamp': 3},
- {'process': {'name': 'services.exe', 'entity_id': 'mlO'}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'source': {'port': 63609, 'address': 'YMG'}, 'destination': {'port': 64544}, 'event': {'category': ['network']}, 'host': {'id': 'zNf'}, '@timestamp': 4},
+ {'process': {'name': 'services.exe', 'entity_id': 'mlO'}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'source': {'port': 63609, 'ip': '8fd8:c24b:a168:4644:d2ea:bc0e:bba3:4c90'}, 'destination': {'port': 64544}, 'event': {'category': ['network']}, 'host': {'id': 'zNf'}, '@timestamp': 4},
  {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'services.exe', 'entity_id': 'mlO'}, 'args': ['PZR'], 'name': 'gUv'}, 'host': {'id': 'zNf'}, '@timestamp': 5},
- {'process': {'name': 'services.exe', 'entity_id': 'shC'}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'source': {'port': 54584, 'address': 'mrF'}, 'destination': {'port': 54544}, 'event': {'category': ['network']}, 'host': {'id': 'gTm'}, '@timestamp': 6},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'services.exe', 'entity_id': 'shC'}, 'args': ['eLW']}, 'host': {'id': 'gTm'}, '@timestamp': 7},
- {'process': {'name': 'services.exe', 'entity_id': 'wDU'}, 'network': {'direction': 'incoming', 'transport': 'tcp'}, 'source': {'port': 50563, 'address': 'joG'}, 'destination': {'port': 60857}, 'event': {'category': ['network']}, 'host': {'id': 'rmy'}, '@timestamp': 8},
- {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'parent': {'name': 'services.exe', 'entity_id': 'wDU'}, 'name': 'NrZ'}, 'host': {'id': 'rmy'}, '@timestamp': 9}]
+ {'process': {'name': 'services.exe', 'entity_id': 'Tms'}, 'network': {'direction': 'ingress', 'transport': 'tcp'}, 'source': {'port': 54584, 'ip': '189.141.142.160'}, 'destination': {'port': 54544}, 'event': {'category': ['network']}, 'host': {'id': 'rFg'}, '@timestamp': 6},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'services.exe', 'entity_id': 'Tms'}, 'args': ['hCe']}, 'host': {'id': 'rFg'}, '@timestamp': 7},
+ {'process': {'name': 'services.exe', 'entity_id': 'myw'}, 'network': {'direction': 'incoming', 'transport': 'tcp'}, 'source': {'port': 50563, 'ip': '9.221.168.172'}, 'destination': {'port': 60857}, 'event': {'category': ['network']}, 'host': {'id': 'oGr'}, '@timestamp': 8},
+ {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'parent': {'name': 'services.exe', 'entity_id': 'myw'}, 'name': 'DUN'}, 'host': {'id': 'oGr'}, '@timestamp': 9}]
 ```
 
 
@@ -7102,6 +7542,18 @@ event.category:process and event.type:start and
 
 
 
+### Sensitive Privilege SeEnableDelegationPrivilege assigned to a User
+
+```python
+event.action: "Authorization Policy Change" and event.code:4704 and winlog.event_data.PrivilegeList:"SeEnableDelegationPrivilege"
+```
+
+```python
+[{'event': {'action': 'Authorization Policy Change', 'code': 4704}, 'winlog': {'event_data': {'PrivilegeList': 'SeEnableDelegationPrivilege'}}, '@timestamp': 0}]
+```
+
+
+
 ### Service Command Lateral Movement
 
 ```python
@@ -7129,6 +7581,8 @@ sequence by process.entity_id with maxspan = 1m
 ### Service Control Spawned via Script Interpreter
 
 ```python
+/* This rule is not compatible with Sysmon due to user.id issues */
+
 process where event.type == "start" and
   (process.name : "sc.exe" or process.pe.original_file_name == "sc.exe") and
   process.parent.name : ("cmd.exe", "wscript.exe", "rundll32.exe", "regsvr32.exe",
@@ -7141,6 +7595,18 @@ process where event.type == "start" and
 ```python
 [{'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'sc.exe', 'parent': {'name': 'wscript.exe'}, 'args': ['config', 'create', 'start', 'delete', 'stop', 'pause']}, 'user': {'id': 'vCf'}, '@timestamp': 0},
  {'event': {'type': ['start'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'sc.exe'}, 'parent': {'name': 'wmic.exe'}, 'args': ['config', 'create', 'start', 'delete', 'stop', 'pause']}, 'user': {'id': 'yyF'}, '@timestamp': 1}]
+```
+
+
+
+### SharePoint Malware File Upload
+
+```python
+event.dataset:o365.audit and event.provider:SharePoint and event.code:SharePointFileOperation and event.action:FileMalwareDetected
+```
+
+```python
+[{'event': {'dataset': 'o365.audit', 'provider': 'SharePoint', 'code': 'SharePointFileOperation', 'action': 'FileMalwareDetected'}, '@timestamp': 0}]
 ```
 
 
@@ -7197,6 +7663,21 @@ file where event.type != "deletion" and
 
 ```python
 [{'event': {'type': ['ZFy'], 'category': ['file']}, 'user': {'domain': 'XIU'}, 'file': {'path': 'c:\\users\\knioixtf\\appdata\\roaming\\microsoft\\windows\\start menu\\programs\\startup\\oohm'}, 'process': {'name': 'rundll32.exe'}, '@timestamp': 0}]
+```
+
+
+
+### Signed Proxy Execution via MS WorkFolders
+
+```python
+process where event.type in ("start","process_started")
+    and process.name : "control.exe" and process.parent.name : "WorkFolders.exe"
+    and not process.executable : ("?:\\Windows\\System32\\control.exe", "?:\\Windows\\SysWOW64\\control.exe")
+```
+
+```python
+[{'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'control.exe', 'parent': {'name': 'WorkFolders.exe'}, 'executable': 'ZFy'}, '@timestamp': 0},
+ {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'name': 'control.exe', 'parent': {'name': 'WorkFolders.exe'}, 'executable': 'XIU'}, '@timestamp': 1}]
 ```
 
 
@@ -7291,6 +7772,23 @@ process where event.type in ("start", "process_started") and
 ```python
 [{'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'vbc.exe', 'parent': {'name': 'wmic.exe'}}, '@timestamp': 0},
  {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'name': 'csc.exe', 'parent': {'name': 'wmic.exe'}}, '@timestamp': 1}]
+```
+
+
+
+### Suspicious .NET Reflection via PowerShell
+
+```python
+event.category:process and 
+  powershell.file.script_block_text : (
+    "[System.Reflection.Assembly]::Load" or
+    "[Reflection.Assembly]::Load"
+  )
+```
+
+```python
+[{'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': '[System.Reflection.Assembly]::Load'}}, '@timestamp': 0},
+ {'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': '[Reflection.Assembly]::Load'}}, '@timestamp': 1}]
 ```
 
 
@@ -7597,21 +8095,17 @@ library where process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSPUB
 
 
 
-### Suspicious JAR Child Process
+### Suspicious JAVA Child Process
 
 ```python
 process where event.type in ("start", "process_started") and
   process.parent.name : "java" and
-  process.name : ("sh", "bash", "dash", "ksh", "tcsh", "zsh", "curl", "wget") and
-  process.args : "-jar" and process.args : "*.jar" and
-  /* Add any FP's here */
-  not process.executable : ("/Users/*/.sdkman/*", "/Library/Java/JavaVirtualMachines/*") and
-  not process.args : ("/usr/local/*", "/Users/*/github.com/*", "/Users/*/src/*")
+  process.name : ("sh", "bash", "dash", "ksh", "tcsh", "zsh", "curl", "wget")
 ```
 
 ```python
-[{'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'java'}, 'name': 'zsh', 'args': ['-jar', '*.jar'], 'executable': 'vCf'}, '@timestamp': 0},
- {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'parent': {'name': 'java'}, 'name': 'wget', 'args': ['-jar', '*.jar'], 'executable': 'yyF'}, '@timestamp': 1}]
+[{'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'java'}, 'name': 'zsh'}, '@timestamp': 0},
+ {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'parent': {'name': 'java'}, 'name': 'wget'}, '@timestamp': 1}]
 ```
 
 
@@ -7711,14 +8205,14 @@ process where event.type in ("start", "process_started") and
 ### Suspicious Portable Executable Encoded in Powershell Script
 
 ```python
-event.code:"4104" and 
+event.category:process and 
   powershell.file.script_block_text : (
     TVqQAAMAAAAEAAAA
   )
 ```
 
 ```python
-[{'event': {'code': '4104'}, 'powershell': {'file': {'script_block_text': 'TVqQAAMAAAAEAAAA'}}, '@timestamp': 0}]
+[{'event': {'category': ['process']}, 'powershell': {'file': {'script_block_text': 'TVqQAAMAAAAEAAAA'}}, '@timestamp': 0}]
 ```
 
 
@@ -8026,6 +8520,22 @@ process where event.type in ("start", "process_started") and
  {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'svchost.exe'}, 'name': 'cmd.exe', 'args': ['XIU']}, '@timestamp': 1},
  {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'parent': {'name': 'svchost.exe'}, 'name': 'cmd.exe', 'pe': {'original_file_name': 'tkN'}}, '@timestamp': 2},
  {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'parent': {'name': 'svchost.exe'}, 'name': 'cmd.exe', 'args': ['Ioi']}, '@timestamp': 3}]
+```
+
+
+
+### Symbolic Link to Shadow Copy Created
+
+```python
+process where event.type in ("start", "process_started") and
+process.pe.original_file_name == "Cmd.Exe" and
+process.args : "*mklink*" and
+process.args : "*\\GLOBALROOT\\Device\\HarddiskVolumeShadowCopy*"
+```
+
+```python
+[{'event': {'type': ['start'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'Cmd.Exe'}, 'args': ['*mklink*', '*\\GLOBALROOT\\Device\\HarddiskVolumeShadowCopy*']}, '@timestamp': 0},
+ {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'Cmd.Exe'}, 'args': ['*mklink*', '*\\GLOBALROOT\\Device\\HarddiskVolumeShadowCopy*']}, '@timestamp': 1}]
 ```
 
 
@@ -8960,20 +9470,20 @@ process where event.type == "start" and
 ### Volume Shadow Copy Deleted or Resized via VssAdmin
 
 ```python
-process where event.type in ("start", "process_started") and event.action == "start" 
+process where event.type in ("start", "process_started")
   and (process.name : "vssadmin.exe" or process.pe.original_file_name == "VSSADMIN.EXE") and
   process.args in ("delete", "resize") and process.args : "shadows*"
 ```
 
 ```python
-[{'event': {'type': ['start'], 'action': 'start', 'category': ['process']}, 'process': {'name': 'vssadmin.exe', 'args': ['shadows*', 'delete']}, '@timestamp': 0},
- {'event': {'type': ['start'], 'action': 'start', 'category': ['process']}, 'process': {'name': 'vssadmin.exe', 'args': ['shadows*', 'resize']}, '@timestamp': 1},
- {'event': {'type': ['start'], 'action': 'start', 'category': ['process']}, 'process': {'pe': {'original_file_name': 'VSSADMIN.EXE'}, 'args': ['shadows*', 'delete']}, '@timestamp': 2},
- {'event': {'type': ['start'], 'action': 'start', 'category': ['process']}, 'process': {'pe': {'original_file_name': 'VSSADMIN.EXE'}, 'args': ['shadows*', 'resize']}, '@timestamp': 3},
- {'event': {'type': ['process_started'], 'action': 'start', 'category': ['process']}, 'process': {'name': 'vssadmin.exe', 'args': ['shadows*', 'delete']}, '@timestamp': 4},
- {'event': {'type': ['process_started'], 'action': 'start', 'category': ['process']}, 'process': {'name': 'vssadmin.exe', 'args': ['shadows*', 'resize']}, '@timestamp': 5},
- {'event': {'type': ['process_started'], 'action': 'start', 'category': ['process']}, 'process': {'pe': {'original_file_name': 'VSSADMIN.EXE'}, 'args': ['shadows*', 'delete']}, '@timestamp': 6},
- {'event': {'type': ['process_started'], 'action': 'start', 'category': ['process']}, 'process': {'pe': {'original_file_name': 'VSSADMIN.EXE'}, 'args': ['shadows*', 'resize']}, '@timestamp': 7}]
+[{'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'vssadmin.exe', 'args': ['shadows*', 'delete']}, '@timestamp': 0},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'vssadmin.exe', 'args': ['shadows*', 'resize']}, '@timestamp': 1},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'VSSADMIN.EXE'}, 'args': ['shadows*', 'delete']}, '@timestamp': 2},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'VSSADMIN.EXE'}, 'args': ['shadows*', 'resize']}, '@timestamp': 3},
+ {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'name': 'vssadmin.exe', 'args': ['shadows*', 'delete']}, '@timestamp': 4},
+ {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'name': 'vssadmin.exe', 'args': ['shadows*', 'resize']}, '@timestamp': 5},
+ {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'VSSADMIN.EXE'}, 'args': ['shadows*', 'delete']}, '@timestamp': 6},
+ {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'VSSADMIN.EXE'}, 'args': ['shadows*', 'resize']}, '@timestamp': 7}]
 ```
 
 
@@ -9020,8 +9530,7 @@ sequence by host.id with maxspan = 2s
  /* Accepted Incoming RPC connection by Winmgmt service */
 
   [network where process.name : "svchost.exe" and network.direction : ("incoming", "ingress") and
-   source.address != "127.0.0.1" and source.address != "::1" and 
-   source.port >= 49152 and destination.port >= 49152
+   source.ip != "127.0.0.1" and source.ip != "::1" and source.port >= 49152 and destination.port >= 49152
   ]
 
   /* Excluding Common FPs Nessus and SCCM */
@@ -9036,10 +9545,10 @@ sequence by host.id with maxspan = 2s
 ```
 
 ```python
-[{'process': {'name': 'svchost.exe'}, 'network': {'direction': 'ingress'}, 'source': {'address': 'vCf', 'port': 61522}, 'destination': {'port': 64839}, 'event': {'category': ['network']}, 'host': {'id': 'kNI'}, '@timestamp': 0},
+[{'process': {'name': 'svchost.exe'}, 'network': {'direction': 'ingress'}, 'source': {'ip': '1b43:3a53:aa79:ec58:8d14:2981:f18d:f2a7', 'port': 61522}, 'destination': {'port': 64839}, 'event': {'category': ['network']}, 'host': {'id': 'kNI'}, '@timestamp': 0},
  {'event': {'type': ['start'], 'category': ['process']}, 'process': {'parent': {'name': 'WmiPrvSE.exe'}, 'args': ['oix']}, 'host': {'id': 'kNI'}, '@timestamp': 1},
- {'process': {'name': 'svchost.exe'}, 'network': {'direction': 'incoming'}, 'source': {'address': 'oOH', 'port': 57092}, 'destination': {'port': 63558}, 'event': {'category': ['network']}, 'host': {'id': 'xBn'}, '@timestamp': 2},
- {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'parent': {'name': 'WmiPrvSE.exe'}, 'args': ['LeO']}, 'host': {'id': 'xBn'}, '@timestamp': 3}]
+ {'process': {'name': 'svchost.exe'}, 'network': {'direction': 'incoming'}, 'source': {'ip': 'a728:d9ab:7cd7:de7d:c77f:b9c1:95ef:56af', 'port': 61095}, 'destination': {'port': 57092}, 'event': {'category': ['network']}, 'host': {'id': 'wuE'}, '@timestamp': 2},
+ {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'parent': {'name': 'WmiPrvSE.exe'}, 'args': ['EXp']}, 'host': {'id': 'wuE'}, '@timestamp': 3}]
 ```
 
 
@@ -9181,14 +9690,15 @@ process where event.type in ("start", "process_started") and process.name : "who
 ```python
 process where event.type == "start" and
  (process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") or process.pe.original_file_name in ("powershell.exe", "pwsh.dll", "powershell_ise.exe")) and
-  process.args : ("*Add-MpPreference*-Exclusion*", "*Set-MpPreference*-Exclusion*")
+  process.args : ("*Add-MpPreference*", "*Set-MpPreference*") and
+  process.args : ("*-Exclusion*")
 ```
 
 ```python
-[{'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'pwsh.exe', 'args': ['*Add-MpPreference*-Exclusion*', '*Set-MpPreference*-Exclusion*']}, '@timestamp': 0},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'powershell.exe'}, 'args': ['*Add-MpPreference*-Exclusion*', '*Set-MpPreference*-Exclusion*']}, '@timestamp': 1},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'pwsh.dll'}, 'args': ['*Add-MpPreference*-Exclusion*', '*Set-MpPreference*-Exclusion*']}, '@timestamp': 2},
- {'event': {'type': ['start'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'powershell_ise.exe'}, 'args': ['*Add-MpPreference*-Exclusion*', '*Set-MpPreference*-Exclusion*']}, '@timestamp': 3}]
+[{'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'pwsh.exe', 'args': ['*Add-MpPreference*', '*Set-MpPreference*', '*-Exclusion*']}, '@timestamp': 0},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'powershell.exe'}, 'args': ['*Add-MpPreference*', '*Set-MpPreference*', '*-Exclusion*']}, '@timestamp': 1},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'pwsh.dll'}, 'args': ['*Add-MpPreference*', '*Set-MpPreference*', '*-Exclusion*']}, '@timestamp': 2},
+ {'event': {'type': ['start'], 'category': ['process']}, 'process': {'pe': {'original_file_name': 'powershell_ise.exe'}, 'args': ['*Add-MpPreference*', '*Set-MpPreference*', '*-Exclusion*']}, '@timestamp': 3}]
 ```
 
 
@@ -9312,6 +9822,19 @@ sequence by host.id with maxspan = 5s
  {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'parent': {'name': 'wmiprvse.exe'}, 'pe': {'original_file_name': 'wscript.exe'}}, 'user': {'domain': 'EEw'}, 'host': {'id': 'cym'}, '@timestamp': 5},
  {'dll': {'name': 'wmiutils.dll'}, 'process': {'name': 'wscript.exe'}, 'event': {'category': ['library']}, 'host': {'id': 'MGz'}, '@timestamp': 6},
  {'event': {'type': ['process_started'], 'category': ['process']}, 'process': {'parent': {'name': 'wmiprvse.exe'}, 'executable': 'c:\\programdata\\opzrguvwci.exe'}, 'user': {'domain': 'Nfm'}, 'host': {'id': 'MGz'}, '@timestamp': 7}]
+```
+
+
+
+### Windows Service Installed via an Unusual Client
+
+```python
+event.action:"service-installed"  and (winlog.event_data.ClientProcessId:"0" or winlog.event_data.ParentProcessId:"0")
+```
+
+```python
+[{'event': {'action': 'service-installed'}, 'winlog': {'event_data': {'ClientProcessId': '0'}}, '@timestamp': 0},
+ {'event': {'action': 'service-installed'}, 'winlog': {'event_data': {'ParentProcessId': '0'}}, '@timestamp': 1}]
 ```
 
 

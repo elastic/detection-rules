@@ -9,16 +9,19 @@ Curious about the inner workings? Read [here](signals_generation.md).
    1. [Skipped rules](#skipped-rules)
       1. [Unsupported rule type: machine_learning (50)](#unsupported-rule-type-machine_learning-50)
       1. [Unsupported rule type: threshold (14)](#unsupported-rule-type-threshold-14)
-      1. [Unsupported query language: lucene (6)](#unsupported-query-language-lucene-6)
-      1. [Unsupported rule type: threat_match (3)](#unsupported-rule-type-threat_match-3)
+      1. [Unsupported query language: lucene (5)](#unsupported-query-language-lucene-5)
+      1. [Unsupported rule type: threat_match (2)](#unsupported-rule-type-threat_match-2)
    1. [Generation errors](#generation-errors)
-      1. [Constraints solver not implemented: wildcard (39)](#constraints-solver-not-implemented-wildcard-39)
+      1. [Constraints solver not implemented: wildcard (43)](#constraints-solver-not-implemented-wildcard-43)
+      1. [Root without branches (7)](#root-without-branches-7)
       1. [Unsupported function: match (5)](#unsupported-function-match-5)
-      1. [Root without branches (5)](#root-without-branches-5)
+      1. [Constraints solver not implemented: match_only_text (3)](#constraints-solver-not-implemented-match_only_text-3)
       1. [Unsupported LHS type: <class 'eql.ast.FunctionCall'> (3)](#unsupported-lhs-type-class-eqlastfunctioncall-3)
       1. [Unsolvable constraints ==: powershell.file.script_block_text (is already 'waveInGetNumDevs', cannot set to 'mciSendStringA') (1)](#unsolvable-constraints--powershellfilescript_block_text-is-already-waveingetnumdevs-cannot-set-to-mcisendstringa-1)
-      1. [Constraints solver not implemented: match_only_text (1)](#constraints-solver-not-implemented-match_only_text-1)
+      1. [Unsolvable constraints ==: user.id (is already 'S-1-5-21-*', cannot set to 'Dhk') (1)](#unsolvable-constraints--userid-is-already-s-1-5-21--cannot-set-to-dhk-1)
       1. [Unsolvable constraints: process.name (wildcard(s) both included and excluded: 'rundll32.exe') (1)](#unsolvable-constraints-processname-wildcards-both-included-and-excluded-rundll32exe-1)
+      1. [Unsolvable constraints wildcard: winlog.event_data.AttributeValue (is already '*827D319E-6EAC-11D2-A4EA-00C04F79F83A*', cannot set to '*803E14A0-B4FB-11D0-A0D0-00A0C90F574B*') (1)](#unsolvable-constraints-wildcard-winlogevent_dataattributevalue-is-already-827d319e-6eac-11d2-a4ea-00c04f79f83a-cannot-set-to-803e14a0-b4fb-11d0-a0d0-00a0c90f574b-1)
+      1. [Unsolvable constraints wildcard: winlog.event_data.AttributeValue (is already '*CAB54552-DEEA-4691-817E-ED4A4D1AFC72*', cannot set to '*AADCED64-746C-4633-A97C-D61349046527*') (1)](#unsolvable-constraints-wildcard-winlogevent_dataattributevalue-is-already-cab54552-deea-4691-817e-ed4a4d1afc72-cannot-set-to-aadced64-746c-4633-a97c-d61349046527-1)
 
 ## Skipped rules
 
@@ -96,30 +99,28 @@ Curious about the inner workings? Read [here](signals_generation.md).
 * [Potential SSH Brute Force Detected](../../rules/macos/credential_access_potential_ssh_bruteforce.toml)
 * [Sudo Heap-Based Buffer Overflow Attempt](../../rules/cross-platform/privilege_escalation_sudo_buffer_overflow.toml)
 
-### Unsupported query language: lucene (6)
+### Unsupported query language: lucene (5)
 
-6 rules:
+5 rules:
 
 * [Cobalt Strike Command and Control Beacon](../../rules/network/command_and_control_cobalt_strike_beacon.toml)
 * [Halfbaked Command and Control Beacon](../../rules/network/command_and_control_halfbaked_beacon.toml)
 * [Inbound Connection to an Unsecure Elasticsearch Node](../../rules/network/initial_access_unsecure_elasticsearch_node.toml)
 * [Possible FIN7 DGA Command and Control Behavior](../../rules/network/command_and_control_fin7_c2_behavior.toml)
-* [Roshal Archive (RAR) or PowerShell File Downloaded from the Internet](../../rules/network/command_and_control_download_rar_powershell_from_internet.toml)
 * [Setuid / Setgid Bit Set via chmod](../../rules/cross-platform/privilege_escalation_setuid_setgid_bit_set_via_chmod.toml)
 
-### Unsupported rule type: threat_match (3)
+### Unsupported rule type: threat_match (2)
 
-3 rules:
+2 rules:
 
-* [Threat Intel Filebeat Module (v7.x) Indicator Match](../../rules/cross-platform/threat_intel_filebeat7x.toml)
 * [Threat Intel Filebeat Module (v8.x) Indicator Match](../../rules/cross-platform/threat_intel_filebeat8x.toml)
 * [Threat Intel Indicator Match](../../rules/cross-platform/threat_intel_fleet_integrations.toml)
 
 ## Generation errors
 
-### Constraints solver not implemented: wildcard (39)
+### Constraints solver not implemented: wildcard (43)
 
-39 rules:
+43 rules:
 * [Apple Scripting Execution with Administrator Privileges](../../rules/macos/privilege_escalation_applescript_with_admin_privs.toml)
 * [Attempt to Mount SMB Share via Command Line](../../rules/macos/lateral_movement_mounting_smb_share.toml)
 * [Attempt to Remove File Quarantine Attribute](../../rules/macos/defense_evasion_attempt_del_quarantine_attrib.toml)
@@ -130,6 +131,8 @@ Curious about the inner workings? Read [here](signals_generation.md).
 * [DNS-over-HTTPS Enabled via Registry](../../rules/windows/defense_evasion_dns_over_https_enabled.toml)
 * [Disabling User Account Control via Registry Modification](../../rules/windows/privilege_escalation_disable_uac_registry.toml)
 * [Encoded Executable Stored in the Registry](../../rules/windows/defense_evasion_hide_encoded_executable_registry.toml)
+* [MS Office Macro Security Registry Modifications](../../rules/windows/defense_evasion_ms_office_suspicious_regmod.toml)
+* [Microsoft Windows Defender Tampering](../../rules/windows/defense_evasion_microsoft_defender_tampering.toml)
 * [Modification of AmsiEnable Registry Key](../../rules/windows/defense_evasion_amsienable_key_mod.toml)
 * [Modification of WDigest Security Provider](../../rules/windows/credential_access_mod_wdigest_security_provider.toml)
 * [Network Logon Provider Registry Modification](../../rules/windows/credential_access_persistence_network_logon_provider_modification.toml)
@@ -140,9 +143,11 @@ Curious about the inner workings? Read [here](signals_generation.md).
 * [Potential PrintNightmare Exploit Registry Modification](../../rules/windows/privilege_escalation_printspooler_malicious_registry_modification.toml)
 * [Potential Privacy Control Bypass via Localhost Secure Copy](../../rules/macos/defense_evasion_privilege_escalation_privacy_pref_sshd_fulldiskaccess.toml)
 * [Potential SharpRDP Behavior](../../rules/windows/lateral_movement_rdp_sharprdp_target.toml)
+* [PowerShell Script Block Logging Disabled](../../rules/windows/defense_evasion_disable_posh_scriptblocklogging.toml)
 * [Privilege Escalation via Windir Environment Variable](../../rules/windows/privilege_escalation_rogue_windir_environment_var.toml)
 * [Prompt for Credentials with OSASCRIPT](../../rules/macos/credential_access_promt_for_pwd_via_osascript.toml)
 * [RDP Enabled via Registry](../../rules/windows/lateral_movement_rdp_enabled_registry.toml)
+* [Roshal Archive (RAR) or PowerShell File Downloaded from the Internet](../../rules/network/command_and_control_download_rar_powershell_from_internet.toml)
 * [SIP Provider Modification](../../rules/windows/defense_evasion_sip_provider_mod.toml)
 * [SUNBURST Command and Control Activity](../../rules/windows/command_and_control_sunburst_c2_activity_detected.toml)
 * [Scheduled Tasks AT Command Enabled](../../rules/windows/defense_evasion_scheduledjobs_at_protocol_enabled.toml)
@@ -160,6 +165,17 @@ Curious about the inner workings? Read [here](signals_generation.md).
 * [Web Application Suspicious Activity: No User Agent](../../rules/apm/apm_null_user_agent.toml)
 * [Windows Defender Disabled via Registry Modification](../../rules/windows/defense_evasion_defender_disabled_via_registry.toml)
 
+### Root without branches (7)
+
+7 rules:
+* [Persistence via Login or Logout Hook](../../rules/macos/persistence_login_logout_hooks_defaults.toml)
+* [Potential Admin Group Account Addition](../../rules/macos/privilege_escalation_local_user_added_to_admin.toml)
+* [Potential Hidden Local User Account Creation](../../rules/macos/persistence_account_creation_hide_at_logon.toml)
+* [Potential Process Injection via PowerShell](../../rules/windows/defense_evasion_posh_process_injection.toml)
+* [PowerShell Suspicious Payload Encoded and Compressed](../../rules/windows/defense_evasion_posh_compressed.toml)
+* [PowerShell Suspicious Script with Screenshot Capabilities](../../rules/windows/collection_posh_screen_grabber.toml)
+* [SoftwareUpdate Preferences Modification](../../rules/macos/defense_evasion_apple_softupdates_modification.toml)
+
 ### Unsupported function: match (5)
 
 5 rules:
@@ -169,14 +185,12 @@ Curious about the inner workings? Read [here](signals_generation.md).
 * [Suspicious PowerShell Engine ImageLoad](../../rules/windows/execution_suspicious_powershell_imgload.toml)
 * [Whitespace Padding in Process Command Line](../../rules/windows/defense_evasion_whitespace_padding_in_command_line.toml)
 
-### Root without branches (5)
+### Constraints solver not implemented: match_only_text (3)
 
-5 rules:
-* [Persistence via Login or Logout Hook](../../rules/macos/persistence_login_logout_hooks_defaults.toml)
-* [Potential Admin Group Account Addition](../../rules/macos/privilege_escalation_local_user_added_to_admin.toml)
-* [Potential Hidden Local User Account Creation](../../rules/macos/persistence_account_creation_hide_at_logon.toml)
-* [Potential Process Injection via PowerShell](../../rules/windows/defense_evasion_posh_process_injection.toml)
-* [SoftwareUpdate Preferences Modification](../../rules/macos/defense_evasion_apple_softupdates_modification.toml)
+3 rules:
+* [Kerberos Preauthentication Disabled for User](../../rules/windows/credential_access_disable_kerberos_preauth.toml)
+* [Startup/Logon Script added to Group Policy Object](../../rules/windows/privilege_escalation_group_policy_iniscript.toml)
+* [Windows CryptoAPI Spoofing Vulnerability (CVE-2020-0601 - CurveBall)](../../rules/windows/defense_evasion_cve_2020_0601.toml)
 
 ### Unsupported LHS type: <class 'eql.ast.FunctionCall'> (3)
 
@@ -190,12 +204,22 @@ Curious about the inner workings? Read [here](signals_generation.md).
 1 rules:
 * [PowerShell Suspicious Script with Audio Capture Capabilities](../../rules/windows/collection_posh_audio_capture.toml)
 
-### Constraints solver not implemented: match_only_text (1)
+### Unsolvable constraints ==: user.id (is already 'S-1-5-21-*', cannot set to 'Dhk') (1)
 
 1 rules:
-* [Windows CryptoAPI Spoofing Vulnerability (CVE-2020-0601 - CurveBall)](../../rules/windows/defense_evasion_cve_2020_0601.toml)
+* [Potential Remote Credential Access via Registry](../../rules/windows/credential_access_remote_sam_secretsdump.toml)
 
 ### Unsolvable constraints: process.name (wildcard(s) both included and excluded: 'rundll32.exe') (1)
 
 1 rules:
 * [Execution from Unusual Directory - Command Line](../../rules/windows/execution_from_unusual_path_cmdline.toml)
+
+### Unsolvable constraints wildcard: winlog.event_data.AttributeValue (is already '*827D319E-6EAC-11D2-A4EA-00C04F79F83A*', cannot set to '*803E14A0-B4FB-11D0-A0D0-00A0C90F574B*') (1)
+
+1 rules:
+* [Group Policy Abuse for Privilege Addition](../../rules/windows/privilege_escalation_group_policy_privileged_groups.toml)
+
+### Unsolvable constraints wildcard: winlog.event_data.AttributeValue (is already '*CAB54552-DEEA-4691-817E-ED4A4D1AFC72*', cannot set to '*AADCED64-746C-4633-A97C-D61349046527*') (1)
+
+1 rules:
+* [Scheduled Task Execution at Scale via GPO](../../rules/windows/privilege_escalation_group_policy_scheduled_task.toml)
