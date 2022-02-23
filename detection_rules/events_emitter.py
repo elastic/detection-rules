@@ -7,17 +7,14 @@
 
 import time
 import random
-import contextlib
 from collections import namedtuple
-from functools import wraps
 from itertools import chain
-from typing import List
 from copy import deepcopy
 
 from .ecs import get_schema, get_max_version
-from .rule import AnyRuleData
 from .utils import deep_merge, cached
-from .constraints import Root
+from .events_emitter_eql import collect_constraints as collect_constraints_eql
+from .events_emitter_eql import get_ast_stats
 
 __all__ = (
     "SourceEvents",
@@ -106,37 +103,6 @@ def docs_from_branch(branch, schema, timestamp):
 def docs_from_root(root, schema, timestamp):
     return [docs_from_branch(branch, schema, timestamp) for branch in root]
 
-class emitter:
-    emitters = {}
-
-    def __init__(self, node_type):
-        self.node_type = node_type
-        self.successful = 0
-        self.total = 0
-
-    def __call__(self, func):
-        if self.node_type in self.emitters:
-            raise ValueError(f"Duplicate emitter for {self.node_type}: {func.__name__}")
-        self.emitters[self.node_type] = self
-
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            self.total += 1
-            ret = func(*args, **kwargs)
-            self.successful += 1
-            return ret
-
-        self.wrapper = wrapper
-        return wrapper
-
-    @classmethod
-    def emit(cls, node, negate=False):
-        return cls.emitters[type(node)].wrapper(node, negate)
-
-    @classmethod
-    def get_ast_stats(cls):
-        return {k.__name__: (v.successful, v.total) for k,v in cls.emitters.items()}
-
 class SourceEvents:
     ecs_version = get_max_version()
     ecs_schema = get_schema(version=ecs_version)
@@ -165,7 +131,7 @@ class SourceEvents:
         return se
 
     def add_ast(self, ast):
-        root = emitter.emit(ast)
+        root = collect_constraints_eql(ast)
         self.try_emit(root)
         self.__roots.append(root)
         return root
@@ -211,6 +177,3 @@ class SourceEvents:
 
     def __next__(self):
         return self.emit()
-
-# circular dependency
-import detection_rules.events_emitter_eql  # noqa: E402
