@@ -48,18 +48,22 @@ def filter_out_test_data(rules):
     return [{k: v for k, v in rule.items() if k != ".test_private"} for rule in rules]
 
 
-def assertIdenticalFiles(tc, first, second):  # noqa: N802
-    with open(first) as f:
-        first_hash = hashlib.sha256(f.read().encode("utf-8")).hexdigest()
-    with open(second) as f:
-        second_hash = hashlib.sha256(f.read().encode("utf-8")).hexdigest()
+def diff_files(first, second):
     with subprocess.Popen(("diff", "-u", first, second), stdout=subprocess.PIPE) as p:
         try:
             out = p.communicate(timeout=30)[0]
         except subprocess.TimeoutExpired:
             p.kill()
             out = p.communicate()[0]
-        msg = "\n" + out.decode("utf-8")
+    return out.decode("utf-8")
+
+
+def assertIdenticalFiles(tc, first, second):  # noqa: N802
+    with open(first) as f:
+        first_hash = hashlib.sha256(f.read().encode("utf-8")).hexdigest()
+    with open(second) as f:
+        second_hash = hashlib.sha256(f.read().encode("utf-8")).hexdigest()
+    msg = None if verbose < 2 else "\n" + diff_files(first, second)
     tc.assertEqual(first_hash, second_hash, msg=msg)
 
 
