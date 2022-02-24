@@ -168,6 +168,9 @@ class Constraints:
     def __eq__(self, other):
         return self.__constraints == other.__constraints
 
+    def __repr__(self):
+        return repr(self.__constraints)
+
     @staticmethod
     def from_dict(other):
         c = Constraints()
