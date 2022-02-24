@@ -1,0 +1,29 @@
+[metadata]
+creation_date = "2022/02/24"
+maturity = "production"
+updated_date = "2022/02/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Unix binary mawk or nawk abuse to breakout out of restricted shells or environments by spawning an
+interactive system shell.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux Restricted Shell Breakout via nawk /mawk Shell Evasion"
+references = ["https://gtfobins.github.io/gtfobins/nawk/",
+              "https://gtfobins.github.io/gtfobins/mawk/"]
+risk_score = 47
+rule_id = "10754992-28c7-4472-be5b-f3770fd04f2d"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "GTFOBins"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where process.name : ("nawk", "mawk") and process.args: "BEGIN {system(*)}" and event.type : "start"
+'''
+
