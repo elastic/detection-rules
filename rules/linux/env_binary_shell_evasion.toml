@@ -1,0 +1,25 @@
+[metadata]
+creation_date = "2022/02/24"
+maturity = "development"
+updated_date = "2022/02/24"
+
+[rule]
+author = ["Elastic"]
+description = "Identifies Unix binary env absue to break out from restricted environments by spawning an interactive system shell"
+from = "now-5m"
+index = ["logs-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GTFOBins IOC - env Shell Evasion"
+references = ["https://gtfobins.github.io/gtfobins/env/"]
+risk_score = 47
+rule_id = "72d33577-f155-457d-aad3-379f9b750c97"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "GTFOBins"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where process.name : "env" and process.args : "/bin/sh" and event.type : "start"
+'''
+
