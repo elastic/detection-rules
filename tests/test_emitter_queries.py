@@ -590,7 +590,7 @@ class TestSignalsQueries(tu.SignalsTestCase, tu.OnlineTestCase, tu.SeededTestCas
                 "name": "Rule {:03d}".format(i),
                 "index": [index_name],
                 "interval": "3s",
-                "from": "now-5m",
+                "from": "now-30m",
                 "severity": "low",
                 "type": guess.type,
                 "query": query,

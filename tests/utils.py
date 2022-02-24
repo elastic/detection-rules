@@ -7,6 +7,7 @@
 
 import os
 import sys
+import csv
 import time
 import json
 import random
@@ -130,30 +131,40 @@ class OnlineTestCase:
     index_template = "detection-rules-ut"
 
     @classmethod
+    def read_credentials_csv(cls):
+        filename = os.getenv("TEST_CREDENTIALS", None)
+        if filename:
+            with open(filename) as f:
+                reader = csv.reader(f)
+                next(reader)
+                http_auth = next(reader)
+            return tuple(s.strip() for s in http_auth)
+
+    @classmethod
     def setUpClass(cls):
         from elasticsearch import Elasticsearch
-        from elasticsearch.client import IndicesClient
+        from elasticsearch.client import ClusterClient, IndicesClient
         from detection_rules.kibana import Kibana
 
+        http_auth = cls.read_credentials_csv()
         es_url = os.getenv("TEST_ELASTICSEARCH_URL", "http://elastic:changeit@localhost:29650")
-        cls.es = Elasticsearch(es_url)
+        cls.es = Elasticsearch(es_url, http_auth=http_auth, http_compress=True)
         kbn_url = os.getenv("TEST_KIBANA_URL", "http://elastic:changeit@localhost:65290")
-        cls.kbn = Kibana(kbn_url)
+        cls.kbn = Kibana(kbn_url, http_auth=http_auth)
 
         if not cls.es.ping():
             raise unittest.SkipTest(f"Could not reach Elasticsearch: {es_url}")
         if not cls.kbn.ping():
             raise unittest.SkipTest(f"Could not reach Kibana: {kbn_url}")
 
+        cls.es_cluster = ClusterClient(cls.es)
         cls.es_indices = IndicesClient(cls.es)
         cls.kbn.create_siem_index()
 
     @classmethod
     def tearDownClass(cls):
+        cls.kbn.close()
         cls.es.close()
-        del(cls.es)
-        del(cls.kbn)
-        del(cls.es_indices)
 
     def setUp(self):
         super(OnlineTestCase, self).setUp()
@@ -199,8 +210,11 @@ class SignalsTestCase:
                 rule[".test_private"]["doc_count"] = doc_count
         return (bulk, se.mappings())
 
-    def load_rules_and_docs(self, rules, asts, batch_size=100):
+    def load_rules_and_docs(self, rules, asts, batch_size=200):
         docs, mappings = self.generate_docs_and_mappings(rules, asts)
+
+        ret = self.es_cluster.health(params={"level": "cluster"})
+        number_of_shards = ret["number_of_data_nodes"]
 
         template = {
             "index_patterns": [
@@ -208,7 +222,7 @@ class SignalsTestCase:
             ],
             "template": {
                 "settings": {
-                    "number_of_shards": 1,
+                    "number_of_shards": number_of_shards,
                     "number_of_replicas": 0,
                 },
                 "mappings": mappings,
@@ -219,7 +233,7 @@ class SignalsTestCase:
         with self.nb.chapter("## Rejected documents") as cells:
             pos = 0
             while docs[pos:pos + batch_size]:
-                ret = self.es.bulk(body="\n".join(docs[pos:pos + batch_size]))
+                ret = self.es.bulk(body="\n".join(docs[pos:pos + batch_size]), request_timeout=15)
                 for i, item in enumerate(ret["items"]):
                     if item["index"]["status"] != 201:
                         cells.append(jupyter.Markdown(str(item['index'])))
@@ -270,6 +284,9 @@ class SignalsTestCase:
             data = {
                 "query": {
                     "match_all": {}
+                },
+                "sort": {
+                    "@timestamp": {"order": "asc"},
                 },
                 "size": rule[".test_private"]["doc_count"],
             }

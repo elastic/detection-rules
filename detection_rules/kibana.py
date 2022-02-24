@@ -10,12 +10,19 @@ import json
 
 
 class Kibana:
-    def __init__(self, url):
+    def __init__(self, url, http_auth=None):
         self.url = url
-        self.headers = {"kbn-xsrf": "true"}
+        self.session = requests.Session()
+        self.session.headers.update({"kbn-xsrf": "true"})
+        if http_auth is not None:
+            self.session.auth = requests.auth.HTTPBasicAuth(*http_auth)
+
+    def close(self):
+        self.session.close()
 
     def task_manager_health(self):
-        res = requests.get(f"{self.url}/api/task_manager/_health", headers=self.headers)
+        url = f"{self.url}/api/task_manager/_health"
+        res = self.session.get(url)
         res.raise_for_status()
         return res.json()
 
@@ -28,31 +35,31 @@ class Kibana:
 
     def create_siem_index(self):
         url = f"{self.url}/api/detection_engine/index"
-        res = requests.post(url, headers=self.headers)
+        res = self.session.post(url)
         res.raise_for_status()
         return res.json()
 
     def create_detection_engine_rule(self, rule):
         url = f"{self.url}/api/detection_engine/rules"
-        res = requests.post(url, headers=self.headers, data=json.dumps(rule))
+        res = self.session.post(url, data=json.dumps(rule))
         res.raise_for_status()
         return res.json()
 
     def delete_detection_engine_rule(self, rule):
         url = f"{self.url}/api/detection_engine/rules?id={rule['id']}"
-        res = requests.delete(url, headers=self.headers)
+        res = self.session.delete(url)
         res.raise_for_status()
         return res.json()
 
     def find_detection_engine_rules(self):
         url = f"{self.url}/api/detection_engine/rules/_find?per_page=1000"
-        res = requests.get(url, headers=self.headers)
+        res = self.session.get(url)
         res.raise_for_status()
         return {rule["id"]: rule for rule in res.json()["data"]}
 
     def create_detection_engine_rules(self, rules):
         url = f"{self.url}/api/detection_engine/rules/_bulk_create"
-        res = requests.post(url, headers=self.headers, data=json.dumps(rules))
+        res = self.session.post(url, data=json.dumps(rules))
         res.raise_for_status()
         return {rule["id"]: rule for rule in res.json()}
 
@@ -61,7 +68,7 @@ class Kibana:
             rules = self.find_detection_engine_rules()
         rules = [{"id": rule} for rule in rules]
         url = f"{self.url}/api/detection_engine/rules/_bulk_delete"
-        res = requests.delete(url, headers=self.headers, data=json.dumps(rules))
+        res = self.session.delete(url, data=json.dumps(rules))
         res.raise_for_status()
         return res.json()
 
@@ -70,12 +77,12 @@ class Kibana:
             rules = self.find_detection_engine_rules()
         rules = {"ids": list(rules)}
         url = f"{self.url}/api/detection_engine/rules/_find_statuses?per_page=1000"
-        res = requests.post(url, headers=self.headers, data=json.dumps(rules))
+        res = self.session.post(url, data=json.dumps(rules))
         res.raise_for_status()
         return res.json()
 
     def search_detection_engine_signals(self, body):
         url = f"{self.url}/api/detection_engine/signals/search"
-        res = requests.post(url, headers=self.headers, data=json.dumps(body))
+        res = self.session.post(url, data=json.dumps(body))
         res.raise_for_status()
         return res.json()
