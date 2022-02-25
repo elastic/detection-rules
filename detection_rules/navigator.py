@@ -20,17 +20,17 @@ from .rule import TOMLRule
 
 
 _DEFAULT_PLATFORMS = [
+    "Azure AD",
+    "Containers",
+    "Google Workspace",
+    "IaaS",
     "Linux",
     "macOS",
-    "Windows",
-    "Azure AD",
-    "Office 365",
-    "SaaS",
-    "IaaS",
-    "Google Workspace",
-    "PRE",
     "Network",
-    "Containers"
+    "Office 365",
+    "PRE",
+    "SaaS",
+    "Windows"
 ]
 _DEFAULT_NAVIGATOR_LINKS = {
     "label": "repo",

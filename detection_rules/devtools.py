@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple, List
 
 import click
+import requests.exceptions
 import yaml
 from elasticsearch import Elasticsearch
 
@@ -755,11 +756,18 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
         return '/'.join([prefix, suffix])
 
     file_map = {f: f.read_text() for f in directory.glob('*.json')}
-    response = update_gist(token,
-                           file_map,
-                           description='ATT&CK Navigator layer files.',
-                           gist_id=gist_id,
-                           pre_purge=True)
+    try:
+        response = update_gist(token,
+                               file_map,
+                               description='ATT&CK Navigator layer files.',
+                               gist_id=gist_id,
+                               pre_purge=True)
+    except requests.exceptions.HTTPError as exc:
+        if exc.response.status_code == requests.status_codes.codes.not_found:
+            raise client_error('Gist not found: verify the gist_id exists and the token has access to it', exc=exc)
+        else:
+            raise
+
     response_data = response.json()
     raw_urls = {name: raw_permalink(data['raw_url']) for name, data in response_data['files'].items()}
 

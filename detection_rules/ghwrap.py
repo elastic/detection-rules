@@ -119,7 +119,6 @@ def update_gist(token: str,
 
     if pre_purge:
         # retrieve all existing file names which are not in the file_map and overwrite them to empty to delete files
-        # only. When a file is completely deleted and updated, the raw URL changes
         response = requests.get(url)
         response.raise_for_status()
         data = response.json()
