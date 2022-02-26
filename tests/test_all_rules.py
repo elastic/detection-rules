@@ -29,7 +29,8 @@ class TestValidRules(BaseRuleTest):
 
     def test_schema_and_dupes(self):
         """Ensure that every rule matches the schema and there are no duplicates."""
-        self.assertGreaterEqual(len(self.all_rules), 1, 'No rules were loaded from rules directory!')
+        self.assertGreaterEqual(len(self.all_rules), 1,
+                                'No rules were loaded from rules directory!')
 
     def test_file_names(self):
         """Test that the file names meet the requirement."""
@@ -42,7 +43,8 @@ class TestValidRules(BaseRuleTest):
 
         for rule in self.all_rules:
             file_name = str(rule.path.name)
-            self.assertIsNotNone(re.match(file_pattern, file_name), f'Invalid file name for {rule.path}')
+            self.assertIsNotNone(
+                re.match(file_pattern, file_name), f'Invalid file name for {rule.path}')
 
     def test_all_rule_queries_optimized(self):
         """Ensure that every rule query is in optimized form."""
@@ -64,11 +66,13 @@ class TestValidRules(BaseRuleTest):
             if isinstance(rule.contents.data, QueryRuleData) and rule.id in mappings:
                 matching_rta = mappings[rule.id].get('rta_name')
 
-                self.assertIsNotNone(matching_rta, f'{self.rule_str(rule)} does not have RTAs')
+                self.assertIsNotNone(
+                    matching_rta, f'{self.rule_str(rule)} does not have RTAs')
 
                 rta_name, ext = os.path.splitext(matching_rta)
                 if rta_name not in ttp_names:
-                    self.fail(f'{self.rule_str(rule)} references unknown RTA: {rta_name}')
+                    self.fail(
+                        f'{self.rule_str(rule)} references unknown RTA: {rta_name}')
 
     def test_duplicate_file_names(self):
         """Test that no file names are duplicated."""
@@ -77,7 +81,8 @@ class TestValidRules(BaseRuleTest):
         for rule in self.all_rules:
             name_map[rule.path.name].append(rule.path.name)
 
-        duplicates = {name: paths for name, paths in name_map.items() if len(paths) > 1}
+        duplicates = {name: paths for name,
+                      paths in name_map.items() if len(paths) > 1}
         if duplicates:
             self.fail(f"Found duplicated file names {duplicates}")
 
@@ -103,8 +108,10 @@ class TestThreatMappings(BaseRuleTest):
                                                                                    'DEPRECATED - DO NOT USE')
 
             if revoked_techniques:
-                old_new_mapping = "\n".join(f'Actual: {k} -> Expected {v}' for k, v in revoked_techniques.items())
-                self.fail(f'{self.rule_str(rule)} Using deprecated ATT&CK techniques: \n{old_new_mapping}')
+                old_new_mapping = "\n".join(
+                    f'Actual: {k} -> Expected {v}' for k, v in revoked_techniques.items())
+                self.fail(
+                    f'{self.rule_str(rule)} Using deprecated ATT&CK techniques: \n{old_new_mapping}')
 
     def test_tactic_to_technique_correlations(self):
         """Ensure rule threat info is properly related to a single tactic and technique."""
@@ -115,7 +122,8 @@ class TestThreatMappings(BaseRuleTest):
                     tactic = entry.tactic
                     techniques = entry.technique or []
 
-                    mismatched = [t.id for t in techniques if t.id not in attack.matrix[tactic.name]]
+                    mismatched = [
+                        t.id for t in techniques if t.id not in attack.matrix[tactic.name]]
                     if mismatched:
                         self.fail(f'mismatched ATT&CK techniques for rule: {self.rule_str(rule)} '
                                   f'{", ".join(mismatched)} not under: {tactic["name"]}')
@@ -127,7 +135,8 @@ class TestThreatMappings(BaseRuleTest):
                                      f'expected:  {expected_tactic} for {tactic.name}\n'
                                      f'actual: {tactic.id}')
 
-                    tactic_reference_id = tactic.reference.rstrip('/').split('/')[-1]
+                    tactic_reference_id = tactic.reference.rstrip(
+                        '/').split('/')[-1]
                     self.assertEqual(tactic.id, tactic_reference_id,
                                      f'ATT&CK tactic mapping error for rule: {self.rule_str(rule)}\n'
                                      f'tactic ID {tactic.id} does not match the reference URL ID '
@@ -141,7 +150,8 @@ class TestThreatMappings(BaseRuleTest):
                                          f'expected: {expected_technique} for {technique.id}\n'
                                          f'actual: {technique.name}')
 
-                        technique_reference_id = technique.reference.rstrip('/').split('/')[-1]
+                        technique_reference_id = technique.reference.rstrip(
+                            '/').split('/')[-1]
                         self.assertEqual(technique.id, technique_reference_id,
                                          f'ATT&CK technique mapping error for rule: {self.rule_str(rule)}\n'
                                          f'technique ID {technique.id} does not match the reference URL ID '
@@ -169,7 +179,8 @@ class TestThreatMappings(BaseRuleTest):
         for rule in self.all_rules:
             threat_mapping = rule.contents.data.threat
             tactics = [t.tactic.name for t in threat_mapping or []]
-            duplicates = sorted(set(t for t in tactics if tactics.count(t) > 1))
+            duplicates = sorted(
+                set(t for t in tactics if tactics.count(t) > 1))
 
             if duplicates:
                 self.fail(f'{self.rule_str(rule)} duplicate tactics defined for {duplicates}. '
@@ -242,15 +253,20 @@ class TestRuleTags(BaseRuleTest):
                     expected_all = expected_tags.get('all', [])
                     expected_any = expected_tags.get('any', [])
 
-                    existing_any_tags = [t for t in rule_tags if t in expected_any]
+                    existing_any_tags = [
+                        t for t in rule_tags if t in expected_any]
                     if expected_any:
                         # consolidate optional any tags which are not in use
-                        consolidated_optional_tags.extend(t for t in expected_any if t not in existing_any_tags)
+                        consolidated_optional_tags.extend(
+                            t for t in expected_any if t not in existing_any_tags)
 
-                    missing_required_tags.update(set(expected_all).difference(set(rule_tags)))
-                    is_missing_any_tags = expected_any and not set(expected_any) & set(existing_any_tags)
+                    missing_required_tags.update(
+                        set(expected_all).difference(set(rule_tags)))
+                    is_missing_any_tags = expected_any and not set(
+                        expected_any) & set(existing_any_tags)
 
-            consolidated_optional_tags = [t for t in consolidated_optional_tags if t not in missing_required_tags]
+            consolidated_optional_tags = [
+                t for t in consolidated_optional_tags if t not in missing_required_tags]
             error_msg += f'\nMissing all of: {", ".join(missing_required_tags)}' if missing_required_tags else ''
             error_msg += f'\nMissing any of: {", " .join(consolidated_optional_tags)}' if is_missing_any_tags else ''
 
@@ -284,7 +300,8 @@ class TestRuleTags(BaseRuleTest):
 
                 # listed tactic that is not in threat mapping
                 tag_tactics = set(rule_tags).intersection(tactics)
-                missing_from_threat = list(tag_tactics.difference(threat_tactic_names))
+                missing_from_threat = list(
+                    tag_tactics.difference(threat_tactic_names))
 
                 if missing or missing_from_threat:
                     err_msg = self.rule_str(rule)
@@ -319,12 +336,14 @@ class TestRuleTimelines(BaseRuleTest):
                 unknown_id = f'{self.rule_str(rule)} Unknown timeline_id: {timeline_id}.'
                 unknown_id += f' replace with {", ".join(TIMELINE_TEMPLATES)} ' \
                               f'or update this unit test with acceptable ids'
-                self.assertIn(timeline_id, list(TIMELINE_TEMPLATES), unknown_id)
+                self.assertIn(timeline_id, list(
+                    TIMELINE_TEMPLATES), unknown_id)
 
                 unknown_title = f'{self.rule_str(rule)} unknown timeline_title: {timeline_title}'
                 unknown_title += f' replace with {", ".join(TIMELINE_TEMPLATES.values())}'
                 unknown_title += ' or update this unit test with acceptable titles'
-                self.assertEqual(timeline_title, TIMELINE_TEMPLATES[timeline_id], unknown_title)
+                self.assertEqual(
+                    timeline_title, TIMELINE_TEMPLATES[timeline_id], unknown_title)
 
 
 class TestRuleFiles(BaseRuleTest):
@@ -350,7 +369,8 @@ class TestRuleFiles(BaseRuleTest):
                 tactic_str = primary_tactic.lower().replace(' ', '_')
 
                 if tactic_str != filename[:len(tactic_str)]:
-                    bad_name_rules.append(f'{rule.id} - {Path(rule.path).name} -> expected: {tactic_str}')
+                    bad_name_rules.append(
+                        f'{rule.id} - {Path(rule.path).name} -> expected: {tactic_str}')
 
         if bad_name_rules:
             error_msg = 'filename does not start with the primary tactic - update the tactic or the rule filename'
@@ -372,7 +392,8 @@ class TestRuleMetadata(BaseRuleTest):
                 invalid.append(rule)
 
         if invalid:
-            rules_str = '\n '.join(self.rule_str(r, trailer=None) for r in invalid)
+            rules_str = '\n '.join(self.rule_str(r, trailer=None)
+                                   for r in invalid)
             err_msg = f'The following rules have an updated_date older than the creation_date\n {rules_str}'
             self.fail(err_msg)
 
@@ -387,9 +408,10 @@ class TestRuleMetadata(BaseRuleTest):
         deprecated_path = get_path("rules", "_deprecated")
 
         misplaced_rules = [r for r in self.all_rules
-                           if r.path.relative_to(rules_path).parts[-2] == '_deprecated' and  # noqa: W504
-                           r.contents.metadata.maturity != 'deprecated']
-        misplaced = '\n'.join(f'{self.rule_str(r)} {r.contents.metadata.maturity}' for r in misplaced_rules)
+                           if r.path.relative_to(rules_path).parts[-2] == '_deprecated'  # noqa: W504
+                           and r.contents.metadata.maturity != 'deprecated']
+        misplaced = '\n'.join(
+            f'{self.rule_str(r)} {r.contents.metadata.maturity}' for r in misplaced_rules)
         err_str = f'The following rules are stored in {deprecated_path} but are not marked as deprecated:\n{misplaced}'
         self.assertListEqual(misplaced_rules, [], err_str)
 
@@ -410,7 +432,8 @@ class TestRuleMetadata(BaseRuleTest):
             self.assertIsNotNone(meta['deprecation_date'], err_msg)
 
             err_msg = f'{self.rule_str(rule)} deprecation_date and updated_date should match'
-            self.assertEqual(meta['deprecation_date'], meta['updated_date'], err_msg)
+            self.assertEqual(meta['deprecation_date'],
+                             meta['updated_date'], err_msg)
 
         # skip this so the lock file can be shared across branches
         #
@@ -431,7 +454,8 @@ class TestRuleMetadata(BaseRuleTest):
                 continue
 
             rule_str = f'{rule_id} - {entry["rule_name"]} ->'
-            self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
+            self.assertIn(rule_id, deprecated_rules,
+                          f'{rule_str} is logged in "deprecated_rules.json" but is missing')
 
     def test_integration(self):
         """Test that rules in integrations folders have matching integration defined."""
@@ -465,7 +489,8 @@ class TestRuleMetadata(BaseRuleTest):
 
         if failures:
             err_msg = '\n'.join(failures)
-            self.fail(f'The following rules have been improperly demoted:\n{err_msg}')
+            self.fail(
+                f'The following rules have been improperly demoted:\n{err_msg}')
 
     def test_all_min_stack_rules_have_comment(self):
         failures = []
@@ -504,7 +529,8 @@ class TestRuleTiming(BaseRuleTest):
                 missing.append(rule)
 
         if missing:
-            rules_str = '\n '.join(self.rule_str(r, trailer=None) for r in missing)
+            rules_str = '\n '.join(self.rule_str(r, trailer=None)
+                                   for r in missing)
             err_msg = f'The following rules should have the `timestamp_override` set to `event.ingested`\n {rules_str}'
             self.fail(err_msg)
 
@@ -521,7 +547,8 @@ class TestRuleTiming(BaseRuleTest):
                     missing.append(rule)
 
         if missing:
-            rules_str = '\n '.join(self.rule_str(r, trailer=None) for r in missing)
+            rules_str = '\n '.join(self.rule_str(r, trailer=None)
+                                   for r in missing)
             err_msg = f'The following rules should have a longer `from` defined, due to indexes used\n {rules_str}'
             self.fail(err_msg)
 
@@ -546,11 +573,13 @@ class TestRuleTiming(BaseRuleTest):
 
         if unknowns:
             warn_str = '\n'.join(unknowns)
-            warnings.warn(f'Unable to determine lookbacks for the following rules:\n{warn_str}')
+            warnings.warn(
+                f'Unable to determine lookbacks for the following rules:\n{warn_str}')
 
         if invalids:
             invalids_str = '\n'.join(invalids)
-            self.fail(f'The following rules have longer max_spans than lookbacks:\n{invalids_str}')
+            self.fail(
+                f'The following rules have longer max_spans than lookbacks:\n{invalids_str}')
 
     def test_eql_interval_to_maxspan(self):
         """Check the ratio of interval to maxspan for eql rules."""
@@ -562,17 +591,44 @@ class TestRuleTiming(BaseRuleTest):
                 interval = rule.contents.data.interval or five_minutes
                 maxspan = rule.contents.data.max_span
                 ratio = rule.contents.data.interval_ratio
+                window = rule.contents.data.from_
 
+                # Get the window in ms
+                if rule.contents.data.from_ and maxspan:
+                    window = int(rule.contents.data.from_[4:-1])
+                    if rule.contents.data.from_[-1:] == "m":
+                        window = window * 60 * 1000
+                    elif rule.contents.data.from_[-1:] == "h":
+                        window = window * 60 * 60 * 1000
+
+                    # Getting interval in ms to compare it if it isn't already
+                    if isinstance(interval, str):
+                        if interval[-1:] == "m":
+                            interval = int(interval[:-1]) * 60 * 1000
+                        elif interval[-1:] == "h":
+                            interval = int(interval[:-1]) * 60 * 60 * 1000
+
+                    margin = window - maxspan
                 # we want to test for at least a ratio of: interval >= 1/2 maxspan
                 # but we only want to make an exception and cap the ratio at 5m interval (2.5m maxspan)
-                if maxspan and maxspan > (five_minutes / 2) and ratio and ratio < .5:
+                # there is also a check for if the margin is less then 2x the interval
+                if window and maxspan:
+                    if margin < 2*interval and maxspan > interval:
+                        err_msg = f'{self.rule_str(rule)} rule does not leave enough margin'
+                        invalids.append(err_msg)
+                    if maxspan > (five_minutes / 2) and ratio and ratio < .5:
+                        expected = maxspan // 2
+                        err_msg = f'{self.rule_str(rule)} interval: {interval}, maxspan: {maxspan}, expected: >={expected}'
+                        invalids.append(err_msg)
+                elif maxspan and maxspan > (five_minutes / 2) and ratio and ratio < .5:
                     expected = maxspan // 2
                     err_msg = f'{self.rule_str(rule)} interval: {interval}, maxspan: {maxspan}, expected: >={expected}'
                     invalids.append(err_msg)
 
         if invalids:
             invalids_str = '\n'.join(invalids)
-            self.fail(f'The following rules have intervals too short for their given max_spans (ms):\n{invalids_str}')
+            self.fail(
+                f'The following rules have intervals too short for their given max_spans (ms):\n{invalids_str}')
 
 
 class TestLicense(BaseRuleTest):
@@ -611,7 +667,8 @@ class TestIntegrationRules(BaseRuleTest):
             note_str = integration_notes.get(integration)
 
             if note_str:
-                self.assert_(rule.contents.data.note, f'{self.rule_str(rule)} note required for config information')
+                self.assert_(rule.contents.data.note,
+                             f'{self.rule_str(rule)} note required for config information')
 
                 if note_str not in rule.contents.data.note:
                     self.fail(f'{self.rule_str(rule)} expected {integration} config missing\n\n'
