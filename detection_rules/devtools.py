@@ -24,6 +24,7 @@ from elasticsearch import Elasticsearch
 from kibana.connector import Kibana
 from . import rule_loader, utils
 from .cli_utils import single_collection
+from .docs import IntegrationSecurityDocs
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient
 from .main import root
@@ -80,6 +81,48 @@ def build_release(config_file, update_version_lock, release=None, verbose=True):
         click.echo(f'- {len(package.rules)} rules included')
 
     return package
+
+
+@dev_group.command('build-integration-docs')
+@click.argument('registry-version')
+@click.option('--pre', required=True, help='Tag for pre-existing rules')
+@click.option('--post', required=True, help='Tag for rules post updates')
+@click.option('--directory', '-d', type=Path, required=True, help='Output directory to save docs to')
+@click.option('--force', '-f', is_flag=True, help='Bypass the confirmation prompt')
+@click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
+@click.pass_context
+def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, post: str, directory: Path, force: bool,
+                           remote: Optional[str] = 'origin') -> IntegrationSecurityDocs:
+    """Build documents from two git tags for an integration package."""
+    if not force:
+        if not click.confirm(f'This will refresh tags and may overwrite local tags for: {pre} and {post}. Continue?'):
+            ctx.exit(1)
+
+    pre_rules = RuleCollection()
+    pre_rules.load_git_tag(pre, remote, skip_query_validation=True)
+
+    if pre_rules.errors:
+        click.echo(f'error loading {len(pre_rules.errors)} rule(s) from: {pre}, skipping:')
+        click.echo(' - ' + '\n - '.join([str(p) for p in pre_rules.errors]))
+
+    post_rules = RuleCollection()
+    post_rules.load_git_tag(post, remote, skip_query_validation=True)
+
+    if post_rules.errors:
+        click.echo(f'error loading {len(post_rules.errors)} rule(s) from: {post}, skipping:')
+        click.echo(' - ' + '\n - '.join([str(p) for p in post_rules.errors]))
+
+    rules_changes = pre_rules.compare_collections(post_rules)
+
+    docs = IntegrationSecurityDocs(registry_version, directory, True, *rules_changes)
+    package_dir = docs.generate()
+    click.echo(f'Generated documents saved to: {package_dir}')
+    updated, new, deprecated = rules_changes
+    click.echo(f'- {len(updated)} updated rules')
+    click.echo(f'- {len(new)} new rules')
+    click.echo(f'- {len(deprecated)} deprecated rules')
+
+    return docs
 
 
 @dataclasses.dataclass
@@ -336,13 +379,14 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
 def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...], draft: bool, fork_owner: str,
               token: str, **kwargs):
     """Create a pull request to Kibana."""
+    github = GithubClient(token)
+    client = github.authenticated_client
+    repo = client.get_repo(kwargs["github_repo"])
+
     branch_name, commit_hash = ctx.invoke(kibana_commit, push=True, **kwargs)
 
     if fork_owner:
         branch_name = f'{fork_owner}:{branch_name}'
-
-    client = GithubClient(token).authenticated_client
-    repo = client.get_repo(kwargs["github_repo"])
 
     title = f"[Detection Engine] Adds {current_stack_version()} rules"
     body = textwrap.dedent(f"""
@@ -380,7 +424,7 @@ def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...
               help="GitHub token to use for the PR", hide_input=True)
 @click.option("--pkg-directory", "-d", help="Directory to save the package in cloned repository",
               default=os.path.join("packages", "security_detection_engine"))
-@click.option("--base-branch", "-b", help="Base branch in target repository", default="master")
+@click.option("--base-branch", "-b", help="Base branch in target repository", default="main")
 @click.option("--branch-name", "-n", help="New branch for the rules commit")
 @click.option("--github-repo", "-r", help="Repository to use for the branch", default="elastic/integrations")
 @click.option("--assign", multiple=True, help="GitHub users to assign the PR")
@@ -392,6 +436,18 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
                     pkg_directory: str, base_branch: str, remote: str,
                     branch_name: Optional[str], github_repo: str, assign: Tuple[str, ...], label: Tuple[str, ...]):
     """Create a pull request to publish the Fleet package to elastic/integrations."""
+    github = GithubClient(token)
+    github.assert_github()
+    client = github.authenticated_client
+    repo = client.get_repo(github_repo)
+
+    # Use elastic-package to format and lint
+    gopath = utils.gopath()
+    assert gopath is not None, "$GOPATH isn't set"
+
+    err = 'elastic-package missing, run: go install github.com/elastic/elastic-package@latest and verify go bin path'
+    assert subprocess.check_output(['elastic-package'], stderr=subprocess.DEVNULL), err
+
     local_repo = os.path.abspath(local_repo)
     stack_version = Package.load_configs()["name"]
     package_version = Package.load_configs()["registry_data"]["version"]
@@ -453,10 +509,6 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
 
     save_changelog()
 
-    # Use elastic-package to format and lint
-    gopath = utils.gopath()
-    assert gopath is not None, "$GOPATH isn't set"
-
     def elastic_pkg(*args):
         """Run a command with $GOPATH/bin/elastic-package in the package directory."""
         prev = os.path.abspath(os.getcwd())
@@ -476,8 +528,6 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     git("push", "--set-upstream", remote, branch_name)
 
     # Create a pull request (not done yet, but we need the PR number)
-    client = GithubClient(token).authenticated_client
-    repo = client.get_repo(github_repo)
     body = textwrap.dedent(f"""
     ## What does this PR do?
     Update the Security Rules package to version {package_version}.

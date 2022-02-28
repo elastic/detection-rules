@@ -1,14 +1,14 @@
 [metadata]
 creation_date = "2021/05/17"
 maturity = "production"
-updated_date = "2021/10/11"
+updated_date = "2022/01/31"
 integration = "o365"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
 description = """
-Identifies the assignment of rights to accesss content from another mailbox. An adversary may use the compromised account
-to send messages to other accounts in the network of the target business while creating inbox rules, so messages can 
+Identifies the assignment of rights to access content from another mailbox. An adversary may use the compromised account
+to send messages to other accounts in the network of the target organization while creating inbox rules, so messages can
 evade spam/phishing detection mechanisms.
 """
 false_positives = ["Assignment of rights to a service account."]
@@ -18,7 +18,7 @@ license = "Elastic License v2"
 name = "O365 Exchange Suspicious Mailbox Right Delegation"
 note = """## Config
 
-The Microsoft 365 Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 risk_score = 21
 rule_id = "0ce6487d-8069-4888-9ddd-61b52490cebc"
 severity = "low"
@@ -28,7 +28,8 @@ type = "query"
 
 query = '''
 event.dataset:o365.audit and event.provider:Exchange and event.action:Add-MailboxPermission and 
-o365.audit.Parameters.AccessRights:(FullAccess or SendAs or SendOnBehalf) and event.outcome:success
+o365.audit.Parameters.AccessRights:(FullAccess or SendAs or SendOnBehalf) and event.outcome:success and
+not user.id : "NT AUTHORITY\SYSTEM (Microsoft.Exchange.Servicehost)"
 '''
 
 [[rule.threat]]
