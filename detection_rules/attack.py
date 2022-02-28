@@ -4,9 +4,9 @@
 # 2.0.
 
 """Mitre attack info."""
-import os
 import re
 import time
+from pathlib import Path
 
 import json
 import requests
@@ -25,7 +25,7 @@ with open(TECHNIQUES_REDIRECT_FILE, 'r') as f:
 tactics_map = {}
 
 
-def get_attack_file_path():
+def get_attack_file_path() -> str:
     pattern = 'attack-v*.json.gz'
     attack_file = get_etc_glob_path(pattern)
     if len(attack_file) != 1:
@@ -33,7 +33,7 @@ def get_attack_file_path():
     return attack_file[0]
 
 
-def load_attack_gz():
+def load_attack_gz() -> dict:
     return json.loads(read_gzip(get_attack_file_path()))
 
 
@@ -87,8 +87,8 @@ sub_technique_id_list = [t for t in technique_lookup if '.' in t]
 
 def refresh_attack_data(save=True):
     """Refresh ATT&CK data from Mitre."""
-    attack_path = get_attack_file_path()
-    filename, _, _ = os.path.basename(attack_path).rsplit('.', 2)
+    attack_path = Path(get_attack_file_path())
+    filename, _, _ = attack_path.name.rsplit('.', 2)
 
     def get_version_from_tag(name, pattern='att&ck-v'):
         _, version = name.lower().split(pattern, 1)
@@ -103,7 +103,7 @@ def refresh_attack_data(save=True):
     release_name = latest_release['name']
     latest_version = get_version_from_tag(release_name)
 
-    if current_version >= latest_version:
+    if Version(current_version) >= Version(latest_version):
         print(f'No versions newer than the current detected: {current_version}')
         return
 
@@ -114,11 +114,9 @@ def refresh_attack_data(save=True):
     compressed = gzip_compress(json.dumps(attack_data, sort_keys=True))
 
     if save:
-        new_path = get_etc_path(f'attack-v{latest_version}.json.gz')
-        with open(new_path, 'wb') as f:
-            f.write(compressed)
-
-        os.remove(attack_path)
+        new_path = Path(get_etc_path(f'attack-v{latest_version}.json.gz'))
+        new_path.write_bytes(compressed)
+        attack_path.unlink()
         print(f'Replaced file: {attack_path} with {new_path}')
 
     return attack_data, compressed
