@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/10/17"
+updated_date = "2022/02/14"
 
 [rule]
 author = ["Elastic"]
@@ -31,8 +31,9 @@ sequence with maxspan=1m
   [process where event.type == "start" and
     (process.name : "schtasks.exe" or process.pe.original_file_name == "schtasks.exe") and
     process.args : ("/create", "-create") and process.args : ("/RU", "/SC", "/TN", "/TR", "/F", "/XML") and
-    /* exclude SYSTEM SIDs - look for task creations by non-SYSTEM user */
-    not user.id : ("S-1-5-18", "S-1-5-19", "S-1-5-20")] by process.parent.entity_id
+    /* exclude SYSTEM Integrity Level - look for task creations by non-SYSTEM user */
+    not (process.Ext.token.integrity_level_name : "System" or winlog.event_data.IntegrityLevel : "System")
+  ] by process.parent.entity_id
 '''
 
 
