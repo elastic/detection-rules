@@ -20,7 +20,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where process.parent.name : ("find") and process.name : "sh" and event.action : ("exec*", "fork")
+sequence by process.pid with maxspan=1m
+[process where process.name == "find" and process.args : "-exec" and process.args : ("*bash", "*sh") and process.args : ";"]
+[process where process.parent.name == "find" and process.name : ("bash", "sh")]
 '''
 
 
