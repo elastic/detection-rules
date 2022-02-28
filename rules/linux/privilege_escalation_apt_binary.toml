@@ -21,7 +21,7 @@ references = [
 risk_score = 47
 rule_id = "8fed8450-847e-43bd-874c-3bbf0cd425f3"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "GTFOBins"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Privilege Escalation","GTFOBins"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -30,6 +30,7 @@ sequence by process.pid with maxspan=1m
 [process where process.name : ("apt", "apt-get") and process.args : "changelog"]
 [process where process.parent.name : ("apt", "apt-get") and process.name : "sensible-pager" and process.args : "/bin/sh"]
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -42,19 +43,27 @@ id = "T1548.003"
 name = "Sudo and Sudo Caching"
 reference = "https://attack.mitre.org/techniques/T1548/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+[[rule.threat.technique.subtechnique]]
 id = "T1548.004"
 name = "Elevated Execution with Prompt"
 reference = "https://attack.mitre.org/techniques/T1548/004/"
+
+
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
