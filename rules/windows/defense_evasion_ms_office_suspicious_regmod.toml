@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/01/12"
 maturity = "production"
-updated_date = "2022/01/12"
+updated_date = "2022/02/28"
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +15,48 @@ index = ["winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "MS Office Macro Security Registry Modifications"
+note = """## Triage and analysis
+
+### Investigating MS Office Macro Security Registry Modifications
+
+A macro is a small program that is often written to automate repetitive tasks in Microsoft Office applications. Macros
+have been historically used for a variety of reasons - from an individual automating part of their job, to organisations
+building entire processes and data flows. Macros are written in Visual Basic for Applications (VBA) and are saved as
+part of the Office file.
+
+Macros are often created for legitimate reasons, but they can also be written by attackers to gain access to or harm a
+system, or to bypass other security controls such as application allow listing. In fact, exploitation from malicious
+macros is one of the top ways that organisations around the world are compromised today, being often part of phishing or
+spear phishing campaigns.
+
+Attackers can convince victims to modify Office security settings, so their macros are trusted by Default, and no
+warnings are displayed when they are executed:
+
+* *Trust access to the VBA project object model* - When enabled, MS Office will trust all macros and run any code
+without showing security warning or requiring user’s permission.
+* *VbaWarnings* - When set to 1, MS Office will trust all macros and run any code without showing security warning or
+requiring user’s permission.
+
+This rule will look for registry changes for the conditions above.
+
+#### Possible investigation steps:
+
+- Identify the user that performed the operation.
+- Verify whether malicious macros were executed after the registry change.
+- Contact the user and check if the change was done manually.
+- Investigate other alerts related to the user in the last 48 hours.
+
+### False Positive Analysis
+
+- This activity should not happen legitimately. The security team should address any potential B-TP (Benign True
+Positive) as this configuration can put the user and the domain at risk.
+
+### Response and Remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Reset the registry key value.
+- Isolate the host if malicious code was executed and reset the involved account's passwords.
+"""
 risk_score = 47
 rule_id = "feeed87c-5e95-4339-aef1-47fd79bcfbe3"
 severity = "medium"
