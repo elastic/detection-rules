@@ -26,7 +26,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by process.pid with maxspan=1m
+sequence by host.id, process.pid with maxspan=1m
 [process where process.name : ("apt", "apt-get") and process.args : "changelog"]
 [process where process.parent.name : ("apt", "apt-get") and process.name : "sensible-pager" and process.args : "/bin/sh"]
 '''
