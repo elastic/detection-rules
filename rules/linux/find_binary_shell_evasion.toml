@@ -1,0 +1,66 @@
+[metadata]
+creation_date = "2022/02/28"
+maturity = "development"
+updated_date = "2022/02/28"
+
+[rule]
+author = ["Elastic"]
+description = "Identifies Linux binary find absue to break out from restricted environments by spawning an interactive system shell'"
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux Restricted Shell Breakout via find Shell Evasion"
+references = ["https://gtfobins.github.io/gtfobins/find/"]
+risk_score = 47
+rule_id = "6f683345-bb10-47a7-86a7-71e9c24fb358"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "GTFOBins"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where process.parent.name : ("find") and process.name : "sh" and event.action : ("exec*", "fork")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+[[rule.threat.technique.subtechnique]]
+id = "T1548.001"
+name = "Setuid and Setgid"
+reference = "https://attack.mitre.org/techniques/T1548/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.003"
+name = "Sudo and Sudo Caching"
+reference = "https://attack.mitre.org/techniques/T1548/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+[[rule.threat.technique.subtechnique]]
+id = "T1548.004"
+name = "Elevated Execution with Prompt"
+reference = "https://attack.mitre.org/techniques/T1548/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
