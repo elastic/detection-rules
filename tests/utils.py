@@ -267,7 +267,13 @@ class SignalsTestCase:
 
     def check_docs(self, rule):
         try:
-            ret = self.es.search(index=",".join(rule["index"]), body={"query": {"match_all": {}}})
+            data = {
+                "query": {
+                    "match_all": {}
+                },
+                "size": rule[".test_private"]["doc_count"],
+            }
+            ret = self.es.search(index=",".join(rule["index"]), body=data)
         except Exception as e:
             if verbose > 1:
                 sys.stderr.write(f"{str(e)}\n")
