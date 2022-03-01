@@ -186,13 +186,17 @@ class SignalsTestCase:
                         sys.stderr.flush()
                     continue
 
-                rule[".test_private"]["branch_count"] = len(root)
+                doc_count = 0
                 for doc in itertools.chain(*docs):
                     bulk.append(json.dumps({"index": {"_index": rule["index"][0]}}))
                     bulk.append(json.dumps(doc))
                     if verbose > 2:
                         sys.stderr.write(json.dumps(doc, sort_keys=True) + "\n")
                         sys.stderr.flush()
+                    doc_count += 1
+
+                rule[".test_private"]["branch_count"] = len(root)
+                rule[".test_private"]["doc_count"] = doc_count
         return (bulk, se.mappings())
 
     def load_rules_and_docs(self, rules, asts, batch_size=100):
@@ -316,7 +320,13 @@ class SignalsTestCase:
                     for doc in docs:
                         t0 = t0 or docs[0]["@timestamp"]
                         doc["@timestamp"] -= t0
-                    cells.append(jupyter.Markdown(f"### {rule['name']}"))
+                    cells.append(jupyter.Markdown(f"""
+                        ### {rule['name']}
+
+                        Branch count: {rule[".test_private"]["branch_count"]}  
+                        Document count: {rule[".test_private"]["doc_count"]}  
+                        Index: {rule["index"][0]}
+                    """))  # noqa: W291: trailing double space makes a new line in markdown
                     cells.append(self.query_cell(rule["query"], docs))
                     if type(rule_ids) == dict:
                         rule_status = rule_ids[rule["id"]].get("current_status", {})

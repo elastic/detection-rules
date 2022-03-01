@@ -10,6 +10,10 @@ Here you can learn what queries are supported.
 
 ### Rule 000
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-000
+
 ```python
 any where true
 ```
@@ -21,6 +25,10 @@ any where true
 
 
 ### Rule 001
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-001
 
 ```python
 any where not false
@@ -34,6 +42,10 @@ any where not false
 
 ### Rule 002
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-002
+
 ```python
 any where not (true and false)
 ```
@@ -45,6 +57,10 @@ any where not (true and false)
 
 
 ### Rule 003
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-003
 
 ```python
 any where not (false or false)
@@ -58,6 +74,10 @@ any where not (false or false)
 
 ### Rule 004
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-004
+
 ```python
 network where source.port > 512 and source.port < 1024
 ```
@@ -69,6 +89,10 @@ network where source.port > 512 and source.port < 1024
 
 
 ### Rule 005
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-005
 
 ```python
 network where not (source.port < 512 or source.port > 1024)
@@ -82,6 +106,10 @@ network where not (source.port < 512 or source.port > 1024)
 
 ### Rule 006
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-006
+
 ```python
 network where destination.port not in (80, 443)
 ```
@@ -93,6 +121,10 @@ network where destination.port not in (80, 443)
 
 
 ### Rule 007
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-007
 
 ```python
 network where not destination.port in (80, 443)
@@ -106,6 +138,10 @@ network where not destination.port in (80, 443)
 
 ### Rule 008
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-008
+
 ```python
 network where destination.port == 22 and destination.port in (80, 443) or destination.port == 25
 ```
@@ -117,6 +153,10 @@ network where destination.port == 22 and destination.port in (80, 443) or destin
 
 
 ### Rule 009
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-009
 
 ```python
 process where process.name == "regsvr32.exe"
@@ -130,6 +170,10 @@ process where process.name == "regsvr32.exe"
 
 ### Rule 010
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-010
+
 ```python
 process where process.name != "regsvr32.exe"
 ```
@@ -141,6 +185,10 @@ process where process.name != "regsvr32.exe"
 
 
 ### Rule 011
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-011
 
 ```python
 process where process.pid != 0
@@ -154,6 +202,10 @@ process where process.pid != 0
 
 ### Rule 012
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-012
+
 ```python
 process where process.pid >= 0
 ```
@@ -165,6 +217,10 @@ process where process.pid >= 0
 
 
 ### Rule 013
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-013
 
 ```python
 process where process.pid > 0
@@ -178,6 +234,10 @@ process where process.pid > 0
 
 ### Rule 014
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-014
+
 ```python
 process where process.code_signature.exists == true
 ```
@@ -189,6 +249,10 @@ process where process.code_signature.exists == true
 
 
 ### Rule 015
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-015
 
 ```python
 process where process.code_signature.exists != true
@@ -202,6 +266,10 @@ process where process.code_signature.exists != true
 
 ### Rule 016
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-016
+
 ```python
 any where network.protocol == "some protocol"
 ```
@@ -213,6 +281,10 @@ any where network.protocol == "some protocol"
 
 
 ### Rule 017
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-017
 
 ```python
 any where process.pid == null
@@ -226,6 +298,10 @@ any where process.pid == null
 
 ### Rule 018
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-018
+
 ```python
 any where not process.pid != null
 ```
@@ -237,6 +313,10 @@ any where not process.pid != null
 
 
 ### Rule 019
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-019
 
 ```python
 any where process.pid != null
@@ -250,6 +330,10 @@ any where process.pid != null
 
 ### Rule 020
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-020
+
 ```python
 any where not process.pid == null
 ```
@@ -261,6 +345,10 @@ any where not process.pid == null
 
 
 ### Rule 021
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-021
 
 ```python
 process where process.name == "regsvr32.exe" and process.parent.name == "cmd.exe"
@@ -274,6 +362,10 @@ process where process.name == "regsvr32.exe" and process.parent.name == "cmd.exe
 
 ### Rule 022
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-022
+
 ```python
 process where process.name : ("*.EXE", "*.DLL")
 ```
@@ -285,6 +377,10 @@ process where process.name : ("*.EXE", "*.DLL")
 
 
 ### Rule 023
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-023
 
 ```python
 network where destination.ip == "127.0.0.1"
@@ -298,6 +394,10 @@ network where destination.ip == "127.0.0.1"
 
 ### Rule 024
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-024
+
 ```python
 network where cidrMatch(destination.ip, "10.0.0.0/8", "192.168.0.0/16")
 ```
@@ -309,6 +409,10 @@ network where cidrMatch(destination.ip, "10.0.0.0/8", "192.168.0.0/16")
 
 
 ### Rule 025
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-025
 
 ```python
 network where not cidrMatch(destination.ip, "10.0.0.0/8", "192.168.0.0/16")
@@ -322,6 +426,10 @@ network where not cidrMatch(destination.ip, "10.0.0.0/8", "192.168.0.0/16")
 
 ### Rule 026
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-026
+
 ```python
 network where destination.ip == "::1"
 ```
@@ -333,6 +441,10 @@ network where destination.ip == "::1"
 
 
 ### Rule 027
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-027
 
 ```python
 network where destination.ip == "822e::/16"
@@ -346,6 +458,10 @@ network where destination.ip == "822e::/16"
 
 ### Rule 028
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-028
+
 ```python
 event.category:network and destination.ip:"822e::/16"
 ```
@@ -357,6 +473,10 @@ event.category:network and destination.ip:"822e::/16"
 
 
 ### Rule 029
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-029
 
 ```python
 network where not (source.port > 512 and source.port < 1024)
@@ -371,6 +491,10 @@ network where not (source.port > 512 and source.port < 1024)
 
 ### Rule 030
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-030
+
 ```python
 network where source.port > 512 or source.port < 1024
 ```
@@ -383,6 +507,10 @@ network where source.port > 512 or source.port < 1024
 
 
 ### Rule 031
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-031
 
 ```python
 network where source.port < 2000 and (source.port > 512 or source.port > 1024)
@@ -397,6 +525,10 @@ network where source.port < 2000 and (source.port > 512 or source.port > 1024)
 
 ### Rule 032
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-032
+
 ```python
 network where (source.port > 512 or source.port > 1024) and source.port < 2000
 ```
@@ -409,6 +541,10 @@ network where (source.port > 512 or source.port > 1024) and source.port < 2000
 
 
 ### Rule 033
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-033
 
 ```python
 network where (source.port > 1024 or source.port < 2000) and (source.port < 4000 or source.port > 512)
@@ -425,6 +561,10 @@ network where (source.port > 1024 or source.port < 2000) and (source.port < 4000
 
 ### Rule 034
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-034
+
 ```python
 network where destination.port in (80, 443)
 ```
@@ -438,6 +578,10 @@ network where destination.port in (80, 443)
 
 ### Rule 035
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-035
+
 ```python
 process where process.name == "regsvr32.exe" or process.parent.name == "cmd.exe"
 ```
@@ -450,6 +594,10 @@ process where process.name == "regsvr32.exe" or process.parent.name == "cmd.exe"
 
 
 ### Rule 036
+
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-036
 
 ```python
 process where process.name == "regsvr32.exe" or process.name == "cmd.exe" or process.name == "powershell.exe"
@@ -465,6 +613,10 @@ process where process.name == "regsvr32.exe" or process.name == "cmd.exe" or pro
 
 ### Rule 037
 
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-037
+
 ```python
 process where process.name in ("regsvr32.exe", "cmd.exe", "powershell.exe")
 ```
@@ -478,6 +630,10 @@ process where process.name in ("regsvr32.exe", "cmd.exe", "powershell.exe")
 
 
 ### Rule 038
+
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-038
 
 ```python
 process where process.name in ("regsvr32.exe", "cmd.exe") or process.name == "powershell.exe"
@@ -493,6 +649,10 @@ process where process.name in ("regsvr32.exe", "cmd.exe") or process.name == "po
 
 ### Rule 039
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-039
+
 ```python
 process where event.type in ("start", "process_started") and process.args : "dump-keychain" and process.args : "-d"
 ```
@@ -506,6 +666,10 @@ process where event.type in ("start", "process_started") and process.args : "dum
 
 ### Rule 040
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-040
+
 ```python
 event.type:(start or process_started) and (process.args:"dump-keychain" and process.args:"-d")
 ```
@@ -518,6 +682,10 @@ event.type:(start or process_started) and (process.args:"dump-keychain" and proc
 
 
 ### Rule 041
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-041
 
 ```python
 sequence
@@ -534,6 +702,10 @@ sequence
 
 ### Rule 042
 
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-042
+
 ```python
 sequence by user.id
         [process where process.name : "cmd.exe"]
@@ -549,6 +721,10 @@ sequence by user.id
 
 ### Rule 043
 
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-043
+
 ```python
 sequence
         [process where process.name : "cmd.exe"] by user.id
@@ -563,6 +739,10 @@ sequence
 
 
 ### Rule 044
+
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-044
 
 ```python
 sequence
@@ -581,6 +761,10 @@ sequence
 
 ### Rule 045
 
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-045
+
 ```python
 sequence by user.id
         [process where process.name : "cmd.exe"]
@@ -597,6 +781,10 @@ sequence by user.id
 
 
 ### Rule 046
+
+Branch count: 4  
+Document count: 8  
+Index: detection-rules-ut-046
 
 ```python
 sequence
@@ -618,6 +806,10 @@ sequence
 
 
 ### Rule 047
+
+Branch count: 4  
+Document count: 8  
+Index: detection-rules-ut-047
 
 ```python
 sequence by user.id

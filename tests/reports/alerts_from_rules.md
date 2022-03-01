@@ -14,6 +14,10 @@ Curious about the inner workings? Read [here](signals_generation.md).
 
 ### AdminSDHolder Backdoor
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-598
+
 ```python
 event.action:"Directory Service Changes" and event.code:5136 and winlog.event_data.ObjectDN:CN=AdminSDHolder,CN=System*
 ```
@@ -25,6 +29,10 @@ event.action:"Directory Service Changes" and event.code:5136 and winlog.event_da
 
 
 ### Authorization Plugin Modification
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-292
 
 ```python
 event.category:file and not event.type:deletion and
@@ -40,6 +48,10 @@ event.category:file and not event.type:deletion and
 
 ### Azure AD Global Administrator Role Assigned
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-115
+
 ```python
 event.dataset:azure.auditlogs and azure.auditlogs.properties.category:RoleManagement and
 azure.auditlogs.operation_name:"Add member to role" and
@@ -54,6 +66,10 @@ azure.auditlogs.properties.target_resources.0.modified_properties.1.new_value:"\
 
 ### Azure External Guest User Invitation
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-110
+
 ```python
 event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Invite external user" and azure.auditlogs.properties.target_resources.*.display_name:guest and event.outcome:(Success or success)
 ```
@@ -66,6 +82,10 @@ event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Invite externa
 
 
 ### Azure Full Network Packet Capture Detected
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-086
 
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:
@@ -86,6 +106,10 @@ event.outcome:(Success or success)
 
 ### Azure Global Administrator Role Addition to PIM User
 
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-116
+
 ```python
 event.dataset:azure.auditlogs and azure.auditlogs.properties.category:RoleManagement and
     azure.auditlogs.operation_name:("Add eligible member to role in PIM completed (permanent)" or
@@ -105,6 +129,10 @@ event.dataset:azure.auditlogs and azure.auditlogs.properties.category:RoleManage
 
 ### GCP IAM Custom Role Creation
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-144
+
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin.v*.CreateRole and event.outcome:success
 ```
@@ -117,6 +145,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin
 
 
 ### GCP IAM Role Deletion
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-137
 
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin.v*.DeleteRole and event.outcome:success
@@ -131,6 +163,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin
 
 ### GCP IAM Service Account Key Deletion
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-145
+
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin.v*.DeleteServiceAccountKey and event.outcome:success
 ```
@@ -143,6 +179,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin
 
 
 ### GCP Logging Bucket Deletion
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-130
 
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.logging.v*.ConfigServiceV*.DeleteBucket and event.outcome:success
@@ -157,6 +197,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.logging.v
 
 ### GCP Logging Sink Deletion
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-131
+
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.logging.v*.ConfigServiceV*.DeleteSink and event.outcome:success
 ```
@@ -169,6 +213,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.logging.v
 
 
 ### GCP Logging Sink Modification
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-136
 
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.logging.v*.ConfigServiceV*.UpdateSink and event.outcome:success
@@ -183,6 +231,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.logging.v
 
 ### GCP Pub/Sub Subscription Creation
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-125
+
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.pubsub.v*.Subscriber.CreateSubscription and event.outcome:success
 ```
@@ -195,6 +247,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.pubsub.v*
 
 
 ### GCP Pub/Sub Subscription Deletion
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-132
 
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.pubsub.v*.Subscriber.DeleteSubscription and event.outcome:success
@@ -209,6 +265,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.pubsub.v*
 
 ### GCP Pub/Sub Topic Creation
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-126
+
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.pubsub.v*.Publisher.CreateTopic and event.outcome:success
 ```
@@ -221,6 +281,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.pubsub.v*
 
 
 ### GCP Pub/Sub Topic Deletion
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-133
 
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.pubsub.v*.Publisher.DeleteTopic and event.outcome:success
@@ -235,6 +299,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.pubsub.v*
 
 ### GCP Service Account Creation
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-147
+
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin.v*.CreateServiceAccount and event.outcome:success
 ```
@@ -247,6 +315,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin
 
 
 ### GCP Service Account Deletion
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-138
 
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin.v*.DeleteServiceAccount and event.outcome:success
@@ -261,6 +333,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin
 
 ### GCP Service Account Disabled
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-139
+
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin.v*.DisableServiceAccount and event.outcome:success
 ```
@@ -274,6 +350,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin
 
 ### GCP Service Account Key Creation
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-146
+
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin.v*.CreateServiceAccountKey and event.outcome:success
 ```
@@ -286,6 +366,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin
 
 
 ### LaunchDaemon Creation or Modification and Immediate Loading
+
+Branch count: 4  
+Document count: 8  
+Index: detection-rules-ut-291
 
 ```python
 sequence by host.id with maxspan=1m
@@ -308,6 +392,10 @@ sequence by host.id with maxspan=1m
 
 ### Persistence via DirectoryService Plugin Modification
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-294
+
 ```python
 event.category:file and not event.type:deletion and
   file.path:/Library/DirectoryServices/PlugIns/*.dsplug
@@ -320,6 +408,10 @@ event.category:file and not event.type:deletion and
 
 
 ### Persistence via Docker Shortcut Modification
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-295
 
 ```python
 event.category : file and event.action : modification and 
@@ -335,6 +427,10 @@ event.category : file and event.action : modification and
 
 ### Potential Persistence via Atom Init Script Modification
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-309
+
 ```python
 event.category:"file" and not event.type:"deletion" and
  file.path:/Users/*/.atom/init.coffee and not process.name:(Atom or xpcproxy) and not user.name:root
@@ -347,6 +443,10 @@ event.category:"file" and not event.type:"deletion" and
 
 
 ### Suspicious Calendar File Modification
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-308
 
 ```python
 event.category:file and event.action:modification and
@@ -372,6 +472,10 @@ event.category:file and event.action:modification and
 ## Rules with too few signals (1)
 
 ### File and Directory Discovery
+
+Branch count: 125  
+Document count: 375  
+Index: detection-rules-ut-518
 
 ```python
 sequence by agent.id, user.name with maxspan=1m
@@ -405,6 +509,10 @@ sequence by agent.id, user.name with maxspan=1m
 
 ### AWS Access Secret in Secrets Manager
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-031
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:secretsmanager.amazonaws.com and event.action:GetSecretValue
 ```
@@ -416,6 +524,10 @@ event.dataset:aws.cloudtrail and event.provider:secretsmanager.amazonaws.com and
 
 
 ### AWS CloudTrail Log Created
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-027
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and event.action:CreateTrail and event.outcome:success
@@ -429,6 +541,10 @@ event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and eve
 
 ### AWS CloudTrail Log Deleted
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-032
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and event.action:DeleteTrail and event.outcome:success
 ```
@@ -440,6 +556,10 @@ event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and eve
 
 
 ### AWS CloudTrail Log Suspended
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-033
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and event.action:StopLogging and event.outcome:success
@@ -453,6 +573,10 @@ event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and eve
 
 ### AWS CloudTrail Log Updated
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-051
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and event.action:UpdateTrail and event.outcome:success
 ```
@@ -464,6 +588,10 @@ event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and eve
 
 
 ### AWS CloudWatch Alarm Deletion
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-034
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:monitoring.amazonaws.com and event.action:DeleteAlarms and event.outcome:success
@@ -477,6 +605,10 @@ event.dataset:aws.cloudtrail and event.provider:monitoring.amazonaws.com and eve
 
 ### AWS CloudWatch Log Group Deletion
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-052
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:logs.amazonaws.com and event.action:DeleteLogGroup and event.outcome:success
 ```
@@ -489,6 +621,10 @@ event.dataset:aws.cloudtrail and event.provider:logs.amazonaws.com and event.act
 
 ### AWS CloudWatch Log Stream Deletion
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-053
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:logs.amazonaws.com and event.action:DeleteLogStream and event.outcome:success
 ```
@@ -500,6 +636,10 @@ event.dataset:aws.cloudtrail and event.provider:logs.amazonaws.com and event.act
 
 
 ### AWS Config Service Tampering
+
+Branch count: 9  
+Document count: 9  
+Index: detection-rules-ut-035
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:config.amazonaws.com and
@@ -524,6 +664,10 @@ event.dataset:aws.cloudtrail and event.provider:config.amazonaws.com and
 
 ### AWS Configuration Recorder Stopped
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-036
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:config.amazonaws.com and event.action:StopConfigurationRecorder and event.outcome:success
 ```
@@ -535,6 +679,10 @@ event.dataset:aws.cloudtrail and event.provider:config.amazonaws.com and event.a
 
 
 ### AWS EC2 Encryption Disabled
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-054
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.action:DisableEbsEncryptionByDefault and event.outcome:success
@@ -548,6 +696,10 @@ event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.acti
 
 ### AWS EC2 Flow Log Deletion
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-037
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.action:DeleteFlowLogs and event.outcome:success
 ```
@@ -559,6 +711,10 @@ event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.acti
 
 
 ### AWS EC2 Full Network Packet Capture Detected
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-045
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and 
@@ -577,6 +733,10 @@ event.outcome:success
 
 ### AWS EC2 Network Access Control List Creation
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-069
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.action:(CreateNetworkAcl or CreateNetworkAclEntry) and event.outcome:success
 ```
@@ -589,6 +749,10 @@ event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.acti
 
 
 ### AWS EC2 Network Access Control List Deletion
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-038
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.action:(DeleteNetworkAcl or DeleteNetworkAclEntry) and event.outcome:success
@@ -603,6 +767,10 @@ event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.acti
 
 ### AWS EC2 Snapshot Activity
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-046
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.action:ModifySnapshotAttribute
 ```
@@ -615,6 +783,10 @@ event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.acti
 
 ### AWS EC2 VM Export Failure
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-047
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.action:CreateInstanceExportTask and event.outcome:failure
 ```
@@ -626,6 +798,10 @@ event.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.acti
 
 
 ### AWS EFS File System or Mount Deleted
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-055
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:elasticfilesystem.amazonaws.com and 
@@ -641,6 +817,10 @@ event.action:(DeleteMountTarget or DeleteFileSystem) and event.outcome:success
 
 ### AWS ElastiCache Security Group Created
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-039
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:elasticache.amazonaws.com and event.action:"Create Cache Security Group" and 
 event.outcome:success
@@ -653,6 +833,10 @@ event.outcome:success
 
 
 ### AWS ElastiCache Security Group Modified or Deleted
+
+Branch count: 5  
+Document count: 5  
+Index: detection-rules-ut-040
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:elasticache.amazonaws.com and event.action:("Delete Cache Security Group" or 
@@ -672,6 +856,10 @@ event.dataset:aws.cloudtrail and event.provider:elasticache.amazonaws.com and ev
 
 ### AWS EventBridge Rule Disabled or Deleted
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-050
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:eventbridge.amazonaws.com and event.action:(DeleteRule or DisableRule) and 
 event.outcome:success
@@ -686,6 +874,10 @@ event.outcome:success
 
 ### AWS Execution via System Manager
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-063
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:ssm.amazonaws.com and event.action:SendCommand and event.outcome:success
 ```
@@ -697,6 +889,10 @@ event.dataset:aws.cloudtrail and event.provider:ssm.amazonaws.com and event.acti
 
 
 ### AWS GuardDuty Detector Deletion
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-041
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:guardduty.amazonaws.com and event.action:DeleteDetector and event.outcome:success
@@ -710,6 +906,10 @@ event.dataset:aws.cloudtrail and event.provider:guardduty.amazonaws.com and even
 
 ### AWS IAM Assume Role Policy Update
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-084
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.action:UpdateAssumeRolePolicy and event.outcome:success
 ```
@@ -721,6 +921,10 @@ event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.acti
 
 
 ### AWS IAM Deactivation of MFA Device
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-056
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.action:(DeactivateMFADevice or DeleteVirtualMFADevice) and event.outcome:success
@@ -735,6 +939,10 @@ event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.acti
 
 ### AWS IAM Group Creation
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-071
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.action:CreateGroup and event.outcome:success
 ```
@@ -746,6 +954,10 @@ event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.acti
 
 
 ### AWS IAM Group Deletion
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-057
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.action:DeleteGroup and event.outcome:success
@@ -759,6 +971,10 @@ event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.acti
 
 ### AWS IAM Password Recovery Requested
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-062
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:signin.amazonaws.com and event.action:PasswordRecoveryRequested and event.outcome:success
 ```
@@ -770,6 +986,10 @@ event.dataset:aws.cloudtrail and event.provider:signin.amazonaws.com and event.a
 
 
 ### AWS IAM User Addition to Group
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-029
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.action:AddUserToGroup and event.outcome:success
@@ -783,6 +1003,10 @@ event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.acti
 
 ### AWS Management Console Root Login
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-061
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:signin.amazonaws.com and event.action:ConsoleLogin and aws.cloudtrail.user_identity.type:Root and event.outcome:success
 ```
@@ -794,6 +1018,10 @@ event.dataset:aws.cloudtrail and event.provider:signin.amazonaws.com and event.a
 
 
 ### AWS RDS Cluster Creation
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-072
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.action:(CreateDBCluster or CreateGlobalCluster) and event.outcome:success
@@ -808,6 +1036,10 @@ event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.acti
 
 ### AWS RDS Cluster Deletion
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-058
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.action:(DeleteDBCluster or DeleteGlobalCluster) and event.outcome:success
 ```
@@ -821,6 +1053,10 @@ event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.acti
 
 ### AWS RDS Instance Creation
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-074
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.action:CreateDBInstance and event.outcome:success
 ```
@@ -832,6 +1068,10 @@ event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.acti
 
 
 ### AWS RDS Instance/Cluster Stoppage
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-060
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.action:(StopDBCluster or StopDBInstance) and event.outcome:success
@@ -846,6 +1086,10 @@ event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.acti
 
 ### AWS RDS Security Group Creation
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-073
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.action:CreateDBSecurityGroup and event.outcome:success
 ```
@@ -857,6 +1101,10 @@ event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.acti
 
 
 ### AWS RDS Security Group Deletion
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-059
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.action:DeleteDBSecurityGroup and event.outcome:success
@@ -870,6 +1118,10 @@ event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.acti
 
 ### AWS RDS Snapshot Export
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-048
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.action:StartExportTask and event.outcome:success
 ```
@@ -881,6 +1133,10 @@ event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.acti
 
 
 ### AWS RDS Snapshot Restored
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-049
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.action:RestoreDBInstanceFromDBSnapshot and
@@ -894,6 +1150,10 @@ event.outcome:success
 
 
 ### AWS Root Login Without MFA
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-081
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:signin.amazonaws.com and event.action:ConsoleLogin and
@@ -910,6 +1170,10 @@ event.dataset:aws.cloudtrail and event.provider:signin.amazonaws.com and event.a
 
 ### AWS Route 53 Domain Transfer Lock Disabled
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-075
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:route53.amazonaws.com and event.action:DisableDomainTransferLock and event.outcome:success
 ```
@@ -922,6 +1186,10 @@ event.dataset:aws.cloudtrail and event.provider:route53.amazonaws.com and event.
 
 ### AWS Route 53 Domain Transferred to Another Account
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-076
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:route53.amazonaws.com and event.action:TransferDomainToAnotherAwsAccount and event.outcome:success
 ```
@@ -933,6 +1201,10 @@ event.dataset:aws.cloudtrail and event.provider:route53.amazonaws.com and event.
 
 
 ### AWS Route Table Created
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-078
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and event.action:(CreateRoute or CreateRouteTable) and 
@@ -947,6 +1219,10 @@ event.outcome:success
 
 
 ### AWS Route Table Modified or Deleted
+
+Branch count: 5  
+Document count: 5  
+Index: detection-rules-ut-079
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and event.action:(ReplaceRoute or ReplaceRouteTableAssociation or
@@ -965,6 +1241,10 @@ DeleteRouteTable or DeleteRoute or DisassociateRouteTable) and event.outcome:suc
 
 ### AWS Route53 private hosted zone associated with a VPC
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-077
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:route53.amazonaws.com and event.action:AssociateVPCWithHostedZone and 
 event.outcome:success
@@ -977,6 +1257,10 @@ event.outcome:success
 
 
 ### AWS S3 Bucket Configuration Deletion
+
+Branch count: 5  
+Document count: 5  
+Index: detection-rules-ut-042
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:s3.amazonaws.com and
@@ -997,6 +1281,10 @@ event.dataset:aws.cloudtrail and event.provider:s3.amazonaws.com and
 
 ### AWS SAML Activity
 
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-080
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:(iam.amazonaws.com or sts.amazonaws.com) and event.action:(Assumerolewithsaml or 
 UpdateSAMLProvider) and event.outcome:success
@@ -1013,6 +1301,10 @@ UpdateSAMLProvider) and event.outcome:success
 
 ### AWS STS GetSessionToken Abuse
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-083
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:sts.amazonaws.com and event.action:GetSessionToken and 
 aws.cloudtrail.user_identity.type:IAMUser and event.outcome:success
@@ -1025,6 +1317,10 @@ aws.cloudtrail.user_identity.type:IAMUser and event.outcome:success
 
 
 ### AWS Security Group Configuration Change Detection
+
+Branch count: 6  
+Document count: 6  
+Index: detection-rules-ut-070
 
 ```python
 event.dataset:aws.cloudtrail and event.provider:iam.amazonaws.com and event.action:(AuthorizeSecurityGroupEgress or 
@@ -1045,6 +1341,10 @@ RevokeSecurityGroupIngress) and event.outcome:success
 
 ### AWS Security Token Service (STS) AssumeRole Usage
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-082
+
 ```python
 event.dataset:aws.cloudtrail and event.provider:sts.amazonaws.com and event.action:AssumedRole and 
 aws.cloudtrail.user_identity.session_context.session_issuer.type:Role and event.outcome:success
@@ -1058,6 +1358,10 @@ aws.cloudtrail.user_identity.session_context.session_issuer.type:Role and event.
 
 ### AWS WAF Access Control List Deletion
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-043
+
 ```python
 event.dataset:aws.cloudtrail and event.action:DeleteWebACL and event.outcome:success
 ```
@@ -1069,6 +1373,10 @@ event.dataset:aws.cloudtrail and event.action:DeleteWebACL and event.outcome:suc
 
 
 ### AWS WAF Rule or Rule Group Deletion
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-044
 
 ```python
 event.dataset:aws.cloudtrail and event.action:(DeleteRule or DeleteRuleGroup) and event.outcome:success
@@ -1082,6 +1390,10 @@ event.dataset:aws.cloudtrail and event.action:(DeleteRule or DeleteRuleGroup) an
 
 
 ### Abnormally Large DNS Response
+
+Branch count: 6  
+Document count: 6  
+Index: detection-rules-ut-581
 
 ```python
 event.category:(network or network_traffic) and destination.port:53 and
@@ -1100,6 +1412,10 @@ event.category:(network or network_traffic) and destination.port:53 and
 
 
 ### Access of Stored Browser Credentials
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-255
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -1128,6 +1444,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Access to Keychain Credentials Directories
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-256
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -1162,6 +1482,10 @@ process where event.type in ("start", "process_started") and
 
 ### Account Password Reset Remotely
 
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-616
+
 ```python
 sequence by host.id with maxspan=5m
   [authentication where event.action == "logged-in" and
@@ -1180,6 +1504,10 @@ sequence by host.id with maxspan=5m
 
 
 ### AdFind Command Activity
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-516
 
 ```python
 process where event.type in ("start", "process_started") and 
@@ -1204,6 +1532,10 @@ process where event.type in ("start", "process_started") and
 
 ### Adding Hidden File Attribute via Attrib
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-439
+
 ```python
 process where event.type in ("start", "process_started") and
   process.name : "attrib.exe" and process.args : "+h"
@@ -1218,6 +1550,10 @@ process where event.type in ("start", "process_started") and
 
 ### Administrator Privileges Assigned to an Okta Group
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-212
+
 ```python
 event.dataset:okta.system and event.action:group.privilege.grant
 ```
@@ -1230,6 +1566,10 @@ event.dataset:okta.system and event.action:group.privilege.grant
 
 ### Administrator Role Assigned to an Okta User
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-213
+
 ```python
 event.dataset:okta.system and event.action:user.account.privilege.grant
 ```
@@ -1241,6 +1581,10 @@ event.dataset:okta.system and event.action:user.account.privilege.grant
 
 
 ### Adobe Hijack Persistence
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-599
 
 ```python
 file where event.type == "creation" and
@@ -1257,6 +1601,10 @@ file where event.type == "creation" and
 
 ### Adversary Behavior - Detected - Elastic Endgame
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-376
+
 ```python
 event.kind:alert and event.module:endgame and (event.action:rules_engine_event or endgame.event_subtype_full:rules_engine_event)
 ```
@@ -1270,6 +1618,10 @@ event.kind:alert and event.module:endgame and (event.action:rules_engine_event o
 
 ### Agent Spoofing - Mismatched Agent ID
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-005
+
 ```python
 event.agent_id_status:agent_id_mismatch
 ```
@@ -1281,6 +1633,10 @@ event.agent_id_status:agent_id_mismatch
 
 
 ### Apple Script Execution followed by Network Connection
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-281
 
 ```python
 sequence by host.id, process.entity_id with maxspan=30s
@@ -1302,6 +1658,10 @@ sequence by host.id, process.entity_id with maxspan=30s
 
 ### Application Added to Google Workspace Domain
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-149
+
 ```python
 event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:ADD_APPLICATION
 ```
@@ -1313,6 +1673,10 @@ event.dataset:google_workspace.admin and event.provider:admin and event.category
 
 
 ### Attempt to Create Okta API Token
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-214
 
 ```python
 event.dataset:okta.system and event.action:system.api_token.create
@@ -1326,6 +1690,10 @@ event.dataset:okta.system and event.action:system.api_token.create
 
 ### Attempt to Deactivate MFA for an Okta User Account
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-215
+
 ```python
 event.dataset:okta.system and event.action:user.mfa.factor.deactivate
 ```
@@ -1337,6 +1705,10 @@ event.dataset:okta.system and event.action:user.mfa.factor.deactivate
 
 
 ### Attempt to Deactivate an Okta Application
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-200
 
 ```python
 event.dataset:okta.system and event.action:application.lifecycle.deactivate
@@ -1350,6 +1722,10 @@ event.dataset:okta.system and event.action:application.lifecycle.deactivate
 
 ### Attempt to Deactivate an Okta Network Zone
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-189
+
 ```python
 event.dataset:okta.system and event.action:zone.deactivate
 ```
@@ -1361,6 +1737,10 @@ event.dataset:okta.system and event.action:zone.deactivate
 
 
 ### Attempt to Deactivate an Okta Policy
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-201
 
 ```python
 event.dataset:okta.system and event.action:policy.lifecycle.deactivate
@@ -1374,6 +1754,10 @@ event.dataset:okta.system and event.action:policy.lifecycle.deactivate
 
 ### Attempt to Deactivate an Okta Policy Rule
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-202
+
 ```python
 event.dataset:okta.system and event.action:policy.rule.deactivate
 ```
@@ -1385,6 +1769,10 @@ event.dataset:okta.system and event.action:policy.rule.deactivate
 
 
 ### Attempt to Delete an Okta Application
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-203
 
 ```python
 event.dataset:okta.system and event.action:application.lifecycle.delete
@@ -1398,6 +1786,10 @@ event.dataset:okta.system and event.action:application.lifecycle.delete
 
 ### Attempt to Delete an Okta Network Zone
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-190
+
 ```python
 event.dataset:okta.system and event.action:zone.delete
 ```
@@ -1409,6 +1801,10 @@ event.dataset:okta.system and event.action:zone.delete
 
 
 ### Attempt to Delete an Okta Policy
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-204
 
 ```python
 event.dataset:okta.system and event.action:policy.lifecycle.delete
@@ -1422,6 +1818,10 @@ event.dataset:okta.system and event.action:policy.lifecycle.delete
 
 ### Attempt to Delete an Okta Policy Rule
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-205
+
 ```python
 event.dataset:okta.system and event.action:policy.rule.delete
 ```
@@ -1433,6 +1833,10 @@ event.dataset:okta.system and event.action:policy.rule.delete
 
 
 ### Attempt to Disable Gatekeeper
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-267
 
 ```python
 event.category:process and event.type:(start or process_started) and 
@@ -1447,6 +1851,10 @@ event.category:process and event.type:(start or process_started) and
 
 
 ### Attempt to Disable IPTables or Firewall
+
+Branch count: 21  
+Document count: 21  
+Index: detection-rules-ut-221
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -1475,6 +1883,10 @@ event.category:process and event.type:(start or process_started) and
 
 ### Attempt to Disable Syslog Service
 
+Branch count: 30  
+Document count: 30  
+Index: detection-rules-ut-222
+
 ```python
 event.category:process and event.type:(start or process_started) and
   ((process.name:service and process.args:stop) or
@@ -1500,6 +1912,10 @@ event.category:process and event.type:(start or process_started) and
 
 ### Attempt to Enable the Root Account
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-298
+
 ```python
 event.category:process and event.type:(start or process_started) and
  process.name:dsenableroot and not process.args:"-d"
@@ -1513,6 +1929,10 @@ event.category:process and event.type:(start or process_started) and
 
 
 ### Attempt to Install Root Certificate
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-268
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -1528,6 +1948,10 @@ event.category:process and event.type:(start or process_started) and
 
 ### Attempt to Modify an Okta Application
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-206
+
 ```python
 event.dataset:okta.system and event.action:application.lifecycle.update
 ```
@@ -1539,6 +1963,10 @@ event.dataset:okta.system and event.action:application.lifecycle.update
 
 
 ### Attempt to Modify an Okta Network Zone
+
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-207
 
 ```python
 event.dataset:okta.system and event.action:(zone.update or network_zone.rule.disabled or zone.remove_blacklist)
@@ -1554,6 +1982,10 @@ event.dataset:okta.system and event.action:(zone.update or network_zone.rule.dis
 
 ### Attempt to Modify an Okta Policy
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-208
+
 ```python
 event.dataset:okta.system and event.action:policy.lifecycle.update
 ```
@@ -1565,6 +1997,10 @@ event.dataset:okta.system and event.action:policy.lifecycle.update
 
 
 ### Attempt to Modify an Okta Policy Rule
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-209
 
 ```python
 event.dataset:okta.system and event.action:policy.rule.update
@@ -1578,6 +2014,10 @@ event.dataset:okta.system and event.action:policy.rule.update
 
 ### Attempt to Reset MFA Factors for an Okta User Account
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-216
+
 ```python
 event.dataset:okta.system and event.action:user.mfa.factor.reset_all
 ```
@@ -1590,6 +2030,10 @@ event.dataset:okta.system and event.action:user.mfa.factor.reset_all
 
 ### Attempt to Revoke Okta API Token
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-196
+
 ```python
 event.dataset:okta.system and event.action:system.api_token.revoke
 ```
@@ -1601,6 +2045,10 @@ event.dataset:okta.system and event.action:system.api_token.revoke
 
 
 ### Attempt to Unload Elastic Endpoint Security Kernel Extension
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-275
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -1618,6 +2066,10 @@ event.category:process and event.type:(start or process_started) and
 
 ### Attempted Bypass of Okta MFA
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-191
+
 ```python
 event.dataset:okta.system and event.action:user.mfa.attempt_bypass
 ```
@@ -1629,6 +2081,10 @@ event.dataset:okta.system and event.action:user.mfa.attempt_bypass
 
 
 ### Auditd Login Attempt at Forbidden Time
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-241
 
 ```python
 event.module:auditd and event.action:"attempted-log-in-during-unusual-hour-to"
@@ -1642,6 +2098,10 @@ event.module:auditd and event.action:"attempted-log-in-during-unusual-hour-to"
 
 ### Auditd Login from Forbidden Location
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-239
+
 ```python
 event.module:auditd and event.action:"attempted-log-in-from-unusual-place-to"
 ```
@@ -1653,6 +2113,10 @@ event.module:auditd and event.action:"attempted-log-in-from-unusual-place-to"
 
 
 ### Auditd Max Failed Login Attempts
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-238
 
 ```python
 event.module:auditd and event.action:"failed-log-in-too-many-times-to"
@@ -1666,6 +2130,10 @@ event.module:auditd and event.action:"failed-log-in-too-many-times-to"
 
 ### Auditd Max Login Sessions
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-240
+
 ```python
 event.module:auditd and event.action:"opened-too-many-sessions-to"
 ```
@@ -1677,6 +2145,10 @@ event.module:auditd and event.action:"opened-too-many-sessions-to"
 
 
 ### Azure Active Directory High Risk Sign-in
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-106
 
 ```python
 event.dataset:azure.signinlogs and
@@ -1695,6 +2167,10 @@ event.dataset:azure.signinlogs and
 
 ### Azure Active Directory High Risk User Sign-in Heuristic
 
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-107
+
 ```python
 event.dataset:azure.signinlogs and
   azure.signinlogs.properties.risk_state:("confirmedCompromised" or "atRisk") and event.outcome:(success or Success)
@@ -1711,6 +2187,10 @@ event.dataset:azure.signinlogs and
 
 ### Azure Active Directory PowerShell Sign-in
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-108
+
 ```python
 event.dataset:azure.signinlogs and
   azure.signinlogs.properties.app_display_name:"Azure Active Directory PowerShell" and
@@ -1726,6 +2206,10 @@ event.dataset:azure.signinlogs and
 
 ### Azure Alert Suppression Rule Created or Modified
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-098
+
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.SECURITY/ALERTSSUPPRESSIONRULES/WRITE" and 
 event.outcome: "success"
@@ -1738,6 +2222,10 @@ event.outcome: "success"
 
 
 ### Azure Application Credential Modification
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-089
 
 ```python
 event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Update application - Certificates and secrets management" and event.outcome:(success or Success)
@@ -1752,6 +2240,10 @@ event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Update applica
 
 ### Azure Automation Account Created
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-111
+
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/WRITE" and event.outcome:(Success or success)
 ```
@@ -1764,6 +2256,10 @@ event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOF
 
 
 ### Azure Automation Runbook Created or Modified
+
+Branch count: 6  
+Document count: 6  
+Index: detection-rules-ut-112
 
 ```python
 event.dataset:azure.activitylogs and
@@ -1789,6 +2285,10 @@ event.dataset:azure.activitylogs and
 
 ### Azure Automation Runbook Deleted
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-101
+
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/RUNBOOKS/DELETE" and event.outcome:(Success or success)
 ```
@@ -1801,6 +2301,10 @@ event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOF
 
 
 ### Azure Automation Webhook Created
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-113
 
 ```python
 event.dataset:azure.activitylogs and
@@ -1823,6 +2327,10 @@ event.dataset:azure.activitylogs and
 
 ### Azure Blob Container Access Level Modification
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-099
+
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.STORAGE/STORAGEACCOUNTS/BLOBSERVICES/CONTAINERS/WRITE" and event.outcome:(Success or success)
 ```
@@ -1835,6 +2343,10 @@ event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOF
 
 
 ### Azure Blob Permissions Modification
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-090
 
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:(
@@ -1854,6 +2366,10 @@ event.dataset:azure.activitylogs and azure.activitylogs.operation_name:(
 
 ### Azure Command Execution on Virtual Machine
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-100
+
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.COMPUTE/VIRTUALMACHINES/RUNCOMMAND/ACTION" and event.outcome:(Success or success)
 ```
@@ -1866,6 +2382,10 @@ event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOF
 
 
 ### Azure Conditional Access Policy Modified
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-114
 
 ```python
 event.dataset:(azure.activitylogs or azure.auditlogs) and
@@ -1883,6 +2403,10 @@ event.action:"Update conditional access policy" and event.outcome:(Success or su
 
 ### Azure Diagnostic Settings Deletion
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-091
+
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.INSIGHTS/DIAGNOSTICSETTINGS/DELETE" and event.outcome:(Success or success)
 ```
@@ -1895,6 +2419,10 @@ event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOF
 
 
 ### Azure Event Hub Authorization Rule Created or Updated
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-085
 
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.EVENTHUB/NAMESPACES/AUTHORIZATIONRULES/WRITE" and event.outcome:(Success or success)
@@ -1909,6 +2437,10 @@ event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOF
 
 ### Azure Event Hub Deletion
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-093
+
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.EVENTHUB/NAMESPACES/EVENTHUBS/DELETE" and event.outcome:(Success or success)
 ```
@@ -1921,6 +2453,10 @@ event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOF
 
 
 ### Azure Firewall Policy Deletion
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-094
 
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.NETWORK/FIREWALLPOLICIES/DELETE" and event.outcome:(Success or success)
@@ -1935,6 +2471,10 @@ event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOF
 
 ### Azure Frontdoor Web Application Firewall (WAF) Policy Deleted
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-095
+
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.NETWORK/FRONTDOORWEBAPPLICATIONFIREWALLPOLICIES/DELETE" and event.outcome:(Success or success)
 ```
@@ -1948,6 +2488,10 @@ event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOF
 
 ### Azure Key Vault Modified
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-087
+
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.KEYVAULT/VAULTS/WRITE" and event.outcome:(Success or success)
 ```
@@ -1960,6 +2504,10 @@ event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOF
 
 
 ### Azure Kubernetes Events Deleted
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-096
 
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/EVENTS.K8S.IO/EVENTS/DELETE" and 
@@ -1975,6 +2523,10 @@ event.outcome:(Success or success)
 
 ### Azure Kubernetes Pods Deleted
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-103
+
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/PODS/DELETE" and 
 event.outcome:(Success or success)
@@ -1988,6 +2540,10 @@ event.outcome:(Success or success)
 
 
 ### Azure Kubernetes Rolebindings Created
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-121
 
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:
@@ -2007,6 +2563,10 @@ event.outcome:(Success or success)
 
 ### Azure Network Watcher Deletion
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-097
+
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.NETWORK/NETWORKWATCHERS/DELETE" and event.outcome:(Success or success)
 ```
@@ -2019,6 +2579,10 @@ event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOF
 
 
 ### Azure Privilege Identity Management Role Modified
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-117
 
 ```python
 event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Update role setting in PIM" and event.outcome:(Success or success)
@@ -2033,6 +2597,10 @@ event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Update role se
 
 ### Azure Resource Group Deletion
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-104
+
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.RESOURCES/SUBSCRIPTIONS/RESOURCEGROUPS/DELETE" and event.outcome:(Success or success)
 ```
@@ -2045,6 +2613,10 @@ event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOF
 
 
 ### Azure Service Principal Addition
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-092
 
 ```python
 event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Add service principal" and event.outcome:(success or Success)
@@ -2059,6 +2631,10 @@ event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Add service pr
 
 ### Azure Service Principal Credentials Added
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-102
+
 ```python
 event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Add service principal credentials" and event.outcome:(success or Success)
 ```
@@ -2072,6 +2648,10 @@ event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Add service pr
 
 ### Azure Storage Account Key Regenerated
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-088
+
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.STORAGE/STORAGEACCOUNTS/REGENERATEKEY/ACTION" and event.outcome:(Success or success)
 ```
@@ -2084,6 +2664,10 @@ event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOF
 
 
 ### Azure Virtual Network Device Modified or Deleted
+
+Branch count: 22  
+Document count: 22  
+Index: detection-rules-ut-105
 
 ```python
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:("MICROSOFT.NETWORK/NETWORKINTERFACES/TAPCONFIGURATIONS/WRITE" or
@@ -2112,6 +2696,10 @@ event.outcome:(Success or success)
 
 ### Base16 or Base32 Encoding/Decoding Activity
 
+Branch count: 8  
+Document count: 8  
+Index: detection-rules-ut-224
+
 ```python
 event.category:process and event.type:(start or process_started) and
   process.name:(base16 or base32 or base32plain or base32hex)
@@ -2131,6 +2719,10 @@ event.category:process and event.type:(start or process_started) and
 
 
 ### Bash Shell Profile Modification
+
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-019
 
 ```python
 event.category:file and event.type:change and
@@ -2169,6 +2761,10 @@ event.category:file and event.type:change and
 
 ### Bypass UAC via Event Viewer
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-663
+
 ```python
 process where event.type in ("start", "process_started") and
   process.parent.name : "eventvwr.exe" and
@@ -2187,6 +2783,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Bypass UAC via Sdclt
+
+Branch count: 4  
+Document count: 8  
+Index: detection-rules-ut-666
 
 ```python
 /* add winlogbeat-* when process.code_signature.* fields are populated */
@@ -2221,6 +2821,10 @@ sequence with maxspan=1m
 
 ### Clearing Windows Console History
 
+Branch count: 6  
+Document count: 6  
+Index: detection-rules-ut-441
+
 ```python
 process where event.action == "start" and
   (process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") or process.pe.original_file_name == "PowerShell.EXE") and
@@ -2242,6 +2846,10 @@ process where event.action == "start" and
 
 ### Clearing Windows Event Logs
 
+Branch count: 5  
+Document count: 5  
+Index: detection-rules-ut-442
+
 ```python
 process where event.type in ("process_started", "start") and
   (process.name : "wevtutil.exe" or process.pe.original_file_name == "wevtutil.exe") and
@@ -2260,6 +2868,10 @@ process where event.type in ("process_started", "start") and
 
 
 ### Command Execution via SolarWinds Process
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-528
 
 ```python
 process where event.type in ("start", "process_started") and process.name: ("cmd.exe", "powershell.exe") and
@@ -2282,6 +2894,10 @@ process.parent.name: (
 
 ### Command Prompt Network Connection
 
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-531
+
 ```python
 sequence by process.entity_id
   [process where process.name : "cmd.exe" and event.type == "start"]
@@ -2303,6 +2919,10 @@ sequence by process.entity_id
 
 ### Conhost Spawned By Suspicious Parent Process
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-556
+
 ```python
 process where event.type in ("start", "process_started") and
   process.name : "conhost.exe" and
@@ -2319,6 +2939,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Connection to Commonly Abused Free SSL Certificate Providers
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-400
 
 ```python
 network where network.protocol == "dns" and
@@ -2344,6 +2968,10 @@ network where network.protocol == "dns" and
 
 
 ### Connection to Commonly Abused Web Services
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-398
 
 ```python
 network where network.protocol == "dns" and
@@ -2406,6 +3034,10 @@ network where network.protocol == "dns" and
 
 ### Connection to External Network via Telnet
 
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-242
+
 ```python
 sequence by process.entity_id
   [process where process.name == "telnet" and event.type == "start"]
@@ -2426,6 +3058,10 @@ sequence by process.entity_id
 
 
 ### Connection to Internal Network via Telnet
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-243
 
 ```python
 sequence by process.entity_id
@@ -2448,6 +3084,10 @@ sequence by process.entity_id
 
 ### Creation of Hidden Launch Agent or Daemon
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-299
+
 ```python
 file where event.type != "deletion" and
   file.path : 
@@ -2468,6 +3108,10 @@ file where event.type != "deletion" and
 
 ### Creation of a Hidden Local User Account
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-603
+
 ```python
 registry where registry.path : "HKLM\\SAM\\SAM\\Domains\\Account\\Users\\Names\\*$\\"
 ```
@@ -2479,6 +3123,10 @@ registry where registry.path : "HKLM\\SAM\\SAM\\Domains\\Account\\Users\\Names\\
 
 
 ### Creation of a local user account
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-631
 
 ```python
 event.module:security and event.code:4720
@@ -2492,6 +3140,10 @@ event.module:security and event.code:4720
 
 ### Creation or Modification of Domain Backup DPAPI private key
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-415
+
 ```python
 file where event.type != "deletion" and file.name : ("ntds_capi_*.pfx", "ntds_capi_*.pvk")
 ```
@@ -2503,6 +3155,10 @@ file where event.type != "deletion" and file.name : ("ntds_capi_*.pfx", "ntds_ca
 
 
 ### Creation or Modification of Root Certificate
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-445
 
 ```python
 registry where event.type in ("creation", "change") and
@@ -2524,6 +3180,10 @@ registry where event.type in ("creation", "change") and
 
 ### Creation or Modification of a new GPO Scheduled Task or Service
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-606
+
 ```python
 file where event.type != "deletion" and
   file.path : ("?:\\Windows\\SYSVOL\\domain\\Policies\\*\\MACHINE\\Preferences\\ScheduledTasks\\ScheduledTasks.xml",
@@ -2538,6 +3198,10 @@ file where event.type != "deletion" and
 
 
 ### Credential Acquisition via Registry Hive Dumping
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-416
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -2555,6 +3219,10 @@ process where event.type in ("start", "process_started") and
 
 ### Credential Dumping - Detected - Elastic Endgame
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-377
+
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:detection and (event.action:cred_theft_event or endgame.event_subtype_full:cred_theft_event)
 ```
@@ -2567,6 +3235,10 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:detection an
 
 
 ### Credential Dumping - Prevented - Elastic Endgame
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-378
 
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:prevention and (event.action:cred_theft_event or endgame.event_subtype_full:cred_theft_event)
@@ -2581,6 +3253,10 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:prevention a
 
 ### Credential Manipulation - Detected - Elastic Endgame
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-379
+
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:detection and (event.action:token_manipulation_event or endgame.event_subtype_full:token_manipulation_event)
 ```
@@ -2593,6 +3269,10 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:detection an
 
 
 ### Credential Manipulation - Prevented - Elastic Endgame
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-380
 
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:prevention and (event.action:token_manipulation_event or endgame.event_subtype_full:token_manipulation_event)
@@ -2607,6 +3287,10 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:prevention a
 
 ### CyberArk Privileged Access Security Error
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-122
+
 ```python
 event.dataset:cyberarkpas.audit and event.type:error
 ```
@@ -2618,6 +3302,10 @@ event.dataset:cyberarkpas.audit and event.type:error
 
 
 ### CyberArk Privileged Access Security Recommended Monitor
+
+Branch count: 20  
+Document count: 20  
+Index: detection-rules-ut-123
 
 ```python
 event.dataset:cyberarkpas.audit and
@@ -2642,6 +3330,10 @@ event.dataset:cyberarkpas.audit and
 
 
 ### DNS Activity to the Internet
+
+Branch count: 24  
+Document count: 24  
+Index: detection-rules-ut-362
 
 ```python
 event.category:(network or network_traffic) and (event.type:connection or type:dns) and (destination.port:53 or event.dataset:zeek.dns)
@@ -2697,6 +3389,10 @@ event.category:(network or network_traffic) and (event.type:connection or type:d
 
 ### Default Cobalt Strike Team Server Certificate
 
+Branch count: 6  
+Document count: 6  
+Index: detection-rules-ut-361
+
 ```python
 event.category:(network or network_traffic) and (tls.server.hash.md5:950098276A495286EB2A2556FBAB6D83 or
   tls.server.hash.sha1:6ECE5ECE4192683D2D84E25B0BA7E04F9CB7EB7C or
@@ -2716,6 +3412,10 @@ event.category:(network or network_traffic) and (tls.server.hash.md5:950098276A4
 
 ### Delete Volume USN Journal with Fsutil
 
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-449
+
 ```python
 process where event.type in ("start", "process_started") and
   (process.name : "fsutil.exe" or process.pe.original_file_name == "fsutil.exe") and 
@@ -2732,6 +3432,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Deleting Backup Catalogs with Wbadmin
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-559
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -2750,6 +3454,10 @@ process where event.type in ("start", "process_started") and
 
 ### Direct Outbound SMB Connection
 
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-580
+
 ```python
 sequence by process.entity_id
   [process where event.type == "start" and process.pid != 4]
@@ -2765,6 +3473,10 @@ sequence by process.entity_id
 
 
 ### Disable Windows Event and Security Logs Using Built-in Tools
+
+Branch count: 10  
+Document count: 10  
+Index: detection-rules-ut-453
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -2796,6 +3508,10 @@ process where event.type in ("start", "process_started") and
 
 ### Disable Windows Firewall Rules via Netsh
 
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-451
+
 ```python
 process where event.type in ("start", "process_started") and
   process.name : "netsh.exe" and
@@ -2812,6 +3528,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Disabling Windows Defender Security Settings via PowerShell
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-452
 
 ```python
 process where event.type == "start" and
@@ -2830,6 +3550,10 @@ process where event.type == "start" and
 
 ### Domain Added to Google Workspace Trusted Domains
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-150
+
 ```python
 event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:ADD_TRUSTED_DOMAINS
 ```
@@ -2841,6 +3565,10 @@ event.dataset:google_workspace.admin and event.provider:admin and event.category
 
 
 ### Downloaded Shortcut Files
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-535
 
 ```python
 /* leaving in development pending `file.Ext.windows.zone_identifier` landing in ECS then endpoint */
@@ -2863,6 +3591,10 @@ sequence by process.entity_id with maxspan=2s
 
 ### Downloaded URL Files
 
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-536
+
 ```python
 /* leaving in development pending `file.Ext.windows.zone_identifier` landing in ECS then endpoint */
 
@@ -2883,6 +3615,10 @@ sequence by process.entity_id with maxspan=2s
 
 ### Dumping Account Hashes via Built-In Commands
 
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-257
+
 ```python
 event.category:process and event.type:start and
  process.name:(defaults or mkpassdb) and process.args:(ShadowHashData or "-dump")
@@ -2899,6 +3635,10 @@ event.category:process and event.type:start and
 
 ### Dumping of Keychain Content via Security Command
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-258
+
 ```python
 process where event.type in ("start", "process_started") and process.args : "dump-keychain" and process.args : "-d"
 ```
@@ -2911,6 +3651,10 @@ process where event.type in ("start", "process_started") and process.args : "dum
 
 
 ### EggShell Backdoor Execution
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-011
 
 ```python
 event.category:process and event.type:(start or process_started) and process.name:espl and process.args:eyJkZWJ1ZyI6*
@@ -2925,6 +3669,10 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 ### Emond Rules Creation or Modification
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-296
+
 ```python
 file where event.type != "deletion" and
  file.path : ("/private/etc/emond.d/rules/*.plist", "/etc/emon.d/rules/*.plist")
@@ -2937,6 +3685,10 @@ file where event.type != "deletion" and
 
 
 ### Enable Host Network Discovery via Netsh
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-457
 
 ```python
 process where event.type == "start" and
@@ -2951,6 +3703,10 @@ process.args : ("firewall", "advfirewall") and process.args : "group=Network Dis
 
 
 ### Encrypting Files with WinRar or 7z
+
+Branch count: 8  
+Document count: 8  
+Index: detection-rules-ut-396
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -2981,6 +3737,10 @@ process where event.type in ("start", "process_started") and
 
 ### Endpoint Security
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-124
+
 ```python
 event.kind:alert and event.module:(endpoint and not endgame)
 ```
@@ -2992,6 +3752,10 @@ event.kind:alert and event.module:(endpoint and not endgame)
 
 
 ### Enumeration Command Spawned via WMIPrvSE
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-537
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -3032,6 +3796,10 @@ process where event.type in ("start", "process_started") and
 
 ### Enumeration of Administrator Accounts
 
+Branch count: 10  
+Document count: 10  
+Index: detection-rules-ut-517
+
 ```python
 process where event.type in ("start", "process_started") and
   (((process.name : "net.exe" or process.pe.original_file_name == "net.exe") or
@@ -3064,6 +3832,10 @@ process where event.type in ("start", "process_started") and
 
 ### Enumeration of Kernel Modules
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-234
+
 ```python
 event.category:process and event.type:(start or process_started) and
   process.args:(kmod and list and sudo or sudo and (depmod or lsmod or modinfo))
@@ -3077,6 +3849,10 @@ event.category:process and event.type:(start or process_started) and
 
 
 ### Enumeration of Privileged Local Groups Membership
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-524
 
 ```python
 iam where event.action == "user-member-enumerated" and
@@ -3113,6 +3889,10 @@ iam where event.action == "user-member-enumerated" and
 
 ### Enumeration of Users or Groups via Built-in Commands
 
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-276
+
 ```python
 process where event.type in ("start", "process_started") and
   not process.parent.executable : ("/Applications/NoMAD.app/Contents/MacOS/NoMAD", 
@@ -3137,6 +3917,10 @@ process where event.type in ("start", "process_started") and
 
 ### Execution of COM object via Xwizard
 
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-530
+
 ```python
 process where event.type in ("start", "process_started") and
  process.pe.original_file_name : "xwizard.exe" and
@@ -3158,6 +3942,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Execution of File Written or Modified by Microsoft Office
+
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-541
 
 ```python
 sequence with maxspan=2h
@@ -3184,6 +3972,10 @@ sequence with maxspan=2h
 
 
 ### Execution of File Written or Modified by PDF Reader
+
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-542
 
 ```python
 sequence with maxspan=2h
@@ -3212,6 +4004,10 @@ sequence with maxspan=2h
 
 
 ### Execution of Persistent Suspicious Program
+
+Branch count: 72  
+Document count: 216  
+Index: detection-rules-ut-618
 
 ```python
 /* userinit followed by explorer followed by early child process of explorer (unlikely to be launched interactively) within 1m */
@@ -3251,6 +4047,10 @@ sequence by host.id, user.name with maxspan=1m
 
 ### Execution via Electron Child Process Node.js Module
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-277
+
 ```python
 event.category:process and event.type:(start or process_started) and process.args:("-e" and const*require*child_process*)
 ```
@@ -3263,6 +4063,10 @@ event.category:process and event.type:(start or process_started) and process.arg
 
 
 ### Execution via MSSQL xp_cmdshell Stored Procedure
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-557
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -3278,6 +4082,10 @@ process where event.type in ("start", "process_started") and
 
 ### Execution via TSClient Mountpoint
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-584
+
 ```python
 process where event.type in ("start", "process_started") and process.executable : "\\Device\\Mup\\tsclient\\*.exe"
 ```
@@ -3291,6 +4099,10 @@ process where event.type in ("start", "process_started") and process.executable 
 
 ### Execution via local SxS Shared Module
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-548
+
 ```python
 file where file.extension : "dll" and file.path : "C:\\*\\*.exe.local\\*.dll"
 ```
@@ -3302,6 +4114,10 @@ file where file.extension : "dll" and file.path : "C:\\*\\*.exe.local\\*.dll"
 
 
 ### Execution with Explicit Credentials via Scripting
+
+Branch count: 18  
+Document count: 18  
+Index: detection-rules-ut-311
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -3326,6 +4142,10 @@ event.category:process and event.type:(start or process_started) and
 
 ### Exploit - Detected - Elastic Endgame
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-381
+
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:detection and (event.action:exploit_event or endgame.event_subtype_full:exploit_event)
 ```
@@ -3339,6 +4159,10 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:detection an
 
 ### Exploit - Prevented - Elastic Endgame
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-382
+
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:prevention and (event.action:exploit_event or endgame.event_subtype_full:exploit_event)
 ```
@@ -3351,6 +4175,10 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:prevention a
 
 
 ### Exporting Exchange Mailbox via PowerShell
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-392
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -3366,6 +4194,10 @@ process where event.type in ("start", "process_started") and
 
 ### External Alerts
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-391
+
 ```python
 event.kind:alert and not event.module:(endgame or endpoint)
 ```
@@ -3377,6 +4209,10 @@ event.kind:alert and not event.module:(endgame or endpoint)
 
 
 ### External IP Lookup from Non-Browser Process
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-523
 
 ```python
 network where network.protocol == "dns" and
@@ -3429,6 +4265,10 @@ network where network.protocol == "dns" and
 
 ### File Deletion via Shred
 
+Branch count: 8  
+Document count: 8  
+Index: detection-rules-ut-228
+
 ```python
 event.category:process and event.type:(start or process_started) and process.name:shred and
   process.args:("-u" or "--remove" or "-z" or "--zero")
@@ -3448,6 +4288,10 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 
 ### File Permission Modification in Writable Directory
+
+Branch count: 24  
+Document count: 24  
+Index: detection-rules-ut-229
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -3472,6 +4316,10 @@ event.category:process and event.type:(start or process_started) and
 
 
 ### Finder Sync Plugin Registered and Enabled
+
+Branch count: 4  
+Document count: 8  
+Index: detection-rules-ut-300
 
 ```python
 sequence by host.id, user.id with maxspan = 5s
@@ -3506,6 +4354,10 @@ sequence by host.id, user.id with maxspan = 5s
 
 ### GCP Firewall Rule Creation
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-127
+
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:v*.compute.firewalls.insert
 ```
@@ -3518,6 +4370,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:v*.compute.firew
 
 
 ### GCP Firewall Rule Deletion
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-128
 
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:v*.compute.firewalls.delete
@@ -3532,6 +4388,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:v*.compute.firew
 
 ### GCP Firewall Rule Modification
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-129
+
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:v*.compute.firewalls.patch
 ```
@@ -3544,6 +4404,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:v*.compute.firew
 
 
 ### GCP Kubernetes Rolebindings Created or Patched
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-148
 
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:(io.k8s.authorization.rbac.v*.clusterrolebindings.create or 
@@ -3561,6 +4425,10 @@ not gcp.audit.authentication_info.principal_email:"system:addon-manager"
 
 ### GCP Storage Bucket Configuration Modification
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-134
+
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:"storage.buckets.update" and event.outcome:success
 ```
@@ -3573,6 +4441,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:"storage.buckets
 
 
 ### GCP Storage Bucket Deletion
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-140
 
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:"storage.buckets.delete"
@@ -3587,6 +4459,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:"storage.buckets
 
 ### GCP Storage Bucket Permissions Modification
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-135
+
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:"storage.setIamPermissions" and event.outcome:success
 ```
@@ -3600,6 +4476,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:"storage.setIamP
 
 ### GCP Virtual Private Cloud Network Deletion
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-141
+
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:v*.compute.networks.delete and event.outcome:success
 ```
@@ -3612,6 +4492,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:v*.compute.netwo
 
 
 ### GCP Virtual Private Cloud Route Creation
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-142
 
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:(v*.compute.routes.insert or "beta.compute.routes.insert")
@@ -3628,6 +4512,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:(v*.compute.rout
 
 ### GCP Virtual Private Cloud Route Deletion
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-143
+
 ```python
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:v*.compute.routes.delete and event.outcome:success
 ```
@@ -3641,6 +4529,10 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:v*.compute.route
 
 ### Google Workspace API Access Granted via Domain-Wide Delegation of Authority
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-156
+
 ```python
 event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:AUTHORIZE_API_CLIENT_ACCESS
 ```
@@ -3652,6 +4544,10 @@ event.dataset:google_workspace.admin and event.provider:admin and event.category
 
 
 ### Google Workspace Admin Role Assigned to a User
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-155
 
 ```python
 event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:ASSIGN_ROLE
@@ -3665,6 +4561,10 @@ event.dataset:google_workspace.admin and event.provider:admin and event.category
 
 ### Google Workspace Admin Role Deletion
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-151
+
 ```python
 event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:DELETE_ROLE
 ```
@@ -3676,6 +4576,10 @@ event.dataset:google_workspace.admin and event.provider:admin and event.category
 
 
 ### Google Workspace Custom Admin Role Created
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-157
 
 ```python
 event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:CREATE_ROLE
@@ -3689,6 +4593,10 @@ event.dataset:google_workspace.admin and event.provider:admin and event.category
 
 ### Google Workspace MFA Enforcement Disabled
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-152
+
 ```python
 event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:ENFORCE_STRONG_AUTHENTICATION and google_workspace.admin.new_value:false
 ```
@@ -3700,6 +4608,10 @@ event.dataset:google_workspace.admin and event.provider:admin and event.category
 
 
 ### Google Workspace Password Policy Modified
+
+Branch count: 12  
+Document count: 12  
+Index: detection-rules-ut-153
 
 ```python
 event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and
@@ -3731,6 +4643,10 @@ event.dataset:google_workspace.admin and event.provider:admin and event.category
 
 ### Google Workspace Role Modified
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-158
+
 ```python
 event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:(ADD_PRIVILEGE or UPDATE_ROLE)
 ```
@@ -3743,6 +4659,10 @@ event.dataset:google_workspace.admin and event.provider:admin and event.category
 
 
 ### Hosts File Modified
+
+Branch count: 8  
+Document count: 8  
+Index: detection-rules-ut-016
 
 ```python
 any where
@@ -3778,6 +4698,10 @@ any where
 
 ### Hping Process Activity
 
+Branch count: 6  
+Document count: 6  
+Index: detection-rules-ut-244
+
 ```python
 event.category:process and event.type:(start or process_started) and process.name:(hping or hping2 or hping3)
 ```
@@ -3794,6 +4718,10 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 
 ### IIS HTTP Logging Disabled
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-469
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -3813,6 +4741,10 @@ process where event.type in ("start", "process_started") and
 
 ### IPSEC NAT Traversal Port Activity
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-366
+
 ```python
 event.category:(network or network_traffic) and network.transport:udp and destination.port:4500
 ```
@@ -3825,6 +4757,10 @@ event.category:(network or network_traffic) and network.transport:udp and destin
 
 
 ### ImageLoad via Windows Update Auto Update Client
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-459
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -3845,6 +4781,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Incoming DCOM Lateral Movement via MSHTA
+
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-576
 
 ```python
 sequence with maxspan=1m
@@ -3868,6 +4808,10 @@ sequence with maxspan=1m
 
 ### Incoming DCOM Lateral Movement with MMC
 
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-577
+
 ```python
 sequence by host.id with maxspan=1m
  [network where event.type == "start" and process.name : "mmc.exe" and source.port >= 49152 and
@@ -3888,6 +4832,10 @@ sequence by host.id with maxspan=1m
 
 
 ### Incoming DCOM Lateral Movement with ShellBrowserWindow or ShellWindows
+
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-578
 
 ```python
 sequence by host.id with maxspan=5s
@@ -3911,6 +4859,10 @@ sequence by host.id with maxspan=5s
 
 ### Incoming Execution via PowerShell Remoting
 
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-589
+
 ```python
 sequence by host.id with maxspan = 30s
    [network where network.direction : ("incoming", "ingress") and destination.port in (5985, 5986) and
@@ -3929,6 +4881,10 @@ sequence by host.id with maxspan = 30s
 
 
 ### Incoming Execution via WinRM Remote Shell
+
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-586
 
 ```python
 sequence by host.id with maxspan=30s
@@ -3949,6 +4905,10 @@ sequence by host.id with maxspan=30s
 
 ### InstallUtil Process Making Network Connections
 
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-471
+
 ```python
 /* the benefit of doing this as an eql sequence vs kql is this will limit to alerting only on the first network connection */
 
@@ -3967,6 +4927,10 @@ sequence by process.entity_id
 
 
 ### Installation of Custom Shim Databases
+
+Branch count: 8  
+Document count: 16  
+Index: detection-rules-ut-600
 
 ```python
 sequence by process.entity_id with maxspan = 5m
@@ -3993,6 +4957,10 @@ sequence by process.entity_id with maxspan = 5m
 
 ### Installation of Security Support Provider
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-635
+
 ```python
 registry where
    registry.path : ("HKLM\\SYSTEM\\*ControlSet*\\Control\\Lsa\\Security Packages*", 
@@ -4007,6 +4975,10 @@ registry where
 
 
 ### Interactive Terminal Spawned via Perl
+
+Branch count: 6  
+Document count: 6  
+Index: detection-rules-ut-236
 
 ```python
 event.category:process and event.type:(start or process_started) and process.name:perl and
@@ -4025,6 +4997,10 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 
 ### Interactive Terminal Spawned via Python
+
+Branch count: 6  
+Document count: 6  
+Index: detection-rules-ut-237
 
 ```python
 event.category:process and event.type:(start or process_started) and process.name:python and
@@ -4046,6 +5022,10 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 ### KRBTGT Delegation Backdoor
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-612
+
 ```python
 event.action:modified-user-account and event.code:4738 and winlog.event_data.AllowedToDelegateTo:*krbtgt*
 ```
@@ -4057,6 +5037,10 @@ event.action:modified-user-account and event.code:4738 and winlog.event_data.All
 
 
 ### Kerberos Cached Credentials Dumping
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-259
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -4072,6 +5056,10 @@ event.category:process and event.type:(start or process_started) and
 
 
 ### Kerberos Traffic from Unusual Process
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-419
 
 ```python
 network where event.type == "start" and network.direction : ("outgoing", "egress") and
@@ -4089,6 +5077,10 @@ network where event.type == "start" and network.direction : ("outgoing", "egress
 
 ### Kernel Module Removal
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-232
+
 ```python
 event.category:process and event.type:(start or process_started) and
   process.args:((rmmod and sudo) or (modprobe and sudo and ("--remove" or "-r")))
@@ -4102,6 +5094,10 @@ event.category:process and event.type:(start or process_started) and
 
 
 ### Keychain Password Retrieval via Command Line
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-260
 
 ```python
 process where event.type == "start" and
@@ -4118,6 +5114,10 @@ process where event.type == "start" and
 
 ### LSASS Memory Dump Creation
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-420
+
 ```python
 file where file.name : ("lsass*.dmp", "dumpert.dmp", "Andrew.dmp", "SQLDmpr*.mdmp", "Coredump.dmp")
 ```
@@ -4129,6 +5129,10 @@ file where file.name : ("lsass*.dmp", "dumpert.dmp", "Andrew.dmp", "SQLDmpr*.mdm
 
 
 ### LSASS Memory Dump Handle Access
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-421
 
 ```python
 any where event.action == "File System" and event.code == "4656" and
@@ -4165,6 +5169,10 @@ any where event.action == "File System" and event.code == "4656" and
 
 ### Lateral Movement via Startup Folder
 
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-597
+
 ```python
 file where event.type in ("creation", "change") and
  /* via RDP TSClient mounted share or SMB */
@@ -4182,6 +5190,10 @@ file where event.type in ("creation", "change") and
 
 
 ### Lateral Tool Transfer
+
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-583
 
 ```python
 sequence by host.id with maxspan=30s
@@ -4204,6 +5216,10 @@ sequence by host.id with maxspan=30s
 
 ### Launch Agent Creation or Modification and Immediate Loading
 
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-289
+
 ```python
 sequence by host.id with maxspan=1m
  [file where event.type != "deletion" and 
@@ -4223,6 +5239,10 @@ sequence by host.id with maxspan=1m
 
 ### Linux Restricted Shell Breakout via  apt/apt-get Changelog Escape
 
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-220
+
 ```python
 sequence by host.id, process.pid with maxspan=1m 
   [process where process.name : ("apt", "apt-get") and process.args : "changelog"] 
@@ -4239,6 +5259,10 @@ sequence by host.id, process.pid with maxspan=1m
 
 ### Linux Restricted Shell Breakout via awk Commands
 
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-223
+
 ```python
 sequence by host.id, process.pid with maxspan=1m 
   [process where process.name : ("nawk", "mawk", "awk", "gawk") and process.args : "BEGIN {system(*)}"] 
@@ -4254,6 +5278,10 @@ sequence by host.id, process.pid with maxspan=1m
 
 ### Linux Restricted Shell Breakout via env Shell Evasion
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-227
+
 ```python
 process where event.type == "start" and process.name : "env" and process.args_count == 2 and process.args : ("/bin/sh", "/bin/bash", "sh", "bash")
 ```
@@ -4265,6 +5293,10 @@ process where event.type == "start" and process.name : "env" and process.args_co
 
 
 ### Linux Restricted Shell Breakout via the find command
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-230
 
 ```python
 sequence by host.id, process.pid with maxspan=1m
@@ -4280,6 +5312,10 @@ sequence by host.id, process.pid with maxspan=1m
 
 
 ### Local Scheduled Task Creation
+
+Branch count: 6  
+Document count: 12  
+Index: detection-rules-ut-608
 
 ```python
 sequence with maxspan=1m
@@ -4315,6 +5351,10 @@ sequence with maxspan=1m
 
 ### MFA Disabled for Google Workspace Organization
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-154
+
 ```python
 event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:(ENFORCE_STRONG_AUTHENTICATION or ALLOW_STRONG_AUTHENTICATION) and google_workspace.admin.new_value:false
 ```
@@ -4327,6 +5367,10 @@ event.dataset:google_workspace.admin and event.provider:admin and event.category
 
 
 ### Malware - Detected - Elastic Endgame
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-383
 
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:detection and (event.action:file_classification_event or endgame.event_subtype_full:file_classification_event)
@@ -4341,6 +5385,10 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:detection an
 
 ### Malware - Prevented - Elastic Endgame
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-384
+
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:prevention and (event.action:file_classification_event or endgame.event_subtype_full:file_classification_event)
 ```
@@ -4354,6 +5402,10 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:prevention a
 
 ### Microsoft 365 Exchange Anti-Phish Policy Deletion
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-173
+
 ```python
 event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:"Remove-AntiPhishPolicy" and event.outcome:success
 ```
@@ -4365,6 +5417,10 @@ event.dataset:o365.audit and event.provider:Exchange and event.category:web and 
 
 
 ### Microsoft 365 Exchange Anti-Phish Rule Modification
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-174
 
 ```python
 event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:("Remove-AntiPhishRule" or "Disable-AntiPhishRule") and event.outcome:success
@@ -4379,6 +5435,10 @@ event.dataset:o365.audit and event.provider:Exchange and event.category:web and 
 
 ### Microsoft 365 Exchange DKIM Signing Configuration Disabled
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-181
+
 ```python
 event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:"Set-DkimSigningConfig" and o365.audit.Parameters.Enabled:False and event.outcome:success
 ```
@@ -4390,6 +5450,10 @@ event.dataset:o365.audit and event.provider:Exchange and event.category:web and 
 
 
 ### Microsoft 365 Exchange DLP Policy Removed
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-163
 
 ```python
 event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:"Remove-DlpPolicy" and event.outcome:success
@@ -4403,6 +5467,10 @@ event.dataset:o365.audit and event.provider:Exchange and event.category:web and 
 
 ### Microsoft 365 Exchange Malware Filter Policy Deletion
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-164
+
 ```python
 event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:"Remove-MalwareFilterPolicy" and event.outcome:success
 ```
@@ -4414,6 +5482,10 @@ event.dataset:o365.audit and event.provider:Exchange and event.category:web and 
 
 
 ### Microsoft 365 Exchange Malware Filter Rule Modification
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-165
 
 ```python
 event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:("Remove-MalwareFilterRule" or "Disable-MalwareFilterRule") and event.outcome:success
@@ -4428,6 +5500,10 @@ event.dataset:o365.audit and event.provider:Exchange and event.category:web and 
 
 ### Microsoft 365 Exchange Management Group Role Assignment
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-184
+
 ```python
 event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:"New-ManagementRoleAssignment" and event.outcome:success
 ```
@@ -4439,6 +5515,10 @@ event.dataset:o365.audit and event.provider:Exchange and event.category:web and 
 
 
 ### Microsoft 365 Exchange Safe Attachment Rule Disabled
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-166
 
 ```python
 event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:"Disable-SafeAttachmentRule" and event.outcome:success
@@ -4452,6 +5532,10 @@ event.dataset:o365.audit and event.provider:Exchange and event.category:web and 
 
 ### Microsoft 365 Exchange Safe Link Policy Disabled
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-175
+
 ```python
 event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:"Disable-SafeLinksRule" and event.outcome:success
 ```
@@ -4464,6 +5548,10 @@ event.dataset:o365.audit and event.provider:Exchange and event.category:web and 
 
 ### Microsoft 365 Exchange Transport Rule Creation
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-168
+
 ```python
 event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:"New-TransportRule" and event.outcome:success
 ```
@@ -4475,6 +5563,10 @@ event.dataset:o365.audit and event.provider:Exchange and event.category:web and 
 
 
 ### Microsoft 365 Exchange Transport Rule Modification
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-169
 
 ```python
 event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:("Remove-TransportRule" or "Disable-TransportRule") and event.outcome:success
@@ -4489,6 +5581,10 @@ event.dataset:o365.audit and event.provider:Exchange and event.category:web and 
 
 ### Microsoft 365 Global Administrator Role Assigned
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-185
+
 ```python
 event.dataset:o365.audit and event.code:"AzureActiveDirectory" and event.action:"Add member to role." and
 o365.audit.ModifiedProperties.Role_DisplayName.NewValue:"Global Administrator"
@@ -4502,6 +5598,10 @@ o365.audit.ModifiedProperties.Role_DisplayName.NewValue:"Global Administrator"
 
 ### Microsoft 365 Impossible travel activity
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-176
+
 ```python
 event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.category:web and event.action:"Impossible travel activity" and event.outcome:success
 ```
@@ -4513,6 +5613,10 @@ event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.c
 
 
 ### Microsoft 365 Inbox Forwarding Rule Created
+
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-159
 
 ```python
 event.dataset:o365.audit and event.provider:Exchange and
@@ -4535,6 +5639,10 @@ event.category:web and event.action:"New-InboxRule" and
 
 ### Microsoft 365 Mass download by a single user
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-170
+
 ```python
 event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.category:web and event.action:"Mass download by a single user" and event.outcome:success
 ```
@@ -4547,6 +5655,10 @@ event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.c
 
 ### Microsoft 365 Potential ransomware activity
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-171
+
 ```python
 event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.category:web and event.action:"Potential ransomware activity" and event.outcome:success
 ```
@@ -4558,6 +5670,10 @@ event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.c
 
 
 ### Microsoft 365 Teams Custom Application Interaction Allowed
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-182
 
 ```python
 event.dataset:o365.audit and event.provider:MicrosoftTeams and
@@ -4574,6 +5690,10 @@ o365.audit.NewValue:True and event.outcome:success
 
 ### Microsoft 365 Teams External Access Enabled
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-186
+
 ```python
 event.dataset:o365.audit and event.provider:(SkypeForBusiness or MicrosoftTeams) and
 event.category:web and event.action:"Set-CsTenantFederationConfiguration" and
@@ -4588,6 +5708,10 @@ o365.audit.Parameters.AllowFederatedUsers:True and event.outcome:success
 
 
 ### Microsoft 365 Teams Guest Access Enabled
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-187
 
 ```python
 event.dataset:o365.audit and event.provider:(SkypeForBusiness or MicrosoftTeams) and
@@ -4604,6 +5728,10 @@ o365.audit.Parameters.AllowGuestUser:True and event.outcome:success
 
 ### Microsoft 365 Unusual Volume of File Deletion
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-172
+
 ```python
 event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.category:web and event.action:"Unusual volume of file deletion" and event.outcome:success
 ```
@@ -4616,6 +5744,10 @@ event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.c
 
 ### Microsoft 365 User Restricted from Sending Email
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-177
+
 ```python
 event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.category:web and event.action:"User restricted from sending email" and event.outcome:success
 ```
@@ -4627,6 +5759,10 @@ event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.c
 
 
 ### Microsoft Build Engine Loading Windows Credential Libraries
+
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-412
 
 ```python
 sequence by process.entity_id
@@ -4645,6 +5781,10 @@ sequence by process.entity_id
 
 ### Microsoft Build Engine Started an Unusual Process
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-464
+
 ```python
 process where event.type in ("start", "process_started") and
   process.parent.name : "MSBuild.exe" and
@@ -4659,6 +5799,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Microsoft Build Engine Started by a Script Process
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-461
 
 ```python
 process where event.type == "start" and
@@ -4675,6 +5819,10 @@ process where event.type == "start" and
 
 ### Microsoft Build Engine Started by a System Process
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-462
+
 ```python
 process where event.type in ("start", "process_started") and
   process.name : "MSBuild.exe" and
@@ -4689,6 +5837,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Microsoft Build Engine Started by an Office Application
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-460
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -4712,6 +5864,10 @@ process where event.type in ("start", "process_started") and
 
 ### Microsoft Build Engine Using an Alternate Name
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-463
+
 ```python
 process where event.type in ("start", "process_started") and
   process.pe.original_file_name == "MSBuild.exe" and
@@ -4727,6 +5883,10 @@ process where event.type in ("start", "process_started") and
 
 ### Microsoft Exchange Server UM Spawning Suspicious Processes
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-568
+
 ```python
 process where event.type == "start" and
   process.parent.name : ("UMService.exe", "UMWorkerProcess.exe") and
@@ -4740,6 +5900,10 @@ process where event.type == "start" and
 
 
 ### Microsoft Exchange Server UM Writing Suspicious Files
+
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-567
 
 ```python
 file where event.type == "creation" and
@@ -4768,6 +5932,10 @@ file where event.type == "creation" and
 
 ### Microsoft Exchange Worker Spawning Suspicious Processes
 
+Branch count: 5  
+Document count: 5  
+Index: detection-rules-ut-569
+
 ```python
 process where event.type == "start" and
   process.parent.name : "w3wp.exe" and process.parent.args : "MSExchange*AppPool" and
@@ -4787,6 +5955,10 @@ process where event.type == "start" and
 
 ### Microsoft IIS Connection Strings Decryption
 
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-418
+
 ```python
 process where event.type in ("start", "process_started") and
   (process.name : "aspnet_regiis.exe" or process.pe.original_file_name == "aspnet_regiis.exe") and
@@ -4803,6 +5975,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Microsoft IIS Service Account Password Dumped
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-417
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -4821,6 +5997,10 @@ process where event.type in ("start", "process_started") and
 
 ### Mimikatz Memssp Log File Detected
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-422
+
 ```python
 file where file.name : "mimilsa.log" and process.name : "lsass.exe"
 ```
@@ -4832,6 +6012,10 @@ file where file.name : "mimilsa.log" and process.name : "lsass.exe"
 
 
 ### Mimikatz Powershell Module Activity
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-423
 
 ```python
 process where event.type in ("start", "process_started") and process.name : ("cmd.exe", "powershell.exe", "pwsh.exe")
@@ -4846,6 +6030,10 @@ and process.args : ("*DumpCreds", "*Mimikatz*")
 
 
 ### Modification of Boot Configuration
+
+Branch count: 5  
+Document count: 5  
+Index: detection-rules-ut-560
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -4866,6 +6054,10 @@ process where event.type in ("start", "process_started") and
 
 ### Modification of Dynamic Linker Preload Shared Object
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-253
+
 ```python
 event.category:file and not event.type:deletion and file.path:/etc/ld.so.preload
 ```
@@ -4877,6 +6069,10 @@ event.category:file and not event.type:deletion and file.path:/etc/ld.so.preload
 
 
 ### Modification of Environment Variable via Launchctl
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-269
 
 ```python
 event.category:process and event.type:start and
@@ -4903,6 +6099,10 @@ event.category:process and event.type:start and
 
 ### Modification of OpenSSH Binaries
 
+Branch count: 5  
+Document count: 5  
+Index: detection-rules-ut-250
+
 ```python
 event.category:file and event.type:change and 
  process.name:* and
@@ -4921,6 +6121,10 @@ event.category:file and event.type:change and
 
 
 ### Modification of Safari Settings via Defaults Command
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-272
 
 ```python
 event.category:process and event.type:start and
@@ -4943,6 +6147,10 @@ event.category:process and event.type:start and
 
 
 ### Modification of Standard Authentication Module or Configuration
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-018
 
 ```python
 event.category:file and event.type:change and 
@@ -4985,6 +6193,10 @@ event.category:file and event.type:change and
 
 ### Modification or Removal of an Okta Application Sign-On Policy
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-210
+
 ```python
 event.dataset:okta.system and event.action:(application.policy.sign_on.update or application.policy.sign_on.rule.delete)
 ```
@@ -4997,6 +6209,10 @@ event.dataset:okta.system and event.action:(application.policy.sign_on.update or
 
 
 ### Mounting Hidden or WebDav Remote Shares
+
+Branch count: 8  
+Document count: 8  
+Index: detection-rules-ut-588
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -5024,6 +6240,10 @@ process where event.type in ("start", "process_started") and
 
 ### MsBuild Making Network Connections
 
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-481
+
 ```python
 sequence by process.entity_id
   [process where process.name : "MSBuild.exe" and event.type == "start"]
@@ -5039,6 +6259,10 @@ sequence by process.entity_id
 
 
 ### MsBuild Network Connection Sequence
+
+Branch count: 4  
+Document count: 8  
+Index: detection-rules-ut-480
 
 ```python
 /* duplicate of MsBuild Making Network Connections - 0e79980b-4250-4a50-a509-69294c14e84b */
@@ -5064,6 +6288,10 @@ sequence by process.entity_id
 
 ### MsXsl Making Network Connections
 
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-483
+
 ```python
 /* duplicate of Network Connection via MsXsl - b86afe07-0d98-4738-b15d-8d7465f95ff5 */
 
@@ -5082,6 +6310,10 @@ sequence by process.entity_id
 
 
 ### Mshta Making Network Connections
+
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-482
 
 ```python
 sequence by process.entity_id with maxspan=10m
@@ -5104,6 +6336,10 @@ sequence by process.entity_id with maxspan=10m
 
 ### Multi-Factor Authentication Disabled for an Azure User
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-118
+
 ```python
 event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Disable Strong Authentication" and event.outcome:(Success or success)
 ```
@@ -5116,6 +6352,10 @@ event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Disable Strong
 
 
 ### NTDS or SAM Database File Copied
+
+Branch count: 8  
+Document count: 8  
+Index: detection-rules-ut-411
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -5143,6 +6383,10 @@ process where event.type in ("start", "process_started") and
 
 ### Net command via SYSTEM account
 
+Branch count: 5  
+Document count: 5  
+Index: detection-rules-ut-519
+
 ```python
 process where event.type in ("start", "process_started") and 
   (process.Ext.token.integrity_level_name : "System" or
@@ -5162,6 +6406,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Netcat Network Activity
+
+Branch count: 25  
+Document count: 50  
+Index: detection-rules-ut-246
 
 ```python
 sequence by process.entity_id
@@ -5189,6 +6437,10 @@ sequence by process.entity_id
 
 ### Network Connection via Certutil
 
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-397
+
 ```python
 sequence by process.entity_id
   [process where process.name : "certutil.exe" and event.type == "start"]
@@ -5210,6 +6462,10 @@ sequence by process.entity_id
 
 ### Network Connection via Compiled HTML File
 
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-540
+
 ```python
 sequence by process.entity_id
   [process where process.name : "hh.exe" and event.type == "start"]
@@ -5230,6 +6486,10 @@ sequence by process.entity_id
 
 ### Network Connection via MsXsl
 
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-484
+
 ```python
 sequence by process.entity_id
   [process where process.name : "msxsl.exe" and event.type == "start"]
@@ -5249,6 +6509,10 @@ sequence by process.entity_id
 
 
 ### Network Connection via Registration Utility
+
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-546
 
 ```python
 sequence by process.entity_id
@@ -5278,6 +6542,10 @@ sequence by process.entity_id
 
 ### Network Connection via Signed Binary
 
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-478
+
 ```python
 sequence by process.entity_id
   [process where (process.name : "expand.exe" or process.name : "extrac32.exe" or
@@ -5301,6 +6569,10 @@ sequence by process.entity_id
 
 ### New ActiveSyncAllowedDeviceID Added via PowerShell
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-613
+
 ```python
 process where event.type in ("start", "process_started") and
   process.name: ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and process.args : "Set-CASMailbox*ActiveSyncAllowedDeviceIDs*"
@@ -5314,6 +6586,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### New or Modified Federation Domain
+
+Branch count: 6  
+Document count: 6  
+Index: detection-rules-ut-188
 
 ```python
 event.dataset:o365.audit and event.provider:Exchange and event.category:web and event.action:("Set-AcceptedDomain" or 
@@ -5334,6 +6610,10 @@ event.outcome:success
 
 ### Nping Process Activity
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-247
+
 ```python
 event.category:process and event.type:(start or process_started) and process.name:nping
 ```
@@ -5347,6 +6627,10 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 ### O365 Email Reported by User as Malware or Phish
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-178
+
 ```python
 event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.action:AlertTriggered and rule.name:"Email reported by user as malware or phish"
 ```
@@ -5358,6 +6642,10 @@ event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.a
 
 
 ### O365 Exchange Suspicious Mailbox Right Delegation
+
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-183
 
 ```python
 event.dataset:o365.audit and event.provider:Exchange and event.action:Add-MailboxPermission and 
@@ -5375,6 +6663,10 @@ not user.id : "NT AUTHORITY\SYSTEM (Microsoft.Exchange.Servicehost)"
 
 ### O365 Mailbox Audit Logging Bypass
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-167
+
 ```python
 event.dataset:o365.audit and event.provider:Exchange and event.action:Set-MailboxAuditBypassAssociation and event.outcome:success
 ```
@@ -5387,6 +6679,10 @@ event.dataset:o365.audit and event.provider:Exchange and event.action:Set-Mailbo
 
 ### OneDrive Malware File Upload
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-179
+
 ```python
 event.dataset:o365.audit and event.provider:OneDrive and event.code:SharePointFileOperation and event.action:FileMalwareDetected
 ```
@@ -5398,6 +6694,10 @@ event.dataset:o365.audit and event.provider:OneDrive and event.code:SharePointFi
 
 
 ### Outbound Scheduled Task Activity via PowerShell
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-547
 
 ```python
 sequence by host.id, process.entity_id with maxspan = 5s
@@ -5413,6 +6713,10 @@ sequence by host.id, process.entity_id with maxspan = 5s
 
 
 ### Parent Process PID Spoofing
+
+Branch count: 6  
+Document count: 12  
+Index: detection-rules-ut-486
 
 ```python
 /* This rule is compatible with Elastic Endpoint only */
@@ -5457,6 +6761,10 @@ sequence by host.id, user.id with maxspan=5m
 
 ### Peripheral Device Discovery
 
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-521
+
 ```python
 process where event.type in ("start", "process_started") and
   (process.name : "fsutil.exe" or process.pe.original_file_name == "fsutil.exe") and 
@@ -5474,6 +6782,10 @@ process where event.type in ("start", "process_started") and
 
 ### Permission Theft - Detected - Elastic Endgame
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-385
+
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:detection and (event.action:token_protection_event or endgame.event_subtype_full:token_protection_event)
 ```
@@ -5487,6 +6799,10 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:detection an
 
 ### Permission Theft - Prevented - Elastic Endgame
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-386
+
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:prevention and (event.action:token_protection_event or endgame.event_subtype_full:token_protection_event)
 ```
@@ -5499,6 +6815,10 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:prevention a
 
 
 ### Persistence via BITS Job Notify Cmdline
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-633
 
 ```python
 process where event.type == "start" and
@@ -5517,6 +6837,10 @@ process where event.type == "start" and
 
 
 ### Persistence via Folder Action Script
+
+Branch count: 66  
+Document count: 132  
+Index: detection-rules-ut-301
 
 ```python
 sequence by host.id with maxspan=5s
@@ -5541,6 +6865,10 @@ sequence by host.id with maxspan=5s
 
 ### Persistence via Hidden Run Key Detected
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-634
+
 ```python
 /* Registry Path ends with backslash */
 registry where /* length(registry.data.strings) > 0 and */
@@ -5560,6 +6888,10 @@ registry where /* length(registry.data.strings) > 0 and */
 
 
 ### Persistence via KDE AutoStart Script or Desktop File Modification
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-251
 
 ```python
 file where event.type != "deletion" and
@@ -5586,6 +6918,10 @@ file where event.type != "deletion" and
 
 ### Persistence via Microsoft Office AddIns
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-610
+
 ```python
 file where event.type != "deletion" and
  file.extension : ("wll","xll","ppa","ppam","xla","xlam") and
@@ -5605,6 +6941,10 @@ file where event.type != "deletion" and
 
 ### Persistence via Microsoft Outlook VBA
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-611
+
 ```python
 file where event.type != "deletion" and
  file.path : "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Outlook\\VbaProject.OTM"
@@ -5618,6 +6958,10 @@ file where event.type != "deletion" and
 
 ### Persistence via Scheduled Job Creation
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-607
+
 ```python
 file where event.type != "deletion" and
  file.path : "?:\\Windows\\Tasks\\*" and file.extension : "job"
@@ -5630,6 +6974,10 @@ file where event.type != "deletion" and
 
 
 ### Persistence via TelemetryController Scheduled Task Hijack
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-636
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -5650,6 +6998,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Persistence via Update Orchestrator Service Hijack
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-637
 
 ```python
 process where event.type == "start" and
@@ -5674,6 +7026,10 @@ process where event.type == "start" and
 
 ### Persistence via WMI Event Subscription
 
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-638
+
 ```python
 process where event.type in ("start", "process_started") and
   (process.name : "wmic.exe" or process.pe.original_file_name == "wmic.exe") and
@@ -5691,6 +7047,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Persistent Scripts in the Startup Directory
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-622
 
 ```python
 file where event.type != "deletion" and user.domain != "NT AUTHORITY" and
@@ -5716,6 +7076,10 @@ file where event.type != "deletion" and user.domain != "NT AUTHORITY" and
 
 ### Port Forwarding Rule Addition
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-402
+
 ```python
 registry where registry.path : "HKLM\\SYSTEM\\*ControlSet*\\Services\\PortProxy\\v4tov4\\*"
 ```
@@ -5727,6 +7091,10 @@ registry where registry.path : "HKLM\\SYSTEM\\*ControlSet*\\Services\\PortProxy\
 
 
 ### Possible Consent Grant Attack via Azure-Registered Application
+
+Branch count: 18  
+Document count: 18  
+Index: detection-rules-ut-109
 
 ```python
 event.dataset:(azure.activitylogs or azure.auditlogs or o365.audit) and 
@@ -5755,6 +7123,10 @@ event.dataset:(azure.activitylogs or azure.auditlogs or o365.audit) and
 
 ### Possible Okta DoS Attack
 
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-197
+
 ```python
 event.dataset:okta.system and event.action:(application.integration.rate_limit_exceeded or system.org.rate_limit.warning or system.org.rate_limit.violation or core.concurrency.org.limit.violation)
 ```
@@ -5769,6 +7141,10 @@ event.dataset:okta.system and event.action:(application.integration.rate_limit_e
 
 
 ### Potential Abuse of Repeated MFA Push Notifications
+
+Branch count: 1  
+Document count: 3  
+Index: detection-rules-ut-193
 
 ```python
 sequence by user.email with maxspan=10m
@@ -5787,6 +7163,10 @@ sequence by user.email with maxspan=10m
 
 ### Potential Application Shimming via Sdbinst
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-632
+
 ```python
 process where event.type in ("start", "process_started") and process.name : "sdbinst.exe"
 ```
@@ -5799,6 +7179,10 @@ process where event.type in ("start", "process_started") and process.name : "sdb
 
 
 ### Potential Command and Control via Internet Explorer
+
+Branch count: 1  
+Document count: 3  
+Index: detection-rules-ut-401
 
 ```python
 sequence by host.id, user.name with maxspan = 5s
@@ -5830,6 +7214,10 @@ sequence by host.id, user.name with maxspan = 5s
 
 
 ### Potential Cookies Theft via Browser Debugging
+
+Branch count: 21  
+Document count: 21  
+Index: detection-rules-ut-004
 
 ```python
 process where event.type in ("start", "process_started", "info") and
@@ -5864,6 +7252,10 @@ process where event.type in ("start", "process_started", "info") and
 
 ### Potential Credential Access via DCSync
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-413
+
 ```python
 any where event.action == "Directory Service Access" and
   event.code == "4662" and winlog.event_data.Properties : (
@@ -5894,6 +7286,10 @@ any where event.action == "Directory Service Access" and
 
 ### Potential Credential Access via DuplicateHandle in LSASS
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-429
+
 ```python
 process where event.code == "10" and 
 
@@ -5911,6 +7307,10 @@ process where event.code == "10" and
 
 
 ### Potential Credential Access via LSASS Memory Dump
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-435
 
 ```python
 process where event.code == "10" and
@@ -5930,6 +7330,10 @@ process where event.code == "10" and
 
 
 ### Potential Credential Access via Renamed COM+ Services DLL
+
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-434
 
 ```python
 sequence by process.entity_id with maxspan=1m
@@ -5952,6 +7356,10 @@ sequence by process.entity_id with maxspan=1m
 
 ### Potential DLL Side-Loading via Microsoft Antimalware Service Executable
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-466
+
 ```python
 process where event.type == "start" and
   (process.pe.original_file_name == "MsMpEng.exe" and not process.name : "MsMpEng.exe") or
@@ -5971,6 +7379,10 @@ process where event.type == "start" and
 
 
 ### Potential DLL SideLoading via Trusted Microsoft Programs
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-465
 
 ```python
 process where event.type == "start" and
@@ -5996,6 +7408,10 @@ process where event.type == "start" and
 
 ### Potential DNS Tunneling via Iodine
 
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-245
+
 ```python
 event.category:process and event.type:(start or process_started) and process.name:(iodine or iodined)
 ```
@@ -6011,6 +7427,10 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 ### Potential Disabling of SELinux
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-226
+
 ```python
 event.category:process and event.type:(start or process_started) and process.name:setenforce and process.args:0
 ```
@@ -6023,6 +7443,10 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 
 ### Potential Evasion via Filter Manager
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-513
 
 ```python
 process where event.type in ("start", "process_started") and 
@@ -6037,6 +7461,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Potential JAVA/JNDI Exploitation Attempt
+
+Branch count: 5  
+Document count: 10  
+Index: detection-rules-ut-015
 
 ```python
 sequence by host.id with maxspan=1m
@@ -6083,6 +7511,10 @@ sequence by host.id with maxspan=1m
 
 ### Potential Kerberos Attack via Bifrost
 
+Branch count: 6  
+Document count: 6  
+Index: detection-rules-ut-284
+
 ```python
 event.category:process and event.type:start and 
  process.args:("-action" and ("-kerberoast" or askhash or asktgs or asktgt or s4u or ("-ticket" and ptt) or (dump and (tickets or keytab))))
@@ -6101,6 +7533,10 @@ event.category:process and event.type:start and
 
 ### Potential LSA Authentication Package Abuse
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-646
+
 ```python
 registry where event.type == "change" and
   registry.path : "HKLM\\SYSTEM\\*ControlSet*\\Control\\Lsa\\Authentication Packages" and
@@ -6116,6 +7552,10 @@ registry where event.type == "change" and
 
 ### Potential LSASS Clone Creation via PssCaptureSnapShot
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-438
+
 ```python
 process where event.code:"4688" and
   process.executable : "?:\\Windows\\System32\\lsass.exe" and
@@ -6130,6 +7570,10 @@ process where event.code:"4688" and
 
 ### Potential Microsoft Office Sandbox Evasion
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-273
+
 ```python
 event.category:file and not event.type:deletion and file.name:~$*.zip
 ```
@@ -6141,6 +7585,10 @@ event.category:file and not event.type:deletion and file.name:~$*.zip
 
 
 ### Potential Modification of Accessibility Binaries
+
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-614
 
 ```python
 process where event.type in ("start", "process_started", "info") and
@@ -6184,6 +7632,10 @@ process where event.type in ("start", "process_started", "info") and
 
 ### Potential OpenSSH Backdoor Logging Activity
 
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-219
+
 ```python
 file where event.type == "change" and process.executable : ("/usr/sbin/sshd", "/usr/bin/ssh") and
   (
@@ -6226,6 +7678,10 @@ file where event.type == "change" and process.executable : ("/usr/sbin/sshd", "/
 
 ### Potential Persistence via Login Hook
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-303
+
 ```python
 event.category:"file" and not event.type:"deletion" and
  file.name:"com.apple.loginwindow.plist" and
@@ -6239,6 +7695,10 @@ event.category:"file" and not event.type:"deletion" and
 
 
 ### Potential Persistence via Periodic Tasks
+
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-305
 
 ```python
 event.category:"file" and not event.type:"deletion" and
@@ -6254,6 +7714,10 @@ event.category:"file" and not event.type:"deletion" and
 
 
 ### Potential PrintNightmare File Modification
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-650
 
 ```python
 /* This rule is compatible with both Sysmon and Elastic Endpoint */
@@ -6271,6 +7735,10 @@ file where process.name : "spoolsv.exe" and
 
 ### Potential Privacy Control Bypass via TCCDB Modification
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-270
+
 ```python
 process where event.type in ("start", "process_started") and process.name : "sqlite*" and 
  process.args : "/*/Application Support/com.apple.TCC/TCC.db"
@@ -6284,6 +7752,10 @@ process where event.type in ("start", "process_started") and process.name : "sql
 
 
 ### Potential Privilege Escalation via InstallerFileTakeOver
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-645
 
 ```python
 /* This rule is compatible with both Sysmon and Elastic Endpoint */
@@ -6311,6 +7783,10 @@ process where event.type == "start" and
 
 ### Potential Privilege Escalation via PKEXEC
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-254
+
 ```python
 file where file.path : "/*GCONV_PATH*"
 ```
@@ -6323,6 +7799,10 @@ file where file.path : "/*GCONV_PATH*"
 
 ### Potential Privilege Escalation via Sudoers File Modification
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-021
+
 ```python
 event.category:process and event.type:start and process.args:(echo and *NOPASSWD*ALL*)
 ```
@@ -6334,6 +7814,10 @@ event.category:process and event.type:start and process.args:(echo and *NOPASSWD
 
 
 ### Potential Privileged Escalation via SamAccountName Spoofing
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-657
 
 ```python
 iam where event.action == "renamed-user-account" and
@@ -6348,6 +7832,10 @@ iam where event.action == "renamed-user-account" and
 
 
 ### Potential Process Herpaderping Attempt
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-490
 
 ```python
 sequence with maxspan=5s
@@ -6364,6 +7852,10 @@ sequence with maxspan=5s
 
 ### Potential Protocol Tunneling via EarthWorm
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-217
+
 ```python
 process where event.type == "start" and
  process.args : "-s" and process.args : "-d" and process.args : "rssocks"
@@ -6376,6 +7868,10 @@ process where event.type == "start" and
 
 
 ### Potential Remote Desktop Shadowing Activity
+
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-582
 
 ```python
 /* Identifies the modification of RDP Shadow registry or
@@ -6401,6 +7897,10 @@ any where
 
 ### Potential Remote Desktop Tunneling Detected
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-403
+
 ```python
 process where event.type in ("start", "process_started") and
   /* RDP port and usual SSH tunneling related switches in command line */
@@ -6416,6 +7916,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Potential Reverse Shell Activity via Terminal
+
+Branch count: 10  
+Document count: 10  
+Index: detection-rules-ut-013
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -6440,6 +7944,10 @@ process where event.type in ("start", "process_started") and
 
 ### Potential Secure File Deletion via SDelete Utility
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-495
+
 ```python
 file where event.type == "change" and file.name : "*AAA.AAA"
 ```
@@ -6452,6 +7960,10 @@ file where event.type == "change" and file.name : "*AAA.AAA"
 
 ### Potential Shadow Credentials added to AD Object
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-433
+
 ```python
 event.action:"Directory Service Changes" and event.code:"5136" and winlog.event_data.AttributeLDAPDisplayName:"msDS-KeyCredentialLink"
 ```
@@ -6463,6 +7975,10 @@ event.action:"Directory Service Changes" and event.code:"5136" and winlog.event_
 
 
 ### Potential Shell via Web Server
+
+Branch count: 16  
+Document count: 16  
+Index: detection-rules-ut-252
 
 ```python
 event.category:process and event.type:(start or process_started) and process.name:(bash or dash) and
@@ -6486,6 +8002,10 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 ### Potential Windows Error Manager Masquerading
 
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-476
+
 ```python
 sequence by host.id, process.entity_id with maxspan = 5s
   [process where event.type:"start" and process.name : ("wermgr.exe", "WerFault.exe") and process.args_count == 1]
@@ -6503,6 +8023,10 @@ sequence by host.id, process.entity_id with maxspan = 5s
 
 ### PowerShell Kerberos Ticket Request
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-428
+
 ```python
 event.category:process and 
   powershell.file.script_block_text : (
@@ -6517,6 +8041,10 @@ event.category:process and
 
 
 ### PowerShell Keylogging Script
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-394
 
 ```python
 event.category:process and 
@@ -6540,6 +8068,10 @@ event.category:process and
 
 ### PowerShell MiniDump Script
 
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-427
+
 ```python
 event.category:process and powershell.file.script_block_text:(MiniDumpWriteDump or MiniDumpWithFullMemory or pmuDetirWpmuDiniM)
 ```
@@ -6553,6 +8085,10 @@ event.category:process and powershell.file.script_block_text:(MiniDumpWriteDump 
 
 
 ### PowerShell PSReflect Script
+
+Branch count: 9  
+Document count: 9  
+Index: detection-rules-ut-544
 
 ```python
 event.category:process and 
@@ -6584,6 +8120,10 @@ event.category:process and
 
 
 ### PowerShell Suspicious Discovery Related Windows API Functions
+
+Branch count: 11  
+Document count: 11  
+Index: detection-rules-ut-522
 
 ```python
 event.category:process and 
@@ -6619,6 +8159,10 @@ event.category:process and
 
 ### Privilege Escalation via Named Pipe Impersonation
 
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-647
+
 ```python
 process where event.type in ("start", "process_started") and
  process.pe.original_file_name in ("Cmd.Exe", "PowerShell.EXE") and 
@@ -6636,6 +8180,10 @@ process where event.type in ("start", "process_started") and
 
 ### Privilege Escalation via Rogue Named Pipe Impersonation
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-670
+
 ```python
 file where event.action : "Pipe Created*" and
  /* normal sysmon named pipe creation events truncate the pipe keyword */
@@ -6650,6 +8198,10 @@ file where event.action : "Pipe Created*" and
 
 ### Privilege Escalation via Root Crontab File Modification
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-314
+
 ```python
 event.category:file and not event.type:deletion and
  file.path:/private/var/at/tabs/root and not process.executable:/usr/bin/crontab
@@ -6662,6 +8214,10 @@ event.category:file and not event.type:deletion and
 
 
 ### Process Activity via Compiled HTML File
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-555
 
 ```python
 process where event.type in ("start", "process_started") and 
@@ -6677,6 +8233,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Process Execution from an Unusual Directory
+
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-538
 
 ```python
 process where event.type in ("start", "process_started", "info") and
@@ -6708,6 +8268,10 @@ process.executable : ("C:\\PerfLogs\\*.exe","C:\\Users\\Public\\*.exe","C:\\User
 
 ### Process Injection - Detected - Elastic Endgame
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-387
+
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:detection and (event.action:kernel_shellcode_event or endgame.event_subtype_full:kernel_shellcode_event)
 ```
@@ -6720,6 +8284,10 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:detection an
 
 
 ### Process Injection - Prevented - Elastic Endgame
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-388
 
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:prevention and (event.action:kernel_shellcode_event or endgame.event_subtype_full:kernel_shellcode_event)
@@ -6734,6 +8302,10 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:prevention a
 
 ### Process Injection by the Microsoft Build Engine
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-470
+
 ```python
 process.name:MSBuild.exe and event.action:"CreateRemoteThread detected (rule: CreateRemoteThread)"
 ```
@@ -6745,6 +8317,10 @@ process.name:MSBuild.exe and event.action:"CreateRemoteThread detected (rule: Cr
 
 
 ### Process Termination followed by Deletion
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-492
 
 ```python
 sequence by host.id with maxspan=5s
@@ -6764,6 +8340,10 @@ sequence by host.id with maxspan=5s
 
 ### Program Files Directory Masquerading
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-475
+
 ```python
 process where event.type == "start" and
  process.executable : "C:\\*Program*Files*\\*.exe" and
@@ -6777,6 +8357,10 @@ process where event.type == "start" and
 
 
 ### PsExec Network Connection
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-545
 
 ```python
 sequence by process.entity_id
@@ -6793,6 +8377,10 @@ sequence by process.entity_id
 
 ### Python Script Execution via Command Line
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-012
+
 ```python
 process where event.type in ("start", "process_started") and
  process.name : "python*" and process.args : "-c" and process.args : "*import*sys*"
@@ -6806,6 +8394,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### RDP (Remote Desktop Protocol) from the Internet
+
+Branch count: 12  
+Document count: 12  
+Index: detection-rules-ut-368
 
 ```python
 event.category:(network or network_traffic) and network.transport:tcp and (destination.port:3389 or event.dataset:zeek.rdp) and
@@ -6861,6 +8453,10 @@ event.category:(network or network_traffic) and network.transport:tcp and (desti
 
 ### RPC (Remote Procedure Call) from the Internet
 
+Branch count: 12  
+Document count: 12  
+Index: detection-rules-ut-372
+
 ```python
 event.category:(network or network_traffic) and network.transport:tcp and (destination.port:135 or event.dataset:zeek.dce_rpc) and
   not source.ip:(
@@ -6914,6 +8510,10 @@ event.category:(network or network_traffic) and network.transport:tcp and (desti
 
 
 ### RPC (Remote Procedure Call) to the Internet
+
+Branch count: 12  
+Document count: 12  
+Index: detection-rules-ut-373
 
 ```python
 event.category:(network or network_traffic) and network.transport:tcp and (destination.port:135 or event.dataset:zeek.dce_rpc) and
@@ -6969,6 +8569,10 @@ event.category:(network or network_traffic) and network.transport:tcp and (desti
 
 ### Ransomware - Detected - Elastic Endgame
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-389
+
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:detection and (event.action:ransomware_event or endgame.event_subtype_full:ransomware_event)
 ```
@@ -6982,6 +8586,10 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:detection an
 
 ### Ransomware - Prevented - Elastic Endgame
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-390
+
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:prevention and (event.action:ransomware_event or endgame.event_subtype_full:ransomware_event)
 ```
@@ -6994,6 +8602,10 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:prevention a
 
 
 ### Registry Hive File Creation via SMB
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-425
 
 ```python
 file where event.type == "creation" and
@@ -7010,6 +8622,10 @@ file where event.type == "creation" and
 
 ### Registry Persistence via AppCert DLL
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-601
+
 ```python
 registry where
 /* uncomment once stable length(bytes_written_string) > 0 and */
@@ -7023,6 +8639,10 @@ registry where
 
 
 ### Registry Persistence via AppInit DLL
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-602
 
 ```python
 registry where
@@ -7042,6 +8662,10 @@ registry where
 
 ### Remote Desktop Enabled in Windows Firewall
 
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-456
+
 ```python
 process where event.type in ("start", "process_started") and
  (process.name : "netsh.exe" or process.pe.original_file_name == "netsh.exe") and
@@ -7059,6 +8683,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Remote Execution via File Shares
+
+Branch count: 4  
+Document count: 8  
+Index: detection-rules-ut-585
 
 ```python
 sequence with maxspan=1m
@@ -7081,6 +8709,10 @@ sequence with maxspan=1m
 
 ### Remote File Copy to a Hidden Share
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-592
+
 ```python
 process where event.type in ("start", "process_started") and
   process.name : ("cmd.exe", "powershell.exe", "robocopy.exe", "xcopy.exe") and 
@@ -7096,6 +8728,10 @@ process where event.type in ("start", "process_started") and
 
 ### Remote File Copy via TeamViewer
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-409
+
 ```python
 file where event.type == "creation" and process.name : "TeamViewer.exe" and
   file.extension : ("exe", "dll", "scr", "com", "bat", "ps1", "vbs", "vbe", "js", "wsh", "hta")
@@ -7108,6 +8744,10 @@ file where event.type == "creation" and process.name : "TeamViewer.exe" and
 
 
 ### Remote File Download via Desktopimgdownldr Utility
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-404
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -7126,6 +8766,10 @@ process where event.type in ("start", "process_started") and
 
 ### Remote File Download via MpCmdRun
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-405
+
 ```python
 process where event.type == "start" and
   (process.name : "MpCmdRun.exe" or process.pe.original_file_name == "MpCmdRun.exe") and
@@ -7140,6 +8784,10 @@ process where event.type == "start" and
 
 
 ### Remote File Download via PowerShell
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-406
 
 ```python
 sequence by host.id, process.entity_id with maxspan=30s
@@ -7159,6 +8807,10 @@ sequence by host.id, process.entity_id with maxspan=30s
 
 ### Remote File Download via Script Interpreter
 
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-407
+
 ```python
 sequence by host.id, process.entity_id
   [network where process.name : ("wscript.exe", "cscript.exe") and network.protocol != "dns" and
@@ -7176,6 +8828,10 @@ sequence by host.id, process.entity_id
 
 ### Remote SSH Login Enabled via systemsetup Command
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-286
+
 ```python
 event.category:process and event.type:(start or process_started) and
  process.name:systemsetup and
@@ -7190,6 +8846,10 @@ event.category:process and event.type:(start or process_started) and
 
 
 ### Remote Scheduled Task Creation
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-594
 
 ```python
 /* Task Scheduler service incoming connection followed by TaskCache registry modification  */
@@ -7211,6 +8871,10 @@ sequence by host.id, process.entity_id with maxspan = 1m
 
 ### Remote System Discovery Commands
 
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-525
+
 ```python
 process where event.type in ("start", "process_started") and
   (process.name : "nbtstat.exe" and process.args : ("-n", "-s")) or
@@ -7226,6 +8890,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Remotely Started Services via RPC
+
+Branch count: 8  
+Document count: 16  
+Index: detection-rules-ut-593
 
 ```python
 sequence with maxspan=1s
@@ -7260,6 +8928,10 @@ sequence with maxspan=1s
 
 ### Renamed AutoIt Scripts Interpreter
 
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-473
+
 ```python
 process where event.type in ("start", "process_started", "info") and
   process.pe.original_file_name : "AutoIt*.exe" and not process.name : "AutoIt*.exe"
@@ -7274,6 +8946,10 @@ process where event.type in ("start", "process_started", "info") and
 
 
 ### SMB (Windows File Sharing) Activity to the Internet
+
+Branch count: 18  
+Document count: 18  
+Index: detection-rules-ut-374
 
 ```python
 event.category:(network or network_traffic) and network.transport:tcp and (destination.port:(139 or 445) or event.dataset:zeek.smb) and
@@ -7329,6 +9005,10 @@ event.category:(network or network_traffic) and network.transport:tcp and (desti
 
 ### SMTP on Port 26/TCP
 
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-367
+
 ```python
 event.category:(network or network_traffic) and network.transport:tcp and (destination.port:26 or (event.dataset:zeek.smtp and destination.port:26))
 ```
@@ -7343,6 +9023,10 @@ event.category:(network or network_traffic) and network.transport:tcp and (desti
 
 
 ### SSH Authorized Keys File Modification
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-020
 
 ```python
 event.category:file and event.type:(change or creation) and 
@@ -7371,6 +9055,10 @@ event.category:file and event.type:(change or creation) and
 
 ### Scheduled Task Created by a Windows Script
 
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-609
+
 ```python
 sequence by host.id with maxspan = 30s
   [library where dll.name : "taskschd.dll" and process.name : ("cscript.exe", "wscript.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe")]
@@ -7385,6 +9073,10 @@ sequence by host.id with maxspan = 30s
 
 
 ### Screensaver Plist File Modified by Unexpected Process
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-307
 
 ```python
 file where event.type != "deletion" and
@@ -7411,6 +9103,10 @@ file where event.type != "deletion" and
 
 ### Searching for Saved Credentials via VaultCmd
 
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-431
+
 ```python
 process where event.type in ("start", "process_started") and
   (process.pe.original_file_name:"vaultcmd.exe" or process.name:"vaultcmd.exe") and
@@ -7428,6 +9124,10 @@ process where event.type in ("start", "process_started") and
 
 ### Security Software Discovery using WMIC
 
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-526
+
 ```python
 process where event.type in ("start", "process_started") and
    (process.name:"wmic.exe" or process.pe.original_file_name:"wmic.exe") and
@@ -7444,6 +9144,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Security Software Discovery via Grep
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-009
 
 ```python
 process where event.type == "start" and
@@ -7491,6 +9195,10 @@ process.name : "grep" and user.id != "0" and
 
 
 ### Sensitive Files Compression
+
+Branch count: 95  
+Document count: 95  
+Index: detection-rules-ut-218
 
 ```python
 event.category:process and event.type:start and
@@ -7544,6 +9252,10 @@ event.category:process and event.type:start and
 
 ### Sensitive Privilege SeEnableDelegationPrivilege assigned to a User
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-432
+
 ```python
 event.action: "Authorization Policy Change" and event.code:4704 and winlog.event_data.PrivilegeList:"SeEnableDelegationPrivilege"
 ```
@@ -7555,6 +9267,10 @@ event.action: "Authorization Policy Change" and event.code:4704 and winlog.event
 
 
 ### Service Command Lateral Movement
+
+Branch count: 4  
+Document count: 8  
+Index: detection-rules-ut-575
 
 ```python
 sequence by process.entity_id with maxspan = 1m
@@ -7580,6 +9296,10 @@ sequence by process.entity_id with maxspan = 1m
 
 ### Service Control Spawned via Script Interpreter
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-595
+
 ```python
 /* This rule is not compatible with Sysmon due to user.id issues */
 
@@ -7601,6 +9321,10 @@ process where event.type == "start" and
 
 ### SharePoint Malware File Upload
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-180
+
 ```python
 event.dataset:o365.audit and event.provider:SharePoint and event.code:SharePointFileOperation and event.action:FileMalwareDetected
 ```
@@ -7612,6 +9336,10 @@ event.dataset:o365.audit and event.provider:SharePoint and event.code:SharePoint
 
 
 ### Shell Execution via Apple Scripting
+
+Branch count: 6  
+Document count: 12  
+Index: detection-rules-ut-282
 
 ```python
 sequence by host.id with maxspan=5s
@@ -7635,6 +9363,10 @@ sequence by host.id with maxspan=5s
 
 
 ### Shortcut File Written or Modified for Persistence
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-620
 
 ```python
 file where event.type != "deletion" and
@@ -7669,6 +9401,10 @@ file where event.type != "deletion" and
 
 ### Signed Proxy Execution via MS WorkFolders
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-515
+
 ```python
 process where event.type in ("start","process_started")
     and process.name : "control.exe" and process.parent.name : "WorkFolders.exe"
@@ -7683,6 +9419,10 @@ process where event.type in ("start","process_started")
 
 
 ### Startup Folder Persistence via Unsigned Process
+
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-621
 
 ```python
 sequence by host.id, process.entity_id with maxspan=5s
@@ -7712,6 +9452,10 @@ sequence by host.id, process.entity_id with maxspan=5s
 
 ### Strace Process Activity
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-249
+
 ```python
 event.category:process and event.type:(start or process_started) and process.name:strace
 ```
@@ -7724,6 +9468,10 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 
 ### Sublime Plugin or Application Script Modification
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-304
 
 ```python
 file where event.type in ("change", "creation") and file.extension : "py" and
@@ -7751,6 +9499,10 @@ file where event.type in ("change", "creation") and file.extension : "py" and
 
 ### Sudoers File Modification
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-024
+
 ```python
 event.category:file and event.type:change and file.path:(/etc/sudoers* or /private/etc/sudoers*)
 ```
@@ -7762,6 +9514,10 @@ event.category:file and event.type:change and file.path:(/etc/sudoers* or /priva
 
 
 ### Suspicious .NET Code Compilation
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-455
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -7777,6 +9533,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Suspicious .NET Reflection via PowerShell
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-487
 
 ```python
 event.category:process and 
@@ -7795,6 +9555,10 @@ event.category:process and
 
 ### Suspicious Activity Reported by Okta User
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-199
+
 ```python
 event.dataset:okta.system and event.action:user.account.report_suspicious_activity_by_enduser
 ```
@@ -7806,6 +9570,10 @@ event.dataset:okta.system and event.action:user.account.report_suspicious_activi
 
 
 ### Suspicious Automator Workflows Execution
+
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-280
 
 ```python
 sequence by host.id with maxspan=30s
@@ -7824,6 +9592,10 @@ sequence by host.id with maxspan=30s
 
 ### Suspicious CertUtil Commands
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-498
+
 ```python
 process where event.type == "start" and
   (process.name : "certutil.exe" or process.pe.original_file_name == "CertUtil.exe") and 
@@ -7838,6 +9610,10 @@ process where event.type == "start" and
 
 
 ### Suspicious Child Process of Adobe Acrobat Reader Update Service
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-312
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -7862,6 +9638,10 @@ event.category:process and event.type:(start or process_started) and
 
 ### Suspicious Cmd Execution via WMI
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-549
+
 ```python
 process where event.type in ("start", "process_started") and
  process.parent.name : "WmiPrvSE.exe" and process.name : "cmd.exe" and
@@ -7876,6 +9656,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Suspicious DLL Loaded for Persistence or Privilege Escalation
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-648
 
 ```python
 library where dll.name :
@@ -7907,6 +9691,10 @@ not (dll.code_signature.subject_name : ("Microsoft Windows", "Microsoft Corporat
 
 
 ### Suspicious Emond Child Process
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-297
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -7945,6 +9733,10 @@ process where event.type in ("start", "process_started") and
 
 ### Suspicious Endpoint Security Parent Process
 
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-472
+
 ```python
 process where event.type in ("start", "process_started", "info") and
  process.name : ("esensor.exe", "elastic-endpoint.exe") and
@@ -7966,6 +9758,10 @@ process where event.type in ("start", "process_started", "info") and
 
 ### Suspicious Execution from a Mounted Device
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-499
+
 ```python
 process where event.type == "start" and process.executable : "C:\\*" and
   (process.working_directory : "?:\\" and not process.working_directory: "C:\\") and
@@ -7981,6 +9777,10 @@ process where event.type == "start" and process.executable : "C:\\*" and
 
 
 ### Suspicious Execution via Scheduled Task
+
+Branch count: 16  
+Document count: 16  
+Index: detection-rules-ut-625
 
 ```python
 process where event.type == "start" and
@@ -8035,6 +9835,10 @@ process where event.type == "start" and
 
 ### Suspicious Explorer Child Process
 
+Branch count: 16  
+Document count: 16  
+Index: detection-rules-ut-574
+
 ```python
 process where event.type in ("start", "process_started") and
   (
@@ -8068,6 +9872,10 @@ process where event.type in ("start", "process_started") and
 
 ### Suspicious Hidden Child Process of Launchd
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-293
+
 ```python
 event.category:process and event.type:(start or process_started) and
  process.name:.* and process.parent.executable:/sbin/launchd
@@ -8081,6 +9889,10 @@ event.category:process and event.type:(start or process_started) and
 
 
 ### Suspicious Image Load (taskschd.dll) from MS Office
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-624
 
 ```python
 library where process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSPUB.EXE", "MSACCESS.EXE") and
@@ -8097,6 +9909,10 @@ library where process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSPUB
 
 ### Suspicious JAVA Child Process
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-014
+
 ```python
 process where event.type in ("start", "process_started") and
   process.parent.name : "java" and
@@ -8111,6 +9927,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Suspicious MS Office Child Process
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-570
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -8133,6 +9953,10 @@ process where event.type in ("start", "process_started") and
 
 ### Suspicious MS Outlook Child Process
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-571
+
 ```python
 process where event.type in ("start", "process_started") and
   process.parent.name : "outlook.exe" and
@@ -8154,6 +9978,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Suspicious Managed Code Hosting Process
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-500
 
 ```python
 sequence by process.entity_id with maxspan=5m
@@ -8178,6 +10006,10 @@ sequence by process.entity_id with maxspan=5m
 
 
 ### Suspicious PDF Reader Child Process
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-551
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -8204,6 +10036,10 @@ process where event.type in ("start", "process_started") and
 
 ### Suspicious Portable Executable Encoded in Powershell Script
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-543
+
 ```python
 event.category:process and 
   powershell.file.script_block_text : (
@@ -8219,6 +10055,10 @@ event.category:process and
 
 ### Suspicious Print Spooler File Deletion
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-654
+
 ```python
 file where event.type : "deletion" and
  not process.name : ("spoolsv.exe", "dllhost.exe", "explorer.exe") and
@@ -8232,6 +10072,10 @@ file where event.type : "deletion" and
 
 
 ### Suspicious PrintSpooler SPL File Created
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-655
 
 ```python
 file where event.type != "deletion" and
@@ -8253,6 +10097,10 @@ file where event.type != "deletion" and
 
 ### Suspicious PrintSpooler Service Executable File Creation
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-653
+
 ```python
 file where event.type != "deletion" and process.name : "spoolsv.exe" and
   file.extension : ("exe", "dll") and
@@ -8266,6 +10114,10 @@ file where event.type != "deletion" and process.name : "spoolsv.exe" and
 
 
 ### Suspicious Process Creation CallTrace
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-502
 
 ```python
 sequence by host.id with maxspan=1m
@@ -8289,6 +10141,10 @@ sequence by host.id with maxspan=1m
 
 ### Suspicious Process Execution via Renamed PsExec Executable
 
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-553
+
 ```python
 process where event.type in ("start", "process_started", "info") and
   process.pe.original_file_name : "psexesvc.exe" and not process.name : "PSEXESVC.exe"
@@ -8304,6 +10160,10 @@ process where event.type in ("start", "process_started", "info") and
 
 ### Suspicious Process from Conhost
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-444
+
 ```python
 process where event.type in ("start", "process_started") and
   process.parent.name : "conhost.exe" and
@@ -8318,6 +10178,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Suspicious RDP ActiveX Client Loaded
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-596
 
 ```python
 library where dll.name : "mstscax.dll" and
@@ -8344,6 +10208,10 @@ library where dll.name : "mstscax.dll" and
 
 
 ### Suspicious Script Object Execution
+
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-503
 
 ```python
 sequence by process.entity_id with maxspan=2m
@@ -8382,6 +10250,10 @@ sequence by process.entity_id with maxspan=2m
 
 ### Suspicious SolarWinds Child Process
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-529
+
 ```python
 process where event.type in ("start", "process_started") and
  process.parent.name: ("SolarWinds.BusinessLayerHost.exe", "SolarWinds.BusinessLayerHostx64.exe") and
@@ -8405,6 +10277,10 @@ process where event.type in ("start", "process_started") and
 
 ### Suspicious WMI Image Load from MS Office
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-550
+
 ```python
 library where process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSPUB.EXE", "MSACCESS.EXE") and
   event.action : "load" and
@@ -8419,6 +10295,10 @@ library where process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSPUB
 
 
 ### Suspicious WerFault Child Process
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-474
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -8447,6 +10327,10 @@ process where event.type in ("start", "process_started") and
 
 ### Suspicious Zoom Child Process
 
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-505
+
 ```python
 process where event.type in ("start", "process_started", "info") and
  process.parent.name : "Zoom.exe" and process.name : ("cmd.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe")
@@ -8461,6 +10345,10 @@ process where event.type in ("start", "process_started", "info") and
 
 
 ### Suspicious macOS MS Office Child Process
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-283
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -8509,6 +10397,10 @@ process where event.type in ("start", "process_started") and
 
 ### Svchost spawning Cmd
 
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-532
+
 ```python
 process where event.type in ("start", "process_started") and
   process.parent.name : "svchost.exe" and process.name : "cmd.exe" and 
@@ -8526,6 +10418,10 @@ process where event.type in ("start", "process_started") and
 
 ### Symbolic Link to Shadow Copy Created
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-437
+
 ```python
 process where event.type in ("start", "process_started") and
 process.pe.original_file_name == "Cmd.Exe" and
@@ -8541,6 +10437,10 @@ process.args : "*\\GLOBALROOT\\Device\\HarddiskVolumeShadowCopy*"
 
 
 ### System Log File Deletion
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-233
 
 ```python
 file where event.type == "deletion" and 
@@ -8566,6 +10466,10 @@ file where event.type == "deletion" and
 
 ### System Shells via Services
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-627
+
 ```python
 process where event.type in ("start", "process_started") and
   process.parent.name : "services.exe" and
@@ -8584,6 +10488,10 @@ process where event.type in ("start", "process_started") and
 
 ### SystemKey Access via Command Line
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-264
+
 ```python
 event.category:process and event.type:(start or process_started) and
   process.args:"/private/var/db/SystemKey"
@@ -8598,6 +10506,10 @@ event.category:process and event.type:(start or process_started) and
 
 ### TCC Bypass via Mounted APFS Snapshot Access
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-274
+
 ```python
 event.category : process and event.type : (start or process_started) and process.name : mount_apfs and
   process.args : (/System/Volumes/Data and noowners)
@@ -8611,6 +10523,10 @@ event.category : process and event.type : (start or process_started) and process
 
 
 ### Tampering of Bash Command-Line History
+
+Branch count: 10  
+Document count: 10  
+Index: detection-rules-ut-225
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -8640,6 +10556,10 @@ process where event.type in ("start", "process_started") and
 
 ### Telnet Port Activity
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-369
+
 ```python
 event.category:(network or network_traffic) and network.transport:tcp and destination.port:23
 ```
@@ -8652,6 +10572,10 @@ event.category:(network or network_traffic) and network.transport:tcp and destin
 
 
 ### Third-party Backup Files Deleted via Unexpected Process
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-558
 
 ```python
 file where event.type == "deletion" and
@@ -8678,6 +10602,10 @@ file where event.type == "deletion" and
 
 ### Threat Detected by Okta ThreatInsight
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-211
+
 ```python
 event.dataset:okta.system and event.action:security.threat.detected
 ```
@@ -8689,6 +10617,10 @@ event.dataset:okta.system and event.action:security.threat.detected
 
 
 ### Timestomping using Touch Command
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-008
 
 ```python
 process where event.type == "start" and
@@ -8704,6 +10636,10 @@ process where event.type == "start" and
 
 
 ### UAC Bypass Attempt via Elevated COM Internet Explorer Add-On Installer
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-659
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -8723,6 +10659,10 @@ process where event.type in ("start", "process_started") and
 
 ### UAC Bypass Attempt via Privileged IFileOperation COM Interface
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-662
+
 ```python
 file where event.type : "change" and process.name : "dllhost.exe" and
   /* Known modules names side loaded into process running with high or system integrity level for UAC Bypass, update here for new modules */
@@ -8739,6 +10679,10 @@ file where event.type : "change" and process.name : "dllhost.exe" and
 
 ### UAC Bypass Attempt via Windows Directory Masquerading
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-664
+
 ```python
 process where event.type in ("start", "process_started") and
   process.args : ("C:\\Windows \\system32\\*.exe", "C:\\Windows \\SysWOW64\\*.exe")
@@ -8752,6 +10696,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### UAC Bypass Attempt with IEditionUpgradeManager Elevated COM Interface
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-658
 
 ```python
 process where event.type in ("start", "process_started") and process.name : "Clipup.exe" and
@@ -8769,6 +10717,10 @@ process where event.type in ("start", "process_started") and process.name : "Cli
 
 ### UAC Bypass via DiskCleanup Scheduled Task Hijack
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-661
+
 ```python
 process where event.type == "start" and
  process.args : "/autoclean" and process.args : "/d" and
@@ -8784,6 +10736,10 @@ process where event.type == "start" and
 
 
 ### UAC Bypass via ICMLuaUtil Elevated COM Interface
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-660
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -8803,6 +10759,10 @@ process where event.type in ("start", "process_started") and
 
 ### UAC Bypass via Windows Firewall Snap-In Hijack
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-665
+
 ```python
 process where event.type in ("start", "process_started") and
  process.parent.name == "mmc.exe" and
@@ -8820,6 +10780,10 @@ process where event.type in ("start", "process_started") and
 
 ### Unauthorized Access to an Okta Application
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-198
+
 ```python
 event.dataset:okta.system and event.action:app.generic.unauth_app_access_attempt
 ```
@@ -8832,6 +10796,10 @@ event.dataset:okta.system and event.action:app.generic.unauth_app_access_attempt
 
 ### Unexpected Child Process of macOS Screensaver Engine
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-306
+
 ```python
 process where event.type == "start" and process.parent.name == "ScreenSaverEngine"
 ```
@@ -8843,6 +10811,10 @@ process where event.type == "start" and process.parent.name == "ScreenSaverEngin
 
 
 ### Unusual Child Process from a System Virtual Process
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-512
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -8859,6 +10831,10 @@ process where event.type in ("start", "process_started") and
 
 ### Unusual Child Process of dns.exe
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-572
+
 ```python
 process where event.type == "start" and process.parent.name : "dns.exe" and
   not process.name : "conhost.exe"
@@ -8871,6 +10847,10 @@ process where event.type == "start" and process.parent.name : "dns.exe" and
 
 
 ### Unusual Child Processes of RunDLL32
+
+Branch count: 8  
+Document count: 16  
+Index: detection-rules-ut-493
 
 ```python
 sequence with maxspan=1h
@@ -8899,6 +10879,10 @@ sequence with maxspan=1h
 
 ### Unusual Executable File Creation by a System Critical Process
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-506
+
 ```python
 file where event.type != "deletion" and
   file.extension : ("exe", "dll") and
@@ -8920,6 +10904,10 @@ file where event.type != "deletion" and
 
 
 ### Unusual File Creation - Alternate Data Stream
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-507
 
 ```python
 file where event.type == "creation" and
@@ -8967,6 +10955,10 @@ file where event.type == "creation" and
 
 ### Unusual File Modification by dns.exe
 
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-573
+
 ```python
 file where process.name : "dns.exe" and event.type in ("creation", "deletion", "change") and
   not file.name : "dns.log"
@@ -8981,6 +10973,10 @@ file where process.name : "dns.exe" and event.type in ("creation", "deletion", "
 
 
 ### Unusual Network Activity from a Windows System Binary
+
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-485
 
 ```python
 sequence by process.entity_id with maxspan=5m
@@ -9041,6 +11037,10 @@ sequence by process.entity_id with maxspan=5m
 
 ### Unusual Network Connection via DllHost
 
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-509
+
 ```python
 sequence by host.id, process.entity_id with maxspan=1m
   [process where event.type in ("start", "process_started") and process.name : "dllhost.exe" and process.args_count == 1]
@@ -9063,6 +11063,10 @@ sequence by host.id, process.entity_id with maxspan=1m
 
 ### Unusual Network Connection via RunDLL32
 
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-510
+
 ```python
 sequence by host.id, process.entity_id with maxspan=1m
   [process where event.type in ("start", "process_started") and process.name : "rundll32.exe" and process.args_count == 1]
@@ -9084,6 +11088,10 @@ sequence by host.id, process.entity_id with maxspan=1m
 
 
 ### Unusual Parent Process for cmd.exe
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-533
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -9122,6 +11130,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Unusual Parent-Child Relationship
+
+Branch count: 48  
+Document count: 48  
+Index: detection-rules-ut-667
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -9173,6 +11185,10 @@ process.parent.name != null and
 
 ### Unusual Process Execution - Temp
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-248
+
 ```python
 event.category:process and event.type:(start or process_started) and process.working_directory:/tmp
 ```
@@ -9186,6 +11202,10 @@ event.category:process and event.type:(start or process_started) and process.wor
 
 ### Unusual Process Execution Path - Alternate Data Stream
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-508
+
 ```python
 process where event.type == "start" and
   process.args : "?:\\*:*" and process.args_count == 1
@@ -9198,6 +11218,10 @@ process where event.type == "start" and
 
 
 ### Unusual Process Network Connection
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-511
 
 ```python
 sequence by process.entity_id
@@ -9237,6 +11261,10 @@ sequence by process.entity_id
 
 ### Unusual Service Host Child Process - Childless Service
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-669
+
 ```python
 process where event.type in ("start", "process_started") and
      process.parent.name : "svchost.exe" and
@@ -9264,6 +11292,10 @@ process where event.type in ("start", "process_started") and
 
 ### User Account Creation
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-630
+
 ```python
 process where event.type in ("start", "process_started") and
   process.name : ("net.exe", "net1.exe") and
@@ -9280,6 +11312,10 @@ process where event.type in ("start", "process_started") and
 
 ### User Added as Owner for Azure Application
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-119
+
 ```python
 event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Add owner to application" and event.outcome:(Success or success)
 ```
@@ -9293,6 +11329,10 @@ event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Add owner to a
 
 ### User Added as Owner for Azure Service Principal
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-120
+
 ```python
 event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Add owner to service principal" and event.outcome:(Success or success)
 ```
@@ -9305,6 +11345,10 @@ event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Add owner to s
 
 
 ### User Added to Privileged Group in Active Directory
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-629
 
 ```python
 iam where event.action == "added-member-to-group" and
@@ -9325,6 +11369,10 @@ iam where event.action == "added-member-to-group" and
 
 
 ### VNC (Virtual Network Computing) from the Internet
+
+Branch count: 6  
+Document count: 6  
+Index: detection-rules-ut-370
 
 ```python
 event.category:(network or network_traffic) and network.transport:tcp and destination.port >= 5800 and destination.port <= 5810 and
@@ -9376,6 +11424,10 @@ event.category:(network or network_traffic) and network.transport:tcp and destin
 
 ### VNC (Virtual Network Computing) to the Internet
 
+Branch count: 6  
+Document count: 6  
+Index: detection-rules-ut-371
+
 ```python
 event.category:(network or network_traffic) and network.transport:tcp and destination.port >= 5800 and destination.port <= 5810 and
   source.ip:(
@@ -9426,6 +11478,10 @@ event.category:(network or network_traffic) and network.transport:tcp and destin
 
 ### Virtual Machine Fingerprinting
 
+Branch count: 10  
+Document count: 10  
+Index: detection-rules-ut-235
+
 ```python
 event.category:process and event.type:(start or process_started) and
   process.args:("/sys/class/dmi/id/bios_version" or
@@ -9453,6 +11509,10 @@ event.category:process and event.type:(start or process_started) and
 
 ### Virtual Machine Fingerprinting via Grep
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-010
+
 ```python
 process where event.type == "start" and
  process.name in ("grep", "egrep") and user.id != "0" and
@@ -9468,6 +11528,10 @@ process where event.type == "start" and
 
 
 ### Volume Shadow Copy Deleted or Resized via VssAdmin
+
+Branch count: 8  
+Document count: 8  
+Index: detection-rules-ut-562
 
 ```python
 process where event.type in ("start", "process_started")
@@ -9490,6 +11554,10 @@ process where event.type in ("start", "process_started")
 
 ### Volume Shadow Copy Deletion via PowerShell
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-563
+
 ```python
 process where event.type in ("start", "process_started") and
   process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and 
@@ -9507,6 +11575,10 @@ process where event.type in ("start", "process_started") and
 
 ### Volume Shadow Copy Deletion via WMIC
 
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-564
+
 ```python
 process where event.type in ("start", "process_started") and
   (process.name : "WMIC.exe" or process.pe.original_file_name == "wmic.exe") and
@@ -9523,6 +11595,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### WMI Incoming Lateral Movement
+
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-587
 
 ```python
 sequence by host.id with maxspan = 2s
@@ -9554,6 +11630,10 @@ sequence by host.id with maxspan = 2s
 
 
 ### WPAD Service Exploit
+
+Branch count: 4  
+Document count: 20  
+Index: detection-rules-ut-672
 
 ```python
 /* preference would be to use user.sid rather than domain+name, once it is available in ECS + datasources */
@@ -9589,6 +11669,10 @@ sequence with maxspan=5s
 
 ### Web Application Suspicious Activity: POST Request Declined
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-000
+
 ```python
 http.response.status_code:403 and http.request.method:post
 ```
@@ -9600,6 +11684,10 @@ http.response.status_code:403 and http.request.method:post
 
 
 ### Web Application Suspicious Activity: Unauthorized Method
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-001
 
 ```python
 http.response.status_code:405
@@ -9613,6 +11701,10 @@ http.response.status_code:405
 
 ### Web Application Suspicious Activity: sqlmap User Agent
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-003
+
 ```python
 user_agent.original:"sqlmap/1.3.11#stable (http://sqlmap.org)"
 ```
@@ -9624,6 +11716,10 @@ user_agent.original:"sqlmap/1.3.11#stable (http://sqlmap.org)"
 
 
 ### WebProxy Settings Modification
+
+Branch count: 3  
+Document count: 3  
+Index: detection-rules-ut-261
 
 ```python
 event.category : process and event.type : start and
@@ -9643,6 +11739,10 @@ event.category : process and event.type : start and
 
 ### WebServer Access Logs Deleted
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-007
+
 ```python
 file where event.type == "deletion" and
   file.path : ("C:\\inetpub\\logs\\LogFiles\\*.log", 
@@ -9660,6 +11760,10 @@ file where event.type == "deletion" and
 
 ### Webshell Detection: Script Process Child of Common Web Processes
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-640
+
 ```python
 process where event.type == "start" and
   process.parent.name : ("w3wp.exe", "httpd.exe", "nginx.exe", "php.exe", "php-cgi.exe", "tomcat.exe") and 
@@ -9674,6 +11778,10 @@ process where event.type == "start" and
 
 ### Whoami Process Activity
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-527
+
 ```python
 process where event.type in ("start", "process_started") and process.name : "whoami.exe"
 ```
@@ -9686,6 +11794,10 @@ process where event.type in ("start", "process_started") and process.name : "who
 
 
 ### Windows Defender Exclusions Added via PowerShell
+
+Branch count: 4  
+Document count: 4  
+Index: detection-rules-ut-448
 
 ```python
 process where event.type == "start" and
@@ -9705,6 +11817,10 @@ process where event.type == "start" and
 
 ### Windows Event Logs Cleared
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-443
+
 ```python
 event.action:("audit-log-cleared" or "Log clear")
 ```
@@ -9717,6 +11833,10 @@ event.action:("audit-log-cleared" or "Log clear")
 
 
 ### Windows Firewall Disabled via PowerShell
+
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-491
 
 ```python
 process where event.action == "start" and
@@ -9734,6 +11854,10 @@ process where event.action == "start" and
 
 
 ### Windows Network Enumeration
+
+Branch count: 16  
+Document count: 16  
+Index: detection-rules-ut-520
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -9769,6 +11893,10 @@ process where event.type in ("start", "process_started") and
 
 ### Windows Script Executing PowerShell
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-565
+
 ```python
 process where event.type in ("start", "process_started") and
   process.parent.name : ("cscript.exe", "wscript.exe") and process.name : "powershell.exe"
@@ -9782,6 +11910,10 @@ process where event.type in ("start", "process_started") and
 
 
 ### Windows Script Interpreter Executing Process via WMI
+
+Branch count: 4  
+Document count: 8  
+Index: detection-rules-ut-566
 
 ```python
 sequence by host.id with maxspan = 5s
@@ -9828,6 +11960,10 @@ sequence by host.id with maxspan = 5s
 
 ### Windows Service Installed via an Unusual Client
 
+Branch count: 2  
+Document count: 2  
+Index: detection-rules-ut-671
+
 ```python
 event.action:"service-installed"  and (winlog.event_data.ClientProcessId:"0" or winlog.event_data.ParentProcessId:"0")
 ```
@@ -9841,6 +11977,10 @@ event.action:"service-installed"  and (winlog.event_data.ClientProcessId:"0" or 
 
 ### Zoom Meeting with no Passcode
 
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-017
+
 ```python
 event.type:creation and event.module:zoom and event.dataset:zoom.webhook and
   event.action:meeting.created and not zoom.meeting.password:*
@@ -9853,6 +11993,10 @@ event.type:creation and event.module:zoom and event.dataset:zoom.webhook and
 
 
 ### macOS Installer Spawns Network Event
+
+Branch count: 2  
+Document count: 4  
+Index: detection-rules-ut-279
 
 ```python
 sequence by process.entity_id with maxspan=1m
