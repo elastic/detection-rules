@@ -1,9 +1,10 @@
 # Host Risk Score
 
-Host Risk Score is an experimental feature that assigns risk scores to hosts in a given Kibana space. Risk scores are calculated for each host by utilizing transforms on the alerting indices. The transform runs hourly to update the score as new detection rule alerts are generated. The Host Risk Score [package](https://github.com/elastic/detection-rules/releases) contains all of the required artifacts for setup. The Host Risk Score feature provides drilldown Lens dashboards and additional Kibana features such as the **Host Risk Score Card** on the Overview page of the Elastic Security app, and the **Host Risk Keyword** on the Alert details flyout for an enhanced experience.
+Host Risk Score is an experimental feature that assigns risk scores to hosts in a given Kibana space. Risk scores are calculated for each host by utilizing transforms on the alerting indices. The transform runs hourly to update the score as new alerts are generated. The Host Risk Score [package](https://github.com/elastic/detection-rules/releases) contains all of the required artifacts for setup. The Host Risk Score feature provides drilldown Lens dashboards and additional Kibana features such as the **Host Risk Score Card** on the Overview page of the Elastic Security app, and the **Host Risk Keyword** on the Alert details flyout for an enhanced experience.
 
 ### Notes
- - **Host name collision**: Hosts are identified by the `host.name` field in alerts. There may be some edge cases where different hosts use the same name. [details](#host-name-collision-details) 
+ - **Host name collision**: Hosts are identified by the `host.name` field in alerts. There may be some edge cases where different hosts use the same name. [details](#host-name-collision-details)
+
 
 ## Setup Instructions
 
@@ -20,8 +21,8 @@ Host Risk Score is an experimental feature that assigns risk scores to hosts in 
 
 The Host Risk Score functionality is space aware for privacy. Downloaded artifacts must be modified with the desired space before they can be used.
 
- - Download the latest release [bundle](https://github.com/elastic/detection-rules/releases) with the tag `ML-HostRiskScore-YYYMMDD-N`.
- - Unzip the contents of `ML-HostRiskScore-YYYMMDD-N.zip`.
+ - Download the release bundle from [here](https://github.com/elastic/detection-rules/releases). The Host Risk Score releases can be identified by the tag `ML-HostRiskScore-YYYYMMDD-N`. Check the release description to make sure it is compatible with the Elastic Stack version you are running.
+ - Unzip the contents of `ML-HostRiskScore-YYYYMMDD-N.zip`.
  - Run `ml_hostriskscore_generate_scripts.py` script in the unzipped directory with your Kibana space as the argument.
 <div style="margin-left: 40px">   
 <i>Example of modifying artifacts for the default space</i>
@@ -30,10 +31,13 @@ The Host Risk Score functionality is space aware for privacy. Downloaded artifac
 
  - Find a new folder named after your space in the unzipped directory. **You will be using the scripts within this directory for the next steps.**
 
+ **Note:** Host Risk Score artifacts should be updated if/when you update to a newer Elastic Stack version. To do this, simply download a release bundle that is compatible with your new Stack version and repeat all the steps. Backwards compatibility of release bundles is not guaranteed.
+
+
 <h3 id="upload-scripts">2. Upload scripts</h3>
 
 - Navigate to `Management / Dev Tools` in Kibana.
-- Upload the contents of `ml_hostriskscore_levels_script.json`, `ml_hostriskscore_map_script.json` and `ml_hostriskscore_reduce_script.json` using the Script API with the following syntax.
+- Upload the contents of `ml_hostriskscore_levels_script.json`, `ml_hostriskscore_map_script.json`, `ml_hostriskscore_reduce_script.json` and `ml_hostriskscore_init_script.json` (for Elastic Stack version 8.1+ only) using the Script API with the following syntax.
 - Ensure that your space name (such as `default`) replaces `<your-space-name>` in the script names below.
 
 <div style="margin-left: 40px">   
@@ -49,11 +53,17 @@ PUT _scripts/ml_hostriskscore_map_script_&lt;your-space-name&gt;
 {contents of ml_hostriskscore_map_script.json file}
 </code></pre></div>
 
-
 <div style="margin-left: 40px">
    <pre><code>
 PUT _scripts/ml_hostriskscore_reduce_script_&lt;your-space-name&gt;
 {contents of ml_hostriskscore_reduce_script.json file}
+</code></pre></div>
+
+<i>For Elastic Stack version 8.1+ only</i>
+<div style="margin-left: 40px">
+   <pre><code>
+PUT _scripts/ml_hostriskscore_init_script_&lt;your-space-name&gt;
+{contents of ml_hostriskscore_init_script.json file}
 </code></pre></div>
 
 
@@ -142,15 +152,7 @@ This transform recurringly calculates risk levels for all hosts in the Kibana sp
 
 <h3 id="enable-kibana">8. Enable Kibana features</h3>
 
-There are two features in Kibana related to Host Risk Scoring.
-
-_Host Risk Score card on the Overview page_
-![Host Risk Score card](./images/0a_host_risk_score_card.png)
-
-_Host Risk Keyword on Alert Details Flyout_
-![Host Risk Keyword](./images/0b_alert_summary.png)
-
-To enable the _Host Risk Score card on the Overview page_, and the _Host Risk Keyword on Alert Details Flyout_, you will need to add the following configuration to `kibana.yml`.
+To enable the Kibana features for Host Risk Score, you will first need to add the following configuration to `kibana.yml`.
 
 ```
 xpack.securitySolution.enableExperimental: ['riskyHostsEnabled']
@@ -184,6 +186,31 @@ xpack.securitySolution.enableExperimental: ['riskyHostsEnabled']
 
 7. View Host Risk Score Card on the Overview page
 ![Host Risk Score card](./images/0a_host_risk_score_card.png)
+
+
+Once you have modified the `kibana.yml` file, you will find Host Risk Scoring features in the following Kibana locations:
+
+_Host Risk Score card on the Overview page_
+![Host Risk Score card](./images/0a_host_risk_score_card.png)
+
+_Host Risk Keyword on Alert Details Flyout_
+![Host Risk Keyword](./images/0b_alert_summary.png)
+
+For Elastic Stack version 8.1+ only:
+
+_Host risk classification column in the All hosts table on the Hosts page_
+![Hosts page risk classification column](./images/0c_host_page_risk_column.png)
+
+_Hosts by risk tab on the Hosts page_
+![Hosts Risk Tab](./images/0d_host_page_hosts_by_risk_tab.png)
+
+The host risk table in the above tab is not affected by the KQL time range. The table shows the latest recorded risk score for each host.
+
+_Host risk overview on the Host details page_
+![Host risk overview](./images/0e_host_details_page_risk_overview.png)
+
+_Hosts by risk tab on the Host details page_
+![Host Details Risk Tab](./images/0f_host_details_page_hosts_by_risk_tab.png)
 
 <hr/>
 
