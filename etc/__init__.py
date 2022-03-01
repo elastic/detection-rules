@@ -1,0 +1,1 @@
+# Establing etc/ as a Python module allows us to publish it in the package. This file is intentionally empty.
