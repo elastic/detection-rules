@@ -72,14 +72,16 @@ def assertReportUnchanged(tc, nb, report):  # noqa: N802
     filename = utils.get_path("tests", "reports", report)
     old_filename = "{:s}.old{:s}".format(*os.path.splitext(filename))
     new_filename = "{:s}.new{:s}".format(*os.path.splitext(filename))
-    os.rename(filename, old_filename)
+    if os.path.exists(filename):
+        os.rename(filename, old_filename)
     jupyter.random.seed(report)
     nb.save(filename)
-    os.rename(filename, new_filename)
-    os.rename(old_filename, filename)
-    with tc.subTest(os.path.join("tests", "reports", report)):
-        assertIdenticalFiles(tc, filename, new_filename)
-        os.unlink(new_filename)
+    if os.path.exists(old_filename):
+        os.rename(filename, new_filename)
+        os.rename(old_filename, filename)
+        with tc.subTest(os.path.join("tests", "reports", report)):
+            assertIdenticalFiles(tc, filename, new_filename)
+            os.unlink(new_filename)
 
 
 class SeededTestCase:
@@ -181,6 +183,8 @@ class OnlineTestCase:
 class SignalsTestCase:
     """Generate documents, load rules and documents, check triggered signals in unit tests."""
 
+    multiplying_factor = int(os.getenv("TEST_SIGNALS_MULTI") or 0) or 1
+
     def generate_docs_and_mappings(self, rules, asts):
         se = SourceEvents()
 
@@ -189,7 +193,7 @@ class SignalsTestCase:
             with self.subTest(rule["query"]):
                 try:
                     root = se.add_ast(ast)
-                    docs = se.emit(root, complete=True)
+                    docs = se.emit(root, complete=True, count=self.multiplying_factor)
                 except Exception as e:
                     rule["enabled"] = False
                     if verbose > 2:
@@ -206,7 +210,7 @@ class SignalsTestCase:
                         sys.stderr.flush()
                     doc_count += 1
 
-                rule[".test_private"]["branch_count"] = len(root)
+                rule[".test_private"]["branch_count"] = len(root) * self.multiplying_factor
                 rule[".test_private"]["doc_count"] = doc_count
         return (bulk, se.mappings())
 
@@ -328,6 +332,29 @@ class SignalsTestCase:
             signals[bucket["key"]] = (bucket["doc_count"], branch_count)
         return signals
 
+    def wait_for_signals(self, rules, timeout=15, sleep=5):
+        start = time.time()
+        total_count = sum(rule[".test_private"]["branch_count"] for rule in rules if rule["enabled"])
+        partial_count = 0
+        partial_count_prev = 0
+        while (time.time() - start) < timeout:
+            if verbose:
+                sys.stderr.write(f"{total_count - partial_count} ")
+                sys.stderr.flush()
+            signals = self.get_signals_per_rule(rules)
+            partial_count = sum(branch_count for branch_count, _ in signals.values())
+            if partial_count != partial_count_prev:
+                start = time.time()
+                partial_count_prev = partial_count
+            if total_count - partial_count > 0:
+                time.sleep(sleep)
+            else:
+                break
+        if verbose:
+            sys.stderr.write(f"{total_count - partial_count} ")
+            sys.stderr.flush()
+        return signals
+
     @classmethod
     def query_cell(cls, query, docs, **kwargs):
         source = textwrap.dedent(query.strip())
@@ -350,7 +377,8 @@ class SignalsTestCase:
                         Document count: {rule[".test_private"]["doc_count"]}  
                         Index: {rule["index"][0]}
                     """))  # noqa: W291: trailing double space makes a new line in markdown
-                    cells.append(self.query_cell(rule["query"], docs))
+                    if self.multiplying_factor == 1:
+                        cells.append(self.query_cell(rule["query"], docs))
                     if type(rule_ids) == dict:
                         rule_status = rule_ids[rule["id"]].get("current_status", {})
                         failure_message = rule_status.get("last_failure_message", "")
@@ -384,13 +412,16 @@ class SignalsTestCase:
 
     def check_signals(self, rules, pending):
         successful, failed = self.wait_for_rules(pending)
-        signals = self.get_signals_per_rule(rules)
+        if self.multiplying_factor > 1:
+            signals = self.wait_for_signals(rules)
+        else:
+            signals = self.get_signals_per_rule(rules)
 
         unsuccessful = set(signals) - set(successful)
         no_signals = set(successful) - set(signals)
-        too_few_signals = {rule_id for rule_id, (signals, branches) in signals.items() if signals < branches}
-        correct_signals = {rule_id for rule_id, (signals, branches) in signals.items() if signals == branches}
-        too_many_signals = {rule_id for rule_id, (signals, branches) in signals.items() if signals > branches}
+        too_few_signals = {rule_id for rule_id, (signals, expected) in signals.items() if signals < expected}
+        correct_signals = {rule_id for rule_id, (signals, expected) in signals.items() if signals == expected}
+        too_many_signals = {rule_id for rule_id, (signals, expected) in signals.items() if signals > expected}
 
         rules = sorted(rules, key=lambda rule: rule["name"])
         self.assertSignals(rules, failed, "Failed rules")

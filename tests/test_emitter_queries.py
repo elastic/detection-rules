@@ -577,6 +577,14 @@ class TestSignalsQueries(tu.SignalsTestCase, tu.OnlineTestCase, tu.SeededTestCas
         Here you can learn what queries are supported.
     """))
 
+    @classmethod
+    def setUpClass(cls):
+        if cls.multiplying_factor > 1:
+            cls.nb.cells.append(jupyter.Markdown(f"""
+                This report was generated with a multiplying factor of {cls.multiplying_factor}.
+            """))
+        super(TestSignalsQueries, cls).setUpClass()
+
     def parse_from_queries(self, queries):
         rules = []
         asts = []
@@ -590,11 +598,12 @@ class TestSignalsQueries(tu.SignalsTestCase, tu.OnlineTestCase, tu.SeededTestCas
                 "name": "Rule {:03d}".format(i),
                 "index": [index_name],
                 "interval": "3s",
-                "from": "now-30m",
+                "from": "now-2h",
                 "severity": "low",
                 "type": guess.type,
                 "query": query,
                 "language": guess.language,
+                "max_signals": 200,
                 "enabled": True,
                 ".test_private": {},  # private test data, not sent to Kibana
             })
@@ -602,9 +611,10 @@ class TestSignalsQueries(tu.SignalsTestCase, tu.OnlineTestCase, tu.SeededTestCas
         return rules, asts
 
     def test_queries(self):
+        mf_ext = f"_{self.multiplying_factor}x" if self.multiplying_factor > 1 else ""
         queries = tuple(mono_branch_mono_doc) + tuple(multi_branch_mono_doc) \
             + tuple(mono_branch_multi_doc) + tuple(multi_branch_multi_doc)
         rules, asts = self.parse_from_queries(queries)
         pending = self.load_rules_and_docs(rules, asts)
         self.check_signals(rules, pending)
-        tu.assertReportUnchanged(self, self.nb, "alerts_from_queries.md")
+        tu.assertReportUnchanged(self, self.nb, f"alerts_from_queries{mf_ext}.md")

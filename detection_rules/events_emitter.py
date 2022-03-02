@@ -165,15 +165,16 @@ class SourceEvents:
     def roots(self):
         return iter(self.__roots)
 
-    def emit(self, root=None, *, timestamp=True, complete=False):
+    def emit(self, root=None, *, timestamp=True, complete=False, count=1):
         if timestamp:
             timestamp = [int(time.time() * 1000)]
         if not complete:
-            branch = random.choice(root or random.choice(self.__roots))
-            return docs_from_branch(branch, self.schema, timestamp)
-        if root is not None:
-            return docs_from_root(root, self.schema, timestamp)
-        docs = (docs_from_root(root, self.schema, timestamp) for root in self.__roots)
+            branches = (random.choice(root or random.choice(self.__roots)) for _ in range(count))
+            docs = (docs_from_branch(branch, self.schema, timestamp) for branch in branches)
+        elif root is None:
+            docs = (docs_from_root(root, self.schema, timestamp) for _ in range(count) for root in self.__roots)
+        else:
+            docs = (docs_from_root(root, self.schema, timestamp) for _ in range(count))
         return list(chain(*docs))
 
     def try_emit(self, root):

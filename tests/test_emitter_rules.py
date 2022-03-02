@@ -111,6 +111,14 @@ class TestSignalsRules(tu.SignalsTestCase, tu.OnlineTestCase, tu.SeededTestCase,
         Curious about the inner workings? Read [here](signals_generation.md).
     """))
 
+    @classmethod
+    def setUpClass(cls):
+        if cls.multiplying_factor > 1:
+            cls.nb.cells.append(jupyter.Markdown(f"""
+                This report was generated with a multiplying factor of {cls.multiplying_factor}.
+            """))
+        super(TestSignalsRules, cls).setUpClass()
+
     def parse_from_collection(self, collection):
         rules = []
         asts = []
@@ -128,19 +136,21 @@ class TestSignalsRules(tu.SignalsTestCase, tu.OnlineTestCase, tu.SeededTestCase,
                 "name": rule.name,
                 "index": [index_name],
                 "interval": "3s",
-                "from": "now-30m",
+                "from": "now-2h",
                 "severity": rule.severity,
                 "type": rule.type,
                 "query": rule.query,
                 "language": rule.language,
+                "max_signals": 200,
                 "enabled": True,
                 ".test_private": {},  # private test data, not sent to Kibana
             })
         return rules, asts
 
     def test_rules(self):
+        mf_ext = f"_{self.multiplying_factor}x" if self.multiplying_factor > 1 else ""
         collection = _get_collection("TEST_SIGNALS_RULES")
         rules, asts = self.parse_from_collection(collection)
         pending = self.load_rules_and_docs(rules, asts)
         self.check_signals(rules, pending)
-        tu.assertReportUnchanged(self, self.nb, "alerts_from_rules.md")
+        tu.assertReportUnchanged(self, self.nb, f"alerts_from_rules{mf_ext}.md")
