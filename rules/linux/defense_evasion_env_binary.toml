@@ -1,0 +1,44 @@
+[metadata]
+creation_date = "2022/02/24"
+maturity = "production"
+updated_date = "2022/02/24"
+
+[rule]
+author = ["Elastic"]
+description = "Identifies Linux binary env abuse to break out from restricted environments by spawning an interactive system shell"
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux Restricted Shell Breakout via env Shell Evasion"
+references = ["https://gtfobins.github.io/gtfobins/env/"]
+risk_score = 47
+rule_id = "72d33577-f155-457d-aad3-379f9b750c97"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Defense Evasion", "GTFOBins"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and process.name : "env" and process.args_count == 2 and process.args : ("/bin/sh", "/bin/bash", "sh", "bash")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+[[rule.threat.technique.subtechnique]]
+id = "T1548.004"
+name = "Elevated Execution with Prompt"
+reference = "https://attack.mitre.org/techniques/T1548/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
