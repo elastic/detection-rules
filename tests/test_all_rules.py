@@ -387,8 +387,8 @@ class TestRuleMetadata(BaseRuleTest):
         deprecated_path = get_path("rules", "_deprecated")
 
         misplaced_rules = [r for r in self.all_rules
-                           if r.path.relative_to(rules_path).parts[-2] == '_deprecated'  # noqa: W504
-                           and r.contents.metadata.maturity != 'deprecated']
+                           if r.path.relative_to(rules_path).parts[-2] == '_deprecated' and # noqa: W504
+                           r.contents.metadata.maturity != 'deprecated']
         misplaced = '\n'.join(f'{self.rule_str(r)} {r.contents.metadata.maturity}' for r in misplaced_rules)
         err_str = f'The following rules are stored in {deprecated_path} but are not marked as deprecated:\n{misplaced}'
         self.assertListEqual(misplaced_rules, [], err_str)
