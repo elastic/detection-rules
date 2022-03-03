@@ -6,7 +6,8 @@ updated_date = "2022/03/02"
 [rule]
 author = ["Elastic", "Austin Songer"]
 description = """
-Identifies the use of Windows Work Folders to execute a potentially masqueraded control.exe file in the current working directory. Misuse of Windows Work Folders could indicate malicious activity. 
+Identifies the use of Windows Work Folders to execute a potentially masqueraded control.exe file in the current working
+directory. Misuse of Windows Work Folders could indicate malicious activity.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.*"]
@@ -41,13 +42,11 @@ behavior.
 - Review integrating Windows Information Protection (WIP) to enforce data protection by encrypting the data on PCs using Work Folders.
 - Confirm with user whether this was expected or not and reset their password.
 """
-
 references = [
     "https://docs.microsoft.com/en-us/windows-server/storage/work-folders/work-folders-overview",
     "https://twitter.com/ElliotKillick/status/1449812843772227588",
-    "https://lolbas-project.github.io/lolbas/Binaries/WorkFolders/"
+    "https://lolbas-project.github.io/lolbas/Binaries/WorkFolders/",
 ]
-
 risk_score = 47
 rule_id = "ad0d2742-9a49-11ec-8d6b-acde48001122"
 severity = "medium"
@@ -61,13 +60,14 @@ process where event.type in ("start","process_started")
     and not process.executable : ("?:\\Windows\\System32\\control.exe", "?:\\Windows\\SysWOW64\\control.exe")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1218"
 name = "Signed Binary Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1218/"
+
 
 [rule.threat.tactic]
 id = "TA0005"
