@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/10/15"
 maturity = "production"
-updated_date = "2022/02/28"
+updated_date = "2022/03/02"
 
 [rule]
 author = ["Elastic"]
@@ -75,8 +75,11 @@ type = "query"
 query = '''
 event.category:process and 
   ( 
-   powershell.file.script_block_text : (GetAsyncKeyState or NtUserGetAsyncKeyState or GetKeyboardState or Get-Keystrokes) or 
-   powershell.file.script_block_text : ((SetWindowsHookA or SetWindowsHookW or SetWindowsHookEx or SetWindowsHookExA or NtUserSetWindowsHookEx) and (GetForegroundWindow or GetWindowTextA or GetWindowTextW or WM_KEYBOARD_LL))
+   powershell.file.script_block_text : (GetAsyncKeyState or NtUserGetAsyncKeyState or GetKeyboardState or "Get-Keystrokes") or 
+   powershell.file.script_block_text : (
+        (SetWindowsHookA or SetWindowsHookW or SetWindowsHookEx or SetWindowsHookExA or NtUserSetWindowsHookEx) and
+        (GetForegroundWindow or GetWindowTextA or GetWindowTextW or "WM_KEYBOARD_LL")
+   )
    )
 '''
 
