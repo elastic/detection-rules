@@ -1,12 +1,12 @@
 [metadata]
 creation_date = "2020/12/07"
 maturity = "production"
-updated_date = "2021/06/22"
+updated_date = "2022/02/28"
 
 [rule]
 author = ["Elastic"]
 description = """
-A Folder Action script is executed when the folder to which it is attached has items added or removed, or when its
+Detects modification of a Folder Action script. A Folder Action script is executed when the folder to which it is attached has items added or removed, or when its
 window is opened, closed, moved, or resized. Adversaries may abuse this feature to establish persistence by utilizing a
 malicious script.
 """
@@ -25,7 +25,7 @@ type = "eql"
 query = '''
 sequence by host.id with maxspan=5s
  [process where event.type in ("start", "process_started", "info") and process.name == "com.apple.foundation.UserScriptService"] by process.pid
- [process where event.type in ("start", "process_started") and process.name in ("osascript", "sh")] by process.parent.pid
+ [process where event.type in ("start", "process_started") and process.name in ("osascript", "python", "tcl", "node", "perl", "ruby", "php", "bash", "csh", "zsh", "sh")] by process.parent.pid
 '''
 
 

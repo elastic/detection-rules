@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/05/26"
+updated_date = "2022/02/14"
 
 [rule]
 author = ["Elastic"]
@@ -32,7 +32,7 @@ sequence by process.entity_id
   [process where event.type == "start" and
    process.name : ("regsvr32.exe", "RegAsm.exe", "RegSvcs.exe") and
    not (
-         user.id == "S-1-5-18" and
+         (process.Ext.token.integrity_level_name : "System" or winlog.event_data.IntegrityLevel : "System") and
          (process.parent.name : "msiexec.exe" or process.parent.executable : ("C:\\Program Files (x86)\\*.exe", "C:\\Program Files\\*.exe"))
        )
    ]
