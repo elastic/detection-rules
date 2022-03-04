@@ -33,8 +33,11 @@ jobs:
         python -m detection_rules dev license-check
         
     - name: Build release package
+      env:
+        # only generate the navigator files on push events to main
+        GENERATE_NAVIGATOR_FILES: "${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && '--generate-navigator' || ' ' }}"
       run: |
-        python -m detection_rules dev build-release
+        python -m detection_rules dev build-release $GENERATE_NAVIGATOR_FILES
 
     - name: Archive production artifacts for branch builds
       uses: actions/upload-artifact@v2
