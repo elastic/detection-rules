@@ -583,17 +583,19 @@ class TestRuleTiming(BaseRuleTest):
                 # we want to test for at least a ratio of: interval >= 1/2 maxspan
                 # but we only want to make an exception and cap the ratio at 5m interval (2.5m maxspan)
                 # there is also a check for if the margin is less then 2x the interval
+                rule_path = self.rule_str(rule)
+
                 if window and maxspan:
-                    if margin < 2*interval and maxspan > interval:
-                        err_msg = f'{self.rule_str(rule)} rule does not leave enough margin'
+                    if margin < 2 * interval and maxspan > interval:
+                        err_msg = f'{rule_path} rule does not leave enough margin'
                         invalids.append(err_msg)
                     if maxspan > (five_minutes / 2) and ratio and ratio < .5:
                         expected = maxspan // 2
-                        err_msg = f'{self.rule_str(rule)} interval: {interval}, maxspan: {maxspan}, expected: >={expected}'
+                        err_msg = f'{rule_path} interval: {interval}, maxspan: {maxspan}, expected: >={expected}'
                         invalids.append(err_msg)
                 elif maxspan and maxspan > (five_minutes / 2) and ratio and ratio < .5:
                     expected = maxspan // 2
-                    err_msg = f'{self.rule_str(rule)} interval: {interval}, maxspan: {maxspan}, expected: >={expected}'
+                    err_msg = f'{rule_path} interval: {interval}, maxspan: {maxspan}, expected: >={expected}'
                     invalids.append(err_msg)
 
         if invalids:
