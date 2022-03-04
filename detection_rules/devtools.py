@@ -67,14 +67,18 @@ def dev_group():
 @click.argument('config-file', type=click.Path(exists=True, dir_okay=False), required=False, default=PACKAGE_FILE)
 @click.option('--update-version-lock', '-u', is_flag=True,
               help='Save version.lock.json file with updated rule versions in the package')
-def build_release(config_file, update_version_lock, release=None, verbose=True):
+@click.option('--generate-navigator', is_flag=True, help='Generate ATT&CK navigator files')
+def build_release(config_file, update_version_lock: bool, generate_navigator: bool, release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
     config = load_dump(config_file)['package']
+    if generate_navigator:
+        config['generate_navigator'] = True
+
     if release is not None:
         config['release'] = release
 
     if verbose:
-        click.echo('[+] Building package {}'.format(config.get('name')))
+        click.echo(f'[+] Building package {config.get("name")}')
 
     package = Package.from_config(config, verbose=verbose)
 
