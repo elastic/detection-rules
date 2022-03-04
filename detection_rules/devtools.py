@@ -14,10 +14,12 @@ import subprocess
 import textwrap
 import time
 import typing
+import urllib.parse
 from pathlib import Path
 from typing import Dict, Optional, Tuple, List
 
 import click
+import requests.exceptions
 import yaml
 from elasticsearch import Elasticsearch
 
@@ -26,10 +28,10 @@ from . import rule_loader, utils
 from .cli_utils import single_collection
 from .docs import IntegrationSecurityDocs
 from .eswrap import CollectEvents, add_range_to_dsl
-from .ghwrap import GithubClient
+from .ghwrap import GithubClient, update_gist
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
-from .packaging import PACKAGE_FILE, Package, RELEASE_DIR, current_stack_version
+from .packaging import PACKAGE_FILE, RELEASE_DIR, CURRENT_RELEASE_PATH, Package, current_stack_version
 from .version_lock import default_version_lock
 from .rule import AnyRuleData, BaseRuleData, QueryRuleData, TOMLRule
 from .rule_loader import RuleCollection, production_filter
@@ -39,6 +41,11 @@ from .utils import dict_hash, get_path, load_dump
 
 RULES_DIR = get_path('rules')
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
+NAVIGATOR_GIST_ID = '1a3f65224822a30a8228a8ed20289a89'
+NAVIGATOR_URL = 'https://ela.st/detection-rules-navigator'
+NAVIGATOR_BADGE = (
+    f'[![ATT&CK navigator coverage](https://img.shields.io/badge/ATT&CK-Navigator-red.svg)]({NAVIGATOR_URL})'
+)
 
 
 def get_github_token() -> Optional[str]:
@@ -737,6 +744,68 @@ def update_schemas():
 
     for cls in classes:
         cls.save_schema()
+
+
+@dev_group.command('update-navigator-gists')
+@click.option('--directory', type=Path, default=CURRENT_RELEASE_PATH.joinpath('extras', 'navigator_layers'),
+              help='Directory containing only navigator files.')
+@click.option('--token', required=True, prompt=get_github_token() is None, default=get_github_token(),
+              help='GitHub token to push to gist', hide_input=True)
+@click.option('--gist-id', default=NAVIGATOR_GIST_ID, help='Gist ID to be updated (must exist).')
+@click.option('--print-markdown', is_flag=True, help='Print the generated urls')
+def update_navigator_gists(directory: Path, token: str, gist_id: str, print_markdown: bool) -> list:
+    """Update the gists with new navigator files."""
+    assert directory.exists(), f'{directory} does not exist'
+
+    def raw_permalink(raw_link):
+        # Gist file URLs change with each revision, but can be permalinked to the latest by removing the hash after raw
+        prefix, _, suffix = raw_link.rsplit('/', 2)
+        return '/'.join([prefix, suffix])
+
+    file_map = {f: f.read_text() for f in directory.glob('*.json')}
+    try:
+        response = update_gist(token,
+                               file_map,
+                               description='ATT&CK Navigator layer files.',
+                               gist_id=gist_id,
+                               pre_purge=True)
+    except requests.exceptions.HTTPError as exc:
+        if exc.response.status_code == requests.status_codes.codes.not_found:
+            raise client_error('Gist not found: verify the gist_id exists and the token has access to it', exc=exc)
+        else:
+            raise
+
+    response_data = response.json()
+    raw_urls = {name: raw_permalink(data['raw_url']) for name, data in response_data['files'].items()}
+
+    base_url = 'https://mitre-attack.github.io/attack-navigator/#layerURL={}&leave_site_dialog=false&tabs=false'
+
+    # pull out full and platform coverage to print on top of markdown table
+    all_url = base_url.format(urllib.parse.quote_plus(raw_urls.pop('Elastic-detection-rules-all.json')))
+    platforms_url = base_url.format(urllib.parse.quote_plus(raw_urls.pop('Elastic-detection-rules-platforms.json')))
+
+    generated_urls = [all_url, platforms_url]
+    markdown_links = []
+    for name, gist_url in raw_urls.items():
+        query = urllib.parse.quote_plus(gist_url)
+        url = f'https://mitre-attack.github.io/attack-navigator/#layerURL={query}&leave_site_dialog=false&tabs=false'
+        generated_urls.append(url)
+        link_name = name.split('.')[0]
+        markdown_links.append(f'|[{link_name}]({url})|')
+
+    if print_markdown:
+        markdown = [
+            f'**Full coverage**: {NAVIGATOR_BADGE}',
+            '\n',
+            f'**Coverage by platform**: [navigator]({platforms_url})',
+            '\n',
+            '| other navigator links by rule attributes |',
+            '|------------------------------------------|',
+        ] + markdown_links
+        click.echo('\n'.join(markdown) + '\n')
+
+    click.echo(f'Gist update status on {len(generated_urls)} files: {response.status_code} {response.reason}')
+    return generated_urls
 
 
 @dev_group.group('test')

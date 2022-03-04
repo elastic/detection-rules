@@ -13,12 +13,13 @@ import shutil
 import textwrap
 from collections import defaultdict
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import click
 import yaml
 
 from .misc import JS_LICENSE, cached
+from .navigator import NavigatorBuilder, Navigator
 from .rule import TOMLRule, QueryRuleData, ThreatMapping
 from .rule_loader import DeprecatedCollection, RuleCollection, DEFAULT_RULES_DIR
 from .schemas import definitions
@@ -71,6 +72,9 @@ def filter_rule(rule: TOMLRule, config_filter: dict, exclude_fields: Optional[di
 def load_current_package_version() -> str:
     """Load the current package version from config file."""
     return load_etc_dump('packages.yml')['package']['name']
+
+
+CURRENT_RELEASE_PATH = Path(RELEASE_DIR) / load_current_package_version()
 
 
 class Package(object):
@@ -138,13 +142,15 @@ class Package(object):
         with open(os.path.join(save_dir, 'index.ts'), 'wt') as f:
             f.write('\n'.join(index_ts))
 
-    def save_release_files(self, directory, changed_rules, new_rules, removed_rules):
+    def save_release_files(self, directory: str, changed_rules: list, new_rules: list, removed_rules: list):
         """Release a package."""
         summary, changelog = self.generate_summary_and_changelog(changed_rules, new_rules, removed_rules)
         with open(os.path.join(directory, f'{self.name}-summary.txt'), 'w') as f:
             f.write(summary)
         with open(os.path.join(directory, f'{self.name}-changelog-entry.md'), 'w') as f:
             f.write(changelog)
+
+        self.generate_attack_navigator(Path(directory))
 
         consolidated = json.loads(self.get_consolidated())
         with open(os.path.join(directory, f'{self.name}-consolidated-rules.json'), 'w') as f:
@@ -355,6 +361,13 @@ class Package(object):
         ])
 
         return summary_str, changelog_str
+
+    def generate_attack_navigator(self, path: Path) -> Dict[Path, Navigator]:
+        """Generate ATT&CK navigator layer files."""
+        save_dir = path / 'navigator_layers'
+        save_dir.mkdir()
+        lb = NavigatorBuilder(self.rules.rules)
+        return lb.save_all(save_dir, verbose=False)
 
     def generate_xslx(self, path):
         """Generate a detailed breakdown of a package in an excel file."""
