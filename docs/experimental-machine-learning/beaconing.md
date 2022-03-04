@@ -73,9 +73,9 @@ Upload the contents of the `ml_beaconing_ingest_pipeline.json` ingest pipeline u
 
 #### 6. Import the dashboards
 
-* Navigate to `Management` -> `Stack Management` -> `Kibana` -> `Saved Objects`
-* Click on `Import` and import the `ml_beaconing_dashboards.ndjson` file. Choose the `Request Action on conflict` option if you don't want the import to overwrite existing objects, for example the `logs-*` index pattern. 
-* Navigate to `Analytics` -> `Dashboard`. You should see three dashboards- `Network Beaconing`, which is the main dashboard to monitor beaconing activity, `Beaconing Drilldown` to drilldown into relevant event logs and some statistics related to the beaconing activity, and finally, `Hosts Affected Over Time By Process Name` to monitor the reach of beaconing processes across hosts in your environment, in the past two weeks.
+- Navigate to `Management` -> `Stack Management` -> `Kibana` -> `Saved Objects`
+- Click on `Import` and import the `ml_beaconing_dashboards.ndjson` file. Choose the `Request Action on conflict` option if you don't want the import to overwrite existing objects, for example the `logs-*` index pattern. 
+- Navigate to `Analytics` -> `Dashboard`. You should see three dashboards- `Network Beaconing`, which is the main dashboard to monitor beaconing activity, `Beaconing Drilldown` to drilldown into relevant event logs and some statistics related to the beaconing activity, and finally, `Hosts Affected Over Time By Process Name` to monitor the reach of beaconing processes across hosts in your environment, in the past two weeks.
 
 # Note
 
