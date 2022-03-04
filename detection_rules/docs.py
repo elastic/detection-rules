@@ -16,7 +16,7 @@ from typing import Dict, Iterable, Optional, Union
 import json
 import xlsxwriter
 
-from .attack import technique_lookup, matrix, attack_tm, tactics
+from .attack import attack_tm, matrix, tactics, technique_lookup
 from .packaging import Package
 from .rule_loader import DeprecatedCollection, RuleCollection
 from .rule import ThreatMapping, TOMLRule
@@ -220,6 +220,7 @@ class PackageDocument(xlsxwriter.Workbook):
         worksheet.autofilter(0, 0, max([len(v) for k, v in matrix.items()]) + 1, len(tactics) - 1)
 
 
+# product rule docs
 # Documentation generation of product docs https://www.elastic.co/guide/en/security/7.15/detection-engine-overview.html
 
 
