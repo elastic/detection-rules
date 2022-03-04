@@ -7,6 +7,8 @@ To deploy this framework in your environment, follow the steps outlined below.
 
 #### 1. Obtain artifacts
 
+The Network Beaconing functionality is space aware for privacy. Downloaded artifacts must be modified with the desired space before they can be used.
+
  - Download the release bundle from [here](https://github.com/elastic/detection-rules/releases). The Network Beaconing releases can be identified by the tag `ML-Beaconing-YYYMMDD-N`. Check the release description to make sure it is compatible with the Elastic Stack version you are running. New releases may contain updated artifacts.
  - Unzip the contents of `ML-Beaconing-YYYMMDD-N`.
  - Run `ml_beaconing_generate_scripts.py` script in the unzipped directory with your Kibana space as the argument.
