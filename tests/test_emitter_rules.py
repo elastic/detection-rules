@@ -73,7 +73,9 @@ class TestRules(tu.QueryTestCase, tu.SeededTestCase, unittest.TestCase):
         errors = {}
         for rule, ast in zip(rules, asts):
             try:
-                _ = SourceEvents.from_ast(ast).emit(timestamp=False, complete=True)
+                se = SourceEvents(self.schema)
+                se.add_ast(ast)
+                _ = se.emit(timestamp=False, complete=True)
             except Exception as e:
                 errors.setdefault(str(e), []).append(rule)
                 continue

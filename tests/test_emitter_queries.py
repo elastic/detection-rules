@@ -481,7 +481,7 @@ class TestQueries(tu.QueryTestCase, tu.SeededTestCase, unittest.TestCase):
     def test_mappings(self):
         for query, mappings in event_docs_mappings.items():
             with self.subTest(query):
-                se = SourceEvents()
+                se = SourceEvents(self.schema)
                 root = se.add_query(query)
                 self.assertEqual(mappings, se.mappings(root))
                 self.assertEqual(mappings, se.mappings())

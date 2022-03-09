@@ -18,7 +18,7 @@ import itertools
 import subprocess
 
 from detection_rules import utils, jupyter
-from detection_rules.events_emitter import SourceEvents
+from detection_rules.events_emitter import SourceEvents, load_detection_rules_schema
 
 __all__ = (
     "SeededTestCase",
@@ -113,6 +113,7 @@ class SeededTestCase:
 
 
 class QueryTestCase:
+    schema = load_detection_rules_schema()
 
     @classmethod
     def query_cell(cls, query, output, **kwargs):
@@ -125,7 +126,9 @@ class QueryTestCase:
         return super(QueryTestCase, self).subTest(query, **kwargs, seed=query)
 
     def assertQuery(self, query, docs):  # noqa: N802
-        self.assertEqual(docs, SourceEvents.from_query(query).emit(timestamp=False, complete=True))
+        se = SourceEvents(self.schema)
+        se.add_query(query)
+        self.assertEqual(docs, se.emit(timestamp=False, complete=True))
 
 
 class OnlineTestCase:
@@ -186,7 +189,8 @@ class SignalsTestCase:
     multiplying_factor = int(os.getenv("TEST_SIGNALS_MULTI") or 0) or 1
 
     def generate_docs_and_mappings(self, rules, asts):
-        se = SourceEvents()
+        schema = load_detection_rules_schema()
+        se = SourceEvents(schema)
 
         bulk = []
         for rule, ast in sorted(zip(rules, asts), key=lambda x: x[0]["name"]):

@@ -11,7 +11,6 @@ from collections import namedtuple
 from itertools import chain
 from copy import deepcopy
 
-from .ecs import get_schema, get_max_version
 from .utils import deep_merge, cached
 from .events_emitter_eql import collect_constraints as collect_constraints_eql
 from .events_emitter_eql import get_ast_stats  # noqa: F401
@@ -114,14 +113,19 @@ def docs_from_root(root, schema, timestamp):
     return [docs_from_branch(branch, schema, timestamp) for branch in root]
 
 
-class SourceEvents:
+def load_detection_rules_schema():
+    from .ecs import get_schema, get_max_version
+
     ecs_version = get_max_version()
     ecs_schema = get_schema(version=ecs_version)
     custom_schema = deepcopy(default_custom_schema)
+    return deep_merge(custom_schema, ecs_schema)
 
-    def __init__(self, *, schema=None):
+
+class SourceEvents:
+    def __init__(self, schema=None):
         self.__roots = []
-        self.schema = deep_merge(deepcopy(self.custom_schema), self.ecs_schema) if schema is None else schema
+        self.schema = schema or {}
 
     @classmethod
     def from_ast(cls, ast):

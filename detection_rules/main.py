@@ -264,7 +264,7 @@ def validate_all(fail):
 def emit_events(ctx, paths, verbose):
     """Generate events that would trigger the given rule(s)"""
     from collections import Counter
-    from .events_emitter import SourceEvents, get_ast_stats
+    from .events_emitter import SourceEvents, get_ast_stats, load_detection_rules_schema
 
     if paths:
         rules = RuleCollection()
@@ -278,7 +278,8 @@ def emit_events(ctx, paths, verbose):
 
     docs = []
     errors = []
-    se = SourceEvents()
+    schema = load_detection_rules_schema()
+    se = SourceEvents(schema)
     for rule in rules:
         try:
             root = se.add_rule(rule)
