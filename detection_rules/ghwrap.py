@@ -19,6 +19,7 @@ from zipfile import ZipFile
 
 import click
 import requests
+from requests import Response
 
 from .schemas import definitions
 
@@ -98,18 +99,55 @@ def download_gh_asset(url: str, path: str, overwrite=False):
     z.close()
 
 
+def update_gist(token: str,
+                file_map: Dict[Path, str],
+                description: str,
+                gist_id: str,
+                public=False,
+                pre_purge=False) -> Response:
+    """Update existing gist."""
+    url = f'https://api.github.com/gists/{gist_id}'
+    headers = {
+        'accept': 'application/vnd.github.v3+json',
+        'Authorization': f'token {token}'
+    }
+    body = {
+        'description': description,
+        'files': {},  # {path.name: {'content': contents} for path, contents in file_map.items()},
+        'public': public
+    }
+
+    if pre_purge:
+        # retrieve all existing file names which are not in the file_map and overwrite them to empty to delete files
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        files = list(data['files'])
+        body['files'] = {file: {} for file in files if file not in file_map}
+        response = requests.patch(url, headers=headers, json=body)
+        response.raise_for_status()
+
+    body['files'] = {path.name: {'content': contents} for path, contents in file_map.items()}
+    response = requests.patch(url, headers=headers, json=body)
+    response.raise_for_status()
+    return response
+
+
 class GithubClient:
     """GitHub client wrapper."""
 
     def __init__(self, token: Optional[str] = None):
         """Get an unauthenticated client, verified authenticated client, or a default client."""
-        if not Github:
-            raise ModuleNotFoundError('Missing PyGithub - try running `pip install -r requirements-dev.txt`')
-
+        self.assert_github()
         self.client: Github = Github(token)
         self.unauthenticated_client = Github()
         self.__token = token
         self.__authenticated_client = None
+
+    @classmethod
+    def assert_github(cls):
+        if not Github:
+            raise ModuleNotFoundError('Missing PyGithub - try running `pip install -r requirements-dev.txt`')
 
     @property
     def authenticated_client(self) -> Github:
