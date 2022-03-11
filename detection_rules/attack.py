@@ -33,7 +33,13 @@ def get_attack_file_path() -> str:
     return attack_file[0]
 
 
+_, _attack_path_base = get_attack_file_path().split('-v')
+_ext_length = len('.json.gz')
+CURRENT_ATTACK_VERSION = _attack_path_base[:-_ext_length]
+
+
 def load_attack_gz() -> dict:
+
     return json.loads(read_gzip(get_attack_file_path()))
 
 

@@ -5,57 +5,77 @@ To deploy this framework in your environment, follow the steps outlined below.
 
 # Detailed steps
 
-#### 1. Unzip the release bundle
+#### 1. Obtain artifacts
 
-Navigate to the latest GitHub [release](https://github.com/elastic/detection-rules/releases), with the tag `ML-Beaconing-YYYMMDD-N`. From under `Assets`, download the zip file named `ML-Beaconing-YYYMMDD-N.zip` and unzip it. New releases may contain updated artifacts.
+The Network Beaconing functionality is space aware for privacy. Downloaded artifacts must be modified with the desired space before they can be used.
 
-#### 2. Navigate to the Dev Tools console in Kibana
+ - Download the release bundle from [here](https://github.com/elastic/detection-rules/releases). The Network Beaconing releases can be identified by the tag `ML-Beaconing-YYYMMDD-N`. Check the release description to make sure it is compatible with the Elastic Stack version you are running. New releases may contain updated artifacts.
+ - Unzip the contents of `ML-Beaconing-YYYMMDD-N`.
+ - Run `ml_beaconing_generate_scripts.py` script in the unzipped directory with your Kibana space as the argument.
+<div style="margin-left: 40px">   
+<i>Example of modifying artifacts for the default space</i>
+   <pre style="margin-top:-2px"><code>python ml_beaconing_generate_scripts.py --space default
+</code></pre></div>
 
-You will now upload all the required artifacts from the release package to Kibana.
-#### 3. Uploading required scripts
+ - Find a new folder named after your space in the unzipped directory. **You will be using the scripts within this directory for the next steps.**
 
-Upload the contents of `ml_beaconing_init_script.json`, `ml_beaconing_map_script.json` and `ml_beaconing_reduce_script.json` as individual scripts, using the Script API.
+#### 2. Uploading scripts
 
-Eg:
+- Navigate to `Management / Dev Tools` in Kibana.
+- Upload the contents of `ml_beaconing_init_script.json`, `ml_beaconing_map_script.json` and `ml_beaconing_reduce_script.json` using the Script API with the following syntax.
 
-```
+<div style="margin-left: 40px">   
+<i>uploading scripts</i>
+   <pre style="margin-top:-2px"><code>
 PUT _scripts/ml_beaconing_init_script
-{content of the ml_beaconing_init_script.json file}
-```
+{contents of ml_beaconing_init_script.json file}
+</code></pre></div>
 
-#### 4. Upload required ingest pipelines
+<div style="margin-left: 40px">
+   <pre><code>
+PUT _scripts/ml_beaconing_map_script
+{contents of ml_beaconing_map_script.json file}
+</code></pre></div>
 
-Upload the ingest pipeline in `ml_beaconing_ingest_pipeline.json` using the following API call:
+<div style="margin-left: 40px">
+   <pre><code>
+PUT _scripts/ml_beaconing_reduce_script
+{contents of ml_beaconing_reduce_script.json file}
+</code></pre></div>
 
+#### 3. Upload ingest pipeline
 
-```
-PUT _ingest/pipeline/ml_beaconing_ingest_pipeline
-{content of the ml_beaconing_ingest_pipeline.json file}
-```
+Upload the contents of the `ml_beaconing_ingest_pipeline.json` ingest pipeline using the Ingest API with the following syntax.
+
+<div style="margin-left: 40px">   
+<i>uploading ingest pipeline</i>
+   <pre style="margin-top:-2px"><code>PUT _ingest/pipeline/ml_beaconing_ingest_pipeline
+{contents of ml_beaconing_ingest_pipeline.json file}
+</code></pre></div>
 
 #### 5. Upload and start the `pivot` transform
 
-Upload the `pivot` transform in `ml_beaconing_pivot_transform.json` using the following API call. This transform runs hourly and flags beaconing activity seen in your environment, in the 6 hrs prior to runtime:
+- Upload the contents of `ml_beaconing_pivot_transform.json` using the Transform API with the following syntax. This transform runs hourly and flags beaconing activity seen in your environment, in the 6 hrs prior to runtime:
 
+<div style="margin-left: 40px">   
+<i>uploading pivot transform</i>
+   <pre style="margin-top:-2px"><code>PUT _transform/ml_beaconing_pivot_transform
+{contents of ml_beaconing_pivot_transform.json file}
+</code></pre></div>
 
-```
-PUT _transform/ml_beaconing_pivot_transform
-{content of the ml_beaconing_pivot_transform.json file}
-```
+- Navigate to `Transforms` under `Management` -> `Stack Management`. For the transform with the ID `ml_beaconing_pivot_transform`, under `Actions`, click `Start`. 
+- Verify that the Transform started as expected by ensuring that documents are appearing in the destination index of the Transform, eg: using the Search/Count APIs:
 
-* Navigate to `Transforms` under `Management` -> `Stack Management`. For the transform with the ID `ml_beaconing_pivot_transform`, under `Actions`, click `Start`. 
-* Verify that the Transform started as expected by ensuring that documents are appearing in the destination index of the Transform, eg: using the Search/Count APIs:
-
-
-```
-GET ml_beaconing/_search (or _count)
-```
+<div style="margin-left: 40px">   
+<i>sample test query</i>
+   <pre style="margin-top:-2px"><code>GET ml_beaconing_&lt;your-space-name&gt;/_search
+</code></pre></div>
 
 #### 6. Import the dashboards
 
-* Navigate to `Management` -> `Stack Management` -> `Kibana` -> `Saved Objects`
-* Click on `Import` and import the `ml_beaconing_dashboards.ndjson` file. Choose the `Request Action on conflict` option if you don't want the import to overwrite existing objects, for example the `logs-*` index pattern. 
-* Navigate to `Analytics` -> `Dashboard`. You should see three dashboards- `Network Beaconing`, which is the main dashboard to monitor beaconing activity, `Beaconing Drilldown` to drilldown into relevant event logs and some statistics related to the beaconing activity, and finally, `Hosts Affected Over Time By Process Name` to monitor the reach of beaconing processes across hosts in your environment, in the past two weeks.
+- Navigate to `Management` -> `Stack Management` -> `Kibana` -> `Saved Objects`
+- Click on `Import` and import the `ml_beaconing_dashboards.ndjson` file. Choose the `Request Action on conflict` option if you don't want the import to overwrite existing objects, for example the `logs-*` index pattern. 
+- Navigate to `Analytics` -> `Dashboard`. You should see three dashboards- `Network Beaconing`, which is the main dashboard to monitor beaconing activity, `Beaconing Drilldown` to drilldown into relevant event logs and some statistics related to the beaconing activity, and finally, `Hosts Affected Over Time By Process Name` to monitor the reach of beaconing processes across hosts in your environment, in the past two weeks.
 
 # Note
 
