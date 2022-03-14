@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/01/31"
 maturity = "production"
-updated_date = "2022/01/31"
+updated_date = "2022/03/14"
 
 [rule]
 author = ["Elastic"]
@@ -14,6 +14,65 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "PowerShell Script Block Logging Disabled"
+note = """## Triage and analysis
+
+### Investigating PowerShell Script Block Logging Disabled
+
+PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks, making
+it available for use in various environments creating an attractive way for attackers to execute code.
+
+PowerShell Script Block Logging is a feature of PowerShell that records the content of all script blocks that it
+processes, giving visibility of PowerShell scripts and sequences of commands executed to defenders.
+
+#### Possible investigation steps:
+
+- Identify the user account which performed the action.
+- Check whether the account should perform this kind of action.
+- Investigate script execution chain (parent process tree).
+- Investigate other alerts related to the user/host in the last 48 hours.
+- Check whether it makes sense for the user to use PowerShell to complete its tasks.
+- Investigate if PowerShell scripts were run after the logging was disabled.
+
+### False Positive Analysis
+
+- This activity is unlikely to happen legitimately. B-TPs can be added as exceptions if necessary.
+
+### Related Rules
+
+- PowerShell Suspicious Discovery Related Windows API Functions - 61ac3638-40a3-44b2-855a-985636ca985e
+- PowerShell Keylogging Script - bd2c86a0-8b61-4457-ab38-96943984e889
+- PowerShell Suspicious Script with Audio Capture Capabilities - 2f2f4939-0b34-40c2-a0a3-844eb7889f43
+- Potential Process Injection via PowerShell - 2e29e96a-b67c-455a-afe4-de6183431d0d
+- PowerShell Reflection Assembly Load - e26f042e-c590-4e82-8e05-41e81bd822ad
+- PowerShell Suspicious Payload Encoded and Compressed - 81fe9dc6-a2d7-4192-a2d8-eed98afc766a
+- PowerShell Suspicious Script with Screenshot Capabilities - 959a7353-1129-4aa7-9084-30746b256a70
+
+### Response and Remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Quarantine the involved host to prevent further post-compromise behavior.
+- Review Privileges of the user account.
+- Configure AppLocker or equivalent software to restrict access to PowerShell for regular users.
+
+## Config
+
+The 'PowerShell Script Block Logging' logging policy must be configured (Enable).
+
+Steps to implement the logging policy with with Advanced Audit Configuration:
+
+```
+Computer Configuration > 
+Administrative Templates > 
+Windows PowerShell > 
+Turn on PowerShell Script Block Logging (Enable)
+```
+
+Steps to implement the logging policy via registry:
+
+```
+reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+```
+"""
 references = [
     "https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.PowerShell::EnableScriptBlockLogging",
 ]

@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/12/18"
 maturity = "production"
-updated_date = "2021/09/23"
+updated_date = "2022/03/14"
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +15,32 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Creation of a Hidden Local User Account"
+note = """## Triage and analysis
+
+### Investigating Creation of a Hidden Local User Account
+
+Attackers can create accounts ending with a dollar sign ($) to make the account hidden to user enumeration utilities and
+bypass detections that identify computer accounts by this pattern to apply filters.
+
+This rule uses registry events for identifying the creation local hidden accounts.
+
+#### Possible investigation steps:
+
+- Identify the user account which performed the action and whether it should perform this kind of action.
+- Investigate script execution chain (parent process tree).
+- Investigate other alerts related to the user/host in the last 48 hours.
+
+### False Positive Analysis
+
+- This activity is unlikely to happen legitimately. B-TPs can be added as exceptions if necessary.
+
+### Response and Remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Quarantine the involved host to prevent further post-compromise behavior.
+- Delete the hidden account.
+- Review the privileges of the involved accounts.
+"""
 references = [
     "https://blog.menasec.net/2019/02/threat-hunting-6-hiding-in-plain-sights_8.html",
     "https://github.com/CyberMonitor/APT_CyberCriminal_Campagin_Collections/tree/master/2020/2020.12.15.Lazarus_Campaign",

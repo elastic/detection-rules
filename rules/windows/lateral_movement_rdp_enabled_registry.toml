@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/25"
 maturity = "production"
-updated_date = "2022/02/14"
+updated_date = "2022/03/14"
 
 [rule]
 author = ["Elastic"]
@@ -14,6 +14,43 @@ index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "RDP Enabled via Registry"
+note = """## Triage and analysis
+
+### Investigating RDP Enabled via Registry
+
+Microsoft Remote Desktop Protocol (RDP) is a proprietary Microsoft protocol that enables remote connections to other
+computers, typically over TCP port 3389.
+
+Attackers use RDP in operations to conduct their actions interactively. Ransomware operators heavily use RDP to access
+victim servers, often using privileged accounts.
+
+This rule detects the modification of the fDenyTSConnections registry key to the 0 value, which specifies that remote
+desktop connections are enabled. Attackers can abuse remote registry, use psexec, etc., to enable RDP and move laterally.
+
+#### Possible investigation steps:
+
+- Identify the user account which performed the action and whether it should perform this kind of action.
+- Contact the user to check if it is aware of the operation.
+- Investigate script execution chain (parent process tree).
+- Investigate other alerts related to the user/host in the last 48 hours.
+- Check whether it makes sense to enable RDP to this host and the host role in the environment.
+- Check if the server is directly exposed to the internet.
+- Check whether privileged accounts have accessed the host in a short period after the modification.
+
+### False Positive Analysis
+
+- This mechanism can be used legitimately. Check whether the user should be performing this kind of activity, is aware
+of it, assess the need to have RDP open, and if the action does not expose the environment to unnecessary risks.
+
+### Response and Remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- If RDP is needed, make sure to secure it using firewall rules:
+  - Allowlist RDP traffic to specific trusted hosts.
+  - Restrict RDP logins to authorized non-administrator accounts, where possible.
+- Quarantine the involved host to prevent further post-compromise behavior.
+- Review the privileges of the account involved.
+"""
 risk_score = 47
 rule_id = "58aa72ca-d968-4f34-b9f7-bea51d75eb50"
 severity = "medium"
