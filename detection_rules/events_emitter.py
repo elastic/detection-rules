@@ -33,13 +33,13 @@ QueryGuess = namedtuple("QueryGuess", ["query", "type", "language", "ast"])
 
 def ast_from_eql_query(query):
     import eql
-    with eql.parser.elasticsearch_syntax:
+    with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
         return eql.parse_query(query)
 
 
 def ast_from_kql_query(query):
     import kql
-    return kql.to_eql(query)
+    return kql.to_eql(query)  # shortcut?
 
 
 @cached
@@ -64,13 +64,12 @@ def guess_from_query(query):
 
 
 def ast_from_rule(rule):
-    rule = rule.contents.data
     if rule.type not in ("query", "eql"):
         raise NotImplementedError(f"Unsupported rule type: {rule.type}")
     elif rule.language == "eql":
-        return rule.validator.ast
+        return ast_from_eql_query(rule.query)
     elif rule.language == "kuery":
-        return rule.validator.to_eql()  # shortcut?
+        return ast_from_kql_query(rule.query)
     else:
         raise NotImplementedError(f"Unsupported query language: {rule.language}")
 

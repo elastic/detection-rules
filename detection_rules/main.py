@@ -282,7 +282,7 @@ def emit_events(ctx, paths, verbose):
     se = SourceEvents(schema)
     for rule in rules:
         try:
-            root = se.add_rule(rule)
+            root = se.add_rule(rule.contents.data)
             docs += se.emit(root)
         except Exception as e:
             errors.append((str(e), rule.path.relative_to(get_path(".")), sys.exc_info()[2]))

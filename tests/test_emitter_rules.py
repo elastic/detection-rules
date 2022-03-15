@@ -50,7 +50,7 @@ class TestRules(tu.QueryTestCase, tu.SeededTestCase, unittest.TestCase):
         errors = {}
         for rule in collection:
             try:
-                asts.append(ast_from_rule(rule))
+                asts.append(ast_from_rule(rule.contents.data))
                 rules.append(rule)
             except Exception as e:
                 errors.setdefault(str(e), []).append(rule)
@@ -126,7 +126,7 @@ class TestSignalsRules(tu.SignalsTestCase, tu.OnlineTestCase, tu.SeededTestCase,
         asts = []
         for i, rule in enumerate(collection):
             try:
-                asts.append(ast_from_rule(rule))
+                asts.append(ast_from_rule(rule.contents.data))
             except Exception:
                 continue
             index_name = "{:s}-{:03d}".format(self.index_template, i)
