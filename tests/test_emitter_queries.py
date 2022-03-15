@@ -478,6 +478,21 @@ class TestQueries(tu.QueryTestCase, tu.SeededTestCase, unittest.TestCase):
             """),
         ]
 
+    def test_len(self):
+        se = SourceEvents(self.schema)
+        self.assertEqual(len(se), 0)
+        self.assertEqual(bool(se), False)
+
+        se.add_query("process where process.name != null")
+        self.assertEqual(len(se), 1)
+        self.assertEqual(bool(se), True)
+
+        se.add_query("process where process.pid != null")
+        self.assertEqual(len(se), 2)
+
+        se.add_query("process where process.args != null")
+        self.assertEqual(len(se), 3)
+
     def test_mappings(self):
         for query, mappings in event_docs_mappings.items():
             with self.subTest(query):

@@ -192,3 +192,6 @@ class SourceEvents:
 
     def __next__(self):
         return self.emit()
+
+    def __len__(self):
+        return len(self.__roots)
