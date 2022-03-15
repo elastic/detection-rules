@@ -586,8 +586,15 @@ class TestRuleTiming(BaseRuleTest):
                 rule_path = self.rule_str(rule)
 
                 if window and maxspan:
+                    if interval > window and interval > maxspan:
+                        missed_period = int((interval - window) / 60 / 1000)
+                        err_msg = f'{rule_path} rule will miss a {missed_period}m time frame every iteration.'
+                        invalids.append(err_msg)
                     if margin < 2 * interval and maxspan > interval:
-                        err_msg = f'{rule_path} rule does not leave enough margin'
+                        proper_margin = interval * 4
+                        new_from = int((maxspan + proper_margin) / 60 / 1000)
+                        potential_fix = f'Try increasing the `from` field to {new_from}m.'
+                        err_msg = f'{rule_path} rule does not leave enough margin. {potential_fix}'
                         invalids.append(err_msg)
                     if maxspan > (five_minutes / 2) and ratio and ratio < .5:
                         expected = maxspan // 2
