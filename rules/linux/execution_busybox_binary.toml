@@ -7,7 +7,8 @@ updated_date = "2022/03/15"
 author = ["Elastic"]
 description = """
 Identifies Linux binary busybox abuse to break out from restricted environments by spawning an interactive system
-shell.This activity is not standard use with this binary for a user or system administrator. It indicates a potentially
+shell.The busybox is software utility suite that provides several Unix utilities in a single executable file and the activity of spawing a shell is
+not a standard use of this binary by a user or system administrator. It indicates a potentially
 malicious actor attempting to improve the capabilities or stability of their access.
 """
 from = "now-9m"
@@ -19,7 +20,7 @@ references = ["https://gtfobins.github.io/gtfobins/busybox/"]
 risk_score = 47
 rule_id = "e9b4a3c7-24fc-49fd-a00f-9c938031eef1"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Defense Evasion", "GTFOBins"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution", "GTFOBins"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -31,18 +32,18 @@ process where event.type == "start" and process.name : "busybox" and process.arg
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1548"
-name = "Abuse Elevation Control Mechanism"
-reference = "https://attack.mitre.org/techniques/T1548/"
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
 [[rule.threat.technique.subtechnique]]
-id = "T1548.004"
-name = "Elevated Execution with Prompt"
-reference = "https://attack.mitre.org/techniques/T1548/004/"
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
 
 
 
 [rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 
