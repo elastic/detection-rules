@@ -127,8 +127,10 @@ class QueryTestCase:
 
     def assertQuery(self, query, docs):  # noqa: N802
         se = SourceEvents(self.schema)
-        se.add_query(query)
-        self.assertEqual(docs, se.emit(timestamp=False, complete=True))
+        se.add_query(query, meta=query)
+        branches = se.emit(timestamp=False, complete=True)
+        _docs = [[event.doc for event in branch] for branch in branches]
+        self.assertEqual(docs, _docs)
 
 
 class OnlineTestCase:
@@ -196,8 +198,8 @@ class SignalsTestCase:
         for rule, ast in sorted(zip(rules, asts), key=lambda x: x[0]["name"]):
             with self.subTest(rule["query"]):
                 try:
-                    root = se.add_ast(ast)
-                    docs = se.emit(root, complete=True, count=self.multiplying_factor)
+                    root = se.add_ast(ast, meta={"index": rule["index"][0]})
+                    events = se.emit(root, complete=True, count=self.multiplying_factor)
                 except Exception as e:
                     rule["enabled"] = False
                     if verbose > 2:
@@ -206,11 +208,11 @@ class SignalsTestCase:
                     continue
 
                 doc_count = 0
-                for doc in itertools.chain(*docs):
-                    bulk.append(json.dumps({"index": {"_index": rule["index"][0]}}))
-                    bulk.append(json.dumps(doc))
+                for event in itertools.chain(*events):
+                    bulk.append(json.dumps({"index": {"_index": event.meta["index"]}}))
+                    bulk.append(json.dumps(event.doc))
                     if verbose > 2:
-                        sys.stderr.write(json.dumps(doc, sort_keys=True) + "\n")
+                        sys.stderr.write(json.dumps(event.doc, sort_keys=True) + "\n")
                         sys.stderr.flush()
                     doc_count += 1
 

@@ -29,6 +29,7 @@ default_custom_schema = {
 }
 
 QueryGuess = namedtuple("QueryGuess", ["query", "type", "language", "ast"])
+Event = namedtuple("Event", ["meta", "doc"])
 
 
 def ast_from_eql_query(query):
@@ -94,8 +95,8 @@ def emit_field(field, value):
     return value
 
 
-def docs_from_branch(branch, schema, timestamp):
-    docs = []
+def events_from_branch(branch, schema, timestamp, meta):
+    events = []
     for solution in branch.solve(schema):
         doc = {}
         for field, value in solution:
@@ -104,12 +105,12 @@ def docs_from_branch(branch, schema, timestamp):
         if timestamp:
             deep_merge(doc, emit_field("@timestamp", timestamp[0]))
             timestamp[0] += 1
-        docs.append(doc)
-    return docs
+        events.append(Event(meta, doc))
+    return events
 
 
-def docs_from_root(root, schema, timestamp):
-    return [docs_from_branch(branch, schema, timestamp) for branch in root]
+def events_from_root(root, schema, timestamp):
+    return [events_from_branch(branch, schema, timestamp, root.meta) for branch in root]
 
 
 def load_detection_rules_schema():
@@ -127,36 +128,37 @@ class SourceEvents:
         self.schema = schema or {}
 
     @classmethod
-    def from_ast(cls, ast):
+    def from_ast(cls, ast, *, meta=None):
         se = SourceEvents()
-        se.add_ast(ast)
+        se.add_ast(ast, meta=meta)
         return se
 
     @classmethod
-    def from_query(cls, query):
+    def from_query(cls, query, *, meta=None):
         se = SourceEvents()
-        se.add_query(query)
+        se.add_query(query, meta=meta)
         return se
 
     @classmethod
-    def from_rule(cls, rule):
+    def from_rule(cls, rule, *, meta=None):
         se = SourceEvents()
-        se.add_rule(rule)
+        se.add_rule(rule, meta=meta)
         return se
 
-    def add_ast(self, ast):
+    def add_ast(self, ast, *, meta=None):
         root = collect_constraints_eql(ast)
+        root.meta = meta
         self.try_emit(root)
         self.__roots.append(root)
         return root
 
-    def add_query(self, query):
+    def add_query(self, query, *, meta=None):
         ast = guess_from_query(query).ast
-        return self.add_ast(ast)
+        return self.add_ast(ast, meta=meta)
 
-    def add_rule(self, rule):
+    def add_rule(self, rule, *, meta=None):
         ast = ast_from_rule(rule)
-        return self.add_ast(ast)
+        return self.add_ast(ast, meta=meta)
 
     def fields(self):
         return set(chain(*(root.fields() for root in self.__roots)))
@@ -171,19 +173,25 @@ class SourceEvents:
     def emit(self, root=None, *, timestamp=True, complete=False, count=1):
         if timestamp:
             timestamp = [int(time.time() * 1000)]
-        if not complete:
-            branches = (random.choice(root or random.choice(self.__roots)) for _ in range(count))
-            docs = (docs_from_branch(branch, self.schema, timestamp) for branch in branches)
-        elif root is None:
-            docs = (docs_from_root(root, self.schema, timestamp) for _ in range(count) for root in self.__roots)
+        if complete:
+            if root:
+                events = (events_from_root(root, self.schema, timestamp) for _ in range(count))
+            else:
+                events = (events_from_root(root, self.schema, timestamp) for _ in range(count)
+                          for root in self.__roots)
         else:
-            docs = (docs_from_root(root, self.schema, timestamp) for _ in range(count))
-        return list(chain(*docs))
+            if root:
+                events = (events_from_branch(random.choice(root), self.schema, timestamp, root.meta)
+                          for _ in range(count))
+            else:
+                events = (events_from_branch(random.choice(root), self.schema, timestamp, root.meta)
+                          for root in random.choices(self.__roots, k=count))
+        return list(chain(*events))
 
     def try_emit(self, root):
         state = random.getstate()
         try:
-            _ = docs_from_root(root, self.schema, timestamp=False)
+            _ = events_from_root(root, self.schema, timestamp=False)
         finally:
             random.setstate(state)
 

@@ -477,6 +477,8 @@ Branch.Identity = Branch([Constraints()])
 
 
 class Root(List[Branch]):
+    meta = None
+
     def __iter__(self):
         if not self:
             raise ValueError("Root without branches")
