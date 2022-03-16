@@ -12,11 +12,11 @@ Curious about the inner workings? Read [here](signals_generation.md).
       1. [Unsupported query language: lucene (5)](#unsupported-query-language-lucene-5)
       1. [Unsupported rule type: threat_match (2)](#unsupported-rule-type-threat_match-2)
    1. [Generation errors](#generation-errors)
-      1. [Constraints solver not implemented: wildcard (43)](#constraints-solver-not-implemented-wildcard-43)
+      1. [Constraints solver not implemented: wildcard (42)](#constraints-solver-not-implemented-wildcard-42)
       1. [Root without branches (7)](#root-without-branches-7)
       1. [Unsupported function: match (5)](#unsupported-function-match-5)
+      1. [Unsupported LHS type: <class 'eql.ast.FunctionCall'> (4)](#unsupported-lhs-type-class-eqlastfunctioncall-4)
       1. [Constraints solver not implemented: match_only_text (3)](#constraints-solver-not-implemented-match_only_text-3)
-      1. [Unsupported LHS type: <class 'eql.ast.FunctionCall'> (3)](#unsupported-lhs-type-class-eqlastfunctioncall-3)
       1. [Unsolvable constraints ==: powershell.file.script_block_text (is already 'waveInGetNumDevs', cannot set to 'mciSendStringA') (1)](#unsolvable-constraints--powershellfilescript_block_text-is-already-waveingetnumdevs-cannot-set-to-mcisendstringa-1)
       1. [Unsolvable constraints ==: user.id (is already 'S-1-5-21-*', cannot set to 'Dhk') (1)](#unsolvable-constraints--userid-is-already-s-1-5-21--cannot-set-to-dhk-1)
       1. [Unsolvable constraints: process.name (wildcard(s) both included and excluded: 'rundll32.exe') (1)](#unsolvable-constraints-processname-wildcards-both-included-and-excluded-rundll32exe-1)
@@ -118,9 +118,9 @@ Curious about the inner workings? Read [here](signals_generation.md).
 
 ## Generation errors
 
-### Constraints solver not implemented: wildcard (43)
+### Constraints solver not implemented: wildcard (42)
 
-43 rules:
+42 rules:
 * [Apple Scripting Execution with Administrator Privileges](../../rules/macos/privilege_escalation_applescript_with_admin_privs.toml)
 * [Attempt to Mount SMB Share via Command Line](../../rules/macos/lateral_movement_mounting_smb_share.toml)
 * [Attempt to Remove File Quarantine Attribute](../../rules/macos/defense_evasion_attempt_del_quarantine_attrib.toml)
@@ -140,7 +140,6 @@ Curious about the inner workings? Read [here](signals_generation.md).
 * [Persistence via WMI Standard Registry Provider](../../rules/windows/persistence_via_wmi_stdregprov_run_services.toml)
 * [Potential Persistence via Time Provider Modification](../../rules/windows/persistence_time_provider_mod.toml)
 * [Potential Port Monitor or Print Processor Registration Abuse](../../rules/windows/privilege_escalation_port_monitor_print_pocessor_abuse.toml)
-* [Potential PrintNightmare Exploit Registry Modification](../../rules/windows/privilege_escalation_printspooler_malicious_registry_modification.toml)
 * [Potential Privacy Control Bypass via Localhost Secure Copy](../../rules/macos/defense_evasion_privilege_escalation_privacy_pref_sshd_fulldiskaccess.toml)
 * [Potential SharpRDP Behavior](../../rules/windows/lateral_movement_rdp_sharprdp_target.toml)
 * [PowerShell Script Block Logging Disabled](../../rules/windows/defense_evasion_disable_posh_scriptblocklogging.toml)
@@ -185,19 +184,20 @@ Curious about the inner workings? Read [here](signals_generation.md).
 * [Suspicious PowerShell Engine ImageLoad](../../rules/windows/execution_suspicious_powershell_imgload.toml)
 * [Whitespace Padding in Process Command Line](../../rules/windows/defense_evasion_whitespace_padding_in_command_line.toml)
 
+### Unsupported LHS type: <class 'eql.ast.FunctionCall'> (4)
+
+4 rules:
+* [AdminSDHolder SDProp Exclusion Added](../../rules/windows/persistence_sdprop_exclusion_dsheuristics.toml)
+* [Image File Execution Options Injection](../../rules/windows/persistence_evasion_registry_ifeo_injection.toml)
+* [Suspicious Execution - Short Program Name](../../rules/windows/execution_suspicious_short_program_name.toml)
+* [Suspicious Process Access via Direct System Call](../../rules/windows/defense_evasion_suspicious_process_access_direct_syscall.toml)
+
 ### Constraints solver not implemented: match_only_text (3)
 
 3 rules:
 * [Kerberos Preauthentication Disabled for User](../../rules/windows/credential_access_disable_kerberos_preauth.toml)
 * [Startup/Logon Script added to Group Policy Object](../../rules/windows/privilege_escalation_group_policy_iniscript.toml)
 * [Windows CryptoAPI Spoofing Vulnerability (CVE-2020-0601 - CurveBall)](../../rules/windows/defense_evasion_cve_2020_0601.toml)
-
-### Unsupported LHS type: <class 'eql.ast.FunctionCall'> (3)
-
-3 rules:
-* [Image File Execution Options Injection](../../rules/windows/persistence_evasion_registry_ifeo_injection.toml)
-* [Suspicious Execution - Short Program Name](../../rules/windows/execution_suspicious_short_program_name.toml)
-* [Suspicious Process Access via Direct System Call](../../rules/windows/defense_evasion_suspicious_process_access_direct_syscall.toml)
 
 ### Unsolvable constraints ==: powershell.file.script_block_text (is already 'waveInGetNumDevs', cannot set to 'mciSendStringA') (1)
 

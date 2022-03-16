@@ -8,7 +8,7 @@ Curious about the inner workings? Read [here](signals_generation.md).
 ## Table of contents
    1. [Rules with no signals (25)](#rules-with-no-signals-25)
    1. [Rules with too few signals (1)](#rules-with-too-few-signals-1)
-   1. [Rules with the correct signals (510)](#rules-with-the-correct-signals-510)
+   1. [Rules with the correct signals (517)](#rules-with-the-correct-signals-517)
 
 ## Rules with no signals (25)
 
@@ -16,7 +16,7 @@ Curious about the inner workings? Read [here](signals_generation.md).
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-598
+Index: detection-rules-ut-606
 
 ```python
 event.action:"Directory Service Changes" and event.code:5136 and winlog.event_data.ObjectDN:CN=AdminSDHolder,CN=System*
@@ -32,7 +32,7 @@ event.action:"Directory Service Changes" and event.code:5136 and winlog.event_da
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-292
+Index: detection-rules-ut-300
 
 ```python
 event.category:file and not event.type:deletion and
@@ -369,7 +369,7 @@ event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin
 
 Branch count: 4  
 Document count: 8  
-Index: detection-rules-ut-291
+Index: detection-rules-ut-299
 
 ```python
 sequence by host.id with maxspan=1m
@@ -394,7 +394,7 @@ sequence by host.id with maxspan=1m
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-294
+Index: detection-rules-ut-302
 
 ```python
 event.category:file and not event.type:deletion and
@@ -411,7 +411,7 @@ event.category:file and not event.type:deletion and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-295
+Index: detection-rules-ut-303
 
 ```python
 event.category : file and event.action : modification and 
@@ -429,7 +429,7 @@ event.category : file and event.action : modification and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-309
+Index: detection-rules-ut-317
 
 ```python
 event.category:"file" and not event.type:"deletion" and
@@ -446,7 +446,7 @@ event.category:"file" and not event.type:"deletion" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-308
+Index: detection-rules-ut-316
 
 ```python
 event.category:file and event.action:modification and
@@ -475,7 +475,7 @@ event.category:file and event.action:modification and
 
 Branch count: 125  
 Document count: 375  
-Index: detection-rules-ut-518
+Index: detection-rules-ut-526
 
 ```python
 sequence by agent.id, user.name with maxspan=1m
@@ -870,7 +870,7 @@ sequence by agent.id, user.name with maxspan=1m
 
 
 
-## Rules with the correct signals (510)
+## Rules with the correct signals (517)
 
 ### AWS Access Secret in Secrets Manager
 
@@ -1758,7 +1758,7 @@ event.dataset:aws.cloudtrail and event.action:(DeleteRule or DeleteRuleGroup) an
 
 Branch count: 6  
 Document count: 6  
-Index: detection-rules-ut-581
+Index: detection-rules-ut-589
 
 ```python
 event.category:(network or network_traffic) and destination.port:53 and
@@ -1780,7 +1780,7 @@ event.category:(network or network_traffic) and destination.port:53 and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-255
+Index: detection-rules-ut-263
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -1812,7 +1812,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-256
+Index: detection-rules-ut-264
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -1849,7 +1849,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-616
+Index: detection-rules-ut-624
 
 ```python
 sequence by host.id with maxspan=5m
@@ -1872,7 +1872,7 @@ sequence by host.id with maxspan=5m
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-516
+Index: detection-rules-ut-524
 
 ```python
 process where event.type in ("start", "process_started") and 
@@ -1899,7 +1899,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-439
+Index: detection-rules-ut-447
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -1949,7 +1949,7 @@ event.dataset:okta.system and event.action:user.account.privilege.grant
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-599
+Index: detection-rules-ut-607
 
 ```python
 file where event.type == "creation" and
@@ -1968,7 +1968,7 @@ file where event.type == "creation" and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-376
+Index: detection-rules-ut-384
 
 ```python
 event.kind:alert and event.module:endgame and (event.action:rules_engine_event or endgame.event_subtype_full:rules_engine_event)
@@ -2001,7 +2001,7 @@ event.agent_id_status:agent_id_mismatch
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-281
+Index: detection-rules-ut-289
 
 ```python
 sequence by host.id, process.entity_id with maxspan=30s
@@ -2201,7 +2201,7 @@ event.dataset:okta.system and event.action:policy.rule.delete
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-267
+Index: detection-rules-ut-275
 
 ```python
 event.category:process and event.type:(start or process_started) and 
@@ -2219,7 +2219,7 @@ event.category:process and event.type:(start or process_started) and
 
 Branch count: 21  
 Document count: 21  
-Index: detection-rules-ut-221
+Index: detection-rules-ut-220
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -2261,7 +2261,7 @@ event.category:process and event.type:(start or process_started) and
 
 Branch count: 30  
 Document count: 30  
-Index: detection-rules-ut-222
+Index: detection-rules-ut-221
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -2310,7 +2310,7 @@ event.category:process and event.type:(start or process_started) and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-298
+Index: detection-rules-ut-306
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -2328,7 +2328,7 @@ event.category:process and event.type:(start or process_started) and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-268
+Index: detection-rules-ut-276
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -2444,7 +2444,7 @@ event.dataset:okta.system and event.action:system.api_token.revoke
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-275
+Index: detection-rules-ut-283
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -2480,7 +2480,7 @@ event.dataset:okta.system and event.action:user.mfa.attempt_bypass
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-241
+Index: detection-rules-ut-249
 
 ```python
 event.module:auditd and event.action:"attempted-log-in-during-unusual-hour-to"
@@ -2496,7 +2496,7 @@ event.module:auditd and event.action:"attempted-log-in-during-unusual-hour-to"
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-239
+Index: detection-rules-ut-247
 
 ```python
 event.module:auditd and event.action:"attempted-log-in-from-unusual-place-to"
@@ -2512,7 +2512,7 @@ event.module:auditd and event.action:"attempted-log-in-from-unusual-place-to"
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-238
+Index: detection-rules-ut-246
 
 ```python
 event.module:auditd and event.action:"failed-log-in-too-many-times-to"
@@ -2528,7 +2528,7 @@ event.module:auditd and event.action:"failed-log-in-too-many-times-to"
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-240
+Index: detection-rules-ut-248
 
 ```python
 event.module:auditd and event.action:"opened-too-many-sessions-to"
@@ -3106,7 +3106,7 @@ event.outcome:(Success or success)
 
 Branch count: 8  
 Document count: 8  
-Index: detection-rules-ut-224
+Index: detection-rules-ut-222
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -3171,7 +3171,7 @@ event.category:file and event.type:change and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-663
+Index: detection-rules-ut-670
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -3194,7 +3194,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 4  
 Document count: 8  
-Index: detection-rules-ut-666
+Index: detection-rules-ut-673
 
 ```python
 /* add winlogbeat-* when process.code_signature.* fields are populated */
@@ -3231,7 +3231,7 @@ sequence with maxspan=1m
 
 Branch count: 6  
 Document count: 6  
-Index: detection-rules-ut-441
+Index: detection-rules-ut-449
 
 ```python
 process where event.action == "start" and
@@ -3256,7 +3256,7 @@ process where event.action == "start" and
 
 Branch count: 5  
 Document count: 5  
-Index: detection-rules-ut-442
+Index: detection-rules-ut-450
 
 ```python
 process where event.type in ("process_started", "start") and
@@ -3279,7 +3279,7 @@ process where event.type in ("process_started", "start") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-528
+Index: detection-rules-ut-536
 
 ```python
 process where event.type in ("start", "process_started") and process.name: ("cmd.exe", "powershell.exe") and
@@ -3304,7 +3304,7 @@ process.parent.name: (
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-531
+Index: detection-rules-ut-539
 
 ```python
 sequence by process.entity_id
@@ -3329,7 +3329,7 @@ sequence by process.entity_id
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-556
+Index: detection-rules-ut-564
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -3350,7 +3350,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-400
+Index: detection-rules-ut-408
 
 ```python
 network where network.protocol == "dns" and
@@ -3379,7 +3379,7 @@ network where network.protocol == "dns" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-398
+Index: detection-rules-ut-406
 
 ```python
 network where network.protocol == "dns" and
@@ -3444,7 +3444,7 @@ network where network.protocol == "dns" and
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-242
+Index: detection-rules-ut-250
 
 ```python
 sequence by process.entity_id
@@ -3469,7 +3469,7 @@ sequence by process.entity_id
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-243
+Index: detection-rules-ut-251
 
 ```python
 sequence by process.entity_id
@@ -3494,7 +3494,7 @@ sequence by process.entity_id
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-299
+Index: detection-rules-ut-307
 
 ```python
 file where event.type != "deletion" and
@@ -3518,7 +3518,7 @@ file where event.type != "deletion" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-603
+Index: detection-rules-ut-611
 
 ```python
 registry where registry.path : "HKLM\\SAM\\SAM\\Domains\\Account\\Users\\Names\\*$\\"
@@ -3534,7 +3534,7 @@ registry where registry.path : "HKLM\\SAM\\SAM\\Domains\\Account\\Users\\Names\\
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-631
+Index: detection-rules-ut-640
 
 ```python
 event.module:security and event.code:4720
@@ -3550,7 +3550,7 @@ event.module:security and event.code:4720
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-415
+Index: detection-rules-ut-423
 
 ```python
 file where event.type != "deletion" and file.name : ("ntds_capi_*.pfx", "ntds_capi_*.pvk")
@@ -3566,7 +3566,7 @@ file where event.type != "deletion" and file.name : ("ntds_capi_*.pfx", "ntds_ca
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-445
+Index: detection-rules-ut-453
 
 ```python
 registry where event.type in ("creation", "change") and
@@ -3590,7 +3590,7 @@ registry where event.type in ("creation", "change") and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-606
+Index: detection-rules-ut-614
 
 ```python
 file where event.type != "deletion" and
@@ -3609,7 +3609,7 @@ file where event.type != "deletion" and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-416
+Index: detection-rules-ut-424
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -3629,7 +3629,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-377
+Index: detection-rules-ut-385
 
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:detection and (event.action:cred_theft_event or endgame.event_subtype_full:cred_theft_event)
@@ -3646,7 +3646,7 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:detection an
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-378
+Index: detection-rules-ut-386
 
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:prevention and (event.action:cred_theft_event or endgame.event_subtype_full:cred_theft_event)
@@ -3663,7 +3663,7 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:prevention a
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-379
+Index: detection-rules-ut-387
 
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:detection and (event.action:token_manipulation_event or endgame.event_subtype_full:token_manipulation_event)
@@ -3680,7 +3680,7 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:detection an
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-380
+Index: detection-rules-ut-388
 
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:prevention and (event.action:token_manipulation_event or endgame.event_subtype_full:token_manipulation_event)
@@ -3751,7 +3751,7 @@ event.dataset:cyberarkpas.audit and
 
 Branch count: 24  
 Document count: 24  
-Index: detection-rules-ut-362
+Index: detection-rules-ut-370
 
 ```python
 event.category:(network or network_traffic) and (event.type:connection or type:dns) and (destination.port:53 or event.dataset:zeek.dns)
@@ -3823,7 +3823,7 @@ event.category:(network or network_traffic) and (event.type:connection or type:d
 
 Branch count: 6  
 Document count: 6  
-Index: detection-rules-ut-361
+Index: detection-rules-ut-369
 
 ```python
 event.category:(network or network_traffic) and (tls.server.hash.md5:950098276A495286EB2A2556FBAB6D83 or
@@ -3846,7 +3846,7 @@ event.category:(network or network_traffic) and (tls.server.hash.md5:950098276A4
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-449
+Index: detection-rules-ut-457
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -3867,7 +3867,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-559
+Index: detection-rules-ut-567
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -3888,7 +3888,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-580
+Index: detection-rules-ut-588
 
 ```python
 sequence by process.entity_id
@@ -3908,7 +3908,7 @@ sequence by process.entity_id
 
 Branch count: 10  
 Document count: 10  
-Index: detection-rules-ut-453
+Index: detection-rules-ut-461
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -3942,7 +3942,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 3  
 Document count: 3  
-Index: detection-rules-ut-451
+Index: detection-rules-ut-459
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -3963,7 +3963,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-452
+Index: detection-rules-ut-460
 
 ```python
 process where event.type == "start" and
@@ -4000,7 +4000,7 @@ event.dataset:google_workspace.admin and event.provider:admin and event.category
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-535
+Index: detection-rules-ut-543
 
 ```python
 /* leaving in development pending `file.Ext.windows.zone_identifier` landing in ECS then endpoint */
@@ -4025,7 +4025,7 @@ sequence by process.entity_id with maxspan=2s
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-536
+Index: detection-rules-ut-544
 
 ```python
 /* leaving in development pending `file.Ext.windows.zone_identifier` landing in ECS then endpoint */
@@ -4049,7 +4049,7 @@ sequence by process.entity_id with maxspan=2s
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-257
+Index: detection-rules-ut-265
 
 ```python
 event.category:process and event.type:start and
@@ -4069,7 +4069,7 @@ event.category:process and event.type:start and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-258
+Index: detection-rules-ut-266
 
 ```python
 process where event.type in ("start", "process_started") and process.args : "dump-keychain" and process.args : "-d"
@@ -4103,7 +4103,7 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-296
+Index: detection-rules-ut-304
 
 ```python
 file where event.type != "deletion" and
@@ -4120,7 +4120,7 @@ file where event.type != "deletion" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-457
+Index: detection-rules-ut-465
 
 ```python
 process where event.type == "start" and
@@ -4138,7 +4138,7 @@ process.args : ("firewall", "advfirewall") and process.args : "group=Network Dis
 
 Branch count: 8  
 Document count: 8  
-Index: detection-rules-ut-396
+Index: detection-rules-ut-404
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -4187,7 +4187,7 @@ event.kind:alert and event.module:(endpoint and not endgame)
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-537
+Index: detection-rules-ut-545
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -4230,7 +4230,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 10  
 Document count: 10  
-Index: detection-rules-ut-517
+Index: detection-rules-ut-525
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -4266,7 +4266,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-234
+Index: detection-rules-ut-230
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -4284,7 +4284,7 @@ event.category:process and event.type:(start or process_started) and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-524
+Index: detection-rules-ut-532
 
 ```python
 iam where event.action == "user-member-enumerated" and
@@ -4323,7 +4323,7 @@ iam where event.action == "user-member-enumerated" and
 
 Branch count: 3  
 Document count: 3  
-Index: detection-rules-ut-276
+Index: detection-rules-ut-284
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -4351,7 +4351,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-530
+Index: detection-rules-ut-538
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -4377,7 +4377,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-541
+Index: detection-rules-ut-549
 
 ```python
 sequence with maxspan=2h
@@ -4407,7 +4407,7 @@ sequence with maxspan=2h
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-542
+Index: detection-rules-ut-550
 
 ```python
 sequence with maxspan=2h
@@ -4439,7 +4439,7 @@ sequence with maxspan=2h
 
 Branch count: 72  
 Document count: 216  
-Index: detection-rules-ut-618
+Index: detection-rules-ut-626
 
 ```python
 /* userinit followed by explorer followed by early child process of explorer (unlikely to be launched interactively) within 1m */
@@ -4687,7 +4687,7 @@ sequence by host.id, user.name with maxspan=1m
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-277
+Index: detection-rules-ut-285
 
 ```python
 event.category:process and event.type:(start or process_started) and process.args:("-e" and const*require*child_process*)
@@ -4704,7 +4704,7 @@ event.category:process and event.type:(start or process_started) and process.arg
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-557
+Index: detection-rules-ut-565
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -4722,7 +4722,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-584
+Index: detection-rules-ut-592
 
 ```python
 process where event.type in ("start", "process_started") and process.executable : "\\Device\\Mup\\tsclient\\*.exe"
@@ -4739,7 +4739,7 @@ process where event.type in ("start", "process_started") and process.executable 
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-548
+Index: detection-rules-ut-556
 
 ```python
 file where file.extension : "dll" and file.path : "C:\\*\\*.exe.local\\*.dll"
@@ -4755,7 +4755,7 @@ file where file.extension : "dll" and file.path : "C:\\*\\*.exe.local\\*.dll"
 
 Branch count: 18  
 Document count: 18  
-Index: detection-rules-ut-311
+Index: detection-rules-ut-319
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -4790,7 +4790,7 @@ event.category:process and event.type:(start or process_started) and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-381
+Index: detection-rules-ut-389
 
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:detection and (event.action:exploit_event or endgame.event_subtype_full:exploit_event)
@@ -4807,7 +4807,7 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:detection an
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-382
+Index: detection-rules-ut-390
 
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:prevention and (event.action:exploit_event or endgame.event_subtype_full:exploit_event)
@@ -4824,7 +4824,7 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:prevention a
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-392
+Index: detection-rules-ut-400
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -4842,7 +4842,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-391
+Index: detection-rules-ut-399
 
 ```python
 event.kind:alert and not event.module:(endgame or endpoint)
@@ -4858,7 +4858,7 @@ event.kind:alert and not event.module:(endgame or endpoint)
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-523
+Index: detection-rules-ut-531
 
 ```python
 network where network.protocol == "dns" and
@@ -4913,7 +4913,7 @@ network where network.protocol == "dns" and
 
 Branch count: 8  
 Document count: 8  
-Index: detection-rules-ut-228
+Index: detection-rules-ut-225
 
 ```python
 event.category:process and event.type:(start or process_started) and process.name:shred and
@@ -4937,7 +4937,7 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 Branch count: 24  
 Document count: 24  
-Index: detection-rules-ut-229
+Index: detection-rules-ut-226
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -4979,7 +4979,7 @@ event.category:process and event.type:(start or process_started) and
 
 Branch count: 4  
 Document count: 8  
-Index: detection-rules-ut-300
+Index: detection-rules-ut-308
 
 ```python
 sequence by host.id, user.id with maxspan = 5s
@@ -5362,7 +5362,7 @@ any where
 
 Branch count: 6  
 Document count: 6  
-Index: detection-rules-ut-244
+Index: detection-rules-ut-252
 
 ```python
 event.category:process and event.type:(start or process_started) and process.name:(hping or hping2 or hping3)
@@ -5383,7 +5383,7 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-469
+Index: detection-rules-ut-477
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -5405,7 +5405,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-366
+Index: detection-rules-ut-374
 
 ```python
 event.category:(network or network_traffic) and network.transport:udp and destination.port:4500
@@ -5422,7 +5422,7 @@ event.category:(network or network_traffic) and network.transport:udp and destin
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-459
+Index: detection-rules-ut-467
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -5446,7 +5446,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-576
+Index: detection-rules-ut-584
 
 ```python
 sequence with maxspan=1m
@@ -5472,7 +5472,7 @@ sequence with maxspan=1m
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-577
+Index: detection-rules-ut-585
 
 ```python
 sequence by host.id with maxspan=1m
@@ -5497,7 +5497,7 @@ sequence by host.id with maxspan=1m
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-578
+Index: detection-rules-ut-586
 
 ```python
 sequence by host.id with maxspan=5s
@@ -5523,7 +5523,7 @@ sequence by host.id with maxspan=5s
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-589
+Index: detection-rules-ut-597
 
 ```python
 sequence by host.id with maxspan = 30s
@@ -5546,7 +5546,7 @@ sequence by host.id with maxspan = 30s
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-586
+Index: detection-rules-ut-594
 
 ```python
 sequence by host.id with maxspan=30s
@@ -5569,7 +5569,7 @@ sequence by host.id with maxspan=30s
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-471
+Index: detection-rules-ut-479
 
 ```python
 /* the benefit of doing this as an eql sequence vs kql is this will limit to alerting only on the first network connection */
@@ -5592,7 +5592,7 @@ sequence by process.entity_id
 
 Branch count: 8  
 Document count: 16  
-Index: detection-rules-ut-600
+Index: detection-rules-ut-608
 
 ```python
 sequence by process.entity_id with maxspan = 5m
@@ -5627,7 +5627,7 @@ sequence by process.entity_id with maxspan = 5m
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-635
+Index: detection-rules-ut-644
 
 ```python
 registry where
@@ -5646,7 +5646,7 @@ registry where
 
 Branch count: 6  
 Document count: 6  
-Index: detection-rules-ut-236
+Index: detection-rules-ut-242
 
 ```python
 event.category:process and event.type:(start or process_started) and process.name:perl and
@@ -5668,7 +5668,7 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 Branch count: 6  
 Document count: 6  
-Index: detection-rules-ut-237
+Index: detection-rules-ut-243
 
 ```python
 event.category:process and event.type:(start or process_started) and process.name:python and
@@ -5692,7 +5692,7 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-612
+Index: detection-rules-ut-620
 
 ```python
 event.action:modified-user-account and event.code:4738 and winlog.event_data.AllowedToDelegateTo:*krbtgt*
@@ -5708,7 +5708,7 @@ event.action:modified-user-account and event.code:4738 and winlog.event_data.All
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-259
+Index: detection-rules-ut-267
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -5727,7 +5727,7 @@ event.category:process and event.type:(start or process_started) and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-419
+Index: detection-rules-ut-427
 
 ```python
 network where event.type == "start" and network.direction : ("outgoing", "egress") and
@@ -5747,7 +5747,7 @@ network where event.type == "start" and network.direction : ("outgoing", "egress
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-232
+Index: detection-rules-ut-228
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -5765,7 +5765,7 @@ event.category:process and event.type:(start or process_started) and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-260
+Index: detection-rules-ut-268
 
 ```python
 process where event.type == "start" and
@@ -5784,7 +5784,7 @@ process where event.type == "start" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-420
+Index: detection-rules-ut-428
 
 ```python
 file where file.name : ("lsass*.dmp", "dumpert.dmp", "Andrew.dmp", "SQLDmpr*.mdmp", "Coredump.dmp")
@@ -5800,7 +5800,7 @@ file where file.name : ("lsass*.dmp", "dumpert.dmp", "Andrew.dmp", "SQLDmpr*.mdm
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-421
+Index: detection-rules-ut-429
 
 ```python
 any where event.action == "File System" and event.code == "4656" and
@@ -5839,7 +5839,7 @@ any where event.action == "File System" and event.code == "4656" and
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-597
+Index: detection-rules-ut-605
 
 ```python
 file where event.type in ("creation", "change") and
@@ -5861,7 +5861,7 @@ file where event.type in ("creation", "change") and
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-583
+Index: detection-rules-ut-591
 
 ```python
 sequence by host.id with maxspan=30s
@@ -5886,7 +5886,7 @@ sequence by host.id with maxspan=30s
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-289
+Index: detection-rules-ut-297
 
 ```python
 sequence by host.id with maxspan=1m
@@ -5909,7 +5909,7 @@ sequence by host.id with maxspan=1m
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-220
+Index: detection-rules-ut-232
 
 ```python
 sequence by host.id, process.pid with maxspan=1m 
@@ -5929,7 +5929,7 @@ sequence by host.id, process.pid with maxspan=1m
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-223
+Index: detection-rules-ut-233
 
 ```python
 sequence by host.id, process.pid with maxspan=1m 
@@ -5944,11 +5944,46 @@ sequence by host.id, process.pid with maxspan=1m
 
 
 
+### Linux Restricted Shell Breakout via busybox Shell Evasion
+
+Branch count: 1  
+Document count: 1  
+Index: detection-rules-ut-234
+
+```python
+process where event.type == "start" and process.name : "busybox" and process.args_count == 2 and process.args : ("/bin/sh", "/bin/ash", "sh", "ash")
+```
+
+```python
+[{'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'busybox', 'args_count': 2, 'args': ['/bin/sh', '/bin/ash', 'sh', 'ash']}, '@timestamp': 0}]
+```
+
+
+
+### Linux Restricted Shell Breakout via c89/c99 Shell evasion
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-235
+
+```python
+sequence by host.id, process.pid with maxspan=1m
+[process where process.name :("c89","c99") and process.args == "-wrapper" and process.args : ("sh,-s", "bash,-s", "dash,-s", "/bin/sh,-s", "/bin/bash,-s", "/bin/dash,-s")]
+[process where process.parent.name : ("bash", "sh", "dash")]
+```
+
+```python
+[{'process': {'name': 'c99', 'args': ['sh,-s', 'bash,-s', 'dash,-s', '/bin/sh,-s', '/bin/bash,-s', '/bin/dash,-s', '-wrapper'], 'pid': 3874133221}, 'event': {'category': ['process']}, 'host': {'id': 'vCf'}, '@timestamp': 0},
+ {'process': {'parent': {'name': 'dash'}, 'pid': 3874133221}, 'event': {'category': ['process']}, 'host': {'id': 'vCf'}, '@timestamp': 1}]
+```
+
+
+
 ### Linux Restricted Shell Breakout via env Shell Evasion
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-227
+Index: detection-rules-ut-236
 
 ```python
 process where event.type == "start" and process.name : "env" and process.args_count == 2 and process.args : ("/bin/sh", "/bin/bash", "sh", "bash")
@@ -5960,11 +5995,49 @@ process where event.type == "start" and process.name : "env" and process.args_co
 
 
 
+### Linux Restricted Shell Breakout via nice Shell evasion
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-241
+
+```python
+sequence by host.id, process.pid with maxspan=1m
+[process where event.type == "start" and process.name == "nice" and process.args : ("/bin/bash", "/bin/sh", "/bin/dash", "sh", "bash", "dash")]
+[process where process.name : ("bash", "sh", "dash")]
+```
+
+```python
+[{'event': {'type': ['start'], 'category': ['process']}, 'process': {'name': 'nice', 'args': ['/bin/bash', '/bin/sh', '/bin/dash', 'sh', 'bash', 'dash'], 'pid': 4052611751}, 'host': {'id': 'ZFy'}, '@timestamp': 0},
+ {'process': {'name': 'sh', 'pid': 4052611751}, 'event': {'category': ['process']}, 'host': {'id': 'ZFy'}, '@timestamp': 1}]
+```
+
+
+
+### Linux Restricted Shell Breakout via the expect command
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-237
+
+```python
+sequence by host.id, process.pid with maxspan=1m 
+[process where process.name == "expect" and process.args : "-c" and process.args : ("spawn /bin/sh;interact", "spawn /bin/bash;interact", "spawn /bin/dash;interact", "spawn sh;interact","spawn bash;interact", "spawn dash;interact")] 
+[process where process.parent.name == "expect" and process.name : ("bash", "sh", "dash")]
+```
+
+```python
+[{'process': {'name': 'expect', 'args': ['-c', 'spawn /bin/sh;interact', 'spawn /bin/bash;interact', 'spawn /bin/dash;interact', 'spawn sh;interact', 'spawn bash;interact', 'spawn dash;interact'], 'pid': 4052611751}, 'event': {'category': ['process']}, 'host': {'id': 'ZFy'}, '@timestamp': 0},
+ {'process': {'parent': {'name': 'expect'}, 'name': 'sh', 'pid': 4052611751}, 'event': {'category': ['process']}, 'host': {'id': 'ZFy'}, '@timestamp': 1}]
+```
+
+
+
 ### Linux Restricted Shell Breakout via the find command
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-230
+Index: detection-rules-ut-238
 
 ```python
 sequence by host.id, process.pid with maxspan=1m
@@ -5979,11 +6052,87 @@ sequence by host.id, process.pid with maxspan=1m
 
 
 
+### Linux Restricted Shell Breakout via the gcc command
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-239
+
+```python
+sequence by host.id, process.pid with maxspan=1m
+[process where process.name == "gcc" and process.args == "-wrapper" and process.args : ("sh,-s", "bash,-s", "dash,-s", "/bin/sh,-s", "/bin/bash,-s", "/bin/dash,-s")]
+[process where process.parent.name == "gcc" and process.name : ("bash", "sh", "dash")]
+```
+
+```python
+[{'process': {'name': 'gcc', 'args': ['sh,-s', 'bash,-s', 'dash,-s', '/bin/sh,-s', '/bin/bash,-s', '/bin/dash,-s', '-wrapper'], 'pid': 4052611751}, 'event': {'category': ['process']}, 'host': {'id': 'ZFy'}, '@timestamp': 0},
+ {'process': {'parent': {'name': 'gcc'}, 'name': 'sh', 'pid': 4052611751}, 'event': {'category': ['process']}, 'host': {'id': 'ZFy'}, '@timestamp': 1}]
+```
+
+
+
+### Linux Restricted Shell Breakout via the mysql command
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-240
+
+```python
+sequence by host.id, process.pid with maxspan=1m
+[process where process.name == "mysql" and process.args == "-e" and process.args : ("\\!*sh", "\\!*bash", "\\!*dash", "\\!*/bin/sh", "\\!*/bin/bash", "\\!*/bin/dash")]
+[process where process.parent.name == "mysql" and process.name : ("bash", "sh", "dash")]
+```
+
+```python
+[{'process': {'name': 'mysql', 'args': ['\\!*sh', '\\!*bash', '\\!*dash', '\\!*/bin/sh', '\\!*/bin/bash', '\\!*/bin/dash', '-e'], 'pid': 4052611751}, 'event': {'category': ['process']}, 'host': {'id': 'ZFy'}, '@timestamp': 0},
+ {'process': {'parent': {'name': 'mysql'}, 'name': 'sh', 'pid': 4052611751}, 'event': {'category': ['process']}, 'host': {'id': 'ZFy'}, '@timestamp': 1}]
+```
+
+
+
+### Linux Restricted Shell Breakout via the ssh command
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-244
+
+```python
+sequence by host.id, process.pid with maxspan=1m
+[process where process.name == "ssh" and process.args == "-o" and process.args : ("ProxyCommand=;sh*", "ProxyCommand=;bash*", "ProxyCommand=;dash*", "ProxyCommand=;/bin/sh*", "ProxyCommand=;/bin/bash*", "ProxyCommand=;/bin/dash*")]
+[process where process.parent.name == "ssh" and process.name : ("bash", "sh", "dash")]
+```
+
+```python
+[{'process': {'name': 'ssh', 'args': ['ProxyCommand=;sh*', 'ProxyCommand=;bash*', 'ProxyCommand=;dash*', 'ProxyCommand=;/bin/sh*', 'ProxyCommand=;/bin/bash*', 'ProxyCommand=;/bin/dash*', '-o'], 'pid': 4052611751}, 'event': {'category': ['process']}, 'host': {'id': 'ZFy'}, '@timestamp': 0},
+ {'process': {'parent': {'name': 'ssh'}, 'name': 'sh', 'pid': 4052611751}, 'event': {'category': ['process']}, 'host': {'id': 'ZFy'}, '@timestamp': 1}]
+```
+
+
+
+### Linux Restricted Shell Breakout via the vi command
+
+Branch count: 1  
+Document count: 2  
+Index: detection-rules-ut-245
+
+```python
+sequence by host.id,process.pid with maxspan=1m
+[process where process.name == "vi" and process.args : "-c" and process.args : (":!/bin/bash", ":!/bin/sh", ":!bash", ":!sh")]
+[process where process.parent.name == "vi" and process.name : ("bash", "sh")]
+```
+
+```python
+[{'process': {'name': 'vi', 'args': ['-c', ':!/bin/bash', ':!/bin/sh', ':!bash', ':!sh'], 'pid': 4052611751}, 'event': {'category': ['process']}, 'host': {'id': 'ZFy'}, '@timestamp': 0},
+ {'process': {'parent': {'name': 'vi'}, 'name': 'bash', 'pid': 4052611751}, 'event': {'category': ['process']}, 'host': {'id': 'ZFy'}, '@timestamp': 1}]
+```
+
+
+
 ### Local Scheduled Task Creation
 
 Branch count: 6  
 Document count: 12  
-Index: detection-rules-ut-608
+Index: detection-rules-ut-616
 
 ```python
 sequence with maxspan=1m
@@ -6040,7 +6189,7 @@ event.dataset:google_workspace.admin and event.provider:admin and event.category
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-383
+Index: detection-rules-ut-391
 
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:detection and (event.action:file_classification_event or endgame.event_subtype_full:file_classification_event)
@@ -6057,7 +6206,7 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:detection an
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-384
+Index: detection-rules-ut-392
 
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:prevention and (event.action:file_classification_event or endgame.event_subtype_full:file_classification_event)
@@ -6432,7 +6581,7 @@ event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.c
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-412
+Index: detection-rules-ut-420
 
 ```python
 sequence by process.entity_id
@@ -6453,7 +6602,7 @@ sequence by process.entity_id
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-464
+Index: detection-rules-ut-472
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -6472,7 +6621,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-461
+Index: detection-rules-ut-469
 
 ```python
 process where event.type == "start" and
@@ -6491,7 +6640,7 @@ process where event.type == "start" and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-462
+Index: detection-rules-ut-470
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -6510,7 +6659,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-460
+Index: detection-rules-ut-468
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -6536,7 +6685,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-463
+Index: detection-rules-ut-471
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -6555,7 +6704,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-568
+Index: detection-rules-ut-576
 
 ```python
 process where event.type == "start" and
@@ -6573,7 +6722,7 @@ process where event.type == "start" and
 
 Branch count: 3  
 Document count: 3  
-Index: detection-rules-ut-567
+Index: detection-rules-ut-575
 
 ```python
 file where event.type == "creation" and
@@ -6604,7 +6753,7 @@ file where event.type == "creation" and
 
 Branch count: 5  
 Document count: 5  
-Index: detection-rules-ut-569
+Index: detection-rules-ut-577
 
 ```python
 process where event.type == "start" and
@@ -6627,7 +6776,7 @@ process where event.type == "start" and
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-418
+Index: detection-rules-ut-426
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -6648,7 +6797,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-417
+Index: detection-rules-ut-425
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -6669,7 +6818,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-422
+Index: detection-rules-ut-430
 
 ```python
 file where file.name : "mimilsa.log" and process.name : "lsass.exe"
@@ -6685,7 +6834,7 @@ file where file.name : "mimilsa.log" and process.name : "lsass.exe"
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-423
+Index: detection-rules-ut-431
 
 ```python
 process where event.type in ("start", "process_started") and process.name : ("cmd.exe", "powershell.exe", "pwsh.exe")
@@ -6703,7 +6852,7 @@ and process.args : ("*DumpCreds", "*Mimikatz*")
 
 Branch count: 5  
 Document count: 5  
-Index: detection-rules-ut-560
+Index: detection-rules-ut-568
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -6726,7 +6875,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-253
+Index: detection-rules-ut-261
 
 ```python
 event.category:file and not event.type:deletion and file.path:/etc/ld.so.preload
@@ -6742,7 +6891,7 @@ event.category:file and not event.type:deletion and file.path:/etc/ld.so.preload
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-269
+Index: detection-rules-ut-277
 
 ```python
 event.category:process and event.type:start and
@@ -6771,7 +6920,7 @@ event.category:process and event.type:start and
 
 Branch count: 5  
 Document count: 5  
-Index: detection-rules-ut-250
+Index: detection-rules-ut-258
 
 ```python
 event.category:file and event.type:change and 
@@ -6794,7 +6943,7 @@ event.category:file and event.type:change and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-272
+Index: detection-rules-ut-280
 
 ```python
 event.category:process and event.type:start and
@@ -6882,7 +7031,7 @@ event.dataset:okta.system and event.action:(application.policy.sign_on.update or
 
 Branch count: 8  
 Document count: 8  
-Index: detection-rules-ut-588
+Index: detection-rules-ut-596
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -6912,7 +7061,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-481
+Index: detection-rules-ut-489
 
 ```python
 sequence by process.entity_id
@@ -6932,7 +7081,7 @@ sequence by process.entity_id
 
 Branch count: 4  
 Document count: 8  
-Index: detection-rules-ut-480
+Index: detection-rules-ut-488
 
 ```python
 /* duplicate of MsBuild Making Network Connections - 0e79980b-4250-4a50-a509-69294c14e84b */
@@ -6960,7 +7109,7 @@ sequence by process.entity_id
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-483
+Index: detection-rules-ut-491
 
 ```python
 /* duplicate of Network Connection via MsXsl - b86afe07-0d98-4738-b15d-8d7465f95ff5 */
@@ -6983,7 +7132,7 @@ sequence by process.entity_id
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-482
+Index: detection-rules-ut-490
 
 ```python
 sequence by process.entity_id with maxspan=10m
@@ -7025,7 +7174,7 @@ event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Disable Strong
 
 Branch count: 8  
 Document count: 8  
-Index: detection-rules-ut-411
+Index: detection-rules-ut-419
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -7055,7 +7204,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 5  
 Document count: 5  
-Index: detection-rules-ut-519
+Index: detection-rules-ut-527
 
 ```python
 process where event.type in ("start", "process_started") and 
@@ -7079,7 +7228,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 25  
 Document count: 50  
-Index: detection-rules-ut-246
+Index: detection-rules-ut-254
 
 ```python
 sequence by process.entity_id
@@ -7149,7 +7298,7 @@ sequence by process.entity_id
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-397
+Index: detection-rules-ut-405
 
 ```python
 sequence by process.entity_id
@@ -7174,7 +7323,7 @@ sequence by process.entity_id
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-540
+Index: detection-rules-ut-548
 
 ```python
 sequence by process.entity_id
@@ -7198,7 +7347,7 @@ sequence by process.entity_id
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-484
+Index: detection-rules-ut-492
 
 ```python
 sequence by process.entity_id
@@ -7222,7 +7371,7 @@ sequence by process.entity_id
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-546
+Index: detection-rules-ut-554
 
 ```python
 sequence by process.entity_id
@@ -7254,7 +7403,7 @@ sequence by process.entity_id
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-478
+Index: detection-rules-ut-486
 
 ```python
 sequence by process.entity_id
@@ -7281,7 +7430,7 @@ sequence by process.entity_id
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-613
+Index: detection-rules-ut-621
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -7322,7 +7471,7 @@ event.outcome:success
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-247
+Index: detection-rules-ut-255
 
 ```python
 event.category:process and event.type:(start or process_started) and process.name:nping
@@ -7407,7 +7556,7 @@ event.dataset:o365.audit and event.provider:OneDrive and event.code:SharePointFi
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-547
+Index: detection-rules-ut-555
 
 ```python
 sequence by host.id, process.entity_id with maxspan = 5s
@@ -7426,7 +7575,7 @@ sequence by host.id, process.entity_id with maxspan = 5s
 
 Branch count: 6  
 Document count: 12  
-Index: detection-rules-ut-486
+Index: detection-rules-ut-494
 
 ```python
 /* This rule is compatible with Elastic Endpoint only */
@@ -7475,7 +7624,7 @@ sequence by host.id, user.id with maxspan=5m
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-521
+Index: detection-rules-ut-529
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -7496,7 +7645,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-385
+Index: detection-rules-ut-393
 
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:detection and (event.action:token_protection_event or endgame.event_subtype_full:token_protection_event)
@@ -7513,7 +7662,7 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:detection an
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-386
+Index: detection-rules-ut-394
 
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:prevention and (event.action:token_protection_event or endgame.event_subtype_full:token_protection_event)
@@ -7530,7 +7679,7 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:prevention a
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-633
+Index: detection-rules-ut-642
 
 ```python
 process where event.type == "start" and
@@ -7552,7 +7701,7 @@ process where event.type == "start" and
 
 Branch count: 66  
 Document count: 132  
-Index: detection-rules-ut-301
+Index: detection-rules-ut-309
 
 ```python
 sequence by host.id with maxspan=5s
@@ -7701,7 +7850,7 @@ sequence by host.id with maxspan=5s
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-634
+Index: detection-rules-ut-643
 
 ```python
 /* Registry Path ends with backslash */
@@ -7725,7 +7874,7 @@ registry where /* length(registry.data.strings) > 0 and */
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-251
+Index: detection-rules-ut-259
 
 ```python
 file where event.type != "deletion" and
@@ -7754,7 +7903,7 @@ file where event.type != "deletion" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-610
+Index: detection-rules-ut-618
 
 ```python
 file where event.type != "deletion" and
@@ -7777,7 +7926,7 @@ file where event.type != "deletion" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-611
+Index: detection-rules-ut-619
 
 ```python
 file where event.type != "deletion" and
@@ -7794,7 +7943,7 @@ file where event.type != "deletion" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-607
+Index: detection-rules-ut-615
 
 ```python
 file where event.type != "deletion" and
@@ -7811,7 +7960,7 @@ file where event.type != "deletion" and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-636
+Index: detection-rules-ut-645
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -7835,7 +7984,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-637
+Index: detection-rules-ut-646
 
 ```python
 process where event.type == "start" and
@@ -7862,7 +8011,7 @@ process where event.type == "start" and
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-638
+Index: detection-rules-ut-647
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -7884,7 +8033,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-622
+Index: detection-rules-ut-631
 
 ```python
 file where event.type != "deletion" and user.domain != "NT AUTHORITY" and
@@ -7912,7 +8061,7 @@ file where event.type != "deletion" and user.domain != "NT AUTHORITY" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-402
+Index: detection-rules-ut-410
 
 ```python
 registry where registry.path : "HKLM\\SYSTEM\\*ControlSet*\\Services\\PortProxy\\v4tov4\\*"
@@ -8007,7 +8156,7 @@ sequence by user.email with maxspan=10m
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-632
+Index: detection-rules-ut-641
 
 ```python
 process where event.type in ("start", "process_started") and process.name : "sdbinst.exe"
@@ -8024,7 +8173,7 @@ process where event.type in ("start", "process_started") and process.name : "sdb
 
 Branch count: 1  
 Document count: 3  
-Index: detection-rules-ut-401
+Index: detection-rules-ut-409
 
 ```python
 sequence by host.id, user.name with maxspan = 5s
@@ -8107,7 +8256,7 @@ process where event.type in ("start", "process_started", "info") and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-413
+Index: detection-rules-ut-421
 
 ```python
 any where event.action == "Directory Service Access" and
@@ -8141,7 +8290,7 @@ any where event.action == "Directory Service Access" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-429
+Index: detection-rules-ut-437
 
 ```python
 process where event.code == "10" and 
@@ -8163,7 +8312,7 @@ process where event.code == "10" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-435
+Index: detection-rules-ut-443
 
 ```python
 process where event.code == "10" and
@@ -8186,7 +8335,7 @@ process where event.code == "10" and
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-434
+Index: detection-rules-ut-442
 
 ```python
 sequence by process.entity_id with maxspan=1m
@@ -8211,7 +8360,7 @@ sequence by process.entity_id with maxspan=1m
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-466
+Index: detection-rules-ut-474
 
 ```python
 process where event.type == "start" and
@@ -8235,7 +8384,7 @@ process where event.type == "start" and
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-465
+Index: detection-rules-ut-473
 
 ```python
 process where event.type == "start" and
@@ -8263,7 +8412,7 @@ process where event.type == "start" and
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-245
+Index: detection-rules-ut-253
 
 ```python
 event.category:process and event.type:(start or process_started) and process.name:(iodine or iodined)
@@ -8282,7 +8431,7 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-226
+Index: detection-rules-ut-224
 
 ```python
 event.category:process and event.type:(start or process_started) and process.name:setenforce and process.args:0
@@ -8299,7 +8448,7 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-513
+Index: detection-rules-ut-521
 
 ```python
 process where event.type in ("start", "process_started") and 
@@ -8366,7 +8515,7 @@ sequence by host.id with maxspan=1m
 
 Branch count: 6  
 Document count: 6  
-Index: detection-rules-ut-284
+Index: detection-rules-ut-292
 
 ```python
 event.category:process and event.type:start and 
@@ -8388,7 +8537,7 @@ event.category:process and event.type:start and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-646
+Index: detection-rules-ut-655
 
 ```python
 registry where event.type == "change" and
@@ -8407,7 +8556,7 @@ registry where event.type == "change" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-438
+Index: detection-rules-ut-446
 
 ```python
 process where event.code:"4688" and
@@ -8425,7 +8574,7 @@ process where event.code:"4688" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-273
+Index: detection-rules-ut-281
 
 ```python
 event.category:file and not event.type:deletion and file.name:~$*.zip
@@ -8441,7 +8590,7 @@ event.category:file and not event.type:deletion and file.name:~$*.zip
 
 Branch count: 3  
 Document count: 3  
-Index: detection-rules-ut-614
+Index: detection-rules-ut-622
 
 ```python
 process where event.type in ("start", "process_started", "info") and
@@ -8533,7 +8682,7 @@ file where event.type == "change" and process.executable : ("/usr/sbin/sshd", "/
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-303
+Index: detection-rules-ut-311
 
 ```python
 event.category:"file" and not event.type:"deletion" and
@@ -8551,7 +8700,7 @@ event.category:"file" and not event.type:"deletion" and
 
 Branch count: 3  
 Document count: 3  
-Index: detection-rules-ut-305
+Index: detection-rules-ut-313
 
 ```python
 event.category:"file" and not event.type:"deletion" and
@@ -8566,31 +8715,11 @@ event.category:"file" and not event.type:"deletion" and
 
 
 
-### Potential PrintNightmare File Modification
-
-Branch count: 1  
-Document count: 1  
-Index: detection-rules-ut-650
-
-```python
-/* This rule is compatible with both Sysmon and Elastic Endpoint */
-
-file where process.name : "spoolsv.exe" and 
- file.name : ("kernelbase.dll", "ntdll.dll", "kernel32.dll", "winhttp.dll", "user32.dll") and
- file.path : "?:\\Windows\\System32\\spool\\drivers\\x64\\3\\*"
-```
-
-```python
-[{'process': {'name': 'spoolsv.exe'}, 'file': {'name': 'winhttp.dll', 'path': 'a:\\windows\\system32\\spool\\drivers\\x64\\3\\iutknioix'}, 'event': {'category': ['file']}, '@timestamp': 0}]
-```
-
-
-
 ### Potential Privacy Control Bypass via TCCDB Modification
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-270
+Index: detection-rules-ut-278
 
 ```python
 process where event.type in ("start", "process_started") and process.name : "sqlite*" and 
@@ -8608,7 +8737,7 @@ process where event.type in ("start", "process_started") and process.name : "sql
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-645
+Index: detection-rules-ut-654
 
 ```python
 /* This rule is compatible with both Sysmon and Elastic Endpoint */
@@ -8638,7 +8767,7 @@ process where event.type == "start" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-254
+Index: detection-rules-ut-262
 
 ```python
 file where file.path : "/*GCONV_PATH*"
@@ -8670,7 +8799,7 @@ event.category:process and event.type:start and process.args:(echo and *NOPASSWD
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-657
+Index: detection-rules-ut-664
 
 ```python
 iam where event.action == "renamed-user-account" and
@@ -8688,7 +8817,7 @@ iam where event.action == "renamed-user-account" and
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-490
+Index: detection-rules-ut-498
 
 ```python
 sequence with maxspan=5s
@@ -8724,7 +8853,7 @@ process where event.type == "start" and
 
 Branch count: 3  
 Document count: 3  
-Index: detection-rules-ut-582
+Index: detection-rules-ut-590
 
 ```python
 /* Identifies the modification of RDP Shadow registry or
@@ -8752,7 +8881,7 @@ any where
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-403
+Index: detection-rules-ut-411
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -8799,7 +8928,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-495
+Index: detection-rules-ut-503
 
 ```python
 file where event.type == "change" and file.name : "*AAA.AAA"
@@ -8815,7 +8944,7 @@ file where event.type == "change" and file.name : "*AAA.AAA"
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-433
+Index: detection-rules-ut-441
 
 ```python
 event.action:"Directory Service Changes" and event.code:"5136" and winlog.event_data.AttributeLDAPDisplayName:"msDS-KeyCredentialLink"
@@ -8831,7 +8960,7 @@ event.action:"Directory Service Changes" and event.code:"5136" and winlog.event_
 
 Branch count: 16  
 Document count: 16  
-Index: detection-rules-ut-252
+Index: detection-rules-ut-260
 
 ```python
 event.category:process and event.type:(start or process_started) and process.name:(bash or dash) and
@@ -8863,7 +8992,7 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-476
+Index: detection-rules-ut-484
 
 ```python
 sequence by host.id, process.entity_id with maxspan = 5s
@@ -8884,7 +9013,7 @@ sequence by host.id, process.entity_id with maxspan = 5s
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-428
+Index: detection-rules-ut-436
 
 ```python
 event.category:process and 
@@ -8903,7 +9032,7 @@ event.category:process and
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-394
+Index: detection-rules-ut-402
 
 ```python
 event.category:process and 
@@ -8929,7 +9058,7 @@ event.category:process and
 
 Branch count: 3  
 Document count: 3  
-Index: detection-rules-ut-427
+Index: detection-rules-ut-435
 
 ```python
 event.category:process and powershell.file.script_block_text:(MiniDumpWriteDump or MiniDumpWithFullMemory or pmuDetirWpmuDiniM)
@@ -8947,7 +9076,7 @@ event.category:process and powershell.file.script_block_text:(MiniDumpWriteDump 
 
 Branch count: 9  
 Document count: 9  
-Index: detection-rules-ut-544
+Index: detection-rules-ut-552
 
 ```python
 event.category:process and 
@@ -8982,7 +9111,7 @@ event.category:process and
 
 Branch count: 11  
 Document count: 11  
-Index: detection-rules-ut-522
+Index: detection-rules-ut-530
 
 ```python
 event.category:process and 
@@ -9021,7 +9150,7 @@ event.category:process and
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-647
+Index: detection-rules-ut-656
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -9042,7 +9171,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-670
+Index: detection-rules-ut-677
 
 ```python
 file where event.action : "Pipe Created*" and
@@ -9060,7 +9189,7 @@ file where event.action : "Pipe Created*" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-314
+Index: detection-rules-ut-322
 
 ```python
 event.category:file and not event.type:deletion and
@@ -9077,7 +9206,7 @@ event.category:file and not event.type:deletion and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-555
+Index: detection-rules-ut-563
 
 ```python
 process where event.type in ("start", "process_started") and 
@@ -9096,7 +9225,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 3  
 Document count: 3  
-Index: detection-rules-ut-538
+Index: detection-rules-ut-546
 
 ```python
 process where event.type in ("start", "process_started", "info") and
@@ -9130,7 +9259,7 @@ process.executable : ("C:\\PerfLogs\\*.exe","C:\\Users\\Public\\*.exe","C:\\User
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-387
+Index: detection-rules-ut-395
 
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:detection and (event.action:kernel_shellcode_event or endgame.event_subtype_full:kernel_shellcode_event)
@@ -9147,7 +9276,7 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:detection an
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-388
+Index: detection-rules-ut-396
 
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:prevention and (event.action:kernel_shellcode_event or endgame.event_subtype_full:kernel_shellcode_event)
@@ -9164,7 +9293,7 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:prevention a
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-470
+Index: detection-rules-ut-478
 
 ```python
 process.name:MSBuild.exe and event.action:"CreateRemoteThread detected (rule: CreateRemoteThread)"
@@ -9180,7 +9309,7 @@ process.name:MSBuild.exe and event.action:"CreateRemoteThread detected (rule: Cr
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-492
+Index: detection-rules-ut-500
 
 ```python
 sequence by host.id with maxspan=5s
@@ -9202,7 +9331,7 @@ sequence by host.id with maxspan=5s
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-475
+Index: detection-rules-ut-483
 
 ```python
 process where event.type == "start" and
@@ -9220,7 +9349,7 @@ process where event.type == "start" and
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-545
+Index: detection-rules-ut-553
 
 ```python
 sequence by process.entity_id
@@ -9257,7 +9386,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 12  
 Document count: 12  
-Index: detection-rules-ut-368
+Index: detection-rules-ut-376
 
 ```python
 event.category:(network or network_traffic) and network.transport:tcp and (destination.port:3389 or event.dataset:zeek.rdp) and
@@ -9317,7 +9446,7 @@ event.category:(network or network_traffic) and network.transport:tcp and (desti
 
 Branch count: 12  
 Document count: 12  
-Index: detection-rules-ut-372
+Index: detection-rules-ut-380
 
 ```python
 event.category:(network or network_traffic) and network.transport:tcp and (destination.port:135 or event.dataset:zeek.dce_rpc) and
@@ -9377,7 +9506,7 @@ event.category:(network or network_traffic) and network.transport:tcp and (desti
 
 Branch count: 12  
 Document count: 12  
-Index: detection-rules-ut-373
+Index: detection-rules-ut-381
 
 ```python
 event.category:(network or network_traffic) and network.transport:tcp and (destination.port:135 or event.dataset:zeek.dce_rpc) and
@@ -9437,7 +9566,7 @@ event.category:(network or network_traffic) and network.transport:tcp and (desti
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-389
+Index: detection-rules-ut-397
 
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:detection and (event.action:ransomware_event or endgame.event_subtype_full:ransomware_event)
@@ -9454,7 +9583,7 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:detection an
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-390
+Index: detection-rules-ut-398
 
 ```python
 event.kind:alert and event.module:endgame and endgame.metadata.type:prevention and (event.action:ransomware_event or endgame.event_subtype_full:ransomware_event)
@@ -9471,7 +9600,7 @@ event.kind:alert and event.module:endgame and endgame.metadata.type:prevention a
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-425
+Index: detection-rules-ut-433
 
 ```python
 file where event.type == "creation" and
@@ -9490,7 +9619,7 @@ file where event.type == "creation" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-601
+Index: detection-rules-ut-609
 
 ```python
 registry where
@@ -9508,7 +9637,7 @@ registry where
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-602
+Index: detection-rules-ut-610
 
 ```python
 registry where
@@ -9530,7 +9659,7 @@ registry where
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-456
+Index: detection-rules-ut-464
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -9552,7 +9681,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 4  
 Document count: 8  
-Index: detection-rules-ut-585
+Index: detection-rules-ut-593
 
 ```python
 sequence with maxspan=1m
@@ -9577,7 +9706,7 @@ sequence with maxspan=1m
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-592
+Index: detection-rules-ut-600
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -9596,7 +9725,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-409
+Index: detection-rules-ut-417
 
 ```python
 file where event.type == "creation" and process.name : "TeamViewer.exe" and
@@ -9613,7 +9742,7 @@ file where event.type == "creation" and process.name : "TeamViewer.exe" and
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-404
+Index: detection-rules-ut-412
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -9634,7 +9763,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-405
+Index: detection-rules-ut-413
 
 ```python
 process where event.type == "start" and
@@ -9653,7 +9782,7 @@ process where event.type == "start" and
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-406
+Index: detection-rules-ut-414
 
 ```python
 sequence by host.id, process.entity_id with maxspan=30s
@@ -9675,7 +9804,7 @@ sequence by host.id, process.entity_id with maxspan=30s
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-407
+Index: detection-rules-ut-415
 
 ```python
 sequence by host.id, process.entity_id
@@ -9696,7 +9825,7 @@ sequence by host.id, process.entity_id
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-286
+Index: detection-rules-ut-294
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -9715,7 +9844,7 @@ event.category:process and event.type:(start or process_started) and
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-594
+Index: detection-rules-ut-602
 
 ```python
 /* Task Scheduler service incoming connection followed by TaskCache registry modification  */
@@ -9739,7 +9868,7 @@ sequence by host.id, process.entity_id with maxspan = 1m
 
 Branch count: 3  
 Document count: 3  
-Index: detection-rules-ut-525
+Index: detection-rules-ut-533
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -9759,7 +9888,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 8  
 Document count: 16  
-Index: detection-rules-ut-593
+Index: detection-rules-ut-601
 
 ```python
 sequence with maxspan=1s
@@ -9802,7 +9931,7 @@ sequence with maxspan=1s
 
 Branch count: 3  
 Document count: 3  
-Index: detection-rules-ut-473
+Index: detection-rules-ut-481
 
 ```python
 process where event.type in ("start", "process_started", "info") and
@@ -9821,7 +9950,7 @@ process where event.type in ("start", "process_started", "info") and
 
 Branch count: 18  
 Document count: 18  
-Index: detection-rules-ut-374
+Index: detection-rules-ut-382
 
 ```python
 event.category:(network or network_traffic) and network.transport:tcp and (destination.port:(139 or 445) or event.dataset:zeek.smb) and
@@ -9887,7 +10016,7 @@ event.category:(network or network_traffic) and network.transport:tcp and (desti
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-367
+Index: detection-rules-ut-375
 
 ```python
 event.category:(network or network_traffic) and network.transport:tcp and (destination.port:26 or (event.dataset:zeek.smtp and destination.port:26))
@@ -9937,7 +10066,7 @@ event.category:file and event.type:(change or creation) and
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-609
+Index: detection-rules-ut-617
 
 ```python
 sequence by host.id with maxspan = 30s
@@ -9956,7 +10085,7 @@ sequence by host.id with maxspan = 30s
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-307
+Index: detection-rules-ut-315
 
 ```python
 file where event.type != "deletion" and
@@ -9985,7 +10114,7 @@ file where event.type != "deletion" and
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-431
+Index: detection-rules-ut-439
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -10006,7 +10135,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-526
+Index: detection-rules-ut-534
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -10219,7 +10348,7 @@ event.category:process and event.type:start and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-432
+Index: detection-rules-ut-440
 
 ```python
 event.action: "Authorization Policy Change" and event.code:4704 and winlog.event_data.PrivilegeList:"SeEnableDelegationPrivilege"
@@ -10235,7 +10364,7 @@ event.action: "Authorization Policy Change" and event.code:4704 and winlog.event
 
 Branch count: 4  
 Document count: 8  
-Index: detection-rules-ut-575
+Index: detection-rules-ut-583
 
 ```python
 sequence by process.entity_id with maxspan = 1m
@@ -10263,7 +10392,7 @@ sequence by process.entity_id with maxspan = 1m
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-595
+Index: detection-rules-ut-603
 
 ```python
 /* This rule is not compatible with Sysmon due to user.id issues */
@@ -10304,7 +10433,7 @@ event.dataset:o365.audit and event.provider:SharePoint and event.code:SharePoint
 
 Branch count: 6  
 Document count: 12  
-Index: detection-rules-ut-282
+Index: detection-rules-ut-290
 
 ```python
 sequence by host.id with maxspan=5s
@@ -10333,7 +10462,7 @@ sequence by host.id with maxspan=5s
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-620
+Index: detection-rules-ut-629
 
 ```python
 file where event.type != "deletion" and
@@ -10370,7 +10499,7 @@ file where event.type != "deletion" and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-515
+Index: detection-rules-ut-523
 
 ```python
 process where event.type in ("start","process_started")
@@ -10389,7 +10518,7 @@ process where event.type in ("start","process_started")
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-621
+Index: detection-rules-ut-630
 
 ```python
 sequence by host.id, process.entity_id with maxspan=5s
@@ -10421,7 +10550,7 @@ sequence by host.id, process.entity_id with maxspan=5s
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-249
+Index: detection-rules-ut-257
 
 ```python
 event.category:process and event.type:(start or process_started) and process.name:strace
@@ -10438,7 +10567,7 @@ event.category:process and event.type:(start or process_started) and process.nam
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-304
+Index: detection-rules-ut-312
 
 ```python
 file where event.type in ("change", "creation") and file.extension : "py" and
@@ -10484,7 +10613,7 @@ event.category:file and event.type:change and file.path:(/etc/sudoers* or /priva
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-455
+Index: detection-rules-ut-463
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -10503,7 +10632,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-487
+Index: detection-rules-ut-495
 
 ```python
 event.category:process and 
@@ -10540,7 +10669,7 @@ event.dataset:okta.system and event.action:user.account.report_suspicious_activi
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-280
+Index: detection-rules-ut-288
 
 ```python
 sequence by host.id with maxspan=30s
@@ -10561,7 +10690,7 @@ sequence by host.id with maxspan=30s
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-498
+Index: detection-rules-ut-506
 
 ```python
 process where event.type == "start" and
@@ -10580,7 +10709,7 @@ process where event.type == "start" and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-312
+Index: detection-rules-ut-320
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -10607,7 +10736,7 @@ event.category:process and event.type:(start or process_started) and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-549
+Index: detection-rules-ut-557
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -10626,7 +10755,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-648
+Index: detection-rules-ut-657
 
 ```python
 library where dll.name :
@@ -10661,7 +10790,7 @@ not (dll.code_signature.subject_name : ("Microsoft Windows", "Microsoft Corporat
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-297
+Index: detection-rules-ut-305
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -10702,7 +10831,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 3  
 Document count: 3  
-Index: detection-rules-ut-472
+Index: detection-rules-ut-480
 
 ```python
 process where event.type in ("start", "process_started", "info") and
@@ -10727,7 +10856,7 @@ process where event.type in ("start", "process_started", "info") and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-499
+Index: detection-rules-ut-507
 
 ```python
 process where event.type == "start" and process.executable : "C:\\*" and
@@ -10747,7 +10876,7 @@ process where event.type == "start" and process.executable : "C:\\*" and
 
 Branch count: 16  
 Document count: 16  
-Index: detection-rules-ut-625
+Index: detection-rules-ut-634
 
 ```python
 process where event.type == "start" and
@@ -10810,7 +10939,7 @@ process where event.type == "start" and
 
 Branch count: 16  
 Document count: 16  
-Index: detection-rules-ut-574
+Index: detection-rules-ut-582
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -10853,7 +10982,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-293
+Index: detection-rules-ut-301
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -10871,7 +11000,7 @@ event.category:process and event.type:(start or process_started) and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-624
+Index: detection-rules-ut-633
 
 ```python
 library where process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSPUB.EXE", "MSACCESS.EXE") and
@@ -10909,7 +11038,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-570
+Index: detection-rules-ut-578
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -10934,7 +11063,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-571
+Index: detection-rules-ut-579
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -10960,7 +11089,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-500
+Index: detection-rules-ut-508
 
 ```python
 sequence by process.entity_id with maxspan=5m
@@ -10988,7 +11117,7 @@ sequence by process.entity_id with maxspan=5m
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-551
+Index: detection-rules-ut-559
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -11017,7 +11146,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-543
+Index: detection-rules-ut-551
 
 ```python
 event.category:process and 
@@ -11036,7 +11165,7 @@ event.category:process and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-654
+Index: detection-rules-ut-661
 
 ```python
 file where event.type : "deletion" and
@@ -11054,7 +11183,7 @@ file where event.type : "deletion" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-655
+Index: detection-rules-ut-662
 
 ```python
 file where event.type != "deletion" and
@@ -11078,7 +11207,7 @@ file where event.type != "deletion" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-653
+Index: detection-rules-ut-660
 
 ```python
 file where event.type != "deletion" and process.name : "spoolsv.exe" and
@@ -11096,7 +11225,7 @@ file where event.type != "deletion" and process.name : "spoolsv.exe" and
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-502
+Index: detection-rules-ut-510
 
 ```python
 sequence by host.id with maxspan=1m
@@ -11122,7 +11251,7 @@ sequence by host.id with maxspan=1m
 
 Branch count: 3  
 Document count: 3  
-Index: detection-rules-ut-553
+Index: detection-rules-ut-561
 
 ```python
 process where event.type in ("start", "process_started", "info") and
@@ -11141,7 +11270,7 @@ process where event.type in ("start", "process_started", "info") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-444
+Index: detection-rules-ut-452
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -11160,7 +11289,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-596
+Index: detection-rules-ut-604
 
 ```python
 library where dll.name : "mstscax.dll" and
@@ -11190,7 +11319,7 @@ library where dll.name : "mstscax.dll" and
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-503
+Index: detection-rules-ut-511
 
 ```python
 sequence by process.entity_id with maxspan=2m
@@ -11231,7 +11360,7 @@ sequence by process.entity_id with maxspan=2m
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-529
+Index: detection-rules-ut-537
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -11258,7 +11387,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-550
+Index: detection-rules-ut-558
 
 ```python
 library where process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSPUB.EXE", "MSACCESS.EXE") and
@@ -11277,7 +11406,7 @@ library where process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSPUB
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-474
+Index: detection-rules-ut-482
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -11308,7 +11437,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 3  
 Document count: 3  
-Index: detection-rules-ut-505
+Index: detection-rules-ut-513
 
 ```python
 process where event.type in ("start", "process_started", "info") and
@@ -11327,7 +11456,7 @@ process where event.type in ("start", "process_started", "info") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-283
+Index: detection-rules-ut-291
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -11378,7 +11507,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-532
+Index: detection-rules-ut-540
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -11399,7 +11528,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-437
+Index: detection-rules-ut-445
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -11419,7 +11548,7 @@ process.args : "*\\GLOBALROOT\\Device\\HarddiskVolumeShadowCopy*"
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-233
+Index: detection-rules-ut-229
 
 ```python
 file where event.type == "deletion" and 
@@ -11447,7 +11576,7 @@ file where event.type == "deletion" and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-627
+Index: detection-rules-ut-636
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -11469,7 +11598,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-264
+Index: detection-rules-ut-272
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -11487,7 +11616,7 @@ event.category:process and event.type:(start or process_started) and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-274
+Index: detection-rules-ut-282
 
 ```python
 event.category : process and event.type : (start or process_started) and process.name : mount_apfs and
@@ -11505,7 +11634,7 @@ event.category : process and event.type : (start or process_started) and process
 
 Branch count: 10  
 Document count: 10  
-Index: detection-rules-ut-225
+Index: detection-rules-ut-223
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -11537,7 +11666,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-369
+Index: detection-rules-ut-377
 
 ```python
 event.category:(network or network_traffic) and network.transport:tcp and destination.port:23
@@ -11554,7 +11683,7 @@ event.category:(network or network_traffic) and network.transport:tcp and destin
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-558
+Index: detection-rules-ut-566
 
 ```python
 file where event.type == "deletion" and
@@ -11618,7 +11747,7 @@ process where event.type == "start" and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-659
+Index: detection-rules-ut-666
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -11640,7 +11769,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-662
+Index: detection-rules-ut-669
 
 ```python
 file where event.type : "change" and process.name : "dllhost.exe" and
@@ -11660,7 +11789,7 @@ file where event.type : "change" and process.name : "dllhost.exe" and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-664
+Index: detection-rules-ut-671
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -11678,7 +11807,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-658
+Index: detection-rules-ut-665
 
 ```python
 process where event.type in ("start", "process_started") and process.name : "Clipup.exe" and
@@ -11698,7 +11827,7 @@ process where event.type in ("start", "process_started") and process.name : "Cli
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-661
+Index: detection-rules-ut-668
 
 ```python
 process where event.type == "start" and
@@ -11718,7 +11847,7 @@ process where event.type == "start" and
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-660
+Index: detection-rules-ut-667
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -11740,7 +11869,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-665
+Index: detection-rules-ut-672
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -11777,7 +11906,7 @@ event.dataset:okta.system and event.action:app.generic.unauth_app_access_attempt
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-306
+Index: detection-rules-ut-314
 
 ```python
 process where event.type == "start" and process.parent.name == "ScreenSaverEngine"
@@ -11793,7 +11922,7 @@ process where event.type == "start" and process.parent.name == "ScreenSaverEngin
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-512
+Index: detection-rules-ut-520
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -11812,7 +11941,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-572
+Index: detection-rules-ut-580
 
 ```python
 process where event.type == "start" and process.parent.name : "dns.exe" and
@@ -11829,7 +11958,7 @@ process where event.type == "start" and process.parent.name : "dns.exe" and
 
 Branch count: 8  
 Document count: 16  
-Index: detection-rules-ut-493
+Index: detection-rules-ut-501
 
 ```python
 sequence with maxspan=1h
@@ -11866,7 +11995,7 @@ sequence with maxspan=1h
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-506
+Index: detection-rules-ut-514
 
 ```python
 file where event.type != "deletion" and
@@ -11892,7 +12021,7 @@ file where event.type != "deletion" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-507
+Index: detection-rules-ut-515
 
 ```python
 file where event.type == "creation" and
@@ -11942,7 +12071,7 @@ file where event.type == "creation" and
 
 Branch count: 3  
 Document count: 3  
-Index: detection-rules-ut-573
+Index: detection-rules-ut-581
 
 ```python
 file where process.name : "dns.exe" and event.type in ("creation", "deletion", "change") and
@@ -11961,7 +12090,7 @@ file where process.name : "dns.exe" and event.type in ("creation", "deletion", "
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-485
+Index: detection-rules-ut-493
 
 ```python
 sequence by process.entity_id with maxspan=5m
@@ -12024,7 +12153,7 @@ sequence by process.entity_id with maxspan=5m
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-509
+Index: detection-rules-ut-517
 
 ```python
 sequence by host.id, process.entity_id with maxspan=1m
@@ -12050,7 +12179,7 @@ sequence by host.id, process.entity_id with maxspan=1m
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-510
+Index: detection-rules-ut-518
 
 ```python
 sequence by host.id, process.entity_id with maxspan=1m
@@ -12076,7 +12205,7 @@ sequence by host.id, process.entity_id with maxspan=1m
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-533
+Index: detection-rules-ut-541
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -12118,7 +12247,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 48  
 Document count: 48  
-Index: detection-rules-ut-667
+Index: detection-rules-ut-674
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -12210,7 +12339,7 @@ process.parent.name != null and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-248
+Index: detection-rules-ut-256
 
 ```python
 event.category:process and event.type:(start or process_started) and process.working_directory:/tmp
@@ -12227,7 +12356,7 @@ event.category:process and event.type:(start or process_started) and process.wor
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-508
+Index: detection-rules-ut-516
 
 ```python
 process where event.type == "start" and
@@ -12244,7 +12373,7 @@ process where event.type == "start" and
 
 Branch count: 1  
 Document count: 2  
-Index: detection-rules-ut-511
+Index: detection-rules-ut-519
 
 ```python
 sequence by process.entity_id
@@ -12286,7 +12415,7 @@ sequence by process.entity_id
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-669
+Index: detection-rules-ut-676
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -12317,7 +12446,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-630
+Index: detection-rules-ut-639
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -12371,7 +12500,7 @@ event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Add owner to s
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-629
+Index: detection-rules-ut-638
 
 ```python
 iam where event.action == "added-member-to-group" and
@@ -12395,7 +12524,7 @@ iam where event.action == "added-member-to-group" and
 
 Branch count: 6  
 Document count: 6  
-Index: detection-rules-ut-370
+Index: detection-rules-ut-378
 
 ```python
 event.category:(network or network_traffic) and network.transport:tcp and destination.port >= 5800 and destination.port <= 5810 and
@@ -12449,7 +12578,7 @@ event.category:(network or network_traffic) and network.transport:tcp and destin
 
 Branch count: 6  
 Document count: 6  
-Index: detection-rules-ut-371
+Index: detection-rules-ut-379
 
 ```python
 event.category:(network or network_traffic) and network.transport:tcp and destination.port >= 5800 and destination.port <= 5810 and
@@ -12503,7 +12632,7 @@ event.category:(network or network_traffic) and network.transport:tcp and destin
 
 Branch count: 10  
 Document count: 10  
-Index: detection-rules-ut-235
+Index: detection-rules-ut-231
 
 ```python
 event.category:process and event.type:(start or process_started) and
@@ -12554,7 +12683,7 @@ process where event.type == "start" and
 
 Branch count: 8  
 Document count: 8  
-Index: detection-rules-ut-562
+Index: detection-rules-ut-570
 
 ```python
 process where event.type in ("start", "process_started")
@@ -12579,7 +12708,7 @@ process where event.type in ("start", "process_started")
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-563
+Index: detection-rules-ut-571
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -12600,7 +12729,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-564
+Index: detection-rules-ut-572
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -12621,7 +12750,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-587
+Index: detection-rules-ut-595
 
 ```python
 sequence by host.id with maxspan = 2s
@@ -12656,7 +12785,7 @@ sequence by host.id with maxspan = 2s
 
 Branch count: 4  
 Document count: 20  
-Index: detection-rules-ut-672
+Index: detection-rules-ut-679
 
 ```python
 /* preference would be to use user.sid rather than domain+name, once it is available in ECS + datasources */
@@ -12752,7 +12881,7 @@ user_agent.original:"sqlmap/1.3.11#stable (http://sqlmap.org)"
 
 Branch count: 3  
 Document count: 3  
-Index: detection-rules-ut-261
+Index: detection-rules-ut-269
 
 ```python
 event.category : process and event.type : start and
@@ -12795,7 +12924,7 @@ file where event.type == "deletion" and
 
 Branch count: 1  
 Document count: 1  
-Index: detection-rules-ut-640
+Index: detection-rules-ut-649
 
 ```python
 process where event.type == "start" and
@@ -12813,7 +12942,7 @@ process where event.type == "start" and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-527
+Index: detection-rules-ut-535
 
 ```python
 process where event.type in ("start", "process_started") and process.name : "whoami.exe"
@@ -12830,7 +12959,7 @@ process where event.type in ("start", "process_started") and process.name : "who
 
 Branch count: 4  
 Document count: 4  
-Index: detection-rules-ut-448
+Index: detection-rules-ut-456
 
 ```python
 process where event.type == "start" and
@@ -12852,7 +12981,7 @@ process where event.type == "start" and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-443
+Index: detection-rules-ut-451
 
 ```python
 event.action:("audit-log-cleared" or "Log clear")
@@ -12869,7 +12998,7 @@ event.action:("audit-log-cleared" or "Log clear")
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-491
+Index: detection-rules-ut-499
 
 ```python
 process where event.action == "start" and
@@ -12890,7 +13019,7 @@ process where event.action == "start" and
 
 Branch count: 16  
 Document count: 16  
-Index: detection-rules-ut-520
+Index: detection-rules-ut-528
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -12934,7 +13063,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-565
+Index: detection-rules-ut-573
 
 ```python
 process where event.type in ("start", "process_started") and
@@ -12952,7 +13081,7 @@ process where event.type in ("start", "process_started") and
 
 Branch count: 4  
 Document count: 8  
-Index: detection-rules-ut-566
+Index: detection-rules-ut-574
 
 ```python
 sequence by host.id with maxspan = 5s
@@ -13001,7 +13130,7 @@ sequence by host.id with maxspan = 5s
 
 Branch count: 2  
 Document count: 2  
-Index: detection-rules-ut-671
+Index: detection-rules-ut-678
 
 ```python
 event.action:"service-installed"  and (winlog.event_data.ClientProcessId:"0" or winlog.event_data.ParentProcessId:"0")
@@ -13035,7 +13164,7 @@ event.type:creation and event.module:zoom and event.dataset:zoom.webhook and
 
 Branch count: 2  
 Document count: 4  
-Index: detection-rules-ut-279
+Index: detection-rules-ut-287
 
 ```python
 sequence by process.entity_id with maxspan=1m
