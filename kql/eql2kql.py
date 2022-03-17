@@ -66,10 +66,10 @@ class Eql2Kql(DepthFirstWalker):
     def _walk_function_call(self, tree):  # type: (eql.ast.FunctionCall) -> KqlNode
         if tree.name in ("wildcard", "cidrMatch"):
             if isinstance(tree.arguments[0], Field):
-                if tree.name == "wildcard" :
+                if tree.name == "wildcard":
                     args = []
-                    for arg in tree.arguments[1:] :
-                        if '*' in arg.value or '?' in arg.value :
+                    for arg in tree.arguments[1:]:
+                        if '*' in arg.value or '?' in arg.value:
                             args.append(Wildcard(arg.value))
                         else :
                             args.append(arg)
