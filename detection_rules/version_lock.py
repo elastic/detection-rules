@@ -97,6 +97,15 @@ class VersionLock:
                 lock_info = rule.contents.lock_info(bump=not exclude_version_update)
                 current_rule_lock: dict = current_version_lock.setdefault(rule.id, {})
 
+                # prevent rule type changes for already locked and released rules (#1854)
+                if current_rule_lock:
+                    name = current_rule_lock['rule_name']
+                    existing_type = current_rule_lock['type']
+                    current_type = lock_info['type']
+                    if existing_type != current_type:
+                        err_msg = f'cannot change "type" in locked rule: {name} from {existing_type} to {current_type}'
+                        raise ValueError(err_msg)
+
                 # scenarios to handle, assuming older stacks are always locked first:
                 # 1) no breaking changes ever made or the first time a rule is created
                 # 2) on the latest, after a breaking change has been locked
