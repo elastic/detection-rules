@@ -15,6 +15,7 @@ class TestEql2Kql(unittest.TestCase):
     def test_field_equals(self):
         self.validate("field:value", "field == 'value'")
         self.validate("field:value-*", "field == 'value-*'")
+        self.validate("field:value?", "field == 'value?'")
         self.validate("field:-1", "field == -1")
         self.validate("field:1.1", "field == 1.1")
         self.validate("field:true", "field == true")
