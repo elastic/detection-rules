@@ -594,6 +594,12 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     git("commit", "-m", f"Add changelog entry for {package_version}")
     git("push")
 
+@dev_group.command('security-docs-pr')
+@click.pass_context
+def integrations_doc_pr(ctx: click.Context):
+    """Create a pull request to Security Docs"""
+    pass
+
 
 @dev_group.command('license-check')
 @click.option('--ignore-directory', '-i', multiple=True, help='Directories to skip (relative to base)')
