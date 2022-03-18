@@ -1,0 +1,108 @@
+[metadata]
+creation_date = "2022/02/24"
+maturity = "production"
+updated_date = "2022/02/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a modification on the dsHeuristics attribute on the bit that holds the configuration of groups excluded from
+the SDProp process. The SDProp compares the permissions on protected objects with those defined on the AdminSDHolder
+object. If the permissions on any of the protected accounts and groups do not match, the permissions on the protected
+accounts and groups are reset to match those of the domain's AdminSDHolder object, meaning that groups excluded will
+remain unchanged. Attackers can abuse this misconfiguration to maintain long-term access to privileged accounts in these
+groups.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-system.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "AdminSDHolder SDProp Exclusion Added"
+note = """## Triage and analysis.
+
+### Investigating AdminSDHolder SDProp Exclusion Added
+
+The SDProp process compares the permissions on protected objects with those defined on the AdminSDHolder object. If the
+permissions on any of the protected accounts and groups do not match, it resets the permissions on the protected
+accounts and groups to match those defined in the domain AdminSDHolder object.
+
+The dSHeuristics is a Unicode string attribute, in which each character in the string represents a heuristic that is
+used to determine the behavior of Active Directory.
+
+Administrators can use the dSHeuristics attribute to exclude privilege groups from the SDProp process by setting the
+16th bit (dwAdminSDExMask) of the string to a certain value, which represents the group(s):
+
+* For example, to exclude the Account Operators group, an administrator would modify the string, so the 16th character
+is set to 1 (i.e., 0000000001000001). 
+
+The usage of this exclusion can leave the accounts unprotected and facilitate the misconfigurations of privilege on the
+excluded groups, leaving a gap for attackers to add accounts to these groups to maintain long-term persistence with high
+privileges.
+
+This rule will monitor changes on the dsHeuristics object where the 16th bit is set to a value other than zero.
+
+#### Possible investigation steps:
+
+- Identify the account that performed the action
+- Confirm whether the account owner is aware of the operation
+- Investigate other alerts related to the user in the last 48 hours.
+- Check the value assigned to the 16th bit of the string on the `winlog.event_data.AttributeValue` field:
+    - Account Operators eq 1
+    - Server Operators eq 2
+    - Print Operators eq 4
+    - Backup Operators eq 8
+    The field value can range from 0 to f (15). If more than one group is specified, the values will be summed together;
+    for example, Backup Operators and Print Operators will set the `c` value on the bit.
+
+### False Positive Analysis
+
+- While this modification can be done legitimately, it is not best practice. Any potential B-TP (Benign True Positive)
+should be mapped and reviewed by the security team for alternatives as this weakens the security of the privileged group.
+
+### Response and Remediation
+
+- The change can be reverted by setting the dwAdminSDExMask (16th bit) to 0 in dSHeuristics.
+
+## Config
+
+The 'Audit Directory Service Changes' logging policy must be configured for (Success).
+Steps to implement the logging policy with Advanced Audit Configuration:
+
+```
+Computer Configuration > 
+Policies > 
+Windows Settings > 
+Security Settings > 
+Advanced Audit Policies Configuration > 
+Audit Policies > 
+DS Access > 
+Audit Directory Service Changes (Success)
+```
+"""
+references = [
+    "https://www.cert.ssi.gouv.fr/uploads/guide-ad.html#dsheuristics_bad",
+    "https://petri.com/active-directory-security-understanding-adminsdholder-object",
+]
+risk_score = 73
+rule_id = "61d29caf-6c15-4d1e-9ccb-7ad12ccc0bc7"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Active Directory"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where event.action == "Directory Service Changes" and
+  event.code == "5136" and
+  length(winlog.event_data.AttributeValue) > 15 and
+  winlog.event_data.AttributeValue regex~ "[0-9]{15}([1-9a-f]).*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

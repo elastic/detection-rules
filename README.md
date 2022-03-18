@@ -1,6 +1,7 @@
 [![Supported Python versions](https://img.shields.io/badge/python-3.8+-yellow.svg)](https://www.python.org/downloads/)
 [![Unit Tests](https://github.com/elastic/detection-rules/workflows/Unit%20Tests/badge.svg)](https://github.com/elastic/detection-rules/actions)
 [![Chat](https://img.shields.io/badge/chat-%23security--detection--rules-blueviolet)](https://ela.st/slack)
+[![ATT&CK navigator coverage](https://img.shields.io/badge/ATT&CK-Navigator-red.svg)](https://ela.st/detection-rules-navigator)
 
 # Detection Rules
 
