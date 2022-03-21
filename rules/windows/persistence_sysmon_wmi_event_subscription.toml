@@ -64,7 +64,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-event.dataset : "windows.sysmon_operational" and event.code : 21 and winlog.event_data.Operation : "Created" 
+sequence by host.id, user.name with maxspan=5m
+  [any where event.dataset : "windows.sysmon_operational" and event.code : "20" and winlog.event_data.Operation : "Created"]
+  [any where event.dataset : "windows.sysmon_operational" and event.code : "21" and winlog.event_data.Operation : "Created"]
 '''
 
 [[rule.threat]]
