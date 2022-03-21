@@ -596,11 +596,7 @@ class TestRuleTiming(BaseRuleTest):
                         potential_fix = f'Try increasing the `from` field to {new_from}m.'
                         err_msg = f'{rule_path} rule does not leave enough margin. {potential_fix}'
                         invalids.append(err_msg)
-                    if maxspan > (five_minutes / 2) and ratio and ratio < .5:
-                        expected = maxspan // 2
-                        err_msg = f'{rule_path} interval: {interval}, maxspan: {maxspan}, expected: >={expected}'
-                        invalids.append(err_msg)
-                elif maxspan and maxspan > (five_minutes / 2) and ratio and ratio < .5:
+                if maxspan and maxspan > (five_minutes / 2) and ratio and ratio < .5:
                     expected = maxspan // 2
                     err_msg = f'{rule_path} interval: {interval}, maxspan: {maxspan}, expected: >={expected}'
                     invalids.append(err_msg)
