@@ -585,25 +585,28 @@ class TestRuleTiming(BaseRuleTest):
                 # there is also a check for if the margin is less then 2x the interval
                 rule_path = self.rule_str(rule)
 
+                if maxspan and maxspan > (five_minutes / 2) and ratio and ratio < .5:
+                    expected = maxspan // 2
+                    fields = f'interval: {interval}, maxspan: {maxspan}, expected: >={expected}'
+                    index = len(invalids) + 1
+                    err_msg = f'{index}: {rule_path} interval field too short for the given max_spans (ms). {fields}'
+                    invalids.append(err_msg)
                 if window and maxspan:
                     if interval > window and interval > maxspan:
                         missed_period = int((interval - window) / 60 / 1000)
-                        err_msg = f'{rule_path} rule will miss a {missed_period}m time frame every iteration.'
+                        index = len(invalids) + 1
+                        err_msg = f'{index}: {rule_path} rule will miss a {missed_period}m time frame every iteration.'
                         invalids.append(err_msg)
-                    if margin < 2 * interval and maxspan > interval:
-                        proper_margin = interval * 4
-                        new_from = int((maxspan + proper_margin) / 60 / 1000)
-                        potential_fix = f'Try increasing the `from` field to {new_from}m.'
-                        err_msg = f'{rule_path} rule does not leave enough margin. {potential_fix}'
+                    if margin < interval and maxspan > interval:
+                        recommended_from = int((interval + maxspan) / 60 / 1000)
+                        potential_fix = f'Try increasing the `from` field to {recommended_from}m.'
+                        index = len(invalids) + 1
+                        err_msg = f'{index}: {rule_path} rule does not leave enough margin. {potential_fix}'
                         invalids.append(err_msg)
-                if maxspan and maxspan > (five_minutes / 2) and ratio and ratio < .5:
-                    expected = maxspan // 2
-                    err_msg = f'{rule_path} interval: {interval}, maxspan: {maxspan}, expected: >={expected}'
-                    invalids.append(err_msg)
 
         if invalids:
             invalids_str = '\n'.join(invalids)
-            self.fail(f'The following rules have intervals too short for their given max_spans (ms):\n{invalids_str}')
+            self.fail(f'The following rules have time frames that will cause missed detection alerts:\n{invalids_str}')
 
 
 class TestLicense(BaseRuleTest):
