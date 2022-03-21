@@ -230,6 +230,6 @@ def get_stack_schemas(stack_version: str) -> Dict[str, dict]:
                 if (mapped_version := Version(k)) >= stack_version and mapped_version <= current_package and v}
 
     if stack_version > current_package:
-        versions[stack_version] = {'beats': 'master', 'ecs': 'master'}
+        versions[stack_version] = {'beats': 'main', 'ecs': 'master'}
 
     return versions
