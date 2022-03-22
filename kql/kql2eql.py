@@ -7,6 +7,8 @@ import eql
 
 from .parser import BaseKqlParser
 
+NOT_SUPPORTED_EQL_FIELDS = ["text"]
+
 
 class KqlToEQL(BaseKqlParser):
 
@@ -51,7 +53,12 @@ class KqlToEQL(BaseKqlParser):
 
         with self.scope(self.visit(field_tree)) as field_name:
             # check the field against the schema
-            self.get_field_type(field_name, field_tree)
+
+            type_mapping = self.get_field_type(field_name, field_tree)
+            if type_mapping in NOT_SUPPORTED_EQL_FIELDS:
+                err_msg = f"{field_name} with field_type {type_mapping} is not supported in eql"
+                raise eql.EqlSemanticError(err_msg, field_tree.line, field_tree.column, self.text)
+
             return self.visit(value_tree)
 
     def or_list_of_values(self, tree):
