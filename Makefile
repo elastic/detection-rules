@@ -48,7 +48,7 @@ test: $(VENV) lint pytest
 .PHONY: release
 release: deps
 	@echo "RELEASE: $(app_name)"
-	$(PYTHON) -m detection_rules dev build-release
+	$(PYTHON) -m detection_rules dev build-release --generate-navigator
 	rm -rf dist
 	mkdir dist
 	cp -r releases/*/*.zip dist/
