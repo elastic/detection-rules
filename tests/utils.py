@@ -167,6 +167,7 @@ class OnlineTestCase:
         cls.es_cluster = ClusterClient(cls.es)
         cls.es_indices = IndicesClient(cls.es)
         cls.kbn.create_siem_index()
+        cls.siem_index_name = cls.kbn.get_siem_index()["name"]
 
     @classmethod
     def tearDownClass(cls):
@@ -182,7 +183,7 @@ class OnlineTestCase:
             self.es_indices.delete_index_template(name=self.index_template)
 
         self.es_indices.delete(index=f"{self.index_template}-*")
-        self.es.delete_by_query(index=".siem-signals-default-000001", body={"query": {"match_all": {}}})
+        self.es.delete_by_query(index=self.siem_index_name, body={"query": {"match_all": {}}})
 
 
 class SignalsTestCase:

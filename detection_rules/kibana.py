@@ -39,6 +39,12 @@ class Kibana:
         res.raise_for_status()
         return res.json()
 
+    def get_siem_index(self):
+        url = f"{self.url}/api/detection_engine/index"
+        res = self.session.get(url)
+        res.raise_for_status()
+        return res.json()
+
     def create_detection_engine_rule(self, rule):
         url = f"{self.url}/api/detection_engine/rules"
         res = self.session.post(url, data=json.dumps(rule))
