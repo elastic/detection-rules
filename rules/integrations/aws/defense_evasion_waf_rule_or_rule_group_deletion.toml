@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/06/09"
 maturity = "production"
-updated_date = "2021/07/20"
+updated_date = "2022/03/11"
 integration = "aws"
 
 [rule]
@@ -10,7 +10,7 @@ description = "Identifies the deletion of a specified AWS Web Application Firewa
 false_positives = [
     """
     WAF rules or rule groups may be deleted by a system or network administrator. Verify whether the user identity, user
-    agent, and/or hostname should be making changes in your environment. Rule deletions from unfamiliar users or hosts
+    agent, and/or hostname should be making changes in your environment. Rule deletions by unfamiliar users or hosts
     should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
@@ -35,7 +35,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.action:(DeleteRule or DeleteRuleGroup) and event.outcome:success
+event.dataset:aws.cloudtrail and event.provider:(waf.amazonaws.com or waf-regional.amazonaws.com or wafv2.amazonaws.com) and event.action:(DeleteRule or DeleteRuleGroup) and event.outcome:success
 '''
 
 
@@ -56,4 +56,3 @@ reference = "https://attack.mitre.org/techniques/T1562/001/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

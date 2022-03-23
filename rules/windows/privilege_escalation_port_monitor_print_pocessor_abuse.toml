@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/01/21"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2022/02/14"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ processors to run malicious DLLs during system boot that will be executed as SYS
 persistence, if permissions allow writing a fully-qualified pathname for that DLL.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Port Monitor or Print Processor Registration Abuse"
@@ -26,7 +26,7 @@ type = "eql"
 query = '''
 registry where event.type in ("creation", "change") and
   registry.path : ("HKLM\\SYSTEM\\*ControlSet*\\Control\\Print\\Monitors\\*",
-    "HLLM\\SYSTEM\\*ControlSet*\\Control\\Print\\Environments\\Windows*\\Print Processors\\*") and
+    "HKLM\\SYSTEM\\*ControlSet*\\Control\\Print\\Environments\\Windows*\\Print Processors\\*") and
   registry.data.strings : "*.dll" and
   /* exclude SYSTEM SID - look for changes by non-SYSTEM user */
   not user.id : "S-1-5-18"

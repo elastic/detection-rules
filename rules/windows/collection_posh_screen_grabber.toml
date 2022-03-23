@@ -1,13 +1,13 @@
 [metadata]
 creation_date = "2021/10/19"
 maturity = "production"
-updated_date = "2021/10/19"
+updated_date = "2022/03/02"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects PowerShell Scripts that can take screenshots, which is a common feature in post-exploitation kits and RATs
-(Remote Access Tools).
+Detects PowerShell scripts that can take screenshots, which is a common feature in post-exploitation kits and remote
+access tools (RATs).
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.*"]
@@ -26,7 +26,7 @@ query = '''
 event.category:process and 
   powershell.file.script_block_text : (
     CopyFromScreen and
-    (System.Drawing.Bitmap or Drawing.Bitmap)
+    ("System.Drawing.Bitmap" or "Drawing.Bitmap")
   )
 '''
 
