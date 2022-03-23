@@ -67,6 +67,12 @@ class EQLValidator(QueryValidator):
         with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
             return eql.parse_query(self.query)
 
+    def text_fields(self, eql_schema: ecs.KqlSchema2Eql) -> List[str]:
+        """Return a list of fields of type text."""
+        from kql.parser import elasticsearch_type_family
+
+        return [f for f in self.unique_fields if elasticsearch_type_family(eql_schema.kql_schema.get(f)) == 'text']
+
     @property
     def unique_fields(self) -> List[str]:
         return list(set(str(f) for f in self.ast if isinstance(f, eql.ast.Field)))
@@ -99,14 +105,10 @@ class EQLValidator(QueryValidator):
                 if "Unknown field" in message and beat_types:
                     trailer = f"\nTry adding event.module or event.dataset to specify beats module\n\n{trailer}"
                 elif "Field not recognized" in message:
-                    unrecognized_fields = []
-                    for field in self.unique_fields:
-                        if field in eql_schema.kql_schema:
-                            unrecognized_fields.append(eql_schema.kql_schema[field])
-                    field_types = ', '.join(unrecognized_fields)
-                    query = exc.source.strip()
-                    if unrecognized_fields:
-                        trailer = f"Query `{query}` uses an unsupported elasticsearch eql field_type `{field_types}`"
+                    text_fields = self.text_fields(eql_schema)
+                    if text_fields:
+                        fields_str = ', '.join(text_fields)
+                        trailer = f"\neql does not support text fields: {fields_str}\n\n{trailer}"
 
                 raise exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
                                     len(exc.caret.lstrip()), trailer=trailer) from None
