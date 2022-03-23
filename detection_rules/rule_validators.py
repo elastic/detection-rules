@@ -98,6 +98,15 @@ class EQLValidator(QueryValidator):
                 trailer = err_trailer
                 if "Unknown field" in message and beat_types:
                     trailer = f"\nTry adding event.module or event.dataset to specify beats module\n\n{trailer}"
+                elif "Field not recognized" in message:
+                    unrecognized_fields = []
+                    for field in self.unique_fields:
+                        if field in eql_schema.kql_schema:
+                            unrecognized_fields.append(eql_schema.kql_schema[field])
+                    field_types = ', '.join(unrecognized_fields)
+                    query = exc.source.strip()
+                    if unrecognized_fields:
+                        trailer = f"Query `{query}` uses an unsupported elasticsearch eql field_type `{field_types}`"
 
                 raise exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
                                     len(exc.caret.lstrip()), trailer=trailer) from None
