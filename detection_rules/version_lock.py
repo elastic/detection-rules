@@ -144,6 +144,7 @@ class VersionLock:
                     existing_rule_lock["previous"][str(latest_locked_stack_version)] = previous_lock_info
 
                     # overwrite the "latest" part of the lock at the top level
+                    # TODO: would need to preserve space here as well if supporting forked version spacing
                     existing_rule_lock.update(current_rule_lock, min_stack_version=str(min_stack))
                     add_changes(
                         rule,
@@ -153,7 +154,7 @@ class VersionLock:
 
                 elif min_stack < latest_locked_stack_version:
                     route = 'C'
-                    # 4) on an old stack, after a breaking change has been made
+                    # 4) on an old stack, after a breaking change has been made (updated fork)
                     assert str(min_stack) in existing_rule_lock.get("previous", {}), \
                         f"Expected {rule.id} @ v{min_stack} in the rule lock"
 
@@ -162,7 +163,7 @@ class VersionLock:
                     #       We can still inspect the version lock manually after locks are made,
                     #       since it's a good summary of everything that happens
                     existing_rule_lock["previous"][str(min_stack)] = current_rule_lock
-                    existing_rule_lock.update(current_rule_lock, min_stack_version=str(min_stack))
+                    existing_rule_lock.update(current_rule_lock)
                     add_changes(rule, f'previous version {min_stack} updated version to {current_rule_lock["version"]}')
                     continue
                 else:
