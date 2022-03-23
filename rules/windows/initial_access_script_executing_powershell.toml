@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/04/14"
+updated_date = "2022/03/23"
 
 [rule]
 author = ["Elastic"]
@@ -14,6 +14,50 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Windows Script Executing PowerShell"
+note = """## Triage and analysis
+
+### Investigating Windows Script Executing PowerShell
+
+The Windows Script Host (WSH) is an Windows automation technology, which is ideal for non-interactive scripting needs,
+such as logon scripting, administrative scripting, and machine automation.
+
+Attackers commonly uses WSH scripts as their Initial access method, acting like droppers for 2nd stage payloads, but can
+also use them to download tools and utilities needed to acomplish their goals.
+
+This rule will monitor for the spawn of the `powershell.exe` process with `cscript.exe` or `wscript.exe` as parent process.
+
+#### Possible investigation steps:
+
+- Investigate process execution chain (parent process tree).
+- Investigate commands executed by the spawned PowerShell process.
+- Retrieve the script file(s) involved:
+  - Use a sandboxed malware analysis system to perform analysis.
+    - Observe attempts of contacting external domains and addresses.
+  - Use the PowerShell Get-FileHash cmdlet to get the SHA-256 hash value of the file.
+    - Search for the existence of this file in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+  - Manually analyze the script to determine if malicious capabilities are present.
+- Determine how the script file was delivered (Email attachments, dropped by other processes, etc.).
+- Investigate other alerts related to the user/host in the last 48 hours.
+
+### False Positive Analysis
+
+- The usage of these script engines by regular users is unlikely. In the case of authorized benign true positives
+(B-TPs), exceptions can be added.
+
+### Response and Remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement any temporary network rules, procedures, and segmentation required to contain the malware.
+  - Immediately block the IoCs identified.
+- Remove and Block malicious artifacts identified on the triage.
+- If the malicious file was delivered via Phishing:
+  - Block the email sender from sending future emails.
+  - Block the malicious web pages.
+  - Remove emails from the sender from mailboxes.
+- Reimage the host operating system and restore compromised files to clean versions.
+"""
 risk_score = 21
 rule_id = "f545ff26-3c94-4fd0-bd33-3c7f95a3a0fc"
 severity = "low"
