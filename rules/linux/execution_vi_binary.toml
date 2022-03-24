@@ -25,8 +25,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-[process where process.name in ("vi", "vim") and process.args == "-c" and process.args in (":!/bin/bash", ":!/bin/sh", ":!bash", ":!sh")]
-[process where process.parent.name in ("vi", "vim") and process.name in ("bash", "sh")]
+process where event.type == "start" and process.parent.name in ("vi", "vim") and process.parent.args == "-c" and process.parent.args in (":!/bin/bash", ":!/bin/sh", ":!bash", ":!sh") and process.name in ("bash", "sh")
 '''
 
 
