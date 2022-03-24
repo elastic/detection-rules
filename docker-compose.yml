@@ -22,13 +22,21 @@ services:
       - 127.0.0.1:29650:9200
     networks:
       - net
+    healthcheck:
+      test: ["CMD-SHELL", "[ -e kibana_system_ready ] || curl -s -X POST -H 'Content-Type: application/json' -u elastic:changeit http://es:9200/_security/user/kibana_system/_password -d '{\"password\":\"changeit\"}' | grep -q '^{}' && touch kibana_system_ready"]
+      interval: 5s
+      retries: 15
+      timeout: 10s
   kbn:
+    depends_on:
+      es:
+        condition: service_healthy
     image: docker.elastic.co/kibana/kibana:${TEST_PLATFORM_VERSION:-7.15.2}
     container_name: kbn
     environment:
       SERVER_NAME: kbn
       ELASTICSEARCH_HOSTS: http://es:9200
-      ELASTICSEARCH_USERNAME: elastic
+      ELASTICSEARCH_USERNAME: kibana_system
       ELASTICSEARCH_PASSWORD: changeit
       XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: 0123456789abcdef0123456789ABCDEF
     ports:
