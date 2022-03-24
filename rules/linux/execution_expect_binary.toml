@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/03/07"
 maturity = "development"
-updated_date = "2022/03/17"
+updated_date = "2022/03/24"
 
 [rule]
 author = ["Elastic"]
@@ -24,9 +24,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by host.id, process.pid with maxspan=1m 
-[process where process.name == "expect" and process.args : "-c" and process.args : ("spawn /bin/sh;interact", "spawn /bin/bash;interact", "spawn /bin/dash;interact", "spawn sh;interact","spawn bash;interact", "spawn dash;interact")] 
-[process where process.parent.name == "expect" and process.name : ("bash", "sh", "dash")]
+process where event.type == "start" and process.parent.name == "expect" and process.parent.args == "-c" and process.parent.args in ("spawn /bin/sh;interact", "spawn /bin/bash;interact", "spawn /bin/dash;interact", "spawn sh;interact","spawn bash;interact", "spawn dash;interact") and process.name : ("bash", "sh", "dash")
 '''
 
 

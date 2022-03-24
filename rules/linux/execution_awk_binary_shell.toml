@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/02/24"
 maturity = "production"
-updated_date = "2022/03/17"
+updated_date = "2022/03/24"
 
 [rule]
 author = ["Elastic"]
@@ -24,9 +24,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by host.id, process.pid with maxspan=1m 
-  [process where process.name : ("nawk", "mawk", "awk", "gawk") and process.args : "BEGIN {system(*)}"] 
-  [process where process.parent.name : ("nawk", "mawk", "awk", "gawk") and process.name : ("sh", "bash")]
+process where event.type == "start" and process.parent.name in ("nawk", "mawk", "awk", "gawk") and process.parent.args : "BEGIN {system(*)}" and process.name in ("sh", "bash", "dash")
 '''
 
 

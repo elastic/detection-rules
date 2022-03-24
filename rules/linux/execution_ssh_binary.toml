@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/03/10"
 maturity = "production"
-updated_date = "2022/03/17"
+updated_date = "2022/03/24"
 
 [rule]
 author = ["Elastic"]
@@ -24,9 +24,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by host.id, process.pid with maxspan=1m
-[process where process.name == "ssh" and process.args == "-o" and process.args : ("ProxyCommand=;sh*", "ProxyCommand=;bash*", "ProxyCommand=;dash*", "ProxyCommand=;/bin/sh*", "ProxyCommand=;/bin/bash*", "ProxyCommand=;/bin/dash*")]
-[process where process.parent.name == "ssh" and process.name : ("bash", "sh", "dash")]
+process where process.parent.name == "ssh" and process.parent.args == "-o" and process.parent.args in ("ProxyCommand=;sh 0<&2 1>&2", "ProxyCommand=;bash 0<&2 1>&2", "ProxyCommand=;dash 0<&2 1>&2", "ProxyCommand=;/bin/sh 0<&2 1>&2", "ProxyCommand=;/bin/bash 0<&2 1>&2", "ProxyCommand=;/bin/dash 0<&2 1>&2") and process.name : ("bash", "sh", "dash")
 '''
 
 
