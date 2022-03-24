@@ -113,7 +113,7 @@ class VersionLock:
                 if current_rule_lock:
                     name = current_rule_lock['rule_name']
                     existing_type = current_rule_lock['type']
-                    current_type = lock_info['type']
+                    current_type = current_rule_lock['type']
                     if existing_type != current_type:
                         err_msg = f'cannot change "type" in locked rule: {name} from {existing_type} to {current_type}'
                         raise ValueError(err_msg)
@@ -198,8 +198,9 @@ class VersionLock:
             click.echo(f' - {len(changed_rules)} changed rules')
             click.echo(f' - {len(new_rules)} new rules')
             click.echo(f' - {len(newly_deprecated)} newly deprecated rules')
-            if changes:
-                click.echo('Detailed changes: \n' + '\n'.join(changes))
+
+        if save_changes:
+            click.echo('Detailed changes: \n' + '\n'.join(changes))
 
         if not save_changes:
             verbose_echo(
