@@ -208,6 +208,18 @@ class TestSchemas(unittest.TestCase):
             process where process.name == "cmd.exe"
         """)
 
+        example_text_fields = ['client.as.organization.name.text', 'client.user.full_name.text',
+                               'client.user.name.text', 'destination.as.organization.name.text',
+                               'destination.user.full_name.text', 'destination.user.name.text',
+                               'error.message', 'error.stack_trace.text', 'file.path.text',
+                               'file.target_path.text', 'host.os.full.text', 'host.os.name.text',
+                               'host.user.full_name.text', 'host.user.name.text']
+        for text_field in example_text_fields:
+            with self.assertRaises(eql.parser.EqlSchemaError):
+                build_rule(f"""
+                        any where {text_field} == "some string field"
+                """)
+
         with self.assertRaises(eql.EqlSyntaxError):
             build_rule("""
                     process where process.name == this!is$not#v@lid
