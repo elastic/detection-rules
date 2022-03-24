@@ -19,14 +19,14 @@ note = """## Triage and analysis
 ### Investigating Volume Shadow Copy Deletion via PowerShell
 
 The Volume Shadow Copy Service (VSS) is a Windows feature that enables system administrators to take snapshots of volumes
-that can be later restored or mounted to recover specific files or folders.
+that can later be restored or mounted to recover specific files or folders.
 
-A typical step in the playbooks of attackers that have the goal of deploying Ransomware is to delete Volume Shadow
-Copies to ensure that victims have no alternative instead of paying the ransom, making any action that deletes shadow
+A typical step in the playbook of an attacker attempting to deploy Ransomware is to delete Volume Shadow
+Copies to ensure that victims have no alternative to paying the ransom, making any action that deletes shadow
 copies worth monitoring.
 
 This rule monitors the execution of PowerShell cmdlets to interact with the Win32_ShadowCopy WMI class, retrieve shadow
-copy objects and delete them.
+copy objects, and delete them.
 
 #### Possible investigation steps:
 
@@ -35,7 +35,7 @@ copy objects and delete them.
 - Confirm whether the account owner is aware of the operation.
 - Investigate other alerts related to the user/host in the last 48 hours.
 - If unsigned files are found on the process tree:
-  - Capture a copy of the file.
+  - Capture copies of the files.
   - Use a sandboxed malware analysis system to perform analysis.
     - Observe attempts of contacting external domains and addresses.
   - Use the PowerShell Get-FileHash cmdlet to get the SHA-256 hash value of the file.
@@ -47,7 +47,7 @@ copy objects and delete them.
 ### False Positive Analysis
 
 - This rule has chances of producing B-TPs (Benign True Positives). If this activity is expected and noisy in your
-environment, consider working with Exceptions, preferably using a user and command line combination.
+environment, consider adding exceptions — preferably with a combination of user and command line conditions.
 
 ### Related Rules
 
@@ -58,11 +58,11 @@ environment, consider working with Exceptions, preferably using a user and comma
 
 - Initiate the incident response process based on the outcome of the triage.
 - Priority should be given due to the advanced stage of this activity on the attack.
-- If malware was found, Isolate the involved hosts to prevent the infection of other hosts.
+- If malware was found, isolate the involved hosts to prevent the infection of other hosts.
 - Disable the involved accounts, or restrict their ability to log on remotely.
 - If data was encrypted, deleted, or modified, activate your data recovery plan.
 - Reset the password of the involved accounts.
-- Perform data recovery locally or restore the backups from replicated copies (Cloud, other servers, etc.).
+- Perform data recovery locally or restore the backups from replicated copies (cloud, other servers, etc.).
 """
 references = [
     "https://docs.microsoft.com/en-us/previous-versions/windows/desktop/vsswmi/win32-shadowcopy",
