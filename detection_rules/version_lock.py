@@ -70,8 +70,8 @@ class VersionLock:
         """Update the contents of the version.lock file and optionally save changes."""
         from .packaging import current_stack_version
 
-        current_version_lock = deepcopy(self.version_lock)
-        version_lock_hash = dict_hash(current_version_lock)
+        lock_file_contents = deepcopy(self.version_lock)
+        version_lock_hash = dict_hash(lock_file_contents)
         current_deprecated_lock = deepcopy(self.deprecated_lock)
 
         verbose_echo = click.echo if verbose else (lambda x: None)
@@ -106,13 +106,13 @@ class VersionLock:
                 min_stack = _convert_lock_version(rule.contents.metadata.min_stack_version)
 
                 current_rule_lock = rule.contents.lock_info(bump=not exclude_version_update)
-                existing_rule_lock: dict = current_version_lock.setdefault(rule.id, {})
+                existing_rule_lock: dict = lock_file_contents.setdefault(rule.id, {})
                 original_hash = existing_rule_lock.get('sha256')
 
                 # prevent rule type changes for already locked and released rules (#1854)
-                if current_rule_lock:
+                if existing_rule_lock:
                     name = current_rule_lock['rule_name']
-                    existing_type = current_rule_lock['type']
+                    existing_type = existing_rule_lock['type']
                     current_type = current_rule_lock['type']
                     if existing_type != current_type:
                         err_msg = f'cannot change "type" in locked rule: {name} from {existing_type} to {current_type}'
@@ -207,14 +207,14 @@ class VersionLock:
                 'run `build-release --update-version-lock` to update version.lock.json and deprecated_rules.json')
             return list(changed_rules), list(new_rules), list(newly_deprecated)
 
-        new_hash = dict_hash(current_version_lock)
+        new_hash = dict_hash(lock_file_contents)
 
         if version_lock_hash != new_hash:
-            save_etc_dump(current_version_lock, ETC_VERSION_LOCK_FILE)
+            save_etc_dump(lock_file_contents, ETC_VERSION_LOCK_FILE)
             click.echo('Updated version.lock.json file')
 
             # reset local version lock
-            self.version_lock = current_version_lock
+            self.version_lock = lock_file_contents
 
         if newly_deprecated:
             save_etc_dump(current_deprecated_lock, ETC_DEPRECATED_RULES_FILE)
