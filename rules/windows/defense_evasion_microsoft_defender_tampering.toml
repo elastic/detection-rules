@@ -1,12 +1,12 @@
 [metadata]
 creation_date = "2021/10/18"
 maturity = "production"
-updated_date = "2022/02/14"
+updated_date = "2022/03/14"
 
 [rule]
 author = ["Austin Songer"]
 description = """
-Identifies when one or more features on Microsoft Defender are disabled. Adversaries may disable or tamper Microsoft
+Identifies when one or more features on Microsoft Defender are disabled. Adversaries may disable or tamper with Microsoft
 Defender features to evade detection and conceal malicious behavior.
 """
 false_positives = ["Legitimate Windows Defender configuration changes"]
@@ -37,7 +37,7 @@ registry where event.type in ("creation", "change") and
   (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\PUAProtection" and
   registry.data.strings : ("0", "0x00000000")) or
   (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender Security Center\\App and Browser protection\\DisallowExploitProtectionOverride" and
-  registry.data.strings : ("1", "0x00000001")) or
+  registry.data.strings : ("0", "0x00000000")) or
   (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\DisableAntiSpyware" and
   registry.data.strings : ("1", "0x00000001")) or
   (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Features\\TamperProtection" and

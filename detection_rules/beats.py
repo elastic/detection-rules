@@ -95,9 +95,9 @@ def download_latest_beats_schema():
     download_beats_schema(latest_release["tag_name"])
 
 
-def refresh_master_schema():
-    """Download and refresh beats schema from master."""
-    _decompress_and_save_schema('https://github.com/elastic/beats/archive/master.zip', 'master')
+def refresh_main_schema():
+    """Download and refresh beats schema from main."""
+    _decompress_and_save_schema('https://github.com/elastic/beats/archive/main.zip', 'main')
 
 
 def _flatten_schema(schema: list, prefix="") -> list:
@@ -123,7 +123,7 @@ def _flatten_schema(schema: list, prefix="") -> list:
         elif "name" in s:
             s = s.copy()
             # type is implicitly keyword if not defined
-            # example: https://github.com/elastic/beats/blob/master/packetbeat/_meta/fields.common.yml#L7-L12
+            # example: https://github.com/elastic/beats/blob/main/packetbeat/_meta/fields.common.yml#L7-L12
             s.setdefault("type", "keyword")
             s["name"] = prefix + s["name"]
             flattened.append(s)
@@ -198,8 +198,8 @@ def get_max_version() -> str:
 
 @cached
 def read_beats_schema(version: str = None):
-    if version and version.lower() == 'master':
-        return json.loads(read_gzip(get_etc_path('beats_schemas', 'master.json.gz')))
+    if version and version.lower() == 'main':
+        return json.loads(read_gzip(get_etc_path('beats_schemas', 'main.json.gz')))
 
     version = Version(version) if version else None
     beats_schemas = get_versions()
