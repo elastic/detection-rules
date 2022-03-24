@@ -25,9 +25,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by host.id, process.pid with maxspan=1m
-[process where event.type == "start" and process.name == "flock" and process.args == "-u" and process.args=="/" and process.args in ("/bin/sh", "/bin/bash", "/bin/dash", "sh", "bash", "dash")]
-[process where process.parent.name == "flock" and process.name in ("bash", "dash", "sh")]
+process where event.type == "start" and process.parent.name == "flock" and process.parent.args == "-u" and process.parent.args == "/" and process.parent.args in ("/bin/sh", "/bin/bash", "/bin/dash", "sh", "bash", "dash") and process.name in ("bash", "dash", "sh")
 '''
 
 
