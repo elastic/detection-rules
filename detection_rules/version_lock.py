@@ -109,6 +109,15 @@ class VersionLock:
                 existing_rule_lock: dict = current_version_lock.setdefault(rule.id, {})
                 original_hash = existing_rule_lock.get('sha256')
 
+                # prevent rule type changes for already locked and released rules (#1854)
+                if current_rule_lock:
+                    name = current_rule_lock['rule_name']
+                    existing_type = current_rule_lock['type']
+                    current_type = current_rule_lock['type']
+                    if existing_type != current_type:
+                        err_msg = f'cannot change "type" in locked rule: {name} from {existing_type} to {current_type}'
+                        raise ValueError(err_msg)
+
                 # scenarios to handle, assuming older stacks are always locked first:
                 # 1) no breaking changes ever made or the first time a rule is created
                 # 2) on the latest, after a breaking change has been locked
@@ -189,8 +198,9 @@ class VersionLock:
             click.echo(f' - {len(changed_rules)} changed rules')
             click.echo(f' - {len(new_rules)} new rules')
             click.echo(f' - {len(newly_deprecated)} newly deprecated rules')
-            if changes:
-                click.echo('Detailed changes: \n' + '\n'.join(changes))
+
+        if save_changes:
+            click.echo('Detailed changes: \n' + '\n'.join(changes))
 
         if not save_changes:
             verbose_echo(
