@@ -169,6 +169,14 @@ class VersionLock:
                 else:
                     raise RuntimeError("Unreachable code")
 
+                if 'previous' in existing_rule_lock:
+                    current_rule_version = rule.contents.lock_info()['version']
+                    for min_stack_version, versioned_lock in existing_rule_lock['previous'].items():
+                        existing_lock_version = versioned_lock['version']
+                        if current_rule_version < existing_lock_version:
+                            raise ValueError(f'{rule.id} - previous {min_stack_version=} {existing_lock_version=} '
+                                             f'has a higher version than {current_rule_version=}')
+
         for rule in rules.deprecated:
             if rule.id in newly_deprecated:
                 current_deprecated_lock[rule.id] = {
