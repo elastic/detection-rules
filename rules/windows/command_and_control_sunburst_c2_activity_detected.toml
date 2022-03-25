@@ -16,28 +16,28 @@ license = "Elastic License v2"
 name = "SUNBURST Command and Control Activity"
 note = """## Triage and analysis
 
-### Investigation SUNBURST Command and Control Activity
+### Investigating SUNBURST Command and Control Activity
 
 SUNBURST is a trojanized version of a digitally signed SolarWinds Orion plugin called
 SolarWinds.Orion.Core.BusinessLayer.dll. The plugin contains a backdoor that communicates via HTTP to third-party
 servers. After an initial dormant period of up to two weeks, SUNBURST may retrieve and execute commands that instruct
 the backdoor to transfer files, execute files, profile the system, reboot the system, and disable system services.
 The malware's network traffic attempts to blend in with legitimate SolarWinds activity by imitating the Orion
-Improvement Program (OIP) protocol and persistent state data is stored within legitimate plugin configuration files. The
+Improvement Program (OIP) protocol, and the malware stores persistent state data within legitimate plugin configuration files. The
 backdoor uses multiple obfuscated blocklists to identify processes, services, and drivers associated with forensic and
 anti-virus tools.
 
-More details on Sunburst can be found on the [Mandiant Report](https://www.mandiant.com/resources/sunburst-additional-technical-details).
+More details on SUNBURST can be found on the [Mandiant Report](https://www.mandiant.com/resources/sunburst-additional-technical-details).
 
-This rule will monitor for suspicious network connections that attempt to blend in with legitimate SolarWinds activity
+This rule identifies suspicious network connections that attempt to blend in with legitimate SolarWinds activity
 by imitating the Orion Improvement Program (OIP) protocol behavior.
 
-#### Possible investigation steps:
+#### Possible investigation steps
 
-- Investigate process execution chain (parent process tree).
+- Investigate the process execution chain (parent process tree).
 - Retrieve the executable involved:
   - Use a sandboxed malware analysis system to perform analysis.
-    - Observe attempts of contacting external domains and addresses.
+    - Observe attempts to contact external domains and addresses.
   - Use the PowerShell Get-FileHash cmdlet to get the SHA-256 hash value of the file.
     - Search for the existence of this file in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
   - Manually analyze the executable to determine if malicious capabilities are present.
@@ -47,11 +47,11 @@ it.
 - Investigate other alerts related to the user/host in the last 48 hours.
 - Check for similar behavior in other hosts in the environment.
 
-### False Positive Analysis
+### False positive analysis
 
 - False positives are unlikely for this rule.
 
-### Response and Remediation
+### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved host to prevent further post-compromise behavior.

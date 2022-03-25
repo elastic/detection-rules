@@ -21,30 +21,30 @@ note = """## Triage and analysis
 The Windows Script Host (WSH) is an Windows automation technology, which is ideal for non-interactive scripting needs,
 such as logon scripting, administrative scripting, and machine automation.
 
-Attackers commonly use WSH scripts as their initial access method, acting like droppers for 2nd stage payloads, but can
+Attackers commonly use WSH scripts as their initial access method, acting like droppers for second stage payloads, but can
 also use them to download tools and utilities needed to accomplish their goals.
 
-This rule will monitor for the spawn of the `powershell.exe` process with `cscript.exe` or `wscript.exe` as parent process.
+This rule looks for the spawn of the `powershell.exe` process with `cscript.exe` or `wscript.exe` as its parent process.
 
-#### Possible investigation steps:
+#### Possible investigation steps
 
-- Investigate process execution chain (parent process tree).
+- Investigate the process execution chain (parent process tree).
 - Investigate commands executed by the spawned PowerShell process.
 - Retrieve the script file(s) involved:
   - Use a sandboxed malware analysis system to perform analysis.
-    - Observe attempts of contacting external domains and addresses.
+    - Observe attempts to contact external domains and addresses.
   - Use the PowerShell Get-FileHash cmdlet to get the SHA-256 hash value of the file.
     - Search for the existence of this file in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
   - Manually analyze the script to determine if malicious capabilities are present.
-- Determine how the script file was delivered (Email attachments, dropped by other processes, etc.).
+- Determine how the script file was delivered (email attachment, dropped by other processes, etc.).
 - Investigate other alerts related to the user/host in the last 48 hours.
 
-### False Positive Analysis
+### False positive analysis
 
 - The usage of these script engines by regular users is unlikely. In the case of authorized benign true positives
 (B-TPs), exceptions can be added.
 
-### Response and Remediation
+### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved host to prevent further post-compromise behavior.
@@ -52,7 +52,7 @@ This rule will monitor for the spawn of the `powershell.exe` process with `cscri
   - Implement any temporary network rules, procedures, and segmentation required to contain the malware.
   - Immediately block the IoCs identified.
 - Remove and block malicious artifacts identified on the triage.
-- If the malicious file was delivered via Phishing:
+- If the malicious file was delivered via phishing:
   - Block the email sender from sending future emails.
   - Block the malicious web pages.
   - Remove emails from the sender from mailboxes.
