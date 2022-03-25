@@ -24,9 +24,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence with maxspan=30s
-[process where event.type == "start" and process.name == "nice" and process.args in ("/bin/bash", "/bin/sh", "/bin/dash", "sh", "bash", "dash")] by process.entity_id
-[process where process.name in ("bash", "sh", "dash")] by process.parent.entity_id
+process where event.type == "start" and process.name in ("bash", "sh", "dash") and
+  process.parent.name == "nice" and process.parent.args in ("/bin/bash", "/bin/sh", "/bin/dash", "sh", "bash", "dash")
 '''
 
 
