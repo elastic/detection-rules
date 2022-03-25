@@ -98,8 +98,8 @@ def load_locks_from_tag(remote: str, tag: str) -> (str, dict, dict):
     git(*fetch_tags)
 
     commit_hash = git('rev-list', '-1', tag)
-    version = json.loads(git('show', f'{tag}:etc/version.lock.json'))
-    deprecated = json.loads(git('show', f'{tag}:etc/deprecated_rules.json'))
+    version = json.loads(git('show', f'{tag}:detection_rules/etc/version.lock.json'))
+    deprecated = json.loads(git('show', f'{tag}:detection_rules/etc/deprecated_rules.json'))
     return commit_hash, version, deprecated
 
 
