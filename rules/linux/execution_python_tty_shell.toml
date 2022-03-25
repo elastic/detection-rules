@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/04/15"
 maturity = "production"
-updated_date = "2021/03/24"
+updated_date = "2021/03/03"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ interactive tty after obtaining initial access to a host.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "Interactive Terminal Spawned via Python"
 risk_score = 73
@@ -19,10 +19,13 @@ rule_id = "d76b02ef-fc95-4001-9297-01cb7412232f"
 severity = "high"
 tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution"]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "query"
 
 query = '''
-process where event.type == "start" and process.parent.name : "python*" and process.parent.args == "-c" and process.name in ("bash", "dash", "sh")
+event.category:process and event.type:(start or process_started) and process.name:python and
+  process.args:("import pty; pty.spawn(\"/bin/sh\")" or
+                "import pty; pty.spawn(\"/bin/dash\")" or
+                "import pty; pty.spawn(\"/bin/bash\")")
 '''
 
 
@@ -38,4 +41,3 @@ reference = "https://attack.mitre.org/techniques/T1059/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
