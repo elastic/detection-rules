@@ -24,7 +24,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and process.parent.name == "expect" and process.parent.args == "-c" and process.parent.args in ("spawn /bin/sh;interact", "spawn /bin/bash;interact", "spawn /bin/dash;interact", "spawn sh;interact","spawn bash;interact", "spawn dash;interact") and process.name : ("bash", "sh", "dash")
+process where event.type == "start" and process.name in ("bash", "sh", "dash") and 
+  process.parent.name == "expect" and process.parent.args == "-c" and 
+  process.parent.args in ("spawn /bin/sh;interact", "spawn /bin/bash;interact", "spawn /bin/dash;interact", "spawn sh;interact", "spawn bash;interact", "spawn dash;interact") 
 '''
 
 
