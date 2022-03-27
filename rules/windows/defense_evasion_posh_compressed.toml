@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/10/19"
 maturity = "production"
-updated_date = "2022/02/16"
+updated_date = "2022/03/02"
 
 [rule]
 author = ["Elastic"]
@@ -25,7 +25,12 @@ type = "query"
 query = '''
 event.category:process and 
   powershell.file.script_block_text : (
-    (System.IO.Compression.DeflateStream or System.IO.Compression.GzipStream or IO.Compression.DeflateStream or IO.Compression.GzipStream) and
+    (
+      "System.IO.Compression.DeflateStream" or
+      "System.IO.Compression.GzipStream" or
+      "IO.Compression.DeflateStream" or
+      "IO.Compression.GzipStream"
+    ) and
     FromBase64String
   )
 '''
