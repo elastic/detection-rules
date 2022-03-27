@@ -387,9 +387,14 @@ class BaseRuleContents(ABC):
     def version_lock(self):
         pass
 
+    @property
+    @abstractmethod
+    def type(self):
+        pass
+
     def lock_info(self, bump=True) -> dict:
         version = self.autobumped_version if bump else (self.latest_version or 1)
-        contents = {"rule_name": self.name, "sha256": self.sha256(), "version": version}
+        contents = {"rule_name": self.name, "sha256": self.sha256(), "version": version, "type": self.type}
 
         return contents
 
@@ -488,6 +493,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def name(self) -> str:
         return self.data.name
 
+    @property
+    def type(self) -> str:
+        return self.data.type
+
     @validates_schema
     def validate_query(self, value: dict, **kwargs):
         """Validate queries by calling into the validator for the relevant method."""
@@ -579,6 +588,10 @@ class DeprecatedRuleContents(BaseRuleContents):
     @property
     def name(self) -> str:
         return self.data.get('name')
+
+    @property
+    def type(self) -> str:
+        return self.data.get('type')
 
     @classmethod
     def from_dict(cls, obj: dict):
