@@ -8,26 +8,29 @@ These guidelines will also help you post meaningful issues that will be more eas
 
 ## Table of Contents
 
-- [Effective issue creation in Detection Rules](#effective-issue-creation-in-detection-rules)
-  - [Why we create issues before contributing code or new rules](#why-we-create-issues-before-contributing-code-or-new-rules)
-  - [What a good issue looks like](#what-a-good-issue-looks-like)
-  - ["My issue isn’t getting enough attention"](#my-issue-isnt-getting-enough-attention)
-  - ["I want to help!"](#i-want-to-help)
-- [How we use Git and GitHub](#how-we-use-git-and-github)
-  - [Forking](#forking)
-  - [Branching](#branching)
-  - [Commit messages](#commit-messages)
-  - [What goes into a Pull Request](#what-goes-into-a-pull-request)
-- [Our approach to detection engineering](#our-approach-to-detection-engineering)
-  - [Rule metadata](#rule-metadata)
-  - [Using Elastic Common Schema (ECS)](#using-elastic-common-schema-ecs)
-  - [Creating a rule with the CLI](#creating-a-rule-with-the-cli)
-  - [Testing a rule with the CLI](#testing-a-rule-with-the-cli)
-- [Writing style](#writing-style)
-- [Signing the contributor license agreement](#signing-the-contributor-license-agreement)
-- [Submitting a Pull Request](#submitting-a-pull-request)
-  - [What to expect from a code review](#what-to-expect-from-a-code-review)
-  - [How we handle merges](#how-we-handle-merges)
+- [Contributing to Detection Rules](#contributing-to-detection-rules)
+  - [Table of Contents](#table-of-contents)
+  - [Effective issue creation in Detection Rules](#effective-issue-creation-in-detection-rules)
+    - [Why we create issues before contributing code or new rules](#why-we-create-issues-before-contributing-code-or-new-rules)
+    - [What a good issue looks like](#what-a-good-issue-looks-like)
+    - ["My issue isn't getting enough attention"](#my-issue-isnt-getting-enough-attention)
+    - ["I want to help!"](#i-want-to-help)
+  - [How we use Git and GitHub](#how-we-use-git-and-github)
+    - [Forking](#forking)
+    - [Branching](#branching)
+    - [Commit messages](#commit-messages)
+    - [What goes into a Pull Request](#what-goes-into-a-pull-request)
+  - [Our approach to detection engineering](#our-approach-to-detection-engineering)
+    - [Rule metadata](#rule-metadata)
+    - [Using Elastic Common Schema (ECS)](#using-elastic-common-schema-ecs)
+    - [Creating a rule with the CLI](#creating-a-rule-with-the-cli)
+    - [Understanding interval, lookback, and maxspan for EQL sequence rules](#understanding-interval-lookback-and-maxspan-for-eql-sequence-rules)
+    - [Testing a rule with the CLI](#testing-a-rule-with-the-cli)
+  - [Writing style](#writing-style)
+  - [Signing the contributor license agreement](#signing-the-contributor-license-agreement)
+  - [Submitting a Pull Request](#submitting-a-pull-request)
+    - [What to expect from a code review](#what-to-expect-from-a-code-review)
+    - [How we handle merges](#how-we-handle-merges)
 
 
 ## Effective issue creation in Detection Rules
@@ -202,7 +205,7 @@ references (multi, comma separated):
 risk_score [21] ("n/a" to leave blank)  (required):
 rule_id [90d0c543-e197-46d8-934d-0320b2c83486] ("n/a" to leave blank)  (required):
 severity [low] ("n/a" to leave blank)  (required): medium
-tags (multi, comma separated): Windows  
+tags (multi, comma separated): Windows
 throttle:
 timeline_id:
 timeline_title:
@@ -224,6 +227,19 @@ Did not set the following values because they are un-required when set to the de
  - to
 ```
 
+### Understanding interval, lookback, and maxspan for EQL sequence rules
+
+Refer to the [docs](https://www.elastic.co/guide/en/security/current/rules-api-create.html) to see the definitions of these terms.
+
+**window**: `to` - `from`
+
+Performance and completeness considerations
+
+|                     | performance                                                   | completeness                            |
+|---------------------|---------------------------------------------------------------|-----------------------------------------|
+| window & interval | an overly large window / interval is redundant and wasteful | ...                        |
+| window & maxspan  | these two values should be as small as needed to detect       | ...                        |
+| interval & maxspan  | an interval much smaller than maxspan is wasteful overlap     | ...                        |
 
 ### Testing a rule with the CLI
 
