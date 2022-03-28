@@ -3,6 +3,7 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
+import eql
 import unittest
 import kql
 
@@ -14,8 +15,6 @@ class TestEql2Kql(unittest.TestCase):
 
     def test_field_equals(self):
         self.validate("field:value", "field == 'value'")
-        self.validate("field:value-*", "field == 'value-*'")
-        self.validate("field:value?", "field == 'value?'")
         self.validate("field:-1", "field == -1")
         self.validate("field:1.1", "field == 1.1")
         self.validate("field:true", "field == true")
@@ -53,3 +52,10 @@ class TestEql2Kql(unittest.TestCase):
         self.validate("dest:192.168.255.255", "dest == '192.168.255.255'")
         self.validate("dest:192.168.0.0/16", "cidrMatch(dest, '192.168.0.0/16')")
         self.validate("dest:192.168.0.0/16", "cidrMatch(dest, '192.168.0.0/16')")
+
+    def test_wildcard_field(self):
+        self.validate('field:"value-*"', 'field == "value-*"')
+        self.validate('field:"value-?"', 'field == "value-?"')
+        with eql.parser.elasticsearch_syntax:
+            self.validate('field:"value-*"', 'field == "value-*"')
+            self.validate('field:"value-?"', 'field == "value-?"')

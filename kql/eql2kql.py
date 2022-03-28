@@ -71,10 +71,10 @@ class Eql2Kql(DepthFirstWalker):
                     for arg in tree.arguments[1:]:
                         if '*' in arg.value or '?' in arg.value:
                             args.append(Wildcard(arg.value))
-                        else :
+                        else:
                             args.append(arg)
                     return FieldComparison(tree.arguments[0], OrValues(args))
-                else :
+                else:
                     return FieldComparison(tree.arguments[0], OrValues(tree.arguments[1:]))
         raise eql.errors.EqlCompileError("Unable to convert `{}`".format(tree))
 

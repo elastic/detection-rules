@@ -4,6 +4,7 @@
 # 2.0.
 
 import re
+import json
 from string import Template
 
 from eql.ast import BaseNode
@@ -61,6 +62,8 @@ class Value(KqlNode):
     def from_python(cls, value):
         if value is None:
             return Null()
+        elif is_string(value) and ('*' in value or '?' in value):
+            return Wildcard(value)
         elif isinstance(value, bool):
             return Boolean(value)
         elif is_number(value):
@@ -116,7 +119,7 @@ class Wildcard(Value):
                 escaped.append(self.escapes[char])
             else:
                 escaped.append(char)
-        return ''.join(escaped)
+        return json.dumps(''.join(escaped))
 
 
 class List(KqlNode):
