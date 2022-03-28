@@ -301,8 +301,8 @@ class EQLRuleData(QueryRuleData):
             return self.ast.first.max_span.as_milliseconds() if self.ast.first.max_span else None
 
     @cached_property
-    def look_back(self) -> Optional[Union[int, Literal['unknown']]]:
-        """Lookback value of a rule."""
+    def window(self) -> Optional[Union[int, Literal['unknown']]]:
+        """Window lookback value of a rule."""
         # https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#date-math
         to = self.convert_relative_delta(self.to) if self.to else 0
         from_ = self.convert_relative_delta(self.from_ or "now-6m")

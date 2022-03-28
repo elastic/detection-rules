@@ -512,8 +512,8 @@ class TestRuleTiming(BaseRuleTest):
             err_msg = f'The following rules should have the `timestamp_override` set to `event.ingested`\n {rules_str}'
             self.fail(err_msg)
 
-    def test_required_lookback(self):
-        """Ensure endpoint rules have the proper lookback time."""
+    def test_required_window(self):
+        """Ensure endpoint rules have the proper window time."""
         long_indexes = {'logs-endpoint.events.*'}
         missing = []
 
@@ -529,32 +529,32 @@ class TestRuleTiming(BaseRuleTest):
             err_msg = f'The following rules should have a longer `from` defined, due to indexes used\n {rules_str}'
             self.fail(err_msg)
 
-    def test_eql_lookback(self):
-        """Ensure EQL rules lookback => max_span, when defined."""
+    def test_eql_window(self):
+        """Ensure EQL rules window => max_span, when defined."""
         unknowns = []
         invalids = []
         ten_minutes = 10 * 60 * 1000
 
         for rule in self.all_rules:
             if rule.contents.data.type == 'eql' and rule.contents.data.max_span:
-                if rule.contents.data.look_back == 'unknown':
+                if rule.contents.data.window == 'unknown':
                     unknowns.append(self.rule_str(rule, trailer=None))
                 else:
-                    look_back = rule.contents.data.look_back
+                    window = rule.contents.data.window
                     max_span = rule.contents.data.max_span
-                    expected = look_back + ten_minutes
+                    expected = window + ten_minutes
 
                     if expected < max_span:
-                        invalids.append(f'{self.rule_str(rule)} lookback: {look_back}, maxspan: {max_span}, '
+                        invalids.append(f'{self.rule_str(rule)} window: {window}, maxspan: {max_span}, '
                                         f'expected: >={expected}')
 
         if unknowns:
             warn_str = '\n'.join(unknowns)
-            warnings.warn(f'Unable to determine lookbacks for the following rules:\n{warn_str}')
+            warnings.warn(f'Unable to determine windows for the following rules:\n{warn_str}')
 
         if invalids:
             invalids_str = '\n'.join(invalids)
-            self.fail(f'The following rules have longer max_spans than lookbacks:\n{invalids_str}')
+            self.fail(f'The following rules have longer max_spans than windows:\n{invalids_str}')
 
     def test_eql_interval_to_maxspan(self):
         """Check the ratio of interval to maxspan for eql rules."""
