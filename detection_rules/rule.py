@@ -301,6 +301,12 @@ class EQLRuleData(QueryRuleData):
             return self.ast.first.max_span.as_milliseconds() if self.ast.first.max_span else None
 
     @cached_property
+    def margin(self) -> Optional[int]:
+        """Margin value for difference between the window and maxspan."""
+        if self.window and self.max_span:
+            return self.window - self.max_span
+
+    @cached_property
     def window(self) -> Optional[Union[int, Literal['unknown']]]:
         """Window lookback value of a rule."""
         # https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#date-math
