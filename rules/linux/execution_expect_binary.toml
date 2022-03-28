@@ -1,14 +1,15 @@
 [metadata]
 creation_date = "2022/03/07"
 maturity = "development"
-updated_date = "2022/03/07"
+updated_date = "2022/03/28"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies Linux binary expect abuse to break out from restricted environments by spawning an interactive system shell
-This activity is not standard use with this binary for a user or system administrator and could potentially indicate
-malicious actor attempting to improve the capabilities or stability of their access.
+Identifies Linux binary expect abuse to break out from restricted environments by spawning an interactive system shell.
+The expect utility allows us to automate control of interactive applications such as telnet,ftp,ssh and others and the
+activity of spawning shell is not a standard use of this binary for a user or system administrator and could potentially
+indicate malicious actor attempting to improve the capabilities or stability of their access.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -19,7 +20,7 @@ references = ["https://gtfobins.github.io/gtfobins/expect/"]
 risk_score = 47
 rule_id = "fd3fc25e-7c7c-4613-8209-97942ac609f6"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Defense Evasion", "GTFOBins"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution", "GTFOBins"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -30,23 +31,6 @@ sequence by host.id, process.pid with maxspan=1m
 '''
 
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1548"
-name = "Abuse Elevation Control Mechanism"
-reference = "https://attack.mitre.org/techniques/T1548/"
-[[rule.threat.technique.subtechnique]]
-id = "T1548.004"
-name = "Elevated Execution with Prompt"
-reference = "https://attack.mitre.org/techniques/T1548/004/"
-
-
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
