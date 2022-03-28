@@ -70,8 +70,8 @@ class VersionLock:
         """Update the contents of the version.lock file and optionally save changes."""
         from .packaging import current_stack_version
 
-        current_version_lock = deepcopy(self.version_lock)
-        version_lock_hash = dict_hash(current_version_lock)
+        lock_file_contents = deepcopy(self.version_lock)
+        version_lock_hash = dict_hash(lock_file_contents)
         current_deprecated_lock = deepcopy(self.deprecated_lock)
 
         verbose_echo = click.echo if verbose else (lambda x: None)
@@ -89,58 +89,102 @@ class VersionLock:
 
         verbose_echo('Rule changes detected!')
 
+        route = None
+        existing_rule_lock = {}
+        original_hash = None
+        changes = []
+
+        def add_changes(r, *msg):
+            if not original_hash or original_hash != current_rule_lock['sha256']:
+                new = [f'  {route}: {r.id}, new version: {existing_rule_lock["version"]}']
+                new.extend([f'    - {m}' for m in msg if m])
+                changes.extend(new)
+
         for rule in rules:
             if rule.contents.metadata.maturity == "production" or rule.id in newly_deprecated:
                 # assume that older stacks are always locked first
                 min_stack = _convert_lock_version(rule.contents.metadata.min_stack_version)
 
-                lock_info = rule.contents.lock_info(bump=not exclude_version_update)
-                current_rule_lock: dict = current_version_lock.setdefault(rule.id, {})
+                current_rule_lock = rule.contents.lock_info(bump=not exclude_version_update)
+                existing_rule_lock: dict = lock_file_contents.setdefault(rule.id, {})
+                original_hash = existing_rule_lock.get('sha256')
+
+                # prevent rule type changes for already locked and released rules (#1854)
+                if existing_rule_lock:
+                    name = current_rule_lock['rule_name']
+                    existing_type = existing_rule_lock['type']
+                    current_type = current_rule_lock['type']
+                    if existing_type != current_type:
+                        err_msg = f'cannot change "type" in locked rule: {name} from {existing_type} to {current_type}'
+                        raise ValueError(err_msg)
 
                 # scenarios to handle, assuming older stacks are always locked first:
                 # 1) no breaking changes ever made or the first time a rule is created
                 # 2) on the latest, after a breaking change has been locked
                 # 3) on the latest stack, locking in a breaking change
                 # 4) on an old stack, after a breaking change has been made
-                latest_locked_stack_version = _convert_lock_version(current_rule_lock.get("min_stack_version"))
+                latest_locked_stack_version = _convert_lock_version(existing_rule_lock.get("min_stack_version"))
 
-                if not current_rule_lock or min_stack == latest_locked_stack_version:
+                if not existing_rule_lock or min_stack == latest_locked_stack_version:
+                    route = 'A'
                     # 1) no breaking changes ever made or the first time a rule is created
                     # 2) on the latest, after a breaking change has been locked
-                    current_rule_lock.update(lock_info)
+                    existing_rule_lock.update(current_rule_lock)
 
                     # add the min_stack_version to the lock if it's explicitly set
+                    log_msg = None
                     if rule.contents.metadata.min_stack_version is not None:
-                        current_rule_lock["min_stack_version"] = str(min_stack)
+                        existing_rule_lock["min_stack_version"] = str(min_stack)
+                        log_msg = f'min_stack_version added: {min_stack}'
+
+                    add_changes(rule, log_msg)
 
                 elif min_stack > latest_locked_stack_version:
+                    route = 'B'
                     # 3) on the latest stack, locking in a breaking change
                     previous_lock_info = {
-                        "rule_name": current_rule_lock["rule_name"],
-                        "sha256": current_rule_lock["sha256"],
-                        "version": current_rule_lock["version"],
+                        "rule_name": existing_rule_lock["rule_name"],
+                        "sha256": existing_rule_lock["sha256"],
+                        "version": existing_rule_lock["version"],
                     }
-                    current_rule_lock.setdefault("previous", {})
+                    existing_rule_lock.setdefault("previous", {})
 
                     # move the current locked info into the previous section
-                    current_rule_lock["previous"][str(latest_locked_stack_version)] = previous_lock_info
+                    existing_rule_lock["previous"][str(latest_locked_stack_version)] = previous_lock_info
 
                     # overwrite the "latest" part of the lock at the top level
-                    current_rule_lock.update(lock_info, min_stack_version=str(min_stack))
+                    # TODO: would need to preserve space here as well if supporting forked version spacing
+                    existing_rule_lock.update(current_rule_lock, min_stack_version=str(min_stack))
+                    add_changes(
+                        rule,
+                        f'previous {latest_locked_stack_version} saved as version: {previous_lock_info["version"]}',
+                        f'current min_stack updated to {min_stack}'
+                    )
 
                 elif min_stack < latest_locked_stack_version:
-                    # 4) on an old stack, after a breaking change has been made
-                    assert str(min_stack) in current_rule_lock.get("previous", {}), \
+                    route = 'C'
+                    # 4) on an old stack, after a breaking change has been made (updated fork)
+                    assert str(min_stack) in existing_rule_lock.get("previous", {}), \
                         f"Expected {rule.id} @ v{min_stack} in the rule lock"
 
                     # TODO: Figure out whether we support locking old versions and if we want to
                     #       "leave room" by skipping versions when breaking changes are made.
                     #       We can still inspect the version lock manually after locks are made,
                     #       since it's a good summary of everything that happens
-                    current_rule_lock["previous"][str(min_stack)] = lock_info
+                    existing_rule_lock["previous"][str(min_stack)] = current_rule_lock
+                    existing_rule_lock.update(current_rule_lock)
+                    add_changes(rule, f'previous version {min_stack} updated version to {current_rule_lock["version"]}')
                     continue
                 else:
                     raise RuntimeError("Unreachable code")
+
+                if 'previous' in existing_rule_lock:
+                    current_rule_version = rule.contents.lock_info()['version']
+                    for min_stack_version, versioned_lock in existing_rule_lock['previous'].items():
+                        existing_lock_version = versioned_lock['version']
+                        if current_rule_version < existing_lock_version:
+                            raise ValueError(f'{rule.id} - previous {min_stack_version=} {existing_lock_version=} '
+                                             f'has a higher version than {current_rule_version=}')
 
         for rule in rules.deprecated:
             if rule.id in newly_deprecated:
@@ -155,19 +199,22 @@ class VersionLock:
             click.echo(f' - {len(new_rules)} new rules')
             click.echo(f' - {len(newly_deprecated)} newly deprecated rules')
 
+        if save_changes:
+            click.echo('Detailed changes: \n' + '\n'.join(changes))
+
         if not save_changes:
             verbose_echo(
                 'run `build-release --update-version-lock` to update version.lock.json and deprecated_rules.json')
             return list(changed_rules), list(new_rules), list(newly_deprecated)
 
-        new_hash = dict_hash(current_version_lock)
+        new_hash = dict_hash(lock_file_contents)
 
         if version_lock_hash != new_hash:
-            save_etc_dump(current_version_lock, ETC_VERSION_LOCK_FILE)
+            save_etc_dump(lock_file_contents, ETC_VERSION_LOCK_FILE)
             click.echo('Updated version.lock.json file')
 
             # reset local version lock
-            self.version_lock = current_version_lock
+            self.version_lock = lock_file_contents
 
         if newly_deprecated:
             save_etc_dump(current_deprecated_lock, ETC_DEPRECATED_RULES_FILE)
