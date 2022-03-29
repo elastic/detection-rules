@@ -585,7 +585,7 @@ class TestRuleTiming(BaseRuleTest):
         # TODO: Pull these variables from a config file
         config_min_default_interval = 5 * 60 * 1000  # 5m
         config_min_timing_buffer_percent = .10
-        config_max_timing_buffer = 3 * 60 * 1000  # 3m
+        # config_max_timing_buffer = 3 * 60 * 1000  # 3m
 
         for rule in self.all_rules:
             if rule.contents.data.type == 'eql':
@@ -594,13 +594,14 @@ class TestRuleTiming(BaseRuleTest):
                 ratio = rule.contents.data.interval_ratio
                 window = rule.contents.data.window
                 is_beats_only = rule.contents.data.is_beats_only_rule
-                min_default_window = 6 * 60 * 1000 if is_beats_only else 9 * 60 * 1000 # 9m
+                min_default_window = 6 * 60 * 1000 if is_beats_only else 9 * 60 * 1000  # 9m
                 max_window = window + min_default_window
                 min_window = window - min_default_window
                 margin = rule.contents.data.margin
-                expected_timing_window = window / 2  # TODO: Divide window by two?
-                max_time_interval = max((expected_timing_window - config_max_timing_buffer), config_min_default_interval)
-                min_time_window = expected_timing_window - (expected_timing_window * config_min_timing_buffer_percent)
+                # expected_timing_window = window / 2  # TODO: Divide window by two?
+                # max_time_interval = max((expected_timing_window - config_max_timing_buffer),
+                #                         config_min_default_interval)
+                # min_time_window = expected_timing_window - (expected_timing_window * config_min_timing_buffer_percent)
 
                 rule_path = self.rule_str(rule)
 
