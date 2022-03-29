@@ -616,7 +616,7 @@ class TestRuleTiming(BaseRuleTest):
         """Check the sequence scheduling for performance completeness in eql rules."""
         invalids = []
 
-        # TODO: variables pulled from config
+        # TODO: Pull these variables from a config file
         config_min_default_interval = 5 * 60 * 1000  # 5m
         config_min_timing_buffer_percent = .10
         config_max_timing_buffer = 3 * 60 * 1000  # 3m
@@ -639,19 +639,31 @@ class TestRuleTiming(BaseRuleTest):
                 rule_path = self.rule_str(rule)
 
                 if interval < config_min_default_interval:
-                    # TODO: Description
+                    # Test - interval performance
+                    # Base check to make sure the interval is not greater than the config minimum default interval.
                     error_msg = f"{rule_path} Set your interval to at least {config_min_default_interval}ms."
                     invalids.append(error_msg)
                     continue
 
                 if window < min_default_window:
-                    # TODO: Description
+                    # Test - interval performance
+                    # Base check to make sure the window is not greater than the config minimum default window.
                     error_msg = f"{rule_path} Set your window (from_) to at least {min_default_window}ms."
                     invalids.append(error_msg)
                     continue
 
                 # # TODO: Break up the rests of these tests into 2-3 seperate unit tests
-                # # TODO: Order checks based on priority of testing maxspan, window, interval
+                # # TODO: Check order of tests based on priority of testing maxspan, window, interval
+
+                if maxspan and maxspan > (window + (window * config_min_timing_buffer_percent)):
+                    # Test - window and maxspan completeness
+                    # Check to make sure that the window with a configured buffer is large enough to
+                    # detect the span of sequence of events.
+                    long_err = "Window should be greater than the maxspan. Try increasing the window (from_)."
+                    error_msg = f"{rule_path} {long_err}"
+                    invalids.append(error_msg)
+                    continue
+
                 # if min_time_window > expected_timing_window:
                 #     # TODO: Description -  window and interval performance
                 #     error_msg = f"{rule_path} timeframe window too small, searching to often."
@@ -676,30 +688,26 @@ class TestRuleTiming(BaseRuleTest):
                 #     invalids.append(error_msg)
                 #     continue
 
-                # if maxspan and maxspan < (window * config_min_timing_buffer_percent):
-                #     # TODO: Description - window and maxspan completeness
-                #     error_msg = f"{rule_path} window should be greater than the maxspan."
-                #     invalids.append(error_msg)
-                #     continue
-
                 # if maxspan and maxspan < interval:
                 #     # TODO: Description - interval and maxspan completeness
                 #     error_msg = f"{rule_path} maxspan should be greater than the interval."
                 #     invalids.append(error_msg)
                 #     continue
 
-                # if maxspan and maxspan and ratio and ratio < .5:
-                #     # TODO: Description - interval and maxspan performance
-                #     # we want to test for at least a ratio of: interval >= 1/2 maxspan
-                #     # but we only want to make an exception and cap the ratio at 5m interval (2.5m maxspan)
-                #     error_msg = f"{rule_path} an interval much smaller than maxspan is wasteful overlap."
-                #     invalids.append(error_msg)
-                #     continue
+                if maxspan and maxspan and ratio and ratio < .5:
+                    # Test - interval and maxspan performance
+                    # We want to test for at least a ratio of: interval >= 1/2 maxspan,
+                    # but we only want to make an exception and cap the ratio at 5m interval (2.5m maxspan)
+                    long_err = "An interval much smaller than maxspan is wasteful overlap. Try increasing the interval."
+                    error_msg = f"{rule_path} {long_err}"
+                    invalids.append(error_msg)
+                    continue
 
                 # bottom line
                 if maxspan and (0 < margin <= interval):
-                    # TODO: Description
-                    error_msg = f"{rule_path} Modify the window (from_) or interval to improve your sequence scheduling"
+                    # Test to see if we're missing alerts given our sequence scheduling (margin & interval)
+                    # From the first to the last event in the sequence make sure it is included in our timeframes.
+                    error_msg = f"{rule_path} Try increasing the window (from_) to improve your sequence scheduling."
                     invalids.append(error_msg)
 
         if invalids:
