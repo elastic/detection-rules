@@ -632,8 +632,8 @@ class TestRuleTiming(BaseRuleTest):
                 max_window = window + min_default_window
                 min_window = window - min_default_window
                 margin = rule.contents.data.margin
-                expected_timing_window = window / 2  # TODO: Divide by two?
-                max_time_window = max((expected_timing_window - config_max_timing_buffer), config_min_default_interval)
+                expected_timing_window = window / 2  # TODO: Divide window by two?
+                max_time_interval = max((expected_timing_window - config_max_timing_buffer), config_min_default_interval)
                 min_time_window = expected_timing_window - (expected_timing_window * config_min_timing_buffer_percent)
 
                 rule_path = self.rule_str(rule)
@@ -652,8 +652,8 @@ class TestRuleTiming(BaseRuleTest):
                     invalids.append(error_msg)
                     continue
 
-                # # TODO: Break up the rests of these tests into 2-3 seperate unit tests
-                # # TODO: Check order of tests based on priority of testing maxspan, window, interval
+                # TODO: Break up the rests of these tests into 2-3 seperate unit tests?
+                # TODO: Check order of tests based on priority of testing maxspan, window, interval
 
                 if maxspan and maxspan > (window + (window * config_min_timing_buffer_percent)):
                     # Test - window and maxspan completeness
@@ -664,41 +664,54 @@ class TestRuleTiming(BaseRuleTest):
                     invalids.append(error_msg)
                     continue
 
-                # if min_time_window > expected_timing_window:
-                #     # TODO: Description -  window and interval performance
-                #     error_msg = f"{rule_path} timeframe window too small, searching to often."
-                #     invalids.append(error_msg)
-                #     continue
-
-                # if window > max_time_window:
-                #     # TODO: Description - window and interval completeness
-                #     error_msg = f"{rule_path} timeframe window is too large, potentially missing events."
-                #     invalids.append(error_msg)
-                #     continue
-
-                # if min_window > window:
-                #     # TODO: Description - window and maxspan performance
-                #     error_msg = f"{rule_path} window should be between the minimum and maximum default windows."
-                #     invalids.append(error_msg)
-                #     continue
-
-                # if window > max_window:
-                #     # TODO: Description - window and maxspan completeness
-                #     error_msg = f"{rule_path} window should be between the minimum and maximum default windows."
-                #     invalids.append(error_msg)
-                #     continue
-
-                # if maxspan and maxspan < interval:
-                #     # TODO: Description - interval and maxspan completeness
-                #     error_msg = f"{rule_path} maxspan should be greater than the interval."
-                #     invalids.append(error_msg)
-                #     continue
-
                 if maxspan and maxspan and ratio and ratio < .5:
                     # Test - interval and maxspan performance
-                    # We want to test for at least a ratio of: interval >= 1/2 maxspan,
+                    # Check for at least a ratio of: interval >= 1/2 maxspan,
                     # but we only want to make an exception and cap the ratio at 5m interval (2.5m maxspan)
                     long_err = "An interval much smaller than maxspan is wasteful overlap. Try increasing the interval."
+                    error_msg = f"{rule_path} {long_err}"
+                    invalids.append(error_msg)
+                    continue
+
+                # TODO: Debug; this is slightly too loud.
+                # if maxspan and maxspan > interval:
+                #     # Test - interval and maxspan completeness
+                #     # Check to make sure the maxspan overlaps the interval time frame.
+                #     long_err = "Maxspan should be greater than the interval."
+                #     error_msg = f"{rule_path} "
+                #     invalids.append(error_msg)
+                #     continue
+
+                # TODO: Delete or modify; this will never error as-is
+                # if min_time_window > expected_timing_window:
+                #     # Test -  window and interval performance
+                #     # Check to make sure the search isn't occuring too often.
+                #     long_err = "timeframe window is too small, searching to often. Try increasing the window (from_)."
+                #     error_msg = f"{rule_path} Sequence {long_err}"
+                #     invalids.append(error_msg)
+                #     continue
+
+                # TODO: Debug; fires on all rules
+                # if window > max_time_interval:
+                #     # Test - window and interval completeness
+                #     # Check to make sure the sequence timeframe doesn't miss events.
+                #     long_err = "Sequence timeframe window is too large, potentially missing events."
+                #     error_msg = f"{rule_path} {long_err} Try shrinking the window."
+                #     invalids.append(error_msg)
+                #     continue
+
+                if min_window > window:
+                    # Test - window performance
+                    # Check to make sure the window is at least bigger than the minimum default window.
+                    long_err = "Window should be greater that the minimum window. Try increasing the window."
+                    error_msg = f"{rule_path} {long_err}"
+                    invalids.append(error_msg)
+                    continue
+
+                if window > max_window:
+                    # Test - window completeness
+                    # Check to make sure the window is smaller than the minimum default window.
+                    long_err = "Window should be less that the maximum window. Try decreasing the window."
                     error_msg = f"{rule_path} {long_err}"
                     invalids.append(error_msg)
                     continue
