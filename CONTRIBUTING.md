@@ -238,9 +238,9 @@ Performance and completeness considerations
 
 |                     | performance                                                   | completeness                            |
 |---------------------|---------------------------------------------------------------|-----------------------------------------|
-| window & interval | an overly large window / interval is redundant and wasteful | ...                        |
-| window & maxspan  | these two values should be as small as needed to detect       | ...                        |
-| interval & maxspan  | an interval much smaller than maxspan is wasteful overlap     | ...                        |
+| lookback & interval | an overly large lookback / interval is redundant and wasteful | lookback >= (2 * interval + 10m buffer) |
+| lookback & maxspan  | these two values should be as small as needed to detect       | lookback must be > maxspan              |
+| interval & maxspan  | an interval much smaller than maxspan is wasteful overlap     | maxspan > interval
 
 
 ### Testing a rule with the CLI
