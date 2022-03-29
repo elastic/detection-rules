@@ -664,9 +664,15 @@ class TestRuleTiming(BaseRuleTest):
                     invalids.append(error_msg)
                     break
 
-                if min_window > window > max_window:
-                    # TODO: Description
-                    error_msg = f"{rule_path} window should be better the minimum and maximum default windows."
+                if min_window > window:
+                    # TODO: Description - window and maxspan performance
+                    error_msg = f"{rule_path} window should be between the minimum and maximum default windows."
+                    invalids.append(error_msg)
+                    break
+
+                if window > max_window:
+                    # TODO: Description - window and maxspan completeness
+                    error_msg = f"{rule_path} window should be between the minimum and maximum default windows."
                     invalids.append(error_msg)
                     break
 
@@ -675,8 +681,6 @@ class TestRuleTiming(BaseRuleTest):
                     error_msg = f"{rule_path} window should be greater than the maxspan."
                     invalids.append(error_msg)
                     break
-
-                # TODO: add check and description for window and maxspan performance
 
                 if maxspan and maxspan < interval:
                     # TODO: Description - interval and maxspan completeness
