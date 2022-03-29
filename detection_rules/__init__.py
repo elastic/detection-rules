@@ -39,5 +39,5 @@ __all__ = (
     'rule_formatter',
     'rule_loader',
     'schemas',
-    'utils',
+    'utils'
 )
