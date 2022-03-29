@@ -295,9 +295,25 @@ class EQLRuleData(QueryRuleData):
             return self.convert_time_span(lookback)
 
     @cached_property
+    def interval_ms(self) -> Optional[int]:
+        """Interval in milliseconds"""
+        default = 5 * 60 * 1000  # five minutes
+        return self.convert_relative_delta(self.interval) if self.interval else default
+
+    @cached_property
+    def is_beats_only_rule(self) -> bool:
+        """Checks if the current rule relies on beats index only."""
+        return all("beat" in index for index in self.index)
+
+    @cached_property
+    def is_sequence(self) -> bool:
+        """Checks if the current rule is a sequence-based rule."""
+        return eql.utils.get_query_type(self.ast) == 'sequence'
+
+    @cached_property
     def max_span(self) -> Optional[int]:
         """Maxspan value for sequence rules if defined."""
-        if eql.utils.get_query_type(self.ast) == 'sequence' and hasattr(self.ast.first, 'max_span'):
+        if self.is_sequence and hasattr(self.ast.first, 'max_span'):
             return self.ast.first.max_span.as_milliseconds() if self.ast.first.max_span else None
 
     @cached_property
