@@ -612,6 +612,96 @@ class TestRuleTiming(BaseRuleTest):
             invalids_str = '\n'.join(invalids)
             self.fail(f'The following rules have time frames that will cause missed detection alerts:\n{invalids_str}')
 
+    def test_sequence_scheduling(self):
+        """Check the sequence scheduling for performance completeness in eql rules."""
+        invalids = []
+
+        # TODO: variables pulled from config
+        config_min_default_interval = 5 * 60 * 1000  # 5m
+        config_min_interval_buffer_percent = .10
+        config_max_interval_buffer = 3 * 60 * 1000  # 3m
+
+        for rule in self.all_rules:
+            if rule.contents.data.type == 'eql':
+                interval = rule.contents.data.interval_ms
+                maxspan = rule.contents.data.max_span
+                ratio = rule.contents.data.interval_ratio
+                window = rule.contents.data.window
+                is_beats_only = rule.contents.data.is_beats_only_rule
+                min_default_window = 6 * 60 * 1000 if is_beats_only else 9 * 60 * 1000 # 9m
+                max_window = window + min_default_window
+                min_window = window - min_default_window
+                margin = rule.contents.data.margin
+                expected_interval = window / 2  # TODO: Divide by two?
+                max_interval = max((expected_interval - config_max_interval_buffer), config_min_default_interval)
+                min_interval = expected_interval - (expected_interval * config_min_interval_buffer_percent)
+
+                rule_path = self.rule_str(rule)
+
+                if interval < config_min_default_interval:
+                    # TODO: Description
+                    error_msg = f"{rule_path} you should bump your interval to at least {config_min_default_interval}."
+                    invalids.append(error_msg)
+                    break
+
+                if window < min_default_window:
+                    # TODO: Description
+                    error_msg = f"{rule_path} you should bump your window to at least {min_default_window}."
+                    invalids.append(error_msg)
+                    break
+
+                # TODO: Break up the rests of these tests into 2-3 seperate unit tests
+                # TODO: Order checks based on priority of testing maxspan, window, interval
+                if min_interval > expected_interval:
+                    # TODO: Description -  window and interval performance
+                    error_msg = f"{rule_path} interval too small, searching to often."
+                    invalids.append(error_msg)
+                    break
+
+                if window > max_interval:
+                    # TODO: Description - window and interval completeness
+                    error_msg = f"{rule_path} interval is too large, potentially missing events."
+                    invalids.append(error_msg)
+                    break
+
+                if min_window > window > max_window:
+                    # TODO: Description
+                    error_msg = f"{rule_path} window should be better the minimum and maximum default windows."
+                    invalids.append(error_msg)
+                    break
+
+                if maxspan and maxspan < (window * config_min_interval_buffer_percent):
+                    # TODO: Description - window and maxspan completeness
+                    error_msg = f"{rule_path} window should be greater than the maxspan."
+                    invalids.append(error_msg)
+                    break
+
+                # TODO: add check and description for window and maxspan performance
+
+                if maxspan and maxspan < interval:
+                    # TODO: Description - interval and maxspan completeness
+                    error_msg = f"{rule_path} maxspan should be greater than the interval."
+                    invalids.append(error_msg)
+                    break
+
+                if maxspan and maxspan and ratio and ratio < .5:
+                    # TODO: Description - interval and maxspan performance
+                    # we want to test for at least a ratio of: interval >= 1/2 maxspan
+                    # but we only want to make an exception and cap the ratio at 5m interval (2.5m maxspan)
+                    error_msg = f"{rule_path} an interval much smaller than maxspan is wasteful overlap."
+                    invalids.append(error_msg)
+                    break
+
+                # bottom line
+                if maxspan and (0 < margin <= interval):
+                    # TODO: Description
+                    error_msg = f"{rule_path} bottom line"
+                    invalids.append(error_msg)
+
+        if invalids:
+            invalids_str = '\n'.join(invalids)
+            self.fail(f'The following rules have time frames that will cause missed detection alerts:\n{invalids_str}')
+
 
 class TestLicense(BaseRuleTest):
     """Test rule license."""
