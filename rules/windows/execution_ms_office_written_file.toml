@@ -1,0 +1,69 @@
+[metadata]
+creation_date = "2020/09/02"
+maturity = "production"
+updated_date = "2021/07/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an executable created by a Microsoft Office application and subsequently executed. These processes are often
+launched via scripts inside documents or during exploitation of Microsoft Office applications.
+"""
+from = "now-120m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+interval = "60m"
+language = "eql"
+license = "Elastic License v2"
+name = "Execution of File Written or Modified by Microsoft Office"
+risk_score = 21
+rule_id = "0d8ad79f-9025-45d8-80c1-4f0cd3c5e8e5"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+type = "eql"
+
+query = '''
+sequence with maxspan=2h
+  [file where event.type != "deletion" and file.extension : "exe" and
+     (process.name : "WINWORD.EXE" or
+      process.name : "EXCEL.EXE" or
+      process.name : "OUTLOOK.EXE" or
+      process.name : "POWERPNT.EXE" or
+      process.name : "eqnedt32.exe" or
+      process.name : "fltldr.exe" or
+      process.name : "MSPUB.EXE" or
+      process.name : "MSACCESS.EXE")
+  ] by host.id, file.path
+  [process where event.type in ("start", "process_started")] by host.id, process.executable
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.001"
+name = "Spearphishing Attachment"
+reference = "https://attack.mitre.org/techniques/T1566/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

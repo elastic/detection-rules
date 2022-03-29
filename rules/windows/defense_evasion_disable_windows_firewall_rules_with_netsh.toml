@@ -1,0 +1,49 @@
+[metadata]
+creation_date = "2020/02/18"
+maturity = "production"
+updated_date = "2021/09/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies use of the netsh.exe to disable or weaken the local firewall. Attackers will use this command line tool to
+disable the firewall during troubleshooting or to enable network mobility.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Disable Windows Firewall Rules via Netsh"
+risk_score = 47
+rule_id = "4b438734-3793-4fda-bd42-ceeada0be8f9"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  process.name : "netsh.exe" and
+  (process.args : "disable" and process.args : "firewall" and process.args : "set") or
+  (process.args : "advfirewall" and process.args : "off" and process.args : "state")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+reference = "https://attack.mitre.org/techniques/T1562/"
+name = "Impair Defenses"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.004"
+reference = "https://attack.mitre.org/techniques/T1562/004/"
+name = "Disable or Modify System Firewall"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+name = "Defense Evasion"
+

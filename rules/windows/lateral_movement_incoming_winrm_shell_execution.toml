@@ -1,0 +1,50 @@
+[metadata]
+creation_date = "2020/11/24"
+maturity = "production"
+updated_date = "2022/01/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies remote execution via Windows Remote Management (WinRM) remote shell on a target host. This could be an
+indication of lateral movement.
+"""
+false_positives = [
+    """
+    WinRM is a dual-use protocol that can be used for benign or malicious activity. It's important to baseline your
+    environment to determine the amount of noise to expect from this tool.
+    """,
+]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Incoming Execution via WinRM Remote Shell"
+risk_score = 47
+rule_id = "1cd01db9-be24-4bef-8e7c-e923f0ff78ab"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+type = "eql"
+
+query = '''
+sequence by host.id with maxspan=30s
+   [network where process.pid == 4 and network.direction : ("incoming", "ingress") and
+    destination.port in (5985, 5986) and network.protocol == "http" and source.ip != "127.0.0.1" and source.ip != "::1"
+   ]
+   [process where event.type == "start" and process.parent.name : "winrshost.exe" and not process.name : "conhost.exe"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+

@@ -1,0 +1,52 @@
+[metadata]
+creation_date = "2020/11/26"
+maturity = "production"
+updated_date = "2022/02/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects attempts to exploit a privilege escalation vulnerability (CVE-2020-1030) related to the print spooler service.
+Exploitation involves chaining multiple primitives to load an arbitrary DLL into the print spooler process running as
+SYSTEM.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Print Spooler Point and Print DLL"
+references = [
+    "https://www.accenture.com/us-en/blogs/cyber-defense/discovering-exploiting-shutting-down-dangerous-windows-print-spooler-vulnerability",
+    "https://github.com/sbousseaden/EVTX-ATTACK-SAMPLES/blob/master/Privilege%20Escalation/privesc_sysmon_cve_20201030_spooler.evtx",
+    "https://msrc.microsoft.com/update-guide/en-US/vulnerability/CVE-2020-1030",
+]
+risk_score = 73
+rule_id = "bd7eefee-f671-494e-98df-f01daf9e5f17"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
+type = "eql"
+
+query = '''
+sequence by host.id with maxspan=30s
+[registry where
+ registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\SpoolDirectory" and
+ registry.data.strings : "C:\\Windows\\System32\\spool\\drivers\\x64\\4"]
+[registry where
+ registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\CopyFiles\\Payload\\Module" and
+ registry.data.strings : "C:\\Windows\\System32\\spool\\drivers\\x64\\4\\*"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

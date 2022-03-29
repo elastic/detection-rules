@@ -1,0 +1,43 @@
+name: Community
+
+on:
+  pull_request_target:
+    types:
+      - opened
+  issues:
+    types:
+      - opened
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if member of elastic org
+        uses: actions/github-script@v4
+        id: membership
+        with:
+          github-token: ${{ secrets.READ_ORG_TOKEN }}
+          result-encoding: string
+          script: |
+            const result = await github.orgs.getMembershipForUser({
+                       org: "elastic",
+                       username: context.payload.sender.login
+                    })
+            console.log(result.data.state)
+            if (result.data.state == "active"){
+              console.log("%s: detected as an active member of elastic org", context.payload.sender.login)
+              return "member"
+            } else {
+              console.log("%s: not detected as active member of elastic org", context.payload.sender.login)
+              return "notMember"
+            }
+      - name: Add label for community members
+        uses: actions/github-script@v4
+        if: ${{ steps.membership.outputs.result == 'notMember' }}
+        with:
+          script: |
+            github.issues.addLabels({
+                            issue_number: context.issue.number,
+                            owner: context.repo.owner,
+                            repo: context.repo.repo,
+                            labels: ['community']
+                          })

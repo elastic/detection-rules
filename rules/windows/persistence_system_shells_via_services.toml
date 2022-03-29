@@ -1,0 +1,50 @@
+[metadata]
+creation_date = "2020/02/18"
+maturity = "production"
+updated_date = "2021/10/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Windows services typically run as SYSTEM and can be used as a privilege escalation opportunity. Malware or penetration
+testers may run a shell as a service to gain SYSTEM permissions.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "System Shells via Services"
+risk_score = 47
+rule_id = "0022d47d-39c7-4f69-a232-4fe9dc7a3acd"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  process.parent.name : "services.exe" and
+  process.name : ("cmd.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe") and
+  
+  /* Third party FP's */
+  not process.args : "NVDisplay.ContainerLocalSystem"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1543"
+reference = "https://attack.mitre.org/techniques/T1543/"
+name = "Create or Modify System Process"
+[[rule.threat.technique.subtechnique]]
+id = "T1543.003"
+reference = "https://attack.mitre.org/techniques/T1543/003/"
+name = "Windows Service"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+name = "Persistence"
