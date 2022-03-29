@@ -1,0 +1,76 @@
+[metadata]
+creation_date = "2020/11/28"
+maturity = "production"
+updated_date = "2022/02/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies instances of Internet Explorer (iexplore.exe) being started via the Component Object Model (COM) making
+unusual network connections. Adversaries could abuse Internet Explorer via COM to avoid suspicious processes making
+network connections and bypass host-based firewall restrictions.
+"""
+false_positives = ["Processes such as MS Office using IEproxy to render HTML content."]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Command and Control via Internet Explorer"
+risk_score = 47
+rule_id = "acd611f3-2b93-47b3-a0a3-7723bcc46f6d"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control"]
+type = "eql"
+
+query = '''
+sequence by host.id, user.name with maxspan = 5s
+  [library where dll.name : "IEProxy.dll" and process.name : ("rundll32.exe", "regsvr32.exe")]
+  [process where event.type == "start" and process.parent.name : "iexplore.exe" and process.parent.args : "-Embedding"]
+  /* IE started via COM in normal conditions makes few connections, mainly to Microsoft and OCSP related domains, add FPs here */
+  [network where network.protocol == "dns" and process.name : "iexplore.exe" and
+   not dns.question.name :
+   (
+    "*.microsoft.com",
+    "*.digicert.com",
+    "*.msocsp.com",
+    "*.windowsupdate.com",
+    "*.bing.com",
+    "*.identrust.com",
+    "*.sharepoint.com",
+    "*.office365.com",
+    "*.office.com"
+    )
+  ] /* with runs=5 */
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1559"
+name = "Inter-Process Communication"
+reference = "https://attack.mitre.org/techniques/T1559/"
+
+  [[rule.threat.technique.subtechnique]]
+  id = "T1559.001"
+  name = "Component Object Model"
+  reference = "https://attack.mitre.org/techniques/T1559/001/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

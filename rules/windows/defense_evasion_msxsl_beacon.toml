@@ -1,0 +1,44 @@
+[metadata]
+creation_date = "2020/09/02"
+maturity = "development"
+updated_date = "2021/10/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies MsXsl.exe making outbound network connections. This may indicate adversarial activity as MsXsl is often
+leveraged by adversaries to execute malicious scripts and evade detection.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "MsXsl Making Network Connections"
+risk_score = 21
+rule_id = "870d1753-1078-403e-92d4-735f142edcca"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+type = "eql"
+
+query = '''
+/* duplicate of Network Connection via MsXsl - b86afe07-0d98-4738-b15d-8d7465f95ff5 */
+
+sequence by process.entity_id
+  [process where event.type in ("start", "process_started") and process.name : "msxsl.exe"]
+  [network where process.name : "msxsl.exe" and network.direction : ("outgoing", "egress")]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1220"
+name = "XSL Script Processing"
+reference = "https://attack.mitre.org/techniques/T1220/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

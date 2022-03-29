@@ -1,0 +1,48 @@
+[metadata]
+creation_date = "2020/01/25"
+maturity = "production"
+updated_date = "2021/03/03"
+
+[rule]
+author = ["Elastic"]
+description = "Identifies the execution of macOS built-in commands to connect to an existing Virtual Private Network (VPN)."
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Virtual Private Network Connection Attempt"
+references = [
+    "https://github.com/rapid7/metasploit-framework/blob/master/modules/post/osx/manage/vpn.rb",
+    "https://www.unix.com/man-page/osx/8/networksetup/",
+    "https://superuser.com/questions/358513/start-configured-vpn-from-command-line-osx",
+]
+risk_score = 21
+rule_id = "15dacaa0-5b90-466b-acab-63435a59701a"
+severity = "low"
+tags = ["Elastic", "Host", "macOS", "Threat Detection", "Lateral Movement"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  (
+    (process.name : "networksetup" and process.args : "-connectpppoeservice") or
+    (process.name : "scutil" and process.args : "--nc" and process.args : "start") or
+    (process.name : "osascript" and process.command_line : "osascript*set VPN to service*")
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+

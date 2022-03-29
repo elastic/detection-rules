@@ -1,0 +1,52 @@
+[metadata]
+creation_date = "2020/03/17"
+maturity = "production"
+updated_date = "2021/08/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies User Account Control (UAC) bypass via eventvwr.exe. Attackers bypass UAC to stealthily execute code with
+elevated permissions.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Bypass UAC via Event Viewer"
+risk_score = 73
+rule_id = "31b4c719-f2b4-41f6-a9bd-fce93c2eaf62"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  process.parent.name : "eventvwr.exe" and
+  not process.executable : 
+            ("?:\\Windows\\SysWOW64\\mmc.exe", 
+             "?:\\Windows\\System32\\mmc.exe",
+             "?:\\Windows\\SysWOW64\\WerFault.exe",
+             "?:\\Windows\\System32\\WerFault.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1548"
+reference = "https://attack.mitre.org/techniques/T1548/"
+name = "Abuse Elevation Control Mechanism"
+[[rule.threat.technique.subtechnique]]
+id = "T1548.002"
+reference = "https://attack.mitre.org/techniques/T1548/002/"
+name = "Bypass User Account Control"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+name = "Privilege Escalation"
+

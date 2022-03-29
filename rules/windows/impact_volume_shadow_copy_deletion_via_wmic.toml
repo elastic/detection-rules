@@ -1,0 +1,43 @@
+[metadata]
+creation_date = "2020/02/18"
+maturity = "production"
+updated_date = "2021/09/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies use of wmic.exe for shadow copy deletion on endpoints. This commonly occurs in tandem with ransomware or
+other destructive attacks.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Volume Shadow Copy Deletion via WMIC"
+risk_score = 73
+rule_id = "dc9c1f74-dac3-48e3-b47f-eb79db358f57"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Impact"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  (process.name : "WMIC.exe" or process.pe.original_file_name == "wmic.exe") and
+  process.args : "delete" and process.args : "shadowcopy"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1490"
+name = "Inhibit System Recovery"
+reference = "https://attack.mitre.org/techniques/T1490/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+

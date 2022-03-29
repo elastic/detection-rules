@@ -1,0 +1,45 @@
+[metadata]
+creation_date = "2020/09/02"
+maturity = "production"
+updated_date = "2021/03/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies WMIC allowlist bypass techniques by alerting on suspicious execution of scripts. When WMIC loads scripting
+libraries it may be indicative of an allowlist bypass.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious WMIC XSL Script Execution"
+risk_score = 21
+rule_id = "7f370d54-c0eb-4270-ac5a-9a6020585dc6"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+type = "eql"
+
+query = '''
+sequence by process.entity_id with maxspan = 2m
+[process where event.type in ("start", "process_started") and
+   (process.name : "WMIC.exe" or process.pe.original_file_name : "wmic.exe") and
+   process.args : ("format*:*", "/format*:*", "*-format*:*") and
+   not process.command_line : "* /format:table *"]
+[library where event.type == "start" and dll.name : ("jscript.dll", "vbscript.dll")]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1220"
+name = "XSL Script Processing"
+reference = "https://attack.mitre.org/techniques/T1220/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

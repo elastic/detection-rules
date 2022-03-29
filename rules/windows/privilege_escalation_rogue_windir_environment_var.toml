@@ -1,0 +1,48 @@
+[metadata]
+creation_date = "2020/11/26"
+maturity = "production"
+updated_date = "2022/02/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a privilege escalation attempt via a rogue Windows directory (Windir) environment variable. This is a known
+primitive that is often combined with other vulnerabilities to elevate privileges.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Privilege Escalation via Windir Environment Variable"
+references = ["https://www.tiraniddo.dev/2017/05/exploiting-environment-variables-in.html"]
+risk_score = 73
+rule_id = "d563aaba-2e72-462b-8658-3e5ea22db3a6"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where registry.path : ("HKEY_USERS\\*\\Environment\\windir", "HKEY_USERS\\*\\Environment\\systemroot") and 
+ not registry.data.strings : ("C:\\windows", "%SystemRoot%")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+[[rule.threat.technique.subtechnique]]
+id = "T1574.007"
+name = "Path Interception by PATH Environment Variable"
+reference = "https://attack.mitre.org/techniques/T1574/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

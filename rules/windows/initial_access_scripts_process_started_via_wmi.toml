@@ -1,0 +1,71 @@
+[metadata]
+creation_date = "2020/11/27"
+maturity = "production"
+updated_date = "2021/03/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies use of the built-in Windows script interpreters (cscript.exe or wscript.exe) being used to execute a process
+via Windows Management Instrumentation (WMI). This may be indicative of malicious activity.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Windows Script Interpreter Executing Process via WMI"
+risk_score = 47
+rule_id = "b64b183e-1a76-422d-9179-7b389513e74d"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access"]
+type = "eql"
+
+query = '''
+sequence by host.id with maxspan = 5s
+    [library where dll.name : "wmiutils.dll" and process.name : ("wscript.exe", "cscript.exe")]
+    [process where event.type in ("start", "process_started") and
+     process.parent.name : "wmiprvse.exe" and
+     user.domain != "NT AUTHORITY" and
+     (process.pe.original_file_name :
+        (
+          "cscript.exe",
+          "wscript.exe",
+          "PowerShell.EXE",
+          "Cmd.Exe",
+          "MSHTA.EXE",
+          "RUNDLL32.EXE",
+          "REGSVR32.EXE",
+          "MSBuild.exe",
+          "InstallUtil.exe",
+          "RegAsm.exe",
+          "RegSvcs.exe",
+          "msxsl.exe",
+          "CONTROL.EXE",
+          "EXPLORER.EXE",
+          "Microsoft.Workflow.Compiler.exe",
+          "msiexec.exe"
+        ) or
+      process.executable : ("C:\\Users\\*.exe", "C:\\ProgramData\\*.exe")
+     )
+    ]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.001"
+name = "Spearphishing Attachment"
+reference = "https://attack.mitre.org/techniques/T1566/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

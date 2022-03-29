@@ -1,0 +1,63 @@
+[metadata]
+creation_date = "2020/11/15"
+maturity = "production"
+updated_date = "2022/01/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies processes executed via Windows Management Instrumentation (WMI) on a remote host. This could be indicative of
+adversary lateral movement, but could be noisy if administrators use WMI to remotely manage hosts.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "WMI Incoming Lateral Movement"
+risk_score = 47
+rule_id = "f3475224-b179-4f78-8877-c2bd64c26b88"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+type = "eql"
+
+query = '''
+sequence by host.id with maxspan = 2s
+
+ /* Accepted Incoming RPC connection by Winmgmt service */
+
+  [network where process.name : "svchost.exe" and network.direction : ("incoming", "ingress") and
+   source.ip != "127.0.0.1" and source.ip != "::1" and source.port >= 49152 and destination.port >= 49152
+  ]
+
+  /* Excluding Common FPs Nessus and SCCM */
+
+  [process where event.type in ("start", "process_started") and process.parent.name : "WmiPrvSE.exe" and
+   not process.args : ("C:\\windows\\temp\\nessus_*.txt", 
+                       "C:\\windows\\TEMP\\nessus_*.TMP", 
+                       "C:\\Windows\\CCM\\SystemTemp\\*", 
+                       "C:\\Windows\\CCMCache\\*", 
+                       "C:\\CCM\\Cache\\*")
+   ]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1047"
+name = "Windows Management Instrumentation"
+reference = "https://attack.mitre.org/techniques/T1047/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

@@ -1,0 +1,53 @@
+[metadata]
+creation_date = "2020/03/30"
+maturity = "production"
+updated_date = "2021/04/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious child processes of PDF reader applications. These child processes are often launched via
+exploitation of PDF applications or social engineering.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious PDF Reader Child Process"
+risk_score = 21
+rule_id = "53a26770-9cbd-40c5-8b57-61d01a325e14"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  process.parent.name : ("AcroRd32.exe",
+                         "Acrobat.exe",
+                         "FoxitPhantomPDF.exe",
+                         "FoxitReader.exe") and
+  process.name : ("arp.exe", "dsquery.exe", "dsget.exe", "gpresult.exe", "hostname.exe", "ipconfig.exe", "nbtstat.exe",
+                  "net.exe", "net1.exe", "netsh.exe", "netstat.exe", "nltest.exe", "ping.exe", "qprocess.exe",
+                  "quser.exe", "qwinsta.exe", "reg.exe", "sc.exe", "systeminfo.exe", "tasklist.exe", "tracert.exe",
+                  "whoami.exe", "bginfo.exe", "cdb.exe", "cmstp.exe", "csi.exe", "dnx.exe", "fsi.exe", "ieexec.exe",
+                  "iexpress.exe", "installutil.exe", "Microsoft.Workflow.Compiler.exe", "msbuild.exe", "mshta.exe",
+                  "msxsl.exe", "odbcconf.exe", "rcsi.exe", "regsvr32.exe", "xwizard.exe", "atbroker.exe",
+                  "forfiles.exe", "schtasks.exe", "regasm.exe", "regsvcs.exe", "cmd.exe", "cscript.exe",
+                  "powershell.exe", "pwsh.exe", "wmic.exe", "wscript.exe", "bitsadmin.exe", "certutil.exe", "ftp.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1204"
+reference = "https://attack.mitre.org/techniques/T1204/"
+name = "User Execution"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+name = "Execution"
+

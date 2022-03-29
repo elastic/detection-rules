@@ -1,0 +1,44 @@
+[metadata]
+creation_date = "2020/12/04"
+deprecation_date = "2021/04/15"
+maturity = "deprecated"
+updated_date = "2021/04/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Enumeration or discovery of the Windows registry using reg.exe. This information can be used to perform follow-on
+activities.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Query Registry via reg.exe"
+risk_score = 21
+rule_id = "68113fdc-3105-4cdd-85bb-e643c416ef0b"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  (process.name : "reg.exe" or process.pe.original_file_name == "reg.exe") and
+  process.args == "query"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1012"
+name = "Query Registry"
+reference = "https://attack.mitre.org/techniques/T1012/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+

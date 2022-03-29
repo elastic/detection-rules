@@ -1,0 +1,56 @@
+[metadata]
+creation_date = "2021/07/07"
+maturity = "production"
+updated_date = "2021/09/22"
+
+[rule]
+author = ["Elastic", "Dennis Perto"]
+description = """
+Identifies a Windows trusted program that is known to be vulnerable to DLL Search Order Hijacking
+starting after being renamed or from a non-standard path. This is uncommon behavior and may indicate an attempt to evade
+defenses via side-loading a malicious DLL within the memory space of one of those processes.
+"""
+false_positives = ["Microsoft Antimalware Service Executable installed on non default installation path."]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential DLL Side-Loading via Microsoft Antimalware Service Executable"
+references = [
+    "https://news.sophos.com/en-us/2021/07/04/independence-day-revil-uses-supply-chain-exploit-to-attack-hundreds-of-businesses/",
+]
+risk_score = 73
+rule_id = "053a0387-f3b5-4ba5-8245-8002cca2bd08"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and
+  (process.pe.original_file_name == "MsMpEng.exe" and not process.name : "MsMpEng.exe") or
+  (process.name : "MsMpEng.exe" and not
+        process.executable : ("?:\\ProgramData\\Microsoft\\Windows Defender\\*.exe",
+                              "?:\\Program Files\\Windows Defender\\*.exe",
+                              "?:\\Program Files (x86)\\Windows Defender\\*.exe",
+                              "?:\\Program Files\\Microsoft Security Client\\*.exe",
+                              "?:\\Program Files (x86)\\Microsoft Security Client\\*.exe"))
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+[[rule.threat.technique.subtechnique]]
+id = "T1574.002"
+name = "DLL Side-Loading"
+reference = "https://attack.mitre.org/techniques/T1574/002/"
+
+
+[rule.threat.tactic]
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+id = "TA0005"
