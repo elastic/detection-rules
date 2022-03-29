@@ -1,0 +1,71 @@
+[metadata]
+creation_date = "2020/09/02"
+maturity = "production"
+updated_date = "2021/07/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a suspicious file that was written by a PDF reader application and subsequently executed. These processes are
+often launched via exploitation of PDF applications.
+"""
+from = "now-120m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+interval = "60m"
+language = "eql"
+license = "Elastic License v2"
+name = "Execution of File Written or Modified by PDF Reader"
+risk_score = 21
+rule_id = "1defdd62-cd8d-426e-a246-81a37751bb2b"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+type = "eql"
+
+query = '''
+sequence with maxspan=2h
+  [file where event.type != "deletion" and file.extension : "exe" and
+     (process.name : "AcroRd32.exe" or
+      process.name : "rdrcef.exe" or
+      process.name : "FoxitPhantomPDF.exe" or
+      process.name : "FoxitReader.exe") and
+     not (file.name : "FoxitPhantomPDF.exe" or
+          file.name : "FoxitPhantomPDFUpdater.exe" or
+          file.name : "FoxitReader.exe" or
+          file.name : "FoxitReaderUpdater.exe" or
+          file.name : "AcroRd32.exe" or
+          file.name : "rdrcef.exe")
+  ] by host.id, file.path
+  [process where event.type in ("start", "process_started")] by host.id, process.executable
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.001"
+name = "Spearphishing Attachment"
+reference = "https://attack.mitre.org/techniques/T1566/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

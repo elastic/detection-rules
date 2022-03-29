@@ -1,0 +1,51 @@
+[metadata]
+creation_date = "2020/02/18"
+maturity = "production"
+updated_date = "2021/04/14"
+
+[rule]
+author = ["Elastic"]
+description = "Adversaries can add the 'hidden' attribute to files to hide them from the user in an attempt to evade detection."
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Adding Hidden File Attribute via Attrib"
+risk_score = 21
+rule_id = "4630d948-40d4-4cef-ac69-4002e29bc3db"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  process.name : "attrib.exe" and process.args : "+h"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1564"
+reference = "https://attack.mitre.org/techniques/T1564/"
+name = "Hide Artifacts"
+[[rule.threat.technique.subtechnique]]
+id = "T1564.001"
+reference = "https://attack.mitre.org/techniques/T1564/001/"
+name = "Hidden Files and Directories"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+name = "Defense Evasion"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+name = "Persistence"
+

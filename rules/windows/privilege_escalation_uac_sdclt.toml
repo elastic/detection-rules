@@ -1,0 +1,59 @@
+[metadata]
+creation_date = "2020/09/02"
+maturity = "development"
+updated_date = "2021/08/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies User Account Control (UAC) bypass via sdclt.exe. Attackers bypass UAC to stealthily execute code with
+elevated permissions.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Bypass UAC via Sdclt"
+risk_score = 73
+rule_id = "9b54e002-034a-47ac-9307-ad12c03fa900"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
+type = "eql"
+
+query = '''
+/* add winlogbeat-* when process.code_signature.* fields are populated */
+/* still needs testing, applicable binary was not available on test machine */
+
+sequence with maxspan=1m
+  [process where event.type in ("start", "process_started") and process.name : "sdclt.exe" and
+     /* uncomment once in winlogbeat */
+     /* process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true and */
+     process.args : "/kickoffelev"
+  ] by process.entity_id
+  [process where event.type in ("start", "process_started") and process.parent.name : "sdclt.exe" and
+     not (process.executable : "C:\\Windows\\System32\\sdclt.exe" or
+          process.executable : "C:\\Windows\\System32\\control.exe" or
+          process.executable : "C:\\Windows\\SysWOW64\\sdclt.exe" or
+          process.executable : "C:\\Windows\\SysWOW64\\control.exe")
+  ] by process.parent.entity_id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+[[rule.threat.technique.subtechnique]]
+id = "T1548.002"
+name = "Bypass User Account Control"
+reference = "https://attack.mitre.org/techniques/T1548/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

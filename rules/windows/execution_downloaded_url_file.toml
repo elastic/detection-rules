@@ -1,0 +1,70 @@
+[metadata]
+creation_date = "2020/09/02"
+maturity = "development"
+query_schema_validation = false
+updated_date = "2021/03/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies .url shortcut files downloaded from outside the local network. These shortcut files are commonly used in
+phishing campaigns.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Downloaded URL Files"
+risk_score = 21
+rule_id = "cd82e3d6-1346-4afd-8f22-38388bbf34cb"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+type = "eql"
+
+query = '''
+/* leaving in development pending `file.Ext.windows.zone_identifier` landing in ECS then endpoint */
+
+sequence by process.entity_id with maxspan=2s
+  [file where event.type == "creation" and file.extension == "url" and
+     not process.name == "explorer.exe"]
+  [file where event.type == "creation" and file.extension == "url:Zone.Identifier" and
+      /* non-ECS field - may disqualify conversion */
+     file.Ext.windows.zone_identifier > 1 and not process.name == "explorer.exe"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.001"
+name = "Spearphishing Attachment"
+reference = "https://attack.mitre.org/techniques/T1566/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

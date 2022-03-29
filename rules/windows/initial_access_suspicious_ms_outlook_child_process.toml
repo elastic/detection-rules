@@ -1,0 +1,55 @@
+[metadata]
+creation_date = "2020/02/18"
+maturity = "production"
+updated_date = "2021/04/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious child processes of Microsoft Outlook. These child processes are often associated with spear
+phishing activity.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious MS Outlook Child Process"
+risk_score = 21
+rule_id = "32f4675e-6c49-4ace-80f9-97c9259dca2e"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  process.parent.name : "outlook.exe" and
+  process.name : ("Microsoft.Workflow.Compiler.exe", "arp.exe", "atbroker.exe", "bginfo.exe", "bitsadmin.exe",
+                  "cdb.exe", "certutil.exe", "cmd.exe", "cmstp.exe", "cscript.exe", "csi.exe", "dnx.exe", "dsget.exe",
+                  "dsquery.exe", "forfiles.exe", "fsi.exe", "ftp.exe", "gpresult.exe", "hostname.exe", "ieexec.exe",
+                  "iexpress.exe", "installutil.exe", "ipconfig.exe", "mshta.exe", "msxsl.exe", "nbtstat.exe", "net.exe",
+                  "net1.exe", "netsh.exe", "netstat.exe", "nltest.exe", "odbcconf.exe", "ping.exe", "powershell.exe",
+                  "pwsh.exe", "qprocess.exe", "quser.exe", "qwinsta.exe", "rcsi.exe", "reg.exe", "regasm.exe",
+                  "regsvcs.exe", "regsvr32.exe", "sc.exe", "schtasks.exe", "systeminfo.exe", "tasklist.exe",
+                  "tracert.exe", "whoami.exe", "wmic.exe", "wscript.exe", "xwizard.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+reference = "https://attack.mitre.org/techniques/T1566/"
+name = "Phishing"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.001"
+reference = "https://attack.mitre.org/techniques/T1566/001/"
+name = "Spearphishing Attachment"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+name = "Initial Access"
+

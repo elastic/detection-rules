@@ -1,0 +1,50 @@
+[metadata]
+creation_date = "2020/02/18"
+maturity = "production"
+updated_date = "2021/09/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies unexpected processes making network connections over port 445. Windows File Sharing is typically implemented
+over Server Message Block (SMB), which communicates between hosts using port 445. When legitimate, these network
+connections are established by the kernel. Processes making 445/tcp connections may be port scanners, exploits, or
+suspicious user-level processes moving laterally.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Direct Outbound SMB Connection"
+risk_score = 47
+rule_id = "c82c7d8f-fb9e-4874-a4bd-fd9e3f9becf1"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+type = "eql"
+
+query = '''
+sequence by process.entity_id
+  [process where event.type == "start" and process.pid != 4]
+  [network where destination.port == 445 and process.pid != 4 and
+     not cidrmatch(destination.ip, "127.0.0.1", "::1")]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+name = "Remote Services"
+id = "T1021"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+  [[rule.threat.technique.subtechnique]]
+  name = "SMB/Windows Admin Shares"
+  id = "T1021.002"
+  reference = "https://attack.mitre.org/techniques/T1021/002/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+

@@ -1,0 +1,51 @@
+[metadata]
+creation_date = "2021/07/06"
+deprecation_date = "2022/03/16"
+maturity = "deprecated"
+updated_date = "2022/03/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the creation or modification of a print driver with an unusual file name. This may indicate attempts to exploit
+privilege escalation vulnerabilities related to the Print Spooler service. For more information refer to CVE-2021-34527
+and verify that the impacted system is investigated.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential PrintNightmare File Modification"
+references = [
+    "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34527",
+    "https://github.com/afwu/PrintNightmare",
+]
+risk_score = 73
+rule_id = "5e87f165-45c2-4b80-bfa5-52822552c997"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+/* This rule is compatible with both Sysmon and Elastic Endpoint */
+
+file where process.name : "spoolsv.exe" and 
+ file.name : ("kernelbase.dll", "ntdll.dll", "kernel32.dll", "winhttp.dll", "user32.dll") and
+ file.path : "?:\\Windows\\System32\\spool\\drivers\\x64\\3\\*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1068"
+reference = "https://attack.mitre.org/techniques/T1068/"
+name = "Exploitation for Privilege Escalation"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+name = "Privilege Escalation"
+
