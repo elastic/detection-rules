@@ -24,7 +24,7 @@ These guidelines will also help you post meaningful issues that will be more eas
     - [Rule metadata](#rule-metadata)
     - [Using Elastic Common Schema (ECS)](#using-elastic-common-schema-ecs)
     - [Creating a rule with the CLI](#creating-a-rule-with-the-cli)
-    - [Understanding interval, lookback, and maxspan for EQL sequence rules](#understanding-interval-lookback-and-maxspan-for-eql-sequence-rules)
+    - [Understanding interval, window, and maxspan for EQL sequence rules](#understanding-interval-window-and-maxspan-for-eql-sequence-rules)
     - [Testing a rule with the CLI](#testing-a-rule-with-the-cli)
   - [Writing style](#writing-style)
   - [Signing the contributor license agreement](#signing-the-contributor-license-agreement)
@@ -228,7 +228,7 @@ Did not set the following values because they are un-required when set to the de
 ```
 
 
-### Understanding interval, lookback, and maxspan for EQL sequence rules
+### Understanding interval, window, and maxspan for EQL sequence rules
 
 Refer to the [docs](https://www.elastic.co/guide/en/security/current/rules-api-create.html) to see the definitions of these terms.
 
@@ -238,8 +238,8 @@ Performance and completeness considerations
 
 |                     | performance                                                   | completeness                            |
 |---------------------|---------------------------------------------------------------|-----------------------------------------|
-| lookback & interval | an overly large lookback / interval is redundant and wasteful | lookback >= (2 * interval + 10m buffer) |
-| lookback & maxspan  | these two values should be as small as needed to detect       | lookback must be > maxspan              |
+| window & interval | an overly large window / interval is redundant and wasteful | window >= (2 * interval + 10m buffer) |
+| window & maxspan  | these two values should be as small as needed to detect       | window must be > maxspan              |
 | interval & maxspan  | an interval much smaller than maxspan is wasteful overlap     | maxspan > interval
 
 
