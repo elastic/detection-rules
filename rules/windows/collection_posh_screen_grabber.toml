@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/10/19"
 maturity = "production"
-updated_date = "2022/03/02"
+updated_date = "2022/03/07"
 
 [rule]
 author = ["Elastic"]
@@ -14,6 +14,61 @@ index = ["winlogbeat-*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "PowerShell Suspicious Script with Screenshot Capabilities"
+note = """## Triage and analysis
+
+### Investigating PowerShell Suspicious Script with Screenshot Capabilities
+
+PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks, which makes
+it available for use in various environments and creates an attractive way for attackers to execute code.
+
+Attackers can abuse PowerShell capabilities and take screen captures of desktops to gather information over the course
+of an operation.
+
+#### Possible investigation steps
+
+- Examine the script content that triggered the detection. 
+- Investigate the script execution chain (parent process tree).
+- Inspect file or network events from the suspicious PowerShell host process instance.
+- Investigate other alerts associated with the user or host in the past 48 hours.
+- Consider whether the user needs PowerShell to complete its tasks.
+- Investigate if the script stores the captured data locally.
+- Investigate if the script contains exfiltration capabilities and the destination of this exfiltration.
+- Examine network data to determine if the host communicated with the exfiltration server.
+
+### False positive analysis
+
+- Regular users do not have a business justification for using scripting utilities to take screenshots, which makes false
+positives unlikely. In the case of authorized benign true positives (B-TPs), exceptions can be added.
+
+### Related rules
+
+- PowerShell Keylogging Script - bd2c86a0-8b61-4457-ab38-96943984e889
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Quarantine the involved host for forensic investigation, as well as eradication and recovery activities.
+- Configure AppLocker or equivalent software to restrict access to PowerShell for regular users.
+- Reset the password for the user account.
+
+## Config
+
+The 'PowerShell Script Block Logging' logging policy must be enabled.
+Steps to implement the logging policy with with Advanced Audit Configuration:
+
+```
+Computer Configuration > 
+Administrative Templates > 
+Windows PowerShell > 
+Turn on PowerShell Script Block Logging (Enable)
+```
+
+Steps to implement the logging policy via registry:
+
+```
+reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+```
+"""
 references = ["https://docs.microsoft.com/en-us/dotnet/api/system.drawing.graphics.copyfromscreen"]
 risk_score = 47
 rule_id = "959a7353-1129-4aa7-9084-30746b256a70"
