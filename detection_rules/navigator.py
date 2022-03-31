@@ -227,6 +227,7 @@ class NavigatorBuilder:
         populated_techniques = []
         layer = self.get_layer(layer_name, layer_key)
         base_name = f'{layer_name}-{layer_key}' if layer_key else layer_name
+        base_name = base_name.replace('*', 'WILDCARD')
         name = f'Elastic-detection-rules-{base_name}'
 
         for tactic, techniques in layer.items():

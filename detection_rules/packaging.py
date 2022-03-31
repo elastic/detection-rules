@@ -82,13 +82,15 @@ class Package(object):
 
     def __init__(self, rules: RuleCollection, name: str, release: Optional[bool] = False,
                  min_version: Optional[int] = None, max_version: Optional[int] = None,
-                 registry_data: Optional[dict] = None, verbose: Optional[bool] = True):
+                 registry_data: Optional[dict] = None, verbose: Optional[bool] = True,
+                 generate_navigator: bool = False):
         """Initialize a package."""
         self.name = name
         self.rules = rules
         self.deprecated_rules: DeprecatedCollection = rules.deprecated
         self.release = release
         self.registry_data = registry_data or {}
+        self.generate_navigator = generate_navigator
 
         if min_version is not None:
             self.rules = self.rules.filter(lambda r: min_version <= r.contents.latest_version)
@@ -150,7 +152,8 @@ class Package(object):
         with open(os.path.join(directory, f'{self.name}-changelog-entry.md'), 'w') as f:
             f.write(changelog)
 
-        self.generate_attack_navigator(Path(directory))
+        if self.generate_navigator:
+            self.generate_attack_navigator(Path(directory))
 
         consolidated = json.loads(self.get_consolidated())
         with open(os.path.join(directory, f'{self.name}-consolidated-rules.json'), 'w') as f:
