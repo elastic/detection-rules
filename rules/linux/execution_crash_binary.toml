@@ -24,9 +24,7 @@ tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution", "GTFOBins"]
 type = "eql"
 
 query = '''
-sequence by host.id, process.pid with maxspan=1m
-[process where event.type == "start" and process.name == "crash" and process.args : "-h"]
-[process where process.parent.name == "crash" and process.name : "sh"]
+process where event.type == "start" and process.parent.name == "crash" and process.parent.args == "-h" and process.name == "sh"
 '''
 
 
