@@ -608,14 +608,14 @@ class TestRuleTiming(BaseRuleTest):
                 if interval < config_min_default_interval:
                     # Test - interval performance
                     # Base check to make sure the interval is not greater than the config minimum default interval.
-                    error_msg = f"{rule_path} Set your interval to at least {config_min_default_interval}ms."
+                    error_msg = f"{rule_path} Set your interval to at least {config_min_default_interval/1000}s."
                     invalids.append(error_msg)
                     continue
 
                 if window < min_default_window:
                     # Test - interval performance
                     # Base check to make sure the window is not greater than the config minimum default window.
-                    error_msg = f"{rule_path} Set your window (from_) to at least {min_default_window}ms."
+                    error_msg = f"{rule_path} Set your window (from_) to at least {min_default_window/1000}m."
                     invalids.append(error_msg)
                     continue
 
