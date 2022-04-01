@@ -230,7 +230,7 @@ Did not set the following values because they are un-required when set to the de
 
 ### Understanding interval, window, and maxspan for EQL sequence rules
 
-Refer to the [docs](https://www.elastic.co/guide/en/security/current/rules-api-create.html) to see the definitions of these terms.
+Refer to the [rule create docs](https://www.elastic.co/guide/en/security/current/rules-api-create.html) to see the interval definition and [eql docs](https://www.elastic.co/guide/en/elasticsearch/reference/current/eql-syntax.html#eql-with-maxspan-keywords) to see the maxspan definition.
 
 **window**: `to` - `from`
 
