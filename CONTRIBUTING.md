@@ -24,14 +24,12 @@ These guidelines will also help you post meaningful issues that will be more eas
     - [Rule metadata](#rule-metadata)
     - [Using Elastic Common Schema (ECS)](#using-elastic-common-schema-ecs)
     - [Creating a rule with the CLI](#creating-a-rule-with-the-cli)
-    - [Understanding interval, lookback, and maxspan for EQL sequence rules](#understanding-interval-lookback-and-maxspan-for-eql-sequence-rules)
     - [Testing a rule with the CLI](#testing-a-rule-with-the-cli)
   - [Writing style](#writing-style)
   - [Signing the contributor license agreement](#signing-the-contributor-license-agreement)
   - [Submitting a Pull Request](#submitting-a-pull-request)
     - [What to expect from a code review](#what-to-expect-from-a-code-review)
     - [How we handle merges](#how-we-handle-merges)
-
 
 ## Effective issue creation in Detection Rules
 
@@ -41,23 +39,22 @@ We generally create issues in GitHub before contributing code or new rules. This
 
 By contrast, starting with a pull request makes it more difficult to revisit the approach. Many PRs are treated as mostly done and shouldn't need much work to get merged. Nobody wants to receive PR feedback that says "start over" or "closing: won't merge." That's discouraging to everyone, and we can avoid those situations if we have the discussion together earlier in the development process. It might be a mental switch for you to start the discussion earlier, but it makes us all more productive and and our rules more effective.
 
-
 ### What a good issue looks like
 
 We have a few types of issue templates to [choose from](https://github.com/elastic/detection-rules/issues/new/choose). If you don't find a template that matches or simply want to ask a question, create a blank issue and add the appropriate labels.
 
-* **Bug report**: Create a report to help us improve (not pertaining to rules)
-* **Feature request**: Suggest an idea for this project (not pertaining to rules)
-* **New rule**: Suggestions and ideas for new rules for the Detection Engine
-* **Rule deprecation**: Recommend deprecating a rule that doesn't work or isn't useful anymore
-* **Tune existing rule**: Suggest changes to make to an existing rule to address false positives or negatives
+- **Bug report**: Create a report to help us improve (not pertaining to rules)
+- **Feature request**: Suggest an idea for this project (not pertaining to rules)
+- **New rule**: Suggestions and ideas for new rules for the Detection Engine
+- **Rule deprecation**: Recommend deprecating a rule that doesn't work or isn't useful anymore
+- **Tune existing rule**: Suggest changes to make to an existing rule to address false positives or negatives
 
 When requesting a **New rule**, please create an issue of the **New rule** type. The issue contains a handful of questions about the targeted behavior and the approach to detection:
 
-* What are the matching MITRE ATT&CK® technique and tactics?
-* What data sources are needed?
-* Does a detection need fields that aren't listed in Elastic Common Schema (ECS) yet?
-* Is the technique behavior-based, or is it based on indicators of compromise?
+- What are the matching MITRE ATT&CK® technique and tactics?
+- What data sources are needed?
+- Does a detection need fields that aren't listed in Elastic Common Schema (ECS) yet?
+- Is the technique behavior-based, or is it based on indicators of compromise?
 
 ### "My issue isn't getting enough attention"
 
@@ -81,7 +78,6 @@ We get asked from time-to-time if there are any rules that the community can hel
 
 We enjoy working with contributors to get their code accepted. There are many approaches to fixing a problem and it is important to find the best approach before writing too much code.
 
-
 ## How we use Git and GitHub
 
 ### Forking
@@ -96,35 +92,33 @@ This repository follows a similar approach to other repositories within the [Ela
 
 The branching workflow we currently follow for Detection Rules:
 
-* All changes for the next release of rules are made to the `main` branch
-* During feature freeze for a release, we will create a branch from `main` for the release version `{majorVersion.minorVersion}`. This means that we can continue contributing to `main`, even during feature freeze, and it will target `{majorVersion.minorVersion+1}`
-* Rules are automatically backported to old branches (starting at `7.13`) if the `backport: auto` label is set on GitHub. This is done automatically for all PRs that merge to main `main` with the label `backport: auto`.
-* To opt-out of a backport, add the label `backport: skip`. GitHub will automatically remove the `backport: auto` label from the PR when this label is set
-* As of 7.13, you can use Fleet to [update prebuilt rules](https://www.elastic.co/guide/en/security/current/rules-ui-management.html#download-prebuilt-rules) for your stack
-* Changes to rules in an already-released branch will be included in an update to the "Prebuilt Security Detection Rules" integration
+- All changes for the next release of rules are made to the `main` branch
+- During feature freeze for a release, we will create a branch from `main` for the release version `{majorVersion.minorVersion}`. This means that we can continue contributing to `main`, even during feature freeze, and it will target `{majorVersion.minorVersion+1}`
+- Rules are automatically backported to old branches (starting at `7.13`) if the `backport: auto` label is set on GitHub. This is done automatically for all PRs that merge to main `main` with the label `backport: auto`.
+- To opt-out of a backport, add the label `backport: skip`. GitHub will automatically remove the `backport: auto` label from the PR when this label is set
+- As of 7.13, you can use Fleet to [update prebuilt rules](https://www.elastic.co/guide/en/security/current/rules-ui-management.html#download-prebuilt-rules) for your stack
+- Changes to rules in an already-released branch will be included in an update to the "Prebuilt Security Detection Rules" integration
 
 **Prior to 7.13**
 
 The branching workflow we used to follow for Detection Rules:
 
-* All changes for the next release of rules are made to the `main` branch
-* During feature freeze for a release, we will create a branch from `main` for the release version `{majorVersion.minorVersion}`. This means that we can continue contributing to `main`, even during feature freeze, and it will just target `{majorVersion.minorVersion+1}`
-* For bug fixes and other changes targeting the pending release during feature freeze, we will make those contributions to `{majorVersion.minorVersion}`. Periodically, we will then backport those changes from `{majorVersion.minorVersion}` to `main`
+- All changes for the next release of rules are made to the `main` branch
+- During feature freeze for a release, we will create a branch from `main` for the release version `{majorVersion.minorVersion}`. This means that we can continue contributing to `main`, even during feature freeze, and it will just target `{majorVersion.minorVersion+1}`
+- For bug fixes and other changes targeting the pending release during feature freeze, we will make those contributions to `{majorVersion.minorVersion}`. Periodically, we will then backport those changes from `{majorVersion.minorVersion}` to `main`
 
 ### Commit messages
 
-* Feel free to make as many commits as you want, while working on a branch.
-* Please use your commit messages to include helpful information on your changes. Commit messages that look like `update` are unhelpful to reviewers. Try to be clear and concise with the changes in a commit. For example: `Add Sysmon support to MsBuild network rule`. Here's a [good blog](https://chris.beams.io/posts/git-commit/) on general best practices for commit messages.
-
+- Feel free to make as many commits as you want, while working on a branch.
+- Please use your commit messages to include helpful information on your changes. Commit messages that look like `update` are unhelpful to reviewers. Try to be clear and concise with the changes in a commit. For example: `Add Sysmon support to MsBuild network rule`. Here's a [good blog](https://chris.beams.io/posts/git-commit/) on general best practices for commit messages.
 
 ### What goes into a Pull Request
 
-* Please include an explanation of your changes in your PR description.
-* Links to relevant issues, external resources, or related PRs are very important and useful.
-* Please try to explain *how* and *why* your rule works. Can you explain what makes the logic sound? Does it actually detect what it's supposed to? If you include the screenshot, please make sure to crop out any sensitive information!
-* Please try to capture the expectations for noise levels: is the rule prone to false positives or false negatives?
-* See [Submitting a Pull Request](#submitting-a-pull-request) for more info.
-
+- Please include an explanation of your changes in your PR description.
+- Links to relevant issues, external resources, or related PRs are very important and useful.
+- Please try to explain *how* and *why* your rule works. Can you explain what makes the logic sound? Does it actually detect what it's supposed to? If you include the screenshot, please make sure to crop out any sensitive information!
+- Please try to capture the expectations for noise levels: is the rule prone to false positives or false negatives?
+- See [Submitting a Pull Request](#submitting-a-pull-request) for more info.
 
 ## Our approach to detection engineering
 
@@ -133,7 +127,6 @@ Contributions to Detection Rules are ultimately integrated with the Detection En
 For more information on our approach to writing threat-based detection logic, please read our [philosophy](PHILOSOPHY.md) page.
 
 <a id="maturity-note">\* Note:</a> Specifically, rules that contain `maturity = "production"` will be included in the next stack release.
-
 
 ### Rule metadata
 
@@ -163,7 +156,6 @@ Some of the required metadata captured in a rule file:
 | **to**               |          | Relative end time of a rule (e.g. `now`)                                        |
 | **type**             |     ✓    | Execution type of the rule (`query` or `machine_learning`)                      |
 
-
 ### Using Elastic Common Schema (ECS)
 
 Our rules should be written generically when possible. We use [Elastic Common Schema (ECS)](https://www.elastic.co/guide/en/ecs/current/ecs-reference.html) to standardize data before ingesting into Elasticsearch. ECS gives a set of field sets, field names and categories to standardize events across various tools. By writing rules using ECS fields and values, you can reuse the same logic regardless of data source. ECS is an ongoing effort, and we may encounter fields that aren't present yet. If you need to make any requests to ECS, see the [elastic/ecs](https://github.com/elastic/ecs) GitHub repository.
@@ -178,15 +170,14 @@ When a Pull Request is missing a necessary ECS change, please add an issue to [e
 
 We manage our repository with a command line tool that automatically creates TOML files, validates rules, and bundles all rules for the Detection Engine. There's a lot of metadata for each rule, and manually copying and pasting rule files is error prone and tedious. To create a new rule, run the command below, which iterates through the required metadata, and prompts for each field.
 
-
 For example, to create a new rule file for `rules/windows/defense_evasion_msbuild_child.toml`, run the command
 
 ```console
-$ python -m detection_rules create-rule rules/windows/defense_evasion_msbuild_child.toml
+python -m detection_rules create-rule rules/windows/defense_evasion_msbuild_child.toml
 ```
 
-
 The command will prompt you for each required field in the metadata
+
 ```
 Rule type (machine_learning, query, saved_id): query
 actions (multi, comma separated):
@@ -218,6 +209,7 @@ ecs_version (multi, comma separated): 1.4.0
 ```
 
 Pending no errors, you'll see this output upon success
+
 ```
 Rule Suspicious Child of MsBuild saved to rules/windows/defense_evasion_msbuild_child.toml
 Did not set the following values because they are un-required when set to the default value
@@ -227,25 +219,12 @@ Did not set the following values because they are un-required when set to the de
  - to
 ```
 
-### Understanding interval, lookback, and maxspan for EQL sequence rules
-
-Refer to the [docs](https://www.elastic.co/guide/en/security/current/rules-api-create.html) to see the definitions of these terms.
-
-**window**: `to` - `from`
-
-Performance and completeness considerations
-
-|                     | performance                                                   | completeness                            |
-|---------------------|---------------------------------------------------------------|-----------------------------------------|
-| window & interval | an overly large window / interval is redundant and wasteful | ...                        |
-| window & maxspan  | these two values should be as small as needed to detect       | ...                        |
-| interval & maxspan  | an interval much smaller than maxspan is wasteful overlap     | ...                        |
-
 ### Testing a rule with the CLI
 
 When a rule is ready, it can be tested with unit tests. Detection Rules has several tests that run locally to validate rules in the repository. These tests make sure that rules are syntactically correct, use ECS or Beats schemas correctly, and ensure that metadata is also validated. There are also internal tests to make sure that the tools and functions to manager the repository are working as expected.
 
 To run tests, simply run the command `test` with the CLI
+
 ```console
 $ python -m detection_rules test
 
@@ -263,18 +242,15 @@ tests/kuery/test_parser.py::ParserTests::test_number_wildcard_fail PASSED       
 ========================================================================== 73 passed in 45.47s ==========================================================================
 ```
 
-
 ## Writing style
 
 Our rules are much more than queries. We capture a lot of metadata within the rules, such as severity, index pattterns, and noise level. We also have several fields that are user-readable text, such as `name`, `description`, `false_positives`, `investigation_notes`, and `name`. Those fields, which are populated with English text[*](#i18n-note), should follow the [Elastic UI writing guidelines](https://elastic.github.io/eui/#/guidelines/writing). We want our text to be *clear* and *concise*, *consistent* and *conversational*.
 
 <a id="i18n-note">\* Note</a>: We currently don't have i18n support for Detection Rules.
 
-
 ## Signing the contributor license agreement
 
 Please make sure you've signed the [Contributor License Agreement](http://www.elastic.co/contributor-agreement/). We're not asking you to assign copyright to us, but to give us the right to distribute your code without restriction. We ask this of all contributors in order to assure our users of the origin and continuing existence of the code. You only need to sign the CLA once.
-
 
 ## Submitting a Pull Request
 
@@ -283,7 +259,6 @@ Push your local changes to your forked copy of the repository and submit a Pull 
 Always submit your pull against `main` unless you are making changes for the pending release during feature freeze (see [Branching](#branching) for our branching strategy).
 
 Then sit back and wait. We will probably have a discussion in the pull request and may request changes before merging. We're not trying to get in the way, but want to work with you to get your contributions in Detection Rules.
-
 
 ### What to expect from a code review
 
