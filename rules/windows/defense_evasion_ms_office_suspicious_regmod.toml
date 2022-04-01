@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/01/12"
 maturity = "production"
-updated_date = "2022/02/28"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
@@ -57,6 +57,11 @@ positives (B-TPs), as this configuration can put the user and the domain at risk
 - Reset the registry key value.
 - Isolate the host if malicious code was executed and reset the involved account's passwords.
 - Explore using GPOs to manage security settings for Microsoft Office macros.
+
+
+## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 risk_score = 47
 rule_id = "feeed87c-5e95-4339-aef1-47fd79bcfbe3"
@@ -78,30 +83,31 @@ registry where event.type == "change" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1112"
 name = "Modify Registry"
 reference = "https://attack.mitre.org/techniques/T1112/"
 
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1204"
 name = "User Execution"
 reference = "https://attack.mitre.org/techniques/T1204/"
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1204.002"
-  name = "Malicious File"
-  reference = "https://attack.mitre.org/techniques/T1204/002/"
+
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
