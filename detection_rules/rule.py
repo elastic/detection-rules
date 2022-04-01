@@ -295,9 +295,14 @@ class EQLRuleData(QueryRuleData):
             return self.convert_time_span(lookback)
 
     @cached_property
+    def is_sequence(self) -> bool:
+        """Checks if the current rule is a sequence-based rule."""
+        return eql.utils.get_query_type(self.ast) == 'sequence'
+
+    @cached_property
     def max_span(self) -> Optional[int]:
         """Maxspan value for sequence rules if defined."""
-        if eql.utils.get_query_type(self.ast) == 'sequence' and hasattr(self.ast.first, 'max_span'):
+        if self.is_sequence and hasattr(self.ast.first, 'max_span'):
             return self.ast.first.max_span.as_milliseconds() if self.ast.first.max_span else None
 
     @cached_property

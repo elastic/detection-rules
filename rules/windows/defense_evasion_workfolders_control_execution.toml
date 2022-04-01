@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/03/02"
 maturity = "production"
-updated_date = "2022/03/02"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -41,6 +41,11 @@ behavior.
 - If no lateral movement was identified during investigation, take the effected host offline if possible and remove the control.exe binary as well as any additional artifacts identified during investigation.
 - Review integrating Windows Information Protection (WIP) to enforce data protection by encrypting the data on PCs using Work Folders.
 - Confirm with user whether this was expected or not and reset their password.
+
+
+## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = [
     "https://docs.microsoft.com/en-us/windows-server/storage/work-folders/work-folders-overview",

@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/12/04"
 maturity = "production"
-updated_date = "2022/03/07"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
@@ -47,6 +47,11 @@ file names included in the encrypted file.
 - Quarantine the involved host for forensic investigation, as well as eradication and recovery activities.
 - Reset the passwords of the involved accounts.
 - Safeguard critical assets to prevent further harm or theft of data.
+
+
+## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = ["https://www.welivesecurity.com/2020/12/02/turla-crutch-keeping-back-door-open/"]
 risk_score = 47
@@ -77,11 +82,10 @@ framework = "MITRE ATT&CK"
 id = "T1560"
 name = "Archive Collected Data"
 reference = "https://attack.mitre.org/techniques/T1560/"
-
-  [[rule.threat.technique.subtechnique]]
-  id = "T1560.001"
-  name = "Archive via Utility"
-  reference = "https://attack.mitre.org/techniques/T1560/001/"
+[[rule.threat.technique.subtechnique]]
+id = "T1560.001"
+name = "Archive via Utility"
+reference = "https://attack.mitre.org/techniques/T1560/001/"
 
 
 [rule.threat.tactic]

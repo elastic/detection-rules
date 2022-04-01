@@ -1,19 +1,24 @@
 [metadata]
 creation_date = "2021/07/22"
 maturity = "production"
-updated_date = "2021/10/15"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Austin Songer"]
-description = """Identifies when a user enables DNS-over-HTTPS. This can be used to hide internet activity or
-the process of exfiltrating data. With this enabled, an organization will lose visibility into data such as query type,
-response, and originating IP, which are used to determine bad actors."""
-
+description = """
+Identifies when a user enables DNS-over-HTTPS. This can be used to hide internet activity or the process of exfiltrating
+data. With this enabled, an organization will lose visibility into data such as query type, response, and originating
+IP, which are used to determine bad actors.
+"""
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "DNS-over-HTTPS Enabled via Registry"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = [
     "https://www.tenforums.com/tutorials/151318-how-enable-disable-dns-over-https-doh-microsoft-edge.html",
     "https://chromeenterprise.google/policies/?policy=DnsOverHttpsMode",
@@ -35,12 +40,14 @@ registry where event.type in ("creation", "change") and
   registry.data.strings : "1")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
 
 [rule.threat.tactic]
 id = "TA0005"
