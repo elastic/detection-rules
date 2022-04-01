@@ -57,3 +57,8 @@ class TestEql2Kql(unittest.TestCase):
         with eql.parser.elasticsearch_validate_optional_fields:
             self.validate('field:value-*', 'field : "value-*"')
             self.validate('field:value-?', 'field : "value-?"')
+
+        with eql.parser.elasticsearch_validate_optional_fields, self.assertRaises(AssertionError):
+            self.validate('field:"value-*"', 'field == "value-*"')
+            self.validate('field:"value-?"', 'field == "value-?"')
+
