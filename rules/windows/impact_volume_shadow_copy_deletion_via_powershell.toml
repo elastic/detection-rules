@@ -1,13 +1,13 @@
 [metadata]
 creation_date = "2021/07/19"
 maturity = "production"
-updated_date = "2022/03/08"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
 description = """
-Identifies the use of the Win32_ShadowCopy class and related cmdlets to achieve shadow copy deletion. This commonly occurs
-in tandem with ransomware or other destructive attacks.
+Identifies the use of the Win32_ShadowCopy class and related cmdlets to achieve shadow copy deletion. This commonly
+occurs in tandem with ransomware or other destructive attacks.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
@@ -63,6 +63,11 @@ environment, consider adding exceptions — preferably with a combination of use
 - If data was encrypted, deleted, or modified, activate your data recovery plan.
 - Reset the password of the involved accounts.
 - Perform data recovery locally or restore the backups from replicated copies (cloud, other servers, etc.).
+
+
+## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = [
     "https://docs.microsoft.com/en-us/previous-versions/windows/desktop/vsswmi/win32-shadowcopy",
@@ -89,13 +94,12 @@ process where event.type in ("start", "process_started") and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1490"
-reference = "https://attack.mitre.org/techniques/T1490/"
 name = "Inhibit System Recovery"
-
+reference = "https://attack.mitre.org/techniques/T1490/"
 
 
 [rule.threat.tactic]
 id = "TA0040"
-reference = "https://attack.mitre.org/tactics/TA0040/"
 name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
 

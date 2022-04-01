@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/10/19"
 maturity = "production"
-updated_date = "2022/02/28"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
@@ -50,6 +50,11 @@ isolation, so reviewing previous logs/activity from impacted machines can be ver
 post-compromise behavior.
 - It's important to understand that `AdFind` is an Active Directory enumeration tool and can be used for malicious or legitimate
 purposes, so understanding the intent behind the activity will help determine the appropropriate response.
+
+
+## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = [
     "http://www.joeware.net/freetools/tools/adfind/",
@@ -82,6 +87,11 @@ process where event.type in ("start", "process_started") and
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
+id = "T1018"
+name = "Remote System Discovery"
+reference = "https://attack.mitre.org/techniques/T1018/"
+
+[[rule.threat.technique]]
 id = "T1069"
 name = "Permission Groups Discovery"
 reference = "https://attack.mitre.org/techniques/T1069/"
@@ -105,12 +115,6 @@ reference = "https://attack.mitre.org/techniques/T1087/002/"
 id = "T1482"
 name = "Domain Trust Discovery"
 reference = "https://attack.mitre.org/techniques/T1482/"
-
-
-[[rule.threat.technique]]
-id = "T1018"
-name = "Remote System Discovery"
-reference = "https://attack.mitre.org/techniques/T1018/"
 
 
 [rule.threat.tactic]
