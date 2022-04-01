@@ -631,7 +631,7 @@ class TestRuleTiming(BaseRuleTest):
                     invalids.append(error_msg)
                     continue
 
-                if maxspan and maxspan and ratio and ratio < .5:
+                if maxspan and maxspan > (config_min_default_interval / 2) and ratio and ratio < .5:
                     # Test - interval and maxspan performance
                     # Check for at least a ratio of: interval >= 1/2 maxspan,
                     # but we only want to make an exception and cap the ratio at 5m interval (2.5m maxspan)
