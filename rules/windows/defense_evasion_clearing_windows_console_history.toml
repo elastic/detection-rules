@@ -1,19 +1,23 @@
 [metadata]
 creation_date = "2021/11/22"
 maturity = "production"
-updated_date = "2021/11/24"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Austin Songer"]
 description = """
-Identifies when a user attempts to clear console history. An adversary may clear the command history of a compromised account to conceal
-the actions undertaken during an intrusion.
+Identifies when a user attempts to clear console history. An adversary may clear the command history of a compromised
+account to conceal the actions undertaken during an intrusion.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Clearing Windows Console History"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = [
     "https://stefanos.cloud/blog/kb/how-to-clear-the-powershell-command-history/",
     "https://www.shellhacks.com/clear-history-powershell/",
@@ -34,19 +38,22 @@ process where event.action == "start" and
      (process.args : "*Set-PSReadlineOption*" and process.args : "*SaveNothing*"))
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1070"
 name = "Indicator Removal on Host"
 reference = "https://attack.mitre.org/techniques/T1070/"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.003"
+name = "Clear Command History"
+reference = "https://attack.mitre.org/techniques/T1070/003/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1070.003"
-  name = "Clear Command History"
-  reference = "https://attack.mitre.org/techniques/T1070/003/"
+
 
 [rule.threat.tactic]
 id = "TA0005"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
