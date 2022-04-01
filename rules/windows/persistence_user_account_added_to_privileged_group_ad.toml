@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/01/09"
 maturity = "production"
-updated_date = "2022/03/16"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic", "Skoetting"]
@@ -15,6 +15,10 @@ index = ["winlogbeat-*", "logs-windows.*", "logs-system.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "User Added to Privileged Group in Active Directory"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = [
     "https://docs.microsoft.com/en-us/windows-server/identity/ad-ds/plan/security-best-practices/appendix-b--privileged-accounts-and-groups-in-active-directory",
 ]
@@ -42,12 +46,12 @@ iam where event.action == "added-member-to-group" and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1098"
-reference = "https://attack.mitre.org/techniques/T1098/"
 name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
 
 
 [rule.threat.tactic]
 id = "TA0003"
-reference = "https://attack.mitre.org/tactics/TA0003/"
 name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 

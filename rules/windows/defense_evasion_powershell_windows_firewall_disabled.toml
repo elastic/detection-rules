@@ -1,8 +1,7 @@
 [metadata]
 creation_date = "2021/10/15"
 maturity = "production"
-updated_date = "2022/02/16"
-
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Austin Songer"]
@@ -22,6 +21,10 @@ index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Windows Firewall Disabled via PowerShell"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = [
     "https://docs.microsoft.com/en-us/powershell/module/netsecurity/set-netfirewallprofile?view=windowsserver2019-ps",
     "https://www.tutorialspoint.com/how-to-get-windows-firewall-profile-settings-using-powershell",
@@ -43,17 +46,19 @@ process where event.action == "start" and
   (process.args : "*-All*" or process.args : ("*Public*", "*Domain*", "*Private*"))
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.004"
+name = "Disable or Modify System Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/004/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1562.004"
-  reference = "https://attack.mitre.org/techniques/T1562/004/"
-  name = "Disable or Modify System Firewall"
+
 
 [rule.threat.tactic]
 id = "TA0005"
