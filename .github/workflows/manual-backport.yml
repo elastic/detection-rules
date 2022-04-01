@@ -1,0 +1,82 @@
+name: manual-backport
+on:
+  workflow_dispatch:
+      inputs:
+        target_branch:
+          description: 'Branch to backport to (e.g. 8.0)'
+          required: true
+        commit_sha:
+          description: 'Sha256 hash of the merge commit to use in backporting'
+          required: true
+
+jobs:
+  commit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate the source branch
+        uses: actions/github-script@v3
+        with:
+          script: |
+            if ('refs/heads/main' !== '${{github.event.ref}}') {
+              core.setFailed('Forbidden branch, expected "main"')
+            }
+
+      - name: Checkout detection-rules
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.PROTECTIONS_MACHINE_TOKEN }}
+          ref: main
+
+      - name: Set github config
+        run: |
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+      - name: Get branch histories
+        run: |
+          git fetch origin main --depth 100
+          git fetch origin "${{github.event.inputs.target_branch}}" --depth 1
+          git status
+          git log -1 --format='%H'
+
+      - name: Checkout the commit into the staging area
+        run: |
+          # Checkout the merged commit
+          git checkout {{github.event.inputs.commit_sha}}
+
+          # Move it to the staging area
+          git reset --soft HEAD^
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Prune non-"${{github.event.inputs.target_branch}}" rules
+        env:
+          UNSTAGED_LIST_FILE: "../unstaged-rules.txt"
+        run: |
+          python -m detection_rules dev unstage-incompatible-rules --target-stack-version "${{github.event.inputs.target_branch}}"
+
+          # Track which rules were unstaged
+          git diff --name-only > $UNSTAGED_LIST_FILE
+
+          # Since they've been tracked, remove any untracked files
+          git checkout -- .
+
+      - name: Commit and push to "${{github.event.inputs.target_branch}}"
+        env:
+          COMMIT_MSG_FILE: "../commit-message.txt"
+          UNSTAGED_LIST_FILE: "../unstaged-rules.txt"
+          TARGET_BRANCH: "${{github.event.inputs.target_branch}}"
+          COMMIT_SHA: "${{github.event.inputs.commit_sha}}"
+        run: |
+          ./etc/commit-and-push.sh $TARGET_BRANCH $COMMIT_SHA
+
+      - name: "Notify slack on failure"
+        uses: craftech-io/slack-action@v1
+        with:
+          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          status: failure
+        if: failure()
