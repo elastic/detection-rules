@@ -54,8 +54,6 @@ class TestEql2Kql(unittest.TestCase):
         self.validate("dest:192.168.0.0/16", "cidrMatch(dest, '192.168.0.0/16')")
 
     def test_wildcard_field(self):
-        # self.validate('field:value-*', 'field : "value-*"')
-        # self.validate('field:value-?', 'field : "value-?"')
         with eql.parser.elasticsearch_validate_optional_fields:
             self.validate('field:value-*', 'field : "value-*"')
             self.validate('field:value-?', 'field : "value-?"')
