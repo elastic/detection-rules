@@ -511,9 +511,9 @@ class TestRuleTiming(BaseRuleTest):
             },
             'lt_82_eql_beats': {
                 'errors': [],
-                'msg': ('eql rules include beats indexes, which do not add the `event.ingested` field and there is no '
-                        'default fallback to @timestamp for EQL rules <8.2, or add a config entry to add it in '
-                        'a custom pipeline')
+                'msg': ('eql rules include beats indexes. Non-elastic-agent indexes do not add the `event.ingested` '
+                        'field and there is no default fallback to @timestamp for EQL rules <8.2, so the override '
+                        'should be removed or a config entry included to manually add it in a custom pipeline')
             },
             'gte_82_eql': {
                 'errors': [],
@@ -522,10 +522,10 @@ class TestRuleTiming(BaseRuleTest):
             }
         }
 
-        pipeline_config = ('If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, '
-                           'events will not define `event.ingested` and default fallback for EQL rules was not added '
-                           'until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to '
-                           '@timestamp for this rule to work.')
+        pipeline_config = ''.join('If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions '
+                                  '<8.2, events will not define `event.ingested` and default fallback for EQL rules '
+                                  'was not added until 8.2, so you will need to add a custom pipeline to populate '
+                                  '`event.ingested` to @timestamp for this rule to work.'.splitlines())
 
         for rule in self.all_rules:
             if rule.contents.data.type not in ('eql', 'query'):

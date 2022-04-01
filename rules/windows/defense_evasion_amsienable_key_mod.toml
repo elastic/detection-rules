@@ -1,20 +1,24 @@
 [metadata]
 creation_date = "2021/06/01"
 maturity = "production"
-updated_date = "2022/02/28"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when JScript tries to query the AmsiEnable registry key from the HKEY_USERS registry hive before initializing Antimalware
-Scan Interface (AMSI). If this key is set to 0, AMSI is not enabled for the JScript process. An adversary can modify
-this key to disable AMSI protections.
+Identifies when JScript tries to query the AmsiEnable registry key from the HKEY_USERS registry hive before initializing
+Antimalware Scan Interface (AMSI). If this key is set to 0, AMSI is not enabled for the JScript process. An adversary
+can modify this key to disable AMSI protections.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Modification of AmsiEnable Registry Key"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = [
     "https://hackinparis.com/data/slides/2019/talks/HIP2019-Dominic_Chell-Cracking_The_Perimeter_With_Sharpshooter.pdf",
     "https://docs.microsoft.com/en-us/windows/win32/amsi/antimalware-scan-interface-portal",
