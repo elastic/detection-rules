@@ -4,7 +4,6 @@
 # 2.0.
 
 import re
-import json
 from string import Template
 
 from eql.ast import BaseNode
@@ -119,7 +118,7 @@ class Wildcard(Value):
                 escaped.append(self.escapes[char])
             else:
                 escaped.append(char)
-        return json.dumps(''.join(escaped))
+        return ''.join(escaped)
 
 
 class List(KqlNode):
