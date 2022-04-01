@@ -505,7 +505,7 @@ class TestRuleTiming(BaseRuleTest):
                 'errors': [],
                 'msg': 'cannot have the `timestamp_override` set to `event.ingested` because it uses a sequence'
             },
-            'lt_82_eql_': {
+            'lt_82_eql': {
                 'errors': [],
                 'msg': 'should have the `timestamp_override` set to `event.ingested`'
             },
@@ -522,10 +522,10 @@ class TestRuleTiming(BaseRuleTest):
             }
         }
 
-        pipeline_config = ''.join('If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions '
-                                  '<8.2, events will not define `event.ingested` and default fallback for EQL rules '
-                                  'was not added until 8.2, so you will need to add a custom pipeline to populate '
-                                  '`event.ingested` to @timestamp for this rule to work.'.splitlines())
+        pipeline_config = ('If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions '
+                           '<8.2, events will not define `event.ingested` and default fallback for EQL rules '
+                           'was not added until 8.2, so you will need to add a custom pipeline to populate '
+                           '`event.ingested` to @timestamp for this rule to work.')
 
         for rule in self.all_rules:
             if rule.contents.data.type not in ('eql', 'query'):
