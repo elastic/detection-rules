@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/11/25"
 maturity = "production"
-updated_date = "2022/03/31"
+updated_date = "2022/04/04"
 
 [rule]
 author = ["Elastic"]
@@ -60,8 +60,8 @@ query = '''
 /* This rule is compatible with both Sysmon and Elastic Endpoint */
 
 process where event.type == "start" and 
-    (process.Ext.token.integrity_level_name : "System" or
-    winlog.event_data.IntegrityLevel : "System") and
+    (?process.Ext.token.integrity_level_name : "System" or
+    ?winlog.event_data.IntegrityLevel : "System") and
     (
       (process.name : "elevation_service.exe" and 
        not process.pe.original_file_name == "elevation_service.exe") or
