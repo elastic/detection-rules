@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/03/02"
 maturity = "production"
-updated_date = "2022/03/28"
+updated_date = "2022/04/06"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -14,48 +14,47 @@ index = ["winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Signed Proxy Execution via MS WorkFolders"
-note = """## Triage and analysis 
- 
-### Investigating control.exe Execution via Work Folders in Current Working Directory 
- 
+note = """## Triage and analysis
+
+### Investigating Signed Proxy Execution via MS WorkFolders
+
 Work Folders is a role service for file servers running Windows Server that provides a consistent way for users to access
-their work files from their PCs and devices. This allows users to store work files and access them from anywhere.
-When called, Work Folders will automatically execute any Portable Executable (PE) named `control.exe` as an argument
-before accessing the synced share. 
- 
+their work files from their PCs and devices. This allows users to store work files and access them from anywhere. When
+called, Work Folders will automatically execute any Portable Executable (PE) named `control.exe` as an argument before
+accessing the synced share.
+
 Using Work Folders to execute a masqueraded control.exe could allow an adversary to bypass application controls and
-increase privileges. 
+increase privileges.
  
-#### Possible investigation steps: 
+#### Possible investigation steps
 
 - Investigate the process tree starting with parent process WorkFolders.exe and child process control.exe to determine
-if other child processes spawned during execution. 
-- Trace the activity related to the `control.exe` binary to identify any continuing intrusion activity on the host. 
+if other child processes spawned during execution.
+- Trace the activity related to the `control.exe` binary to identify any continuing intrusion activity on the host.
 - Examine the location of the WorkFolders.exe binary to determine if it was copied to the location of the control.exe
-binary. It resides in the System32 directory by default. 
+binary. It resides in the System32 directory by default.
 - Review the control.exe binary executed with Work Folders to determine maliciousness such as additional host activity
-or network traffic. 
-- Determine if control.exe was synced to sync share, indicating potential lateral movement. 
+or network traffic.
+- Determine if control.exe was synced to sync share, indicating potential lateral movement.
 - Review where control.exe originated from on the host in terms of delivery such as email, web download or written to
-disk from a seperate binary. 
+disk from a seperate binary.
  
-### False Positive Analysis 
+### False positive analysis 
 
 - Windows Work Folders are used legitimately by end users and administrators for file sharing and syncing but not in the
-instance where a suspicious `control.exe` is passed as an argument. 
- 
-### Response and Remediation 
+instance where a suspicious `control.exe` is passed as an argument.
 
-- If identified as a compromise, engage incident response processes and policies. 
-- Take immediate action to review, investigate and potentially isolate activity to prevent further post-compromise 
-behavior. 
-- Review the Work Folders synced share to determine if the 'control.exe' was shared and if so remove it. 
+### Response and remediation 
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- Review the Work Folders synced share to determine if the 'control.exe' was shared and if so remove it.
 - If no lateral movement was identified during investigation, take the effected host offline if possible and remove the
-control.exe binary as well as any additional artifacts identified during investigation. 
+control.exe binary as well as any additional artifacts identified during investigation.
 - Review integrating Windows Information Protection (WIP) to enforce data protection by encrypting the data on PCs using
-Work Folders. 
-- Confirm with the user whether this was expected or not, and reset their password. 
-""" 
+Work Folders.
+- Confirm with the user whether this was expected or not, and reset their password.
+"""
 references = [
     "https://docs.microsoft.com/en-us/windows-server/storage/work-folders/work-folders-overview",
     "https://twitter.com/ElliotKillick/status/1449812843772227588",

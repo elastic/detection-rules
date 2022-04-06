@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/07/20"
 maturity = "production"
-updated_date = "2022/03/28"
+updated_date = "2022/04/06"
 
 [rule]
 author = ["Elastic"]
@@ -13,38 +13,53 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Windows Defender Exclusions Added via PowerShell"
-note = """## Triage and analysis 
- 
-### Investigating Windows Defender Exclusions 
- 
-Microsoft Windows Defender is an anti-virus product built into Microsoft Windows. Since this software product is 
-used to prevent and stop malware, it's important to monitor what specific exclusions are made to the product's configuration 
-settings. These can often be signs of an adversary or malware trying to bypass Windows Defender's capabilities. One of the more 
-notable [examples](https://www.cyberbit.com/blog/endpoint-security/latest-trickbot-variant-has-new-tricks-up-its-sleeve/) was observed in 2018 where Trickbot incorporated mechanisms to disable Windows Defender to avoid detection. 
- 
-#### Possible investigation steps: 
-- With this specific rule, it's completely possible to incorrectly match on network administrative activity or benign users 
-using scripting and PowerShell to configure the different exclusions for Windows Defender. Therefore, it's important to 
-identify the source of the activity first and determine if there is any mal-intent behind the events. 
-- The actual exclusion such as the process, file, or directory should be reviewed in order to determine the 
-intent behind the exclusion. Is the excluded file or process malicious in nature or is it related to software that needs 
-to be legitimately allowlisted from Windows Defender? 
- 
-### False Positive Analysis 
-- This rule has a high chance to produce false positives due to how often network administrators legitimately configure exclusions. 
-In order to validate the activity further, review the specific exclusion and its intent. There 
-are many legitimate reasons for exclusions, so it's important to gain context. 
- 
-### Related Rules 
-- Windows Defender Disabled via Registry Modification 
-- Disabling Windows Defender Security Settings via PowerShell 
- 
-### Response and Remediation 
-- Since this is related to post-exploitation activity, take immediate action to review, investigate and 
-potentially isolate further activity. 
-- If further analysis showed malicious intent was behind the Defender exclusions, administrators should remove 
-the exclusions and ensure antimalware has not been disabled or deleted. 
-- Exclusion lists for antimalware capabilities should always be routinely monitored for review. 
+note = """## Triage and analysis
+
+### Investigating Windows Defender Exclusions Added via PowerShell
+
+Microsoft Windows Defender is an anti-virus product built into Microsoft Windows. Since this software product is
+used to prevent and stop malware, it's important to monitor what specific exclusions are made to the product's configuration
+settings. These can often be signs of an adversary or malware trying to bypass Windows Defender's capabilities. One of
+the more notable [examples](https://www.cyberbit.com/blog/endpoint-security/latest-trickbot-variant-has-new-tricks-up-its-sleeve/)
+was observed in 2018 where Trickbot incorporated mechanisms to disable Windows Defender to avoid detection. 
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree).
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Contact the account owner and confirm whether they are aware of this activity.
+- Examine the exclusion in order to determine the intent behind it.
+- Check for similar behavior in other hosts in the environment.
+- If the exclusion specifies a suspicious file, retrieve it and determine if it is malicious:
+  - Use a private sandboxed malware analysis system to perform analysis.
+    - Observe and collect information about the following activities:
+      - Attempts to contact external domains and addresses.
+      - File and registry access, modification, and creation activities.
+      - Service creation and launch activities.
+      - Scheduled tasks creation.
+  - Use the PowerShell Get-FileHash cmdlet to get the SHA-256 hash value of the file.
+    - Search for the existence and reputation of this file in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+
+### False positive analysis
+
+- This rule has a high chance to produce false positives due to how often network administrators legitimately configure
+exclusions. In order to validate the activity further, review the specific exclusion and its intent. There are many
+legitimate reasons for exclusions, so it's important to gain context.
+
+### Related rules
+
+- Windows Defender Disabled via Registry Modification - 2ffa1f1e-b6db-47fa-994b-1512743847eb
+- Disabling Windows Defender Security Settings via PowerShell - c8cccb06-faf2-4cd5-886e-2c9636cfcb87
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement any temporary network rules, procedures, and segmentation required to contain the malware.
+    - Immediately block the IoCs identified.
+    - Remove and block malicious artifacts identified on the triage.
+- Exclusion lists for antimalware capabilities should always be routinely monitored for review.
 """ 
 references = ["https://www.bitdefender.com/files/News/CaseStudies/study/400/Bitdefender-PR-Whitepaper-MosaicLoader-creat5540-en-EN.pdf"]
 risk_score = 47
