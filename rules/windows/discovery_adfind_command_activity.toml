@@ -53,6 +53,10 @@ isolation, so reviewing previous logs/activity from impacted machines can be ver
 - Isolate the involved host to prevent further post-compromise behavior.
 - Reset passwords for the user account and other potentially compromised accounts (email, services, CRMs, etc.).
 - Determine the initial infection vector.
+
+## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = [
     "http://www.joeware.net/freetools/tools/adfind/",
@@ -85,6 +89,11 @@ process where event.type in ("start", "process_started") and
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
+id = "T1018"
+name = "Remote System Discovery"
+reference = "https://attack.mitre.org/techniques/T1018/"
+
+[[rule.threat.technique]]
 id = "T1069"
 name = "Permission Groups Discovery"
 reference = "https://attack.mitre.org/techniques/T1069/"
@@ -108,12 +117,6 @@ reference = "https://attack.mitre.org/techniques/T1087/002/"
 id = "T1482"
 name = "Domain Trust Discovery"
 reference = "https://attack.mitre.org/techniques/T1482/"
-
-
-[[rule.threat.technique]]
-id = "T1018"
-name = "Remote System Discovery"
-reference = "https://attack.mitre.org/techniques/T1018/"
 
 
 [rule.threat.tactic]
