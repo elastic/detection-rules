@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/09/08"
 maturity = "production"
-updated_date = "2021/09/08"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
@@ -14,6 +14,10 @@ index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Control Panel Process with Unusual Arguments"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = ["https://www.joesandbox.com/analysis/476188/1/html"]
 risk_score = 73
 rule_id = "416697ae-e468-4093-a93d-59661fa619ec"
@@ -45,18 +49,18 @@ process where event.type in ("start", "process_started") and
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-reference = "https://attack.mitre.org/techniques/T1218/"
-name = "Signed Binary Proxy Execution"
 id = "T1218"
+name = "Signed Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
 [[rule.threat.technique.subtechnique]]
-reference = "https://attack.mitre.org/techniques/T1218/002/"
-name = "Control Panel"
 id = "T1218.002"
+name = "Control Panel"
+reference = "https://attack.mitre.org/techniques/T1218/002/"
 
 
 
 [rule.threat.tactic]
-reference = "https://attack.mitre.org/tactics/TA0005/"
-name = "Defense Evasion"
 id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 

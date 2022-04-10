@@ -1,12 +1,13 @@
 [metadata]
 creation_date = "2021/07/20"
 maturity = "production"
-updated_date = "2022/02/28"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies modifications to the Windows Defender configuration settings using PowerShell to add exclusions at the folder directory or process level.
+Identifies modifications to the Windows Defender configuration settings using PowerShell to add exclusions at the folder
+directory or process level.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
@@ -45,8 +46,15 @@ potentially isolate further activity.
 - If further analysis showed malicious intent was behind the Defender exclusions, administrators should remove
 the exclusion and ensure antimalware capability has not been disabled or deleted.
 - Exclusion lists for antimalware capabilities should always be routinely monitored for review.
+
+
+## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
-references = ["https://www.bitdefender.com/files/News/CaseStudies/study/400/Bitdefender-PR-Whitepaper-MosaicLoader-creat5540-en-EN.pdf"]
+references = [
+    "https://www.bitdefender.com/files/News/CaseStudies/study/400/Bitdefender-PR-Whitepaper-MosaicLoader-creat5540-en-EN.pdf",
+]
 risk_score = 47
 rule_id = "2c17e5d7-08b9-43b2-b58a-0270d65ac85b"
 severity = "medium"
@@ -69,14 +77,14 @@ id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
 [[rule.threat.technique.subtechnique]]
-id = "T1562.006"
-name = "Indicator Blocking"
-reference = "https://attack.mitre.org/techniques/T1562/006/"
-
-[[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.006"
+name = "Indicator Blocking"
+reference = "https://attack.mitre.org/techniques/T1562/006/"
 
 
 
@@ -96,7 +104,9 @@ name = "PowerShell"
 reference = "https://attack.mitre.org/techniques/T1059/001/"
 
 
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
