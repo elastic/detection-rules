@@ -3,7 +3,7 @@ creation_date = "2020/03/18"
 maturity = "production"
 min_stack_comments = "EQL optional fields syntax was not introduced until 7.16"
 min_stack_version = "7.16.0"
-updated_date = "2022/04/04"
+updated_date = "2022/04/06"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,7 @@ from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Net command via SYSTEM account"
+name = "Account Discovery Command via SYSTEM Account"
 note = """## Config
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
@@ -31,8 +31,8 @@ query = '''
 process where event.type in ("start", "process_started") and 
   (?process.Ext.token.integrity_level_name : "System" or
   ?winlog.event_data.IntegrityLevel : "System") and
-  process.name : "whoami.exe" or
-  (process.name : "net1.exe" and not process.parent.name : "net.exe")
+  (process.name : "whoami.exe" or
+  (process.name : "net1.exe" and not process.parent.name : "net.exe"))
 '''
 
 
