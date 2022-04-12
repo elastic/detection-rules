@@ -1,0 +1,34 @@
+[metadata]
+creation_date = "2022/04/12"
+maturity = "production"
+updated_date = "2022/04/12"
+
+[rule]
+author = ["Elastic", "Pete Hampton"]
+description = "Identifies the creation of an Amazon Redshift cluster."
+from = "now-60m"
+index = ["filebeat-*", "logs-aws*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Redshift Cluster Creation"
+references = ["https://docs.aws.amazon.com/redshift/latest/APIReference/API_CreateCluster.html"]
+risk_score = 21
+rule_id = "015cca13-8832-49ac-a01b-a396114809f6"
+severity = "low"
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Asset Visibility"]
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and event.provider:redshift.amazonaws.com and event.action:CreateCluster and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
