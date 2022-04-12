@@ -391,9 +391,9 @@ def add_client(*client_type, add_to_ctx=True, add_func_arg=True):
                             elasticsearch_client.info():
                         pass
                     else:
-                        elasticsearch_client = get_elasticsearch_client(use_ssl=True, **es_client_args)
+                        elasticsearch_client = get_elasticsearch_client(**es_client_args)
                 except AuthenticationException:
-                    elasticsearch_client = get_elasticsearch_client(use_ssl=True, **es_client_args)
+                    elasticsearch_client = get_elasticsearch_client(**es_client_args)
 
                 if add_func_arg:
                     kwargs['elasticsearch_client'] = elasticsearch_client
