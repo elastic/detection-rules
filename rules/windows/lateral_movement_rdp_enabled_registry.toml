@@ -27,7 +27,7 @@ victim servers, often using privileged accounts.
 This rule detects modification of the fDenyTSConnections registry key to the value `0`, which specifies that remote
 desktop connections are enabled. Attackers can abuse remote registry, use psexec, etc., to enable RDP and move laterally.
 
-#### Possible investigation steps:
+#### Possible investigation steps
 
 - Identify the user account which performed the action and whether it should perform this kind of action.
 - Contact the user to check if they are aware of the operation.
@@ -38,12 +38,12 @@ desktop connections are enabled. Attackers can abuse remote registry, use psexec
 - Check whether privileged accounts accessed the host shortly after the modification.
 - Review network events within a short timespan of this alert for incoming RDP connection attempts.
 
-### False Positive Analysis
+### False positive analysis
 
 - This mechanism can be used legitimately. Check whether the user should be performing this kind of activity, whether they are aware
 of it, whether RDP should be open, and whether the action exposes the environment to unnecessary risks.
 
-### Response and Remediation
+### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
 - If RDP is needed, make sure to secure it using firewall rules:
@@ -51,6 +51,11 @@ of it, whether RDP should be open, and whether the action exposes the environmen
   - Restrict RDP logins to authorized non-administrator accounts, where possible.
 - Quarantine the involved host to prevent further post-compromise behavior.
 - Review the implicated account's privileges.
+
+## Config
+
+This rule uses Elastic Endpoint file creation and System Integration events for correlation. Both data should be
+collected from the host for this detection to work.
 """
 risk_score = 47
 rule_id = "58aa72ca-d968-4f34-b9f7-bea51d75eb50"

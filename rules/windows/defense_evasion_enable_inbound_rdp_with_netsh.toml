@@ -16,7 +16,7 @@ license = "Elastic License v2"
 name = "Remote Desktop Enabled in Windows Firewall by Netsh"
 note = """## Triage and analysis
 
-### Investigating Remote Desktop Enabled in Windows Firewall
+### Investigating Remote Desktop Enabled in Windows Firewall by Netsh
 
 Microsoft Remote Desktop Protocol (RDP) is a proprietary Microsoft protocol that enables remote connections to other
 computers, typically over TCP port 3389.
@@ -27,7 +27,7 @@ victim servers, often using privileged accounts.
 This rule detects the creation of a Windows Firewall inbound rule that would allow inbound RDP traffic using the
 `netsh.exe` utility.
 
-#### Possible investigation steps:
+#### Possible investigation steps
 
 - Identify the user account which performed the action and whether it should perform this kind of action.
 - Contact the user to check if they are aware of the operation.
@@ -37,12 +37,12 @@ This rule detects the creation of a Windows Firewall inbound rule that would all
 - Check if the host is directly exposed to the internet.
 - Check whether privileged accounts accessed the host shortly after the modification.
 
-### False Positive Analysis
+### False positive analysis
 
 - The `netsh.exe` utility can be used legitimately. Check whether the user should be performing this kind of activity, whether the user is aware
 of it, whether RDP should be open, and whether the action exposes the environment to unnecessary risks.
 
-### Response and Remediation
+### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
 - If RDP is needed, make sure to secure it:
@@ -50,6 +50,11 @@ of it, whether RDP should be open, and whether the action exposes the environmen
   - Restrict RDP logins to authorized non-administrator accounts, where possible.
 - Quarantine the implicated host to prevent further post-compromise behavior.
 - Review the implicated account's privileges.
+
+## Config
+
+This rule uses Elastic Endpoint file creation and System Integration events for correlation. Both data should be
+collected from the host for this detection to work.
 """
 risk_score = 47
 rule_id = "074464f9-f30d-4029-8c03-0ed237fffec7"
