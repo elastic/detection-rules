@@ -190,6 +190,12 @@ def migrate_to_8_1(version: Version, api_contents: dict) -> dict:
     return strip_additional_properties(version, api_contents)
 
 
+@migrate("8.2")
+def migrate_to_8_2(version: Version, api_contents: dict) -> dict:
+    """Default migration for 8.2."""
+    return strip_additional_properties(version, api_contents)
+
+
 def downgrade(api_contents: dict, target_version: str, current_version: Optional[str] = None) -> dict:
     """Downgrade a rule to a target stack version."""
     from ..packaging import current_stack_version
@@ -230,6 +236,6 @@ def get_stack_schemas(stack_version: str) -> Dict[str, dict]:
                 if (mapped_version := Version(k)) >= stack_version and mapped_version <= current_package and v}
 
     if stack_version > current_package:
-        versions[stack_version] = {'beats': 'master', 'ecs': 'master'}
+        versions[stack_version] = {'beats': 'main', 'ecs': 'master'}
 
     return versions

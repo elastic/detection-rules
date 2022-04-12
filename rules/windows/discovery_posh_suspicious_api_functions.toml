@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/10/13"
 maturity = "production"
-updated_date = "2022/02/28"
+updated_date = "2022/03/02"
 
 [rule]
 author = ["Elastic"]
@@ -20,30 +20,36 @@ note = """## Triage and analysis.
 
 ### Investigating PowerShell Suspicious Discovery Related Windows API Functions
 
-PowerShell is one of the main tools used by system administrators for automation, report routines, and other tasks.
+PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks. This
+makes it available for use in various environments, and creates an attractive way for attackers to execute code.
 
-Attackers can use PowerShell to interact with the Win32 API to bypass file based antivirus detections, using libraries
+Attackers can use PowerShell to interact with the Win32 API to bypass command line based detections, using libraries
 like PSReflect or Get-ProcAddress Cmdlet.
 
-#### Possible investigation steps:
+#### Possible investigation steps
 
 - Examine script content that triggered the detection. 
-- Investigate script execution chain (parent process tree).
+- Investigate the script execution chain (parent process tree).
 - Inspect any file or network events from the suspicious PowerShell host process instance.
-- If the action is suspicious for the user, check for any other activities done by the user in the last 48 hours.
+- Investigate other alerts related to the user/host in the last 48 hours.
+- Consider whether the user needs PowerShell to complete its tasks.
+- Check if the imported function was executed.
 
-### False Positive Analysis
+### False positive analysis
 
-- Verify whether the script content is malicious/harmful.
+- Discovery activities themselves are not inherently malicious if occurring in isolation, as long as the script does not
+contain other capabilities, and there are no other alerts related to the user or host; such alerts can be dismissed.
+However, analysts should keep in mind that this is not a common way of getting information, making it suspicious.
 
-### Related Rules
+### Related rules
 
 - PowerShell PSReflect Script - 56f2e9b5-4803-4e44-a0a4-a52dc79d57fe
 
-### Response and Remediation
+### Response and remediation
 
-- Immediate response steps should be taken to validate, investigate, and potentially contain the activity to prevent
-further post-compromise behavior.
+- Initiate the incident response process based on the outcome of the triage.
+- Quarantine the involved host to prevent further post-compromise behavior.
+- Configure AppLocker or equivalent software to restrict access to PowerShell for regular users.
 
 ## Config
 

@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/10/01"
 maturity = "production"
-updated_date = "2021/10/01"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
@@ -17,6 +17,49 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Third-party Backup Files Deleted via Unexpected Process"
+note = """## Triage and analysis
+
+### Investigating Third-party Backup Files Deleted via Unexpected Process
+
+Backups are a significant obstacle for any ransomware operation. They allow the victim to resume business by performing
+data recovery, making them a valuable target.
+
+Attackers can delete backups from the host and gain access to backup servers to remove centralized backups for the
+environment, ensuring that victims have no alternatives to paying the ransom.
+
+This rule identifies file deletions performed by a process that does not belong to the backup suite and aims to delete
+Veritas or Veeam backups.
+
+#### Possible investigation steps
+
+- Identify the process (location, name, etc.) and the user that performed this operation.
+- Check whether the account is authorized to perform this operation.
+- Confirm whether the account owner is aware of the operation.
+- Investigate other alerts associated with the user during the past 48 hours.
+
+### False positive analysis
+
+- This rule can be triggered by the manual removal of backup files and by removal using other third-party tools that are
+not from the backup suite. Exceptions can be added for specific accounts and executables, preferably tied together.
+
+### Related rules
+
+- Deleting Backup Catalogs with Wbadmin - 581add16-df76-42bb-af8e-c979bfb39a59
+- Volume Shadow Copy Deleted or Resized via VssAdmin - b5ea4bfe-a1b2-421f-9d47-22a75a6f2921
+- Volume Shadow Copy Deletion via PowerShell - d99a037b-c8e2-47a5-97b9-170d076827c4
+- Volume Shadow Copy Deletion via WMIC - dc9c1f74-dac3-48e3-b47f-eb79db358f57
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Reset the password of the involved accounts.
+- Perform data recovery locally or restore the backups from replicated copies (Cloud, other servers, etc.).
+
+
+## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = ["https://www.advintel.io/post/backup-removal-solutions-from-conti-ransomware-with-love"]
 risk_score = 47
 rule_id = "11ea6bec-ebde-4d71-a8e9-784948f8e3e9"
@@ -44,14 +87,14 @@ file where event.type == "deletion" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1490"
+name = "Inhibit System Recovery"
+reference = "https://attack.mitre.org/techniques/T1490/"
 
-  [[rule.threat.technique]]
-  id = "T1490"
-  name = "Inhibit System Recovery"
-  reference = "https://attack.mitre.org/techniques/T1490/"
 
-  [rule.threat.tactic]
-  id = "TA0040"
-  name = "Impact"
-  reference = "https://attack.mitre.org/tactics/TA0040/"
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
 

@@ -1,13 +1,13 @@
 [metadata]
 creation_date = "2022/01/31"
 maturity = "production"
-updated_date = "2022/03/14"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies attempts to disable PowerShell Script Block Logging via registry modification. Attackers may disable
-this logging to conceal their activities in the host and evade detection.
+Identifies attempts to disable PowerShell Script Block Logging via registry modification. Attackers may disable this
+logging to conceal their activities in the host and evade detection.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
@@ -95,20 +95,19 @@ registry where event.type == "change" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1562"
-reference = "https://attack.mitre.org/techniques/T1562/"
 name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.002"
+name = "Disable Windows Event Logging"
+reference = "https://attack.mitre.org/techniques/T1562/002/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1562.002"
-  name = "Disable Windows Event Logging"
-  reference = "https://attack.mitre.org/techniques/T1562/002/"
 
 
 [rule.threat.tactic]
 id = "TA0005"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 
