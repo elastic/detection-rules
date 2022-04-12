@@ -15,7 +15,33 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Creation of a Hidden Local User Account"
-note = """## Config
+note = """## Triage and analysis
+
+### Investigating Creation of a Hidden Local User Account
+
+Attackers can create accounts ending with a `$` symbol to make the account hidden to user enumeration utilities and
+bypass detections that identify computer accounts by this pattern to apply filters.
+
+This rule uses registry events to identify the creation of local hidden accounts.
+
+#### Possible investigation steps
+
+- Identify the user account which performed the action and whether it should perform this kind of action.
+- Investigate the script execution chain (parent process tree).
+- Investigate other alerts related to the user/host in the last 48 hours.
+
+### False positive analysis
+
+- This activity is unlikely to happen legitimately. Benign true positive (B-TPs) can be added as exceptions if necessary.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Quarantine the involved host to prevent further post-compromise behavior.
+- Delete the hidden account.
+- Review the privileges of the involved accounts.
+
+## Config
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
