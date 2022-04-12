@@ -6,6 +6,13 @@ updated_date = "2022/04/12"
 [rule]
 author = ["Elastic", "Pete Hampton"]
 description = "Identifies the creation of an Amazon Redshift cluster."
+false_positives = [
+    """
+    Valid clusters may be created by a system or network administrator. Verify whether the user identity, user agent,
+    and/or hostname should be making changes in your environment. Cluster creations by unfamiliar users or hosts
+    should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
 from = "now-60m"
 index = ["filebeat-*", "logs-aws*"]
 interval = "10m"
