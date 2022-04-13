@@ -901,7 +901,7 @@ def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_coun
     from eql.table import Table
     from kibana.resources import Signal
     from .main import search_rules
-    from .eswrap import parse_unique_field_results
+    # from .eswrap import parse_unique_field_results
 
     survey_results = []
     start_time, end_time = date_range
@@ -927,11 +927,10 @@ def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_coun
         alerts = {a['_source']['signal']['rule']['rule_id']: a['_source']
                   for a in Signal.search(range_dsl, size=10000)['hits']['hits']}
 
-    for alert in alerts:
-        rule_id = alert['signal']['rule']['rule_id']
-        rule = rules.id_map[rule_id]
-        unique_results = parse_unique_field_results(rule.contents.data.type, rule.contents.data.unique_fields, alert)
-
+    # for alert in alerts:
+    #     rule_id = alert['signal']['rule']['rule_id']
+    #     rule = rules.id_map[rule_id]
+    #     unique_results = parse_unique_field_results(rule.contents.data.type, rule.contents.data.unique_fields, alert)
 
     for rule_id, count in counts.items():
         alert_count = len(alerts.get(rule_id, []))
