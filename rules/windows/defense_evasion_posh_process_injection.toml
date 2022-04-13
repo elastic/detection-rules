@@ -19,33 +19,39 @@ note = """## Triage and analysis.
 
 ### Investigating Potential Process Injection via PowerShell
 
-PowerShell is one of the main tools used by system administrators for automation, report routines, and other tasks.
+PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks. This
+makes it available for use in various environments, and creates an attractive way for attackers to execute code.
 
 PowerShell also has solid capabilities to make the interaction with the Win32 API in an uncomplicated and reliable way,
 like the execution of inline C# code, PSReflect, Get-ProcAddress, etc.
 
 Red Team tooling and malware developers take advantage of these capabilities to develop stagers and loaders that inject
-payloads directly into the memory, without touching the disk.
+payloads directly into the memory without touching the disk to circumvent file-based security protections.
 
-#### Possible investigation steps:
+#### Possible investigation steps
 
 - Examine script content that triggered the detection. 
-- Investigate script execution chain (parent process tree).
+- Investigate the script execution chain (parent process tree).
 - Inspect any file or network events from the suspicious PowerShell host process instance.
-- If the action is suspicious for the user, check for any other activities done by the user in the last 48 hours.
+- Investigate other alerts related to the user/host in the last 48 hours.
+- Consider whether the user needs PowerShell to complete its tasks.
+- Check if the imported function was executed and which process it targeted.
+- Check if the injected code can be retrieved (hardcoded in the script or on command line logs).
 
-### False Positive Analysis
+### False positive analysis
 
-- Verify whether the script content is malicious/harmful.
+- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
 
-### Related Rules
+### Related rules
 
 - PowerShell PSReflect Script - 56f2e9b5-4803-4e44-a0a4-a52dc79d57fe
 
-### Response and Remediation
+### Response and remediation
 
-- Immediate response steps should be taken to validate, investigate, and potentially contain the activity to prevent
-further post-compromise behavior.
+- Initiate the incident response process based on the outcome of the triage.
+- Quarantine the involved host for forensic investigation, as well as eradication and recovery activities.
+- Configure AppLocker or equivalent software to restrict access to PowerShell for regular users.
+- Reset the password for the user account.
 
 ## Config
 

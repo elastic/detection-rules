@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/03/15"
 maturity = "production"
-updated_date = "2022/03/15"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
@@ -25,9 +25,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by host.id, process.pid with maxspan=1m
-[process where process.name :("c89","c99") and process.args == "-wrapper" and process.args : ("sh,-s", "bash,-s", "dash,-s", "/bin/sh,-s", "/bin/bash,-s", "/bin/dash,-s")]
-[process where process.parent.name : ("bash", "sh", "dash")]
+process where event.type == "start" and process.name in ("sh", "dash", "bash") and
+  process.parent.name in ("c89","c99") and process.parent.args == "-wrapper" and
+  process.parent.args in ("sh,-s", "bash,-s", "dash,-s", "/bin/sh,-s", "/bin/bash,-s", "/bin/dash,-s")
 '''
 
 

@@ -17,31 +17,42 @@ note = """## Triage and analysis.
 
 ### Investigating PowerShell Suspicious Script with Audio Capture Capabilities
 
-PowerShell is one of the main tools used by system administrators for automation, report routines, and other tasks.
+PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks. This
+makes it available for use in various environments, and creates an attractive way for attackers to execute code.
 
-Attackers can use PowerShell to interact with the Windows API and capture audio from input devices connected to the
-computer.
+Attackers can use PowerShell to interact with the Windows API with the intent of capturing audio from input devices
+connected to the victim's computer.
 
-#### Possible investigation steps:
+#### Possible investigation steps
 
 - Examine script content that triggered the detection. 
-- Investigate script execution chain (parent process tree).
+- Investigate the script execution chain (parent process tree).
 - Inspect any file or network events from the suspicious PowerShell host process instance.
-- If the action is suspicious for the user, check for any other activities done by the user in the last 48 hours.
+- Investigate other alerts related to the user/host in the last 48 hours.
+- Consider whether the user needs PowerShell to complete its tasks.
+- Investigate if the script stores the recorded data locally and determine if anything was recorded.
+- Investigate if the script contains exfiltration capabilities and the destination of this exfiltration.
+- Assess network data to determine if the host communicated with the exfiltration server.
+- Determine if the user credentials were compromised and if the attacker used them to perform unauthorized access to the
+linked email account.
 
-### False Positive Analysis
+### False positive analysis
 
-- Verify whether the script content is malicious/harmful.
+- Regular users should not need scripts to capture audio, which makes false positives unlikely. In the case of
+authorized benign true positives (B-TPs), exceptions can be added.
 
-### Related Rules
+### Related rules
 
 - PowerShell PSReflect Script - 56f2e9b5-4803-4e44-a0a4-a52dc79d57fe
 - Potential Process Injection via PowerShell - 2e29e96a-b67c-455a-afe4-de6183431d0d
 
-### Response and Remediation
+### Response and remediation
 
-- Immediate response steps should be taken to validate, investigate, and potentially contain the activity to prevent
-further post-compromise behavior.
+- Initiate the incident response process based on the outcome of the triage.
+- The response must be prioritized if this alert involves key executives or potentially valuable targets for espionage.
+- Quarantine the involved host for forensic investigation, as well as eradication and recovery activities.
+- Configure AppLocker or equivalent software to restrict access to PowerShell for regular users.
+- Review GPOs to add additional restrictions for PowerShell usage by users.
 
 ## Config
 

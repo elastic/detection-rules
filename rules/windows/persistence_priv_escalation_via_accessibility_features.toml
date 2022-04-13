@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2022/03/28"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
@@ -60,6 +60,11 @@ binaries' original file names, which is likely a custom binary deployed by the a
   - Immediately block the IoCs identified.
 - Remove and block malicious artifacts identified on the triage.
 - Reset passwords for the user account and other potentially compromised accounts (email, services, CRMs, etc.).
+
+
+## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = ["https://www.elastic.co/blog/practical-security-engineering-stateful-detection"]
 risk_score = 73

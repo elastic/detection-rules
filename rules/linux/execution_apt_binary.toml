@@ -1,14 +1,16 @@
 [metadata]
 creation_date = "2022/02/24"
 maturity = "production"
-updated_date = "2022/03/17"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies Linux binary apt/apt-get abuse to breakout out of restricted shells or environments by spawning an
-interactive system shell. This activity is not standard use with this binary for a user or system administrator. It
-indicates a potentially malicious actor attempting to improve the capabilities or stability of their access.
+interactive system shell. The apt utility allows us to manage installation and removal of softwares on Debian based
+Linux distributions and the activity of spawning shell is not a standard use of this binary for a user or system
+administrator. It indicates a potentially malicious actor attempting to improve the capabilities or stability of their
+access.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -24,10 +26,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by host.id, process.pid with maxspan=1m 
-  [process where process.name : ("apt", "apt-get") and process.args : "changelog"] 
-  [process where process.name : "sensible-pager" and process.args : ("/bin/sh", "/bin/bash") and 
-   process.parent.name : ("apt", "apt-get")]
+process where event.type == "start" and process.name == "sensible-pager" and
+  process.args in ("/bin/sh", "/bin/bash", "/bin/dash", "sh", "bash", "dash") and
+  process.parent.name in ("apt", "apt-get") and process.parent.args == "changelog"
 '''
 
 

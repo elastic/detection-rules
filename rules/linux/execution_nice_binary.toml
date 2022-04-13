@@ -1,14 +1,16 @@
 [metadata]
 creation_date = "2022/03/07"
 maturity = "development"
-updated_date = "2022/03/17"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
-description =  """
-Identifies Linux binary nice abuse to break out from restricted environments by spawning an interactive system shell.This
-activity is not standard use with this binary for a user or system administrator. It indicates a potentially malicious
-actor attempting to improve the capabilities or stability of their access
+description = """
+Identifies Linux binary nice abuse to break out from restricted environments by spawning an interactive system shell.The
+nice command is used to invoke a utility or a shell script with a particular CPU priority, thus giving the process more
+or less CPU and the activity of spawning shell is not a standard use of this binary for a user or system
+administrator.It indicates a potentially malicious actor attempting to improve the capabilities or stability of their
+access.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -24,9 +26,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by host.id, process.pid with maxspan=1m
-[process where event.type == "start" and process.name == "nice" and process.args : ("/bin/bash", "/bin/sh", "/bin/dash", "sh", "bash", "dash")]
-[process where process.name : ("bash", "sh", "dash")]
+process where event.type == "start" and process.name in ("bash", "sh", "dash") and
+  process.parent.name == "nice" and process.parent.args in ("/bin/bash", "/bin/sh", "/bin/dash", "sh", "bash", "dash")
 '''
 
 

@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2021/11/25"
 maturity = "production"
-updated_date = "2022/02/28"
+min_stack_comments = "EQL optional fields syntax was not introduced until 7.16"
+min_stack_version = "7.16.0"
+updated_date = "2022/04/04"
 
 [rule]
 author = ["Elastic"]
@@ -42,10 +44,13 @@ to the location to escalate privileges. An attacker is able to still take over a
 
 - Immediate response steps should be taken to validate, investigate, and potentially contain the activity to prevent
 further post-compromise behavior.
+
+
+## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
-references = [
-    "https://github.com/klinix5/InstallerFileTakeOver"
-]
+references = ["https://github.com/klinix5/InstallerFileTakeOver"]
 risk_score = 73
 rule_id = "58c6d58b-a0d3-412d-b3b8-0981a9400607"
 severity = "high"
@@ -57,8 +62,8 @@ query = '''
 /* This rule is compatible with both Sysmon and Elastic Endpoint */
 
 process where event.type == "start" and 
-    (process.Ext.token.integrity_level_name : "System" or
-    winlog.event_data.IntegrityLevel : "System") and
+    (?process.Ext.token.integrity_level_name : "System" or
+    ?winlog.event_data.IntegrityLevel : "System") and
     (
       (process.name : "elevation_service.exe" and 
        not process.pe.original_file_name == "elevation_service.exe") or
@@ -71,13 +76,14 @@ process where event.type == "start" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
 
-  [[rule.threat.technique]]
-  id = "T1068"
-  reference = "https://attack.mitre.org/techniques/T1068/"
-  name = "Exploitation for Privilege Escalation"  
-  
-  [rule.threat.tactic]
-  id = "TA0004"
-  reference = "https://attack.mitre.org/tactics/TA0004/"
-  name = "Privilege Escalation"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
