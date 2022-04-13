@@ -207,7 +207,10 @@ class QueryValidator:
 
     @property
     def ast(self) -> Any:
-        raise NotImplementedError
+        raise NotImplementedError()
+
+    def unique_fields(self):
+        raise NotImplementedError()
 
     def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
         raise NotImplementedError()
@@ -239,6 +242,12 @@ class QueryRuleData(BaseRuleData):
         validator = self.validator
         if validator is not None:
             return validator.ast
+
+    @cached_property
+    def unique_fields(self):
+        validator = self.validator
+        if validator is not None:
+            return validator.unique_fields
 
 
 @dataclass(frozen=True)

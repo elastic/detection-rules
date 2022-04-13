@@ -82,8 +82,9 @@ def upload_rule(ctx, rules, replace_id):
 @click.option('--date-range', '-d', type=(str, str), default=('now-7d', 'now'), help='Date range to scope search')
 @click.option('--columns', '-c', multiple=True, help='Columns to display in table')
 @click.option('--extend', '-e', is_flag=True, help='If columns are specified, extend the original columns')
+@click.option('--max-count', '-m', default=100, help='The max number of alerts to return')
 @click.pass_context
-def search_alerts(ctx, query, date_range, columns, extend):
+def search_alerts(ctx, query, date_range, columns, extend, max_count):
     """Search detection engine alerts with KQL."""
     from eql.table import Table
     from .eswrap import MATCH_ALL, add_range_to_dsl
@@ -94,7 +95,7 @@ def search_alerts(ctx, query, date_range, columns, extend):
     add_range_to_dsl(kql_query['bool'].setdefault('filter', []), start_time, end_time)
 
     with kibana:
-        alerts = [a['_source'] for a in Signal.search({'query': kql_query})['hits']['hits']]
+        alerts = [a['_source'] for a in Signal.search({'query': kql_query}, size=max_count)['hits']['hits']]
 
     table_columns = ['host.hostname', 'signal.rule.name', 'signal.status', 'signal.original_time']
     if columns:
