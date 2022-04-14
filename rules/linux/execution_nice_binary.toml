@@ -1,0 +1,51 @@
+[metadata]
+creation_date = "2022/03/07"
+maturity = "development"
+updated_date = "2022/03/31"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Linux binary nice abuse to break out from restricted environments by spawning an interactive system shell.The
+nice command is used to invoke a utility or a shell script with a particular CPU priority, thus giving the process more
+or less CPU and the activity of spawning shell is not a standard use of this binary for a user or system
+administrator.It indicates a potentially malicious actor attempting to improve the capabilities or stability of their
+access.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux Restricted Shell Breakout via nice Shell evasion"
+references = ["https://gtfobins.github.io/gtfobins/nice/"]
+risk_score = 47
+rule_id = "22755f7f-1e1e-4528-a75f-bb3f4026d1b9"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution", "GTFOBins"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and process.name in ("bash", "sh", "dash") and
+  process.parent.name == "nice" and process.parent.args in ("/bin/bash", "/bin/sh", "/bin/dash", "sh", "bash", "dash")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

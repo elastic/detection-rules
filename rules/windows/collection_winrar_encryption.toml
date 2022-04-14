@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/12/04"
 maturity = "production"
-updated_date = "2021/09/23"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
@@ -14,6 +14,45 @@ index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Encrypting Files with WinRar or 7z"
+note = """## Triage and analysis
+
+### Investigating Encrypting Files with WinRar or 7z
+
+Attackers may compress and/or encrypt data collected before exfiltration. Compressing the data can help obfuscate the
+collected data and minimize the amount of data sent over the network. Encryption can be used to hide information that is
+being exfiltrated from detection or make exfiltration less apparent upon inspection by a defender.
+
+These steps are usually done in preparation for exfiltration, meaning the attack may be in its final stages.
+
+#### Possible investigation steps
+
+- Investigate the script execution chain (parent process tree).
+- Retrieve the encrypted file.
+- Investigate other alerts related to the user/host in the last 48 hours.
+- Check if the password used in the encryption was included in the command line.
+- Decrypt the `.rar`/`.zip` and check if the information is sensitive.
+- If the password is not available, and the format is `.zip` or the option used in WinRAR is not the `-hp`, list the
+file names included in the encrypted file.
+- Investigate if the file was transferred to an attacker-controlled server.
+
+### False positive analysis
+
+- Backup software can use these utilities. Check the `process.parent.executable` and
+`process.parent.command_line` fields to determine what triggered the encryption.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- If personally identifiable information (PII) or other classified data is involved, investigations into this should be prioritized.
+- Quarantine the involved host for forensic investigation, as well as eradication and recovery activities.
+- Reset the passwords of the involved accounts.
+- Safeguard critical assets to prevent further harm or theft of data.
+
+
+## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = ["https://www.welivesecurity.com/2020/12/02/turla-crutch-keeping-back-door-open/"]
 risk_score = 47
 rule_id = "45d273fb-1dca-457d-9855-bcb302180c21"
@@ -43,11 +82,10 @@ framework = "MITRE ATT&CK"
 id = "T1560"
 name = "Archive Collected Data"
 reference = "https://attack.mitre.org/techniques/T1560/"
-
-  [[rule.threat.technique.subtechnique]]
-  id = "T1560.001"
-  name = "Archive via Utility"
-  reference = "https://attack.mitre.org/techniques/T1560/001/"
+[[rule.threat.technique.subtechnique]]
+id = "T1560.001"
+name = "Archive via Utility"
+reference = "https://attack.mitre.org/techniques/T1560/001/"
 
 
 [rule.threat.tactic]
