@@ -1,23 +1,27 @@
 [metadata]
 creation_date = "2021/01/19"
 maturity = "production"
-updated_date = "2021/12/10"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies suspicious child processes of the Java interpreter process. This may indicate an attempt to execute a malicious
-JAR file or an exploitation attempt via a JAVA specific vulnerability.
+Identifies suspicious child processes of the Java interpreter process. This may indicate an attempt to execute a
+malicious JAR file or an exploitation attempt via a JAVA specific vulnerability.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious JAVA Child Process"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = [
-"https://www.lunasec.io/docs/blog/log4j-zero-day/",
-"https://github.com/christophetd/log4shell-vulnerable-app",
-"https://www.blackhat.com/docs/us-16/materials/us-16-Munoz-A-Journey-From-JNDI-LDAP-Manipulation-To-RCE.pdf",
+    "https://www.lunasec.io/docs/blog/log4j-zero-day/",
+    "https://github.com/christophetd/log4shell-vulnerable-app",
+    "https://www.blackhat.com/docs/us-16/materials/us-16-Munoz-A-Journey-From-JNDI-LDAP-Manipulation-To-RCE.pdf",
 ]
 risk_score = 47
 rule_id = "8acb7614-1d92-4359-bfcf-478b6d9de150"

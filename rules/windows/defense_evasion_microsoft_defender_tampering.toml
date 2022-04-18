@@ -1,20 +1,24 @@
 [metadata]
 creation_date = "2021/10/18"
 maturity = "production"
-updated_date = "2022/03/14"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Austin Songer"]
 description = """
-Identifies when one or more features on Microsoft Defender are disabled. Adversaries may disable or tamper with Microsoft
-Defender features to evade detection and conceal malicious behavior.
+Identifies when one or more features on Microsoft Defender are disabled. Adversaries may disable or tamper with
+Microsoft Defender features to evade detection and conceal malicious behavior.
 """
 false_positives = ["Legitimate Windows Defender configuration changes"]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"] 
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Microsoft Windows Defender Tampering"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = [
     "https://thedfirreport.com/2021/10/18/icedid-to-xinglocker-ransomware-in-24-hours/",
     "https://www.tenforums.com/tutorials/32236-enable-disable-microsoft-defender-pua-protection-windows-10-a.html",
@@ -64,6 +68,7 @@ registry where event.type in ("creation", "change") and
   registry.data.strings : ("1", "0x00000001"))
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -71,7 +76,9 @@ id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
 
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

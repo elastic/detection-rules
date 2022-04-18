@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/07/07"
 maturity = "production"
-updated_date = "2021/10/27"
+updated_date = "2022/03/31"
+min_stack_comments = "Comprehensive timeline templates only available in 8.2+"
+min_stack_version = "8.2"
 
 [rule]
 author = ["Elastic"]
@@ -18,12 +20,17 @@ license = "Elastic License v2"
 name = "Hosts File Modified"
 note = """## Config
 
-For Windows systems using Auditbeat, this rule requires adding `C:/Windows/System32/drivers/etc` as an additional path in the 'file_integrity' module of auditbeat.yml."""
+For Windows systems using Auditbeat, this rule requires adding `C:/Windows/System32/drivers/etc` as an additional path in the 'file_integrity' module of auditbeat.yml.
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = ["https://www.elastic.co/guide/en/beats/auditbeat/current/auditbeat-reference-yml.html"]
 risk_score = 47
 rule_id = "9c260313-c811-4ec8-ab89-8f6530e0246c"
 severity = "medium"
 tags = ["Elastic", "Host", "Linux", "Windows", "macOS", "Threat Detection", "Impact"]
+timeline_id = "4d4c0b59-ea83-483f-b8c1-8c360ee53c5c"
+timeline_title = "Comprehensive File Timeline"
 timestamp_override = "event.ingested"
 type = "eql"
 

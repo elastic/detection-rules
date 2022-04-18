@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/01/20"
 maturity = "production"
-updated_date = "2022/02/14"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
@@ -16,6 +16,10 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Disabling User Account Control via Registry Modification"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = [
     "https://www.greyhathacker.net/?p=796",
     "https://docs.microsoft.com/en-us/windows/security/identity-protection/user-account-control/user-account-control-group-policy-and-registry-key-settings",
