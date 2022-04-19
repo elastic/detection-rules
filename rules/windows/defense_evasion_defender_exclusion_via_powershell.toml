@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/07/20"
 maturity = "production"
-updated_date = "2022/03/31"
+updated_date = "2022/04/13"
 
 [rule]
 author = ["Elastic"]
@@ -16,45 +16,57 @@ license = "Elastic License v2"
 name = "Windows Defender Exclusions Added via PowerShell"
 note = """## Triage and analysis
 
-### Investigating Windows Defender Exclusions
+### Investigating Windows Defender Exclusions Added via PowerShell
 
-Microsoft Windows Defender is an anti-virus product built-in within Microsoft Windows. Since this software product is
+Microsoft Windows Defender is an antivirus product built into Microsoft Windows. Since this software product is
 used to prevent and stop malware, it's important to monitor what specific exclusions are made to the product's configuration
-settings. These can often be signs of an adversary or malware trying to bypass Windows Defender's capabilities. One of the more
-notable [examples](https://www.cyberbit.com/blog/endpoint-security/latest-trickbot-variant-has-new-tricks-up-its-sleeve/) was observed in 2018 where Trickbot incorporated mechanisms to disable Windows Defense to avoid detection.
+settings. These can often be signs of an adversary or malware trying to bypass Windows Defender's capabilities. One of
+the more notable [examples](https://www.cyberbit.com/blog/endpoint-security/latest-trickbot-variant-has-new-tricks-up-its-sleeve/)
+was observed in 2018 where Trickbot incorporated mechanisms to disable Windows Defender to avoid detection. 
 
-#### Possible investigation steps:
-- With this specific rule, it's completely possible to trigger detections on network administrative activity or benign users
-using scripting and PowerShell to configure the different exclusions for Windows Defender. Therefore, it's important to
-identify the source of the activity first and determine if there is any mal-intent behind the events.
-- The actual exclusion such as the process, the file or directory should be reviewed in order to determine the original
-intent behind the exclusion. Is the excluded file or process malicious in nature or is it related to software that needs
-to be legitimately allowlisted from Windows Defender?
+#### Possible investigation steps
 
-### False Positive Analysis
-- This rule has a higher chance to produce false positives based on the nature around configuring exclusions by possibly
-a network administrator. In order to validate the activity further, review the specific exclusion and its intent. There
-are many legitimate reasons for exclusions, so it's important to gain context.
+- Investigate the process execution chain (parent process tree).
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Contact the account owner and confirm whether they are aware of this activity.
+- Examine the exclusion in order to determine the intent behind it.
+- Check for similar behavior in other hosts on the environment.
+- If the exclusion specifies a suspicious file, retrieve it and determine if it is malicious:
+  - Use a private sandboxed malware analysis system to perform analysis.
+    - Observe and collect information about the following activities:
+      - Attempts to contact external domains and addresses.
+      - File and registry access, modification, and creation activities.
+      - Service creation and launch activities.
+      - Scheduled tasks creation.
+  - Use the PowerShell Get-FileHash cmdlet to get the SHA-256 hash value of the file.
+    - Search for the existence and reputation of this file in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 
-### Related Rules
-- Windows Defender Disabled via Registry Modification
-- Disabling Windows Defender Security Settings via PowerShell
+### False positive analysis
 
-### Response and Remediation
-- Since this is related to post-exploitation activity, take immediate action to review, investigate and
-potentially isolate further activity.
-- If further analysis showed malicious intent was behind the Defender exclusions, administrators should remove
-the exclusion and ensure antimalware capability has not been disabled or deleted.
+- This rule has a high chance to produce false positives due to how often network administrators legitimately configure
+exclusions. In order to validate the activity further, review the specific exclusion and its intent. There are many
+legitimate reasons for exclusions, so it's important to gain context.
+
+### Related rules
+
+- Windows Defender Disabled via Registry Modification - 2ffa1f1e-b6db-47fa-994b-1512743847eb
+- Disabling Windows Defender Security Settings via PowerShell - c8cccb06-faf2-4cd5-886e-2c9636cfcb87
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement any temporary network rules, procedures, and segmentation required to contain the malware.
+    - Immediately block the identified indicators of compromise (IoCs).
+    - Remove and block malicious artifacts identified on the triage.
 - Exclusion lists for antimalware capabilities should always be routinely monitored for review.
-
 
 ## Config
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
-"""
-references = [
-    "https://www.bitdefender.com/files/News/CaseStudies/study/400/Bitdefender-PR-Whitepaper-MosaicLoader-creat5540-en-EN.pdf",
-]
+""" 
+references = ["https://www.bitdefender.com/files/News/CaseStudies/study/400/Bitdefender-PR-Whitepaper-MosaicLoader-creat5540-en-EN.pdf"]
 risk_score = 47
 rule_id = "2c17e5d7-08b9-43b2-b58a-0270d65ac85b"
 severity = "medium"

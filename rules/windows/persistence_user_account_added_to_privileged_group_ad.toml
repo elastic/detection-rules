@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/01/09"
 maturity = "production"
-updated_date = "2022/03/31"
+updated_date = "2022/04/13"
 
 [rule]
 author = ["Elastic", "Skoetting"]
@@ -11,11 +11,42 @@ Directory are those to which powerful rights, privileges, and permissions are gr
 any action in Active Directory and on domain-joined systems.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.*", "logs-system.*"]
+index = ["winlogbeat-*", "logs-system.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "User Added to Privileged Group in Active Directory"
-note = """## Config
+note = """## Triage and analysis
+
+### Investigating User Added to Privileged Group in Active Directory
+
+Privileged accounts and groups in Active Directory are those to which powerful rights, privileges, and permissions are
+granted that allow them to perform nearly any action in Active Directory and on domain-joined systems.
+
+Attackers can add users to privileged groups to maintain a level of access if their other privileged accounts are
+uncovered by the security team. This allows them to keep operating after the security team discovers abused accounts.
+
+This rule monitors events related to a user being added to a privileged group.
+
+#### Possible investigation steps
+
+- Identify the user account that performed the action and whether it should manage members of this group.
+- Contact the account owner and confirm whether they are aware of this activity.
+- Investigate other alerts associated with the user during the past 48 hours.
+
+### False positive analysis
+
+- This attack abuses a legitimate Active Directory mechanism, so it is important to determine whether the activity is
+legitimate, if the administrator is authorized to perform this operation, and if there is a need to grant the account
+this level of privilege.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- If the admin is not aware of the operation, activate your Active Directory incident response plan.
+- If the user does not need the administrator privileges, remove the account from the privileged group.
+
+
+## Config
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
