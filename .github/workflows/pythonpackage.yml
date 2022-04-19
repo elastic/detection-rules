@@ -31,7 +31,34 @@ jobs:
     - name: Python License Check
       run: |
         python -m detection_rules dev license-check
-        
+
+    - name: Unit tests
+      run: |
+        python -m detection_rules test
+
+    - name: Get Backport Status
+      id: get_backport_status
+      uses: fjogeleit/http-request-action@v1
+      with:
+        url: "https://api.github.com/repos/elastic/detection-rules/actions/workflows/backport.yml/runs?per_page=1"
+        method: 'GET'
+
+    - name: Check Backport Status
+      uses: actions/github-script@v6
+      with:
+        script: |
+          if (${{fromJSON(steps.get_backport_status.outputs.response).workflow_runs[0].status != 'completed'}} ||
+              ${{fromJSON(steps.get_backport_status.outputs.response).workflow_runs[0].conclusion != 'success'}}) {
+            core.setFailed('Recent Backport status: "${{fromJSON(steps.get_backport_status.outputs.response).workflow_runs[0].status}}", \
+                                        conclusion: "${{fromJSON(steps.get_backport_status.outputs.response).workflow_runs[0].conclusion}}"')
+          }
+
+    - name: Update navigator gist files
+      env:
+        GITHUB_TOKEN: "${{ secrets.NAVIGATOR_GIST_TOKEN }}"
+      if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      run: python -m detection_rules dev update-navigator-gists
+
     - name: Build release package
       env:
         # only generate the navigator files on push events to main
@@ -47,13 +74,3 @@ jobs:
         name: release-files
         path: |
           releases
-
-    - name: Unit tests
-      run: |
-        python -m detection_rules test
-
-    - name: Update navigator gist files
-      env:
-        GITHUB_TOKEN: "${{ secrets.NAVIGATOR_GIST_TOKEN }}"
-      if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      run: python -m detection_rules dev update-navigator-gists
