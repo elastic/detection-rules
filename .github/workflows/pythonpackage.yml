@@ -47,10 +47,10 @@ jobs:
       uses: actions/github-script@v6
       with:
         script: |
-          if (${{fromJSON(steps.get_backport_status.outputs.response).workflow_runs[0].status != 'completed'}} ||
-              ${{fromJSON(steps.get_backport_status.outputs.response).workflow_runs[0].conclusion != 'success'}}) {
-            core.setFailed('Recent Backport status: "${{fromJSON(steps.get_backport_status.outputs.response).workflow_runs[0].status}}", \
-                                        conclusion: "${{fromJSON(steps.get_backport_status.outputs.response).workflow_runs[0].conclusion}}"')
+          const workflow_status = ${{ toJSON(fromJSON(steps.get_backport_status.outputs.response).workflow_runs[0].status) }}
+          const workflow_conclusion = ${{ toJSON(fromJSON(steps.get_backport_status.outputs.response).workflow_runs[0].conclusion) }}
+          if (workflow_status != 'completed' || workflow_conclusion != 'success') {
+            core.setFailed('Recent Backport status: ' + workflow_status + ', conclusion: ' + workflow_conclusion)
           }
 
     - name: Update navigator gist files
