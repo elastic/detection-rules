@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/12/04"
 maturity = "production"
-updated_date = "2021/09/23"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
@@ -14,6 +14,10 @@ index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Enumeration of Administrator Accounts"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 risk_score = 21
 rule_id = "871ea072-1b71-4def-b016-6278b505138d"
 severity = "low"
@@ -43,11 +47,11 @@ framework = "MITRE ATT&CK"
 id = "T1069"
 name = "Permission Groups Discovery"
 reference = "https://attack.mitre.org/techniques/T1069/"
+[[rule.threat.technique.subtechnique]]
+id = "T1069.002"
+name = "Domain Groups"
+reference = "https://attack.mitre.org/techniques/T1069/002/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1069.002"
-  name = "Domain Groups"
-  reference = "https://attack.mitre.org/techniques/T1069/002/"
 
 [[rule.threat.technique]]
 id = "T1087"

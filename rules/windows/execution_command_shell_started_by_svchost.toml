@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2022/03/28"
+updated_date = "2022/03/31"
+min_stack_comments = "Comprehensive timeline templates only available in 8.2+"
+min_stack_version = "8.2"
 
 [rule]
 author = ["Elastic"]
@@ -11,10 +13,16 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Svchost spawning Cmd"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 risk_score = 21
 rule_id = "fd7a6052-58fa-4397-93c3-4795249ccfa2"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+timeline_id = "e70679c2-6cde-4510-9764-4823df18f7db"
+timeline_title = "Comprehensive Process Timeline"
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -35,11 +43,12 @@ process where event.type == "start" and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1059"
-reference = "https://attack.mitre.org/techniques/T1059/"
 name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
 
 
 [rule.threat.tactic]
 id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
 name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

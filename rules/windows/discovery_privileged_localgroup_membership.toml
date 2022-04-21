@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/10/15"
 maturity = "production"
-updated_date = "2022/02/16"
+updated_date = "2022/04/13"
 
 [rule]
 author = ["Elastic"]
@@ -10,7 +10,7 @@ Identifies instances of an unusual process enumerating built-in Windows privileg
 Administrators or Remote Desktop users.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-system.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Enumeration of Privileged Local Groups Membership"
@@ -18,6 +18,9 @@ note = """## Config
 
 This will require Windows security event 4799 by enabling audit success for the Windows Account Management category and
 the Security Group Management subcategory.
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+
 """
 risk_score = 43
 rule_id = "291a0de9-937a-4189-94c0-3e847c8b13e4"

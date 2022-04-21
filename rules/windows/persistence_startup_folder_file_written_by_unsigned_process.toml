@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/29"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2022/03/21"
 
 [rule]
 author = ["Elastic"]
@@ -14,6 +14,49 @@ index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Startup Folder Persistence via Unsigned Process"
+note = """## Triage and analysis
+
+### Investigating Startup Folder Persistence via Unsigned Process
+
+The Windows Startup folder is a special folder in Windows. Programs added to this folder are executed during account
+logon, without user interaction, providing an excellent way for attackers to maintain persistence.
+
+This rule looks for unsigned processes writing to the Startup folder locations.
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree).
+- Investigate other alerts related to the user/host in the last 48 hours.
+- Validate the activity is not related to planned patches, updates, network administrator activity, or legitimate
+software installations.
+- Determine if activity is unique by validating if other machines in the organization have similar entries.
+- Retrieve the file:
+  - Use a sandboxed malware analysis system to perform analysis.
+    - Observe attempts to contact external domains and addresses.
+  - Use the PowerShell Get-FileHash cmdlet to get the SHA-256 hash value of the file.
+    - Search for the existence and reputation of this file in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+
+### False positive analysis
+
+- There is a high possibility of benign legitimate programs being added to Startup folders. This activity could be based
+on new software installations, patches, or any kind of network administrator related activity. Before entering further
+investigation, verify that this activity is not benign.
+
+### Related rules
+
+- Suspicious Startup Shell Folder Modification - c8b150f0-0164-475b-a75e-74b47800a9ff
+- Persistent Scripts in the Startup Directory - f7c4dc5a-a58d-491d-9f14-9b66507121c0
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement any temporary network rules, procedures, and segmentation required to contain the malware.
+  - Immediately block the identified indicators of compromise (IoCs).
+- Remove malicious artifacts identified on the triage.
+- Reset passwords for the user account and other potentially compromised accounts (email, services, CRMs, etc.).
+""" 
 risk_score = 41
 rule_id = "2fba96c0-ade5-4bce-b92f-a5df2509da3f"
 severity = "medium"
