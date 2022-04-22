@@ -1,12 +1,12 @@
 [metadata]
 creation_date = "2020/11/02"
 maturity = "production"
-updated_date = "2022/03/31"
+updated_date = "2022/04/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies use of the Windows file system utility (fsutil.exe ) to gather information about attached peripheral devices
+Identifies use of the Windows file system utility (fsutil.exe) to gather information about attached peripheral devices
 and components connected to a computer system.
 """
 from = "now-9m"
@@ -14,7 +14,41 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Peripheral Device Discovery"
-note = """## Config
+note = """## Triage and analysis
+
+### Investigating Peripheral Device Discovery
+
+After a successful initial compromise, attackers may try to gain situational awareness of the environment to plan their
+next steps. This can happen by running commands to enumerate network resources, users, connections, files, and security
+software installed.
+
+This rule looks for the execution of the `fsutil` utility with the `fsinfo` subcommand to enumerate drives attached to
+the computer, which can be useful to identify secondary drives used for backups, mapped network drives, and removable
+media. All of which can contain valuable information for attackers.
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree).
+- Identify the user account that performed the action and whether it usually performs this kind of action.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Investigate abnormal behaviors done using the account, such as commands executed, startup folder modifications, and
+network connections.
+- Determine whether this activity was followed by suspicious file access/copy operations or uploads to file storage
+services.
+
+### False positive analysis
+
+- Discovery activities themselves are not inherently malicious if occurring in isolation. As long as the analyst did not
+identify any suspicious activity related to the user or host, such alerts can be dismissed.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Quarantine the involved host to prevent further post-compromise behavior.
+- Reset passwords for the user account and other potentially compromised accounts (email, services, CRMs, etc.).
+- Determine the initial infection vector.
+
+## Config
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
