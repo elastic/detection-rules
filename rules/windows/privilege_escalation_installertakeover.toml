@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2021/11/25"
 maturity = "production"
-updated_date = "2022/02/28"
+min_stack_comments = "EQL optional fields syntax was not introduced until 7.16"
+min_stack_version = "7.16.0"
+updated_date = "2022/04/13"
 
 [rule]
 author = ["Elastic"]
@@ -14,38 +16,58 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Privilege Escalation via InstallerFileTakeOver"
-note = """## Triage and analysis.
+note = """## Triage and analysis
 
-### Investigating Potential Priivilege Escalation via InstallerFileTakeOver
+### Investigating Potential Privilege Escalation via InstallerFileTakeOver
 
-InstallerFileTakeOver is a weaponized EoP PoC to the CVE-2021-41379 vulnerability. Upon successful exploitation,
-an unprivileged user will escalate privileges to SYSTEM/NT AUTHORITY.
+InstallerFileTakeOver is a weaponized escalation of privilege proof of concept (EoP PoC) to the CVE-2021-41379 vulnerability. Upon successful exploitation, an
+unprivileged user will escalate privileges to SYSTEM/NT AUTHORITY.
 
 This rule detects the default execution of the PoC, which overwrites the `elevation_service.exe` DACL and copies itself
-to the location to escalate privileges. An attacker is able to still take over any file that is not in use (locked), which is outside the scope of this rule.
+to the location to escalate privileges. An attacker is able to still take over any file that is not in use (locked),
+which is outside the scope of this rule.
 
 #### Possible investigation steps:
 
-- Check for the digital signature of the executable.
+- Check the executable's digital signature.
 - Look for additional processes spawned by the process, command lines, and network communications.
-- Look for additional alerts involving the host and the user.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Check for similar behavior in other hosts on the environment.
+- Retrieve the file and determine if it is malicious:
+  - Use a private sandboxed malware analysis system to perform analysis.
+    - Observe and collect information about the following activities:
+      - Attempts to contact external domains and addresses.
+      - File and registry access, modification, and creation activities.
+      - Service creation and launch activities.
+      - Scheduled tasks creation.
+  - Use the PowerShell Get-FileHash cmdlet to get the SHA-256 hash value of the file.
+    - Search for the existence and reputation of this file in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 
-### False Positive Analysis
+### False positive analysis
 
-- Verify whether the digital signature exists in the executable, and if it is valid.
+- Verify whether a digital signature exists in the executable, and if it is valid.
 
-### Related Rules
+### Related rules
 
 - Suspicious DLL Loaded for Persistence or Privilege Escalation - bfeaf89b-a2a7-48a3-817f-e41829dc61ee
 
-### Response and Remediation
+### Response and remediation
 
-- Immediate response steps should be taken to validate, investigate, and potentially contain the activity to prevent
-further post-compromise behavior.
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement any temporary network rules, procedures, and segmentation required to contain the malware.
+  - Immediately block the identified indicators of compromise (IoCs).
+- Remove and block malicious artifacts identified on the triage.
+- Disable user account’s ability to log in remotely.
+- Reset passwords for the user account and other potentially compromised accounts (email, services, CRMs, etc.).
+- Determine the initial infection vector.
+
+## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
-references = [
-    "https://github.com/klinix5/InstallerFileTakeOver"
-]
+references = ["https://github.com/klinix5/InstallerFileTakeOver"]
 risk_score = 73
 rule_id = "58c6d58b-a0d3-412d-b3b8-0981a9400607"
 severity = "high"
@@ -57,8 +79,8 @@ query = '''
 /* This rule is compatible with both Sysmon and Elastic Endpoint */
 
 process where event.type == "start" and 
-    (process.Ext.token.integrity_level_name : "System" or
-    winlog.event_data.IntegrityLevel : "System") and
+    (?process.Ext.token.integrity_level_name : "System" or
+    ?winlog.event_data.IntegrityLevel : "System") and
     (
       (process.name : "elevation_service.exe" and 
        not process.pe.original_file_name == "elevation_service.exe") or
@@ -71,13 +93,14 @@ process where event.type == "start" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
 
-  [[rule.threat.technique]]
-  id = "T1068"
-  reference = "https://attack.mitre.org/techniques/T1068/"
-  name = "Exploitation for Privilege Escalation"  
-  
-  [rule.threat.tactic]
-  id = "TA0004"
-  reference = "https://attack.mitre.org/tactics/TA0004/"
-  name = "Privilege Escalation"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

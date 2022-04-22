@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/03/19"
 maturity = "production"
-updated_date = "2021/05/26"
+updated_date = "2022/03/07"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,46 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Network Connection via Certutil"
-references = ["https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml"]
+note = """## Triage and analysis
+
+### Investigating Network Connection via Certutil
+
+Attackers can abuse `certutil.exe` to download malware, offensive security tools, and certificates from external sources
+in order to take the next steps in a compromised environment.
+
+This rule looks for network events where `certutil.exe` contacts IP ranges other than the ones specified in
+[IANA IPv4 Special-Purpose Address Registry](https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml)
+
+#### Possible investigation steps
+
+- Investigate the script execution chain (parent process tree).
+- Investigate other alerts related to the user/host in the last 48 hours.
+- Investigate if the downloaded file was executed.
+- Determine the context in which `certutil.exe` and the file were run.
+- Retrieve the file downloaded and:
+  - Use a sandboxed malware analysis system to perform analysis.
+    - Observe attempts of contacting external domains and addresses.
+  - Use the PowerShell Get-FileHash cmdlet to get the SHA-256 hash value of the file.
+    - Search for the existence of this file in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+
+### False positive analysis
+
+- This mechanism can be used legitimately. If trusted software uses this command and the triage has not identified
+anything suspicious, this alert can be closed as a false positive.
+- If this activity is expected and noisy in your environment, consider adding exceptions — preferably with a combination
+of user and command line conditions.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+- Implement any temporary network rules, procedures, and segmentation required to contain the malware.
+"""
+references = [
+    "https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml",
+    "https://frsecure.com/malware-incident-response-playbook/",
+]
 risk_score = 21
 rule_id = "3838e0e3-1850-4850-a411-2e8c5ba40ba8"
 severity = "low"
