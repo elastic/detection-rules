@@ -99,7 +99,8 @@ class EvaluatorTests(unittest.TestCase):
         self.assertFalse(self.evaluate('ip:10.0.0.0/8'))
 
     def test_quoted_wildcard(self):
-        self.assertFalse(self.evaluate('string:"*"'))
+        self.assertFalse(self.evaluate("string:'*'"))
+        self.assertFalse(self.evaluate("string:'?'"))
 
     def test_wildcard(self):
         self.assertTrue(self.evaluate('string:hello*'))
