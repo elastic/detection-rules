@@ -36,23 +36,6 @@ jobs:
       run: |
         python -m detection_rules test
 
-    - name: Get Backport Status
-      id: get_backport_status
-      uses: fjogeleit/http-request-action@v1
-      with:
-        url: "https://api.github.com/repos/elastic/detection-rules/actions/workflows/backport.yml/runs?per_page=1"
-        method: 'GET'
-
-    - name: Check Backport Status
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const workflow_status = ${{ toJSON(fromJSON(steps.get_backport_status.outputs.response).workflow_runs[0].status) }}
-          const workflow_conclusion = ${{ toJSON(fromJSON(steps.get_backport_status.outputs.response).workflow_runs[0].conclusion) }}
-          if (workflow_status != 'completed' || workflow_conclusion != 'success') {
-            core.setFailed('Recent Backport status: ' + workflow_status + ', conclusion: ' + workflow_conclusion)
-          }
-
     - name: Update navigator gist files
       env:
         GITHUB_TOKEN: "${{ secrets.NAVIGATOR_GIST_TOKEN }}"
