@@ -43,6 +43,15 @@ jobs:
               name: 'backport: auto'
             })
 
+  list-target-branches:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.get-branch-list.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v2
+      - id: get-branch-list
+        run: echo "::set-output name=matrix::$(yq '.target_branch_list' ./etc/target_branches.yml)"
+
   commit:
     if: |
       github.event.pull_request.merged == true
@@ -51,12 +60,13 @@ jobs:
         (github.event.action == 'labeled' && github.event.label.name == 'backport: auto')
         || (github.event.action == 'closed')
       )
+    needs: list-target-branches
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 1
       matrix:
         # 7.17 was intentionally skipped because it was added late and was bug fix only
-        target_branch: [7.13, 7.14, 7.15, 7.16, '8.0', 8.1, 8.2]
+        target_branch: ${{ fromJSON(needs.list-target-branches.outputs.matrix) }}
 
     steps:
       - name: Checkout repo
