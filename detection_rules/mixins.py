@@ -13,7 +13,7 @@ import marshmallow_dataclass
 import marshmallow_dataclass.union_field
 import marshmallow_jsonschema
 import marshmallow_union
-from marshmallow import Schema, fields
+from marshmallow import Schema, ValidationError, fields
 
 from .schemas import definitions
 from .utils import cached, dict_hash
@@ -133,7 +133,12 @@ class LockDataclassMixin:
     def from_dict(cls: Type[ClassT], obj: dict) -> ClassT:
         """Deserialize and validate a dataclass from a dict using marshmallow."""
         schema = cls.__schema()
-        return schema.load(obj)
+        try:
+            loaded = schema.load(obj)
+        except ValidationError as e:
+            err_msg = json.dumps(e.messages, indent=2)
+            raise ValidationError(f'Validation error loading: {cls.__name__}\n{err_msg}') from None
+        return loaded
 
     def to_dict(self, strip_none_values=True) -> dict:
         """Serialize a dataclass to a dictionary using marshmallow."""

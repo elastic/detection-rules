@@ -223,6 +223,7 @@ class VersionLock:
                         "rule_name": existing_rule_lock["rule_name"],
                         "sha256": existing_rule_lock["sha256"],
                         "version": existing_rule_lock["version"],
+                        "type": existing_rule_lock["type"]
                     }
                     existing_rule_lock.setdefault("previous", {})
 
