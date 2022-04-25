@@ -1,21 +1,54 @@
 [metadata]
 creation_date = "2020/11/04"
 maturity = "production"
-updated_date = "2022/02/14"
+updated_date = "2022/03/07"
 
 [rule]
 author = ["Elastic"]
 description = """
-Adversaries may implement command and control communications that use common web services in order to hide their
-activity. This attack technique is typically targeted to an organization and uses web services common to the victim
-network which allows the adversary to blend into legitimate traffic. activity. These popular services are typically
-targeted since they have most likely been used before a compromise and allow adversaries to blend in the network.
+Adversaries may implement command and control (C2) communications that use common web services to hide their
+activity. This attack technique is typically targeted at an organization and uses web services common to the victim
+network, which allows the adversary to blend into legitimate traffic activity. These popular services are typically
+targeted since they have most likely been used before compromise, which helps malicious traffic blend in.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Connection to Commonly Abused Web Services"
+note = """## Triage and analysis
+
+### Investigating Connection to Commonly Abused Web Services
+
+Adversaries may use an existing, legitimate external Web service as a means for relaying data to/from a compromised
+system. Popular websites and social media acting as a mechanism for C2 may give a significant amount of cover due to the
+likelihood that hosts within a network are already communicating with them prior to a compromise.
+
+This rule looks for processes outside known legitimate program locations communicating with a list of services that can
+be abused for exfiltration or command and control.
+
+#### Possible investigation steps
+
+- Investigate the script execution chain (parent process tree).
+- Investigate other alerts related to the user/host in the last 48 hours.
+- Verify whether the digital signature exists in the executable.
+- Identify the kind of the operation (upload, download, tunneling, etc.).
+- Use a sandboxed malware analysis system to perform analysis on the executable.
+- Use the PowerShell Get-FileHash cmdlet to get the SHA-256 hash value of the file.
+  - Search for the existence of this file in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+
+### False positive analysis
+
+- This rule has a high chance to produce false positives because it detects communication with legitimate services. Noisy
+false positives can be added as exceptions.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+- Implement any temporary network rules, procedures, and segmentation required to contain the malware.
+"""
 risk_score = 21
 rule_id = "66883649-f908-4a5b-a1e0-54090a1d3a32"
 severity = "low"

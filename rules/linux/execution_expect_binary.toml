@@ -1,14 +1,15 @@
 [metadata]
 creation_date = "2022/03/07"
-maturity = "development"
-updated_date = "2022/03/17"
+maturity = "production"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies Linux binary expect abuse to break out from restricted environments by spawning an interactive system shell
-This activity is not standard use with this binary for a user or system administrator and could potentially indicate
-malicious actor attempting to improve the capabilities or stability of their access.
+Identifies Linux binary expect abuse to break out from restricted environments by spawning an interactive system shell.
+The expect utility allows us to automate control of interactive applications such as telnet,ftp,ssh and others and the
+activity of spawning shell is not a standard use of this binary for a user or system administrator and could potentially
+indicate malicious actor attempting to improve the capabilities or stability of their access.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -24,9 +25,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by host.id, process.pid with maxspan=1m 
-[process where process.name == "expect" and process.args : "-c" and process.args : ("spawn /bin/sh;interact", "spawn /bin/bash;interact", "spawn /bin/dash;interact", "spawn sh;interact","spawn bash;interact", "spawn dash;interact")] 
-[process where process.parent.name == "expect" and process.name : ("bash", "sh", "dash")]
+process where event.type == "start" and process.name in ("bash", "sh", "dash") and
+  process.parent.name == "expect" and process.parent.args == "-c" and
+  process.parent.args in ("spawn /bin/sh;interact", "spawn /bin/bash;interact", "spawn /bin/dash;interact", "spawn sh;interact", "spawn bash;interact", "spawn dash;interact")
 '''
 
 
