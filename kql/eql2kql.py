@@ -8,7 +8,7 @@ from eql import DepthFirstWalker
 
 from .ast import (
     Value, String, OrValues, Field, Expression, FieldRange, FieldComparison,
-    NotExpr, AndExpr, OrExpr, Exists
+    NotExpr, AndExpr, OrExpr, Exists, Wildcard
 )
 
 
@@ -66,8 +66,16 @@ class Eql2Kql(DepthFirstWalker):
     def _walk_function_call(self, tree):  # type: (eql.ast.FunctionCall) -> KqlNode
         if tree.name in ("wildcard", "cidrMatch"):
             if isinstance(tree.arguments[0], Field):
-                return FieldComparison(tree.arguments[0], OrValues(tree.arguments[1:]))
-
+                if tree.name == "wildcard":
+                    args = []
+                    for arg in tree.arguments[1:]:
+                        if '*' in arg.value or '?' in arg.value:
+                            args.append(Wildcard(arg.value))
+                        else:
+                            args.append(arg)
+                    return FieldComparison(tree.arguments[0], OrValues(args))
+                else:
+                    return FieldComparison(tree.arguments[0], OrValues(tree.arguments[1:]))
         raise eql.errors.EqlCompileError("Unable to convert `{}`".format(tree))
 
     def _walk_literal(self, tree):
