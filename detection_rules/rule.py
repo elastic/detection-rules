@@ -295,9 +295,14 @@ class EQLRuleData(QueryRuleData):
             return self.convert_time_span(lookback)
 
     @cached_property
+    def is_sequence(self) -> bool:
+        """Checks if the current rule is a sequence-based rule."""
+        return eql.utils.get_query_type(self.ast) == 'sequence'
+
+    @cached_property
     def max_span(self) -> Optional[int]:
         """Maxspan value for sequence rules if defined."""
-        if eql.utils.get_query_type(self.ast) == 'sequence' and hasattr(self.ast.first, 'max_span'):
+        if self.is_sequence and hasattr(self.ast.first, 'max_span'):
             return self.ast.first.max_span.as_milliseconds() if self.ast.first.max_span else None
 
     @cached_property
@@ -387,9 +392,14 @@ class BaseRuleContents(ABC):
     def version_lock(self):
         pass
 
+    @property
+    @abstractmethod
+    def type(self):
+        pass
+
     def lock_info(self, bump=True) -> dict:
         version = self.autobumped_version if bump else (self.latest_version or 1)
-        contents = {"rule_name": self.name, "sha256": self.sha256(), "version": version}
+        contents = {"rule_name": self.name, "sha256": self.sha256(), "version": version, "type": self.type}
 
         return contents
 
@@ -488,6 +498,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def name(self) -> str:
         return self.data.name
 
+    @property
+    def type(self) -> str:
+        return self.data.type
+
     @validates_schema
     def validate_query(self, value: dict, **kwargs):
         """Validate queries by calling into the validator for the relevant method."""
@@ -579,6 +593,10 @@ class DeprecatedRuleContents(BaseRuleContents):
     @property
     def name(self) -> str:
         return self.data.get('name')
+
+    @property
+    def type(self) -> str:
+        return self.data.get('type')
 
     @classmethod
     def from_dict(cls, obj: dict):

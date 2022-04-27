@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/01/12"
 maturity = "production"
-updated_date = "2022/01/12"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +15,54 @@ index = ["winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "MS Office Macro Security Registry Modifications"
+note = """## Triage and analysis
+
+### Investigating MS Office Macro Security Registry Modifications
+
+Macros are small programs that are used to automate repetitive tasks in Microsoft Office applications.
+Historically, macros have been used for a variety of reasons -- from automating part of a job, to
+building entire processes and data flows. Macros are written in Visual Basic for Applications (VBA) and are saved as
+part of Microsoft Office files.
+
+Macros are often created for legitimate reasons, but they can also be written by attackers to gain access, harm a
+system, or bypass other security controls such as application allow listing. In fact, exploitation from malicious macros
+is one of the top ways that organizations are compromised today. These attacks are often conducted through phishing or
+spear phishing campaigns.
+
+Attackers can convince victims to modify Microsoft Office security settings, so their macros are trusted by default and
+no warnings are displayed when they are executed. These settings include:
+
+* *Trust access to the VBA project object model* - When enabled, Microsoft Office will trust all macros and run any code
+without showing a security warning or requiring user permission.
+* *VbaWarnings* - When set to 1, Microsoft Office will trust all macros and run any code without showing a security
+warning or requiring user permission.
+
+This rule looks for registry changes affecting the conditions above.
+
+#### Possible investigation steps
+
+- Identify the user that performed the operation.
+- Verify whether malicious macros were executed after the registry change.
+- Contact the user and check if the change was done manually.
+- Investigate other alerts associated with the user during the past 48 hours.
+
+### False positive analysis
+
+- This activity should not happen legitimately. The security team should address any potential benign true
+positives (B-TPs), as this configuration can put the user and the domain at risk.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Reset the registry key value.
+- Isolate the host if malicious code was executed and reset the involved account's passwords.
+- Explore using GPOs to manage security settings for Microsoft Office macros.
+
+
+## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 risk_score = 47
 rule_id = "feeed87c-5e95-4339-aef1-47fd79bcfbe3"
 severity = "medium"
@@ -35,30 +83,31 @@ registry where event.type == "change" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1112"
 name = "Modify Registry"
 reference = "https://attack.mitre.org/techniques/T1112/"
 
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1204"
 name = "User Execution"
 reference = "https://attack.mitre.org/techniques/T1204/"
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1204.002"
-  name = "Malicious File"
-  reference = "https://attack.mitre.org/techniques/T1204/002/"
+
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+

@@ -18,9 +18,9 @@ class BaseRuleTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         rc = RuleCollection.default()
-        cls.all_rules = rc
+        cls.all_rules = rc.rules
         cls.rule_lookup = rc.id_map
-        cls.production_rules = cls.all_rules.filter(production_filter)
+        cls.production_rules = rc.filter(production_filter)
         cls.deprecated_rules: DeprecatedCollection = rc.deprecated
 
     @staticmethod

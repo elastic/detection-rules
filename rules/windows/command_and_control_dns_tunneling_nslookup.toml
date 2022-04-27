@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/11"
 maturity = "production"
-updated_date = "2021/09/23"
+updated_date = "2022/03/07"
 
 [rule]
 author = ["Elastic"]
@@ -14,6 +14,42 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Potential DNS Tunneling via NsLookup"
+note = """## Triage and analysis
+
+### Investigating Potential DNS Tunneling via NsLookup
+
+Attackers can abuse existing network rules that allow DNS communication with external resources to use the protocol as
+their command and control and/or exfiltration channel.
+
+DNS queries can be used to infiltrate data such as commands to be run, malicious files, etc., and also for exfiltration,
+since queries can be used to send data to the attacker-controlled DNS server. This process is commonly known as DNS tunneling.
+
+More information on how tunneling works and how it can be abused can be found on
+[Palo Alto Unit42 Research](https://unit42.paloaltonetworks.com/dns-tunneling-how-dns-can-be-abused-by-malicious-actors).
+
+#### Possible investigation steps
+
+- Investigate the script execution chain (parent process tree).
+- Investigate other alerts related to the user/host in the last 48 hours.
+- Inspect the DNS query and identify the information sent.
+- Extract this communication's indicators of compromise (IoCs) and use traffic logs to search for other potentially compromised hosts.
+
+### False positive analysis
+
+- This mechanism can be used legitimately. If the parent process is trusted and the data sent is not sensitive nor
+command and control related, this alert can be closed.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- Immediately block the IoCs identified on the triage.
+- Implement any temporary network rules, procedures, and segmentation required to contain the attack.
+- Capture forensic images to preserve evidence.
+- Reset the password for the user account and other potentially compromised accounts (email, services, CRMs, etc.).
+- Update firewall rules to be more restrictive.
+- Reimage affected systems.
+"""
 references = ["https://unit42.paloaltonetworks.com/dns-tunneling-in-the-wild-overview-of-oilrigs-dns-tunneling/"]
 risk_score = 47
 rule_id = "3a59fc81-99d3-47ea-8cd6-d48d561fca20"
