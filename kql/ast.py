@@ -61,6 +61,8 @@ class Value(KqlNode):
     def from_python(cls, value):
         if value is None:
             return Null()
+        elif is_string(value) and ('*' in value or '?' in value):
+            return Wildcard(value)
         elif isinstance(value, bool):
             return Boolean(value)
         elif is_number(value):
@@ -104,7 +106,7 @@ class String(Value):
 
 class Wildcard(Value):
     escapes = {"\t": "\\t", "\r": "\\r"}
-    slash_escaped = r'''^\\():<>"*{} '''
+    slash_escaped = r'''^\\():<>"{} '''
 
     def _render(self):
         escaped = []
