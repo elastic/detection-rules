@@ -1,16 +1,15 @@
 [metadata]
 creation_date = "2021/08/24"
 maturity = "production"
-updated_date = "2021/10/17"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
-description = """
-Identifies suspicious commands executed via a web server, which may suggest a vulnerability and remote shell access.
-"""
+description = "Identifies suspicious commands executed via a web server, which may suggest a vulnerability and remote shell access."
 false_positives = [
     """
-    Security audits, maintenance, and network administrative scripts may trigger this alert when run under web processes.
+    Security audits, maintenance, and network administrative scripts may trigger this alert when run under web
+    processes.
     """,
 ]
 from = "now-9m"
@@ -20,8 +19,15 @@ license = "Elastic License v2"
 name = "Webshell Detection: Script Process Child of Common Web Processes"
 note = """## Triage and analysis
 
-Detections should be investigated to identify if the activity corresponds to legitimate activity. As this rule detects post-exploitation process activity, investigations into this should be prioritized."""
-references = ["https://www.microsoft.com/security/blog/2020/02/04/ghost-in-the-shell-investigating-web-shell-attacks/"]
+Detections should be investigated to identify if the activity corresponds to legitimate activity. As this rule detects post-exploitation process activity, investigations into this should be prioritized.
+
+## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
+references = [
+    "https://www.microsoft.com/security/blog/2020/02/04/ghost-in-the-shell-investigating-web-shell-attacks/",
+]
 risk_score = 73
 rule_id = "2917d495-59bd-4250-b395-c29409b76086"
 severity = "high"
@@ -48,6 +54,7 @@ name = "Web Shell"
 reference = "https://attack.mitre.org/techniques/T1505/003/"
 
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
@@ -64,3 +71,4 @@ reference = "https://attack.mitre.org/techniques/T1190/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+

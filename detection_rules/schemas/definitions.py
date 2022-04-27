@@ -34,14 +34,19 @@ MACHINE_LEARNING = 'machine_learning'
 SAVED_QUERY = 'saved_query'
 QUERY = 'query'
 
-
+# we had a bad rule ID make it in before tightening up the pattern, and so we have to let it bypass
+KNOWN_BAD_RULE_IDS = Literal['119c8877-8613-416d-a98a-96b6664ee73a5']
 OPERATORS = ['equals']
 
 TIMELINE_TEMPLATES: Final[dict] = {
     'db366523-f1c6-4c1f-8731-6ce5ed9e5717': 'Generic Endpoint Timeline',
     '91832785-286d-4ebe-b884-1a208d111a70': 'Generic Network Timeline',
     '76e52245-7519-4251-91ab-262fb1a1728c': 'Generic Process Timeline',
-    '495ad7a7-316e-4544-8a0f-9c098daee76e': 'Generic Threat Match Timeline'
+    '495ad7a7-316e-4544-8a0f-9c098daee76e': 'Generic Threat Match Timeline',
+    '4d4c0b59-ea83-483f-b8c1-8c360ee53c5c': 'Comprehensive File Timeline',
+    'e70679c2-6cde-4510-9764-4823df18f7db': 'Comprehensive Process Timeline',
+    '300afc76-072d-4261-864d-4149714bf3f1': 'Comprehensive Network Timeline',
+    '3e47ef71-ebfc-4520-975c-cb27fc090799': 'Comprehensive Registry Timeline'
 }
 
 

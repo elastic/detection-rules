@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/09/03"
 maturity = "production"
-updated_date = "2021/04/14"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +15,10 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential DLL SideLoading via Trusted Microsoft Programs"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 risk_score = 73
 rule_id = "1160dcdb-0a0a-4a79-91d8-9b84616edebd"
 severity = "high"
@@ -40,11 +44,12 @@ process where event.type == "start" and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1036"
-reference = "https://attack.mitre.org/techniques/T1036/"
 name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
 
 
 [rule.threat.tactic]
 id = "TA0005"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

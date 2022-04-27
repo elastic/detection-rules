@@ -1,14 +1,14 @@
 [metadata]
 creation_date = "2021/07/07"
 maturity = "production"
-updated_date = "2021/09/22"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic", "Dennis Perto"]
 description = """
-Identifies a Windows trusted program that is known to be vulnerable to DLL Search Order Hijacking
-starting after being renamed or from a non-standard path. This is uncommon behavior and may indicate an attempt to evade
-defenses via side-loading a malicious DLL within the memory space of one of those processes.
+Identifies a Windows trusted program that is known to be vulnerable to DLL Search Order Hijacking starting after being
+renamed or from a non-standard path. This is uncommon behavior and may indicate an attempt to evade defenses via
+side-loading a malicious DLL within the memory space of one of those processes.
 """
 false_positives = ["Microsoft Antimalware Service Executable installed on non default installation path."]
 from = "now-9m"
@@ -16,6 +16,10 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential DLL Side-Loading via Microsoft Antimalware Service Executable"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = [
     "https://news.sophos.com/en-us/2021/07/04/independence-day-revil-uses-supply-chain-exploit-to-attack-hundreds-of-businesses/",
 ]
@@ -50,7 +54,9 @@ name = "DLL Side-Loading"
 reference = "https://attack.mitre.org/techniques/T1574/002/"
 
 
+
 [rule.threat.tactic]
+id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-id = "TA0005"
+
