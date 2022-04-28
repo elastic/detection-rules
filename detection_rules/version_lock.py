@@ -7,7 +7,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar, Dict, List, Optional, Union
-
+from marshmallow import pre_load, post_load, pre_dump, post_dump
 import click
 
 from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
@@ -22,18 +22,63 @@ ETC_DEPRECATED_RULES_FILE = "deprecated_rules.json"
 ETC_DEPRECATED_RULES_PATH = Path(get_etc_path()) / ETC_DEPRECATED_RULES_FILE
 MIN_LOCK_VERSION_DEFAULT = Version("7.13.0")
 
+temp_lock = {}
+
 
 @dataclass(frozen=True)
 class VersionLockFileEntry(MarshmallowDataclassMixin):
     """Schema for a rule entry in the version lock."""
+
     rule_name: definitions.RuleName
     sha256: definitions.Sha256
     type: definitions.RuleType
     version: definitions.PositiveInteger
     min_stack_version: Optional[definitions.SemVer]
 
-    # TODO: need to exclude nested 'previous'
+    #  Skip validation on pre/post load/dump
     previous: Optional[Dict[definitions.SemVer, 'VersionLockFileEntry']]
+
+    @pre_load(pass_many=True)
+    def store_load_previous(self, data, **kwargs):
+        """Exclude and store nested 'previous' field prior to load"""
+        if "previous" in data:
+            temp_lock[data['rule_name']] = data['previous']
+            del data["previous"]
+        return data
+
+    @pre_dump(pass_many=True)
+    def store_dump_previous(self, data, **kwargs):
+        """Exclude and store nested 'previous' field prior to dump"""
+        if data.get('previous') is not None:
+            temp_lock[data.get('rule_name')] = data.get("previous")
+        vlef = VersionLockFileEntry(rule_name=data.get('rule_name'),
+                                    sha256=data.get('sha256'),
+                                    type=data.get('type'),
+                                    version=data.get('version'),
+                                    min_stack_version=data.get('min_stack_version'),
+                                    previous=None)
+        return vlef
+
+    @post_load(pass_many=True)
+    def readd_load_previous(self, data, **kwargs):
+        """Readd nested 'previous' field post load"""
+        if data['rule_name'] in temp_lock:
+            data['previous'] = temp_lock[data['rule_name']]
+        return data
+
+    @post_dump(pass_many=True)
+    def readd_dump_previous(self, data, **kwargs):
+        """Readd nested 'previous' field post dump"""
+        previous = None
+        if data.get('rule_name') in temp_lock:
+            previous = temp_lock[data.get('rule_name')]
+        vlef = dict(rule_name=data.get('rule_name'),
+                    sha256=data.get('sha256'),
+                    type=data.get('type'),
+                    version=data.get('version'),
+                    min_stack_version=data.get('min_stack_version'),
+                    previous=previous)
+        return vlef
 
 
 @dataclass(frozen=True)
