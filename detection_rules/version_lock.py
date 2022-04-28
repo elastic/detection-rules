@@ -38,7 +38,7 @@ class VersionLockFileEntry(MarshmallowDataclassMixin):
     #  Skip validation on pre/post load/dump
     previous: Optional[Dict[definitions.SemVer, 'VersionLockFileEntry']]
 
-    @pre_load(pass_many=True)
+    @pre_load
     def store_load_previous(self, data, **kwargs):
         """Exclude and store nested 'previous' field prior to load"""
         if "previous" in data:
@@ -46,7 +46,7 @@ class VersionLockFileEntry(MarshmallowDataclassMixin):
             del data["previous"]
         return data
 
-    @pre_dump(pass_many=True)
+    @pre_dump
     def store_dump_previous(self, data, **kwargs):
         """Exclude and store nested 'previous' field prior to dump"""
         if data.get('previous') is not None:
@@ -59,14 +59,14 @@ class VersionLockFileEntry(MarshmallowDataclassMixin):
                                     previous=None)
         return vlef
 
-    @post_load(pass_many=True)
+    @post_load
     def readd_load_previous(self, data, **kwargs):
         """Readd nested 'previous' field post load"""
         if data['rule_name'] in temp_lock:
             data['previous'] = temp_lock[data['rule_name']]
         return data
 
-    @post_dump(pass_many=True)
+    @post_dump
     def readd_dump_previous(self, data, **kwargs):
         """Readd nested 'previous' field post dump"""
         previous = None
