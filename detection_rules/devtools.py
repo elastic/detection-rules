@@ -33,7 +33,7 @@ from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import PACKAGE_FILE, RELEASE_DIR, CURRENT_RELEASE_PATH, Package, current_stack_version
 from .version_lock import default_version_lock
-from .rule import AnyRuleData, BaseRuleData, QueryRuleData, TOMLRule
+from .rule import AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData, TOMLRule
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions
 from .semver import Version
@@ -94,21 +94,9 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     return package
 
 
-@dev_group.command('build-integration-docs')
-@click.argument('registry-version')
-@click.option('--pre', required=True, help='Tag for pre-existing rules')
-@click.option('--post', required=True, help='Tag for rules post updates')
-@click.option('--directory', '-d', type=Path, required=True, help='Output directory to save docs to')
-@click.option('--force', '-f', is_flag=True, help='Bypass the confirmation prompt')
-@click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
-@click.pass_context
-def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, post: str, directory: Path, force: bool,
-                           remote: Optional[str] = 'origin') -> IntegrationSecurityDocs:
+def get_release_diff(pre: str, post: str, remote: Optional[str] = 'origin'
+                     ) -> (Dict[str, TOMLRule], Dict[str, TOMLRule], Dict[str, DeprecatedRule]):
     """Build documents from two git tags for an integration package."""
-    if not force:
-        if not click.confirm(f'This will refresh tags and may overwrite local tags for: {pre} and {post}. Continue?'):
-            ctx.exit(1)
-
     pre_rules = RuleCollection()
     pre_rules.load_git_tag(pre, remote, skip_query_validation=True)
 
@@ -124,9 +112,28 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
         click.echo(' - ' + '\n - '.join([str(p) for p in post_rules.errors]))
 
     rules_changes = pre_rules.compare_collections(post_rules)
+    return rules_changes
 
+
+@dev_group.command('build-integration-docs')
+@click.argument('registry-version')
+@click.option('--pre', required=True, help='Tag for pre-existing rules')
+@click.option('--post', required=True, help='Tag for rules post updates')
+@click.option('--directory', '-d', type=Path, required=True, help='Output directory to save docs to')
+@click.option('--force', '-f', is_flag=True, help='Bypass the confirmation prompt')
+@click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
+@click.pass_context
+def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, post: str, directory: Path, force: bool,
+                           remote: Optional[str] = 'origin') -> IntegrationSecurityDocs:
+    """Build documents from two git tags for an integration package."""
+    if not force:
+        if not click.confirm(f'This will refresh tags and may overwrite local tags for: {pre} and {post}. Continue?'):
+            ctx.exit(1)
+
+    rules_changes = get_release_diff(pre, post, remote)
     docs = IntegrationSecurityDocs(registry_version, directory, True, *rules_changes)
     package_dir = docs.generate()
+
     click.echo(f'Generated documents saved to: {package_dir}')
     updated, new, deprecated = rules_changes
     click.echo(f'- {len(updated)} updated rules')
