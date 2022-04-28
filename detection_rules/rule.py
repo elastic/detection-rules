@@ -42,6 +42,7 @@ class RuleMeta(MarshmallowDataclassMixin):
     min_stack_version: Optional[definitions.SemVer]
     min_stack_comments: Optional[str]
     os_type_list: Optional[List[definitions.OSType]]
+    previous_locks: Optional[List[definitions.SemVer]]
     query_schema_validation: Optional[bool]
     related_endpoint_rules: Optional[List[str]]
 
