@@ -99,7 +99,9 @@ def add_rule_types_to_lock(lock_contents: dict, rule_map: Dict[str, dict]):
     """Add the rule type to entries in the lock file,if missing."""
     for rule_id, lock in lock_contents.items():
         rule = rule_map.get(rule_id, {})
-        rule_type = rule.get('rule', {}).get('type', 'unknown')
+
+        # this defaults to query if the rule is not found - it is just for validation so should not impact
+        rule_type = rule.get('rule', {}).get('type', 'query')
 
         # the type is a bit less important than the structure to pass validation
         lock['type'] = rule_type
