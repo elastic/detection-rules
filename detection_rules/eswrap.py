@@ -224,7 +224,7 @@ class CollectEvents(object):
                 if result['is_running'] is True:
                     async_searches.append((rule, result['id']))
                 else:
-                    survey_results[rule.id] = parse_unique_field_results(rule_type, rule.contents.data.unique_fields,
+                    survey_results[rule.id] = parse_unique_field_results(rule_type, ['process.name'],
                                                                          result['response'])
             elif language == 'eql':
                 eql_body = {
@@ -259,8 +259,7 @@ class CollectEvents(object):
             rule: TOMLRule
             rule, async_id = entry
             result = async_client.get(id=async_id)['response']
-            survey_results[rule.id] = parse_unique_field_results(rule.contents.data.type,
-                                                                 rule.contents.data.unique_fields, result)
+            survey_results[rule.id] = parse_unique_field_results(rule.contents.data.type, ['process.name'], result)
 
         return survey_results
 
