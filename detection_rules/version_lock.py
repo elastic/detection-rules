@@ -247,12 +247,22 @@ class VersionLock:
                     assert str(min_stack) in existing_rule_lock.get("previous", {}), \
                         f"Expected {rule.id} @ v{min_stack} in the rule lock"
 
-                    # TODO: Figure out whether we support locking old versions and if we want to
+                    # Support locking old versions if we have buffer space in between
                     #       "leave room" by skipping versions when breaking changes are made.
                     #       We can still inspect the version lock manually after locks are made,
                     #       since it's a good summary of everything that happens
-                    assert current_rule_lock["version"] >= existing_rule_lock["previous"][str(min_stack)]
+                    new_min_version = max([x['version'] for x in existing_rule_lock['previous'].values()])
+                    new_max_version = existing_rule_lock["version"]
 
+                    # leave half the space available since we're inserting an old previous version
+                    # between the latest min_version
+                    new_version = (new_max_version - new_min_version) / 2
+                    if new_version <= 1:
+                        # we're out of buffer space
+                        raise ValueError(f'Out of buffer space on {rule.id} '
+                                         f'when trying to bump to {current_rule_lock["version"]}')
+
+                    current_rule_lock["version"] = new_version
                     existing_rule_lock["previous"][str(min_stack)] = current_rule_lock
                     existing_rule_lock.update(current_rule_lock)
                     add_changes(rule, f'previous version {min_stack} updated version to {current_rule_lock["version"]}')
