@@ -142,8 +142,8 @@ class VersionLock:
             return existing_sha256
 
     def manage_versions(self, rules: RuleCollection,
-                        exclude_version_update=False, save_changes=False,
-                        verbose=True) -> (List[str], List[str], List[str]):
+                        exclude_version_update: bool = False, save_changes: bool = False,
+                        verbose: bool = True, buffer_int: int = 100) -> (List[str], List[str], List[str]):
         """Update the contents of the version.lock file and optionally save changes."""
         from .packaging import current_stack_version
 
@@ -232,6 +232,8 @@ class VersionLock:
 
                     # overwrite the "latest" part of the lock at the top level
                     # TODO: would need to preserve space here as well if supporting forked version spacing
+                    # Preserve 100 buffer to support forked version spacing
+                    current_rule_lock["version"] = current_rule_lock["version"] + buffer_int
                     existing_rule_lock.update(current_rule_lock, min_stack_version=str(min_stack))
                     add_changes(
                         rule,
@@ -249,6 +251,8 @@ class VersionLock:
                     #       "leave room" by skipping versions when breaking changes are made.
                     #       We can still inspect the version lock manually after locks are made,
                     #       since it's a good summary of everything that happens
+                    assert current_rule_lock["version"] >= existing_rule_lock["previous"][str(min_stack)]
+
                     existing_rule_lock["previous"][str(min_stack)] = current_rule_lock
                     existing_rule_lock.update(current_rule_lock)
                     add_changes(rule, f'previous version {min_stack} updated version to {current_rule_lock["version"]}')
