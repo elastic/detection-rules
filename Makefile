@@ -15,7 +15,7 @@ all: release
 $(VENV):
 	pip install virtualenv
 	virtualenv $(VENV) --python=python3.8
-	$(PIP) install -r requirements.txt
+	$(PIP) install .[dev]
 	$(PIP) install setuptools -U
 
 
@@ -25,7 +25,7 @@ clean:
 
 .PHONY: deps
 deps: $(VENV)
-	$(PIP) install -r requirements.txt
+	$(PIP) install .[dev]
 
 
 .PHONY: pytest
