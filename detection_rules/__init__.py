@@ -4,6 +4,9 @@
 # 2.0.
 
 """Detection rules."""
+
+from pkg_resources import get_distribution, DistributionNotFound
+
 import sys
 
 assert (3, 8) <= sys.version_info < (4, 0), "Only Python 3.8+ supported"
@@ -41,3 +44,8 @@ __all__ = (
     'schemas',
     'utils'
 )
+
+try:
+    __version__ = get_distribution(__name__).version
+except DistributionNotFound:
+    pass  # package is not installed
