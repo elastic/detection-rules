@@ -8,26 +8,28 @@ These guidelines will also help you post meaningful issues that will be more eas
 
 ## Table of Contents
 
-- [Effective issue creation in Detection Rules](#effective-issue-creation-in-detection-rules)
-  - [Why we create issues before contributing code or new rules](#why-we-create-issues-before-contributing-code-or-new-rules)
-  - [What a good issue looks like](#what-a-good-issue-looks-like)
-  - ["My issue isn’t getting enough attention"](#my-issue-isnt-getting-enough-attention)
-  - ["I want to help!"](#i-want-to-help)
-- [How we use Git and GitHub](#how-we-use-git-and-github)
-  - [Forking](#forking)
-  - [Branching](#branching)
-  - [Commit messages](#commit-messages)
-  - [What goes into a Pull Request](#what-goes-into-a-pull-request)
-- [Our approach to detection engineering](#our-approach-to-detection-engineering)
-  - [Rule metadata](#rule-metadata)
-  - [Using Elastic Common Schema (ECS)](#using-elastic-common-schema-ecs)
-  - [Creating a rule with the CLI](#creating-a-rule-with-the-cli)
-  - [Testing a rule with the CLI](#testing-a-rule-with-the-cli)
-- [Writing style](#writing-style)
-- [Signing the contributor license agreement](#signing-the-contributor-license-agreement)
-- [Submitting a Pull Request](#submitting-a-pull-request)
-  - [What to expect from a code review](#what-to-expect-from-a-code-review)
-  - [How we handle merges](#how-we-handle-merges)
+- [Contributing to Detection Rules](#contributing-to-detection-rules)
+  - [Table of Contents](#table-of-contents)
+  - [Effective issue creation in Detection Rules](#effective-issue-creation-in-detection-rules)
+    - [Why we create issues before contributing code or new rules](#why-we-create-issues-before-contributing-code-or-new-rules)
+    - [What a good issue looks like](#what-a-good-issue-looks-like)
+    - ["My issue isn't getting enough attention"](#my-issue-isnt-getting-enough-attention)
+    - ["I want to help!"](#i-want-to-help)
+  - [How we use Git and GitHub](#how-we-use-git-and-github)
+    - [Forking](#forking)
+    - [Branching](#branching)
+    - [Commit messages](#commit-messages)
+    - [What goes into a Pull Request](#what-goes-into-a-pull-request)
+  - [Our approach to detection engineering](#our-approach-to-detection-engineering)
+    - [Rule metadata](#rule-metadata)
+    - [Using Elastic Common Schema (ECS)](#using-elastic-common-schema-ecs)
+    - [Creating a rule with the CLI](#creating-a-rule-with-the-cli)
+    - [Testing a rule with the CLI](#testing-a-rule-with-the-cli)
+  - [Writing style](#writing-style)
+  - [Signing the contributor license agreement](#signing-the-contributor-license-agreement)
+  - [Submitting a Pull Request](#submitting-a-pull-request)
+    - [What to expect from a code review](#what-to-expect-from-a-code-review)
+    - [How we handle merges](#how-we-handle-merges)
 
 
 ## Effective issue creation in Detection Rules
@@ -167,7 +169,7 @@ Our rules should be written generically when possible. We use [Elastic Common Sc
 
 If the relevant [categorization values](https://www.elastic.co/guide/en/ecs/current/ecs-category-field-values-reference.html) are already defined for ECS, we use these to narrow down the event type before adding the query. Typically, the query starts with the broadest grouping possible and gets narrower for each clause. For example, we might write `event.category:process and event.type:start and process.name:net.exe and process.args:group`. First, we match process events with `event.category`, then narrow to creation events with `event.type`. Of the process creation events, we're looking for the process `net.exe` with `process.name` and finally we check the arguments `group` by looking at `process.args`. This flow has little effect on the generated Elasticsearch query, but is the most intuitive to read for rule developers.
 
-Sometimes, it might not make sense for ECS to standardize a field, value, or category. Occasionally, we may encounter fields that specific to a single use-case or vendor. When that happens, we add an exception in [etc/non-ecs-schema.json](etc/non-ecs-schema.json). We automatically detect beats by looking at the index patterns used in a rule. If we see `winlogbeat-*`, for example, then we can validate the rule against ECS + Winlogbeat. When using a particular beat, please use `event.module` and `event.dataset` to make the rule more precise and to better nudge the validation logic. Similar to our logic flow for ECS categorization, we recommend searches progress from `event.module` → `event.dataset` → `event.action` → `<additional criteria>`.
+Sometimes, it might not make sense for ECS to standardize a field, value, or category. Occasionally, we may encounter fields that specific to a single use-case or vendor. When that happens, we add an exception in [detection_rules/etc/non-ecs-schema.json](detection_rules/etc/non-ecs-schema.json). We automatically detect beats by looking at the index patterns used in a rule. If we see `winlogbeat-*`, for example, then we can validate the rule against ECS + Winlogbeat. When using a particular beat, please use `event.module` and `event.dataset` to make the rule more precise and to better nudge the validation logic. Similar to our logic flow for ECS categorization, we recommend searches progress from `event.module` → `event.dataset` → `event.action` → `<additional criteria>`.
 
 When a Pull Request is missing a necessary ECS change, please add an issue to [elastic/ecs](https://github.com/elastic/ecs) and link it from the pull request. We don't want to leave PRs blocked for too long, so if the ECS issue isn't progressing, then we can add a note and use the vendor- or beat-specific fields. We'll create another issue, reminding us to update the rule logic to switch to the ECS field when it becomes available. To maximize compatibility, we may add an `or` clause for a release or two to handle the different permutatations. After a few releases, we'll remove this and strictly require the ECS fields.
 
@@ -202,7 +204,7 @@ references (multi, comma separated):
 risk_score [21] ("n/a" to leave blank)  (required):
 rule_id [90d0c543-e197-46d8-934d-0320b2c83486] ("n/a" to leave blank)  (required):
 severity [low] ("n/a" to leave blank)  (required): medium
-tags (multi, comma separated): Windows  
+tags (multi, comma separated): Windows
 throttle:
 timeline_id:
 timeline_title:
