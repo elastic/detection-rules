@@ -143,7 +143,7 @@ class VersionLock:
 
     def manage_versions(self, rules: RuleCollection,
                         exclude_version_update: bool = False, save_changes: bool = False,
-                        verbose: bool = True, buffer_int: int = 100) -> (List[str], List[str], List[str]):
+                        verbose: bool = True, buffer_int: int = 99) -> (List[str], List[str], List[str]):
         """Update the contents of the version.lock file and optionally save changes."""
         from .packaging import current_stack_version
 
@@ -200,6 +200,7 @@ class VersionLock:
                 # 2) on the latest, after a breaking change has been locked
                 # 3) on the latest stack, locking in a breaking change
                 # 4) on an old stack, after a breaking change has been made
+                # 5) on an old stack, locking in an old breaking change
                 latest_locked_stack_version = _convert_lock_version(existing_rule_lock.get("min_stack_version"))
 
                 if not existing_rule_lock or min_stack == latest_locked_stack_version:
@@ -244,6 +245,7 @@ class VersionLock:
                 elif min_stack < latest_locked_stack_version:
                     route = 'C'
                     # 4) on an old stack, after a breaking change has been made (updated fork)
+                    # 5) on an old stack, locking in an old breaking change
                     assert str(min_stack) in existing_rule_lock.get("previous", {}), \
                         f"Expected {rule.id} @ v{min_stack} in the rule lock"
 
@@ -254,8 +256,8 @@ class VersionLock:
                     new_min_version = max([x['version'] for x in existing_rule_lock['previous'].values()])
                     new_max_version = existing_rule_lock["version"]
 
-                    # leave half the space available since we're inserting an old previous version
-                    # between the latest min_version
+                    # leave half the space available since we're updating an old previous version
+                    # or inserting an old breaking change on an old stack
                     new_version = (new_max_version - new_min_version) / 2
                     if new_version <= 1:
                         # we're out of buffer space
