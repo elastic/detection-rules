@@ -232,8 +232,7 @@ class VersionLock:
                     existing_rule_lock["previous"][str(latest_locked_stack_version)] = previous_lock_info
 
                     # overwrite the "latest" part of the lock at the top level
-                    # TODO: would need to preserve space here as well if supporting forked version spacing
-                    # Preserve 100 buffer to support forked version spacing
+                    # Preserve 100 (99 buffer_int + 1 initial version) buffer to support forked version spacing
                     current_rule_lock["version"] = current_rule_lock["version"] + buffer_int
                     existing_rule_lock.update(current_rule_lock, min_stack_version=str(min_stack))
                     add_changes(
