@@ -8,7 +8,8 @@ import io
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Iterable, Callable, Optional, Union
+from subprocess import CalledProcessError
+from typing import Callable, Dict, Iterable, List, Optional, Union
 
 import click
 import pytoml
@@ -16,9 +17,10 @@ from marshmallow.exceptions import ValidationError
 
 from . import utils
 from .mappings import RtaMappings
-from .rule import DeprecatedRule, DeprecatedRuleContents, TOMLRule, TOMLRuleContents
+from .rule import (DeprecatedRule, DeprecatedRuleContents, TOMLRule,
+                   TOMLRuleContents)
 from .schemas import definitions
-from .utils import get_path, cached
+from .utils import cached, get_path
 
 DEFAULT_RULES_DIR = Path(get_path("rules"))
 DEFAULT_DEPRECATED_DIR = DEFAULT_RULES_DIR / '_deprecated'
@@ -98,8 +100,17 @@ def load_locks_from_tag(remote: str, tag: str) -> (str, dict, dict):
     git(*fetch_tags)
 
     commit_hash = git('rev-list', '-1', tag)
-    version = json.loads(git('show', f'{tag}:etc/version.lock.json'))
-    deprecated = json.loads(git('show', f'{tag}:etc/deprecated_rules.json'))
+    try:
+        version = json.loads(git('show', f'{tag}:detection_rules/etc/version.lock.json'))
+    except CalledProcessError:
+        # Adding resiliency to account for the old directory structure
+        version = json.loads(git('show', f'{tag}:etc/version.lock.json'))
+
+    try:
+        deprecated = json.loads(git('show', f'{tag}:detection_rules/etc/deprecated_rules.json'))
+    except CalledProcessError:
+        # Adding resiliency to account for the old directory structure
+        deprecated = json.loads(git('show', f'{tag}:etc/deprecated_rules.json'))
     return commit_hash, version, deprecated
 
 
@@ -375,10 +386,12 @@ class RuleCollection(BaseCollection):
 def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rules', token=None, threads=50,
                          verbose=True) -> (Dict[str, TOMLRule], Dict[str, TOMLRule], Dict[str, list]):
     """Load all rules active as a GitHub PR."""
-    import requests
-    import pytoml
     from multiprocessing.pool import ThreadPool
     from pathlib import Path
+
+    import pytoml
+    import requests
+
     from .ghwrap import GithubClient
 
     github = GithubClient(token=token)

@@ -32,7 +32,7 @@ import kql
 
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(CURR_DIR)
-ETC_DIR = os.path.join(ROOT_DIR, "etc")
+ETC_DIR = os.path.join(ROOT_DIR, "detection_rules", "etc")
 
 
 class NonelessDict(dict):
@@ -90,29 +90,29 @@ def get_path(*paths) -> str:
 
 
 def get_etc_path(*paths):
-    """Load a file from the etc/ folder."""
+    """Load a file from the detection_rules/etc/ folder."""
     return os.path.join(ETC_DIR, *paths)
 
 
 def get_etc_glob_path(*patterns):
-    """Load a file from the etc/ folder."""
+    """Load a file from the detection_rules/etc/ folder."""
     pattern = os.path.join(*patterns)
     return glob.glob(os.path.join(ETC_DIR, pattern))
 
 
 def get_etc_file(name, mode="r"):
-    """Load a file from the etc/ folder."""
+    """Load a file from the detection_rules/etc/ folder."""
     with open(get_etc_path(name), mode) as f:
         return f.read()
 
 
 def load_etc_dump(*path):
-    """Load a json/yml/toml file from the etc/ folder."""
+    """Load a json/yml/toml file from the detection_rules/etc/ folder."""
     return eql.utils.load_dump(get_etc_path(*path))
 
 
 def save_etc_dump(contents, *path, **kwargs):
-    """Load a json/yml/toml file from the etc/ folder."""
+    """Load a json/yml/toml file from the detection_rules/etc/ folder."""
     path = get_etc_path(*path)
     _, ext = os.path.splitext(path)
     sort_keys = kwargs.pop('sort_keys', True)
