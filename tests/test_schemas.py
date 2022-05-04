@@ -279,6 +279,7 @@ class TestVersionLockSchema(unittest.TestCase):
             version_lock_contents["34fde489-94b0-4500-a76f-b8a157cf9269"]["previous"]["previous"] = previous
             VersionLockFile.from_dict(dict(data=version_lock_contents))
 
+
 class TestVersions(unittest.TestCase):
     """Test that schema versioning aligns."""
 
