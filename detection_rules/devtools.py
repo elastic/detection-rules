@@ -15,6 +15,7 @@ import textwrap
 import time
 import typing
 import urllib.parse
+from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Optional, Tuple, List
 
@@ -22,6 +23,7 @@ import click
 import requests.exceptions
 import yaml
 from elasticsearch import Elasticsearch
+from eql.table import Table
 
 from kibana.connector import Kibana
 from . import rule_loader, utils
@@ -33,7 +35,7 @@ from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import PACKAGE_FILE, RELEASE_DIR, CURRENT_RELEASE_PATH, Package, current_stack_version
 from .version_lock import default_version_lock
-from .rule import AnyRuleData, BaseRuleData, QueryRuleData, TOMLRule
+from .rule import AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData, ThreatMapping, TOMLRule
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions
 from .semver import Version
@@ -94,21 +96,9 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     return package
 
 
-@dev_group.command('build-integration-docs')
-@click.argument('registry-version')
-@click.option('--pre', required=True, help='Tag for pre-existing rules')
-@click.option('--post', required=True, help='Tag for rules post updates')
-@click.option('--directory', '-d', type=Path, required=True, help='Output directory to save docs to')
-@click.option('--force', '-f', is_flag=True, help='Bypass the confirmation prompt')
-@click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
-@click.pass_context
-def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, post: str, directory: Path, force: bool,
-                           remote: Optional[str] = 'origin') -> IntegrationSecurityDocs:
+def get_release_diff(pre: str, post: str, remote: Optional[str] = 'origin'
+                     ) -> (Dict[str, TOMLRule], Dict[str, TOMLRule], Dict[str, DeprecatedRule]):
     """Build documents from two git tags for an integration package."""
-    if not force:
-        if not click.confirm(f'This will refresh tags and may overwrite local tags for: {pre} and {post}. Continue?'):
-            ctx.exit(1)
-
     pre_rules = RuleCollection()
     pre_rules.load_git_tag(pre, remote, skip_query_validation=True)
 
@@ -124,9 +114,28 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
         click.echo(' - ' + '\n - '.join([str(p) for p in post_rules.errors]))
 
     rules_changes = pre_rules.compare_collections(post_rules)
+    return rules_changes
 
+
+@dev_group.command('build-integration-docs')
+@click.argument('registry-version')
+@click.option('--pre', required=True, help='Tag for pre-existing rules')
+@click.option('--post', required=True, help='Tag for rules post updates')
+@click.option('--directory', '-d', type=Path, required=True, help='Output directory to save docs to')
+@click.option('--force', '-f', is_flag=True, help='Bypass the confirmation prompt')
+@click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
+@click.pass_context
+def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, post: str, directory: Path, force: bool,
+                           remote: Optional[str] = 'origin') -> IntegrationSecurityDocs:
+    """Build documents from two git tags for an integration package."""
+    if not force:
+        if not click.confirm(f'This will refresh tags and may overwrite local tags for: {pre} and {post}. Continue?'):
+            ctx.exit(1)
+
+    rules_changes = get_release_diff(pre, post, remote)
     docs = IntegrationSecurityDocs(registry_version, directory, True, *rules_changes)
     package_dir = docs.generate()
+
     click.echo(f'Generated documents saved to: {package_dir}')
     updated, new, deprecated = rules_changes
     click.echo(f'- {len(updated)} updated rules')
@@ -189,7 +198,7 @@ class GitChangeEntry:
 def prune_staging_area(target_stack_version: str, dry_run: bool):
     """Prune the git staging area to remove changes to incompatible rules."""
     exceptions = {
-        "etc/packages.yml",
+        "detection_rules/etc/packages.yml",
     }
 
     target_stack_version = Version(target_stack_version)[:2]
@@ -812,6 +821,76 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
     return generated_urls
 
 
+@dev_group.group('diff')
+def diff_group():
+    """Commands for statistics on changes and diffs."""
+
+
+@diff_group.command('endpoint-by-attack')
+@click.option('--pre', required=True, help='Tag for pre-existing rules')
+@click.option('--post', required=True, help='Tag for rules post updates')
+@click.option('--force', '-f', is_flag=True, help='Bypass the confirmation prompt')
+@click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
+@click.pass_context
+def endpoint_by_attack(ctx: click.Context, pre: str, post: str, force: bool, remote: Optional[str] = 'origin'):
+    """Rule diffs across tagged branches, broken down by ATT&CK tactics."""
+    if not force:
+        if not click.confirm(f'This will refresh tags and may overwrite local tags for: {pre} and {post}. Continue?'):
+            ctx.exit(1)
+
+    changed, new, deprecated = get_release_diff(pre, post, remote)
+    oses = ('windows', 'linux', 'macos')
+
+    def delta_stats(rule_map) -> List[dict]:
+        stats = defaultdict(lambda: defaultdict(int))
+        os_totals = defaultdict(int)
+        tactic_totals = defaultdict(int)
+
+        for rule_id, rule in rule_map.items():
+            threat = rule.contents.data.get('threat')
+            os_types = [i.lower() for i in rule.contents.data.get('tags') or [] if i.lower() in oses]
+            if not threat or not os_types:
+                continue
+
+            if isinstance(threat[0], dict):
+                tactics = sorted(set(e['tactic']['name'] for e in threat))
+            else:
+                tactics = ThreatMapping.flatten(threat).tactic_names
+            for tactic in tactics:
+                tactic_totals[tactic] += 1
+                for os_type in os_types:
+                    os_totals[os_type] += 1
+                    stats[tactic][os_type] += 1
+
+        # structure stats for table
+        rows = []
+        for tac, stat in stats.items():
+            row = {'tactic': tac, 'total': tactic_totals[tac]}
+            for os_type, count in stat.items():
+                row[os_type] = count
+            rows.append(row)
+
+        rows.append(dict(tactic='total_by_os', **os_totals))
+
+        return rows
+
+    fields = ['tactic', 'linux', 'macos', 'windows', 'total']
+
+    changed_stats = delta_stats(changed)
+    table = Table.from_list(fields, changed_stats)
+    click.echo(f'Changed rules {len(changed)}\n{table}\n')
+
+    new_stats = delta_stats(new)
+    table = Table.from_list(fields, new_stats)
+    click.echo(f'New rules {len(new)}\n{table}\n')
+
+    dep_stats = delta_stats(deprecated)
+    table = Table.from_list(fields, dep_stats)
+    click.echo(f'Deprecated rules {len(deprecated)}\n{table}\n')
+
+    return changed_stats, new_stats, dep_stats
+
+
 @dev_group.group('test')
 def test_group():
     """Commands for testing against stack resources."""
@@ -898,7 +977,6 @@ def rule_event_search(ctx, rule, date_range, count, max_results, verbose,
 def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_counts, hide_errors,
                 elasticsearch_client: Elasticsearch = None, kibana_client: Kibana = None):
     """Survey rule counts."""
-    from eql.table import Table
     from kibana.resources import Signal
     from .main import search_rules
 

@@ -11,7 +11,7 @@ The simplest way to index rules from the repo into elasticsearch is to run
 `python -m detection-rules es index-rules`
 
 This will index an enriched version of all rules included and sent to the index `rules-repo-<package-version>-<package_hash>`
-- `package-version` is the version defined in `etc/packages.yml`
+- `package-version` is the version defined in `detection_rules/etc/packages.yml`
 - `package hash` is the sha256 hash of the consolidated rules:
    - sorted by name
    - flattened
@@ -54,7 +54,7 @@ This will generate 2 files under `enriched-rule-indexes/<hash-of-package>`:
    - this can be loaded via dev tools or sent as data using curl or any other method that hits the elasticsearch bulk api
 
 
-The rules are _enriched_ with several pieces of information and so are not identical 
+The rules are _enriched_ with several pieces of information and so are not identical
 representations of the rules generated with `view-rule`, though the hashes of the rules are generated
 before any enrichments are added.
 
@@ -80,7 +80,7 @@ The query can be any valid kql to reduce the scope of included rules, such as
 
 ### Importing rules via Kibana
 
-If you have [access](https://www.elastic.co/subscriptions) to machine learning, you can leverage the 
+If you have [access](https://www.elastic.co/subscriptions) to machine learning, you can leverage the
 [data-visualizer](https://www.elastic.co/guide/en/kibana/7.11/connect-to-elasticsearch.html#upload-data-kibana)
 to import the rules via the [importable](#generating-an-index-of-the-rules) file.
 
@@ -88,7 +88,7 @@ to import the rules via the [importable](#generating-an-index-of-the-rules) file
 ### After the rules have been indexed
 
 Once indexed, the rules will need to be added to a [kibana pattern](https://www.elastic.co/guide/en/kibana/7.11/index-patterns.html),
-which will then make them searchable via discover or accessible in visualizations. Recommended index pattern is 
+which will then make them searchable via discover or accessible in visualizations. Recommended index pattern is
 `rules-*` or `rules-repo-*`
 
 
