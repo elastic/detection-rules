@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import ClassVar, Dict, List, Optional, Union
 
 import click
-from marshmallow import ValidationError, pre_load
 
 from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
 from .rule_loader import RuleCollection
@@ -25,24 +24,18 @@ MIN_LOCK_VERSION_DEFAULT = Version("7.13.0")
 
 
 @dataclass(frozen=True)
-class VersionLockFileEntry(MarshmallowDataclassMixin):
-    """Schema for a rule entry in the version lock."""
-
+class BaseEntry:
     rule_name: definitions.RuleName
     sha256: definitions.Sha256
     type: definitions.RuleType
     version: definitions.PositiveInteger
-    min_stack_version: Optional[definitions.SemVer]
-    previous: Optional[Dict[definitions.SemVer, 'VersionLockFileEntry']]
 
-    @pre_load
-    def check_nested_previous_field(self, data, **kwargs):
-        """Raise error if `previous` field has a nested `previous`."""
-        if "previous" in data:
-            previous = data["previous"]
-            if "previous" in previous:
-                raise ValidationError(f"Nested `previous` field found in rule lock {str(data)}")
-        return data
+
+@dataclass(frozen=True)
+class VersionLockFileEntry(MarshmallowDataclassMixin, BaseEntry):
+    """Schema for a rule entry in the version lock."""
+    min_stack_version: Optional[definitions.SemVer]
+    previous: Optional[Dict[definitions.SemVer, BaseEntry]]
 
 
 @dataclass(frozen=True)
