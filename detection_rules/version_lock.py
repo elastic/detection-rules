@@ -261,7 +261,8 @@ class VersionLock:
                     if new_version <= 1:
                         # we're out of buffer space
                         raise ValueError(f'Out of buffer space on {rule.id} '
-                                         f'when trying to bump to {current_rule_lock["version"]}')
+                                         f'when trying to bump to {current_rule_lock["version"]}. '
+                                         f'Please deprecate rule {rule.id} and create a new rule.')
 
                     current_rule_lock["version"] = new_version
                     existing_rule_lock["previous"][str(min_stack)] = current_rule_lock
