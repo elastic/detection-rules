@@ -19,15 +19,11 @@ import sys
 import tempfile
 import threading
 import time
+from pathlib import Path
+from typing import Iterable, Optional, Union
 
-try:
-    from SimpleHTTPServer import SimpleHTTPRequestHandler
-except ImportError:
-    from http.server import SimpleHTTPRequestHandler
-try:
-    from SocketServer import TCPServer
-except ImportError:
-    from http.server import HTTPServer as TCPServer
+
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 to_unicode = type(u"")
 long_t = type(1 << 63)
@@ -37,7 +33,7 @@ HOSTNAME = socket.gethostname()
 LOCAL_IP = None
 
 
-def get_ip():
+def get_ip() -> str:
     global LOCAL_IP, HOSTNAME
 
     if LOCAL_IP is None:
@@ -113,7 +109,7 @@ DWORD = "dword"
 OS_MAPPING = {WINDOWS: [], MACOS: [], LINUX: []}
 
 
-def requires_os(*os_list):
+def requires_os(*os_list: str):
     if len(os_list) == 1 and isinstance(os_list[0], (list, tuple)):
         os_list = os_list[0]
 
@@ -128,15 +124,14 @@ def requires_os(*os_list):
                 filename = os.path.relpath(inspect.getsourcefile(f))
                 func_name = f.__name__
 
-                log("Unsupported OS for {filename}:{func}(). Expected {os}".format(
-                    filename=filename, func=func_name, os="/".join(os_list)), "!")
+                log(f"Unsupported OS for {filename}:{func_name}(). Expected {'/'.join(os_list)}", "!")
                 return UNSUPPORTED_RTA
             return f(*args, **kwargs)
         return decorated
     return decorator
 
 
-def check_dependencies(*paths):
+def check_dependencies(*paths: str) -> bool:
     missing = []
     for path in paths:
         if not os.path.exists(path):
@@ -145,7 +140,7 @@ def check_dependencies(*paths):
     return len(missing) == 0
 
 
-def dependencies(*paths):
+def dependencies(*paths: str):
     missing = []
     for path in paths:
         if not os.path.exists(path):
@@ -168,8 +163,8 @@ def pause():
     time.sleep(0.5)
 
 
-def get_path(*path):
-    return os.path.join(BASE_DIR, *path)
+def get_path(*path: str) -> str:
+    return str(Path(BASE_DIR).joinpath(*path))
 
 
 @contextlib.contextmanager
@@ -198,8 +193,8 @@ def temporary_file_helper(contents, file_name=None):
     return f, close
 
 
-def execute(command, hide_log=False, mute=False, timeout=30, wait=True, kill=False, drop=False, stdin=None,
-            shell=False, **kwargs):
+def execute(command: Iterable, hide_log=False, mute=False, timeout: int = 30, wait=True, kill=False, drop=False,
+            stdin: Optional[Union[bytes, str]] = None, shell=False, **kwargs):
     """Execute a process and get the output."""
     command_string = command
     close = None
@@ -216,7 +211,7 @@ def execute(command, hide_log=False, mute=False, timeout=30, wait=True, kill=Fal
     if not hide_log:
         print("%s @ %s > %s" % (USER_NAME, HOSTNAME, command_string))
 
-    if isinstance(stdin, (bytes, str, type(u""))):
+    if isinstance(stdin, (bytes, str)):
         stdin, close = temporary_file_helper(stdin)
 
     stdout = subprocess.PIPE
@@ -344,12 +339,12 @@ def serve_web(ip=None, port=None, directory=BASE_DIR):
     ip = ip or get_ip()
 
     if port is not None:
-        server = TCPServer((ip, port), handler)
+        server = HTTPServer((ip, port), handler)
     else:
         # Otherwise, try to find a port
         for port in range(8000, 9000):
             try:
-                server = TCPServer((ip, port), handler)
+                server = HTTPServer((ip, port), handler)
                 break
             except socket.error:
                 pass
