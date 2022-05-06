@@ -56,7 +56,7 @@ def _decompress_and_save_schema(url, release_name):
 
     # remove all non-beat directories
     fs = {k: v for k, v in fs.get("folders", {}).items() if k.endswith("beat")}
-    print(f"Saving etc/beats_schema/{release_name}.json")
+    print(f"Saving detection_rules/etc/beats_schema/{release_name}.json")
 
     compressed = gzip_compress(json.dumps(fs, sort_keys=True, cls=DateTimeEncoder))
     path = get_etc_path("beats_schemas", release_name + ".json.gz")
