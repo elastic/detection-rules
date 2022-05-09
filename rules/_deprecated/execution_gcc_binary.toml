@@ -1,32 +1,33 @@
 [metadata]
-creation_date = "2022/03/15"
-maturity = "production"
-updated_date = "2022/03/31"
+creation_date = "2022/03/09"
+deprecation_date = "2022/05/09"
+maturity = "deprecated"
+updated_date = "2022/05/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies Linux binary c89/c99 abuse to break out from restricted environments by spawning an interactive system
-shell.The c89/c99 utility is an interface to the standard C compilation system and the activity of spawing a shell is
-not a standard use of this binary by a user or system administrator. It indicates a potentially malicious actor
-attempting to improve the capabilities or stability of their access.
+Identifies Linux binary gcc abuse to break out from restricted environments by spawning an interactive system shell.The
+gcc utility is a complier system for various languages and mainly used to complie C and C++ programs and the activity of
+spawning shell is not a standard use of this binary for a user or system administrator.It indicates a potentially
+malicious actor attempting to improve the capabilities or stability of their access.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Linux Restricted Shell Breakout via c89/c99 Shell evasion"
-references = ["https://gtfobins.github.io/gtfobins/c89/", "https://gtfobins.github.io/gtfobins/c99/"]
+name = "Linux Restricted Shell Breakout via the gcc command"
+references = ["https://gtfobins.github.io/gtfobins/gcc/"]
 risk_score = 47
-rule_id = "1859ce38-6a50-422b-a5e8-636e231ea0cd"
+rule_id = "da986d2c-ffbf-4fd6-af96-a88dbf68f386"
 severity = "medium"
 tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution", "GTFOBins"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and process.name in ("sh", "dash", "bash") and
-  process.parent.name in ("c89","c99") and process.parent.args == "-wrapper" and
+process where event.type == "start" and process.name in ("sh", "dash", "bash")  and
+  process.parent.name == "gcc" and process.parent.args == "-wrapper" and
   process.parent.args in ("sh,-s", "bash,-s", "dash,-s", "/bin/sh,-s", "/bin/bash,-s", "/bin/dash,-s")
 '''
 
