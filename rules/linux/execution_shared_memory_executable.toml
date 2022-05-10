@@ -1,0 +1,41 @@
+[metadata]
+creation_date = "2022/05/10"
+maturity = "production"
+updated_date = "2022/05/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of a binary in the /dev/shm/ directory of Linux operating systems. Adversaries may attempt to
+launch a malicious executable from this temporary directory during initial access to a host.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Binary Executed from Shared Memory Directory"
+risk_score = 43
+rule_id = "3f3f9fe2-d095-11ec-95dc-f661ea17fbce"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and event.action == "exec" and process.executable : "/dev/shm/*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
