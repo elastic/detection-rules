@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/11/08"
 maturity = "production"
-updated_date = "2022/03/02"
+updated_date = "2022/05/09"
 
 [rule]
 author = ["Elastic"]
@@ -26,9 +26,10 @@ clients to execute specified commands at startup, logon, shutdown, and logoff. T
 
 - This attack abuses a legitimate mechanism of the Active Directory, so it is important to determine whether the
 activity is legitimate and the administrator is authorized to perform this operation.
-- Retrieve the contents of the script file, and check for any potentially malicious commands and binaries.
-- Investigate other alerts related to the user/host in the last 48 hours.
-- Scope which objects have been affected.
+- Retrieve the contents of the `ScheduledTasks.xml` file, and check the `<Command>` and `<Arguments>` XML tags for any
+potentially malicious commands and binaries.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Scope which objects may be compromised by retrieving information about which objects are controlled by the GPO.
 
 ### False positive analysis
 
@@ -45,6 +46,10 @@ activity is legitimate and the administrator is authorized to perform this opera
 - The investigation and containment must be performed in every computer controlled by the GPO, where necessary.
 - Remove the script from the GPO.
 - Check if other GPOs have suspicious scripts attached.
+- Investigate to determine the initial vector abused by the attacker and conduct actions to eradicate the chance of
+reinfection by abusing the same vector.
+- Using the Incident response data, assess for additional logging and audit policies to improve the MTTD (Mean Time To
+Detect) and the MTTR (Mean Time To Response).
 
 ## Config
 

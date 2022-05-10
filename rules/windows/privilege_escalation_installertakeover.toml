@@ -3,7 +3,7 @@ creation_date = "2021/11/25"
 maturity = "production"
 min_stack_comments = "EQL optional fields syntax was not introduced until 7.16"
 min_stack_version = "7.16.0"
-updated_date = "2022/04/13"
+updated_date = "2022/05/09"
 
 [rule]
 author = ["Elastic"]
@@ -27,12 +27,13 @@ This rule detects the default execution of the PoC, which overwrites the `elevat
 to the location to escalate privileges. An attacker is able to still take over any file that is not in use (locked),
 which is outside the scope of this rule.
 
-#### Possible investigation steps:
+#### Possible investigation steps
 
-- Check the executable's digital signature.
-- Look for additional processes spawned by the process, command lines, and network communications.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Investigate other alerts associated with the user/host during the past 48 hours.
-- Check for similar behavior in other hosts on the environment.
+- Look for additional processes spawned by the process, command lines, and network communications.
+- Validate if this behavior is prevalent in the environment by looking for similar occurrences across the hosts.
 - Retrieve the file and determine if it is malicious:
   - Use a private sandboxed malware analysis system to perform analysis.
     - Observe and collect information about the following activities:
@@ -57,11 +58,20 @@ which is outside the scope of this rule.
 - Isolate the involved host to prevent further post-compromise behavior.
 - If the triage identified malware, search the environment for additional compromised hosts.
   - Implement any temporary network rules, procedures, and segmentation required to contain the malware.
-  - Immediately block the identified indicators of compromise (IoCs).
+  - Stop suspicious processes.
+  - Immediately block the IoCs identified.
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
+  attackers could use to reinfect the system.
 - Remove and block malicious artifacts identified on the triage.
-- Disable user account’s ability to log in remotely.
-- Reset passwords for the user account and other potentially compromised accounts (email, services, CRMs, etc.).
-- Determine the initial infection vector.
+- Run a full scan using the antimalware tool in place. This scan can reveal additional artifacts left in the system,
+persistence mechanisms, and malware components.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure that all compromised accounts
+compromised by the attacker are known. Reset the password for these accounts and other potentially compromised credentials,
+like email, business systems, and web services.
+- Investigate to determine the initial vector abused by the attacker and conduct actions to eradicate the chance of
+reinfection by abusing the same vector.
+- Using the Incident response data, assess for additional logging and audit policies to improve the MTTD (Mean Time To
+Detect) and the MTTR (Mean Time To Response).
 
 ## Config
 
