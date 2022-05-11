@@ -6,8 +6,8 @@ updated_date = "2022/05/11"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the execution of a binary in Linux shared memory directories, /dev/shm or /run/shm. Adversaries may attempt to
-launch a malicious executable from these temporary directories during initial access to a host.
+Identifies the execution of a binary in Linux shared memory directories, /dev/shm or /run/shm. Adversaries may attempt
+to launch a malicious executable from these temporary directories during initial access to a host.
 """
 false_positives = [
     """
@@ -33,7 +33,13 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and event.action == "exec" and user.name == "root" and process.executable : ("/dev/shm/*", "/run/shm/*", "/var/run/*", "/var/lock/*")
+process where event.type == "start" and 
+    event.action == "exec" and user.name == "root" and 
+    process.executable : (
+        "/dev/shm/*",
+        "/run/shm/*",
+        "/var/run/*",
+        "/var/lock/*")
 '''
 
 
