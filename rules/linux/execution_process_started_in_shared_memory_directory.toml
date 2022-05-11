@@ -6,14 +6,16 @@ updated_date = "2022/05/11"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the execution of a binary by root in Linux shared memory directories: (/dev/shm/, /run/shm/, /var/run/, /var/lock/). This activity is to be considered highly abnormal and should be investigated. Threat actors have placed executables used for persistence on high-uptime servers in these directories as system backdoors.
+Identifies the execution of a binary by root in Linux shared memory directories: (/dev/shm/, /run/shm/, /var/run/,
+/var/lock/). This activity is to be considered highly abnormal and should be investigated. Threat actors have placed
+executables used for persistence on high-uptime servers in these directories as system backdoors.
 """
 false_positives = [
     """
     Directories /dev/shm and /run/shm are temporary file storage directories in Linux. They are intended to appear as a
     mounted file system, but uses virtual memory instead of a persistent storage device and thus are used for mounting
     file systems in legitimate purposes.
-    """
+    """,
 ]
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -24,9 +26,9 @@ references = [
     "https://linuxsecurity.com/features/fileless-malware-on-linux",
     "https://twitter.com/GossiTheDog/status/1522964028284411907",
 ]
-risk_score = 43
+risk_score = 73
 rule_id = "3f3f9fe2-d095-11ec-95dc-f661ea17fbce"
-severity = "medium"
+severity = "high"
 tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution", "BPFDoor"]
 timestamp_override = "event.ingested"
 type = "eql"
