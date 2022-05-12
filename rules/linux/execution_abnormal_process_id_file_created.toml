@@ -22,6 +22,15 @@ index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Abnormal Process ID or Lock File Created"
+note = """
+## Triage and analysis
+
+### Investigating Abnormal Process ID or Lock File Created
+Detection alerts from this rule indicate that an unusual PID file was created and could potentially have alternate purposes during an intrusion.  Here are some possible avenues of investigation:
+- Run the following in Osquery to quickly identify unsual PID file size: "SELECT f.size, f.uid, f.type, f.path from file f WHERE path like '/var/run/%pid';"
+- Examine the history of this file creation and from which process it was created by using the "lsof" command.
+- Examine the contents of the PID file itself, simply by running the "cat" command to determine if the expected process ID integer exists and if not, the PID file is not legitimate.
+- Examine the reputation of the SHA256 hash from the PID file in a database like VirusTotal to identify additional pivots and artifacts for investigation."""
 references = [
     "https://www.sandflysecurity.com/blog/linux-file-masquerading-and-malicious-pids-sandfly-1-2-6-update/",
     "https://twitter.com/GossiTheDog/status/1522964028284411907",
