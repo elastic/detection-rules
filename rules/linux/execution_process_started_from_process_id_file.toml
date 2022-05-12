@@ -6,13 +6,15 @@ updated_date = "2022/05/12"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a new process starting from a process ID (PID), lock or reboot file within the temporary file storage paradigm (tmpfs) directory /var/run directory. On Linux, the PID files typically hold the process ID to track previous copies running and manage other tasks.
-Certain Linux malware use the /var/run directory for holding data, executables and other tasks, disguising itself or
-these files as legitimate PID files.
+Identifies a new process starting from a process ID (PID), lock or reboot file within the temporary file storage
+paradigm (tmpfs) directory /var/run directory. On Linux, the PID files typically hold the process ID to track previous
+copies running and manage other tasks. Certain Linux malware use the /var/run directory for holding data, executables
+and other tasks, disguising itself or these files as legitimate PID files.
 """
 false_positives = [
     """
-    False-Positives (FP) should be at a minimum with this detection as PID files are meant to hold process IDs, not inherently be executables that spawn processes.
+    False-Positives (FP) should be at a minimum with this detection as PID files are meant to hold process IDs, not
+    inherently be executables that spawn processes.
     """,
 ]
 from = "now-9m"
@@ -20,8 +22,7 @@ index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Process Started from Process ID (PID) File"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating Process Started from Process ID (PID) File
 Detection alerts from this rule indicate a process spawned from an executable masqueraded as a legitimate PID file which is very unusual and should not occur. Here are some possible avenues of investigation:
@@ -31,7 +32,7 @@ Detection alerts from this rule indicate a process spawned from an executable ma
 references = [
     "https://www.sandflysecurity.com/blog/linux-file-masquerading-and-malicious-pids-sandfly-1-2-6-update/",
     "https://twitter.com/GossiTheDog/status/1522964028284411907",
-    "https://exatrack.com/public/Tricephalic_Hellkeeper.pdf"
+    "https://exatrack.com/public/Tricephalic_Hellkeeper.pdf",
 ]
 risk_score = 73
 rule_id = "3688577a-d196-11ec-90b0-f661ea17fbce"
