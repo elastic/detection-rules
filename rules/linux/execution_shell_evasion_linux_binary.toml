@@ -57,7 +57,6 @@ process where event.type == "start" and
   /* launching shells from unusual parents or parent+arg combos */
   (process.name in ("bash", "sh", "dash","ash") and
     (process.parent.name == "byebug") or
-    (process.parent.name == "crash" and process.parent.args == "-h") or
 
     /* shells specified in parent args */
     /* nice rule is broken in 8.2 */
@@ -70,6 +69,7 @@ process where event.type == "start" and
 
     /* shells specified in args */
     (process.args in ("/bin/sh", "/bin/bash", "/bin/dash", "/bin/ash", "sh", "bash", "dash", "ash") and
+        (process.parent.name == "crash" and process.parent.args == "-h") or
         (process.name == "sensible-pager" and process.parent.name in ("apt", "apt-get") and process.parent.args == "changelog")
         /* scope to include more sensible-pager invoked shells with different parent process to reduce noise and remove false positives */
     )
