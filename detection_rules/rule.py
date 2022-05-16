@@ -175,6 +175,7 @@ class BaseRuleData(MarshmallowDataclassMixin):
     severity_mapping: Optional[List[SeverityMapping]]
     severity: definitions.Severity
     tags: Optional[List[str]]
+    telemetry: Optional[bool]
     throttle: Optional[str]
     timeline_id: Optional[definitions.TimelineTemplateId]
     timeline_title: Optional[definitions.TimelineTemplateTitle]
