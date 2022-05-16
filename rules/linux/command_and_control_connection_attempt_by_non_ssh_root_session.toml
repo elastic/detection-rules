@@ -40,8 +40,9 @@ tags = ["Elastic", "Host", "Linux", "Threat Detection", "Command and Control"]
 type = "eql"
 
 query = '''
-sequence by process.entity_id with maxspan=2m
-[process where event.action == "session_id_change" and user.id == "0" and not process.working_directory : "/"]
+sequence by process.entity_id
+[process where event.type == "start" and event.action == "fork" and user.id == "0" and not process.executable : ("/usr/lib/systemd/systemd")]
+[process where event.action == "session_id_change" and user.id == "0"]
 [network where event.type == "start" and event.action == "connection_attempted" and user.id == "0" and not process.executable : ("*/bin/ssh", "*/sbin/ssh")]
 '''
 
