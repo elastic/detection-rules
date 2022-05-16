@@ -18,21 +18,21 @@ note = """## Triage and analysis
 
 ### Investigating Enumeration of Privileged Local Groups Membership
 
-After a successful initial compromise, attackers may try to gain situational awareness of the environment to plan their
-next steps. This can happen by running commands to enumerate network resources, users, connections, files, and security
-software installed.
+After successfully compromising an environment, attackers may try to gain situational awareness to plan their next steps.
+This can happen by running commands to enumerate network resources, users, connections, files, and installed security
+software.
 
-This rule looks for the enumeration of privileged local groups membership by suspicious processes, excluding known legit
-utilities and programs installed. This information can be used by attackers to decide the next steps of the attack, such
-as mapping targets for credential compromise and other post-exploitation activities.
+This rule looks for the enumeration of privileged local groups' membership by suspicious processes, and excludes known
+legitimate utilities and programs installed. Attackers can use this information to decide the next steps of the attack,
+such as mapping targets for credential compromise and other post-exploitation activities.
 
 #### Possible investigation steps
 
 - Identify the process, host and user involved on the event.
 - Investigate the process execution chain (parent process tree).
 - Investigate other alerts associated with the user/host during the past 48 hours.
-- Investigate abnormal behaviors done using the account, such as commands executed, startup folder modifications, and
-network connections.
+- Investigate abnormal behaviors observed using the account, such as commands executed, startup folder modifications,
+and network connections.
 - Retrieve the process executable and determine if it is malicious:
   - Check if the file belongs to the operating system or has a valid digital signature.
   - Use a private sandboxed malware analysis system to perform analysis.
@@ -44,8 +44,8 @@ network connections.
 
 ### False positive analysis
 
-- Discovery activities themselves are not inherently malicious if occurring in isolation. As long as the analyst did not
-identify any suspicious activity related to the user or host, such alerts can be dismissed.
+- Discovery activities are not inherently malicious if they occur in isolation. As long as the analyst did not identify
+suspicious activity  related to the user or host, such alerts can be dismissed.
 - If this activity is expected and noisy in your environment, consider adding exceptions — preferably with a combination
 of user and command line conditions.
 
@@ -72,7 +72,7 @@ Account Management >
 Audit Security Group Management (Success)
 ```
 
-Microsoft introduced the event used in this detection rule on Windows 10/2016 and later operating systems.
+Microsoft introduced the [event used](https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4799) in this detection rule on Windows 10/2016 and later operating systems.
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """

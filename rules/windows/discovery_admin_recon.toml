@@ -18,26 +18,27 @@ note = """## Triage and analysis
 
 ### Investigating Enumeration of Administrator Accounts
 
-After a successful initial compromise, attackers may try to gain situational awareness of the environment to plan their
-next steps. This can happen by running commands to enumerate network resources, users, connections, files, and security
-software installed.
+After successfully compromising an environment, attackers may try to gain situational awareness to plan their next steps.
+This can happen by running commands to enumerate network resources, users, connections, files, and installed security
+software.
 
 This rule looks for the execution of the `net` and `wmic` utilities to enumerate administrator-related users or groups 
-in both domain and local scope, this information can be used by attackers to decide the next steps of the attack, such
-as mapping targets for credential compromise and other post-exploitation activities.
+in the domain and local scope. Attackers can use this information to plan their next steps of the attack, such as
+mapping targets for credential compromise and other post-exploitation activities.
 
 #### Possible investigation steps
 
-- Investigate the process execution chain (parent process tree).
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Identify the user account that performed the action and whether it usually performs this kind of action.
 - Investigate other alerts associated with the user/host during the past 48 hours.
-- Investigate abnormal behaviors done using the account, such as commands executed, startup folder modifications, and
-network connections.
+- Investigate abnormal behaviors observed using the account, such as commands executed, startup folder modifications,
+and network connections.
 
 ### False positive analysis
 
-- Discovery activities themselves are not inherently malicious if occurring in isolation. As long as the analyst did not
-identify any suspicious activity related to the user or host, such alerts can be dismissed.
+- Discovery activities are not inherently malicious if they occur in isolation. As long as the analyst did not identify
+suspicious activity  related to the user or host, such alerts can be dismissed.
 
 ### Related rules
 
