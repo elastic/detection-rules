@@ -6,7 +6,9 @@ updated_date = "2022/05/16"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies an outbound network connection attempt followed by a session id change as the root user by the same process entity. This particular instantiation of a network connection is abnormal and should be investigated as it may indicate a potential reverse shell activity via a privileged process.
+Identifies an outbound network connection attempt followed by a session id change as the root user by the same process
+entity. This particular instantiation of a network connection is abnormal and should be investigated as it may indicate
+a potential reverse shell activity via a privileged process.
 """
 false_positives = [
     """
@@ -40,8 +42,8 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=1m
-[network where event.type == "start" and event.action == "connection_attempted" and user.id == 0 and not process.executable : ("/bin/ssh", "/sbin/ssh", "/usr/lib/systemd/systemd")]
-[process where event.action == "session_id_change" and user.id == 0]
+[network where event.type == "start" and event.action == "connection_attempted" and user.id == "0" and not process.executable : ("/bin/ssh", "/sbin/ssh", "/usr/lib/systemd/systemd")]
+[process where event.action == "session_id_change" and user.id == "0"]
 '''
 
 
@@ -57,4 +59,21 @@ reference = "https://attack.mitre.org/techniques/T1095/"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+[[rule.threat.technique.subtechnique]]
+id = "T1548.003"
+name = "Sudo and Sudo Caching"
+reference = "https://attack.mitre.org/techniques/T1548/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
 
