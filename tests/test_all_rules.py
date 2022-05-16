@@ -70,6 +70,16 @@ class TestValidRules(BaseRuleTest):
                 if rta_name not in ttp_names:
                     self.fail(f'{self.rule_str(rule)} references unknown RTA: {rta_name}')
 
+    def test_production_rules_have_telemetry_flag(self):
+        """Ensure that all production rules have explicitly opted in or out of telemetry"""
+        for rule in self.production_rules:
+            telemetry_status = rule.contents.data.get("telemetry")
+            if telemetry_status:
+                self.assertEqual(type(telemetry_status), bool, "Telemetry flag is not a boolean")
+            else:
+                self.fail(f'{self.rule_str(rule)} has not got a telemetry flag')
+
+
     def test_duplicate_file_names(self):
         """Test that no file names are duplicated."""
         name_map = defaultdict(list)
