@@ -29,7 +29,8 @@ after attackers successfully perform privilege escalation.
 
 #### Possible investigation steps
 
-- Investigate the process execution chain (parent process tree).
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Determine how the SYSTEM account is being used. For example, users with administrator privileges can spawn a system
 shell using psexec and other utilities, use services, etc.
@@ -37,16 +38,20 @@ shell using psexec and other utilities, use services, etc.
 ### False positive analysis
 
 - Discovery activities are not inherently malicious if they occur in isolation. As long as the analyst did not identify
-suspicious activity  related to the user or host, such alerts can be dismissed.
+suspicious activity related to the user or host, such alerts can be dismissed.
 
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
-- Quarantine the involved host to prevent further post-compromise behavior.
-- Investigate potentially compromised accounts. Analysts can do this by searching for login events (e.g., 4624) to the
-target host.
-- Reset passwords for the user account and other potentially compromised accounts (email, services, CRMs, etc.).
-- Determine the initial infection vector.
+- Isolate the involved hosts to prevent further post-compromise behavior.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
+systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 - Use the data collected through the analysis to investigate other machines affected in the environment.
 
 ## Config
