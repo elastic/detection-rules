@@ -6,9 +6,7 @@ updated_date = "2022/05/16"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a session user change to root, followed by a non-ssh connection attempt in sequence. Adversaries whom implant
-backdoors may attempt to activate the backdoor which runs locally as root on Linux by sending a simple packet for
-activation. If custom sockets are in use by the backdoor, connections may not be via SSH which is can abnormal.
+Identifies, within a single, related process tree, a process fork followed by a session id change, then an outbound network connection attempt all as the root user. This particular instantiation of a network connection is highly abnormal and should be investigated as it points to a high-privileged process executing a possible reverse shell.
 """
 false_positives = [
     """
