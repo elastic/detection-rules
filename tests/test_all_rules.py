@@ -79,7 +79,6 @@ class TestValidRules(BaseRuleTest):
             else:
                 self.fail(f'{self.rule_str(rule)} has not got a telemetry flag')
 
-
     def test_duplicate_file_names(self):
         """Test that no file names are duplicated."""
         name_map = defaultdict(list)
