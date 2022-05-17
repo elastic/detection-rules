@@ -1,0 +1,49 @@
+[metadata]
+creation_date = "2022/05/17"
+maturity = "production"
+updated_date = "2022/05/17"
+integration = "kubernetes"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects a user attempt to exec into a pod or container. Execing into a pod allows a user to execute any process in the container which is not already running. A user may execute the bash process to gain an interactive shell which will allow access to any data the pod has permissions to, including secrets. 
+"""
+false_positives = [
+    """
+    An administrator may need to exec into a pod for a legitimate reason.
+    """,
+]
+index = ["filebeat-*", "logs-kubernetes.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "User Exec into Pod"
+note = """## Config
+
+The Kubernetes Fleet integration with Audit Logs enabled, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = ["https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/",
+"https://kubernetes.io/docs/tasks/debug/debug-application/get-shell-running-container/"]
+risk_score = 47
+rule_id = "14de811c-d60f-11ec-9fd7-f661ea17fbce"
+severity = "medium"
+tags = ["Elastic", "Kubernetes", "Continuous Monitoring", "Execution"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset : "kubernetes.audit_logs" and kubernetes.audit.objectRef.resource : "pods" and kubernetes.audit.objectRef.subresource :"exec"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration""
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002"
