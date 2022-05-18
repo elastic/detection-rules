@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/25"
 maturity = "production"
-updated_date = "2022/03/31"
+updated_date = "2022/05/09"
 
 [rule]
 author = ["Elastic"]
@@ -29,10 +29,11 @@ desktop connections are enabled. Attackers can abuse remote registry, use psexec
 
 #### Possible investigation steps
 
-- Identify the user account which performed the action and whether it should perform this kind of action.
+- Identify the user account that performed the action and whether it should perform this kind of action.
 - Contact the user to check if they are aware of the operation.
-- Investigate the script execution chain (parent process tree).
-- Investigate other alerts related to the user/host in the last 48 hours.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate other alerts associated with the user/host during the past 48 hours.
 - Check whether it makes sense to enable RDP to this host, given its role in the environment.
 - Check if the host is directly exposed to the internet.
 - Check whether privileged accounts accessed the host shortly after the modification.
@@ -40,8 +41,8 @@ desktop connections are enabled. Attackers can abuse remote registry, use psexec
 
 ### False positive analysis
 
-- This mechanism can be used legitimately. Check whether the user should be performing this kind of activity, whether they are aware
-of it, whether RDP should be open, and whether the action exposes the environment to unnecessary risks.
+- This mechanism can be used legitimately. Check whether the user should be performing this kind of activity, whether
+they are aware of it, whether RDP should be open, and whether the action exposes the environment to unnecessary risks.
 
 ### Response and remediation
 
@@ -49,8 +50,11 @@ of it, whether RDP should be open, and whether the action exposes the environmen
 - If RDP is needed, make sure to secure it using firewall rules:
   - Allowlist RDP traffic to specific trusted hosts.
   - Restrict RDP logins to authorized non-administrator accounts, where possible.
-- Quarantine the involved host to prevent further post-compromise behavior.
-- Review the implicated account's privileges.
+- Isolate the involved hosts to prevent further post-compromise behavior.
+- Review the privileges assigned to the involved users to ensure that the least privilege principle is being followed.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 
 ## Config
 

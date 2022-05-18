@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2022/03/31"
+updated_date = "2022/05/09"
 
 [rule]
 author = ["Elastic"]
@@ -28,16 +28,20 @@ This rule looks for the spawn of the `powershell.exe` process with `cscript.exe`
 
 #### Possible investigation steps
 
-- Investigate the process execution chain (parent process tree).
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Investigate commands executed by the spawned PowerShell process.
-- Retrieve the script file(s) involved:
-  - Use a sandboxed malware analysis system to perform analysis.
-    - Observe attempts to contact external domains and addresses.
-  - Use the PowerShell Get-FileHash cmdlet to get the SHA-256 hash value of the file.
-    - Search for the existence and reputation of this file in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-  - Manually analyze the script to determine if malicious capabilities are present.
+- If unsigned files are found on the process tree, retrieve them and determine if they are malicious:
+  - Use a private sandboxed malware analysis system to perform analysis.
+    - Observe and collect information about the following activities:
+      - Attempts to contact external domains and addresses.
+      - File and registry access, modification, and creation activities.
+      - Service creation and launch activities.
+      - Scheduled tasks creation.
+  - Use the PowerShell Get-FileHash cmdlet to get the files' SHA-256 hash values.
+    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 - Determine how the script file was delivered (email attachment, dropped by other processes, etc.).
-- Investigate other alerts related to the user/host in the last 48 hours.
+- Investigate other alerts associated with the user/host during the past 48 hours.
 
 ### False positive analysis
 
@@ -49,14 +53,23 @@ This rule looks for the spawn of the `powershell.exe` process with `cscript.exe`
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved host to prevent further post-compromise behavior.
 - If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement any temporary network rules, procedures, and segmentation required to contain the malware.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
   - Immediately block the identified indicators of compromise (IoCs).
-- Remove and block malicious artifacts identified on the triage.
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
+  attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
 - If the malicious file was delivered via phishing:
   - Block the email sender from sending future emails.
   - Block the malicious web pages.
   - Remove emails from the sender from mailboxes.
+  - Consider improvements to the security awareness program.
 - Reimage the host operating system and restore compromised files to clean versions.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 
 ## Config
 
