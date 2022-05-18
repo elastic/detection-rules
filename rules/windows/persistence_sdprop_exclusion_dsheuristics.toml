@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/02/24"
 maturity = "production"
-updated_date = "2022/04/06"
+updated_date = "2022/05/09"
 
 [rule]
 author = ["Elastic"]
@@ -44,7 +44,7 @@ This rule matches changes of the dsHeuristics object where the 16th bit is set t
 #### Possible investigation steps
 
 - Identify the user account that performed the action and whether it should perform this kind of action.
-- Contact the account owner and confirm whether they are aware of this activity.
+- Contact the account and system owners and confirm whether they are aware of this activity.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Check the value assigned to the 16th bit of the string on the `winlog.event_data.AttributeValue` field:
     - Account Operators eq 1
@@ -56,12 +56,14 @@ This rule matches changes of the dsHeuristics object where the 16th bit is set t
 
 ### False positive analysis
 
-- While this modification can be done legitimately, it is not best practice. Any potential benign true positive (B-TP)
+- While this modification can be done legitimately, it is not a best practice. Any potential benign true positive (B-TP)
 should be mapped and reviewed by the security team for alternatives as this weakens the security of the privileged group.
 
 ### Response and remediation
 
 - The change can be reverted by setting the dwAdminSDExMask (16th bit) to 0 in dSHeuristics.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 
 ## Config
 
