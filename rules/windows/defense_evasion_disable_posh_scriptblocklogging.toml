@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/01/31"
 maturity = "production"
-updated_date = "2022/03/31"
+updated_date = "2022/05/09"
 
 [rule]
 author = ["Elastic"]
@@ -26,11 +26,11 @@ processes, giving defenders visibility of PowerShell scripts and sequences of ex
 
 #### Possible investigation steps
 
-- Identify the user account which performed the action.
-- Check whether the account should perform this kind of action.
-- Investigate the script execution chain (parent process tree).
-- Investigate other alerts related to the user/host in the last 48 hours.
-- Check whether it makes sense for the user to use PowerShell to complete its tasks.
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Check whether it makes sense for the user to use PowerShell to complete tasks.
 - Investigate if PowerShell scripts were run after logging was disabled.
 
 ### False positive analysis
@@ -43,16 +43,21 @@ processes, giving defenders visibility of PowerShell scripts and sequences of ex
 - PowerShell Keylogging Script - bd2c86a0-8b61-4457-ab38-96943984e889
 - PowerShell Suspicious Script with Audio Capture Capabilities - 2f2f4939-0b34-40c2-a0a3-844eb7889f43
 - Potential Process Injection via PowerShell - 2e29e96a-b67c-455a-afe4-de6183431d0d
-- PowerShell Reflection Assembly Load - e26f042e-c590-4e82-8e05-41e81bd822ad
+- Suspicious .NET Reflection via PowerShell - e26f042e-c590-4e82-8e05-41e81bd822ad
 - PowerShell Suspicious Payload Encoded and Compressed - 81fe9dc6-a2d7-4192-a2d8-eed98afc766a
 - PowerShell Suspicious Script with Screenshot Capabilities - 959a7353-1129-4aa7-9084-30746b256a70
 
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
-- Quarantine the involved host to prevent further post-compromise behavior.
-- Review the implicated user account's privileges.
-- Configure AppLocker or equivalent software to restrict access to PowerShell for regular users.
+- Isolate the involved hosts to prevent further post-compromise behavior.
+- Review the privileges assigned to the involved users to ensure that the least privilege principle is being followed.
+- Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 
 ## Config
 
