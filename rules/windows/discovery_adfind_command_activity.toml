@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/10/19"
 maturity = "production"
-updated_date = "2022/04/06"
+updated_date = "2022/05/09"
 
 [rule]
 author = ["Elastic"]
@@ -27,7 +27,8 @@ this tool being adopted by ransomware and criminal groups and used in compromise
 
 #### Possible investigation steps
 
-- Investigate the process execution chain (parent process tree).
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Identify the user account that performed the action and whether it should perform this kind of action.
 - Examine the command line to determine what information was retrieved by the tool.
 - Contact the account owner and confirm whether they are aware of this activity.
@@ -35,9 +36,9 @@ this tool being adopted by ransomware and criminal groups and used in compromise
 
 ### False positive analysis
 
-- This rule has a high chance to produce false positives as it is a legitimate tool used by network administrators. One
-option could be allowlisting specific users or groups who use the tool as part of their daily responsibilities. This can
-be done by leveraging the exception workflow in the Kibana Security App or Elasticsearch API to tune this rule to your environment.
+- This rule has a high chance to produce false positives as it is a legitimate tool used by network administrators.
+- If this activity is expected and noisy in your environment, consider adding exceptions — preferably with a combination
+of user and command line conditions.
 - Malicious behavior with `AdFind` should be investigated as part of a step within an attack chain. It doesn't happen in
 isolation, so reviewing previous logs/activity from impacted machines can be very telling.
 
@@ -51,8 +52,14 @@ isolation, so reviewing previous logs/activity from impacted machines can be ver
 
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved host to prevent further post-compromise behavior.
-- Reset passwords for the user account and other potentially compromised accounts (email, services, CRMs, etc.).
-- Determine the initial infection vector.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
+systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 
 ## Config
 
