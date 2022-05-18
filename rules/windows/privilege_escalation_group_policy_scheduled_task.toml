@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/11/08"
 maturity = "production"
-updated_date = "2022/04/20"
+updated_date = "2022/05/09"
 
 [rule]
 author = ["Elastic"]
@@ -22,12 +22,12 @@ file.
 
 #### Possible investigation steps
 
-- This attack abuses a legitimate mechanism of the Active Directory, so it is important to determine whether the activity
+- This attack abuses a legitimate mechanism of Active Directory, so it is important to determine whether the activity
 is legitimate and the administrator is authorized to perform this operation.
 - Retrieve the contents of the `ScheduledTasks.xml` file, and check the `<Command>` and `<Arguments>` XML tags for any
-potentially malicious commands and binaries.
-- Investigate other alerts related to the user/host in the last 48 hours.
-- Scope which objects have been affected.
+potentially malicious commands or binaries.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Scope which objects may be compromised by retrieving information about which objects are controlled by the GPO.
 
 ### False positive analysis
 
@@ -44,6 +44,9 @@ potentially malicious commands and binaries.
 - The investigation and containment must be performed in every computer controlled by the GPO, where necessary.
 - Remove the script from the GPO.
 - Check if other GPOs have suspicious scheduled tasks attached.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 
 ## Config
 
