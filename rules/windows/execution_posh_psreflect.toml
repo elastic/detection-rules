@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/10/15"
 maturity = "production"
-updated_date = "2022/03/02"
+updated_date = "2022/05/09"
 
 [rule]
 author = ["Elastic"]
@@ -33,11 +33,24 @@ PowerShell, enabling defenders to discover tools being dropped in the environmen
 
 #### Possible investigation steps
 
+- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration
+capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics. The
+script content that may be split into multiple script blocks (you can use the field `powershell.file.script_block_id`
+for filtering).
+- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for
+prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Check for additional PowerShell and command-line logs that indicate that imported functions were run.
-- Gather the script content that may be split into multiple script blocks (the field `powershell.file.script_block_id`
-can be used for filtering), and identify its capabilities.
-- Investigate other alerts related to the user/host in the last 48 hours.
-- Consider whether the user needs PowerShell to complete its tasks.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Evaluate whether the user needs to use PowerShell to complete tasks.
+- Retrieve the script and determine if it is malicious:
+  - Use a private sandboxed malware analysis system to perform analysis.
+    - Observe and collect information about the following activities:
+      - Attempts to contact external domains and addresses.
+      - File and registry access, modification, and creation activities.
+      - Service creation and launch activities.
+      - Scheduled tasks creation.
+  - Use the PowerShell Get-FileHash cmdlet to get the files' SHA-256 hash values.
+    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 
 ### False positive analysis
 
@@ -49,15 +62,27 @@ can be used for filtering), and identify its capabilities.
 - PowerShell Keylogging Script - bd2c86a0-8b61-4457-ab38-96943984e889
 - PowerShell Suspicious Script with Audio Capture Capabilities - 2f2f4939-0b34-40c2-a0a3-844eb7889f43
 - Potential Process Injection via PowerShell - 2e29e96a-b67c-455a-afe4-de6183431d0d
-- PowerShell Reflection Assembly Load - e26f042e-c590-4e82-8e05-41e81bd822ad
+- Suspicious .NET Reflection via PowerShell - e26f042e-c590-4e82-8e05-41e81bd822ad
 - PowerShell Suspicious Payload Encoded and Compressed - 81fe9dc6-a2d7-4192-a2d8-eed98afc766a
 - PowerShell Suspicious Script with Screenshot Capabilities - 959a7353-1129-4aa7-9084-30746b256a70
 
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
-- Quarantine the involved host to prevent further post-compromise behavior.
-- Configure AppLocker or equivalent software to restrict access to PowerShell for regular users.
+- Isolate the involved hosts to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
+  attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 
 ## Config
 
