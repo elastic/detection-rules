@@ -1,22 +1,27 @@
 [metadata]
 creation_date = "2021/04/12"
 maturity = "production"
-updated_date = "2021/04/12"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies the execution of the EarthWorm tunneler. Adversaries may tunnel network communications to and from a victim
-system within a separate protocol to avoid detection and network filtering, or to enable access to otherwise unreachable systems.
+system within a separate protocol to avoid detection and network filtering, or to enable access to otherwise unreachable
+systems.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Protocol Tunneling via EarthWorm"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = [
     "http://rootkiter.com/EarthWorm/",
-    "https://decoded.avast.io/luigicamastra/apt-group-targeting-governmental-agencies-in-east-asia/"
+    "https://decoded.avast.io/luigicamastra/apt-group-targeting-governmental-agencies-in-east-asia/",
 ]
 risk_score = 47
 rule_id = "9f1c4ca3-44b5-481d-ba42-32dc215a2769"
@@ -38,7 +43,9 @@ id = "T1572"
 name = "Protocol Tunneling"
 reference = "https://attack.mitre.org/techniques/T1572/"
 
+
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+

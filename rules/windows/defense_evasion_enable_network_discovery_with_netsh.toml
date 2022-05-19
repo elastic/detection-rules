@@ -1,13 +1,13 @@
 [metadata]
 creation_date = "2021/07/07"
 maturity = "production"
-updated_date = "2021/09/23"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies use of the netsh.exe program to enable host discovery via the network. Attackers can use this command-line tool to
-weaken the host firewall settings.
+Identifies use of the netsh.exe program to enable host discovery via the network. Attackers can use this command-line
+tool to weaken the host firewall settings.
 """
 false_positives = ["Host Windows Firewall planned system administration changes."]
 from = "now-9m"
@@ -15,6 +15,10 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Enable Host Network Discovery via Netsh"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 risk_score = 47
 rule_id = "8b4f0816-6a65-4630-86a6-c21c179c0d09"
 severity = "medium"
@@ -37,12 +41,13 @@ name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
 [[rule.threat.technique.subtechnique]]
 id = "T1562.004"
-reference = "https://attack.mitre.org/techniques/T1562/004/"
 name = "Disable or Modify System Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/004/"
 
 
 
 [rule.threat.tactic]
-reference = "https://attack.mitre.org/tactics/TA0005/"
 id = "TA0005"
 name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

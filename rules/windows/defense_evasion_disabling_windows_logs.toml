@@ -1,13 +1,12 @@
 [metadata]
 creation_date = "2021/05/06"
 maturity = "production"
-updated_date = "2021/09/23"
-
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic", "Ivan Ninichuck", "Austin Songer"]
 description = """
-Identifies attempts to disable EventLog via the logman Windows utility, PowerShell, or auditpol. This is often done by 
+Identifies attempts to disable EventLog via the logman Windows utility, PowerShell, or auditpol. This is often done by
 attackers in an attempt to evade detection on a system.
 """
 from = "now-9m"
@@ -15,6 +14,10 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Disable Windows Event and Security Logs Using Built-in Tools"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = ["https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/logman"]
 risk_score = 21
 rule_id = "4de76544-f0e5-486a-8f84-eae0b6063cdc"
@@ -36,20 +39,22 @@ process where event.type in ("start", "process_started") and
   ((process.name:"auditpol.exe" or process.pe.original_file_name == "AUDITPOL.EXE") and process.args : "/success:disable")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1070"
 name = "Indicator Removal on Host"
 reference = "https://attack.mitre.org/techniques/T1070/"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.001"
+name = "Clear Windows Event Logs"
+reference = "https://attack.mitre.org/techniques/T1070/001/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1070.001"
-  name = "Clear Windows Event Logs"
-  reference = "https://attack.mitre.org/techniques/T1070/001/"
 
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

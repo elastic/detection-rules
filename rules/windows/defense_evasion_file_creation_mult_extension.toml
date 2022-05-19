@@ -1,9 +1,9 @@
 [metadata]
 creation_date = "2021/01/19"
 maturity = "production"
-updated_date = "2021/09/23"
 min_stack_comments = "EQL regex syntax introduced in 7.12"
 min_stack_version = "7.12.0"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
@@ -17,6 +17,10 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Executable File Creation with Multiple Extensions"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 risk_score = 47
 rule_id = "8b2b3a62-a598-4293-bc14-3d5fa22bb98f"
 severity = "medium"
@@ -47,19 +51,18 @@ reference = "https://attack.mitre.org/techniques/T1036/004/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1204"
 name = "User Execution"
 reference = "https://attack.mitre.org/techniques/T1204/"
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1204.002"
-  name = "Malicious File"
-  reference = "https://attack.mitre.org/techniques/T1204/002/"
+
 
 [rule.threat.tactic]
 id = "TA0002"

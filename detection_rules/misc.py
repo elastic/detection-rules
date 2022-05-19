@@ -358,7 +358,8 @@ elasticsearch_options = list(client_options['elasticsearch'].values())
 
 def add_client(*client_type, add_to_ctx=True, add_func_arg=True):
     """Wrapper to add authed client."""
-    from elasticsearch import Elasticsearch, ElasticsearchException
+    from elasticsearch import Elasticsearch
+    from elasticsearch.exceptions import AuthenticationException
     from kibana import Kibana
 
     def _wrapper(func):
@@ -390,9 +391,9 @@ def add_client(*client_type, add_to_ctx=True, add_func_arg=True):
                             elasticsearch_client.info():
                         pass
                     else:
-                        elasticsearch_client = get_elasticsearch_client(use_ssl=True, **es_client_args)
-                except ElasticsearchException:
-                    elasticsearch_client = get_elasticsearch_client(use_ssl=True, **es_client_args)
+                        elasticsearch_client = get_elasticsearch_client(**es_client_args)
+                except AuthenticationException:
+                    elasticsearch_client = get_elasticsearch_client(**es_client_args)
 
                 if add_func_arg:
                     kwargs['elasticsearch_client'] = elasticsearch_client

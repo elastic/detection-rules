@@ -250,7 +250,7 @@ def validate_rule(ctx, path):
 
 
 @root.command('validate-all')
-def validate_all(fail):
+def validate_all():
     """Check if all rules validates against a schema."""
     RuleCollection.default()
     click.echo('Rule validation successful')

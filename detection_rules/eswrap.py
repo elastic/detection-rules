@@ -13,7 +13,7 @@ from typing import Union
 import click
 import elasticsearch
 from elasticsearch import Elasticsearch
-from elasticsearch.client.async_search import AsyncSearchClient
+from elasticsearch.client import AsyncSearchClient
 
 import kql
 from .main import root

@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/12/23"
 maturity = "production"
-updated_date = "2022/02/14"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
@@ -16,7 +16,12 @@ license = "Elastic License v2"
 name = "Windows Defender Disabled via Registry Modification"
 note = """## Triage and analysis
 
-Detections should be investigated to identify if the hosts and users are authorized to use this tool. As this rule detects post-exploitation process activity, investigations into this should be prioritized."""
+Detections should be investigated to identify if the hosts and users are authorized to use this tool. As this rule detects post-exploitation process activity, investigations into this should be prioritized.
+
+## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = ["https://thedfirreport.com/2020/12/13/defender-control/"]
 risk_score = 21
 rule_id = "2ffa1f1e-b6db-47fa-994b-1512743847eb"
@@ -47,14 +52,14 @@ id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
 [[rule.threat.technique.subtechnique]]
-id = "T1562.006"
-name = "Indicator Blocking"
-reference = "https://attack.mitre.org/techniques/T1562/006/"
-
-[[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.006"
+name = "Indicator Blocking"
+reference = "https://attack.mitre.org/techniques/T1562/006/"
 
 
 

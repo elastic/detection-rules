@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/03/17"
 maturity = "production"
-updated_date = "2021/08/03"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
@@ -14,6 +14,10 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Bypass UAC via Event Viewer"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 risk_score = 73
 rule_id = "31b4c719-f2b4-41f6-a9bd-fce93c2eaf62"
 severity = "high"
@@ -36,17 +40,17 @@ process where event.type in ("start", "process_started") and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1548"
-reference = "https://attack.mitre.org/techniques/T1548/"
 name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
 [[rule.threat.technique.subtechnique]]
 id = "T1548.002"
-reference = "https://attack.mitre.org/techniques/T1548/002/"
 name = "Bypass User Account Control"
+reference = "https://attack.mitre.org/techniques/T1548/002/"
 
 
 
 [rule.threat.tactic]
 id = "TA0004"
-reference = "https://attack.mitre.org/tactics/TA0004/"
 name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
 

@@ -2,7 +2,7 @@
 name: New rule
 about: Suggestions and ideas for new rules
 title: "[New Rule] Name of rule"
-labels: "Rule: New"
+labels: 'Rule: New'
 assignees: ''
 
 ---

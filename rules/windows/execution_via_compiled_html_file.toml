@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/10/17"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
@@ -22,6 +22,10 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Process Activity via Compiled HTML File"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 risk_score = 47
 rule_id = "e3343ab9-4245-4715-b344-e11c56b0a47f"
 severity = "medium"
@@ -42,30 +46,28 @@ framework = "MITRE ATT&CK"
 id = "T1204"
 name = "User Execution"
 reference = "https://attack.mitre.org/techniques/T1204/"
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1204.002"
-  name = "Malicious File"
-  reference = "https://attack.mitre.org/techniques/T1204/002/"
 
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1218"
 name = "Signed Binary Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.001"
+name = "Compiled HTML File"
+reference = "https://attack.mitre.org/techniques/T1218/001/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1218.001"
-  name = "Compiled HTML File"
-  reference = "https://attack.mitre.org/techniques/T1218/001/"
 
 
 [rule.threat.tactic]

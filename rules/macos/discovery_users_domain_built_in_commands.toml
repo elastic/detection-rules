@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/01/12"
 maturity = "production"
-updated_date = "2021/03/16"
+updated_date = "2022/03/31"
 
 [rule]
 author = ["Elastic"]
@@ -11,6 +11,10 @@ index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Enumeration of Users or Groups via Built-in Commands"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 risk_score = 21
 rule_id = "6e9b351e-a531-4bdc-b73e-7034d6eed7ff"
 severity = "low"
@@ -24,6 +28,7 @@ process where event.type in ("start", "process_started") and
     "/Applications/ZoomPresence.app/Contents/MacOS/ZoomPresence",
      "/Applications/Sourcetree.app/Contents/MacOS/Sourcetree",
      "/Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfDaemon.app/Contents/MacOS/JamfDaemon",
+     "/Applications/Jamf Connect.app/Contents/MacOS/Jamf Connect",
      "/usr/local/jamf/bin/jamf"
     ) and 
   process.name : ("ldapsearch", "dsmemberutil") or
@@ -50,3 +55,4 @@ reference = "https://attack.mitre.org/techniques/T1087/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+

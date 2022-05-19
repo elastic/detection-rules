@@ -10,16 +10,16 @@ import warnings
 from collections import defaultdict
 from pathlib import Path
 
-import eql
-
 import kql
+
 from detection_rules import attack
-from detection_rules.version_lock import default_version_lock
+from detection_rules.beats import parse_beats_from_index
 from detection_rules.rule import QueryRuleData
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.schemas import definitions
 from detection_rules.semver import Version
 from detection_rules.utils import get_path, load_etc_dump
+from detection_rules.version_lock import default_version_lock
 from rta import get_ttp_names
 from .base import BaseRuleTest
 
@@ -80,6 +80,10 @@ class TestValidRules(BaseRuleTest):
         duplicates = {name: paths for name, paths in name_map.items() if len(paths) > 1}
         if duplicates:
             self.fail(f"Found duplicated file names {duplicates}")
+
+    def test_rule_type_changes(self):
+        """Test that a rule type did not change for a locked version"""
+        default_version_lock.manage_versions(self.production_rules)
 
 
 class TestThreatMappings(BaseRuleTest):
@@ -485,28 +489,84 @@ class TestRuleTiming(BaseRuleTest):
     """Test rule timing and timestamps."""
 
     def test_event_override(self):
-        """Test that rules have defined an timestamp_override if needed."""
-        missing = []
+        """Test that timestamp_override is properly applied to rules."""
+        # kql: always require (fallback to @timestamp enabled)
+        # eql:
+        #   sequences: never
+        #   min_stack_version < 8.2: only where event.ingested defined (no beats) or add config to update pipeline
+        #   min_stack_version >= 8.2: any - fallback to @timestamp enabled https://github.com/elastic/kibana/pull/127989
+
+        errors = {
+            'query': {
+                'errors': [],
+                'msg': 'should have the `timestamp_override` set to `event.ingested`'
+            },
+            'eql_sq': {
+                'errors': [],
+                'msg': 'cannot have the `timestamp_override` set to `event.ingested` because it uses a sequence'
+            },
+            'lt_82_eql': {
+                'errors': [],
+                'msg': 'should have the `timestamp_override` set to `event.ingested`'
+            },
+            'lt_82_eql_beats': {
+                'errors': [],
+                'msg': ('eql rules include beats indexes. Non-elastic-agent indexes do not add the `event.ingested` '
+                        'field and there is no default fallback to @timestamp for EQL rules <8.2, so the override '
+                        'should be removed or a config entry included to manually add it in a custom pipeline')
+            },
+            'gte_82_eql': {
+                'errors': [],
+                'msg': ('should have the `timestamp_override` set to `event.ingested` - default fallback to '
+                        '@timestamp was added in 8.2')
+            }
+        }
+
+        pipeline_config = ('If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions '
+                           '<8.2, events will not define `event.ingested` and default fallback for EQL rules '
+                           'was not added until 8.2, so you will need to add a custom pipeline to populate '
+                           '`event.ingested` to @timestamp for this rule to work.')
 
         for rule in self.all_rules:
-            required = False
-
+            if rule.contents.data.type not in ('eql', 'query'):
+                continue
             if isinstance(rule.contents.data, QueryRuleData) and 'endgame-*' in rule.contents.data.index:
                 continue
 
+            has_event_ingested = rule.contents.data.timestamp_override == 'event.ingested'
+            indexes = rule.contents.data.get('index', [])
+            beats_indexes = parse_beats_from_index(indexes)
+            min_stack_is_less_than_82 = Version(rule.contents.metadata.min_stack_version or '7.13') < (8, 2)
+            config = rule.contents.data.get('note') or ''
+            rule_str = self.rule_str(rule, trailer=None)
+
             if rule.contents.data.type == 'query':
-                required = True
-            elif rule.contents.data.type == 'eql' and \
-                    eql.utils.get_query_type(rule.contents.data.ast) != 'sequence':
-                required = True
+                if not has_event_ingested:
+                    errors['query']['errors'].append(rule_str)
+            # eql rules depends
+            elif rule.contents.data.type == 'eql':
+                if rule.contents.data.is_sequence:
+                    if has_event_ingested:
+                        errors['eql_sq']['errors'].append(rule_str)
+                else:
+                    if min_stack_is_less_than_82:
+                        if not beats_indexes and not has_event_ingested:
+                            errors['lt_82_eql']['errors'].append(rule_str)
+                        elif beats_indexes and has_event_ingested and pipeline_config not in config:
+                            errors['lt_82_eql_beats']['errors'].append(rule_str)
+                    else:
+                        if not has_event_ingested:
+                            errors['gte_82_eql']['errors'].append(rule_str)
 
-            if required and rule.contents.data.timestamp_override != 'event.ingested':
-                missing.append(rule)
-
-        if missing:
-            rules_str = '\n '.join(self.rule_str(r, trailer=None) for r in missing)
-            err_msg = f'The following rules should have the `timestamp_override` set to `event.ingested`\n {rules_str}'
-            self.fail(err_msg)
+        if any([v['errors'] for k, v in errors.items()]):
+            err_strings = ['errors with `timestamp_override = "event.ingested"`']
+            for _, errors_by_type in errors.items():
+                type_errors = errors_by_type['errors']
+                if not type_errors:
+                    continue
+                err_strings.append(f'({len(type_errors)}) {errors_by_type["msg"]}')
+                err_strings.extend([f'  - {e}' for e in type_errors])
+            self.fail('\n'.join(err_strings))
 
     def test_required_lookback(self):
         """Ensure endpoint rules have the proper lookback time."""

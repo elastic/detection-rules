@@ -73,12 +73,16 @@ class TestKql2Eql(unittest.TestCase):
         self.validate("top.numF : 1", "top.numF == 1", schema=schema)
         self.validate("top.numF : \"1\"", "top.numF == 1", schema=schema)
         self.validate("top.keyword : 1", "top.keyword == '1'", schema=schema)
-        self.validate("top.text : \"hello\"", "top.text == 'hello'", schema=schema)
         self.validate("top.keyword : \"hello\"", "top.keyword == 'hello'", schema=schema)
-        self.validate("top.text : 1 ", "top.text == '1'", schema=schema)
         self.validate("dest:192.168.255.255", "dest == '192.168.255.255'", schema=schema)
         self.validate("dest:192.168.0.0/16", "cidrMatch(dest, '192.168.0.0/16')", schema=schema)
         self.validate("dest:\"192.168.0.0/16\"", "cidrMatch(dest, '192.168.0.0/16')", schema=schema)
+
+        with self.assertRaises(eql.EqlSemanticError):
+            self.validate("top.text : \"hello\"", "top.text == 'hello'", schema=schema)
+
+        with self.assertRaises(eql.EqlSemanticError):
+            self.validate("top.text : 1 ", "top.text == '1'", schema=schema)
 
         with self.assertRaisesRegex(kql.KqlParseError, r"Value doesn't match top.middle's type: nested"):
             kql.to_eql("top.middle : 1", schema=schema)
