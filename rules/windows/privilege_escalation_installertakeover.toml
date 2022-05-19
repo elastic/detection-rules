@@ -3,7 +3,7 @@ creation_date = "2021/11/25"
 maturity = "production"
 min_stack_comments = "EQL optional fields syntax was not introduced until 7.16"
 min_stack_version = "7.16.0"
-updated_date = "2022/04/13"
+updated_date = "2022/05/09"
 
 [rule]
 author = ["Elastic"]
@@ -27,12 +27,13 @@ This rule detects the default execution of the PoC, which overwrites the `elevat
 to the location to escalate privileges. An attacker is able to still take over any file that is not in use (locked),
 which is outside the scope of this rule.
 
-#### Possible investigation steps:
+#### Possible investigation steps
 
-- Check the executable's digital signature.
-- Look for additional processes spawned by the process, command lines, and network communications.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Investigate other alerts associated with the user/host during the past 48 hours.
-- Check for similar behavior in other hosts on the environment.
+- Look for additional processes spawned by the process, command lines, and network communications.
+- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
 - Retrieve the file and determine if it is malicious:
   - Use a private sandboxed malware analysis system to perform analysis.
     - Observe and collect information about the following activities:
@@ -40,8 +41,8 @@ which is outside the scope of this rule.
       - File and registry access, modification, and creation activities.
       - Service creation and launch activities.
       - Scheduled tasks creation.
-  - Use the PowerShell Get-FileHash cmdlet to get the SHA-256 hash value of the file.
-    - Search for the existence and reputation of this file in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+  - Use the PowerShell Get-FileHash cmdlet to get the files' SHA-256 hash values.
+    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 
 ### False positive analysis
 
@@ -56,12 +57,20 @@ which is outside the scope of this rule.
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved host to prevent further post-compromise behavior.
 - If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement any temporary network rules, procedures, and segmentation required to contain the malware.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
   - Immediately block the identified indicators of compromise (IoCs).
-- Remove and block malicious artifacts identified on the triage.
-- Disable user account’s ability to log in remotely.
-- Reset passwords for the user account and other potentially compromised accounts (email, services, CRMs, etc.).
-- Determine the initial infection vector.
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
+  attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
+systems, and web services.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 
 ## Config
 

@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/25"
 maturity = "production"
-updated_date = "2022/04/13"
+updated_date = "2022/05/09"
 
 [rule]
 author = ["Elastic"]
@@ -28,13 +28,14 @@ This rule monitors the modifications to the `HKLM\\SYSTEM\\*ControlSet*\\Service
 
 #### Possible investigation steps
 
-- Investigate the process execution chain (parent process tree).
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Identify the user account that performed the action and whether it should perform this kind of action.
-- Contact the account owner and confirm whether they are aware of this activity.
+- Contact the account and system owners and confirm whether they are aware of this activity.
 - Investigate other alerts associated with the user/host during the past 48 hours.
-- Check for similar behavior in other hosts on the environment.
-- Identify the target host IP address, verify if connections were made from the host where the modification occurred,
-and check what credentials were used to perform it.
+- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
+- Identify the target host IP address, check the connections originating from the host where the modification occurred,
+and inspect the credentials used.
   - Investigate suspicious login activity, such as unauthorized access and logins from outside working hours and unusual locations.
 
 ### False positive analysis
@@ -49,8 +50,21 @@ of user and command line conditions.
 - Initiate the incident response process based on the outcome of the triage.
 - Delete the port forwarding rule.
 - Isolate the involved host to prevent further post-compromise behavior.
-- If potential malware or credential compromise activities were discovered during the alert triage, activate the respective
-incident response plan.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
+  attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
+systems, and web services.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 
 
 ## Config
