@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/07/19"
 maturity = "production"
-updated_date = "2022/03/31"
+updated_date = "2022/05/09"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -32,14 +32,17 @@ copy objects, and delete them.
 
 - Investigate the program execution chain (parent process tree).
 - Check whether the account is authorized to perform this operation.
-- Confirm whether the account owner is aware of the operation.
-- Investigate other alerts related to the user/host in the last 48 hours.
-- If unsigned files are found on the process tree:
-  - Capture copies of the files.
-  - Use a sandboxed malware analysis system to perform analysis.
-    - Observe attempts of contacting external domains and addresses.
-  - Use the PowerShell Get-FileHash cmdlet to get the SHA-256 hash value of the file.
-    - Search for the existence of this file in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+- Contact the account owner and confirm whether they are aware of this activity.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- If unsigned files are found on the process tree, retrieve them and determine if they are malicious:
+  - Use a private sandboxed malware analysis system to perform analysis.
+    - Observe and collect information about the following activities:
+      - Attempts to contact external domains and addresses.
+      - File and registry access, modification, and creation activities.
+      - Service creation and launch activities.
+      - Scheduled tasks creation.
+  - Use the PowerShell Get-FileHash cmdlet to get the files' SHA-256 hash values.
+    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 - Use process name, command line, and file hash to search for occurrences in other hosts.
 - Check if any files on the host machine have been encrypted.
 
@@ -57,12 +60,25 @@ environment, consider adding exceptions — preferably with a combination of use
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
+- Consider isolating the involved host to prevent destructive behavior, which is commonly associated with this activity.
 - Priority should be given due to the advanced stage of this activity on the attack.
-- If malware was found, isolate the involved hosts to prevent the infection of other hosts.
-- Disable the involved accounts, or restrict their ability to log on remotely.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
+  attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
 - If data was encrypted, deleted, or modified, activate your data recovery plan.
-- Reset the password of the involved accounts.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
+systems, and web services.
 - Perform data recovery locally or restore the backups from replicated copies (cloud, other servers, etc.).
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 
 
 ## Config
