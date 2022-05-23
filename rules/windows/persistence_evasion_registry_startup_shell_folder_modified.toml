@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/03/15"
 maturity = "production"
-updated_date = "2022/04/06"
+updated_date = "2022/05/09"
 
 [rule]
 author = ["Elastic"]
@@ -25,11 +25,12 @@ an attacker.
 
 #### Possible investigation steps
 
-- Investigate the process execution chain (parent process tree).
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Review the source process and related file tied to the Windows Registry entry.
 - Validate the activity is not related to planned patches, updates, network administrator activity or legitimate software
 installations.
-- Determine if activity is unique by validating if other machines in the same organization have similar entries.
+- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
 - Retrieve the file and determine if it is malicious:
   - Use a private sandboxed malware analysis system to perform analysis.
     - Observe and collect information about the following activities:
@@ -37,8 +38,8 @@ installations.
       - File and registry access, modification, and creation activities.
       - Service creation and launch activities.
       - Scheduled tasks creation.
-  - Use the PowerShell Get-FileHash cmdlet to get the SHA-256 hash value of the file.
-    - Search for the existence and reputation of this file in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+  - Use the PowerShell Get-FileHash cmdlet to get the files' SHA-256 hash values.
+    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 
 ### False positive analysis
 
@@ -55,9 +56,16 @@ it should be verified that this activity is not benign.
 
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved host to prevent further post-compromise behavior.
-- Since this activity is considered post-exploitation behavior, it's important to understand how the behavior was first
-initialized such as through a macro-enabled document that was attached in a phishing email. After understanding the source
-of the attack, you can use this information to search for similar indicators on other machines in the same environment.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- If the malicious file was delivered via phishing:
+  - Block the email sender from sending future emails.
+  - Block the malicious web pages.
+  - Remove emails from the sender from mailboxes.
+  - Consider improvements to the security awareness program.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 """
 risk_score = 73
 rule_id = "c8b150f0-0164-475b-a75e-74b47800a9ff"
