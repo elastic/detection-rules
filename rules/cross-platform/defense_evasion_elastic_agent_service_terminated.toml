@@ -1,0 +1,71 @@
+[metadata]
+creation_date = "2022/05/23"
+maturity = "production"
+updated_date = "2022/05/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the Elastic endpoint agent has stopped and is no longer running on the host. Adversaries may attempt to
+disable security monitoring tools in an attempt to evade detection or prevention capabilities during an intrusion. This
+may also indicate an issue with the agent itself and should be addressed to ensure defensive measures are back in a
+stable state.
+"""
+from = "now-9m"
+index = ["logs-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Elastic Agent Service Terminated"
+note = """## Config
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
+risk_score = 47
+rule_id = "b627cd12-dac4-11ec-9582-f661ea17fbcd"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Windows", "macOS", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.category : "process" and
+  /* net, sc or wmic stopping or deleting Elastic Agent on Windows */
+  (process.name : ("net.exe","sc.exe","wmic.exe") and
+    (process.args : ("stopservice","uninstall") and process.args : "*elastic*" or
+    process.args : "stop" and process.args : "Elastic Agent") and
+    event.action : "end" and event.type : "end")
+  or
+  /* services executable used to stop Elastic Agent on Windows*/
+  (process.parent.name : "services.exe" and
+    process.name : "elastic-agent.exe" and
+    event.action : "end" and event.type : "end")
+  or
+  /* service or systemctl used to stop Elastic Agent on Linux */
+  (process.name : ("systemctl","service") and 
+    process.args : ("elastic-agent", "stop") and 
+    event.action : "end" and event.type : "end") 
+  or 
+  /* Unload Elastic Agent extension on MacOS */
+  (process.name : "kextunload" and process.args : "com.apple.iokit.EndpointSecurity" and 
+    event.action : "end" and event.type : "end")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
