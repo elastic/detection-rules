@@ -34,14 +34,14 @@ for prevalence, whether they are located in expected locations, and if they are 
   - Identify the user account that performed the action and whether it should perform this kind of action.
   - Contact the account owner and confirm whether they are aware of this activity.
   - Check if this operation is done under change management and approved accordingly to the company's policy.
-  - Retrieve the operation status and review previous requests by using the `Get-MailboxExportRequest` cmdlet.
-  - By default, no group in Exchange has the right to import or export mailboxes. Investigate any administrator that
+  - Retrieve the operation status and use the `Get-MailboxExportRequest` cmdlet to review previous requests.
+  - By default, no group in Exchange has the privilege to import or export mailboxes. Investigate administrators that
   assigned the "Mailbox Import Export" privilege for abnormal activity.
-- Investigate if there is a significant quantity of export requests in the alert timeframe. As this operation is done on
-a per-mailbox basis, this export can be part of a mass export.
+- Investigate if there is a significant quantity of export requests in the alert timeframe. This operation is done on
+a per-mailbox basis and can be part of a mass export.
 - If the operation was completed successfully:
-  - Check if the file is on the path specified on the command.
-  - Investigate if the file was compressed, archived or retrieved by the attacker for exfiltration.
+  - Check if the file is on the path specified in the command.
+  - Investigate if the file was compressed, archived, or retrieved by the attacker for exfiltration.
 
 ### False positive analysis
 
@@ -51,8 +51,8 @@ and it is done with proper approval.
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior if the host is not the Exchange Server itself.
-- Use the `Remove-MailboxExportRequest` to remove fully or partially completed export requests.
+- If the involved host is not the Exchange server, isolate the host to prevent further post-compromise behavior.
+- Use the `Remove-MailboxExportRequest` cmdlet to remove fully or partially completed export requests.
 - Prioritize cases that involve personally identifiable information (PII) or other classified data.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
 identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
