@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/04"
 maturity = "production"
-updated_date = "2022/03/07"
+updated_date = "2022/05/16"
 
 [rule]
 author = ["Elastic"]
@@ -29,13 +29,20 @@ be abused for exfiltration or command and control.
 
 #### Possible investigation steps
 
-- Investigate the script execution chain (parent process tree).
-- Investigate other alerts related to the user/host in the last 48 hours.
+- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for
+prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate other alerts associated with the user/host during the past 48 hours.
 - Verify whether the digital signature exists in the executable.
-- Identify the kind of the operation (upload, download, tunneling, etc.).
-- Use a sandboxed malware analysis system to perform analysis on the executable.
-- Use the PowerShell Get-FileHash cmdlet to get the SHA-256 hash value of the file.
-  - Search for the existence of this file in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+- Identify the operation type (upload, download, tunneling, etc.).
+- Retrieve the process executable and determine if it is malicious:
+  - Use a private sandboxed malware analysis system to perform analysis.
+    - Observe and collect information about the following activities:
+      - Attempts to contact external domains and addresses.
+      - File and registry access, modification, and creation activities.
+      - Service creation and launch activities.
+      - Scheduled tasks creation.
+  - Use the PowerShell Get-FileHash cmdlet to get the files' SHA-256 hash values.
+    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 
 ### False positive analysis
 
@@ -47,7 +54,17 @@ false positives can be added as exceptions.
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved host to prevent further post-compromise behavior.
 - If the triage identified malware, search the environment for additional compromised hosts.
-- Implement any temporary network rules, procedures, and segmentation required to contain the malware.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
+  attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 """
 risk_score = 21
 rule_id = "66883649-f908-4a5b-a1e0-54090a1d3a32"
@@ -105,7 +122,7 @@ network where network.protocol == "dns" and
       "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
       "?:\\Windows\\system32\\mobsync.exe",
       "?:\\Windows\\SysWOW64\\mobsync.exe",
-      "?:\\Users\\*\\AppData\\Local\\Discord\\-*\\Discord.exe"
+      "?:\\Users\\*\\AppData\\Local\\Discord\\app-*\\Discord.exe"
     )
 '''
 

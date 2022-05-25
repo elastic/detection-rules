@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2022/05/13"
 
 [rule]
 author = ["Elastic"]
@@ -25,6 +25,14 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and event.type:(start or process_started) and process.working_directory:/tmp
+event.category:process and event.type:(start or process_started) and process.working_directory:/tmp and
+  not process.parent.name:(update-motd-updates-available or
+                           apt or apt-* or
+                           cnf-update-db or
+                           appstreamcli or
+                           unattended-upgrade or
+                           packagekitd) and
+  not process.args:(/usr/lib/update-notifier/update-motd-updates-available or
+                    /var/lib/command-not-found/)
 '''
 

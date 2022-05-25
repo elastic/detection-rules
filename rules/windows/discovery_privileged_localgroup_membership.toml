@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/10/15"
 maturity = "production"
-updated_date = "2022/04/13"
+updated_date = "2022/04/21"
 
 [rule]
 author = ["Elastic"]
@@ -14,13 +14,74 @@ index = ["winlogbeat-*", "logs-system.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Enumeration of Privileged Local Groups Membership"
-note = """## Config
+note = """## Triage and analysis
 
-This will require Windows security event 4799 by enabling audit success for the Windows Account Management category and
-the Security Group Management subcategory.
+### Investigating Enumeration of Privileged Local Groups Membership
+
+After successfully compromising an environment, attackers may try to gain situational awareness to plan their next steps.
+This can happen by running commands to enumerate network resources, users, connections, files, and installed security
+software.
+
+This rule looks for the enumeration of privileged local groups' membership by suspicious processes, and excludes known
+legitimate utilities and programs installed. Attackers can use this information to decide the next steps of the attack,
+such as mapping targets for credential compromise and other post-exploitation activities.
+
+#### Possible investigation steps
+
+- Identify the process, host and user involved on the event.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Investigate abnormal behaviors observed using the account, such as commands executed, files created or modified, and
+network connections.
+- Retrieve the process executable and determine if it is malicious:
+  - Check if the file belongs to the operating system or has a valid digital signature.
+  - Use a private sandboxed malware analysis system to perform analysis.
+    - Observe and collect information about the following activities:
+      - Attempts to contact external domains and addresses.
+      - File and registry access, modification, and creation activities.
+      - Service creation and launch activities.
+      - Scheduled tasks creation.
+
+### False positive analysis
+
+- Discovery activities are not inherently malicious if they occur in isolation. As long as the analyst did not identify
+suspicious activity related to the user or host, such alerts can be dismissed.
+- If this activity is expected and noisy in your environment, consider adding exceptions — preferably with a combination
+of user and command line conditions.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved hosts to prevent further post-compromise behavior.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
+systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
+
+## Config
+
+The 'Audit Security Group Management' audit policy must be configured (Success).
+Steps to implement the logging policy with with Advanced Audit Configuration:
+
+```
+Computer Configuration > 
+Policies > 
+Windows Settings > 
+Security Settings > 
+Advanced Audit Policies Configuration > 
+Audit Policies > 
+Account Management >
+Audit Security Group Management (Success)
+```
+
+Microsoft introduced the [event used](https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4799) in this detection rule on Windows 10 and Windows Server 2016 or later operating systems.
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
-
 """
 risk_score = 43
 rule_id = "291a0de9-937a-4189-94c0-3e847c8b13e4"

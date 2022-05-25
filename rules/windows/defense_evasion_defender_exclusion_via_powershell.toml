@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/07/20"
 maturity = "production"
-updated_date = "2022/04/13"
+updated_date = "2022/05/09"
 
 [rule]
 author = ["Elastic"]
@@ -26,20 +26,21 @@ was observed in 2018 where Trickbot incorporated mechanisms to disable Windows D
 
 #### Possible investigation steps
 
-- Investigate the process execution chain (parent process tree).
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Identify the user account that performed the action and whether it should perform this kind of action.
 - Contact the account owner and confirm whether they are aware of this activity.
 - Examine the exclusion in order to determine the intent behind it.
-- Check for similar behavior in other hosts on the environment.
-- If the exclusion specifies a suspicious file, retrieve it and determine if it is malicious:
+- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
+- If the exclusion specifies a suspicious file or path, retrieve the file(s) and determine if malicious:
   - Use a private sandboxed malware analysis system to perform analysis.
     - Observe and collect information about the following activities:
       - Attempts to contact external domains and addresses.
       - File and registry access, modification, and creation activities.
       - Service creation and launch activities.
       - Scheduled tasks creation.
-  - Use the PowerShell Get-FileHash cmdlet to get the SHA-256 hash value of the file.
-    - Search for the existence and reputation of this file in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+  - Use the PowerShell Get-FileHash cmdlet to get the files' SHA-256 hash values.
+    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 
 ### False positive analysis
 
@@ -57,10 +58,18 @@ legitimate reasons for exclusions, so it's important to gain context.
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved host to prevent further post-compromise behavior.
 - If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement any temporary network rules, procedures, and segmentation required to contain the malware.
-    - Immediately block the identified indicators of compromise (IoCs).
-    - Remove and block malicious artifacts identified on the triage.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
+  attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
 - Exclusion lists for antimalware capabilities should always be routinely monitored for review.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 
 ## Config
 
