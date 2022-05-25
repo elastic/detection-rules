@@ -3,8 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 import json
+from collections import OrderedDict
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional, OrderedDict as OrderedDictType
 
 import jsonschema
 
@@ -221,7 +222,7 @@ def downgrade(api_contents: dict, target_version: str, current_version: Optional
 
 
 @cached
-def get_stack_schemas(stack_version: str) -> Dict[str, dict]:
+def get_stack_schemas(stack_version: str) -> OrderedDictType[str, dict]:
     """Return all ECS + beats to stack versions for a every stack version >= specified stack version and <= package."""
     from ..packaging import load_current_package_version
 
@@ -238,4 +239,5 @@ def get_stack_schemas(stack_version: str) -> Dict[str, dict]:
     if stack_version > current_package:
         versions[stack_version] = {'beats': 'main', 'ecs': 'master'}
 
-    return versions
+    versions_reversed = OrderedDict(sorted(versions.items(), reverse=True))
+    return versions_reversed
