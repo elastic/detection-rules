@@ -6,7 +6,7 @@ updated_date = "2022/05/09"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies Linux binary(s) abuse to breakout out of restricted shells or environments by spawning an interactive system
+Identifies Linux binary(s) abuse to breakout of restricted shells or environments by spawning an interactive system
 shell. The linux utility(s) activity of spawning shell is not a standard use of the binary for a user or system
 administrator. It may indicates an attempt to improve the capabilities or stability of an adversary access.
 """
@@ -15,6 +15,14 @@ index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Linux Restricted Shell Breakout via  Linux Binary(s)"
+note = """## Triage and analysis
+
+### Investigating Shell Evasion via Linux utilities
+Detection alerts from this rule indicate that a Linux utility has been abused to breakout of restricted shells or environments by spawning an interactive system shell.
+Here are some possible avenues of investigation:
+- Examine the entry point to the host and user in action, identify the session entry leader and session user via the Analyse View
+- Examine the contents of session leading to the abuse and the command execution pattern in the session, which may lead to suspricous activities via the Session View (available in 8.2 and above)
+- Examine the execution of commands in the spawned shell to identify imment threat to the system and take necessary incident response actions to contain any malicious behviour caused via this execution"""
 references = [
     "https://gtfobins.github.io/gtfobins/apt/",
     "https://gtfobins.github.io/gtfobins/apt-get/",
@@ -39,6 +47,7 @@ references = [
     "https://gtfobins.github.io/gtfobins/vim/",
     "https://gtfobins.github.io/gtfobins/capsh/",
     "https://gtfobins.github.io/gtfobins/byebug/",
+    "https://gtfobins.github.io/gtfobins/git/",
 ]
 risk_score = 47
 rule_id = "52376a86-ee86-4967-97ae-1a05f55816f0"
@@ -55,7 +64,10 @@ process where event.type == "start" and
 
   /* launching shells from unusual parents or parent+arg combos */
   (process.name in ("bash", "sh", "dash","ash") and
-    (process.parent.name == "byebug") or
+    (
+        (process.parent.name == "byebug") or
+        (process.parent.name == "git")
+    ) or
 
     /* shells specified in parent args */
     /* nice rule is broken in 8.2 */
@@ -101,3 +113,4 @@ reference = "https://attack.mitre.org/techniques/T1059/004/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
