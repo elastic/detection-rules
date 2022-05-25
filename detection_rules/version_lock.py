@@ -24,16 +24,18 @@ MIN_LOCK_VERSION_DEFAULT = Version("7.13.0")
 
 
 @dataclass(frozen=True)
-class VersionLockFileEntry(MarshmallowDataclassMixin):
-    """Schema for a rule entry in the version lock."""
+class BaseEntry:
     rule_name: definitions.RuleName
     sha256: definitions.Sha256
     type: definitions.RuleType
     version: definitions.PositiveInteger
-    min_stack_version: Optional[definitions.SemVer]
 
-    # TODO: need to exclude nested 'previous'
-    previous: Optional[Dict[definitions.SemVer, 'VersionLockFileEntry']]
+
+@dataclass(frozen=True)
+class VersionLockFileEntry(MarshmallowDataclassMixin, BaseEntry):
+    """Schema for a rule entry in the version lock."""
+    min_stack_version: Optional[definitions.SemVer]
+    previous: Optional[Dict[definitions.SemVer, BaseEntry]]
 
 
 @dataclass(frozen=True)
