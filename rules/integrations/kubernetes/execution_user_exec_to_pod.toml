@@ -14,13 +14,13 @@ false_positives = [
     An administrator may need to exec into a pod for a legitimate reason.
     """,
 ]
-index = ["filebeat-*", "logs-kubernetes.*"]
+index = ["logs-kubernetes.*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "User Exec into Pod"
+name = "Kubernetes User Exec into Pod"
 note = """## Config
 
-The Kubernetes Fleet integration with Audit Logs enabled, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+The Kubernetes Fleet integration with Audit Logs enabled or similarly structured data is required to be compatible with this rule."""
 references = ["https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/",
 "https://kubernetes.io/docs/tasks/debug/debug-application/get-shell-running-container/"]
 risk_score = 47
@@ -31,7 +31,9 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset : "kubernetes.audit_logs" and kubernetes.audit.objectRef.resource : "pods" and kubernetes.audit.objectRef.subresource :"exec"
+event.dataset:"kubernetes.audit_logs" 
+  and kubernetes.audit.objectRef.resource:"pods" 
+  and kubernetes.audit.objectRef.subresource:"exec"
 '''
 
 
