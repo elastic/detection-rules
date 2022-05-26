@@ -22,7 +22,7 @@ SHA256_PATTERN = r'^[a-fA-F0-9]{64}$'
 UUID_PATTERN = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
 
 _version = r'\d+\.\d+(\.\d+[\w-]*)*'
-CONDITION_VERSION_PATTERN = rf'^\^{_version}$'
+CONDITION_VERSION_PATTERN = rf'^\^{_version} || \^{_version}$'
 VERSION_PATTERN = f'^{_version}$'
 BRANCH_PATTERN = f'{VERSION_PATTERN}|^master$'
 
