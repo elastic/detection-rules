@@ -12,6 +12,7 @@ import yaml
 
 from detection_rules.schemas import get_stack_versions
 from detection_rules.utils import get_path
+from detection_rules.packaging import current_stack_version
 
 GITHUB_FILES = Path(get_path()) / '.github'
 GITHUB_WORKFLOWS = GITHUB_FILES / 'workflows'
@@ -27,5 +28,7 @@ class TestWorkflows(unittest.TestCase):
         lock_versions = lock_workflow[True]['workflow_dispatch']['inputs']['branches']['default'].split(',')
 
         matrix_versions = get_stack_versions()
+        # drop the current package since that should not be backported to (since it is main)
+        matrix_versions.remove(current_stack_version())
         err_msg = 'lock-versions workflow default does not match current matrix in stack-schema-map'
         self.assertListEqual(lock_versions, matrix_versions, err_msg)

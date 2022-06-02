@@ -233,7 +233,7 @@ def get_stack_schemas(stack_version: Optional[str] = '0.0.0') -> OrderedDictType
     """Return all ECS + beats to stack versions for every stack version >= specified stack version and <= package."""
     from ..packaging import load_current_package_version
 
-    stack_version = Version(stack_version)
+    stack_version = Version(stack_version or '0.0.0')
     current_package = Version(load_current_package_version())
 
     if len(current_package) == 2:
