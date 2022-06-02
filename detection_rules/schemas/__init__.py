@@ -20,6 +20,7 @@ __all__ = (
     "definitions",
     "downgrade",
     "get_stack_schemas",
+    "get_stack_versions",
     "validate_rta_mapping",
     "all_versions",
 )
@@ -222,8 +223,8 @@ def downgrade(api_contents: dict, target_version: str, current_version: Optional
 
 
 @cached
-def get_stack_schemas(stack_version: str) -> OrderedDictType[str, dict]:
-    """Return all ECS + beats to stack versions for a every stack version >= specified stack version and <= package."""
+def get_stack_schemas(stack_version: Optional[str] = '0.0.0') -> OrderedDictType[str, dict]:
+    """Return all ECS + beats to stack versions for every stack version >= specified stack version and <= package."""
     from ..packaging import load_current_package_version
 
     stack_version = Version(stack_version)
@@ -241,3 +242,16 @@ def get_stack_schemas(stack_version: str) -> OrderedDictType[str, dict]:
 
     versions_reversed = OrderedDict(sorted(versions.items(), reverse=True))
     return versions_reversed
+
+
+def get_stack_versions(drop_patch=True, reverse=True) -> List[str]:
+    """Get a list of stack versions supported (for the matrix)."""
+    versions = reversed(get_stack_schemas()) if reverse else list(get_stack_schemas())
+    if drop_patch:
+        abridged_versions = []
+        for version in versions:
+            abridged, _ = version.rsplit('.', 1)
+            abridged_versions.append(abridged)
+        return abridged_versions
+    else:
+        return versions
