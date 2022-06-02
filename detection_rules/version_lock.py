@@ -82,7 +82,7 @@ class DeprecatedRulesFile(LockDataclassMixin):
 
 def _convert_lock_version(stack_version: Optional[str]) -> Version:
     """Convert an optional stack version to the minimum for the lock."""
-    versions = get_stack_versions()
+    versions = get_stack_versions(drop_patch=False)
     min_version = min(Version(v) for v in versions)
     if stack_version is None:
         return min_version
