@@ -12,7 +12,7 @@ import click
 
 from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
 from .rule_loader import RuleCollection
-from .schemas import definitions, get_stack_versions
+from .schemas import definitions, get_min_supported_stack_version
 from .semver import Version
 from .utils import cached, get_etc_path
 
@@ -82,8 +82,7 @@ class DeprecatedRulesFile(LockDataclassMixin):
 
 def _convert_lock_version(stack_version: Optional[str]) -> Version:
     """Convert an optional stack version to the minimum for the lock."""
-    versions = get_stack_versions(drop_patch=False)
-    min_version = min(Version(v) for v in versions)
+    min_version = get_min_supported_stack_version()
     if stack_version is None:
         return min_version
     return max(Version(stack_version), min_version)

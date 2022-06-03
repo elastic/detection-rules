@@ -19,6 +19,7 @@ __all__ = (
     "SCHEMA_DIR",
     "definitions",
     "downgrade",
+    "get_min_supported_stack_version",
     "get_stack_schemas",
     "get_stack_versions",
     "validate_rta_mapping",
@@ -229,6 +230,11 @@ def downgrade(api_contents: dict, target_version: str, current_version: Optional
 
 
 @cached
+def load_stack_schema_map() -> dict:
+    return load_etc_dump('stack-schema-map.yaml')
+
+
+@cached
 def get_stack_schemas(stack_version: Optional[str] = '0.0.0') -> OrderedDictType[str, dict]:
     """Return all ECS + beats to stack versions for every stack version >= specified stack version and <= package."""
     from ..packaging import load_current_package_version
@@ -239,7 +245,7 @@ def get_stack_schemas(stack_version: Optional[str] = '0.0.0') -> OrderedDictType
     if len(current_package) == 2:
         current_package = Version(current_package + (0,))
 
-    stack_map = load_etc_dump('stack-schema-map.yaml')
+    stack_map = load_stack_schema_map()
     versions = {k: v for k, v in stack_map.items()
                 if (mapped_version := Version(k)) >= stack_version and mapped_version <= current_package and v}
 
@@ -250,9 +256,9 @@ def get_stack_schemas(stack_version: Optional[str] = '0.0.0') -> OrderedDictType
     return versions_reversed
 
 
-def get_stack_versions(drop_patch=True, reverse=True) -> List[str]:
+def get_stack_versions(drop_patch=False) -> List[str]:
     """Get a list of stack versions supported (for the matrix)."""
-    versions = reversed(get_stack_schemas()) if reverse else list(get_stack_schemas())
+    versions = list(load_stack_schema_map())
     if drop_patch:
         abridged_versions = []
         for version in versions:
@@ -261,3 +267,10 @@ def get_stack_versions(drop_patch=True, reverse=True) -> List[str]:
         return abridged_versions
     else:
         return versions
+
+
+def get_min_supported_stack_version() -> Version:
+    """Get the minimum defined and supported stack version."""
+    stack_map = load_stack_schema_map()
+    min_version = min(Version(v) for v in list(stack_map))
+    return min_version

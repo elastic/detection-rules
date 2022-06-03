@@ -26,6 +26,6 @@ class TestWorkflows(unittest.TestCase):
         lock_workflow = yaml.safe_load(lock_workflow_file.read_text())
         lock_versions = lock_workflow[True]['workflow_dispatch']['inputs']['branches']['default'].split(',')
 
-        matrix_versions = get_stack_versions()
+        matrix_versions = get_stack_versions(drop_patch=True)
         err_msg = 'lock-versions workflow default does not match current matrix in stack-schema-map'
         self.assertListEqual(lock_versions, matrix_versions[:-1], err_msg)
