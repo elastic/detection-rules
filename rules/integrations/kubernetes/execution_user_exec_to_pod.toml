@@ -11,7 +11,12 @@ This rule detects a user attempt to establish a shell session into a pod using t
 """
 false_positives = [
     """
-    An administrator may need to exec into a pod for a legitimate reason.
+    An administrator may need to exec into a pod for a legitimate reason like debugging purposes. Containers built from Linux and Windows OS images, tend to include debugging utilities. In this case, an admin may choose to run commands inside a specific container with kubectl exec ${POD_NAME} -c ${CONTAINER_NAME} -- ${CMD} ${ARG1} ${ARG2} ... ${ARGN}. 
+    For example, the following command can be used to look at logs from a running Cassandra pod: 
+    kubectl exec cassandra --cat /var/log/cassandra/system.log
+    
+    They might also run a shell connected to their terminal by using the -i and -t arguments.
+    For example, kubectl exec -i -t cassandra -- sh
     """,
 ]
 index = ["logs-kubernetes.*"]
