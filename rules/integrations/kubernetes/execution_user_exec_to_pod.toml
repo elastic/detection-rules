@@ -1,22 +1,25 @@
 [metadata]
 creation_date = "2022/05/17"
-maturity = "production"
-updated_date = "2022/05/17"
 integration = "kubernetes"
+maturity = "production"
+updated_date = "2022/06/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects a user attempt to establish a shell session into a pod using the 'exec' command. Using the 'exec' command in a pod allows a user to establish a temporary shell session and execute any process/commands in the pod. An adversary may call bash to gain a persistent interactive shell which will allow access to any data the pod has permissions to, including secrets. 
+This rule detects a user attempt to establish a shell session into a pod using the 'exec' command. Using the 'exec'
+command in a pod allows a user to establish a temporary shell session and execute any process/commands in the pod. An
+adversary may call bash to gain a persistent interactive shell which will allow access to any data the pod has
+permissions to, including secrets.
 """
 false_positives = [
     """
-    An administrator may need to exec into a pod for a legitimate reason like debugging purposes. Containers built from Linux and Windows OS images, tend to include debugging utilities. In this case, an admin may choose to run commands inside a specific container with kubectl exec ${POD_NAME} -c ${CONTAINER_NAME} -- ${CMD} ${ARG1} ${ARG2} ... ${ARGN}. 
-    For example, the following command can be used to look at logs from a running Cassandra pod: 
-    kubectl exec cassandra --cat /var/log/cassandra/system.log
-    
-    They might also run a shell connected to their terminal by using the -i and -t arguments.
-    For example, kubectl exec -i -t cassandra -- sh
+    An administrator may need to exec into a pod for a legitimate reason like debugging purposes. Containers built from
+    Linux and Windows OS images, tend to include debugging utilities. In this case, an admin may choose to run commands
+    inside a specific container with kubectl exec ${POD_NAME} -c ${CONTAINER_NAME} -- ${CMD} ${ARG1} ${ARG2} ...
+    ${ARGN}. For example, the following command can be used to look at logs from a running Cassandra pod: kubectl exec
+    cassandra --cat /var/log/cassandra/system.log . Additionally, the -i and -t arguments might be used to run a shell
+    connected to the terminal: kubectl exec -i -t cassandra -- sh
     """,
 ]
 index = ["logs-kubernetes.*"]
@@ -26,8 +29,10 @@ name = "Kubernetes User Exec into Pod"
 note = """## Config
 
 The Kubernetes Fleet integration with Audit Logs enabled or similarly structured data is required to be compatible with this rule."""
-references = ["https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/",
-"https://kubernetes.io/docs/tasks/debug/debug-application/get-shell-running-container/"]
+references = [
+    "https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/",
+    "https://kubernetes.io/docs/tasks/debug/debug-application/get-shell-running-container/",
+]
 risk_score = 47
 rule_id = "14de811c-d60f-11ec-9fd7-f661ea17fbce"
 severity = "medium"
@@ -41,16 +46,17 @@ event.dataset:"kubernetes.audit_logs"
   and kubernetes.audit.objectRef.subresource:"exec"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
-[[rule.threat.technique]]
-id = "T1609"
-name = "Container Administration Command"
-reference = "https://attack.mitre.org/techniques/T1609/"
 
