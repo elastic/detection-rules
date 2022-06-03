@@ -824,9 +824,12 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
 @dev_group.command('trim-version-lock')
 @click.argument('min_version')
 @click.option('--dry-run', is_flag=True, help='Print the changes rather than saving the file')
-def trim_version_lock(min_version: str, dry_run: bool) -> dict:
+def trim_version_lock(min_version: str, dry_run: bool):
     """Trim all previous entries within the version lock file which are lower than the min_version."""
-    min_version = min(Version(v) for v in get_stack_versions(drop_patch=False))
+    stack_versions = get_stack_versions()
+    assert min_version in stack_versions, f'Unknown min_version ({min_version}), expected: {", ".join(stack_versions)}'
+
+    min_version = Version(min_version)
     version_lock_dict = default_version_lock.version_lock.to_dict()
     removed = {}
 
@@ -843,7 +846,9 @@ def trim_version_lock(min_version: str, dry_run: bool) -> dict:
             latest_version = max(outdated_vers)
 
             if dry_run:
-                removed[rule_id] = [str(v) for v in outdated_vers]
+                outdated_minus_current = [str(v) for v in outdated_vers if v != min_version]
+                if outdated_minus_current:
+                    removed[rule_id] = outdated_minus_current
             for outdated in outdated_vers:
                 popped = lock['previous'].pop(str(outdated))
                 if outdated == latest_version:
