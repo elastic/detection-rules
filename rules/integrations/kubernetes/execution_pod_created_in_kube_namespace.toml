@@ -1,23 +1,27 @@
 [metadata]
 creation_date = "2022/05/23"
-maturity = "production"
-updated_date = "2022/05/23"
 integration = "kubernetes"
+maturity = "production"
+updated_date = "2022/06/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects when a pod is created in the kube-system or kube-public namespace. These default namespaces are reserved for cluster services and cannot be deleted. Only system administrators should edit resources here and as a best practice user resources should not be deployed in either 'kube' namespace. 
-
-The kube-system namespace is reserved for objects created by the Kubernetes system. Adversaries can use this namespace to deploy malicious pods or containers with names similar to those of default system components in order to evade detection. 
-
-The kube-public namespace is intended for public resources and unauthenticated user access. A user pod created here should be further investigated to determine its validity in the cluster. 
-
-Adversaries can deploy malicious pods in these namespaces to maintain persistence, evade detection, or facilitate execution in a cluster. 
+This rule detects when a pod is created in the kube-system or kube-public namespace. These default namespaces are
+reserved for cluster services and cannot be deleted. Only system administrators should edit resources here and as a best
+practice user resources should not be deployed in either 'kube' namespace. The kube-system namespace is reserved for
+objects created by the Kubernetes system. Adversaries can use this namespace to deploy malicious pods or containers with
+names similar to those of default system components in order to evade detection. The kube-public namespace is intended
+for globally readable resources by both authenticated and unauthenticated users. A user pod created here should be
+further investigated to determine its validity in the cluster. Adversaries can deploy malicious pods in these namespaces
+to maintain persistence, evade detection, or facilitate execution in a cluster.
 """
 false_positives = [
     """
-    There are legitimate uses of these namespaces that could trigger alerts. The Kubernetes systems deploys objects to kube-system namespace and administrators may deploy objects to kube-public that are intended for public access.
+    There are legitimate uses of these namespaces that could trigger alerts. The Kubernetes system deploys Kubernetes
+    managed components to the kube-system namespace. The Kubernetes system may deploy objects to kube-public that may be
+    useful for exposing any cluster information necessary to bootstrap components. It's also primarily managed by
+    Kubernetes.
     """,
 ]
 index = ["logs-kubernetes.*"]
@@ -27,8 +31,10 @@ name = "Kubernetes Pod Created in Kube Namespace"
 note = """## Config
 
 The Kubernetes Fleet integration with Audit Logs enabled, Filebeat module, or similarly structured data is required to be compatible with this rule."""
-references = ["https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/",
-"https://media.defense.gov/2021/Aug/03/2002820425/-1/-1/0/CTR_Kubernetes_Hardening_Guidance_1.1_20220315.PDF"]
+references = [
+    "https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/",
+    "https://media.defense.gov/2021/Aug/03/2002820425/-1/-1/0/CTR_Kubernetes_Hardening_Guidance_1.1_20220315.PDF",
+]
 risk_score = 47
 rule_id = "d62d3782-40f5-4d25-99d5-ff95f094c043"
 severity = "medium"
@@ -45,14 +51,14 @@ event.dataset:"kubernetes.audit_logs" and kubernetes.audit.objectRef.namespace:(
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
+
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
-[[rule.threat.technique]]
-id = "T1610"
-name = "Deploy Container"
-reference = "https://attack.mitre.org/techniques/T1610/"
 
