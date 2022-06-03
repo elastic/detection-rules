@@ -403,11 +403,21 @@ class BaseRuleContents(ABC):
 
         return contents
 
+
     @property
     def is_dirty(self) -> Optional[bool]:
         """Determine if the rule has changed since its version was locked."""
         existing_sha256 = self.version_lock.get_locked_hash(self.id, self.metadata.get('min_stack_version'))
 
+        ## if forked rule, compare hashes of previous to previous
+        if self.id in self.version_lock.version_lock.data:
+            rule_contents = self.version_lock.version_lock.data[self.id]
+            if rule_contents.previous:
+                previous_sha256s = [p.sha256 for p in rule_contents.previous.values()]
+                if self.sha256() in previous_sha256s:
+                    return False
+
+        # if calculated hash is equal to hash from version lock file
         if existing_sha256 is not None:
             return existing_sha256 != self.sha256()
 
@@ -419,6 +429,15 @@ class BaseRuleContents(ABC):
     @property
     def autobumped_version(self) -> Optional[int]:
         """Retrieve the current version of the rule, accounting for automatic increments."""
+
+        ## if forked rule, compare hashes of previous to previous
+        if self.id in self.version_lock.version_lock.data:
+            rule_contents = self.version_lock.version_lock.data[self.id]
+            if rule_contents.previous:
+                for previous in rule_contents.previous.values():
+                    if self.sha256() == previous.sha256:
+                        return previous.version
+
         version = self.latest_version
         if version is None:
             return 1
