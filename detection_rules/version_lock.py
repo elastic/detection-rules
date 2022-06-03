@@ -216,7 +216,8 @@ class VersionLock:
                     for previous in existing_rule_lock["previous"].values():
                         if current_rule_lock["sha256"] == previous["sha256"]:
                             previous_match = True
-                if previous_match: continue
+                if previous_match:
+                    continue
 
                 # prevent rule type changes for already locked and released rules (#1854)
                 if existing_rule_lock:
