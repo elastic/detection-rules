@@ -18,9 +18,12 @@ import urllib.parse
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Optional, Tuple, List
+import pandas as pd
+import itertools
 
 import click
 import requests.exceptions
+from traitlets import default
 import yaml
 from elasticsearch import Elasticsearch
 from eql.table import Table
@@ -637,9 +640,11 @@ def license_check(ctx, ignore_directory):
 
 @dev_group.command('package-stats')
 @click.option('--token', '-t', help='GitHub token to search API authenticated (may exceed threshold without auth)')
-@click.option('--threads', default=50, help='Number of threads to download rules from GitHub')
+@click.option('--threads', default=40, help='Number of threads to download rules from GitHub')
+@click.option('--exportdetails', '-e', default=False, help='Exports specific details about the changes found, csv or json')
+@click.option('--details', is_flag=True, help='Requires --exportdetails; prints markdown table to console')
 @click.pass_context
-def package_stats(ctx, token, threads):
+def package_stats(ctx, token, threads, exportdetails, details):
     """Get statistics for current rule package."""
     current_package: Package = ctx.invoke(build_release, verbose=False, release=None)
     release = f'v{current_package.name}.0'
@@ -655,7 +660,42 @@ def package_stats(ctx, token, threads):
     click.echo(f'New rules: {len(new)}')
     click.echo(f'Modified rules: {len(modified)}')
 
+    if details:
+        # exports specifics about rules found to a local CSV file
+        system_tags = ['windows','macos','linux','azure','aws','gcp','google workspace','microsoft 365',
+                        'ml','okta','cyberarkpas','network']
+        details_df_objects = list()
+        changed_rules = [r for r in current_package.rules.rules if r.contents.id in current_package.changed_ids]
+        new_rules = [r for r in current_package.rules.rules if r.contents.id in current_package.new_ids]
+        removed_rules = [r for r in current_package.rules.rules if r.contents.id in current_package.removed_ids]
 
+        for rule in itertools.chain(changed_rules, new_rules, removed_rules):
+            details = dict()
+            details["creation_date"] = rule.contents.metadata.creation_date
+            details["updated_date"] = rule.contents.metadata.updated_date or False
+            details["rule_id"] = rule.contents.id
+            details["rule_name"] = rule.contents.data.name
+            details["version"] = rule.contents.latest_version or 1
+            details["system"] = [s for s in rule.contents.data.tags if s.lower() in system_tags]
+            if len(details["system"]) > 0: details["system"] = details["system"][0]
+            if details['rule_id'] in current_package.changed_ids: details["change"] = "modified"
+            if details['rule_id'] in current_package.new_ids: details["change"] = "new"
+            if details['rule_id'] in current_package.removed_ids: details["change"] = "deprecated"
+            details_df_objects.append(details)
+
+        details_df = pd.DataFrame(details_df_objects, columns=['creation_date','updated_date','rule_id','rule_name','system','change','version'])
+
+        if exportdetails:
+            export_path = f"{Path(__file__).parents[1]}/data"
+            if not os.path.exists(export_path): os.mkdir(export_path)
+            if exportdetails == "csv": details_df.to_csv(f"{export_path}/package-stats.csv", index=False)
+            if exportdetails == "json": details_df.to_json(f"{export_path}/package-stats.json", index=False)
+            click.echo(f'\nRule details exported to {export_path}')
+            return
+        
+        click.echo('\n-----\n\nDetailed Table of Changes (Markdown)\n')
+        click.echo(details_df.to_markdown(index=False))
+        
 @dev_group.command('search-rule-prs')
 @click.argument('query', required=False)
 @click.option('--no-loop', '-n', is_flag=True, help='Run once with no loop')
