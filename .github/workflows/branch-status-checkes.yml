@@ -15,9 +15,10 @@ jobs:
       - uses: actions/checkout@v2
       - id: get-branch-list
         run: |
-            var_list=$(yq eval '... comments=""|keys|.. style="single"| del(.[length - 1])|.[] |= sub("(.0)$", "") | join (" ")' detection_rules/etc/stack-schema-map.yaml)
-            quoted_list="'${var_list//[[:space:]]/', '}'"
-            echo "::set-output name=matrix::[$quoted_list]"
+            set -x
+
+            var_list=$(yq eval '... comments=""|keys | del(.[length - 1])|.[] |= sub("(.0)$", "") | join (" ")' detection_rules/etc/stack-schema-map.yaml)
+            echo "::set-output name=matrix::['${var_list//[[:space:]]/', '}']"
 
   branch-status-checks:
     needs: list-target-branches
