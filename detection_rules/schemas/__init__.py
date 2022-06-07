@@ -11,6 +11,7 @@ import jsonschema
 
 from . import definitions
 from .rta_schema import validate_rta_mapping
+from ..misc import load_current_package_version
 from ..semver import Version
 from ..utils import cached, get_etc_path, load_etc_dump
 
@@ -237,8 +238,6 @@ def load_stack_schema_map() -> dict:
 @cached
 def get_stack_schemas(stack_version: Optional[str] = '0.0.0') -> OrderedDictType[str, dict]:
     """Return all ECS + beats to stack versions for every stack version >= specified stack version and <= package."""
-    from ..packaging import load_current_package_version
-
     stack_version = Version(stack_version or '0.0.0')
     current_package = Version(load_current_package_version())
 
@@ -269,8 +268,8 @@ def get_stack_versions(drop_patch=False) -> List[str]:
         return versions
 
 
-def get_min_supported_stack_version() -> Version:
+def get_min_supported_stack_version(drop_patch=False) -> Version:
     """Get the minimum defined and supported stack version."""
     stack_map = load_stack_schema_map()
     min_version = min(Version(v) for v in list(stack_map))
-    return min_version
+    return Version(min_version[:2]) if drop_patch else min_version
