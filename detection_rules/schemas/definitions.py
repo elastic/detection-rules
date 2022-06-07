@@ -24,6 +24,7 @@ UUID_PATTERN = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
 _version = r'\d+\.\d+(\.\d+[\w-]*)*'
 CONDITION_VERSION_PATTERN = rf'^\^{_version}$'
 VERSION_PATTERN = f'^{_version}$'
+MINOR_SEMVER = r'^\d+\.\d+$'
 BRANCH_PATTERN = f'{VERSION_PATTERN}|^master$'
 
 INTERVAL_PATTERN = r'^\d+[mshd]$'
@@ -70,6 +71,7 @@ RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
 RuleName = NewType('RuleName', str, validate=validate.Regexp(NAME_PATTERN))
 RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'threshold', 'threat_match']
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
+SemVerMinorOnly = NewType('SemVerFullStrict', str, validate=validate.Regexp(MINOR_SEMVER))
 Severity = Literal['low', 'medium', 'high', 'critical']
 Sha256 = NewType('Sha256', str, validate=validate.Regexp(SHA256_PATTERN))
 SubTechniqueURL = NewType('SubTechniqueURL', str, validate=validate.Regexp(SUBTECHNIQUE_URL))
