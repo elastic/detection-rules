@@ -10,7 +10,7 @@ import uuid
 
 import eql
 from detection_rules import utils
-from detection_rules.packaging import load_current_package_version
+from detection_rules.misc import load_current_package_version
 from detection_rules.rule import TOMLRuleContents
 from detection_rules.schemas import downgrade
 from detection_rules.semver import Version
@@ -252,7 +252,7 @@ class TestVersionLockSchema(unittest.TestCase):
             "34fde489-94b0-4500-a76f-b8a157cf9269": {
                 "min_stack_version": "8.2",
                 "previous": {
-                    "7.13.0": {
+                    "7.13": {
                         "rule_name": "Telnet Port Activity",
                         "sha256": "3dd4a438c915920e6ddb0a5212603af5d94fb8a6b51a32f223d930d7e3becb89",
                         "type": "query",
