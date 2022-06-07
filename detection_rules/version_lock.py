@@ -20,7 +20,10 @@ ETC_VERSION_LOCK_FILE = "version.lock.json"
 ETC_VERSION_LOCK_PATH = Path(get_etc_path()) / ETC_VERSION_LOCK_FILE
 ETC_DEPRECATED_RULES_FILE = "deprecated_rules.json"
 ETC_DEPRECATED_RULES_PATH = Path(get_etc_path()) / ETC_DEPRECATED_RULES_FILE
-MIN_LOCK_VERSION_DEFAULT = Version("7.13.0")
+
+# This was the original version the lock was created under. This constant has been replaced by
+# schemas.get_min_supported_stack_version to dynamically determine the minimum
+# MIN_LOCK_VERSION_DEFAULT = Version("7.13.0")
 
 
 @dataclass(frozen=True)
