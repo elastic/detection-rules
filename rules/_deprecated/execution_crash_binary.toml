@@ -1,0 +1,50 @@
+[metadata]
+creation_date = "2022/03/21"
+deprecation_date = "2022/05/09"
+maturity = "deprecated"
+updated_date = "2022/05/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Linux binary crash abuse to break out from restricted environments by spawning an interactive system shell.
+The crash utility helps analyze Linux crash dump data or a live system and the activity of spawning a shell is not a
+standard use of this binary by a user or system administrator. It indicates a potentially malicious actor attempting to
+improve the capabilities or stability of their access.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux Restricted Shell Breakout via crash Shell evasion"
+references = ["https://gtfobins.github.io/gtfobins/crash/"]
+risk_score = 47
+rule_id = "ee619805-54d7-4c56-ba6f-7717282ddd73"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution", "GTFOBins"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and process.parent.name == "crash" and process.parent.args == "-h" and process.name == "sh"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
