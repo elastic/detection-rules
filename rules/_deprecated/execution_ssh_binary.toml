@@ -1,0 +1,53 @@
+[metadata]
+creation_date = "2022/03/10"
+deprecation_date = "2022/05/09"
+maturity = "deprecated"
+updated_date = "2022/05/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Linux binary SSH abuse to break out from restricted environments by spawning an interactive system shell. The
+SSH protocol is a network protocol that gives users, particularly system administrators, a secure way to access a
+computer over a network. The activity of spawning shell is not a standard use of this binary for a user or system
+administrator. It indicates a potentially malicious actor attempting to improve the capabilities or stability of their
+access.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux Restricted Shell Breakout via the SSH command"
+references = ["https://gtfobins.github.io/gtfobins/ssh/"]
+risk_score = 47
+rule_id = "97da359b-2b61-4a40-b2e4-8fc48cf7a294"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution", "GTFOBins"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and process.name : ("bash", "sh", "dash") and
+  process.parent.name == "ssh" and process.parent.args == "-o" and
+  process.parent.args in ("ProxyCommand=;sh 0<&2 1>&2", "ProxyCommand=;bash 0<&2 1>&2", "ProxyCommand=;dash 0<&2 1>&2", "ProxyCommand=;/bin/sh 0<&2 1>&2", "ProxyCommand=;/bin/bash 0<&2 1>&2", "ProxyCommand=;/bin/dash 0<&2 1>&2")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
