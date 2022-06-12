@@ -6,10 +6,11 @@ from uuid import uuid4
 
 kbnuser = os.environ["DR_KIBANA_USER"]
 kbnpwd = os.environ["DR_KIBANA_PASSWORD"]
+kburl = os.environ["DR_KIBANA_URL"]
 
 def create_rules(createbody, kbnuser,kbnpwd):
     resp = requests.post(
-        url="{}/api/detection_engine/rules/_bulk_create".format(os.environ["DR_KIBANA_URL"]),
+        url="{}/api/detection_engine/rules/_bulk_create".format(kburl),
         json=createbody,
         headers={
             "Content-Type": "application/json",
@@ -31,7 +32,6 @@ def create_rules(createbody, kbnuser,kbnpwd):
                 raise ValueError("Failed to create rule")
         except Exception as err:
             print("Exception: {}".format(err))
-            print(response)
             raise ValueError("Failed to create rule")
 
 custom_rules = []
@@ -59,12 +59,11 @@ for r in toml_rules:
     if "rule_id" not in rule:
         continue
     else:
-        print(rule)
         updatebody.append(rule)
 
 # bulk request to update
 resp = requests.put(
-    url="{}/api/detection_engine/rules/_bulk_update".format(os.environ["DR_KIBANA_URL"]),
+    url="{}/api/detection_engine/rules/_bulk_update".format(kburl),
     json=updatebody,
     headers={
         "Content-Type": "application/json",
