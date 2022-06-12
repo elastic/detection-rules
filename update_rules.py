@@ -6,11 +6,10 @@ from uuid import uuid4
 
 kbnuser = os.environ["DR_KIBANA_USER"]
 kbnpwd = os.environ["DR_KIBANA_PASSWORD"]
-kburl = os.environ["DR_KIBANA_URL"]
 
 def create_rules(createbody, kbnuser,kbnpwd):
     resp = requests.post(
-        url="{}/api/detection_engine/rules/_bulk_create".format(kburl),
+        url="{}/api/detection_engine/rules/_bulk_create".format(os.environ["DR_KIBANA_URL"]),
         json=createbody,
         headers={
             "Content-Type": "application/json",
@@ -65,7 +64,7 @@ for r in toml_rules:
 
 # bulk request to update
 resp = requests.put(
-    url="{}/api/detection_engine/rules/_bulk_update".format(kburl),
+    url="{}/api/detection_engine/rules/_bulk_update".format(os.environ["DR_KIBANA_URL"]),
     json=updatebody,
     headers={
         "Content-Type": "application/json",
