@@ -76,7 +76,6 @@ response = resp.json()
 if "error" in response:
     print(response["message"])
     exit(1)
-print(resp)
 
 createbody = []
 
