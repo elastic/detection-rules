@@ -6,6 +6,7 @@
 """CLI commands for internal detection_rules dev team."""
 import dataclasses
 import functools
+import hashlib
 import io
 import json
 import os
@@ -35,7 +36,7 @@ from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import PACKAGE_FILE, RELEASE_DIR, CURRENT_RELEASE_PATH, Package, current_stack_version
 from .version_lock import VersionLockFile, default_version_lock
-from .rule import AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData, ThreatMapping, TOMLRule
+from .rule import AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData, ThreatMapping, TOMLRule, rule_target_from_tags
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
 from .semver import Version
@@ -635,15 +636,56 @@ def license_check(ctx, ignore_directory):
     ctx.exit(int(failed))
 
 
-@dev_group.command('package-stats')
+@dev_group.command('package-details')
+@click.option('--stats','-s', is_flag=True, help="Show stats related to package changes for this release")
 @click.option('--token', '-t', help='GitHub token to search API authenticated (may exceed threshold without auth)')
 @click.option('--threads', default=50, help='Number of threads to download rules from GitHub')
+@click.option('--details', is_flag=True, help='Get details about rules from stats')
+@click.option('--important', is_flag=True, help='Requires "Details" flag, reviews changed rules and only returns/exports rules with changed queries')
+@click.option('--exportdetails', is_flag=True, help='Export results t o Markdown, JSON, CSV or NDJSON')
+@click.option('--ghlabels', '-gl', multiple=True, help='Additional labels to search for whe loading PRs for this release')
 @click.pass_context
-def package_stats(ctx, token, threads):
-    """Get statistics for current rule package."""
+def package_details(ctx, stats, token, threads, details, important, exportdetails, ghlabels):
+    """Get details about the current package"""
     current_package: Package = ctx.invoke(build_release, verbose=False, release=None)
     release = f'v{current_package.name}.0'
-    new, modified, errors = rule_loader.load_github_pr_rules(labels=[release], token=token, threads=threads)
+
+    total_rule_count = len(current_package.rules)
+    new_rule_count = len(current_package.new_ids)
+    modified_rule_count = len(current_package.changed_ids)
+    deprecated_rule_count = len(current_package.removed_ids)
+
+    # pull open PRs for new or rule tuning
+    new_open, modified_open, errors_open = rule_loader.load_github_pr_rules(
+        labels=[release] if not ghlabels else list(ghlabels),
+        token=token, threads=threads)
+
+    # pull open PRs for merged new rules or merged rule tuning
+    new_closed, modified_closed, errors_closed = rule_loader.load_github_pr_rules(
+        labels=[release] if not ghlabels else list(ghlabels),
+        token=token, threads=threads, state='is:closed')
+
+    # identify and query hash
+    targets = dict()
+    for rule_id,rule in modified_closed.items():
+        rule = rule[0]
+        target = rule.rule_target_from_tags(rule.contents)
+        if target not in targets.keys():
+            targets[f"{target}"] = 1
+        else: targets[f"{target}"] += 1
+
+        if rule.contents.type != 'machine_learning':
+            query_hash = hashlib.sha256(rule.contents.data.query.encode())
+            modified_closed[rule_id]["query_hash"] = query_hash
+
+    for k,v in new_closed.items():
+        target = rule.rule_target_from_tags(v[0].contents)
+        if target not in targets.keys():
+            targets[f"{target}"] = 1
+        else: targets[f"{target}"] += 1
+
+    # determine query hash
+    
 
     click.echo(f'Total rules as of {release} package: {len(current_package.rules)}')
     click.echo(f'New rules: {len(current_package.new_ids)}')
@@ -654,6 +696,17 @@ def package_stats(ctx, token, threads):
     click.echo('Rules in active PRs for current package: ')
     click.echo(f'New rules: {len(new)}')
     click.echo(f'Modified rules: {len(modified)}')
+
+    #TODO package-detail options
+    ## Change name to package-details
+    ## add stats, details, important, exportdetails, ghlabels as arguments
+    ## adjust labels passed to rule.loader_load_github_pr_rules
+    ## add state argument with default open in rule.loader_load_github_pr_rules
+    ### used to pass closed (merged) searches
+    ## c
+
+
+
 
 
 @dev_group.command('search-rule-prs')

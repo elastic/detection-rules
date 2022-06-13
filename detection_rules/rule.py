@@ -5,7 +5,9 @@
 """Rule object."""
 import copy
 import dataclasses
+import itertools
 import json
+import pandas as pd
 import typing
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -654,6 +656,25 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
 
         return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
 
+def rules_to_dataframe(rules: List[TOMLRule], flatten=False) -> pd.DataFrame:
+    """Create a dataframe of rule contents from a list of TOMRules"""
+    df = pd.DataFrame([r.contents.flattened_dict() for r in rules]).fillna(False, inplace=True)
+
+    if flatten:
+        for col in df.columns:
+            df[f"{col}"] = df[f"{col}"].apply(lambda x: ','.join(map(str, x)) if isinstance(x, list) else x)
+        return df
+    else: return df
+
+def rule_target_from_tags(rule) -> str:
+    """Identify the target environment of the rule"""
+    target_options = list(itertools.chain(*[definitions.OS_OPTIONS, definitions.INTEGRATION_OPTIONS, definitions.OTHER_OPTIONS]))
+    if isinstance(rule, TOMLRule): tags = rule.contents.tags
+    if isinstance(rule, dict): tags = rule.tags # expects rule.flattened_dict()
+    tag_matches = [t for t in tags if t in target_options]
+    if len(tag_matches) > 1: return "cross-platform"
+    if len(tag_matches) < 1: return False
+    if len(tag_matches) == 1: return tags[0]
 
 # avoid a circular import
 from .rule_validators import KQLValidator, EQLValidator  # noqa: E402

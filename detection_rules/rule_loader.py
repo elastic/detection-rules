@@ -384,7 +384,7 @@ class RuleCollection(BaseCollection):
 
 @cached
 def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rules', token=None, threads=50,
-                         verbose=True) -> (Dict[str, TOMLRule], Dict[str, TOMLRule], Dict[str, list]):
+                         verbose=True, state: str = 'open') -> (Dict[str, TOMLRule], Dict[str, TOMLRule], Dict[str, list]):
     """Load all rules active as a GitHub PR."""
     from multiprocessing.pool import ThreadPool
     from pathlib import Path
@@ -397,7 +397,9 @@ def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rul
     github = GithubClient(token=token)
     repo = github.client.get_repo(repo)
     labels = set(labels or [])
-    open_prs = [r for r in repo.get_pulls() if not labels.difference(set(list(lbl.name for lbl in r.get_labels())))]
+    pr_pages = repo.get_pulls(state=state)
+
+    open_prs = [r for r in pr_pages if not labels.difference(set(list(lbl.name for lbl in r.get_labels())))]
 
     new_rules: List[TOMLRule] = []
     modified_rules: List[TOMLRule] = []
