@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/02/24"
 maturity = "production"
-updated_date = "2022/05/09"
+updated_date = "2022/06/03"
 
 [rule]
 author = ["Elastic"]
@@ -97,6 +97,7 @@ type = "eql"
 query = '''
 any where event.action == "Directory Service Changes" and
   event.code == "5136" and
+  winlog.event_data.AttributeLDAPDisplayName : "dSHeuristics" and
   length(winlog.event_data.AttributeValue) > 15 and
   winlog.event_data.AttributeValue regex~ "[0-9]{15}([1-9a-f]).*"
 '''

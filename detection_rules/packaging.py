@@ -18,7 +18,7 @@ from typing import Dict, Optional, Tuple
 import click
 import yaml
 
-from .misc import JS_LICENSE, cached
+from .misc import JS_LICENSE, cached, load_current_package_version
 from .navigator import NavigatorBuilder, Navigator
 from .rule import TOMLRule, QueryRuleData, ThreatMapping
 from .rule_loader import DeprecatedCollection, RuleCollection, DEFAULT_RULES_DIR
@@ -66,12 +66,6 @@ def filter_rule(rule: TOMLRule, config_filter: dict, exclude_fields: Optional[di
                     return False
 
     return True
-
-
-@cached
-def load_current_package_version() -> str:
-    """Load the current package version from config file."""
-    return load_etc_dump('packages.yml')['package']['name']
 
 
 CURRENT_RELEASE_PATH = Path(RELEASE_DIR) / load_current_package_version()
