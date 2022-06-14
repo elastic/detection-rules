@@ -37,15 +37,11 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where process.parent.name : "cmd.exe" and process.name : "nltest.exe"
-and process.args : (
-    "/DCLIST:*",
-    "/DCNAME:*",
-    "/DSGET*",
-    "/LSAQUERYFTI:*",
-    "/PARENTDOMAIN",
-    "/DOMAIN_TRUSTS",
-    "/BDC_QUERY:*")
+process where event.type in ("start", "process_started") and
+    process.name : "nltest.exe" and process.args : (
+        "/DCLIST:*", "/DCNAME:*", "/DSGET*",
+        "/LSAQUERYFTI:*", "/PARENTDOMAIN",
+        "/DOMAIN_TRUSTS", "/BDC_QUERY:*")
 '''
 
 
