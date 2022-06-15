@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2022/06/13"
+updated_date = "2022/06/15"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "Hping Process Activity"
 references = ["https://en.wikipedia.org/wiki/Hping"]
@@ -26,10 +26,10 @@ rule_id = "90169566-2260-4824-b8e4-8615c3b4ed52"
 severity = "high"
 tags = ["Elastic", "Host", "Linux", "Threat Detection", "Discovery"]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "query"
 
 query = '''
-process where event.type == "start" and process.name in ("hping","hping2","hping3")
+event.category:process and event.type:(start or process_started) and process.name:(hping or hping2 or hping3)
 '''
 
 
