@@ -8,6 +8,9 @@ on:
         commit_sha:
           description: 'Sha256 hash of the merge commit to use in backporting'
           required: true
+        exceptions:
+          description: 'Comma seperated list of files to skip staging e.g. detection_rules/etc/packages.yml,detection_rules/attack.py)'
+          required: false
 
 jobs:
   commit:
@@ -57,7 +60,7 @@ jobs:
         env:
           UNSTAGED_LIST_FILE: "../unstaged-rules.txt"
         run: |
-          python -m detection_rules dev unstage-incompatible-rules --target-stack-version "${{github.event.inputs.target_branch}}"
+          python -m detection_rules dev unstage-incompatible-rules --target-stack-version "${{github.event.inputs.target_branch}}" --exception-list "${{github.event.inputs.exceptions}}"
 
           # Track which rules were unstaged
           git diff --name-only > $UNSTAGED_LIST_FILE
@@ -72,7 +75,7 @@ jobs:
           TARGET_BRANCH: "${{github.event.inputs.target_branch}}"
           COMMIT_SHA: "${{github.event.inputs.commit_sha}}"
         run: |
-          ./etc/commit-and-push.sh $TARGET_BRANCH $COMMIT_SHA
+          ./detection_rules/etc/commit-and-push.sh $TARGET_BRANCH $COMMIT_SHA
 
       - name: "Notify slack on failure"
         uses: craftech-io/slack-action@v1
