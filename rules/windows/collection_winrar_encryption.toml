@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/12/04"
 maturity = "production"
-updated_date = "2022/03/31"
+updated_date = "2022/05/09"
 
 [rule]
 author = ["Elastic"]
@@ -26,9 +26,10 @@ These steps are usually done in preparation for exfiltration, meaning the attack
 
 #### Possible investigation steps
 
-- Investigate the script execution chain (parent process tree).
+- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for
+prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Retrieve the encrypted file.
-- Investigate other alerts related to the user/host in the last 48 hours.
+- Investigate other alerts associated with the user/host during the past 48 hours.
 - Check if the password used in the encryption was included in the command line.
 - Decrypt the `.rar`/`.zip` and check if the information is sensitive.
 - If the password is not available, and the format is `.zip` or the option used in WinRAR is not the `-hp`, list the
@@ -43,10 +44,16 @@ file names included in the encrypted file.
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
-- If personally identifiable information (PII) or other classified data is involved, investigations into this should be prioritized.
-- Quarantine the involved host for forensic investigation, as well as eradication and recovery activities.
-- Reset the passwords of the involved accounts.
-- Safeguard critical assets to prevent further harm or theft of data.
+- Prioritize cases that involve personally identifiable information (PII) or other classified data.
+- Isolate the involved hosts to prevent further post-compromise behavior.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
+systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 
 
 ## Config

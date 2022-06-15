@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2022/04/13"
+updated_date = "2022/05/09"
 
 [rule]
 author = ["Elastic"]
@@ -25,13 +25,14 @@ This rule looks for system shells being spawned by `services.exe`, which is comp
 
 #### Possible investigation steps
 
-- Investigate the process execution chain (parent process tree).
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Identify how the service was created or modified. Look for registry changes events or Windows events related to
 service activities (for example, 4697 and/or 7045).
   - Identify the user account that performed the action and whether it should perform this kind of action.
 - Contact the account owner and confirm whether they are aware of this activity.
 - Investigate other alerts associated with the user/host during the past 48 hours.
-- Check for similar behavior in other hosts on the environment.
+- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
 - Check for commands executed under the spawned shell.
 
 ### False positive analysis
@@ -43,10 +44,15 @@ service activities (for example, 4697 and/or 7045).
 
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved host to prevent further post-compromise behavior.
-- Reset passwords for the user account and other potentially compromised accounts (email, services, CRMs, etc.).
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
+systems, and web services.
 - Delete the service or restore it to the original configuration.
-- Investigate the initial attack vector.
-
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 
 ## Config
 
