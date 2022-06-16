@@ -201,8 +201,7 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
     exceptions = {
         "detection_rules/etc/packages.yml",
     }
-    for exception in exception_list.split(","):
-        exceptions.add(exception)
+    exceptions.update(exception_list.split(","))
 
     target_stack_version = Version(target_stack_version)[:2]
 
