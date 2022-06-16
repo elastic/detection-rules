@@ -11,6 +11,9 @@ on:
       - closed
 
 jobs:
+  get-branches:
+    uses: elastic/detection-rules/.github/workflows/backport-status-check.yml
+
   label:
     runs-on: ubuntu-latest
     if: |
@@ -43,15 +46,6 @@ jobs:
               name: 'backport: auto'
             })
 
-  list-target-branches:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.get-branch-list.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@v2
-      - id: get-branch-list
-        run: echo "::set-output name=matrix::$(yq '.target_branch_list' ./detection_rules/etc/target-branches.yml)"
-
   commit:
     if: |
       github.event.pull_request.merged == true
@@ -60,13 +54,13 @@ jobs:
         (github.event.action == 'labeled' && github.event.label.name == 'backport: auto')
         || (github.event.action == 'closed')
       )
-    needs: list-target-branches
+    needs: get-branches
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 1
       matrix:
         # 7.17 was intentionally skipped because it was added late and was bug fix only
-        target_branch: ${{ fromJSON(needs.list-target-branches.outputs.matrix) }}
+        target_branch: ${{ fromJSON(needs.get-branches.outputs.branches) }}
 
     steps:
       - name: Checkout repo
