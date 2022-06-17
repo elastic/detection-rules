@@ -21,7 +21,7 @@ import kql
 from . import utils
 from .mixins import MarshmallowDataclassMixin
 from .rule_formatter import toml_write, nested_normalize
-from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas
+from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas, get_min_supported_stack_version
 from .utils import cached
 
 _META_SCHEMA_REQ_DEFAULTS = {}
@@ -50,7 +50,7 @@ class RuleMeta(MarshmallowDataclassMixin):
 
     def get_validation_stack_versions(self) -> Dict[str, dict]:
         """Get a dict of beats and ecs versions per stack release."""
-        stack_versions = get_stack_schemas(self.min_stack_version or MIN_FLEET_PACKAGE_VERSION)
+        stack_versions = get_stack_schemas(self.min_stack_version)
         return stack_versions
 
 
@@ -406,7 +406,8 @@ class BaseRuleContents(ABC):
     @property
     def is_dirty(self) -> Optional[bool]:
         """Determine if the rule has changed since its version was locked."""
-        existing_sha256 = self.version_lock.get_locked_hash(self.id, self.metadata.get('min_stack_version'))
+        min_stack = self.metadata.get('min_stack_version') or str(get_min_supported_stack_version(drop_patch=True))
+        existing_sha256 = self.version_lock.get_locked_hash(self.id, min_stack)
 
         if existing_sha256 is not None:
             return existing_sha256 != self.sha256()
@@ -414,7 +415,8 @@ class BaseRuleContents(ABC):
     @property
     def latest_version(self) -> Optional[int]:
         """Retrieve the latest known version of the rule."""
-        return self.version_lock.get_locked_version(self.id, self.metadata.get('min_stack_version'))
+        min_stack = self.metadata.get('min_stack_version') or str(get_min_supported_stack_version(drop_patch=True))
+        return self.version_lock.get_locked_version(self.id, min_stack)
 
     @property
     def autobumped_version(self) -> Optional[int]:

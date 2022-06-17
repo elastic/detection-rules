@@ -163,9 +163,10 @@ class LockDataclassMixin:
         contents = self.to_dict()
         return dict_hash(contents)
 
-    def save_to_file(self, lock_file: Path):
+    def save_to_file(self, lock_file: Optional[Path] = None):
         """Save and validate a version lock file."""
-        path: Path = getattr(self, 'file_path', lock_file)
+        path: Path = lock_file or getattr(self, 'file_path', None)
+        assert path, 'No path passed or set'
         contents = self.to_dict()
         path.write_text(json.dumps(contents, indent=2, sort_keys=True))
 
