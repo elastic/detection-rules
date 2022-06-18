@@ -658,13 +658,7 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
 
 def rules_to_dataframe(rules: List[TOMLRule], flatten=False) -> pd.DataFrame:
     """Create a dataframe of rule contents from a list of TOMRules"""
-    df = pd.DataFrame([r.contents.flattened_dict() for r in rules]).fillna(False, inplace=True)
-
-    if flatten:
-        for col in df.columns:
-            df[f"{col}"] = df[f"{col}"].apply(lambda x: ','.join(map(str, x)) if isinstance(x, list) else x)
-        return df
-    else: return df
+    return pd.json_normalize(asdict(rule)["content"] for rule in rules)
 
 def rule_target_from_tags(rule) -> str:
     """Identify the target environment of the rule"""
