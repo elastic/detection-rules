@@ -10,7 +10,7 @@ import json
 import pandas as pd
 import typing
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from functools import cached_property
 from pathlib import Path
 from typing import Literal, Union, Optional, List, Any, Dict
