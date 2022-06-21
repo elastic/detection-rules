@@ -338,14 +338,17 @@ def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, kibana
 
 client_options = {
     'kibana': {
-        'cloud_id': click.Option(['--cloud-id'], default=getdefault('cloud_id')),
+        'cloud_id': click.Option(['--cloud-id'], default=getdefault('cloud_id'),
+                                 help="ID of the cloud instance. Defaults the cloud provider to cloud-basic if this option is supplied"),
         'kibana_cookie': click.Option(['--kibana-cookie', '-kc'], default=getdefault('kibana_cookie'),
                                       help='Cookie from an authed session'),
         'kibana_password': click.Option(['--kibana-password', '-kp'], default=getdefault('kibana_password')),
         'kibana_url': click.Option(['--kibana-url'], default=getdefault('kibana_url')),
         'kibana_user': click.Option(['--kibana-user', '-ku'], default=getdefault('kibana_user')),
-        'provider_type': click.Option(['--provider-type'], default=getdefault('provider_type')),
-        'provider_name': click.Option(['--provider-name'], default=getdefault('provider_name')),
+        'provider_type': click.Option(['--provider-type'], default=getdefault('provider_type'),
+                                      help="For cloud deployments, Elastic Cloud configures two providers by default: basic and saml (for SSO)"),
+        'provider_name': click.Option(['--provider-name'], default=getdefault('provider_name'),
+                                      help="For cloud deployments, Elastic Cloud configures two providers by default: cloud-basic and cloud-saml (for SSO)"),
         'space': click.Option(['--space'], default=None, help='Kibana space'),
         'ignore_ssl_errors': click.Option(['--ignore-ssl-errors'], default=getdefault('ignore_ssl_errors'))
     },
