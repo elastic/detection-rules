@@ -1,0 +1,32 @@
+name: List Target Branches
+
+on:
+  workflow_call:
+    # Map the workflow outputs to job outputs
+    outputs:
+      branches:
+        description: "List of target branches"
+        value: ${{ jobs.list-target-branches.outputs.matrix }}
+
+jobs:
+  list-target-branches:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.get-branch-list.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - id: get-branch-list
+        run: |
+          python -m detection_rules dev utils get-branches
+          echo "::set-output name=matrix::$(yq '.target_branch_list' ./detection_rules/etc/target-branches.yml)"

@@ -5,29 +5,17 @@ on:
     branches: [ "main", "7.*", "8.*" ]
   pull_request:
     branches: [ "*" ]
-  workflow_call:
-    # Map the workflow outputs to job outputs
-    outputs:
-      branches:
-        description: "List of target branches"
-        value: ${{ jobs.list-target-branches.outputs.matrix }}
 
 jobs:
-  list-target-branches:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.get-branch-list.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@v2
-      - id: get-branch-list
-        run: echo "::set-output name=matrix::$(yq '.target_branch_list' ./detection_rules/etc/target-branches.yml)"
+  get-branches:
+    uses: ./.github/workflows/get-target-branches.yml
 
   branch-status-checks:
-    needs: list-target-branches
+    needs: get-branches
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target_branch: ${{ fromJSON(needs.list-target-branches.outputs.matrix) }}
+        target_branch: ${{ fromJSON(needs.get-branches.outputs.branches) }}
 
     steps:
     - uses: actions/checkout@v2
