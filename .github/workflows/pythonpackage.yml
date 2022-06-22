@@ -36,12 +36,6 @@ jobs:
       run: |
         python -m detection_rules test
 
-    - name: Update navigator gist files
-      env:
-        GITHUB_TOKEN: "${{ secrets.NAVIGATOR_GIST_TOKEN }}"
-      if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      run: python -m detection_rules dev update-navigator-gists
-
     - name: Build release package
       env:
         # only generate the navigator files on push events to main
@@ -57,3 +51,9 @@ jobs:
         name: release-files
         path: |
           releases
+
+    - name: Update navigator gist files
+      env:
+        GITHUB_TOKEN: "${{ secrets.NAVIGATOR_GIST_TOKEN }}"
+      if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      run: python -m detection_rules dev update-navigator-gists
