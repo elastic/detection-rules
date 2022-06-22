@@ -36,6 +36,7 @@ def get_restricted_fields(schema_fields: List[Field]) -> Dict[str, Tuple[Optiona
 
 @cached
 def get_incompatible_fields(schema_fields: List[Field], package_version: Version) -> Optional[Dict[str, tuple]]:
+    """Get a list of fields that are incompatible with the package version."""
     if not schema_fields:
         return
 

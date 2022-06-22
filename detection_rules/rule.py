@@ -23,6 +23,7 @@ from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import toml_write, nested_normalize
 from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas, get_min_supported_stack_version
 from .schemas.stack_compat import get_restricted_fields
+from .semver import Version
 from .utils import cached
 
 _META_SCHEMA_REQ_DEFAULTS = {}
@@ -549,8 +550,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def check_restricted_fields_compatibility(self) -> Dict[str, dict]:
         """Check for compatibility between restricted fields and the min_stack_version of the rule."""
         default_min_stack = get_min_supported_stack_version(drop_patch=True)
-
-        min_stack = self.metadata.min_stack_version or default_min_stack
+        if self.metadata.min_stack_version is not None:
+            min_stack = Version(self.metadata.min_stack_version)
+        else:
+            min_stack = default_min_stack
         restricted = self.data.get_restricted_fields
 
         invalid = {}
