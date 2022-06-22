@@ -1084,7 +1084,7 @@ def utils_group():
 
 @utils_group.command('get-branches')
 def get_branches():
-    branches = get_stack_versions(drop_patch=True)
-    del branches[-1]
-    click.echo(json.dumps(branches))
-    Path(get_etc_path("target-branches.yml")).write_text(json.dumps(branches))
+    branch_list = get_stack_versions(drop_patch=True)
+    del branch_list[-1]
+    target_branches = json.dumps({"target_branch_list": branch_list})
+    Path(get_etc_path("target-branches.yml")).write_text(target_branches)
