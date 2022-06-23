@@ -1079,12 +1079,12 @@ def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_coun
 
 @dev_group.group('utils')
 def utils_group():
-    """Commands for dev utilitity methods."""
+    """Commands for dev utility methods."""
 
 
 @utils_group.command('get-branches')
-def get_branches():
+@click.option('--outfile', '-o', type=Path, default=get_etc_path("target-branches.yml"), help='File to save output to')
+def get_branches(outfile: Path):
     branch_list = get_stack_versions(drop_patch=True)
-    del branch_list[-1]
-    target_branches = json.dumps({"target_branch_list": branch_list})
-    Path(get_etc_path("target-branches.yml")).write_text(target_branches)
+    target_branches = json.dumps(branch_list[:-1]) + "\n"
+    outfile.write_text(target_branches)
