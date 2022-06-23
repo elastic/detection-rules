@@ -123,7 +123,7 @@ Commands:
   collect-events  Collect events from Elasticsearch.
 ```
 
-Providers are the name that our Elastic Cloud uses to configure authentication in Kibana. When we create deployment, Elastic Cloud configures two providers by default: basic/cloud-basic and saml/cloud-saml (for SSO).
+Providers are the name that Elastic Cloud uses to configure authentication in Kibana. When we create deployment, Elastic Cloud configures two providers by default: basic/cloud-basic and saml/cloud-saml (for SSO).
 
 ```console
 python -m detection_rules kibana -h
