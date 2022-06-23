@@ -99,7 +99,7 @@ def search_alerts(ctx, query, date_range, columns, extend):
     table_columns = ['host.hostname', 'rule.name', '@timestamp']
 
     # check for events with nested signal fields
-    if 'signal' in alerts[0]:
+    if alerts and 'signal' in alerts[0]:
         table_columns = ['host.hostname', 'signal.rule.name', 'signal.status', 'signal.original_time']
     if columns:
         columns = list(columns)
