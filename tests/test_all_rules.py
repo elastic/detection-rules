@@ -680,7 +680,7 @@ class TestIntegrationRules(BaseRuleTest):
 
 
 class TestIncompatibleFields(BaseRuleTest):
-    """Test stack restricted fields."""
+    """Test stack restricted fields do not backport beyond allowable limits."""
 
     def test_rule_backports_for_restricted_fields(self):
         """Test that stack restricted fields will not backport to older rule versions."""
