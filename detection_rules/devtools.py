@@ -39,7 +39,7 @@ from .rule import AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData, Thre
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
 from .semver import Version
-from .utils import dict_hash, get_path, load_dump
+from .utils import dict_hash, get_path, get_etc_path, load_dump
 
 RULES_DIR = get_path('rules')
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
@@ -1075,3 +1075,16 @@ def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_coun
         json.dump(details, f, indent=2, sort_keys=True)
 
     return survey_results
+
+
+@dev_group.group('utils')
+def utils_group():
+    """Commands for dev utility methods."""
+
+
+@utils_group.command('get-branches')
+@click.option('--outfile', '-o', type=Path, default=get_etc_path("target-branches.yml"), help='File to save output to')
+def get_branches(outfile: Path):
+    branch_list = get_stack_versions(drop_patch=True)
+    target_branches = json.dumps(branch_list[:-1]) + "\n"
+    outfile.write_text(target_branches)
