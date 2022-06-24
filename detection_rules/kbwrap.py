@@ -96,7 +96,11 @@ def search_alerts(ctx, query, date_range, columns, extend):
     with kibana:
         alerts = [a['_source'] for a in Signal.search({'query': kql_query})['hits']['hits']]
 
-    table_columns = ['host.hostname', 'signal.rule.name', 'signal.status', 'signal.original_time']
+    table_columns = ['host.hostname', 'rule.name', '@timestamp']
+
+    # check for events with nested signal fields
+    if alerts and 'signal' in alerts[0]:
+        table_columns = ['host.hostname', 'signal.rule.name', 'signal.status', 'signal.original_time']
     if columns:
         columns = list(columns)
         table_columns = table_columns + columns if extend else columns
