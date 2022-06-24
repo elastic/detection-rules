@@ -1,5 +1,7 @@
 # User Risk Score
 
+The host risk score feature highlights risky hosts from within your environment. It utilizes a transform with a scripted metric aggregation to calculate host risk scores based on alerts that were generated within the past five days. The transform runs hourly to update the score as new alerts are generated. Each alert's contribution to the host risk score is based on the alert's risk score (`signal.rule.risk_score`) and a time decay factor to reduce the impact of stale alerts. The risk score is calculated using a weighted sum where rules with higher time-corrected risk scores also have higher weights. Each host risk score is normalized to a scale of 0 to 100.
+
 User Risk Score is an experimental feature that assigns risk scores to usernames in a given Kibana space. Risk scores are calculated for each username by utilizing transforms on the alerting indices. The transform runs hourly to update the score as new alerts are generated. The User Risk Score [package]() contains all of the required artifacts for setup. The User Risk Score feature provides Lens dashboards for viewing summary and detailed username risk score information. The detail view dashboard allowing a user to peruse why a username has been given a high risk score. In addition, user risk scores are presented in the detailed view for a username in the Elastic Security App.
 
 
