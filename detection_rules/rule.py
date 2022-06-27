@@ -6,7 +6,10 @@
 import copy
 import dataclasses
 import json
+import re
+import requests
 import typing
+import yaml
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import cached_property
@@ -19,6 +22,7 @@ from marshmallow import ValidationError, validates_schema
 
 import kql
 from . import utils
+from .misc import load_current_package_version
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import toml_write, nested_normalize
 from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas, get_min_supported_stack_version
@@ -438,12 +442,73 @@ class BaseRuleContents(ABC):
 
         return version + 1 if self.is_dirty else version
 
-    @staticmethod
-    def _post_dict_transform(obj: dict) -> dict:
+    def get_integration_manifest(self, integration_name: str) -> str:
+        url = f"https://raw.githubusercontent.com/elastic/integrations/main/packages/{integration_name}/manifest.yml"
+        response = requests.get(url)
+        manifest = yaml.safe_load(response.content)
+
+        # has multiple integrations in the package
+        return manifest.get("policy_templates")
+
+    def get_packaged_integrations(self, indices: list) -> list:
+        if not any("logs-" in index for index in indices):
+            return []
+
+        integrations = []
+        for index in indices:
+            if not index.startswith('logs-') or 'logs-*' in index:
+                continue
+
+            # parse integration name from index
+            integration = re.search(r"(?<=-)\w+", index).group()
+            rule_integration = {"package": integration}
+
+            # get policy templates from the integration manifest
+            packaged_integrations = self.get_integration_manifest(integration)
+
+            # check for integration within package
+            if len(packaged_integrations) > 1:
+
+                # check if integrations are supplied in index
+                integration_list = r"|".join([x['name'] for x in packaged_integrations])
+                integration_search = re.search(integration_list, index, re.IGNORECASE)
+                if integration_search:
+                    integration_match = integration_search.group()
+
+                    # add the specific sub package integration data if available
+                    rule_integration.update({"integration": integration_match})
+
+            integrations.append(rule_integration)
+
+        return integrations
+
+    def _post_dict_transform(self, obj: dict) -> dict:
         """Transform the converted API in place before sending to Kibana."""
 
         # cleanup the whitespace in the rule
         obj = nested_normalize(obj)
+
+        if not isinstance(self, DeprecatedRuleContents):
+            current_version = Version(load_current_package_version())
+            restricted_fields = self.data.get_restricted_fields
+
+            for field_name, stack_values in restricted_fields.items():
+                if "related_integrations" in field_name:
+                    indices = self.data.index or []
+                    integrations = self.get_packaged_integrations(indices)
+                    if not integrations:
+                        integrations = None
+                    obj.setdefault("related_integrations", integrations)
+                elif "setup" in field_name:
+                    ...
+                else:
+                    min_stack, max_stack = stack_values
+
+                    if max_stack is None:
+                        max_stack = current_version
+
+                    if Version(min_stack) <= current_version >= Version(max_stack):
+                        obj.setdefault(field_name, obj.get(field_name, None))
 
         # fill in threat.technique so it's never missing
         for threat_entry in obj.get("threat", []):
