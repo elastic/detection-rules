@@ -491,7 +491,6 @@ class BaseRuleContents(ABC):
         # cleanup the whitespace in the rule
         obj = nested_normalize(obj)
 
-
         if not isinstance(self, DeprecatedRuleContents):
             current_version = Version(load_current_package_version())
             restricted_fields = self.data.get_restricted_fields
