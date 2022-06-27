@@ -468,7 +468,7 @@ class BaseRuleContents(ABC):
 
             # check for integration within package
             if "endpoint" in integration:
-               rule_integration.update({"integration": "events"})
+                rule_integration.update({"integration": "events"})
 
             elif len(packaged_integrations) > 1:
 
@@ -491,16 +491,20 @@ class BaseRuleContents(ABC):
         # cleanup the whitespace in the rule
         obj = nested_normalize(obj)
 
+
         if not isinstance(self, DeprecatedRuleContents):
             current_version = Version(load_current_package_version())
             restricted_fields = self.data.get_restricted_fields
 
             for field_name, stack_values in restricted_fields.items():
                 if "related_integrations" in field_name:
-                    indices = self.data.index or []
-                    integrations = self.get_packaged_integrations(indices)
-                    if not integrations:
-                        integrations = None
+
+                    integrations = None
+                    invalid = (MachineLearningRuleData, ThreatMatchRuleData, ThresholdQueryRuleData)
+                    if not isinstance(self.data, invalid):
+                        indices = self.data.index
+                        integrations = self.get_packaged_integrations(indices)
+
                     obj.setdefault("related_integrations", integrations)
                 elif "setup" in field_name:
                     ...
