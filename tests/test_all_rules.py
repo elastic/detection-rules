@@ -677,3 +677,22 @@ class TestIntegrationRules(BaseRuleTest):
                     self.fail(f'{self.rule_str(rule)} expected {integration} config missing\n\n'
                               f'Expected: {note_str}\n\n'
                               f'Actual: {rule.contents.data.note}')
+
+
+class TestIncompatibleFields(BaseRuleTest):
+    """Test stack restricted fields do not backport beyond allowable limits."""
+
+    def test_rule_backports_for_restricted_fields(self):
+        """Test that stack restricted fields will not backport to older rule versions."""
+        invalid_rules = []
+
+        for rule in self.all_rules:
+            invalid = rule.contents.check_restricted_fields_compatibility()
+            if invalid:
+                invalid_rules.append(f'{self.rule_str(rule)} {invalid}')
+
+        if invalid_rules:
+            invalid_str = '\n'.join(invalid_rules)
+            err_msg = 'The following rules have min_stack_versions lower than allowed for restricted fields:\n'
+            err_msg += invalid_str
+            self.fail(err_msg)
