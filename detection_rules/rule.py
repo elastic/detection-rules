@@ -448,10 +448,10 @@ class BaseRuleContents(ABC):
         # cleanup the whitespace in the rule
         obj = nested_normalize(obj)
 
-        for field, stack_values in restricted_fields.items():
-            if "related_integrations" in field:
+        for field_name, stack_values in restricted_fields.items():
+            if "related_integrations" in field_name:
                 ...
-            elif "setup" in field:
+            elif "setup" in field_name:
                 ...
             else:
                 min_stack, max_stack = stack_values
@@ -460,7 +460,7 @@ class BaseRuleContents(ABC):
                     max_stack = current_version
 
                 if Version(min_stack) <= current_version >= Version(max_stack):
-                    obj.setdefault(field, obj.get(field, None))
+                    obj.setdefault(field_name, obj.get(field_name, None))
 
         # fill in threat.technique so it's never missing
         for threat_entry in obj.get("threat", []):
