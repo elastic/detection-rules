@@ -19,6 +19,7 @@ from marshmallow import ValidationError, validates_schema
 
 import kql
 from . import utils
+from .misc import load_current_package_version
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import toml_write, nested_normalize
 from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas, get_min_supported_stack_version
@@ -438,12 +439,28 @@ class BaseRuleContents(ABC):
 
         return version + 1 if self.is_dirty else version
 
-    @staticmethod
-    def _post_dict_transform(obj: dict) -> dict:
+    def _post_dict_transform(self, obj: dict) -> dict:
         """Transform the converted API in place before sending to Kibana."""
+
+        current_version = Version(load_current_package_version())
+        restricted_fields = self.data.get_restricted_fields
 
         # cleanup the whitespace in the rule
         obj = nested_normalize(obj)
+
+        for field, stack_values in restricted_fields.items():
+            if "related_integrations" in field:
+                ...
+            elif "setup" in field:
+                ...
+            else:
+                min_stack, max_stack = stack_values
+
+                if max_stack is None:
+                    max_stack = current_version
+
+                if Version(min_stack) <= current_version >= Version(max_stack):
+                    obj.setdefault(field, obj.get(field, None))
 
         # fill in threat.technique so it's never missing
         for threat_entry in obj.get("threat", []):
