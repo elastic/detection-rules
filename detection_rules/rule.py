@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
-from typing import Literal, Union, Optional, List, Any, Dict
+from typing import Literal, Union, Optional, List, Any, Dict, Tuple
 from uuid import uuid4
 
 import eql
@@ -19,9 +19,11 @@ from marshmallow import ValidationError, validates_schema
 
 import kql
 from . import utils
-from .mixins import MarshmallowDataclassMixin
+from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import toml_write, nested_normalize
 from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas, get_min_supported_stack_version
+from .schemas.stack_compat import get_restricted_fields
+from .semver import Version
 from .utils import cached
 
 _META_SCHEMA_REQ_DEFAULTS = {}
@@ -146,7 +148,7 @@ class FlatThreatMapping(MarshmallowDataclassMixin):
 
 
 @dataclass(frozen=True)
-class BaseRuleData(MarshmallowDataclassMixin):
+class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     actions: Optional[list]
     author: List[str]
     building_block_type: Optional[str]
@@ -168,10 +170,13 @@ class BaseRuleData(MarshmallowDataclassMixin):
     # explicitly NOT allowed!
     # output_index: Optional[str]
     references: Optional[List[str]]
+    related_integrations: Optional[List[str]] = field(metadata=dict(metadata=dict(min_compat="8.3")))
+    required_fields: Optional[List[str]] = field(metadata=dict(metadata=dict(min_compat="8.3")))
     risk_score: definitions.RiskScore
     risk_score_mapping: Optional[List[RiskScoreMapping]]
     rule_id: definitions.UUIDString
     rule_name_override: Optional[str]
+    setup: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.3")))
     severity_mapping: Optional[List[SeverityMapping]]
     severity: definitions.Severity
     tags: Optional[List[str]]
@@ -186,7 +191,7 @@ class BaseRuleData(MarshmallowDataclassMixin):
     @classmethod
     def save_schema(cls):
         """Save the schema as a jsonschema."""
-        fields: List[dataclasses.Field] = dataclasses.fields(cls)
+        fields: Tuple[dataclasses.Field, ...] = dataclasses.fields(cls)
         type_field = next(f for f in fields if f.name == "type")
         rule_type = typing.get_args(type_field.type)[0] if cls != BaseRuleData else "base"
         schema = cls.jsonschema()
@@ -199,6 +204,12 @@ class BaseRuleData(MarshmallowDataclassMixin):
 
     def validate_query(self, meta: RuleMeta) -> None:
         pass
+
+    @cached_property
+    def get_restricted_fields(self) -> Optional[Dict[str, tuple]]:
+        """Get stack version restricted fields."""
+        fields: List[dataclasses.Field, ...] = list(dataclasses.fields(self))
+        return get_restricted_fields(fields)
 
 
 @dataclass
@@ -535,6 +546,24 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         converted = self._post_dict_transform(converted)
 
         return converted
+
+    def check_restricted_fields_compatibility(self) -> Dict[str, dict]:
+        """Check for compatibility between restricted fields and the min_stack_version of the rule."""
+        default_min_stack = get_min_supported_stack_version(drop_patch=True)
+        if self.metadata.min_stack_version is not None:
+            min_stack = Version(self.metadata.min_stack_version)
+        else:
+            min_stack = default_min_stack
+        restricted = self.data.get_restricted_fields
+
+        invalid = {}
+        for _field, values in restricted.items():
+            if self.data.get(_field) is not None:
+                min_allowed, _ = values
+                if min_stack < min_allowed:
+                    invalid[_field] = {'min_stack_version': min_stack, 'min_allowed_version': min_allowed}
+
+        return invalid
 
 
 @dataclass
