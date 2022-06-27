@@ -443,7 +443,10 @@ class BaseRuleContents(ABC):
         """Transform the converted API in place before sending to Kibana."""
 
         current_version = Version(load_current_package_version())
-        restricted_fields = self.data.get_restricted_fields
+        if isinstance(self.data, dict):
+            restricted_fields = self.data["get_restricted_fields"]
+        else:
+            restricted_fields = self.data.get_restricted_fields
 
         # cleanup the whitespace in the rule
         obj = nested_normalize(obj)
