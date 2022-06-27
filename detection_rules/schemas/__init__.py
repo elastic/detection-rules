@@ -268,6 +268,7 @@ def get_stack_versions(drop_patch=False) -> List[str]:
         return versions
 
 
+@cached
 def get_min_supported_stack_version(drop_patch=False) -> Version:
     """Get the minimum defined and supported stack version."""
     stack_map = load_stack_schema_map()
