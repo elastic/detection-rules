@@ -442,28 +442,26 @@ class BaseRuleContents(ABC):
     def _post_dict_transform(self, obj: dict) -> dict:
         """Transform the converted API in place before sending to Kibana."""
 
-        current_version = Version(load_current_package_version())
-        if isinstance(self.data, dict):
-            restricted_fields = self.data["get_restricted_fields"]
-        else:
-            restricted_fields = self.data.get_restricted_fields
-
         # cleanup the whitespace in the rule
         obj = nested_normalize(obj)
 
-        for field_name, stack_values in restricted_fields.items():
-            if "related_integrations" in field_name:
-                ...
-            elif "setup" in field_name:
-                ...
-            else:
-                min_stack, max_stack = stack_values
+        if not isinstance(self, DeprecatedRuleContents):
+            current_version = Version(load_current_package_version())
+            restricted_fields = self.data.get_restricted_fields
 
-                if max_stack is None:
-                    max_stack = current_version
+            for field_name, stack_values in restricted_fields.items():
+                if "related_integrations" in field_name:
+                    ...
+                elif "setup" in field_name:
+                    ...
+                else:
+                    min_stack, max_stack = stack_values
 
-                if Version(min_stack) <= current_version >= Version(max_stack):
-                    obj.setdefault(field_name, obj.get(field_name, None))
+                    if max_stack is None:
+                        max_stack = current_version
+
+                    if Version(min_stack) <= current_version >= Version(max_stack):
+                        obj.setdefault(field_name, obj.get(field_name, None))
 
         # fill in threat.technique so it's never missing
         for threat_entry in obj.get("threat", []):
