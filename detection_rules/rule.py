@@ -467,7 +467,10 @@ class BaseRuleContents(ABC):
             packaged_integrations = self.get_integration_manifest(integration)
 
             # check for integration within package
-            if len(packaged_integrations) > 1:
+            if "endpoint" in integration:
+               rule_integration.update({"integration": "events"})
+
+            elif len(packaged_integrations) > 1:
 
                 # check if integrations are supplied in index
                 integration_list = r"|".join([x['name'] for x in packaged_integrations])
