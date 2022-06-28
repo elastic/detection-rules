@@ -27,7 +27,6 @@ from .schemas.stack_compat import get_restricted_fields
 from .semver import Version
 from .utils import cached
 
-BUILD_FIELD_REQUIRED_FIELDS = (Version('8.3'), None)
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
 
@@ -521,10 +520,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         super()._post_dict_transform(obj)
 
-        if self.check_restricted_field_version():
-            self.add_related_integrations(obj)
-            self.add_required_fields(obj)
-            self.add_setup(obj)
+        self.add_related_integrations(obj)
+        self.add_required_fields(obj)
+        self.add_setup(obj)
 
         return obj
 
@@ -535,19 +533,36 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     def add_required_fields(self, obj: dict) -> None:
         """Add restricted field add_required_fields to the obj"""
+
         field_name = "required_fields"
-        obj.setdefault(field_name, obj.get(field_name, []))
+        field_value = obj.get(field_name, [])
+        if self.check_restricted_field_version(field_name):
+
+            # validate the built field
+            self.validate_restricted_field_type(field_name, field_value)
+            obj.setdefault(field_name, field_value)
 
     def add_setup(self, obj: dict) -> None:
         """Add restricted field add_setup to the obj"""
         # field_name = "setup"
         ...
 
-    def check_restricted_field_version(self) -> bool:
+    def check_restricted_field_version(self, field_name: str) -> bool:
         current_version = Version(load_current_package_version())
-        min_stack, max_stack = BUILD_FIELD_REQUIRED_FIELDS
+        min_stack, max_stack = self.data.get_restricted_fields.get(field_name)
         max_stack = max_stack or current_version
         return Version(min_stack) <= current_version >= Version(max_stack)
+
+    def validate_restricted_field_type(self, field_name: str, field_value: Any):
+        all_fields = self.data.to_dict(strip_none_values=False)
+
+        # get valid BaseRuleData fields
+        base_data_keys = list(BaseRuleData.__annotations__.keys())
+
+        # validate valid BaseRuleData schema fields
+        tmp = {k: v for k, v in all_fields.items() if k in base_data_keys}
+        tmp[field_name] = field_value
+        BaseRuleData.from_dict(tmp)
 
     @validates_schema
     def validate_query(self, value: dict, **kwargs):
