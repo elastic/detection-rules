@@ -2,7 +2,7 @@
 
 The User Risk Score feature highlights risky usernames from within your environment. It utilizes a transform with a scripted metric aggregation to calculate user risk scores based on alerts that were generated within the past three months. The transform runs hourly to update the score as new alerts are generated. Each alert's contribution to the user risk score is based on the alert's risk score (`signal.rule.risk_score`). The risk score is calculated using a weighted sum where rules with higher time-corrected risk scores also have higher weights. Each risk score is normalized to a scale of 0 to 100.
 
-User Risk Score is an experimental feature that assigns risk scores to usernames in a given Kibana space. Risk scores are calculated for each username by utilizing transforms on the alerting indices. The transform updates the score as new alerts are generated. The User Risk Score [package]() contains all of the required artifacts for setup. The User Risk Score feature provides Lens dashboards for viewing summary and detailed username risk score information. The detail view dashboard - Drilldown of User Risk Score - presents detail on why a username has been given a high risk score. In addition, user risk scores are presented in the detailed view for a username in the Elastic Security App.
+User Risk Score is an experimental feature that assigns risk scores to usernames in a given Kibana space. Risk scores are calculated for each username by utilizing transforms on the alerting indices. The transform updates the score as new alerts are generated. The User Risk Score [package](https://github.com/elastic/detection-rules/releases/tag/ML-UserRiskScore-20220628-1) contains all of the required artifacts for setup. The User Risk Score feature provides Lens dashboards for viewing summary and detailed username risk score information. The detail view dashboard - Drilldown of User Risk Score - presents detail on why a username has been given a high risk score. In addition, user risk scores are presented in the detailed view for a username in the Elastic Security App.
 
 
 ### On Usernames and Risk Scores
@@ -26,7 +26,7 @@ In some cases, there are certain usernames that are not readily individuated. Th
 
 The User Risk Score functionality is space aware for privacy. Downloaded artifacts must be modified with the desired space before they can be used.
 
- - Download the release bundle from [here](). The User Risk Score releases can be identified by the tag `ML-USerRiskScore-YYYYMMDD-N`. Check the release description to make sure it is compatible with the Elastic Stack version you are running.
+ - Download the release bundle from [here](https://github.com/elastic/detection-rules/releases/tag/ML-UserRiskScore-20220628-1). The User Risk Score releases can be identified by the tag `ML-USerRiskScore-YYYYMMDD-N`. Check the release description to make sure it is compatible with the Elastic Stack version you are running.
  - Unzip the contents of `ML-UserRiskScore-YYYYMMDD-N.zip`.
  - Run `ml_userriskscore_generate_scripts.py` script in the unzipped directory with your Kibana space as the argument.
 <div style="margin-left: 40px">   
