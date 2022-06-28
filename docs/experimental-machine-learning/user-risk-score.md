@@ -1,8 +1,8 @@
 # User Risk Score
 
-The host risk score feature highlights risky hosts from within your environment. It utilizes a transform with a scripted metric aggregation to calculate host risk scores based on alerts that were generated within the past five days. The transform runs hourly to update the score as new alerts are generated. Each alert's contribution to the host risk score is based on the alert's risk score (`signal.rule.risk_score`) and a time decay factor to reduce the impact of stale alerts. The risk score is calculated using a weighted sum where rules with higher time-corrected risk scores also have higher weights. Each host risk score is normalized to a scale of 0 to 100.
+The user risk score feature highlights risky usernames from within your environment. It utilizes a transform with a scripted metric aggregation to calculate user risk scores based on alerts that were generated within the past three months. The transform runs hourly to update the score as new alerts are generated. Each alert's contribution to the user risk score is based on the alert's risk score (`signal.rule.risk_score`). The risk score is calculated using a weighted sum where rules with higher time-corrected risk scores also have higher weights. Each risk score is normalized to a scale of 0 to 100.
 
-User Risk Score is an experimental feature that assigns risk scores to usernames in a given Kibana space. Risk scores are calculated for each username by utilizing transforms on the alerting indices. The transform runs hourly to update the score as new alerts are generated. The User Risk Score [package]() contains all of the required artifacts for setup. The User Risk Score feature provides Lens dashboards for viewing summary and detailed username risk score information. The detail view dashboard allowing a user to peruse why a username has been given a high risk score. In addition, user risk scores are presented in the detailed view for a username in the Elastic Security App.
+User Risk Score is an experimental feature that assigns risk scores to usernames in a given Kibana space. Risk scores are calculated for each username by utilizing transforms on the alerting indices. The transform updates the score as new alerts are generated. The User Risk Score [package]() contains all of the required artifacts for setup. The User Risk Score feature provides Lens dashboards for viewing summary and detailed username risk score information. The detail view dashboard - Drilldown of User Risk Score - presents detail on why a username has been given a high risk score. In addition, user risk scores are presented in the detailed view for a username in the Elastic Security App.
 
 
 ### On Usernames and Risk Scores
@@ -17,7 +17,7 @@ In some cases, there are certain usernames that are not readily individuated. Th
  2. [Upload scripts](#upload-scripts)
  3. [Upload ingest pipeline](#upload-ingest-pipeline)
  4. [Upload and start the `pivot` transform](#upload-start-pivot)
- 5. [Create the User Risk Score index](#host-risk-index)
+ 5. [Create the User Risk Score index](#user-risk-index)
  6. [Upload and start the `latest` transform](#upload-start-latest)
  7. [Import dashboards](#import-dashboards)
  8. [(Optional) Enable Kibana features](#enable-kibana)
@@ -26,7 +26,7 @@ In some cases, there are certain usernames that are not readily individuated. Th
 
 The User Risk Score functionality is space aware for privacy. Downloaded artifacts must be modified with the desired space before they can be used.
 
- - Download the release bundle from [here](). The User Risk Score releases can be identified by the tag `ML-HostRiskScore-YYYYMMDD-N`. Check the release description to make sure it is compatible with the Elastic Stack version you are running.
+ - Download the release bundle from [here](). The User Risk Score releases can be identified by the tag `ML-USerRiskScore-YYYYMMDD-N`. Check the release description to make sure it is compatible with the Elastic Stack version you are running.
  - Unzip the contents of `ML-UserRiskScore-YYYYMMDD-N.zip`.
  - Run `ml_userriskscore_generate_scripts.py` script in the unzipped directory with your Kibana space as the argument.
 <div style="margin-left: 40px">   
@@ -137,7 +137,7 @@ This transform recurrently calculates risk levels for all usernames in the Kiban
 </code></pre></div>
 
 - Navigate to `Transforms` under `Management / Stack Management` in Kibana. Find the transform with the ID `ml_userriskscore_latest_transform_<your-space-name>`. Open the `Actions` menu on the right side of the row, and click `Start`.
-- Confirm the transform is working as expected by navigating to `Management / Dev Tools` and ensuring the target index exists. You should see documents starting to appear in the index if there is ongoing alerting activity associated with hosts.
+- Confirm the transform is working as expected by navigating to `Management / Dev Tools` and ensuring the target index exists. You should see documents starting to appear in the index if there is ongoing alerting activity associated with usernames.
 
 <div style="margin-left: 40px">   
 <i>sample test query</i>
