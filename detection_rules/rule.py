@@ -27,6 +27,7 @@ from .schemas.stack_compat import get_restricted_fields
 from .semver import Version
 from .utils import cached
 
+BUILD_FIELD_REQUIRED_FIELDS = (Version('8.3'), None)
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
 
@@ -445,24 +446,6 @@ class BaseRuleContents(ABC):
         # cleanup the whitespace in the rule
         obj = nested_normalize(obj)
 
-        if not isinstance(self, DeprecatedRuleContents):
-            current_version = Version(load_current_package_version())
-            restricted_fields = self.data.get_restricted_fields
-
-            for field_name, stack_values in restricted_fields.items():
-                if "related_integrations" in field_name:
-                    ...
-                elif "setup" in field_name:
-                    ...
-                else:
-                    min_stack, max_stack = stack_values
-
-                    if max_stack is None:
-                        max_stack = current_version
-
-                    if Version(min_stack) <= current_version >= Version(max_stack):
-                        obj.setdefault(field_name, obj.get(field_name, None))
-
         # fill in threat.technique so it's never missing
         for threat_entry in obj.get("threat", []):
             threat_entry.setdefault("technique", [])
@@ -532,6 +515,39 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     @property
     def type(self) -> str:
         return self.data.type
+
+    def _post_dict_transform(self, obj: dict) -> dict:
+        """Derive required fields from query AST."""
+
+        super()._post_dict_transform(obj)
+
+        if self.check_restricted_field_version():
+            self.add_related_integrations(obj)
+            self.add_required_fields(obj)
+            self.add_setup(obj)
+
+        return obj
+
+    def add_related_integrations(self, obj: dict) -> None:
+        """Add restricted field add_related_integrations to the obj"""
+        # field_name = "related_integrations"
+        ...
+
+    def add_required_fields(self, obj: dict) -> None:
+        """Add restricted field add_required_fields to the obj"""
+        field_name = "required_fields"
+        obj.setdefault(field_name, obj.get(field_name, []))
+
+    def add_setup(self, obj: dict) -> None:
+        """Add restricted field add_setup to the obj"""
+        # field_name = "setup"
+        ...
+
+    def check_restricted_field_version(self) -> bool:
+        current_version = Version(load_current_package_version())
+        min_stack, max_stack = BUILD_FIELD_REQUIRED_FIELDS
+        max_stack = max_stack or current_version
+        return Version(min_stack) <= current_version >= Version(max_stack)
 
     @validates_schema
     def validate_query(self, value: dict, **kwargs):
