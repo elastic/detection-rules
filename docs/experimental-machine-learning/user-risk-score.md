@@ -26,7 +26,7 @@ In some cases, there are certain usernames that are not readily individuated. Th
 
 The User Risk Score functionality is space aware for privacy. Downloaded artifacts must be modified with the desired space before they can be used.
 
- - Download the release bundle from [here](https://github.com/elastic/detection-rules/releases/tag/ML-UserRiskScore-20220628-1). The User Risk Score releases can be identified by the tag `ML-USerRiskScore-YYYYMMDD-N`. Check the release description to make sure it is compatible with the Elastic Stack version you are running.
+ - Download the release bundle from [here](https://github.com/elastic/detection-rules/releases/tag/ML-UserRiskScore-20220628-1). The User Risk Score releases can be identified by the tag `ML-UserRiskScore-YYYYMMDD-N`. Check the release description to make sure it is compatible with the Elastic Stack version you are running.
  - Unzip the contents of `ML-UserRiskScore-YYYYMMDD-N.zip`.
  - Run `ml_userriskscore_generate_scripts.py` script in the unzipped directory with your Kibana space as the argument.
 <div style="margin-left: 40px">   
