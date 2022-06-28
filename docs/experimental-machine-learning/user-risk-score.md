@@ -150,7 +150,7 @@ This transform recurrently calculates risk levels for all usernames in the Kiban
 - Click on `Import` and import the `ml_userriskscore_dashboards.ndjson` file.
 - Navigate to `Analytics / Dashboard`.
 - Confirm you can see a dashboard named `Current Risk Scores for Users`, which displays the current list (Top 20) of  usernames for which a risk score has been computed.
-- - Confirm you can see a dashboard named `Drilldown of User Risk Score`, which allows you to further drill down into details of the risk associated with a particular username of interest.
+- Confirm you can see a dashboard named `Drilldown of User Risk Score`, which allows you to further drill down into details of the risk associated with a particular username of interest.
 
 <h3 id="enable-kibana">8. Enable Kibana features</h3>
 
