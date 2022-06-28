@@ -39,7 +39,7 @@ The User Risk Score functionality is space aware for privacy. Downloaded artifac
 <h3 id="upload-scripts">2. Upload scripts</h3>
 
 - Navigate to `Management / Dev Tools` in Kibana.
-- Upload the contents of `ml_userriskscore_levels_script.json`, `ml_userriskscore_map_script.json`, `ml_userriskscore_reduce_script.json` and `ml_userriskscore_init_script.json` (for Elastic Stack version 8.1+ only) using the Script API with the following syntax.
+- Upload the contents of `ml_userriskscore_levels_script.json`, `ml_userriskscore_map_script.json`, `ml_userriskscore_reduce_script.json` using the Script API with the following syntax.
 - Ensure that your space name (such as `default`) replaces `<your-space-name>` in the script names below.
 
 <div style="margin-left: 40px">   
