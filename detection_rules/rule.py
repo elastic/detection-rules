@@ -174,7 +174,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     # explicitly NOT allowed!
     # output_index: Optional[str]
     references: Optional[List[str]]
-    related_integrations: Optional[List[str]] = field(metadata=dict(metadata=dict(min_compat="8.3")))
+    related_integrations: Optional[List[Dict[str, str]]] = field(metadata=dict(metadata=dict(min_compat="8.3")))
     required_fields: Optional[List[str]] = field(metadata=dict(metadata=dict(min_compat="8.3")))
     risk_score: definitions.RiskScore
     risk_score_mapping: Optional[List[RiskScoreMapping]]
@@ -442,79 +442,11 @@ class BaseRuleContents(ABC):
 
         return version + 1 if self.is_dirty else version
 
-    def get_integration_manifest(self, integration_name: str) -> str:
-        url = f"https://raw.githubusercontent.com/elastic/integrations/main/packages/{integration_name}/manifest.yml"
-        response = requests.get(url)
-        manifest = yaml.safe_load(response.content)
-
-        # has multiple integrations in the package
-        return manifest.get("policy_templates")
-
-    def get_packaged_integrations(self, indices: list) -> list:
-        if not any("logs-" in index for index in indices):
-            return []
-
-        integrations = []
-        for index in indices:
-            if not index.startswith('logs-') or 'logs-*' in index:
-                continue
-
-            # parse integration name from index
-            integration = re.search(r"(?<=-)\w+", index).group()
-            rule_integration = {"package": integration}
-
-            # get policy templates from the integration manifest
-            packaged_integrations = self.get_integration_manifest(integration)
-
-            # check for integration within package
-            if "endpoint" in integration:
-                rule_integration.update({"integration": "events"})
-
-            elif len(packaged_integrations) > 1:
-
-                # check if integrations are supplied in index
-                integration_list = r"|".join([x['name'] for x in packaged_integrations])
-                integration_search = re.search(integration_list, index, re.IGNORECASE)
-                if integration_search:
-                    integration_match = integration_search.group()
-
-                    # add the specific sub package integration data if available
-                    rule_integration.update({"integration": integration_match})
-
-            integrations.append(rule_integration)
-
-        return integrations
-
     def _post_dict_transform(self, obj: dict) -> dict:
         """Transform the converted API in place before sending to Kibana."""
 
         # cleanup the whitespace in the rule
         obj = nested_normalize(obj)
-
-        if not isinstance(self, DeprecatedRuleContents):
-            current_version = Version(load_current_package_version())
-            restricted_fields = self.data.get_restricted_fields
-
-            for field_name, stack_values in restricted_fields.items():
-                if "related_integrations" in field_name:
-
-                    integrations = None
-                    invalid = (MachineLearningRuleData, ThreatMatchRuleData, ThresholdQueryRuleData)
-                    if not isinstance(self.data, invalid):
-                        indices = self.data.index
-                        integrations = self.get_packaged_integrations(indices)
-
-                    obj.setdefault("related_integrations", integrations)
-                elif "setup" in field_name:
-                    ...
-                else:
-                    min_stack, max_stack = stack_values
-
-                    if max_stack is None:
-                        max_stack = current_version
-
-                    if Version(min_stack) <= current_version >= Version(max_stack):
-                        obj.setdefault(field_name, obj.get(field_name, None))
 
         # fill in threat.technique so it's never missing
         for threat_entry in obj.get("threat", []):
@@ -585,6 +517,108 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     @property
     def type(self) -> str:
         return self.data.type
+
+    def _post_dict_transform(self, obj: dict) -> dict:
+        """Derive required fields from query AST."""
+
+        super()._post_dict_transform(obj)
+
+        self.add_related_integrations(obj)
+        self.add_required_fields(obj)
+        self.add_setup(obj)
+
+        return obj
+
+    def add_related_integrations(self, obj: dict) -> None:
+        """Add restricted field add_related_integrations to the obj"""
+        field_name = "related_integrations"
+        field_value = obj.get(field_name, [])
+        if self.check_restricted_field_version(field_name):
+
+            invalid = (MachineLearningRuleData, ThreatMatchRuleData, ThresholdQueryRuleData)
+            if not isinstance(self.data, invalid):
+                indices = self.data.index
+                field_value = self.get_packaged_integrations(indices)
+
+            # validate the built field
+            self.validate_restricted_field_type(field_name, field_value)
+            obj.setdefault("related_integrations", field_value)
+
+    def add_required_fields(self, obj: dict) -> None:
+        """Add restricted field add_required_fields to the obj"""
+
+        field_name = "required_fields"
+        field_value = obj.get(field_name, [])
+        if self.check_restricted_field_version(field_name):
+
+            # validate the built field
+            self.validate_restricted_field_type(field_name, field_value)
+            obj.setdefault(field_name, field_value)
+
+    def add_setup(self, obj: dict) -> None:
+        """Add restricted field add_setup to the obj"""
+        # field_name = "setup"
+        ...
+
+    def check_restricted_field_version(self, field_name: str) -> bool:
+        current_version = Version(load_current_package_version())
+        min_stack, max_stack = self.data.get_restricted_fields.get(field_name)
+        max_stack = max_stack or current_version
+        return Version(min_stack) <= current_version >= Version(max_stack)
+
+    def get_integration_manifest(self, integration_name: str) -> str:
+        url = f"https://raw.githubusercontent.com/elastic/integrations/main/packages/{integration_name}/manifest.yml"
+        response = requests.get(url)
+        manifest = yaml.safe_load(response.content)
+
+        # has multiple integrations in the package
+        return manifest.get("policy_templates")
+
+    def get_packaged_integrations(self, indices: list) -> list:
+        if not any("logs-" in index for index in indices):
+            return []
+
+        integrations = []
+        for index in indices:
+            if not index.startswith('logs-') or 'logs-*' in index:
+                continue
+
+            # parse integration name from index
+            integration = re.search(r"(?<=-)\w+", index).group()
+            rule_integration = {"package": integration}
+
+            # get policy templates from the integration manifest
+            packaged_integrations = self.get_integration_manifest(integration)
+
+            # check for integration within package
+            if "endpoint" in integration:
+                rule_integration.update({"integration": "events"})
+
+            elif len(packaged_integrations) > 1:
+
+                # check if integrations are supplied in index
+                integration_list = r"|".join([x['name'] for x in packaged_integrations])
+                integration_search = re.search(integration_list, index, re.IGNORECASE)
+                if integration_search:
+                    integration_match = integration_search.group()
+
+                    # add the specific sub package integration data if available
+                    rule_integration.update({"integration": integration_match})
+
+            integrations.append(rule_integration)
+
+        return integrations
+
+    def validate_restricted_field_type(self, field_name: str, field_value: Any):
+        all_fields = self.data.to_dict(strip_none_values=False)
+
+        # get valid BaseRuleData fields
+        base_data_keys = list(BaseRuleData.__annotations__.keys())
+
+        # validate valid BaseRuleData schema fields
+        tmp = {k: v for k, v in all_fields.items() if k in base_data_keys}
+        tmp[field_name] = field_value
+        BaseRuleData.from_dict(tmp)
 
     @validates_schema
     def validate_query(self, value: dict, **kwargs):
