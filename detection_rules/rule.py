@@ -221,6 +221,10 @@ class QueryValidator:
     def ast(self) -> Any:
         raise NotImplementedError
 
+    @property
+    def unique_fields(self) -> Any:
+        raise NotImplementedError
+
     def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
         raise NotImplementedError()
 
@@ -251,6 +255,12 @@ class QueryRuleData(BaseRuleData):
         validator = self.validator
         if validator is not None:
             return validator.ast
+
+    @cached_property
+    def unique_fields(self):
+        validator = self.validator
+        if validator is not None:
+            return validator.unique_fields
 
 
 @dataclass(frozen=True)
@@ -517,7 +527,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     def _post_dict_transform(self, obj: dict) -> dict:
         """Transform the converted API in place before sending to Kibana."""
-
         super()._post_dict_transform(obj)
 
         self.add_related_integrations(obj)
@@ -538,11 +547,14 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     def add_required_fields(self, obj: dict) -> None:
         """Add restricted field required_fields to the obj, derived from the query AST."""
+        if isinstance(self.data, QueryRuleData):
+            required_fields = self.data.unique_fields
+        else:
+            required_fields = []
 
         field_name = "required_fields"
-        field_value = obj.get(field_name, [])
         if self.check_restricted_field_version(field_name):
-            obj.setdefault(field_name, field_value)
+            obj.setdefault(field_name, required_fields)
 
     def add_setup(self, obj: dict) -> None:
         """Add restricted field setup to the obj"""
