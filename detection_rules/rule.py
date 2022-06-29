@@ -27,6 +27,7 @@ from .schemas.stack_compat import get_restricted_fields
 from .semver import Version
 from .utils import cached
 
+BUILD_FIELD_VERSIONS = {"required_fields": (Version('8.3'), None)}
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
 
@@ -563,7 +564,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     def check_restricted_field_version(self, field_name: str) -> bool:
         current_version = Version(load_current_package_version())
-        min_stack, max_stack = self.data.get_restricted_fields.get(field_name)
+        min_stack, max_stack = BUILD_FIELD_VERSIONS[field_name]
         max_stack = max_stack or current_version
         return Version(min_stack) <= current_version >= Version(max_stack)
 
