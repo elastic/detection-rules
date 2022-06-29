@@ -580,10 +580,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def to_api_format(self, include_version=True) -> dict:
         """Convert the TOML rule to the API format."""
         converted = self.data.to_dict()
+        converted = self._post_dict_transform(converted)
+
         if include_version:
             converted["version"] = self.autobumped_version
-
-        converted = self._post_dict_transform(converted)
 
         return converted
 
