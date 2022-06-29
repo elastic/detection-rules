@@ -516,7 +516,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         return self.data.type
 
     def _post_dict_transform(self, obj: dict) -> dict:
-        """Derive required fields from query AST."""
+        """Transform the converted API in place before sending to Kibana."""
 
         super()._post_dict_transform(obj)
 
@@ -524,26 +524,28 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         self.add_required_fields(obj)
         self.add_setup(obj)
 
+        # validate new field against the schema
+        rule_type = obj['type']
+        subclass =  self.get_data_subclass(rule_type)
+        subclass.from_dict(obj)
+
         return obj
 
     def add_related_integrations(self, obj: dict) -> None:
-        """Add restricted field add_related_integrations to the obj"""
+        """Add restricted field related_integrations to the obj"""
         # field_name = "related_integrations"
         ...
 
     def add_required_fields(self, obj: dict) -> None:
-        """Add restricted field add_required_fields to the obj"""
+        """Add restricted field required_fields to the obj, derived from the query AST."""
 
         field_name = "required_fields"
         field_value = obj.get(field_name, [])
         if self.check_restricted_field_version(field_name):
-
-            # validate the built field
-            self.validate_restricted_field_type(field_name, field_value)
             obj.setdefault(field_name, field_value)
 
     def add_setup(self, obj: dict) -> None:
-        """Add restricted field add_setup to the obj"""
+        """Add restricted field setup to the obj"""
         # field_name = "setup"
         ...
 
@@ -552,17 +554,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         min_stack, max_stack = self.data.get_restricted_fields.get(field_name)
         max_stack = max_stack or current_version
         return Version(min_stack) <= current_version >= Version(max_stack)
-
-    def validate_restricted_field_type(self, field_name: str, field_value: Any):
-        all_fields = self.data.to_dict(strip_none_values=False)
-
-        # get valid BaseRuleData fields
-        base_data_keys = list(BaseRuleData.__annotations__.keys())
-
-        # validate valid BaseRuleData schema fields
-        tmp = {k: v for k, v in all_fields.items() if k in base_data_keys}
-        tmp[field_name] = field_value
-        BaseRuleData.from_dict(tmp)
 
     @validates_schema
     def validate_query(self, value: dict, **kwargs):
