@@ -526,7 +526,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         # validate new field against the schema
         rule_type = obj['type']
-        subclass =  self.get_data_subclass(rule_type)
+        subclass = self.get_data_subclass(rule_type)
         subclass.from_dict(obj)
 
         return obj
