@@ -672,6 +672,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             elif len(packaged_integrations) > 1:
 
                 # check if integrations are supplied in index
+                # TODO: check against event.dataset vs using regex against index
                 integration_list = r"|".join([x['name'] for x in packaged_integrations])
                 integration_search = re.search(integration_list, index, re.IGNORECASE)
                 if integration_search:
