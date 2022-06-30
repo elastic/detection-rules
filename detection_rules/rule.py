@@ -601,7 +601,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             required_fields = []
 
         field_name = "required_fields"
-        if self.check_restricted_field_version(field_name):
+        if self.check_restricted_field_version(field_name=field_name):
             obj.setdefault(field_name, required_fields)
 
     def add_setup(self, obj: dict) -> None:
@@ -609,10 +609,16 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         # field_name = "setup"
         ...
 
-    @staticmethod
-    def check_restricted_field_version(field_name: str) -> bool:
-        current_version = Version(load_current_package_version())
+    def check_explicit_restricted_field_version(self, field_name: str) -> bool:
         min_stack, max_stack = BUILD_FIELD_VERSIONS[field_name]
+        return self.compare_field_versions(min_stack, max_stack)
+
+    def check_restricted_field_version(self, field_name: str) -> bool:
+        min_stack, max_stack = self.data.get_restricted_fields.get(field_name)
+        return self.compare_field_versions(min_stack, max_stack)
+
+    def compare_field_versions(self, min_stack: Version, max_stack: Version) -> bool:
+        current_version = Version(load_current_package_version())
         max_stack = max_stack or current_version
         return Version(min_stack) <= current_version >= Version(max_stack)
 
