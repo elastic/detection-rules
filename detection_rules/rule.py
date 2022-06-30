@@ -239,10 +239,7 @@ class QueryValidator:
 
     @cached
     def get_required_fields(self, index: str) -> List[dict]:
-        from .misc import load_current_package_version
-        from .schemas import get_stack_schemas
-        from .semver import Version
-
+        """retrieves fields needed for the query along with type information from the schema."""
         current_version = Version(Version(load_current_package_version()) + (0,))
         ecs_version = get_stack_schemas()[str(current_version)]['ecs']
         beats_version = get_stack_schemas()[str(current_version)]['beats']
@@ -266,6 +263,7 @@ class QueryValidator:
 
     @cached
     def get_beats_schema(self, index: list, beats_version: str, ecs_version: str) -> (list, dict, dict):
+        """Get an assembled beats schema."""
         beat_types = beats.parse_beats_from_index(index)
         beat_schema = beats.get_schema_from_kql(self.ast, beat_types, version=beats_version) if beat_types else None
         schema = ecs.get_kql_schema(version=ecs_version, indexes=index, beat_schema=beat_schema)
