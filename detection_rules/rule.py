@@ -610,14 +610,17 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         ...
 
     def check_explicit_restricted_field_version(self, field_name: str) -> bool:
+        """Explicitly check restricted fields against global min and max versions."""
         min_stack, max_stack = BUILD_FIELD_VERSIONS[field_name]
         return self.compare_field_versions(min_stack, max_stack)
 
     def check_restricted_field_version(self, field_name: str) -> bool:
+        """Check restricted fields against schema min and max versions."""
         min_stack, max_stack = self.data.get_restricted_fields.get(field_name)
         return self.compare_field_versions(min_stack, max_stack)
 
     def compare_field_versions(self, min_stack: Version, max_stack: Version) -> bool:
+        """Check current rule version is witihin min and max stack versions."""
         current_version = Version(load_current_package_version())
         max_stack = max_stack or current_version
         return Version(min_stack) <= current_version >= Version(max_stack)
