@@ -10,7 +10,7 @@ from typing import List, Optional, Union
 import eql
 
 import kql
-from . import ecs, beats
+from . import ecs
 from .rule import QueryValidator, QueryRuleData, RuleMeta
 
 
@@ -21,7 +21,7 @@ class KQLValidator(QueryValidator):
     def ast(self) -> kql.ast.Expression:
         return kql.parse(self.query)
 
-    @property
+    @cached_property
     def unique_fields(self) -> List[str]:
         return list(set(str(f) for f in self.ast if isinstance(f, kql.ast.Field)))
 
@@ -29,9 +29,7 @@ class KQLValidator(QueryValidator):
         return kql.to_eql(self.query)
 
     def validate(self, data: QueryRuleData, meta: RuleMeta) -> None:
-        """Static method to validate the query, called from the parent which contains [metadata] information."""
-        ast = self.ast
-
+        """Validate the query, called from the parent which contains [metadata] information."""
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
             # syntax only, which is done via self.ast
             return
@@ -41,9 +39,7 @@ class KQLValidator(QueryValidator):
             ecs_version = mapping['ecs']
             err_trailer = f'stack: {stack_version}, beats: {beats_version}, ecs: {ecs_version}'
 
-            beat_types = beats.parse_beats_from_index(data.index)
-            beat_schema = beats.get_schema_from_kql(ast, beat_types, version=beats_version) if beat_types else None
-            schema = ecs.get_kql_schema(version=ecs_version, indexes=data.index or [], beat_schema=beat_schema)
+            beat_types, beat_schema, schema = self.get_beats_schema(data.index or [], beats_version, ecs_version)
 
             try:
                 kql.parse(self.query, schema=schema)
@@ -73,14 +69,12 @@ class EQLValidator(QueryValidator):
 
         return [f for f in self.unique_fields if elasticsearch_type_family(eql_schema.kql_schema.get(f)) == 'text']
 
-    @property
+    @cached_property
     def unique_fields(self) -> List[str]:
         return list(set(str(f) for f in self.ast if isinstance(f, eql.ast.Field)))
 
     def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
         """Validate an EQL query while checking TOMLRule."""
-        ast = self.ast
-
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
             # syntax only, which is done via self.ast
             return
@@ -90,9 +84,7 @@ class EQLValidator(QueryValidator):
             ecs_version = mapping['ecs']
             err_trailer = f'stack: {stack_version}, beats: {beats_version}, ecs: {ecs_version}'
 
-            beat_types = beats.parse_beats_from_index(data.index)
-            beat_schema = beats.get_schema_from_kql(ast, beat_types, version=beats_version) if beat_types else None
-            schema = ecs.get_kql_schema(version=ecs_version, indexes=data.index or [], beat_schema=beat_schema)
+            beat_types, beat_schema, schema = self.get_beats_schema(data.index or [], beats_version, ecs_version)
             eql_schema = ecs.KqlSchema2Eql(schema)
 
             try:

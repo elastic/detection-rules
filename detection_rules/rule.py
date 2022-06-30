@@ -18,6 +18,8 @@ import eql
 from marshmallow import ValidationError, validates_schema
 
 import kql
+from . import beats
+from . import ecs
 from . import utils
 from .misc import load_current_package_version
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
@@ -151,6 +153,12 @@ class FlatThreatMapping(MarshmallowDataclassMixin):
 
 @dataclass(frozen=True)
 class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
+    @dataclass
+    class RequiredFields:
+        name: definitions.NonEmptyStr
+        type: definitions.NonEmptyStr
+        ecs: bool
+
     actions: Optional[list]
     author: List[str]
     building_block_type: Optional[str]
@@ -173,7 +181,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     # output_index: Optional[str]
     references: Optional[List[str]]
     related_integrations: Optional[List[str]] = field(metadata=dict(metadata=dict(min_compat="8.3")))
-    required_fields: Optional[List[str]] = field(metadata=dict(metadata=dict(min_compat="8.3")))
+    required_fields: Optional[List[RequiredFields]] = field(metadata=dict(metadata=dict(min_compat="8.3")))
     risk_score: definitions.RiskScore
     risk_score_mapping: Optional[List[RiskScoreMapping]]
     rule_id: definitions.UUIDString
@@ -229,6 +237,40 @@ class QueryValidator:
     def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
         raise NotImplementedError()
 
+    @cached
+    def get_required_fields(self, index: str) -> List[dict]:
+        from .misc import load_current_package_version
+        from .schemas import get_stack_schemas
+        from .semver import Version
+
+        current_version = Version(Version(load_current_package_version()) + (0,))
+        ecs_version = get_stack_schemas()[str(current_version)]['ecs']
+        beats_version = get_stack_schemas()[str(current_version)]['beats']
+        ecs_schema = ecs.get_schema(ecs_version)
+
+        beat_types, beat_schema, schema = self.get_beats_schema(index or [], beats_version, ecs_version)
+
+        required = []
+        unique_fields = self.unique_fields or []
+
+        for fld in unique_fields:
+            field_type = ecs_schema.get(fld, {}).get('type')
+            is_ecs = field_type is not None
+
+            if beat_schema and not is_ecs:
+                field_type = beat_schema.get(fld, {}).get('type')
+
+            required.append(dict(name=fld, type=field_type or 'unknown', ecs=is_ecs))
+
+        return required
+
+    @cached
+    def get_beats_schema(self, index: list, beats_version: str, ecs_version: str) -> (list, dict, dict):
+        beat_types = beats.parse_beats_from_index(index)
+        beat_schema = beats.get_schema_from_kql(self.ast, beat_types, version=beats_version) if beat_types else None
+        schema = ecs.get_kql_schema(version=ecs_version, indexes=index, beat_schema=beat_schema)
+        return beat_types, beat_schema, schema
+
 
 @dataclass(frozen=True)
 class QueryRuleData(BaseRuleData):
@@ -262,6 +304,12 @@ class QueryRuleData(BaseRuleData):
         validator = self.validator
         if validator is not None:
             return validator.unique_fields
+
+    @cached
+    def get_required_fields(self, index: str) -> List[dict]:
+        validator = self.validator
+        if validator is not None:
+            return validator.get_required_fields(index or [])
 
 
 @dataclass(frozen=True)
@@ -548,8 +596,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     def add_required_fields(self, obj: dict) -> None:
         """Add restricted field required_fields to the obj, derived from the query AST."""
-        if isinstance(self.data, QueryRuleData):
-            required_fields = self.data.unique_fields
+        if isinstance(self.data, QueryRuleData) and self.data.language != 'lucene':
+            index = obj.get('index') or []
+            required_fields = self.data.get_required_fields(index)
         else:
             required_fields = []
 
@@ -562,7 +611,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         # field_name = "setup"
         ...
 
-    def check_restricted_field_version(self, field_name: str) -> bool:
+    @staticmethod
+    def check_restricted_field_version(field_name: str) -> bool:
         current_version = Version(load_current_package_version())
         min_stack, max_stack = BUILD_FIELD_VERSIONS[field_name]
         max_stack = max_stack or current_version
