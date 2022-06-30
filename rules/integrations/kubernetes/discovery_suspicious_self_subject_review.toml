@@ -9,11 +9,16 @@ updated_date = "2022/06/30"
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects when a service account or node attempts to enumerate their own permissions via the selfsubjectaccessreview or selfsubjectrulesreview APIs. This is highly unusual behavior for non-human identities like service accounts and nodes. An adversary may have gained access to credentials/tokens and this could be an attempt to determine what privileges they have to facilitate further movement or execution within the cluster.
+This rule detects when a service account or node attempts to enumerate their own permissions via the
+selfsubjectaccessreview or selfsubjectrulesreview APIs. This is highly unusual behavior for non-human identities like
+service accounts and nodes. An adversary may have gained access to credentials/tokens and this could be an attempt to
+determine what privileges they have to facilitate further movement or execution within the cluster.
 """
 false_positives = [
     """
-    An administrator may submit this request as an "impersonatedUser" to determine what privileges a particular service account has been granted. However, an adversary may utilize the same technique as a means to determine the privileges of another token other than that of the compromised account.
+    An administrator may submit this request as an "impersonatedUser" to determine what privileges a particular service
+    account has been granted. However, an adversary may utilize the same technique as a means to determine the
+    privileges of another token other than that of the compromised account.
     """,
 ]
 index = ["logs-kubernetes.*"]
@@ -24,9 +29,9 @@ note = """## Config
 
 The Kubernetes Fleet integration with Audit Logs enabled or similarly structured data is required to be compatible with this rule."""
 references = [
-  https://www.paloaltonetworks.com/apps/pan/public/downloadResource?pagePath=/content/pan/en_US/resources/whitepapers/kubernetes-privilege-escalation-excessive-permissions-in-popular-platforms,
-  https://kubernetes.io/docs/reference/access-authn-authz/authorization/#checking-api-access, 
-  https://techcommunity.microsoft.com/t5/microsoft-defender-for-cloud/detecting-identity-attacks-in-kubernetes/ba-p/3232340 
+    "https://www.paloaltonetworks.com/apps/pan/public/downloadResource?pagePath=/content/pan/en_US/resources/whitepapers/kubernetes-privilege-escalation-excessive-permissions-in-popular-platforms",
+    "https://kubernetes.io/docs/reference/access-authn-authz/authorization/#checking-api-access",
+    "https://techcommunity.microsoft.com/t5/microsoft-defender-for-cloud/detecting-identity-attacks-in-kubernetes/ba-p/3232340",
 ]
 risk_score = 47
 rule_id = "12a2f15d-597e-4334-88ff-38a02cb1330b"
@@ -38,7 +43,7 @@ type = "query"
 query = '''
 kubernetes.audit.verb : "create" 
 and kubernetes.audit.objectRef.resource : ("selfsubjectaccessreviews" or "selfsubjectrulesreviews") 
-and (~ system\:serviceaccount\:* or system\:node\:*)
+and kubernetes.audit.user.username : (system\:serviceaccount\:* or system\:node\:*) or kubernetes.audit.impersonatedUser.username : (system\:serviceaccount\:* or system\:node\:*)
 '''
 
 
@@ -54,3 +59,4 @@ reference = "https://attack.mitre.org/techniques/T1613/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
