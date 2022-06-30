@@ -7,13 +7,13 @@ User Risk Score is an experimental feature that assigns risk scores to usernames
 
 ### On Usernames and Risk Scores
 
- Many alerts contain usernames which were present in the original log or event documents that alert rules, or anomaly rules, matched. These are discrete usernames, not (yet) pointers to a user *entity*. In most environments, each human user has multiple usernames across the various applications and systems they use. In order to investigate a user, it may be necessary to add each of their usernames to the list of usernames being used to filter the output of the detail dashboard. 
+ Many alerts contain usernames which were present in the original log or event documents that alert rules, or anomaly rules, matched. These are discrete usernames, not (yet) pointers to a user *entity*. In most environments, each human user has multiple usernames across the various applications and systems they use. In order to investigate a user, it may be necessary to add each of their usernames to the list of usernames being used to filter the output of the detail dashboard.
 
-In some cases, there are certain usernames that are not readily individuated. The Local System, or SYSTEM account, under Windows, for example, has the same name and the same SID (security identifier) on every Windows host. In order to individuate a particular Local System user account, it is necessary to add its hostname as a filter. The user risk score detail dashboard contains tables of alerts by hostname, in addition to username, in order to help identify the hostname(s) associated with a local user that has been given a risk score. 
+In some cases, there are certain usernames that are not readily individuated. The Local System, or SYSTEM account, under Windows, for example, has the same name and the same SID (security identifier) on every Windows host. In order to individuate a particular Local System user account, it is necessary to add its hostname as a filter. The user risk score detail dashboard contains tables of alerts by hostname, in addition to username, in order to help identify the hostname(s) associated with a local user that has been given a risk score.
 
 ## Setup Instructions
 
- 1. [Obtain artifacts](#obtain-artifacts) 
+ 1. [Obtain artifacts](#obtain-artifacts)
  2. [Upload scripts](#upload-scripts)
  3. [Upload ingest pipeline](#upload-ingest-pipeline)
  4. [Upload and start the `pivot` transform](#upload-start-pivot)
@@ -61,13 +61,6 @@ PUT _scripts/ml_userriskscore_reduce_script_&lt;your-space-name&gt;
 {contents of ml_userriskscore_reduce_script.json file}
 </code></pre></div>
 
-<i>For Elastic Stack version 8.1+ only</i>
-<div style="margin-left: 40px">
-   <pre><code>
-PUT _scripts/ml_userriskscore_init_script_&lt;your-space-name&gt;
-{contents of ml_userriskscore_init_script.json file}
-</code></pre></div>
-
 
 <h3 id="upload-ingest-pipeline">3. Upload ingest pipeline</h3>
 
@@ -76,7 +69,7 @@ PUT _scripts/ml_userriskscore_init_script_&lt;your-space-name&gt;
 
 <div style="margin-left: 40px">   
 <i>uploading ingest pipeline</i>
-   <pre style="margin-top:-2px"><code>PUT _ingest/pipeline/ml_usertriskscore_ingest_pipeline_&lt;your-space-name&gt;
+   <pre style="margin-top:-2px"><code>PUT _ingest/pipeline/ml_userriskscore_ingest_pipeline_&lt;your-space-name&gt;
 {contents of ml_userriskscore_ingest_pipeline.json file}
 </code></pre></div>
 
@@ -166,5 +159,3 @@ https://www.elastic.co/guide/en/cloud-enterprise/current/ece-manage-kibana-setti
 Once you have modified the `kibana.yml` file, you will find User Risk Scoring features in the "User Risk" tab in the detail view for a username. The detail view is reached by clicking a username in the Users page in the Security Solution:
 
 <hr/>
-
-
