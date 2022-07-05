@@ -602,7 +602,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         field_name = "required_fields"
         if self.check_restricted_field_version(field_name=field_name):
-            obj.setdefault(field_name, required_fields)
+            sorted_required_fields = sorted(required_fields, key=lambda f: f['name'])
+            obj.setdefault(field_name, sorted_required_fields)
 
     def add_setup(self, obj: dict) -> None:
         """Add restricted field setup to the obj"""
