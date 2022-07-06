@@ -21,6 +21,7 @@ import eql
 from marshmallow import ValidationError, validates_schema
 
 import kql
+from kql.ast import FieldComparison
 from . import beats
 from . import ecs
 from . import utils
@@ -31,6 +32,7 @@ from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas, get_
 from .schemas.stack_compat import get_restricted_fields
 from .semver import Version
 from .utils import cached
+from .integrations import IntegrationPackages
 
 BUILD_FIELD_VERSIONS = {"required_fields": (Version('8.3'), None),
                         "related_integrations": (Version('8.3'), None)}
@@ -599,16 +601,30 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     def add_related_integrations(self, obj: dict) -> None:
         """Add restricted field add_related_integrations to the obj"""
+
+        ##TODO
+        # check restricted field version and continue
+        # skip invalid dataclasses
+        # get [{"package","version","integration"}] from get_packaged_integrations
+        # get least compatible version from get_compatible_integration_version
+        ## load packages.yaml for compatible stack version with rule
+        ## load integrations_manifest.yml file
+        ## iterate backwards on manifest until stack is not compatible and choose the previous
+        # update field_value with the compatible version 
+
         field_name = "related_integrations"
         field_value = obj.get(field_name, [])
+        related_integrations = dict()
         if self.check_restricted_field_version(field_name):
 
             invalid = (MachineLearningRuleData, ThreatMatchRuleData, ThresholdQueryRuleData)
-            if not isinstance(self.data, invalid):
-                indices = self.data.index
-                field_value = self.get_packaged_integrations(indices)
-
-            obj.setdefault("related_integrations", field_value)
+            if not isinstance(self.data, invalid) and self.data.get('ast'):
+                package_integrations = self.get_packaged_integrations(self.data.ast)
+                for package in package_integrations:
+                    package["version"] = IntegrationPackages().find_least_compatible_version(
+                        package=package["package"],
+                        integration=package["integration"])
+        obj.setdefault("related_integrations", complete_package)
 
     def add_required_fields(self, obj: dict) -> None:
         """Add restricted field required_fields to the obj, derived from the query AST."""
@@ -651,42 +667,17 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         # has multiple integrations in the package
         return manifest.get("policy_templates")
 
-    def get_packaged_integrations(self, indices: list) -> list:
-        if not any("logs-" in index for index in indices):
-            return []
+    def get_packaged_integrations(self, obj: dict) -> List[dict]:
 
-        integrations = []
-        for index in indices:
-            if not index.startswith('logs-') or 'logs-*' in index:
-                continue
+        packaged_integrations = list()
+        for item in obj.items:
+            if isinstance(item, FieldComparison) and str(item.field) == 'event.dataset':
+                event_dataset_values = str(item.value).split(' or ')
+                for ints in event_dataset_values:
+                    ints = ints.split('.')
+                    packaged_integrations.append({"package": ints[0], "integration": ints[1]})
 
-            # parse integration name from index
-            integration = re.search(r"(?<=-)\w+", index).group()
-            # TODO: version = self.get_package_version()
-            rule_integration = {"package": integration, "version": "unknown"}
-
-            # get policy templates from the integration manifest
-            packaged_integrations = self.get_integration_manifest(integration)
-
-            # check for integration within package
-            if "endpoint" in integration:
-                rule_integration.update({"integration": "events"})
-
-            elif len(packaged_integrations) > 1:
-
-                # check if integrations are supplied in index
-                # TODO: check against event.dataset vs using regex against index
-                integration_list = r"|".join([x['name'] for x in packaged_integrations])
-                integration_search = re.search(integration_list, index, re.IGNORECASE)
-                if integration_search:
-                    integration_match = integration_search.group()
-
-                    # add the specific sub package integration data if available
-                    rule_integration.update({"integration": integration_match})
-
-            integrations.append(rule_integration)
-
-        return integrations
+        return(packaged_integrations)
 
     @validates_schema
     def validate_query(self, value: dict, **kwargs):
