@@ -1,14 +1,14 @@
 [metadata]
 creation_date = "2020/09/01"
 maturity = "production"
-updated_date = "2021/07/20"
+updated_date = "2022/07/05"
 integration = "azure"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies when an Azure Automation runbook is deleted. An adversary may delete an Azure Automation runbook in order to
-disrupt their target's automated business operations or to remove a malicious runbook that was used for persistence.
+disrupt their target's automated business operations or to remove a malicious runbook for defense evasion.
 """
 from = "now-25m"
 index = ["filebeat-*", "logs-azure*"]
@@ -27,11 +27,20 @@ references = [
 risk_score = 21
 rule_id = "8ddab73b-3d15-4e5d-9413-47f05553c1d7"
 severity = "low"
-tags = ["Elastic", "Cloud", "Azure", "Continuous Monitoring", "SecOps", "Configuration Audit"]
+tags = ["Elastic", "Cloud", "Azure", "Continuous Monitoring", "SecOps", "Configuration Audit", "Defense Evasion"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/RUNBOOKS/DELETE" and event.outcome:(Success or success)
+event.dataset:azure.activitylogs and
+    azure.activitylogs.operation_name:"MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/RUNBOOKS/DELETE" and 
+    event.outcome:(Success or success)
 '''
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+reference = "https://attack.mitre.org/tactics/TA0005/"
+name = "Defense Evasion"
+id = "TA0005"
