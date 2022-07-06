@@ -239,7 +239,7 @@ class QueryValidator:
 
     @cached
     def get_required_fields(self, index: str) -> List[dict]:
-        """retrieves fields needed for the query along with type information from the schema."""
+        """Retrieves fields needed for the query along with type information from the schema."""
         current_version = Version(Version(load_current_package_version()) + (0,))
         ecs_version = get_stack_schemas()[str(current_version)]['ecs']
         beats_version = get_stack_schemas()[str(current_version)]['beats']
@@ -259,7 +259,7 @@ class QueryValidator:
 
             required.append(dict(name=fld, type=field_type or 'unknown', ecs=is_ecs))
 
-        return required
+        return sorted(required, key=lambda f: f['name'])
 
     @cached
     def get_beats_schema(self, index: list, beats_version: str, ecs_version: str) -> (list, dict, dict):
@@ -580,7 +580,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         self.add_required_fields(obj)
         self.add_setup(obj)
 
-        # validate new field against the schema
+        # validate new fields against the schema
         rule_type = obj['type']
         subclass = self.get_data_subclass(rule_type)
         subclass.from_dict(obj)
@@ -588,7 +588,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         return obj
 
     def add_related_integrations(self, obj: dict) -> None:
-        """Add restricted field related_integrations to the obj"""
+        """Add restricted field related_integrations to the obj."""
         # field_name = "related_integrations"
         ...
 
@@ -602,11 +602,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         field_name = "required_fields"
         if self.check_restricted_field_version(field_name=field_name):
-            sorted_required_fields = sorted(required_fields, key=lambda f: f['name'])
-            obj.setdefault(field_name, sorted_required_fields)
+            obj.setdefault(field_name, required_fields)
 
     def add_setup(self, obj: dict) -> None:
-        """Add restricted field setup to the obj"""
+        """Add restricted field setup to the obj."""
         # field_name = "setup"
         ...
 
