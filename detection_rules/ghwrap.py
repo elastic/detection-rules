@@ -11,6 +11,10 @@ import io
 import json
 import shutil
 import time
+import os
+import sys
+import getopt
+import yaml
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -22,10 +26,11 @@ import requests
 from requests import Response
 
 from .schemas import definitions
+from .utils import ETC_DIR
 
 # this is primarily for type hinting - all use of the github client should come from GithubClient class
 try:
-    from github import Github
+    from github import Github, GithubException
     from github.Repository import Repository
     from github.GitRelease import GitRelease
     from github.GitReleaseAsset import GitReleaseAsset
@@ -131,6 +136,59 @@ def update_gist(token: str,
     response = requests.patch(url, headers=headers, json=body)
     response.raise_for_status()
     return response
+
+
+def get_integration_packages(token: str, org: str, repo: str, branch: str, folder: str) -> None:
+    """Gets integration packages object containing versioned packages and manifest content"""
+    ghub = Github(token)
+    organization = ghub.get_organization(org)
+    repository = organization.get_repo(repo)
+    sha = get_sha_for_tag(repository, branch)
+    integration_manifest = get_integration_manifests(repository, sha, folder)
+    return(integration_manifest)
+
+
+def get_sha_for_tag(repository,  tag: str) -> str:
+    """Returns a commit PyGithub object for the specified repository and tag."""
+    branches = repository.get_branches()
+    matched_branches = [match for match in branches if match.name == tag]
+    if matched_branches:
+        return(matched_branches[0].commit.sha)
+
+    tags = repository.get_tags()
+    matched_tags = [match for match in tags if match.name == tag]
+    if not matched_tags:
+        raise ValueError('No tag or branch exists with that name')
+    return(matched_tags[0].commit.sha)
+
+
+def get_integration_manifests(repository, sha: str, package_path: str) -> None:
+    """Iterates over specified integrations from package-storage and combines manifests per version"""
+    integrations_path = f"{ETC_DIR}/integrations/{package_path}"
+    integration = package_path.split("/")[-1]
+    if os.path.exists(integrations_path):
+        shutil.rmtree(integrations_path)
+
+    os.makedirs(integrations_path)
+    versioned_packages = repository.get_dir_contents(package_path, ref=sha)
+    versions = [p.path.split("/")[-1] for p in versioned_packages]
+    versioned_packages_contents = list()
+    for v in versions:
+        contents = repository.get_dir_contents(f"{package_path}/{v}", ref=sha)
+        versioned_packages_contents.append(contents)
+
+    click.echo(f"Processing {integration} - Versions: {versions}")
+    package_version = {f"{integration}":dict()}
+    for content in versioned_packages_contents:
+        processing_version = content[0].path.split("/")[2]
+        manifest_content = [c for c in content if "manifest" in c.path][0]
+        path = manifest_content.path
+        manifest_content = yaml.safe_load(repository.get_contents(path, ref=sha).decoded_content.decode())
+        [manifest_content.pop(key) for key in ["screenshots","icons"] if key in manifest_content.keys()]
+        package_version[integration][processing_version] = manifest_content
+
+    return(package_version)
+
 
 
 class GithubClient:

@@ -40,6 +40,7 @@ from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
 from .semver import Version
 from .utils import dict_hash, get_path, get_etc_path, load_dump
+from .integrations import IntegrationPackages
 
 RULES_DIR = get_path('rules')
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
@@ -1088,3 +1089,14 @@ def get_branches(outfile: Path):
     branch_list = get_stack_versions(drop_patch=True)
     target_branches = json.dumps(branch_list[:-1]) + "\n"
     outfile.write_text(target_branches)
+
+
+@dev_group.group('integrations')
+def integrations_group():
+    """Commands for dev integrations methods."""
+
+@integrations_group.command('build-integration-manifests')
+def build_integration_manifests():
+    """Builds integrations manifests file"""
+    github_token = get_github_token()
+    IntegrationPackages.build_integrations_manifest(token=github_token)

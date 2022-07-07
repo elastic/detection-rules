@@ -33,6 +33,7 @@ import kql
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(CURR_DIR)
 ETC_DIR = os.path.join(ROOT_DIR, "detection_rules", "etc")
+INTEGRATIONS_DIR = os.path.join(ROOT_DIR,"rules","integrations")
 
 
 class NonelessDict(dict):
@@ -109,6 +110,11 @@ def get_etc_file(name, mode="r"):
 def load_etc_dump(*path):
     """Load a json/yml/toml file from the detection_rules/etc/ folder."""
     return eql.utils.load_dump(get_etc_path(*path))
+
+def load_gzip_dump(*path):
+    """Load a gzip file"""
+    with gzip.open(*path, 'r') as f:
+        return json.loads(f.read().decode('utf-8'))  
 
 
 def save_etc_dump(contents, *path, **kwargs):

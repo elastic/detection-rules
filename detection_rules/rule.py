@@ -621,7 +621,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             if not isinstance(self.data, invalid) and self.data.get('ast'):
                 package_integrations = self.get_packaged_integrations(self.data.ast)
                 for package in package_integrations:
-                    package["version"] = IntegrationPackages().find_least_compatible_version(
+                    package["version"] = IntegrationPackages.find_least_compatible_version(
                         package=package["package"],
                         integration=package["integration"])
         obj.setdefault("related_integrations", complete_package)
@@ -660,12 +660,12 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         return Version(min_stack) <= current_version >= Version(max_stack)
 
     def get_integration_manifest(self, integration_name: str) -> str:
-        url = f"https://raw.githubusercontent.com/elastic/integrations/main/packages/{integration_name}/manifest.yml"
-        response = requests.get(url)
-        manifest = yaml.safe_load(response.content)
+            url = f"https://raw.githubusercontent.com/elastic/integrations/main/packages/{integration_name}/manifest.yml"
+            response = requests.get(url)
+            manifest = yaml.safe_load(response.content)
 
-        # has multiple integrations in the package
-        return manifest.get("policy_templates")
+            # has multiple integrations in the package
+            return manifest.get("policy_templates")
 
     def get_packaged_integrations(self, obj: dict) -> List[dict]:
 
@@ -674,9 +674,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             if isinstance(item, FieldComparison) and str(item.field) == 'event.dataset':
                 event_dataset_values = str(item.value).split(' or ')
                 for ints in event_dataset_values:
-                    ints = ints.split('.')
-                    packaged_integrations.append({"package": ints[0], "integration": ints[1]})
-
+                    package, integration = ints.split(".")
+                    packaged_integrations.append({"package": package, "integration": integration})
         return(packaged_integrations)
 
     @validates_schema
