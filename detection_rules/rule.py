@@ -6,26 +6,26 @@
 import copy
 import dataclasses
 import json
-import marko
 import typing
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
-from typing import Literal, Union, Optional, List, Any, Dict, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from uuid import uuid4
 
 import eql
+import kql
+import marko
+from marko.md_renderer import MarkdownRenderer
 from marshmallow import ValidationError, validates_schema
 
-import kql
-from . import beats
-from . import ecs
-from . import utils
+from . import beats, ecs, utils
 from .misc import load_current_package_version
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
-from .rule_formatter import toml_write, nested_normalize
-from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas, get_min_supported_stack_version
+from .rule_formatter import nested_normalize, toml_write
+from .schemas import (SCHEMA_DIR, definitions, downgrade,
+                      get_min_supported_stack_version, get_stack_schemas)
 from .schemas.stack_compat import get_restricted_fields
 from .semver import Version
 from .utils import cached
@@ -585,7 +585,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         rule_type = obj['type']
         subclass = self.get_data_subclass(rule_type)
         subclass.from_dict(obj)
-
         return obj
 
     def add_related_integrations(self, obj: dict) -> None:
@@ -607,37 +606,43 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     def add_setup(self, obj: dict) -> None:
         """Add restricted field setup to the obj."""
-        # field_name = "setup"
         rule_note = obj.get("note", "")
-        if "Setup" in rule_note:
+        field_name = "setup"
+        field_value = obj.get(field_name, "")
+        if "## Setup" in rule_note and not field_value:
             note_tree = marko.parse(rule_note)
-            field_name = "setup"
-            field_value = obj.get(field_name, "")
 
             # parse note tree
             for i, child in enumerate(note_tree.children):
                 if child.get_type() == "Heading" and "Setup" in marko.render(child):
+                    field_value = self.get_setup_paragraph(note_tree.children[i:])
 
-                    field_value = self.get_note_paragraph(i, note_tree.children)
+                    # clean up old note field
+                    investigation_guide = rule_note.replace("## Setup\n\n", "")
+                    investigation_guide = investigation_guide.replace(field_value, "")
+                    obj["note"] = investigation_guide.strip()
+
                     break
 
-            if self.check_restricted_field_version(field_name):
+        if self.check_restricted_field_version(field_name):
+            obj.setdefault(field_name, field_value)
 
-                # validate the built field
-                self.validate_restricted_field_type(field_name, field_value)
-                obj.setdefault(field_name, field_value)
+    def get_setup_paragraph(self, note_tree: list) -> str:
+        """Get note paragraph starting from the setup header."""
+        setup = []
 
-                # clean up old note field
-                note = obj.get("note")
-                investigation_guide = note.replace("## Setup\n\n", "")
-                investigation_guide = investigation_guide.replace(field_value, "")
-                obj["note"] = investigation_guide
+        for child in note_tree:
+            if child.get_type() == "BlankLine":
+                setup.append("\n")
+            elif child.get_type() == "CodeSpan":
+                setup.append(f"`{MarkdownRenderer.render_raw_text(self, child)}`")
+            elif child.get_type() == "Paragraph":
+                setup.append(self.get_setup_paragraph(child.children))
+                setup.append("\n")
+            elif child.get_type() != "Heading":
+                setup.append(MarkdownRenderer.render_raw_text(self, child))
 
-    def get_note_paragraph(self, index: int, note_tree: list) -> str:
-        """Get note paragraph starting from the setup header"""
-        for child in note_tree[index:]:
-            if child.get_type() == "Paragraph":
-                return marko.render(child)
+        return "".join(setup).strip()
 
     def check_explicit_restricted_field_version(self, field_name: str) -> bool:
         """Explicitly check restricted fields against global min and max versions."""
@@ -827,4 +832,4 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
 
 
 # avoid a circular import
-from .rule_validators import KQLValidator, EQLValidator  # noqa: E402
+from .rule_validators import EQLValidator, KQLValidator  # noqa: E402
