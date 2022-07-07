@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/10/15"
 maturity = "production"
-updated_date = "2022/04/21"
+updated_date = "2022/06/20"
 
 [rule]
 author = ["Elastic"]
@@ -93,27 +93,29 @@ type = "eql"
 query = '''
 iam where event.action == "user-member-enumerated" and
 
- /* noisy and usual legit processes excluded */
- not winlog.event_data.CallerProcessName:
-              ("?:\\Windows\\System32\\VSSVC.exe",
-               "?:\\Windows\\System32\\SearchIndexer.exe",
-               "?:\\Windows\\System32\\CompatTelRunner.exe",
-               "?:\\Windows\\System32\\oobe\\msoobe.exe",
-               "?:\\Windows\\System32\\net1.exe",
-               "?:\\Windows\\System32\\svchost.exe",
-               "?:\\Windows\\System32\\Netplwiz.exe",
-               "?:\\Windows\\System32\\msiexec.exe",
-               "?:\\Windows\\System32\\CloudExperienceHostBroker.exe",
-               "?:\\Windows\\System32\\wbem\\WmiPrvSE.exe",
-               "?:\\Windows\\System32\\SrTasks.exe",
-               "?:\\Windows\\System32\\lsass.exe",
-               "?:\\Windows\\System32\\diskshadow.exe",
-               "?:\\Windows\\System32\\dfsrs.exe",
-               "?:\\Program Files\\*.exe",
-               "?:\\Program Files (x86)\\*.exe") and
+  /* noisy and usual legit processes excluded */
+  not winlog.event_data.CallerProcessName:
+               ("?:\\Windows\\System32\\VSSVC.exe",
+                "?:\\Windows\\System32\\SearchIndexer.exe",
+                "?:\\Windows\\System32\\CompatTelRunner.exe",
+                "?:\\Windows\\System32\\oobe\\msoobe.exe",
+                "?:\\Windows\\System32\\net1.exe",
+                "?:\\Windows\\System32\\svchost.exe",
+                "?:\\Windows\\System32\\Netplwiz.exe",
+                "?:\\Windows\\System32\\msiexec.exe",
+                "?:\\Windows\\System32\\CloudExperienceHostBroker.exe",
+                "?:\\Windows\\System32\\wbem\\WmiPrvSE.exe",
+                "?:\\Windows\\System32\\SrTasks.exe",
+                "?:\\Windows\\System32\\lsass.exe",
+                "?:\\Windows\\System32\\diskshadow.exe",
+                "?:\\Windows\\System32\\dfsrs.exe",
+                "?:\\Program Files\\*.exe",
+                "?:\\Program Files (x86)\\*.exe",
+                "?:\\WindowsAzure\\*\\WaAppAgent.exe") and
+
   /* privileged local groups */
- (group.name:("admin*","RemoteDesktopUsers") or
-  winlog.event_data.TargetSid:("S-1-5-32-544","S-1-5-32-555"))
+  (group.name:("admin*","RemoteDesktopUsers") or
+   winlog.event_data.TargetSid:("S-1-5-32-544","S-1-5-32-555"))
 '''
 
 
