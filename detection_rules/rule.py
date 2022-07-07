@@ -632,7 +632,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         setup = []
 
         for child in note_tree:
-            if child.get_type() == "BlankLine":
+            if child.get_type() == "BlankLine" or child.get_type() == "LineBreak":
                 setup.append("\n")
             elif child.get_type() == "CodeSpan":
                 setup.append(f"`{MarkdownRenderer.render_raw_text(self, child)}`")
