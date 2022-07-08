@@ -615,7 +615,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             # parse note tree
             for i, child in enumerate(note_tree.children):
                 if child.get_type() == "Heading" and "Setup" in marko.render(child):
-                    field_value = self.get_setup_paragraph(note_tree.children[i:])
+                    field_value = self.get_setup_paragraph(note_tree.children[i + 1:])
 
                     # clean up old note field
                     investigation_guide = rule_note.replace("## Setup\n\n", "")
@@ -630,7 +630,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def get_setup_paragraph(self, note_tree: list) -> str:
         """Get note paragraph starting from the setup header."""
         setup = []
-
         for child in note_tree:
             if child.get_type() == "BlankLine" or child.get_type() == "LineBreak":
                 setup.append("\n")
@@ -639,8 +638,12 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             elif child.get_type() == "Paragraph":
                 setup.append(self.get_setup_paragraph(child.children))
                 setup.append("\n")
-            elif child.get_type() != "Heading":
+            elif child.get_type() == "RawText":
                 setup.append(MarkdownRenderer.render_raw_text(self, child))
+            elif child.get_type() == "Heading" and child.level == 2:
+                break
+            else:
+                setup.append(self.get_setup_paragraph(child.children))
 
         return "".join(setup).strip()
 
