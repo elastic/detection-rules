@@ -201,10 +201,10 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     threat: Optional[List[ThreatMapping]]
 
     @post_dump
-    def validate_note_and_setup_field(self, data: str, *args, **kwargs):
+    def validate_note_and_setup_fields(self, data: str, *args, **kwargs):
         """Validate the contents of the note field."""
 
-        def validate_markdown(field: str) -> bool:
+        def validate_markdown(rule_name: str, field: str) -> bool:
             """Validate markdown contents for note or setup fields."""
             setup_header_in_field = False
             try:
@@ -215,11 +215,19 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
                     if child.get_type() == "Heading" and child.level != 2 and "Setup" in marko.render(child):
                         raise ValidationError(f"Setup section with wrong header level: {child.level}")
 
+                    # check that the Setup header is captialized
+                    if child.get_type() == "Heading" and child.level == 2 and "setup" in marko.render(child):
+                        raise ValidationError(f"Setup header not capitilized: {marko.render(child)}")
+
+                    # check that the header Config does not exist in the Setup section
+                    if child.get_type() == "Heading" and child.level == 2 and "Config" in marko.render(child):
+                        raise ValidationError(f"Setup header contains Config: {marko.render(child)}")
+
                     if child.get_type() == "Heading" and child.level == 2 and "Setup" in marko.render(child):
                         setup_header_in_field = True
 
             except Exception as e:
-                raise ValidationError(f"Invalid markdown: {e}")
+                raise ValidationError(f"Invalid markdown in rule `{rule_name}`: {e}")
 
             return setup_header_in_field
 
@@ -227,11 +235,12 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         setup = data.get("setup", "")
         skip_setup_validation = data.get("skip_setup_validation", False)
         setup_header_in_note = setup_header_in_setup = False
+        rule_name = data.get('name')
 
         if note and skip_setup_validation in (False, None):
-            setup_header_in_note = validate_markdown(note)
+            setup_header_in_note = validate_markdown(rule_name, note)
         if setup and skip_setup_validation in (False, None):
-            setup_header_in_setup = validate_markdown(setup)
+            setup_header_in_setup = validate_markdown(rule_name, setup)
 
         # raise if setup header is in note and in setup
         if setup_header_in_note and setup_header_in_setup:
@@ -676,6 +685,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                 setup.append(f"`{MarkdownRenderer.render_raw_text(self, child)}`")
             elif child.get_type() == "Paragraph":
                 setup.append(self.get_setup_content(child.children))
+                setup.append("\n")
+            elif child.get_type() == "FencedCode":
+                setup.append(f"```\n{self.get_setup_content(child.children)}\n```")
                 setup.append("\n")
             elif child.get_type() == "RawText":
                 setup.append(MarkdownRenderer.render_raw_text(self, child))
