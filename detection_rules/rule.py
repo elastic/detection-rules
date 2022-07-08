@@ -18,7 +18,7 @@ import eql
 import kql
 import marko
 from marko.md_renderer import MarkdownRenderer
-from marshmallow import ValidationError, validates_schema
+from marshmallow import ValidationError, validates_schema, post_dump
 
 from . import beats, ecs, utils
 from .misc import load_current_package_version
@@ -190,6 +190,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     setup: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.3")))
     severity_mapping: Optional[List[SeverityMapping]]
     severity: definitions.Severity
+    skip_setup_validation: Optional[bool]
     tags: Optional[List[str]]
     throttle: Optional[str]
     timeline_id: Optional[definitions.TimelineTemplateId]
@@ -198,6 +199,46 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     to: Optional[str]
     type: definitions.RuleType
     threat: Optional[List[ThreatMapping]]
+
+    @post_dump
+    def validate_note_and_setup_field(self, data: str, *args, **kwargs):
+        """Validate the contents of the note field."""
+
+        def validate_markdown(field: str) -> bool:
+            """Validate markdown contents for note or setup fields."""
+            setup_header_in_field = False
+            try:
+                field_tree = marko.parse(field)
+                for i, child in enumerate(field_tree.children):
+
+                    # check that the Setup header is correctly formatted at level 2
+                    if child.get_type() == "Heading" and child.level != 2 and "Setup" in marko.render(child):
+                        raise ValidationError(f"Setup section with wrong header level: {child.level}")
+
+                    if child.get_type() == "Heading" and child.level == 2 and "Setup" in marko.render(child):
+                        setup_header_in_field = True
+
+            except Exception as e:
+                raise ValidationError(f"Invalid markdown: {e}")
+
+        note = data.get("note", "")
+        setup = data.get("setup", "")
+        skip_setup_validation = data.get("skip_setup_validation", False)
+        setup_header_in_note = setup_header_in_setup = False
+
+        if note and skip_setup_validation in (False, None):
+            setup_header_in_note = validate_markdown(note)
+        if setup and skip_setup_validation in (False, None):
+            setup_header_in_setup = validate_markdown(setup)
+
+        # raise if setup header is in note and in setup
+        if setup_header_in_note and setup_header_in_setup:
+            raise ValidationError("Setup header found in both note and setup fields.")
+        return data
+
+
+
+        return setup_header_in_field
 
     @classmethod
     def save_schema(cls):
@@ -615,7 +656,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             # parse note tree
             for i, child in enumerate(note_tree.children):
                 if child.get_type() == "Heading" and "Setup" in marko.render(child):
-                    field_value = self.get_setup_paragraph(note_tree.children[i + 1:])
+                    field_value = self.get_setup_content(note_tree.children[i + 1:])
 
                     # clean up old note field
                     investigation_guide = rule_note.replace("## Setup\n\n", "")
@@ -627,7 +668,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if self.check_restricted_field_version(field_name):
             obj.setdefault(field_name, field_value)
 
-    def get_setup_paragraph(self, note_tree: list) -> str:
+    def get_setup_content(self, note_tree: list) -> str:
         """Get note paragraph starting from the setup header."""
         setup = []
         for child in note_tree:
@@ -636,14 +677,14 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             elif child.get_type() == "CodeSpan":
                 setup.append(f"`{MarkdownRenderer.render_raw_text(self, child)}`")
             elif child.get_type() == "Paragraph":
-                setup.append(self.get_setup_paragraph(child.children))
+                setup.append(self.get_setup_content(child.children))
                 setup.append("\n")
             elif child.get_type() == "RawText":
                 setup.append(MarkdownRenderer.render_raw_text(self, child))
             elif child.get_type() == "Heading" and child.level == 2:
                 break
             else:
-                setup.append(self.get_setup_paragraph(child.children))
+                setup.append(self.get_setup_content(child.children))
 
         return "".join(setup).strip()
 
