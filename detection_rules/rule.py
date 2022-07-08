@@ -601,19 +601,28 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         field_name = "related_integrations"
         package_integrations = obj.get(field_name, [])
-        packages_manifest = load_gzip_dump(get_etc_path('integration-manifests.json.gz'))
-        current_stack_version = load_current_package_version()
 
-        if self.check_restricted_field_version(field_name):
-            if isinstance(self.data, QueryRuleData) and self.data.language != 'lucene':
-                package_integrations = self.get_packaged_integrations(self.data.ast)
+        if self.metadata.integration:
+            packages_manifest = load_gzip_dump(get_etc_path('integration-manifests.json.gz'))
+            current_stack_version = load_current_package_version()
 
-                for package in package_integrations:
-                    package["version"] = IntegrationPackages.find_least_compatible_version(
-                        package=package["package"],
-                        integration=package["integration"],
-                        current_stack_version=current_stack_version,
-                        packages_manifest=packages_manifest)
+            if self.check_restricted_field_version(field_name):
+                if isinstance(self.data, QueryRuleData) and self.data.language != 'lucene':
+                    package_integrations = self.get_packaged_integrations(self.data.ast, packages_manifest)
+
+                    for package in package_integrations:
+                        package["version"] = IntegrationPackages.find_least_compatible_version(
+                            package=package["package"],
+                            integration=package["integration"],
+                            current_stack_version=current_stack_version,
+                            packages_manifest=packages_manifest)
+
+                        # if integration is not a policy template remove
+                        policy_templates = packages_manifest[package["package"]][package["version"]]["policy_templates"]
+                        policy_template_names = [p["name"] for p in policy_templates]
+                        if package["integration"] not in policy_template_names:
+                            del package["integration"]
+
         obj.setdefault("related_integrations", package_integrations)
 
     def add_required_fields(self, obj: dict) -> None:
@@ -649,15 +658,33 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         max_stack = max_stack or current_version
         return Version(min_stack) <= current_version >= Version(max_stack)
 
-    def get_packaged_integrations(self, obj: dict) -> List[dict]:
-
+    def get_packaged_integrations(self, ast_obj: dict, pkg_manifest: dict) -> List[dict]:
         packaged_integrations = list()
-        for item in obj.items:
-            if isinstance(item, FieldComparison) and str(item.field) == 'event.dataset':
-                event_dataset_values = str(item.value).split(' or ')
-                for ints in event_dataset_values:
-                    package, integration = ints.split(".")
-                    packaged_integrations.append({"package": package, "integration": integration})
+
+        if isinstance(ast_obj, kql.ast.AndExpr):
+            for item in ast_obj.items:
+                if isinstance(item, FieldComparison) and str(item.field) == 'event.dataset':
+                    event_dataset_values = str(item.value).split(' or ')
+
+                    for ints in event_dataset_values:
+                        package, integration = ints.split(".")
+                        if package not in pkg_manifest.keys():
+                            continue
+                        packaged_integrations.append({"package": package, "integration": integration})
+
+        elif isinstance(ast_obj, eql.ast.PipedQuery):
+            packages = list()
+            for q in ast_obj.first.queries:
+                for t in q.query.query.terms:
+                    if 'dataset' in t.left.path:
+                        packages.append(t.right.value)
+            packages = list(set(packages))
+            for p in packages:
+                package, integration = p.split(".")
+                packaged_integrations.append({"package": package, "integration": integration})
+        else:
+            raise Exception(f"{type(ast_obj)} type for rule {self.name} is unknown.")
+
         return(packaged_integrations)
 
     @validates_schema
