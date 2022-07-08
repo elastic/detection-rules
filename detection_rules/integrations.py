@@ -8,10 +8,10 @@ import gzip
 import json
 import os
 import re
+
 import yaml
 
-from github import Github
-
+from .ghwrap import GithubClient
 from .semver import Version
 from .utils import INTEGRATION_RULE_DIR, get_etc_path
 
@@ -81,8 +81,9 @@ class IntegrationPackages():
 
 def get_integration_packages(token: str, org: str, repo: str, branch: str, folder: str) -> None:
     """Gets integration packages object containing versioned packages and manifest content"""
-    ghub = Github(token)
-    organization = ghub.get_organization(org)
+    github = GithubClient(token)
+    client = github.authenticated_client
+    organization = client.get_organization(org)
     repository = organization.get_repo(repo)
     sha = get_sha_for_branch(repository, branch)
     integration_manifest = get_integration_manifests(repository, sha, folder)
