@@ -6,10 +6,7 @@
 import copy
 import dataclasses
 import json
-import re
-import requests
 import typing
-import yaml
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import cached_property
@@ -31,7 +28,7 @@ from .rule_formatter import toml_write, nested_normalize
 from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas, get_min_supported_stack_version
 from .schemas.stack_compat import get_restricted_fields
 from .semver import Version
-from .utils import cached
+from .utils import cached, load_gzip_dump, get_etc_path
 from .integrations import IntegrationPackages
 
 BUILD_FIELD_VERSIONS = {"required_fields": (Version('8.3'), None),
@@ -603,17 +600,20 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         """Add restricted field add_related_integrations to the obj"""
 
         field_name = "related_integrations"
-        field_value = obj.get(field_name, [])
-        related_integrations = dict()
-        if self.check_restricted_field_version(field_name):
+        package_integrations = obj.get(field_name, [])
+        packages_manifest = load_gzip_dump(get_etc_path('integration-manifests.json.gz'))
+        current_stack_version = load_current_package_version()
 
-            invalid = (MachineLearningRuleData, ThreatMatchRuleData, ThresholdQueryRuleData)
-            if not isinstance(self.data, invalid) and self.data.get('ast'):
+        if self.check_restricted_field_version(field_name):
+            if isinstance(self.data, QueryRuleData) and self.data.language != 'lucene':
                 package_integrations = self.get_packaged_integrations(self.data.ast)
+
                 for package in package_integrations:
                     package["version"] = IntegrationPackages.find_least_compatible_version(
                         package=package["package"],
-                        integration=package["integration"])
+                        integration=package["integration"],
+                        current_stack_version=current_stack_version,
+                        packages_manifest=packages_manifest)
         obj.setdefault("related_integrations", package_integrations)
 
     def add_required_fields(self, obj: dict) -> None:

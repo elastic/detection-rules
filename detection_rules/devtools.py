@@ -1095,8 +1095,10 @@ def get_branches(outfile: Path):
 def integrations_group():
     """Commands for dev integrations methods."""
 
+
 @integrations_group.command('build-integration-manifests')
-def build_integration_manifests():
+@click.option('--overwrite', '-o', is_flag=True, help="Overwrite the existing integrations-manifest.json.gz file")
+def build_integration_manifests(overwrite: bool):
     """Builds integrations manifests file"""
     github_token = get_github_token()
-    IntegrationPackages.build_integrations_manifest(token=github_token)
+    IntegrationPackages.build_integrations_manifest(github_token, overwrite)
