@@ -649,14 +649,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         max_stack = max_stack or current_version
         return Version(min_stack) <= current_version >= Version(max_stack)
 
-    def get_integration_manifest(self, integration_name: str) -> str:
-            url = f"https://raw.githubusercontent.com/elastic/integrations/main/packages/{integration_name}/manifest.yml"
-            response = requests.get(url)
-            manifest = yaml.safe_load(response.content)
-
-            # has multiple integrations in the package
-            return manifest.get("policy_templates")
-
     def get_packaged_integrations(self, obj: dict) -> List[dict]:
 
         packaged_integrations = list()
