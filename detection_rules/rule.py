@@ -221,6 +221,8 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
             except Exception as e:
                 raise ValidationError(f"Invalid markdown: {e}")
 
+            return setup_header_in_field
+
         note = data.get("note", "")
         setup = data.get("setup", "")
         skip_setup_validation = data.get("skip_setup_validation", False)
@@ -235,10 +237,6 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         if setup_header_in_note and setup_header_in_setup:
             raise ValidationError("Setup header found in both note and setup fields.")
         return data
-
-
-
-        return setup_header_in_field
 
     @classmethod
     def save_schema(cls):
