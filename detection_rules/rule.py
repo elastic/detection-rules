@@ -602,16 +602,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def add_related_integrations(self, obj: dict) -> None:
         """Add restricted field add_related_integrations to the obj"""
 
-        ##TODO
-        # check restricted field version and continue
-        # skip invalid dataclasses
-        # get [{"package","version","integration"}] from get_packaged_integrations
-        # get least compatible version from get_compatible_integration_version
-        ## load packages.yaml for compatible stack version with rule
-        ## load integrations_manifest.yml file
-        ## iterate backwards on manifest until stack is not compatible and choose the previous
-        # update field_value with the compatible version 
-
         field_name = "related_integrations"
         field_value = obj.get(field_name, [])
         related_integrations = dict()
@@ -624,7 +614,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                     package["version"] = IntegrationPackages.find_least_compatible_version(
                         package=package["package"],
                         integration=package["integration"])
-        obj.setdefault("related_integrations", complete_package)
+        obj.setdefault("related_integrations", package_integrations)
 
     def add_required_fields(self, obj: dict) -> None:
         """Add restricted field required_fields to the obj, derived from the query AST."""

@@ -113,7 +113,7 @@ def load_etc_dump(*path):
 
 def load_gzip_dump(*path):
     """Load a gzip file"""
-    with gzip.open(*path, 'r') as f:
+    with gzip.open(path[0], 'r') as f:
         return json.loads(f.read().decode('utf-8'))  
 
 
