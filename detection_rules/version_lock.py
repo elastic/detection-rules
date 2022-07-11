@@ -254,7 +254,7 @@ class VersionLock:
                     # preserve buffer space to support forked version spacing
                     if exclude_version_update:
                         buffer_int += 1
-                    lock_from_file["version"] = lock_from_file["version"] + buffer_int
+                    lock_from_rule["version"] = lock_from_file["version"] + buffer_int
 
                     # overwrite the "latest" part of the lock at the top level
                     lock_from_file.update(lock_from_rule, min_stack_version=str(min_stack))
