@@ -12,7 +12,7 @@ import click
 
 from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
 from .rule_loader import RuleCollection
-from .schemas import definitions
+from .schemas import definitions, get_min_supported_stack_version
 from .semver import Version
 from .utils import cached, get_etc_path
 
@@ -20,20 +20,25 @@ ETC_VERSION_LOCK_FILE = "version.lock.json"
 ETC_VERSION_LOCK_PATH = Path(get_etc_path()) / ETC_VERSION_LOCK_FILE
 ETC_DEPRECATED_RULES_FILE = "deprecated_rules.json"
 ETC_DEPRECATED_RULES_PATH = Path(get_etc_path()) / ETC_DEPRECATED_RULES_FILE
-MIN_LOCK_VERSION_DEFAULT = Version("7.13.0")
+
+# This was the original version the lock was created under. This constant has been replaced by
+# schemas.get_min_supported_stack_version to dynamically determine the minimum
+# MIN_LOCK_VERSION_DEFAULT = Version("7.13.0")
 
 
 @dataclass(frozen=True)
-class VersionLockFileEntry(MarshmallowDataclassMixin):
-    """Schema for a rule entry in the version lock."""
+class BaseEntry:
     rule_name: definitions.RuleName
     sha256: definitions.Sha256
     type: definitions.RuleType
     version: definitions.PositiveInteger
-    min_stack_version: Optional[definitions.SemVer]
 
-    # TODO: need to exclude nested 'previous'
-    previous: Optional[Dict[definitions.SemVer, 'VersionLockFileEntry']]
+
+@dataclass(frozen=True)
+class VersionLockFileEntry(MarshmallowDataclassMixin, BaseEntry):
+    """Schema for a rule entry in the version lock."""
+    min_stack_version: Optional[definitions.SemVerMinorOnly]
+    previous: Optional[Dict[definitions.SemVerMinorOnly, BaseEntry]]
 
 
 @dataclass(frozen=True)
@@ -56,7 +61,7 @@ class VersionLockFile(LockDataclassMixin):
 @dataclass(frozen=True)
 class DeprecatedRulesEntry(MarshmallowDataclassMixin):
     """Schema for rule entry in the deprecated rules file."""
-    deprecation_date: definitions.Date
+    deprecation_date: Union[definitions.Date, definitions.KNOWN_BAD_DEPRECATED_DATES]
     rule_name: definitions.RuleName
     stack_version: definitions.SemVer
 
@@ -80,9 +85,11 @@ class DeprecatedRulesFile(LockDataclassMixin):
 
 def _convert_lock_version(stack_version: Optional[str]) -> Version:
     """Convert an optional stack version to the minimum for the lock."""
+    min_version = get_min_supported_stack_version(drop_patch=True)
     if stack_version is None:
-        return MIN_LOCK_VERSION_DEFAULT
-    return max(Version(stack_version), MIN_LOCK_VERSION_DEFAULT)
+        return min_version
+    short_stack_version = Version(Version(stack_version)[:2])
+    return max(short_stack_version, min_version)
 
 
 @cached
@@ -90,6 +97,27 @@ def load_versions() -> dict:
     """Load and validate the default version.lock file."""
     version_lock_file = VersionLockFile.load_from_file()
     return version_lock_file.to_dict()
+
+
+# for tagged branches which existed before the types were added and validation enforced, we will need to manually add
+# them to allow them to pass validation. These will only ever currently be loaded via the RuleCollection.load_git_tag
+# method, which is primarily for generating diffs across releases, so there is no risk to versioning
+def add_rule_types_to_lock(lock_contents: dict, rule_map: Dict[str, dict]):
+    """Add the rule type to entries in the lock file,if missing."""
+    for rule_id, lock in lock_contents.items():
+        rule = rule_map.get(rule_id, {})
+
+        # this defaults to query if the rule is not found - it is just for validation so should not impact
+        rule_type = rule.get('rule', {}).get('type', 'query')
+
+        # the type is a bit less important than the structure to pass validation
+        lock['type'] = rule_type
+
+        if 'previous' in lock:
+            for _, prev_lock in lock['previous'].items():
+                prev_lock['type'] = rule_type
+
+    return lock_contents
 
 
 class VersionLock:
@@ -108,12 +136,12 @@ class VersionLock:
         if version_lock_file:
             self.version_lock = VersionLockFile.load_from_file(version_lock_file)
         else:
-            self.version_lock = VersionLockFile.from_dict(version_lock)
+            self.version_lock = VersionLockFile.from_dict(dict(data=version_lock))
 
         if deprecated_lock_file:
             self.deprecated_lock = DeprecatedRulesFile.load_from_file(deprecated_lock_file)
         else:
-            self.deprecated_lock = DeprecatedRulesFile.from_dict(deprecated_lock)
+            self.deprecated_lock = DeprecatedRulesFile.from_dict(dict(data=deprecated_lock))
 
     @staticmethod
     def save_file(path: Path, lock_file: Union[VersionLockFile, DeprecatedRulesFile]):
@@ -142,8 +170,8 @@ class VersionLock:
             return existing_sha256
 
     def manage_versions(self, rules: RuleCollection,
-                        exclude_version_update: bool = False, save_changes: bool = False,
-                        verbose: bool = True, buffer_int: int = 99) -> (List[str], List[str], List[str]):
+                        exclude_version_update=False, save_changes=False,
+                        verbose=True) -> (List[str], List[str], List[str]):
         """Update the contents of the version.lock file and optionally save changes."""
         from .packaging import current_stack_version
 
@@ -165,32 +193,26 @@ class VersionLock:
             return list(changed_rules), list(new_rules), list(newly_deprecated)
 
         verbose_echo('Rule changes detected!')
-
-        route = None
-        existing_rule_lock = {}
-        original_hash = None
         changes = []
 
-        def add_changes(r, *msg):
-            if not original_hash or original_hash != current_rule_lock['sha256']:
-                new = [f'  {route}: {r.id}, new version: {existing_rule_lock["version"]}']
-                new.extend([f'    - {m}' for m in msg if m])
-                changes.extend(new)
+        def log_changes(r, route_taken, new_rule_version, *msg):
+            new = [f'  {route_taken}: {r.id}, new version: {new_rule_version}']
+            new.extend([f'    - {m}' for m in msg if m])
+            changes.extend(new)
 
         for rule in rules:
             if rule.contents.metadata.maturity == "production" or rule.id in newly_deprecated:
                 # assume that older stacks are always locked first
                 min_stack = _convert_lock_version(rule.contents.metadata.min_stack_version)
 
-                current_rule_lock = rule.contents.lock_info(bump=not exclude_version_update)
-                existing_rule_lock: dict = lock_file_contents.setdefault(rule.id, {})
-                original_hash = existing_rule_lock.get('sha256')
+                lock_from_rule = rule.contents.lock_info(bump=not exclude_version_update)
+                lock_from_file: dict = lock_file_contents.setdefault(rule.id, {})
 
                 # prevent rule type changes for already locked and released rules (#1854)
-                if existing_rule_lock:
-                    name = current_rule_lock['rule_name']
-                    existing_type = existing_rule_lock['type']
-                    current_type = current_rule_lock['type']
+                if lock_from_file:
+                    name = lock_from_rule['rule_name']
+                    existing_type = lock_from_file['type']
+                    current_type = lock_from_rule['type']
                     if existing_type != current_type:
                         err_msg = f'cannot change "type" in locked rule: {name} from {existing_type} to {current_type}'
                         raise ValueError(err_msg)
@@ -200,46 +222,41 @@ class VersionLock:
                 # 2) on the latest, after a breaking change has been locked
                 # 3) on the latest stack, locking in a breaking change
                 # 4) on an old stack, after a breaking change has been made
-                # 5) on an old stack, locking in an old breaking change
-                latest_locked_stack_version = _convert_lock_version(existing_rule_lock.get("min_stack_version"))
+                latest_locked_stack_version = _convert_lock_version(lock_from_file.get("min_stack_version"))
 
-                if not existing_rule_lock or min_stack == latest_locked_stack_version:
+                if not lock_from_file or min_stack == latest_locked_stack_version:
                     route = 'A'
                     # 1) no breaking changes ever made or the first time a rule is created
                     # 2) on the latest, after a breaking change has been locked
-                    existing_rule_lock.update(current_rule_lock)
+                    lock_from_file.update(lock_from_rule)
+                    new_version = lock_from_rule['version']
 
                     # add the min_stack_version to the lock if it's explicitly set
-                    log_msg = None
                     if rule.contents.metadata.min_stack_version is not None:
-                        existing_rule_lock["min_stack_version"] = str(min_stack)
+                        lock_from_file["min_stack_version"] = str(min_stack)
                         log_msg = f'min_stack_version added: {min_stack}'
-
-                    add_changes(rule, log_msg)
+                        log_changes(rule, route, new_version, log_msg)
 
                 elif min_stack > latest_locked_stack_version:
                     route = 'B'
                     # 3) on the latest stack, locking in a breaking change
                     previous_lock_info = {
-                        "rule_name": existing_rule_lock["rule_name"],
-                        "sha256": existing_rule_lock["sha256"],
-                        "version": existing_rule_lock["version"],
-                        "type": existing_rule_lock["type"]
+                        "rule_name": lock_from_file["rule_name"],
+                        "sha256": lock_from_file["sha256"],
+                        "version": lock_from_file["version"],
+                        "type": lock_from_file["type"]
                     }
-                    existing_rule_lock.setdefault("previous", {})
+                    lock_from_file.setdefault("previous", {})
 
                     # move the current locked info into the previous section
-                    existing_rule_lock["previous"][str(latest_locked_stack_version)] = previous_lock_info
+                    lock_from_file["previous"][str(latest_locked_stack_version)] = previous_lock_info
 
                     # overwrite the "latest" part of the lock at the top level
-                    # Preserve 100 buffer to support forked version spacing
-                    if exclude_version_update:
-                        buffer_int += 1
-
-                    current_rule_lock["version"] = current_rule_lock["version"] + buffer_int
-                    existing_rule_lock.update(current_rule_lock, min_stack_version=str(min_stack))
-                    add_changes(
-                        rule,
+                    # TODO: would need to preserve space here as well if supporting forked version spacing
+                    lock_from_file.update(lock_from_rule, min_stack_version=str(min_stack))
+                    new_version = lock_from_rule['version']
+                    log_changes(
+                        rule, route, new_version,
                         f'previous {latest_locked_stack_version} saved as version: {previous_lock_info["version"]}',
                         f'current min_stack updated to {min_stack}'
                     )
@@ -247,37 +264,31 @@ class VersionLock:
                 elif min_stack < latest_locked_stack_version:
                     route = 'C'
                     # 4) on an old stack, after a breaking change has been made (updated fork)
-                    # 5) on an old stack, locking in an old breaking change
-                    assert str(min_stack) in existing_rule_lock.get("previous", {}), \
+                    assert str(min_stack) in lock_from_file.get("previous", {}), \
                         f"Expected {rule.id} @ v{min_stack} in the rule lock"
 
-                    # Support locking old versions if we have buffer space in between
+                    # TODO: Figure out whether we support locking old versions and if we want to
                     #       "leave room" by skipping versions when breaking changes are made.
                     #       We can still inspect the version lock manually after locks are made,
                     #       since it's a good summary of everything that happens
-                    new_min_version = max([x['version'] for x in existing_rule_lock['previous'].values()])
-                    new_max_version = existing_rule_lock["version"]
 
-                    # leave half the space available since we're updating an old previous version
-                    # or inserting an old breaking change on an old stack
-                    new_version = (new_max_version - new_min_version) / 2
-                    if new_version <= 1:
-                        # we're out of buffer space
-                        raise ValueError(f'Out of buffer space on {rule.id} '
-                                         f'when trying to bump to {current_rule_lock["version"]}. '
-                                         f'Please deprecate rule {rule.id} and create a new rule.')
-
-                    current_rule_lock["version"] = new_version
-                    existing_rule_lock["previous"][str(min_stack)] = current_rule_lock
-                    existing_rule_lock.update(current_rule_lock)
-                    add_changes(rule, f'previous version {min_stack} updated version to {current_rule_lock["version"]}')
+                    # if version bump collides with future bump, fail
+                    # if space, change and log
+                    info_from_rule = (lock_from_rule['sha256'], lock_from_rule['version'])
+                    info_from_file = (lock_from_file["previous"][str(min_stack)]['sha256'],
+                                      lock_from_file["previous"][str(min_stack)]['version'])
+                    if info_from_rule != info_from_file:
+                        lock_from_file["previous"][str(min_stack)] = lock_from_rule
+                        new_version = lock_from_rule["version"]
+                        log_changes(rule, route, 'unchanged',
+                                    f'previous version {min_stack} updated version to {new_version}')
                     continue
                 else:
                     raise RuntimeError("Unreachable code")
 
-                if 'previous' in existing_rule_lock:
+                if 'previous' in lock_from_file:
                     current_rule_version = rule.contents.lock_info()['version']
-                    for min_stack_version, versioned_lock in existing_rule_lock['previous'].items():
+                    for min_stack_version, versioned_lock in lock_from_file['previous'].items():
                         existing_lock_version = versioned_lock['version']
                         if current_rule_version < existing_lock_version:
                             raise ValueError(f'{rule.id} - previous {min_stack_version=} {existing_lock_version=} '

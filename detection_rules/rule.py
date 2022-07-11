@@ -11,19 +11,25 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
-from typing import Literal, Union, Optional, List, Any, Dict
+from typing import Literal, Union, Optional, List, Any, Dict, Tuple
 from uuid import uuid4
 
 import eql
 from marshmallow import ValidationError, validates_schema
 
 import kql
+from . import beats
+from . import ecs
 from . import utils
-from .mixins import MarshmallowDataclassMixin
+from .misc import load_current_package_version
+from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import toml_write, nested_normalize
-from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas
+from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas, get_min_supported_stack_version
+from .schemas.stack_compat import get_restricted_fields
+from .semver import Version
 from .utils import cached
 
+BUILD_FIELD_VERSIONS = {"required_fields": (Version('8.3'), None)}
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
 
@@ -51,7 +57,7 @@ class RuleMeta(MarshmallowDataclassMixin):
 
     def get_validation_stack_versions(self) -> Dict[str, dict]:
         """Get a dict of beats and ecs versions per stack release."""
-        stack_versions = get_stack_schemas(self.min_stack_version or MIN_FLEET_PACKAGE_VERSION)
+        stack_versions = get_stack_schemas(self.min_stack_version)
         return stack_versions
 
 
@@ -147,7 +153,13 @@ class FlatThreatMapping(MarshmallowDataclassMixin):
 
 
 @dataclass(frozen=True)
-class BaseRuleData(MarshmallowDataclassMixin):
+class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
+    @dataclass
+    class RequiredFields:
+        name: definitions.NonEmptyStr
+        type: definitions.NonEmptyStr
+        ecs: bool
+
     actions: Optional[list]
     author: List[str]
     building_block_type: Optional[str]
@@ -169,10 +181,13 @@ class BaseRuleData(MarshmallowDataclassMixin):
     # explicitly NOT allowed!
     # output_index: Optional[str]
     references: Optional[List[str]]
+    related_integrations: Optional[List[str]] = field(metadata=dict(metadata=dict(min_compat="8.3")))
+    required_fields: Optional[List[RequiredFields]] = field(metadata=dict(metadata=dict(min_compat="8.3")))
     risk_score: definitions.RiskScore
     risk_score_mapping: Optional[List[RiskScoreMapping]]
     rule_id: definitions.UUIDString
     rule_name_override: Optional[str]
+    setup: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.3")))
     severity_mapping: Optional[List[SeverityMapping]]
     severity: definitions.Severity
     tags: Optional[List[str]]
@@ -187,7 +202,7 @@ class BaseRuleData(MarshmallowDataclassMixin):
     @classmethod
     def save_schema(cls):
         """Save the schema as a jsonschema."""
-        fields: List[dataclasses.Field] = dataclasses.fields(cls)
+        fields: Tuple[dataclasses.Field, ...] = dataclasses.fields(cls)
         type_field = next(f for f in fields if f.name == "type")
         rule_type = typing.get_args(type_field.type)[0] if cls != BaseRuleData else "base"
         schema = cls.jsonschema()
@@ -201,6 +216,12 @@ class BaseRuleData(MarshmallowDataclassMixin):
     def validate_query(self, meta: RuleMeta) -> None:
         pass
 
+    @cached_property
+    def get_restricted_fields(self) -> Optional[Dict[str, tuple]]:
+        """Get stack version restricted fields."""
+        fields: List[dataclasses.Field, ...] = list(dataclasses.fields(self))
+        return get_restricted_fields(fields)
+
 
 @dataclass
 class QueryValidator:
@@ -210,8 +231,44 @@ class QueryValidator:
     def ast(self) -> Any:
         raise NotImplementedError
 
+    @property
+    def unique_fields(self) -> Any:
+        raise NotImplementedError
+
     def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
         raise NotImplementedError()
+
+    @cached
+    def get_required_fields(self, index: str) -> List[dict]:
+        """Retrieves fields needed for the query along with type information from the schema."""
+        current_version = Version(Version(load_current_package_version()) + (0,))
+        ecs_version = get_stack_schemas()[str(current_version)]['ecs']
+        beats_version = get_stack_schemas()[str(current_version)]['beats']
+        ecs_schema = ecs.get_schema(ecs_version)
+
+        beat_types, beat_schema, schema = self.get_beats_schema(index or [], beats_version, ecs_version)
+
+        required = []
+        unique_fields = self.unique_fields or []
+
+        for fld in unique_fields:
+            field_type = ecs_schema.get(fld, {}).get('type')
+            is_ecs = field_type is not None
+
+            if beat_schema and not is_ecs:
+                field_type = beat_schema.get(fld, {}).get('type')
+
+            required.append(dict(name=fld, type=field_type or 'unknown', ecs=is_ecs))
+
+        return sorted(required, key=lambda f: f['name'])
+
+    @cached
+    def get_beats_schema(self, index: list, beats_version: str, ecs_version: str) -> (list, dict, dict):
+        """Get an assembled beats schema."""
+        beat_types = beats.parse_beats_from_index(index)
+        beat_schema = beats.get_schema_from_kql(self.ast, beat_types, version=beats_version) if beat_types else None
+        schema = ecs.get_kql_schema(version=ecs_version, indexes=index, beat_schema=beat_schema)
+        return beat_types, beat_schema, schema
 
 
 @dataclass(frozen=True)
@@ -240,6 +297,18 @@ class QueryRuleData(BaseRuleData):
         validator = self.validator
         if validator is not None:
             return validator.ast
+
+    @cached_property
+    def unique_fields(self):
+        validator = self.validator
+        if validator is not None:
+            return validator.unique_fields
+
+    @cached
+    def get_required_fields(self, index: str) -> List[dict]:
+        validator = self.validator
+        if validator is not None:
+            return validator.get_required_fields(index or [])
 
 
 @dataclass(frozen=True)
@@ -407,7 +476,8 @@ class BaseRuleContents(ABC):
     @property
     def is_dirty(self) -> Optional[bool]:
         """Determine if the rule has changed since its version was locked."""
-        existing_sha256 = self.version_lock.get_locked_hash(self.id, self.metadata.get('min_stack_version'))
+        min_stack = self.metadata.get('min_stack_version') or str(get_min_supported_stack_version(drop_patch=True))
+        existing_sha256 = self.version_lock.get_locked_hash(self.id, min_stack)
 
         if existing_sha256 is not None:
             return existing_sha256 != self.sha256()
@@ -415,7 +485,8 @@ class BaseRuleContents(ABC):
     @property
     def latest_version(self) -> Optional[int]:
         """Retrieve the latest known version of the rule."""
-        return self.version_lock.get_locked_version(self.id, self.metadata.get('min_stack_version'))
+        min_stack = self.metadata.get('min_stack_version') or str(get_min_supported_stack_version(drop_patch=True))
+        return self.version_lock.get_locked_version(self.id, min_stack)
 
     @property
     def autobumped_version(self) -> Optional[int]:
@@ -426,8 +497,7 @@ class BaseRuleContents(ABC):
 
         return version + 1 if self.is_dirty else version
 
-    @staticmethod
-    def _post_dict_transform(obj: dict) -> dict:
+    def _post_dict_transform(self, obj: dict) -> dict:
         """Transform the converted API in place before sending to Kibana."""
 
         # cleanup the whitespace in the rule
@@ -503,6 +573,59 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def type(self) -> str:
         return self.data.type
 
+    def _post_dict_transform(self, obj: dict) -> dict:
+        """Transform the converted API in place before sending to Kibana."""
+        super()._post_dict_transform(obj)
+
+        self.add_related_integrations(obj)
+        self.add_required_fields(obj)
+        self.add_setup(obj)
+
+        # validate new fields against the schema
+        rule_type = obj['type']
+        subclass = self.get_data_subclass(rule_type)
+        subclass.from_dict(obj)
+
+        return obj
+
+    def add_related_integrations(self, obj: dict) -> None:
+        """Add restricted field related_integrations to the obj."""
+        # field_name = "related_integrations"
+        ...
+
+    def add_required_fields(self, obj: dict) -> None:
+        """Add restricted field required_fields to the obj, derived from the query AST."""
+        if isinstance(self.data, QueryRuleData) and self.data.language != 'lucene':
+            index = obj.get('index') or []
+            required_fields = self.data.get_required_fields(index)
+        else:
+            required_fields = []
+
+        field_name = "required_fields"
+        if self.check_restricted_field_version(field_name=field_name):
+            obj.setdefault(field_name, required_fields)
+
+    def add_setup(self, obj: dict) -> None:
+        """Add restricted field setup to the obj."""
+        # field_name = "setup"
+        ...
+
+    def check_explicit_restricted_field_version(self, field_name: str) -> bool:
+        """Explicitly check restricted fields against global min and max versions."""
+        min_stack, max_stack = BUILD_FIELD_VERSIONS[field_name]
+        return self.compare_field_versions(min_stack, max_stack)
+
+    def check_restricted_field_version(self, field_name: str) -> bool:
+        """Check restricted fields against schema min and max versions."""
+        min_stack, max_stack = self.data.get_restricted_fields.get(field_name)
+        return self.compare_field_versions(min_stack, max_stack)
+
+    def compare_field_versions(self, min_stack: Version, max_stack: Version) -> bool:
+        """Check current rule version is witihin min and max stack versions."""
+        current_version = Version(load_current_package_version())
+        max_stack = max_stack or current_version
+        return Version(min_stack) <= current_version >= Version(max_stack)
+
     @validates_schema
     def validate_query(self, value: dict, **kwargs):
         """Validate queries by calling into the validator for the relevant method."""
@@ -528,12 +651,30 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def to_api_format(self, include_version=True) -> dict:
         """Convert the TOML rule to the API format."""
         converted = self.data.to_dict()
+        converted = self._post_dict_transform(converted)
+
         if include_version:
             converted["version"] = self.autobumped_version
 
-        converted = self._post_dict_transform(converted)
-
         return converted
+
+    def check_restricted_fields_compatibility(self) -> Dict[str, dict]:
+        """Check for compatibility between restricted fields and the min_stack_version of the rule."""
+        default_min_stack = get_min_supported_stack_version(drop_patch=True)
+        if self.metadata.min_stack_version is not None:
+            min_stack = Version(self.metadata.min_stack_version)
+        else:
+            min_stack = default_min_stack
+        restricted = self.data.get_restricted_fields
+
+        invalid = {}
+        for _field, values in restricted.items():
+            if self.data.get(_field) is not None:
+                min_allowed, _ = values
+                if min_stack < min_allowed:
+                    invalid[_field] = {'min_stack_version': min_stack, 'min_allowed_version': min_allowed}
+
+        return invalid
 
 
 @dataclass

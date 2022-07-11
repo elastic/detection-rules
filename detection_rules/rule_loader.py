@@ -270,20 +270,14 @@ class RuleCollection(BaseCollection):
 
     def load_git_tag(self, branch: str, remote: Optional[str] = None, skip_query_validation=False):
         """Load rules from a Git branch."""
-        from .version_lock import VersionLock
-
-        commit_hash, v_lock, d_lock = load_locks_from_tag(remote, branch)
-
-        v_lock_name_prefix = f'{remote}/' if remote else ''
-        v_lock_name = f'{v_lock_name_prefix}{branch}-{commit_hash}'
-
-        version_lock = VersionLock(version_lock=v_lock, deprecated_lock=d_lock, name=v_lock_name)
-        self._version_lock = version_lock
+        from .version_lock import VersionLock, add_rule_types_to_lock
 
         git = utils.make_git()
         rules_dir = DEFAULT_RULES_DIR.relative_to(get_path("."))
         paths = git("ls-tree", "-r", "--name-only", branch, rules_dir).splitlines()
 
+        rule_contents = []
+        rule_map = {}
         for path in paths:
             path = Path(path)
             if path.suffix != ".toml":
@@ -295,6 +289,23 @@ class RuleCollection(BaseCollection):
             if skip_query_validation:
                 toml_dict['metadata']['query_schema_validation'] = False
 
+            rule_contents.append((toml_dict, path))
+            rule_map[toml_dict['rule']['rule_id']] = toml_dict
+
+        commit_hash, v_lock, d_lock = load_locks_from_tag(remote, branch)
+
+        v_lock_name_prefix = f'{remote}/' if remote else ''
+        v_lock_name = f'{v_lock_name_prefix}{branch}-{commit_hash}'
+
+        # For backwards compatibility with tagged branches that existed before the types were added and validation
+        # enforced, we will need to manually add the rule types to the version lock allow them to pass validation.
+        v_lock = add_rule_types_to_lock(v_lock, rule_map)
+
+        version_lock = VersionLock(version_lock=v_lock, deprecated_lock=d_lock, name=v_lock_name)
+        self._version_lock = version_lock
+
+        for rule_content in rule_contents:
+            toml_dict, path = rule_content
             try:
                 self.load_dict(toml_dict, path)
             except ValidationError as e:
@@ -345,10 +356,10 @@ class RuleCollection(BaseCollection):
         new_rules = {}
         newly_deprecated = {}
 
-        pre_versions_hash = utils.dict_hash(self._version_lock.version_lock)
-        post_versions_hash = utils.dict_hash(other._version_lock.version_lock)
-        pre_deprecated_hash = utils.dict_hash(self._version_lock.deprecated_lock)
-        post_deprecated_hash = utils.dict_hash(other._version_lock.deprecated_lock)
+        pre_versions_hash = utils.dict_hash(self._version_lock.version_lock.to_dict())
+        post_versions_hash = utils.dict_hash(other._version_lock.version_lock.to_dict())
+        pre_deprecated_hash = utils.dict_hash(self._version_lock.deprecated_lock.to_dict())
+        post_deprecated_hash = utils.dict_hash(other._version_lock.deprecated_lock.to_dict())
 
         if pre_versions_hash == post_versions_hash and pre_deprecated_hash == post_deprecated_hash:
             return changed_rules, new_rules, newly_deprecated

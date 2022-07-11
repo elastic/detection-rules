@@ -11,6 +11,9 @@ on:
       - closed
 
 jobs:
+  get-branches:
+    uses: ./.github/workflows/get-target-branches.yml
+
   label:
     runs-on: ubuntu-latest
     if: |
@@ -51,12 +54,13 @@ jobs:
         (github.event.action == 'labeled' && github.event.label.name == 'backport: auto')
         || (github.event.action == 'closed')
       )
+    needs: get-branches
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 1
       matrix:
         # 7.17 was intentionally skipped because it was added late and was bug fix only
-        target_branch: [7.13, 7.14, 7.15, 7.16, '8.0', 8.1, 8.2]
+        target_branch: ${{ fromJSON(needs.get-branches.outputs.branches) }}
 
     steps:
       - name: Checkout repo
