@@ -276,18 +276,16 @@ class VersionLock:
                     #       We can still inspect the version lock manually after locks are made,
                     #       since it's a good summary of everything that happens
 
-                    new_min_version = max([x['version'] for x in lock_from_file['previous'].values()])
+                    new_min_version = lock_from_file["previous"][str(min_stack)]['version']
                     new_max_version = lock_from_file["version"]
 
                     # leave half the space between the older forked version and next
                     # available version since we're updating a forked rule within stacked versions
-                    new_buffer_version = (new_max_version - new_min_version) / 2
+                    new_buffer_version = int((new_max_version - new_min_version) / 2)
 
-                    if new_buffer_version <= 1:
-                        # we're out of buffer space
-                        raise ValueError(f'Out of buffer space on {rule.id} '
-                                         f'when trying to bump to {lock_from_rule["version"]}. '
-                                         f'Please deprecate rule {rule.id} and create a new rule.')
+                    if new_buffer_version >= 1:
+                        # bump buffer space
+                        lock_from_rule["version"] = lock_from_rule["version"] + new_buffer_version
 
                     # if version bump collides with future bump, fail
                     # if space, change and log
