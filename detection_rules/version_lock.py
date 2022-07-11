@@ -171,7 +171,7 @@ class VersionLock:
 
     def manage_versions(self, rules: RuleCollection,
                         exclude_version_update=False, save_changes=False,
-                        verbose=True) -> (List[str], List[str], List[str]):
+                        verbose=True, buffer_int: int = 99) -> (List[str], List[str], List[str]):
         """Update the contents of the version.lock file and optionally save changes."""
         from .packaging import current_stack_version
 
@@ -251,8 +251,12 @@ class VersionLock:
                     # move the current locked info into the previous section
                     lock_from_file["previous"][str(latest_locked_stack_version)] = previous_lock_info
 
+                    # preserve buffer space to support forked version spacing
+                    if exclude_version_update:
+                        buffer_int += 1
+                    lock_from_file["version"] = lock_from_file["version"] + buffer_int
+
                     # overwrite the "latest" part of the lock at the top level
-                    # TODO: would need to preserve space here as well if supporting forked version spacing
                     lock_from_file.update(lock_from_rule, min_stack_version=str(min_stack))
                     new_version = lock_from_rule['version']
                     log_changes(
@@ -267,10 +271,23 @@ class VersionLock:
                     assert str(min_stack) in lock_from_file.get("previous", {}), \
                         f"Expected {rule.id} @ v{min_stack} in the rule lock"
 
-                    # TODO: Figure out whether we support locking old versions and if we want to
+                    # Support locking old versions if we have buffer space in between
                     #       "leave room" by skipping versions when breaking changes are made.
                     #       We can still inspect the version lock manually after locks are made,
                     #       since it's a good summary of everything that happens
+
+                    new_min_version = max([x['version'] for x in lock_from_file['previous'].values()])
+                    new_max_version = lock_from_file["version"]
+
+                    # leave half the space between the older forked version and next
+                    # available version since we're updating a forked rule within stacked versions
+                    new_buffer_version = (new_max_version - new_min_version) / 2
+
+                    if new_buffer_version <= 1:
+                        # we're out of buffer space
+                        raise ValueError(f'Out of buffer space on {rule.id} '
+                                         f'when trying to bump to {lock_from_rule["version"]}. '
+                                         f'Please deprecate rule {rule.id} and create a new rule.')
 
                     # if version bump collides with future bump, fail
                     # if space, change and log
