@@ -17,10 +17,10 @@ exit 0
 fi
 
 echo "Create the new commit with the same author"
-git commit --reuse-message ${TARGET_BRANCH}
+git commit --reuse-message ${COMMIT_SHA}
 
 echo "Save the commit message"
-git log ${TARGET_BRANCH} --format=%B -n1 > $COMMIT_MSG_FILE
+git log ${COMMIT_SHA} --format=%B -n1 > $COMMIT_MSG_FILE
 
 echo "Append to the commit message"
 if [ -s "$UNSTAGED_LIST_FILE" ]
@@ -31,12 +31,12 @@ echo "" >> $COMMIT_MSG_FILE
 echo "Removed changes from:" >> $COMMIT_MSG_FILE
 awk '{print "- " $0}' $UNSTAGED_LIST_FILE >> $COMMIT_MSG_FILE
 echo "" >> $COMMIT_MSG_FILE
-echo '(selectively cherry picked from commit ${TARGET_BRANCH})' >> $COMMIT_MSG_FILE
+echo '(selectively cherry picked from commit ${COMMIT_SHA})' >> $COMMIT_MSG_FILE
 else
 echo "No removed files"
 
 echo "" >> $COMMIT_MSG_FILE
-echo '(cherry picked from commit ${TARGET_BRANCH})' >> $COMMIT_MSG_FILE
+echo '(cherry picked from commit ${COMMIT_SHA})' >> $COMMIT_MSG_FILE
 fi
 
 echo "Amend the commit message and push"
