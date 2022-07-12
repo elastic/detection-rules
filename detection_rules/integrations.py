@@ -132,4 +132,4 @@ def get_integration_manifests(repository, sha: str, package_path: str) -> dict:
         manifest_content = yaml.safe_load(repository.get_contents(path, ref=sha).decoded_content.decode())
         manifests.append(manifest_content)
 
-    return(manifests)
+    return manifests
