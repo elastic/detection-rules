@@ -1102,4 +1102,4 @@ def integrations_group():
               help="GitHub token to use for the PR", hide_input=True)
 def build_integration_manifests(overwrite: bool, token: str):
     """Builds integrations manifests file"""
-    IntegrationPackages.build_integrations_manifest(github_token, overwrite)
+    IntegrationPackages.build_integrations_manifest(token, overwrite)
