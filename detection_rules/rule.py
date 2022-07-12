@@ -28,8 +28,8 @@ from .rule_formatter import toml_write, nested_normalize
 from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas, get_min_supported_stack_version
 from .schemas.stack_compat import get_restricted_fields
 from .semver import Version
-from .utils import cached, load_gzip_dump, get_etc_path
-from .integrations import IntegrationPackages
+from .utils import cached, read_gzip, get_etc_path
+from .integrations import find_least_compatible_version
 
 BUILD_FIELD_VERSIONS = {"required_fields": (Version('8.3'), None),
                         "related_integrations": (Version('8.3'), None)}
@@ -598,12 +598,11 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     def add_related_integrations(self, obj: dict) -> None:
         """Add restricted field add_related_integrations to the obj"""
-
         field_name = "related_integrations"
         package_integrations = obj.get(field_name, [])
 
         if self.metadata.integration:
-            packages_manifest = load_gzip_dump(get_etc_path('integration-manifests.json.gz'))
+            packages_manifest = json.loads(read_gzip(get_etc_path('integration-manifests.json.gz')))
             current_stack_version = load_current_package_version()
 
             if self.check_restricted_field_version(field_name):
@@ -611,7 +610,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                     package_integrations = self.get_packaged_integrations(self.data.ast, packages_manifest)
 
                     for package in package_integrations:
-                        package["version"] = IntegrationPackages.find_least_compatible_version(
+                        package["version"] = find_least_compatible_version(
                             package=package["package"],
                             integration=package["integration"],
                             current_stack_version=current_stack_version,
@@ -619,8 +618,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
                         # if integration is not a policy template remove
                         policy_templates = packages_manifest[package["package"]][package["version"]]["policy_templates"]
-                        policy_template_names = [p["name"] for p in policy_templates]
-                        if package["integration"] not in policy_template_names:
+                        if package["integration"] not in policy_templates:
                             del package["integration"]
 
         obj.setdefault("related_integrations", package_integrations)

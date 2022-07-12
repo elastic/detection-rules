@@ -112,12 +112,6 @@ def load_etc_dump(*path):
     return eql.utils.load_dump(get_etc_path(*path))
 
 
-def load_gzip_dump(*path):
-    """Load a gzip file"""
-    with gzip.open(path[0], 'r') as f:
-        return json.loads(f.read().decode('utf-8'))
-
-
 def save_etc_dump(contents, *path, **kwargs):
     """Load a json/yml/toml file from the detection_rules/etc/ folder."""
     path = get_etc_path(*path)
