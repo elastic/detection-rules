@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/09/22"
-maturity = "production"
-updated_date = "2021/07/20"
 integration = "gcp"
+maturity = "production"
+updated_date = "2022/07/13"
 
 [rule]
 author = ["Elastic"]
@@ -29,11 +29,30 @@ references = ["https://cloud.google.com/vpc/docs/routes", "https://cloud.google.
 risk_score = 47
 rule_id = "a17bcc91-297b-459b-b5ce-bc7460d8f82a"
 severity = "medium"
-tags = ["Elastic", "Cloud", "GCP", "Continuous Monitoring", "SecOps", "Configuration Audit"]
+tags = ["Elastic", "Cloud", "GCP", "Continuous Monitoring", "SecOps", "Configuration Audit", "Defense Evasion"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
 event.dataset:(googlecloud.audit or gcp.audit) and event.action:v*.compute.routes.delete and event.outcome:success
 '''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.007"
+name = "Disable or Modify Cloud Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 
