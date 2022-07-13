@@ -24,7 +24,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and process.name : ("cp", "rsync") and process.args : ("/lib/x86_64-linux-gnu/ld-linux-x86-64.so.*")
+sequence by process.entity_id with maxspan=1m
+[process where event.type == "start" and process.name : ("cp", "rsync") and process.args : ("/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/etc/ld.so.preload")]
+[file where event.action == "creation" and file.extension == "so"]
 '''
 
 [[rule.threat]]
