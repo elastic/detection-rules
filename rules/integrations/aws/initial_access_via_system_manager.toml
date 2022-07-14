@@ -29,7 +29,7 @@ note = """## Triage and analysis
 ### Investigating AWS Execution via System Manager
 
 Amazon EC2 Systems Manager is a management service designed to help users automatically collect software inventory, apply
-OS patches, create system images, and configure Windows and Linux operating systems.
+operating system patches, create system images, and configure Windows and Linux operating systems.
 
 This rule looks for the execution of commands and scripts using System Manager. Note that the actual content of these
 scripts and commands are not included in the event, so analysts must gain visibility using an host-level security product.
@@ -38,20 +38,20 @@ scripts and commands are not included in the event, so analysts must gain visibi
 
 - Identify the user account that performed the action and whether it should perform this kind of action.
 - Investigate other alerts associated with the user account during the past 48 hours.
-- Validate the activity is not related to planned patches, updates, network administrator activity, or legitimate
+- Validate that the activity is not related to planned patches, updates, network administrator activity, or legitimate
 software installations.
 - Investigate the commands or scripts using host-level visibility.
-- Considering the source IP address and geolocation for the calling user who issued the command:
+- Considering the source IP address and geolocation of the calling user who issued the command:
     - Do they look normal for the calling user?
-    - If the source is an EC2 IP address, is it associated with an EC2 instance in one of your accounts, or could
+    - If the source is an EC2 IP address, is it associated with an EC2 instance in one of your accounts or could
     it be sourcing from an EC2 instance that's not under your control?
     - If it is an authorized EC2 instance, is the activity associated with normal behavior for the instance role or roles?
     Are there any other alerts or signs of suspicious activity involving this instance?
 - Assess whether this behavior is prevalent in the environment by looking for similar occurrences involving other users.
 - Contact the account owner and confirm whether they are aware of this activity.
 - Check if this operation is done under change management and approved according to the organization's policy.
-- If the account is suspected to have been compromised, track access to servers, services, and data accessed by the
-account in the last 24 hours to scope potentially compromised assets.
+- If you suspect the account has been compromised, scope potentially compromised assets by tracking access to servers,
+services, and data accessed by the account in the last 24 hours.
 
 ### False positive analysis
 
@@ -61,7 +61,7 @@ of user and IP address conditions.
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
-- Identify the possible impact of the incident and prioritize accordingly, the following actions can help to get context:
+- Identify the possible impact of the incident and prioritize accordingly, the following actions can help you gain context:
     - Identify the account role in the cloud environment.
     - Identify the services or servers involved criticality.
     - Work with your IT team to identify the impact on users.
@@ -71,11 +71,11 @@ of user and IP address conditions.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
 identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with
 your IT teams to minimize the impact on the business operation during these actions.
-- Validate if any unauthorized new users were created, remove these accounts and request password resets for other IAM users.
-- Look into enabling multi-factor authentication for users.
+- Check if unauthorized new users were created, remove new unauthorized accounts, and request password resets for other IAM users.
+- Consider enabling multi-factor authentication for users.
 - Review the permissions assigned to the user to ensure that the least privilege principle is being followed.
 - Follow security best practices [outlined](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/) by AWS.
-- Take the actions needed to return systems, data or services affected to their normal operational levels.
+- Take the actions needed to return systems, data, or services affected to their normal operational levels.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
 mean time to respond (MTTR).
