@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/05/20"
 maturity = "production"
-updated_date = "2021/07/20"
+updated_date = "2022/07/14"
 integration = "aws"
 
 [rule]
@@ -23,7 +23,65 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS CloudWatch Log Stream Deletion"
-note = """## Config
+note = """## Triage and analysis
+
+### Investigating AWS CloudWatch Log Stream Deletion
+
+Amazon CloudWatch is a monitoring and observability service that collects monitoring and operational data in the form of
+logs, metrics, and events. This data can be used to detect anomalous behavior in your environments, set alarms, visualize
+logs and metrics side by side, take automated actions, troubleshoot issues, and discover insights to keep your
+applications running smoothly.
+
+A log stream is a sequence of log events that share the same source. Each separate source of logs in CloudWatch Logs
+makes up a separate log stream.
+
+This rule looks for the deletion of a log stream using the API `DeleteLogStream` action. Attackers can do this to cover
+their tracks and impact security monitoring that relies on these sources.
+
+#### Possible investigation steps
+
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Investigate other alerts associated with the user account during the past 48 hours.
+- Contact the account and resource owners and confirm whether they are aware of this activity.
+- Check if this operation is done under change management and approved according to the organization's policy.
+- Considering the source IP address and geolocation for the calling user who issued the command:
+    - Do they look normal for the calling user?
+    - If the source is an EC2 IP address, is it associated with an EC2 instance in one of your accounts, or could
+    it be sourcing from an EC2 instance that's not under your control?
+    - If it is an authorized EC2 instance, is the activity associated with normal behavior for the instance role or roles?
+    Are there any other alerts or signs of suspicious activity involving this instance?
+- Investigate the deleted log stream's criticality and whether the responsible team is aware of the deletion.
+- If the account is suspected to have been compromised, track access to servers, services, and data accessed by the
+account in the last 24 hours to scope potentially compromised assets.
+
+### False positive analysis
+
+- If this activity is expected and noisy in your environment, consider adding exceptions — preferably with a combination
+of user and IP address conditions.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Identify the possible impact of the incident and prioritize accordingly, the following actions can help to get context:
+    - Identify the account role in the cloud environment.
+    - Identify the services or servers involved criticality.
+    - Work with your IT team to identify the impact on users.
+    - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
+    - Identify if there are any regulatory or legal ramifications related to this activity.
+- Disable or limit the account during the investigation and response.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with
+your IT teams to minimize the impact on the business operation during these actions.
+- Validate if any unauthorized new users were created, remove these accounts and request password resets for other IAM users.
+- Look into enabling multi-factor authentication for users.
+- Review the permissions assigned to the user to ensure that the least privilege principle is being followed.
+- Follow security best practices [outlined](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/) by AWS.
+- Take the actions needed to return systems, data or services affected to their normal operational levels.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
+
+## Config
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -33,7 +91,7 @@ references = [
 risk_score = 47
 rule_id = "d624f0ae-3dd1-4856-9aad-ccfe4d4bfa17"
 severity = "medium"
-tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Log Auditing"]
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Log Auditing", "Impact"]
 timestamp_override = "event.ingested"
 type = "query"
 
