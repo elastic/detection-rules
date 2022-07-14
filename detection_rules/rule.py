@@ -728,7 +728,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                 setup.append(f"```\n{self._get_setup_content(child.children)}\n```")
                 setup.append("\n")
             elif child.get_type() == "RawText":
-                setup.append(gfm.renderer.render_raw_text(child))
+                setup.append(child.children)
             elif child.get_type() == "Heading" and child.level >= 2:
                 break
             else:
