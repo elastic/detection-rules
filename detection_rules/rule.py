@@ -194,7 +194,6 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     setup: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.3")))
     severity_mapping: Optional[List[SeverityMapping]]
     severity: definitions.Severity
-    # skip_setup_validation: Optional[bool]
     tags: Optional[List[str]]
     throttle: Optional[str]
     timeline_id: Optional[definitions.TimelineTemplateId]
@@ -229,7 +228,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
 
     @cached_property
     def data_validator(self) -> Optional['DataValidator']:
-        return DataValidator(**self.to_dict())
+        return DataValidator(is_elastic_rule=self.is_elastic_rule, **self.to_dict())
 
     @cached_property
     def parsed_note(self) -> Optional[MarkoDocument]:
@@ -237,18 +236,24 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         if dv:
             return dv.parsed_note
 
+    @property
+    def is_elastic_rule(self):
+        return 'elastic' in [a.lower() for a in self.author]
+
 
 class DataValidator:
     """Additional validation beyond base marshmallow schema validation."""
 
     def __init__(self,
                  name: definitions.RuleName,
+                 is_elastic_rule: bool,
                  note: Optional[definitions.Markdown] = None,
                  setup: Optional[str] = None,
                  **extras):
         # only define fields needing additional validation
-        self.note = note
         self.name = name
+        self.is_elastic_rule = is_elastic_rule
+        self.note = note
         self.setup = setup
 
         self._setup_in_note = False
@@ -267,11 +272,8 @@ class DataValidator:
         self._setup_in_note = value
 
     def validate_note(self):
-        if not self.note:
+        if not (self.is_elastic_rule and self.note):
             return
-
-        # TODO: remove this as a field and make it a global flag
-        # skip_setup_validation = data.get("skip_setup_validation", False)
 
         try:
             for child in self.parsed_note.children:
@@ -693,7 +695,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if not self.check_explicit_restricted_field_version(field_name):
             return
 
-        if self.data.data_validator.setup_in_note and not field_value:
+        data_validator = self.data.data_validator
+
+        if data_validator.setup_in_note and data_validator.is_elastic_rule and not field_value:
             parsed_note = self.data.parsed_note
 
             # parse note tree
@@ -702,7 +706,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                     field_value = self._get_setup_content(parsed_note.children[i + 1:])
 
                     # clean up old note field
-                    investigation_guide = rule_note.replace(f"## Setup\n\n{field_value}", "").strip()
+                    investigation_guide = rule_note.replace("## Setup\n\n", "")
+                    investigation_guide = investigation_guide.replace(field_value, "").strip()
                     obj["note"] = investigation_guide
                     obj[field_name] = field_value
                     break
