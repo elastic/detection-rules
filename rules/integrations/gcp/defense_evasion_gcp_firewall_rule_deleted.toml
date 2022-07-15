@@ -1,15 +1,15 @@
 [metadata]
 creation_date = "2020/09/21"
-maturity = "production"
-updated_date = "2021/07/20"
 integration = "gcp"
+maturity = "production"
+updated_date = "2021/07/15"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when a firewall rule is deleted in Google Cloud Platform (GCP). Virtual Private Cloud (VPC) firewall rules
-can be configured to allow or deny connections to or from virtual machine (VM) instances. An adversary may delete a
-firewall rule in order to weaken their target's security controls.
+Identifies when a firewall rule is deleted in Google Cloud Platform (GCP) for Virtual Private Cloud (VPC) or App Engine.
+These firewall rules can be configured to allow or deny connections to or from virtual machine (VM) instances or
+specific applications. An adversary may delete a firewall rule in order to weaken their target's security controls.
 """
 false_positives = [
     """
@@ -24,7 +24,10 @@ name = "GCP Firewall Rule Deletion"
 note = """## Config
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
-references = ["https://cloud.google.com/vpc/docs/firewalls"]
+references = [
+    "https://cloud.google.com/vpc/docs/firewalls",
+    "https://cloud.google.com/appengine/docs/standard/python/understanding-firewalls",
+]
 risk_score = 47
 rule_id = "ff9b571e-61d6-4f6c-9561-eb4cca3bafe1"
 severity = "medium"
@@ -33,7 +36,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:(googlecloud.audit or gcp.audit) and event.action:v*.compute.firewalls.delete
+event.dataset:gcp.audit and event.action:(v*.compute.firewalls.delete or google.appengine.v*.Firewall.Delete*Rule)
 '''
 
 
