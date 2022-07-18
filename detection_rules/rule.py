@@ -683,7 +683,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         else:
             raise Exception(f"{type(ast_obj)} type for rule {self.name} is unknown.")
 
-        return(packaged_integrations)
+        return packaged_integrations
 
     @validates_schema
     def validate_query(self, value: dict, **kwargs):
