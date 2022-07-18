@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/07/01"
 maturity = "production"
-updated_date = "2021/07/20"
+updated_date = "2022/07/18"
 integration = "okta"
 
 [rule]
@@ -31,7 +31,8 @@ references = [
 risk_score = 47
 rule_id = "cd16fb10-0261-46e8-9932-a0336278cdbe"
 severity = "medium"
-tags = ["Elastic", "Identity", "Okta", "Continuous Monitoring", "SecOps", "Identity and Access"]
+tags = ["Elastic", "Identity", "Okta", "Continuous Monitoring", "SecOps",
+    "Identity and Access", "Persistence"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -39,3 +40,15 @@ query = '''
 event.dataset:okta.system and event.action:(application.policy.sign_on.update or application.policy.sign_on.rule.delete)
 '''
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
