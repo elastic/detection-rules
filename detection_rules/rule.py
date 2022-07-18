@@ -656,7 +656,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         max_stack = max_stack or current_version
         return Version(min_stack) <= current_version >= Version(max_stack)
 
-    def get_packaged_integrations(self, ast_obj: dict, pkg_manifest: dict) -> List[dict]:
+    def get_packaged_integrations(self, ast_obj: Union[kql.ast.Expression, eql.ast.Expression], pkg_manifest: dict) -> List[dict]:
         packaged_integrations = list()
 
         if isinstance(ast_obj, kql.ast.AndExpr):
