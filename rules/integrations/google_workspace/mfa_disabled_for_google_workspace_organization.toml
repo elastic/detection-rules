@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/17"
 maturity = "production"
-updated_date = "2022/01/13"
+updated_date = "2022/07/17"
 integration = "google_workspace"
 min_stack_comments = "Google Workspace schema deprecated gsuite fields in 8.0"
 min_stack_version = "8.0"
@@ -39,11 +39,25 @@ The Google Workspace Fleet integration, Filebeat module, or similarly structured
 risk_score = 47
 rule_id = "e555105c-ba6d-481f-82bb-9b633e7b4827"
 severity = "medium"
-tags = ["Elastic", "Cloud", "Google Workspace", "Continuous Monitoring", "SecOps", "Identity and Access"]
+tags = ["Elastic", "Cloud", "Google Workspace", "Continuous Monitoring", "SecOps",
+  "Identity and Access", "Persistence"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
 event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:(ENFORCE_STRONG_AUTHENTICATION or ALLOW_STRONG_AUTHENTICATION) and google_workspace.admin.new_value:false
 '''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 
