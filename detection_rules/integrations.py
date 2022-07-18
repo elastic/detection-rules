@@ -69,7 +69,7 @@ def find_least_compatible_version(package: str, integration: str,
         int_major, int_minor = Version(int_ver)[:2]
 
         if int(int_major) < int(pkg_major) or int(pkg_major) > int(int_major):
-            return(False)
+            return False
         compatible = Version(int_ver) <= Version(pkg_ver)
         return compatible
 
