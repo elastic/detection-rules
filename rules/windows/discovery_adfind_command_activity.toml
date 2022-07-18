@@ -61,7 +61,7 @@ malware components.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
 mean time to respond (MTTR).
 
-## Config
+## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -81,12 +81,12 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and 
-  (process.name : "AdFind.exe" or process.pe.original_file_name == "AdFind.exe") and 
-  process.args : ("objectcategory=computer", "(objectcategory=computer)", 
+process where event.type in ("start", "process_started") and
+  (process.name : "AdFind.exe" or process.pe.original_file_name == "AdFind.exe") and
+  process.args : ("objectcategory=computer", "(objectcategory=computer)",
                   "objectcategory=person", "(objectcategory=person)",
                   "objectcategory=subnet", "(objectcategory=subnet)",
-                  "objectcategory=group", "(objectcategory=group)", 
+                  "objectcategory=group", "(objectcategory=group)",
                   "objectcategory=organizationalunit", "(objectcategory=organizationalunit)",
                   "objectcategory=attributeschema", "(objectcategory=attributeschema)",
                   "domainlist", "dcmodes", "adinfo", "dclist", "computers_pwnotreqd", "trustdmp")
