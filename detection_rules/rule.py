@@ -17,19 +17,14 @@ from uuid import uuid4
 
 import eql
 import kql
+from kql.ast import FieldComparison
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
 from marshmallow import ValidationError, validates_schema
 
-<<<<<<< HEAD
-import kql
-from kql.ast import FieldComparison
-from . import beats
-from . import ecs
-from . import utils
-=======
 from . import beats, ecs, utils
->>>>>>> main
+from .integrations import (find_least_compatible_version,
+                           load_integrations_manifests)
 from .misc import load_current_package_version
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
@@ -38,13 +33,7 @@ from .schemas import (SCHEMA_DIR, definitions, downgrade,
 from .schemas.stack_compat import get_restricted_fields
 from .semver import Version
 from .utils import cached
-from .integrations import find_least_compatible_version, load_integrations_manifests
 
-<<<<<<< HEAD
-BUILD_FIELD_VERSIONS = {"required_fields": (Version('8.3'), None),
-                        "related_integrations": (Version('8.3'), None)}
-=======
->>>>>>> main
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
 
