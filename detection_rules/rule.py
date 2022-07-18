@@ -6,32 +6,38 @@
 import copy
 import dataclasses
 import json
+import os
 import typing
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
-from typing import Literal, Union, Optional, List, Any, Dict, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from uuid import uuid4
 
 import eql
+import kql
+from marko.block import Document as MarkoDocument
+from marko.ext.gfm import gfm
 from marshmallow import ValidationError, validates_schema
 
-import kql
-from . import beats
-from . import ecs
-from . import utils
+from . import beats, ecs, utils
 from .misc import load_current_package_version
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
-from .rule_formatter import toml_write, nested_normalize
-from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas, get_min_supported_stack_version
+from .rule_formatter import nested_normalize, toml_write
+from .schemas import (SCHEMA_DIR, definitions, downgrade,
+                      get_min_supported_stack_version, get_stack_schemas)
 from .schemas.stack_compat import get_restricted_fields
 from .semver import Version
 from .utils import cached
 
-BUILD_FIELD_VERSIONS = {"required_fields": (Version('8.3'), None)}
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
+
+BUILD_FIELD_VERSIONS = {
+    "required_fields": (Version('8.3'), None),
+    "setup": (Version("8.3"), None)
+}
 
 
 @dataclass(frozen=True)
@@ -220,6 +226,89 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         """Get stack version restricted fields."""
         fields: List[dataclasses.Field, ...] = list(dataclasses.fields(self))
         return get_restricted_fields(fields)
+
+    @cached_property
+    def data_validator(self) -> Optional['DataValidator']:
+        return DataValidator(is_elastic_rule=self.is_elastic_rule, **self.to_dict())
+
+    @cached_property
+    def parsed_note(self) -> Optional[MarkoDocument]:
+        dv = self.data_validator
+        if dv:
+            return dv.parsed_note
+
+    @property
+    def is_elastic_rule(self):
+        return 'elastic' in [a.lower() for a in self.author]
+
+
+class DataValidator:
+    """Additional validation beyond base marshmallow schema validation."""
+
+    def __init__(self,
+                 name: definitions.RuleName,
+                 is_elastic_rule: bool,
+                 note: Optional[definitions.Markdown] = None,
+                 setup: Optional[str] = None,
+                 **extras):
+        # only define fields needing additional validation
+        self.name = name
+        self.is_elastic_rule = is_elastic_rule
+        self.note = note
+        self.setup = setup
+
+        self._setup_in_note = False
+
+    @cached_property
+    def parsed_note(self) -> Optional[MarkoDocument]:
+        if self.note:
+            return gfm.parse(self.note)
+
+    @property
+    def setup_in_note(self):
+        return self._setup_in_note
+
+    @setup_in_note.setter
+    def setup_in_note(self, value: bool):
+        self._setup_in_note = value
+
+    @cached_property
+    def skip_validate_note(self) -> bool:
+        return os.environ.get('DR_BYPASS_NOTE_VALIDATION_AND_PARSE') is not None
+
+    def validate_note(self):
+        if self.skip_validate_note or not self.note:
+            return
+
+        try:
+            for child in self.parsed_note.children:
+                if child.get_type() == "Heading":
+                    header = gfm.renderer.render_children(child)
+
+                    if header.lower() == "setup":
+
+                        # check that the Setup header is correctly formatted at level 2
+                        if child.level != 2:
+                            raise ValidationError(f"Setup section with wrong header level: {child.level}")
+
+                        # check that the Setup header is capitalized
+                        if child.level == 2 and header != "Setup":
+                            raise ValidationError(f"Setup header has improper casing: {header}")
+
+                        self.setup_in_note = True
+
+                    else:
+                        # check that the header Config does not exist in the Setup section
+                        if child.level == 2 and "config" in header.lower():
+                            raise ValidationError(f"Setup header contains Config: {header}")
+
+        except Exception as e:
+            raise ValidationError(f"Invalid markdown in rule `{self.name}`: {e}. To bypass validation on the `note`"
+                                  f"field, use the environment variable `DR_BYPASS_NOTE_VALIDATION_AND_PARSE`")
+
+        # raise if setup header is in note and in setup
+        if self.setup_in_note and self.setup:
+            raise ValidationError("Setup header found in both note and setup fields.")
 
 
 @dataclass
@@ -577,14 +666,13 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         super()._post_dict_transform(obj)
 
         self.add_related_integrations(obj)
-        self.add_required_fields(obj)
-        self.add_setup(obj)
+        self._add_required_fields(obj)
+        self._add_setup(obj)
 
         # validate new fields against the schema
         rule_type = obj['type']
         subclass = self.get_data_subclass(rule_type)
         subclass.from_dict(obj)
-
         return obj
 
     def add_related_integrations(self, obj: dict) -> None:
@@ -592,7 +680,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         # field_name = "related_integrations"
         ...
 
-    def add_required_fields(self, obj: dict) -> None:
+    def _add_required_fields(self, obj: dict) -> None:
         """Add restricted field required_fields to the obj, derived from the query AST."""
         if isinstance(self.data, QueryRuleData) and self.data.language != 'lucene':
             index = obj.get('index') or []
@@ -604,10 +692,55 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if self.check_restricted_field_version(field_name=field_name):
             obj.setdefault(field_name, required_fields)
 
-    def add_setup(self, obj: dict) -> None:
+    def _add_setup(self, obj: dict) -> None:
         """Add restricted field setup to the obj."""
-        # field_name = "setup"
-        ...
+        rule_note = obj.get("note", "")
+        field_name = "setup"
+        field_value = obj.get(field_name)
+
+        if not self.check_explicit_restricted_field_version(field_name):
+            return
+
+        data_validator = self.data.data_validator
+
+        if not data_validator.skip_validate_note and data_validator.setup_in_note and not field_value:
+            parsed_note = self.data.parsed_note
+
+            # parse note tree
+            for i, child in enumerate(parsed_note.children):
+                if child.get_type() == "Heading" and "Setup" in gfm.render(child):
+                    field_value = self._get_setup_content(parsed_note.children[i + 1:])
+
+                    # clean up old note field
+                    investigation_guide = rule_note.replace("## Setup\n\n", "")
+                    investigation_guide = investigation_guide.replace(field_value, "").strip()
+                    obj["note"] = investigation_guide
+                    obj[field_name] = field_value
+                    break
+
+    @cached
+    def _get_setup_content(self, note_tree: list) -> str:
+        """Get note paragraph starting from the setup header."""
+        setup = []
+        for child in note_tree:
+            if child.get_type() == "BlankLine" or child.get_type() == "LineBreak":
+                setup.append("\n")
+            elif child.get_type() == "CodeSpan":
+                setup.append(f"`{gfm.renderer.render_raw_text(child)}`")
+            elif child.get_type() == "Paragraph":
+                setup.append(self._get_setup_content(child.children))
+                setup.append("\n")
+            elif child.get_type() == "FencedCode":
+                setup.append(f"```\n{self._get_setup_content(child.children)}\n```")
+                setup.append("\n")
+            elif child.get_type() == "RawText":
+                setup.append(child.children)
+            elif child.get_type() == "Heading" and child.level >= 2:
+                break
+            else:
+                setup.append(self._get_setup_content(child.children))
+
+        return "".join(setup).strip()
 
     def check_explicit_restricted_field_version(self, field_name: str) -> bool:
         """Explicitly check restricted fields against global min and max versions."""
@@ -619,19 +752,21 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         min_stack, max_stack = self.data.get_restricted_fields.get(field_name)
         return self.compare_field_versions(min_stack, max_stack)
 
-    def compare_field_versions(self, min_stack: Version, max_stack: Version) -> bool:
-        """Check current rule version is witihin min and max stack versions."""
+    @staticmethod
+    def compare_field_versions(min_stack: Version, max_stack: Version) -> bool:
+        """Check current rule version is within min and max stack versions."""
         current_version = Version(load_current_package_version())
         max_stack = max_stack or current_version
         return Version(min_stack) <= current_version >= Version(max_stack)
 
     @validates_schema
-    def validate_query(self, value: dict, **kwargs):
-        """Validate queries by calling into the validator for the relevant method."""
+    def post_validation(self, value: dict, **kwargs):
+        """Additional validations beyond base marshmallow schemas."""
         data: AnyRuleData = value["data"]
         metadata: RuleMeta = value["metadata"]
 
-        return data.validate_query(metadata)
+        data.validate_query(metadata)
+        data.data_validator.validate_note()
 
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
@@ -797,4 +932,4 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
 
 
 # avoid a circular import
-from .rule_validators import KQLValidator, EQLValidator  # noqa: E402
+from .rule_validators import EQLValidator, KQLValidator  # noqa: E402
