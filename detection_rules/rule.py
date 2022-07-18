@@ -6,6 +6,7 @@
 import copy
 import dataclasses
 import json
+import os
 import typing
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -271,8 +272,12 @@ class DataValidator:
     def setup_in_note(self, value: bool):
         self._setup_in_note = value
 
+    @cached_property
+    def skip_validate_note(self) -> bool:
+        return os.environ.get('DR_BYPASS_NOTE_VALIDATION_AND_PARSE') is not None
+
     def validate_note(self):
-        if not (self.is_elastic_rule and self.note):
+        if not (self.skip_validate_note or self.note):
             return
 
         try:
@@ -298,7 +303,8 @@ class DataValidator:
                             raise ValidationError(f"Setup header contains Config: {header}")
 
         except Exception as e:
-            raise ValidationError(f"Invalid markdown in rule `{self.name}`: {e}")
+            raise ValidationError(f"Invalid markdown in rule `{self.name}`: {e}. To bypass validation on the `note`"
+                                  f"field, use the environment variable `DR_BYPASS_NOTE_VALIDATION_AND_PARSE`")
 
         # raise if setup header is in note and in setup
         if self.setup_in_note and self.setup:
@@ -697,7 +703,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         data_validator = self.data.data_validator
 
-        if data_validator.setup_in_note and data_validator.is_elastic_rule and not field_value:
+        if not data_validator.skip_validate_note and data_validator.setup_in_note and not field_value:
             parsed_note = self.data.parsed_note
 
             # parse note tree
