@@ -71,7 +71,7 @@ def find_least_compatible_version(package: str, integration: str,
         if int(int_major) < int(pkg_major) or int(pkg_major) > int(int_major):
             return(False)
         compatible = Version(int_ver) <= Version(pkg_ver)
-        return(compatible)
+        return compatible
 
     for ver, manifest in integration_manifests.items():
         kibana_compat_vers = re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana.version"])
