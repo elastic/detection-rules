@@ -11,7 +11,7 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Svchost spawning Cmd"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -24,7 +24,7 @@ type = "eql"
 
 query = '''
 process where event.type == "start" and
-  process.parent.name : "svchost.exe" and process.name : "cmd.exe" and 
+  process.parent.name : "svchost.exe" and process.name : "cmd.exe" and
   not (process.pe.original_file_name : "cmd.exe" and process.args : (
     "??:\\Program Files\\Npcap\\CheckStatus.bat?",
     "?:\\Program Files\\Npcap\\CheckStatus.bat",
