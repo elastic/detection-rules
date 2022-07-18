@@ -122,7 +122,7 @@ def get_integration_manifests(repository, sha: str, package_path: str) -> dict:
         versioned_packages_contents.append(contents)
 
     print(f"Processing {integration} - Versions: {versions}")
-    manifests = list()
+    manifests = []
     for content in versioned_packages_contents:
         processing_version = content[0].path.split("/")[2]
         manifest_content = [c for c in content if "manifest" in c.path]
