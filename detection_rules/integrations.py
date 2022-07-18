@@ -14,7 +14,13 @@ from marshmallow import EXCLUDE, Schema, fields, post_load
 
 from .ghwrap import GithubClient
 from .semver import Version
-from .utils import INTEGRATION_RULE_DIR, get_etc_path
+from .utils import INTEGRATION_RULE_DIR, cached, get_etc_path, read_gzip
+
+
+@cached
+def load_integrations_manifests() -> dict:
+    """Load the consolidated integrations manifest."""
+    return json.loads(read_gzip(get_etc_path('integration-manifests.json.gz')))
 
 
 class IntegrationManifestSchema(Schema):
@@ -43,9 +49,18 @@ def build_integrations_manifest(token: str, overwrite: bool) -> None:
         rule_integrations.remove("endpoint")
 
     final_integration_manifests = {key: dict() for key in rule_integrations}
+
+    # initialize github client and point to package-storage prod
+    github = GithubClient(token)
+    client = github.authenticated_client
+    organization = client.get_organization("elastic")
+    repository = organization.get_repo("package-storage")
+    pkg_storage_prod_branch = repository.get_branch("production")
+    pkg_storage_branch_sha = pkg_storage_prod_branch.commit.sha
+
     for ints in rule_integrations:
-        integration_manifests = get_integration_packages(token=token, org="elastic", repo="package-storage",
-                                                         branch="production", folder=f"packages/{ints}")
+        integration_manifests = get_integration_manifests(repository, pkg_storage_branch_sha,
+                                                          pkg_path=f"packages/{ints}")
         for int_man in integration_manifests:
             validated_manifest = IntegrationManifestSchema(unknown=EXCLUDE).load(int_man)
             package_version = validated_manifest.pop("version")
@@ -91,34 +106,14 @@ def find_least_compatible_version(package: str, integration: str,
     return least_compatible_version
 
 
-def get_integration_packages(token: str, org: str, repo: str, branch: str, folder: str) -> dict:
-    """Gets integration packages object containing versioned packages and manifest content."""
-    github = GithubClient(token)
-    client = github.authenticated_client
-    organization = client.get_organization(org)
-    repository = organization.get_repo(repo)
-    sha = get_sha_for_branch(repository, branch)
-    integration_manifest = get_integration_manifests(repository, sha, folder)
-    return integration_manifest
-
-
-def get_sha_for_branch(repository, branch: str) -> str:
-    """Returns a commit PyGithub object for the specified repository and tag."""
-    branches = repository.get_branches()
-    matched_branches = [match for match in branches if match.name == branch]
-    if matched_branches:
-        return matched_branches[0].commit.sha
-    raise Exception(f"{branch} branch for {repository} repository does not exist")
-
-
-def get_integration_manifests(repository, sha: str, package_path: str) -> dict:
+def get_integration_manifests(repository, sha: str, pkg_path: str) -> list[dict]:
     """Iterates over specified integrations from package-storage and combines manifests per version."""
-    integration = package_path.split("/")[-1]
-    versioned_packages = repository.get_dir_contents(package_path, ref=sha)
+    integration = pkg_path.split("/")[-1]
+    versioned_packages = repository.get_dir_contents(pkg_path, ref=sha)
     versions = [p.path.split("/")[-1] for p in versioned_packages]
     versioned_packages_contents = list()
     for v in versions:
-        contents = repository.get_dir_contents(f"{package_path}/{v}", ref=sha)
+        contents = repository.get_dir_contents(f"{pkg_path}/{v}", ref=sha)
         versioned_packages_contents.append(contents)
 
     print(f"Processing {integration} - Versions: {versions}")

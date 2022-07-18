@@ -28,8 +28,8 @@ from .rule_formatter import toml_write, nested_normalize
 from .schemas import SCHEMA_DIR, definitions, downgrade, get_stack_schemas, get_min_supported_stack_version
 from .schemas.stack_compat import get_restricted_fields
 from .semver import Version
-from .utils import cached, read_gzip, get_etc_path
-from .integrations import find_least_compatible_version
+from .utils import cached
+from .integrations import find_least_compatible_version, load_integrations_manifests
 
 BUILD_FIELD_VERSIONS = {"required_fields": (Version('8.3'), None),
                         "related_integrations": (Version('8.3'), None)}
@@ -602,7 +602,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         package_integrations = obj.get(field_name, [])
 
         if self.metadata.integration:
-            packages_manifest = json.loads(read_gzip(get_etc_path('integration-manifests.json.gz')))
+            packages_manifest = load_integrations_manifests()
             current_stack_version = load_current_package_version()
 
             if self.check_restricted_field_version(field_name):
@@ -656,7 +656,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         max_stack = max_stack or current_version
         return Version(min_stack) <= current_version >= Version(max_stack)
 
-    def get_packaged_integrations(self, ast_obj: Union[kql.ast.Expression, eql.ast.Expression], pkg_manifest: dict) -> List[dict]:
+    def get_packaged_integrations(self, ast_obj: Union[kql.ast.Expression,
+                                  eql.ast.Expression], pkg_manifest: dict) -> List[dict]:
         packaged_integrations = list()
 
         if isinstance(ast_obj, kql.ast.AndExpr):
