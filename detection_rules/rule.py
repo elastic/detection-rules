@@ -277,7 +277,7 @@ class DataValidator:
         return os.environ.get('DR_BYPASS_NOTE_VALIDATION_AND_PARSE') is not None
 
     def validate_note(self):
-        if not (self.skip_validate_note or self.note):
+        if self.skip_validate_note or not self.note:
             return
 
         try:
