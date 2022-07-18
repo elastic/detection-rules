@@ -597,7 +597,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         return obj
 
     def add_related_integrations(self, obj: dict) -> None:
-        """Add restricted field add_related_integrations to the obj"""
+        """Add restricted field related_integrations to the obj."""
         field_name = "related_integrations"
         package_integrations = obj.get(field_name, [])
 
