@@ -106,7 +106,7 @@ def find_least_compatible_version(package: str, integration: str,
     return least_compatible_version
 
 
-def get_integration_manifests(repository, sha: str, pkg_path: str) -> list[dict]:
+def get_integration_manifests(repository, sha: str, pkg_path: str) -> list:
     """Iterates over specified integrations from package-storage and combines manifests per version."""
     integration = pkg_path.split("/")[-1]
     versioned_packages = repository.get_dir_contents(pkg_path, ref=sha)
