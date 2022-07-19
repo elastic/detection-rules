@@ -34,12 +34,12 @@ from .ghwrap import GithubClient, update_gist
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import PACKAGE_FILE, RELEASE_DIR, CURRENT_RELEASE_PATH, Package, current_stack_version
-from .version_lock import default_version_lock
+from .version_lock import VersionLockFile, default_version_lock
 from .rule import AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData, ThreatMapping, TOMLRule
 from .rule_loader import RuleCollection, production_filter
-from .schemas import definitions
+from .schemas import definitions, get_stack_versions
 from .semver import Version
-from .utils import dict_hash, get_path, load_dump
+from .utils import dict_hash, get_path, get_etc_path, load_dump
 
 RULES_DIR = get_path('rules')
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
@@ -821,6 +821,51 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
     return generated_urls
 
 
+@dev_group.command('trim-version-lock')
+@click.argument('min_version')
+@click.option('--dry-run', is_flag=True, help='Print the changes rather than saving the file')
+def trim_version_lock(min_version: str, dry_run: bool):
+    """Trim all previous entries within the version lock file which are lower than the min_version."""
+    stack_versions = get_stack_versions()
+    assert min_version in stack_versions, f'Unknown min_version ({min_version}), expected: {", ".join(stack_versions)}'
+
+    min_version = Version(min_version)
+    version_lock_dict = default_version_lock.version_lock.to_dict()
+    removed = {}
+
+    for rule_id, lock in version_lock_dict.items():
+        if 'previous' in lock:
+            prev_vers = [Version(v) for v in list(lock['previous'])]
+            outdated_vers = [v for v in prev_vers if v <= min_version]
+
+            if not outdated_vers:
+                continue
+
+            # we want to remove all "old" versions, but save the latest that is <= the min version as the new
+            # min_version. Essentially collapsing the entries and bumping it to a new "true" min
+            latest_version = max(outdated_vers)
+
+            if dry_run:
+                outdated_minus_current = [str(v) for v in outdated_vers if v != min_version]
+                if outdated_minus_current:
+                    removed[rule_id] = outdated_minus_current
+            for outdated in outdated_vers:
+                popped = lock['previous'].pop(str(outdated))
+                if outdated == latest_version:
+                    lock['previous'][str(min_version)] = popped
+
+            # remove the whole previous entry if it is now blank
+            if not lock['previous']:
+                lock.pop('previous')
+
+    if dry_run:
+        click.echo(f'The following versions would be collapsed to {min_version}:' if removed else 'No changes')
+        click.echo('\n'.join(f'{k}: {", ".join(v)}' for k, v in removed.items()))
+    else:
+        new_lock = VersionLockFile.from_dict(dict(data=version_lock_dict))
+        new_lock.save_to_file()
+
+
 @dev_group.group('diff')
 def diff_group():
     """Commands for statistics on changes and diffs."""
@@ -1030,3 +1075,16 @@ def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_coun
         json.dump(details, f, indent=2, sort_keys=True)
 
     return survey_results
+
+
+@dev_group.group('utils')
+def utils_group():
+    """Commands for dev utility methods."""
+
+
+@utils_group.command('get-branches')
+@click.option('--outfile', '-o', type=Path, default=get_etc_path("target-branches.yml"), help='File to save output to')
+def get_branches(outfile: Path):
+    branch_list = get_stack_versions(drop_patch=True)
+    target_branches = json.dumps(branch_list[:-1]) + "\n"
+    outfile.write_text(target_branches)

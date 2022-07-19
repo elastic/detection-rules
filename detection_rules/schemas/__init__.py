@@ -11,6 +11,7 @@ import jsonschema
 
 from . import definitions
 from .rta_schema import validate_rta_mapping
+from ..misc import load_current_package_version
 from ..semver import Version
 from ..utils import cached, get_etc_path, load_etc_dump
 
@@ -19,7 +20,9 @@ __all__ = (
     "SCHEMA_DIR",
     "definitions",
     "downgrade",
+    "get_min_supported_stack_version",
     "get_stack_schemas",
+    "get_stack_versions",
     "validate_rta_mapping",
     "all_versions",
 )
@@ -197,6 +200,12 @@ def migrate_to_8_2(version: Version, api_contents: dict) -> dict:
     return strip_additional_properties(version, api_contents)
 
 
+@migrate("8.3")
+def migrate_to_8_3(version: Version, api_contents: dict) -> dict:
+    """Default migration for 8.3."""
+    return strip_additional_properties(version, api_contents)
+
+
 def downgrade(api_contents: dict, target_version: str, current_version: Optional[str] = None) -> dict:
     """Downgrade a rule to a target stack version."""
     from ..packaging import current_stack_version
@@ -222,17 +231,20 @@ def downgrade(api_contents: dict, target_version: str, current_version: Optional
 
 
 @cached
-def get_stack_schemas(stack_version: str) -> OrderedDictType[str, dict]:
-    """Return all ECS + beats to stack versions for a every stack version >= specified stack version and <= package."""
-    from ..packaging import load_current_package_version
+def load_stack_schema_map() -> dict:
+    return load_etc_dump('stack-schema-map.yaml')
 
-    stack_version = Version(stack_version)
+
+@cached
+def get_stack_schemas(stack_version: Optional[str] = '0.0.0') -> OrderedDictType[str, dict]:
+    """Return all ECS + beats to stack versions for every stack version >= specified stack version and <= package."""
+    stack_version = Version(stack_version or '0.0.0')
     current_package = Version(load_current_package_version())
 
     if len(current_package) == 2:
         current_package = Version(current_package + (0,))
 
-    stack_map = load_etc_dump('stack-schema-map.yaml')
+    stack_map = load_stack_schema_map()
     versions = {k: v for k, v in stack_map.items()
                 if (mapped_version := Version(k)) >= stack_version and mapped_version <= current_package and v}
 
@@ -241,3 +253,24 @@ def get_stack_schemas(stack_version: str) -> OrderedDictType[str, dict]:
 
     versions_reversed = OrderedDict(sorted(versions.items(), reverse=True))
     return versions_reversed
+
+
+def get_stack_versions(drop_patch=False) -> List[str]:
+    """Get a list of stack versions supported (for the matrix)."""
+    versions = list(load_stack_schema_map())
+    if drop_patch:
+        abridged_versions = []
+        for version in versions:
+            abridged, _ = version.rsplit('.', 1)
+            abridged_versions.append(abridged)
+        return abridged_versions
+    else:
+        return versions
+
+
+@cached
+def get_min_supported_stack_version(drop_patch=False) -> Version:
+    """Get the minimum defined and supported stack version."""
+    stack_map = load_stack_schema_map()
+    min_version = min(Version(v) for v in list(stack_map))
+    return Version(min_version[:2]) if drop_patch else min_version

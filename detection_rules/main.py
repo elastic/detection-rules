@@ -18,7 +18,7 @@ from uuid import uuid4
 import click
 
 from .cli_utils import rule_prompt, multi_collection
-from .misc import add_client, client_error, nested_set, parse_config
+from .misc import add_client, client_error, nested_set, parse_config, load_current_package_version
 from .rule import TOMLRule, TOMLRuleContents
 from .rule_formatter import toml_write
 from .rule_loader import RuleCollection
@@ -58,7 +58,7 @@ def create_rule(path, config, required_only, rule_type):
 @click.pass_context
 def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
     """Generate enriched indexes of rules, based on a KQL search, for indexing/importing into elasticsearch/kibana."""
-    from .packaging import load_current_package_version, Package
+    from .packaging import Package
 
     if query:
         rule_paths = [r['file'] for r in ctx.invoke(search_rules, query=query, verbose=False)]
