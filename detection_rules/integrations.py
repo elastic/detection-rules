@@ -91,7 +91,7 @@ def find_least_compatible_version(package: str, integration: str,
     for ver, manifest in integration_manifests.items():
         kibana_compat_vers = re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana.version"])
         kibana_compat_vers = kibana_compat_vers.split(" || ")
-         bool_checks = [compare_versions(kcv, current_stack_version) for kcv in kibana_compat_vers]
+        bool_checks = [compare_versions(kcv, current_stack_version) for kcv in kibana_compat_vers]
         if any(bool_checks):
             compatible_versions.setdefault(ver, True)
 
