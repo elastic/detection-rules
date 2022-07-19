@@ -14,7 +14,7 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Bypass UAC via Event Viewer"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -28,8 +28,8 @@ type = "eql"
 query = '''
 process where event.type in ("start", "process_started") and
   process.parent.name : "eventvwr.exe" and
-  not process.executable : 
-            ("?:\\Windows\\SysWOW64\\mmc.exe", 
+  not process.executable :
+            ("?:\\Windows\\SysWOW64\\mmc.exe",
              "?:\\Windows\\System32\\mmc.exe",
              "?:\\Windows\\SysWOW64\\WerFault.exe",
              "?:\\Windows\\System32\\WerFault.exe")
