@@ -18,7 +18,7 @@ note = """## Triage and analysis
 
 This is related to the `Process Execution from an Unusual Directory rule`.
 
-## Config
+## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -31,27 +31,27 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started", "info") and
-  process.name : ("wscript.exe", 
-                  "cscript.exe", 
-                  "rundll32.exe", 
-                  "regsvr32.exe", 
+  process.name : ("wscript.exe",
+                  "cscript.exe",
+                  "rundll32.exe",
+                  "regsvr32.exe",
                   "cmstp.exe",
                   "RegAsm.exe",
                   "installutil.exe",
                   "mshta.exe",
-                  "RegSvcs.exe", 
-                  "powershell.exe", 
-                  "pwsh.exe", 
+                  "RegSvcs.exe",
+                  "powershell.exe",
+                  "pwsh.exe",
                   "cmd.exe") and
-                  
+
   /* add suspicious execution paths here */
   process.args : ("C:\\PerfLogs\\*",
                   "C:\\Users\\Public\\*",
                   "C:\\Users\\Default\\*",
                   "C:\\Windows\\Tasks\\*",
-                  "C:\\Intel\\*", 
-                  "C:\\AMD\\Temp\\*", 
-                  "C:\\Windows\\AppReadiness\\*", 
+                  "C:\\Intel\\*",
+                  "C:\\AMD\\Temp\\*",
+                  "C:\\Windows\\AppReadiness\\*",
                   "C:\\Windows\\ServiceState\\*",
                   "C:\\Windows\\security\\*",
                   "C:\\Windows\\IdentityCRL\\*",
