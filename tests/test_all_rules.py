@@ -652,7 +652,7 @@ class TestIntegrationRules(BaseRuleTest):
 
     def test_integration_guide(self):
         """Test that rules which require a config note are using standard verbiage."""
-        config = '## Config\n\n'
+        config = '## Setup\n\n'
         beats_integration_pattern = config + 'The {} Fleet integration, Filebeat module, or similarly ' \
                                              'structured data is required to be compatible with this rule.'
         render = beats_integration_pattern.format

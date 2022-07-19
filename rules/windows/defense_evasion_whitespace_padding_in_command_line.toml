@@ -23,7 +23,7 @@ note = """## Triage and analysis
 - Analyze the command line of the process in question for evidence of malicious code execution.
 - Review the ancestor and child processes spawned by the process in question for indicators of further malicious code execution.
 
-## Config
+## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -37,8 +37,8 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
-  process.command_line regex ".*[ ]{20,}.*" or 
-  
+  process.command_line regex ".*[ ]{20,}.*" or
+
   /* this will match on 3 or more separate occurrences of 3+ contiguous whitespace characters */
   process.command_line regex "([^ ]+[ ]{3,}[^ ]*){3,}.*"
 '''
