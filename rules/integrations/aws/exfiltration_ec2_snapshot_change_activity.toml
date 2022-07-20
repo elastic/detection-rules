@@ -40,41 +40,41 @@ used to share snapshots with unauthorized third parties, giving others access to
 - Investigate other alerts associated with the user account during the past 48 hours.
 - Assess whether this behavior is prevalent in the environment by looking for similar occurrences involving other users.
 - Contact the account owner and confirm whether they are aware of this activity.
-- Considering the source IP address and geolocation of the calling user who issued the command:
+- Considering the source IP address and geolocation of the user who issued the command:
     - Do they look normal for the calling user?
     - If the source is an EC2 IP address, is it associated with an EC2 instance in one of your accounts or is the source
     IP from an EC2 instance that's not under your control?
     - If it is an authorized EC2 instance, is the activity associated with normal behavior for the instance role or roles?
     Are there any other alerts or signs of suspicious activity involving this instance?
-- Check if this operation is done under change management and approved according to the organization's policy.
+- Check if this operation was approved and performed according to the organization's change management policy.
 - Check if the shared permissions of the snapshot were modified to `Public` or include unknown account IDs.
-- If you suspect the account has been compromised, scope potentially compromised assets by tracking access to servers,
-services, and data accessed by the account in the last 24 hours.
+- If you suspect the account has been compromised, scope potentially compromised assets by tracking servers, services,
+and data accessed by the account in the last 24 hours.
 
 ### False positive analysis
 
-- If this activity is expected and noisy in your environment, consider adding exceptions — preferably with a combination
-of user and IP address conditions.
+- If this rule is noisy in your environment due to expected activity, consider adding exceptions — preferably with a
+combination of user and IP address conditions.
 
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
+- Disable or limit the account during the investigation and response.
 - Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
     - Identify the account role in the cloud environment.
-    - Identify the criticality of the services or servers involved.
+    - Assess the criticality of affected services and servers.
     - Work with your IT team to identify the impact on users.
     - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
-    - Identify if there are any regulatory or legal ramifications related to this activity.
-- Disable or limit the account during the investigation and response.
+    - Identify any regulatory or legal ramifications related to this activity.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
 identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with
-your IT teams to minimize the impact on the business operation during these actions.
-- Check if unauthorized new users were created, remove new unauthorized accounts, and request password resets for other IAM users.
+your IT teams to minimize the impact on business operations during these actions.
+- Check if unauthorized new users were created, remove unauthorized new accounts, and request password resets for other IAM users.
 - Consider enabling multi-factor authentication for users.
-- Review the permissions assigned to the user to ensure that the least privilege principle is being followed.
-- Follow security best practices [outlined](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/) by AWS.
+- Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
+- Implement security best practices [outlined](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/) by AWS.
 - Take the actions needed to return affected systems, data, or services to their normal operational levels.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Identify the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
 mean time to respond (MTTR).
 
