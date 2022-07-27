@@ -33,6 +33,10 @@ Currently supported arguments:
 Environment variables using the argument format: `DR_<UPPERCASED_ARG_NAME>` will be parsed in commands which expect it.
 EX: `DR_USER=joe`
 
+
+Using the environment variable `DR_BYPASS_NOTE_VALIDATION_AND_PARSE` will bypass the Detection Rules validation on the `note` field in toml files.
+
+
 ## Importing rules into the repo
 
 You can import rules into the repo using the `create-rule` or `import-rules` commands. Both of these commands will
