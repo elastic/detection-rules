@@ -48,19 +48,19 @@ potentially malicious commands or binaries.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
 mean time to respond (MTTR).
 
-## Config
+## Setup
 
 The 'Audit Detailed File Share' audit policy must be configured (Success Failure).
 Steps to implement the logging policy with with Advanced Audit Configuration:
 
 ```
-Computer Configuration > 
-Policies > 
-Windows Settings > 
-Security Settings > 
-Advanced Audit Policies Configuration > 
-Audit Policies > 
-Object Access > 
+Computer Configuration >
+Policies >
+Windows Settings >
+Security Settings >
+Advanced Audit Policies Configuration >
+Audit Policies >
+Object Access >
 Audit Detailed File Share (Success,Failure)
 ```
 
@@ -68,13 +68,13 @@ The 'Audit Directory Service Changes' audit policy must be configured (Success F
 Steps to implement the logging policy with with Advanced Audit Configuration:
 
 ```
-Computer Configuration > 
-Policies > 
-Windows Settings > 
-Security Settings > 
-Advanced Audit Policies Configuration > 
-Audit Policies > 
-DS Access > 
+Computer Configuration >
+Policies >
+Windows Settings >
+Security Settings >
+Advanced Audit Policies Configuration >
+Audit Policies >
+DS Access >
 Audit Directory Service Changes (Success,Failure)
 ```
 """
@@ -93,8 +93,8 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-(event.code: "5136" and winlog.event_data.AttributeLDAPDisplayName:("gPCMachineExtensionNames" or "gPCUserExtensionNames") and 
-   winlog.event_data.AttributeValue:(*CAB54552-DEEA-4691-817E-ED4A4D1AFC72* and *AADCED64-746C-4633-A97C-D61349046527*)) 
+(event.code: "5136" and winlog.event_data.AttributeLDAPDisplayName:("gPCMachineExtensionNames" or "gPCUserExtensionNames") and
+   winlog.event_data.AttributeValue:(*CAB54552-DEEA-4691-817E-ED4A4D1AFC72* and *AADCED64-746C-4633-A97C-D61349046527*))
 or
 (event.code: "5145" and winlog.event_data.ShareName: "\\\\*\\SYSVOL" and winlog.event_data.RelativeTargetName: *ScheduledTasks.xml and
   (message: WriteData or winlog.event_data.AccessList: *%%4417*))
