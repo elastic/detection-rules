@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/10/30"
 maturity = "production"
-updated_date = "2022/03/31"
+updated_date = "2022/07/18"
 
 [rule]
 author = ["Elastic"]
@@ -18,40 +18,40 @@ note = """## Triage and analysis
 
 This is related to the `Process Execution from an Unusual Directory rule`.
 
-## Config
+## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 risk_score = 47
 rule_id = "cff92c41-2225-4763-b4ce-6f71e5bda5e6"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution", "Defense Evasion"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started", "info") and
-  process.name : ("wscript.exe", 
-                  "cscript.exe", 
-                  "rundll32.exe", 
-                  "regsvr32.exe", 
+  process.name : ("wscript.exe",
+                  "cscript.exe",
+                  "rundll32.exe",
+                  "regsvr32.exe",
                   "cmstp.exe",
                   "RegAsm.exe",
                   "installutil.exe",
                   "mshta.exe",
-                  "RegSvcs.exe", 
-                  "powershell.exe", 
-                  "pwsh.exe", 
+                  "RegSvcs.exe",
+                  "powershell.exe",
+                  "pwsh.exe",
                   "cmd.exe") and
-                  
+
   /* add suspicious execution paths here */
   process.args : ("C:\\PerfLogs\\*",
                   "C:\\Users\\Public\\*",
                   "C:\\Users\\Default\\*",
                   "C:\\Windows\\Tasks\\*",
-                  "C:\\Intel\\*", 
-                  "C:\\AMD\\Temp\\*", 
-                  "C:\\Windows\\AppReadiness\\*", 
+                  "C:\\Intel\\*",
+                  "C:\\AMD\\Temp\\*",
+                  "C:\\Windows\\AppReadiness\\*",
                   "C:\\Windows\\ServiceState\\*",
                   "C:\\Windows\\security\\*",
                   "C:\\Windows\\IdentityCRL\\*",
@@ -121,3 +121,31 @@ process where event.type in ("start", "process_started", "info") and
   not (process.name : "rundll32.exe" and process.args : ("uxtheme.dll,#64", "PRINTUI.DLL,PrintUIEntry"))
 '''
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+    [[rule.threat.technique.subtechnique]]
+    id = "T1036.005"
+    name = "Match Legitimate Name or Location"
+    reference = "https://attack.mitre.org/techniques/T1036/005/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
