@@ -33,8 +33,8 @@ tags = ["Elastic", "Host", "macOS", "Threat Detection", "Execution", "Command an
 type = "eql"
 
 query = '''
-sequence by host.id, user.id with maxspan=1m
-[process where event.type == "start" and process.parent.name : ("installer", "package_script_service") and process.name : ("bash", "sh", "zsh", "python", "osascript", "tclsh*")] 
+sequence by host.id, user.id with maxspan=30s
+[process where event.type == "start" and event.action == "exec" and process.parent.name : ("installer", "package_script_service") and process.name : ("bash", "sh", "zsh", "python", "osascript", "tclsh*")] 
 [network where event.type == "start" and process.name : ("curl", "osascript", "wget", "python")] 
 '''
 
