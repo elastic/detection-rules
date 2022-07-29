@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/03/03"
+updated_date = "2022/07/26"
 
 [rule]
 author = ["Elastic"]
@@ -26,8 +26,9 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and event.type:(start or process_started) and process.name:(bash or dash) and
-  user.name:(apache or nginx or www or "www-data")
+event.category:process and event.type:(start or process_started) and
+process.name:(bash or dash or ash or zsh or "python*" or "perl*" or "php*") and
+process.parent.name:("apache" or "nginx" or "www" or "apache2" or "httpd" or "www-data")
 '''
 
 
