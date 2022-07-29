@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/08/17"
 maturity = "production"
-updated_date = "2022/07/28"
+updated_date = "2022/07/29"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ level of SYSTEM.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Persistence via Update Orchestrator Service Hijack"
 note = """## Setup
@@ -24,25 +24,25 @@ rule_id = "265db8f5-fc73-4d0d-b434-6483b56372e2"
 severity = "high"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "CVE-2020-1313"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.type : "start" and
+process where event.type == "start" and
   process.parent.executable : "C:\\Windows\\System32\\svchost.exe" and
-  process.parent.args : "UsoSvc" and 
+  process.parent.args : "UsoSvc" and
   not process.executable :
-         (C\:\\ProgramData\\Microsoft\\Windows\\UUS\\Packages\\*\\amd64\\MoUsoCoreWorker.exe or
-          "C:\\Windows\\System32\\UsoClient.exe" or
-          "C:\\Windows\\System32\\MusNotification.exe" or
-          "C:\\Windows\\System32\\MusNotificationUx.exe" or
-          "C:\\Windows\\System32\\MusNotifyIcon.exe" or
-          "C:\\Windows\\System32\\WerFault.exe" or
-          "C:\\Windows\\System32\\WerMgr.exe" or
-          "C:\\Windows\\UUS\\amd64\\MoUsoCoreWorker.exe" or
-          "C:\\Windows\\System32\\MoUsoCoreWorker.exe" or
-          "C:\\Windows\\UUS\\amd64\\UsoCoreWorker.exe" or
-          "C:\\Windows\\System32\\UsoCoreWorker.exe" or
-          "C:\\Program Files\\Common Files\\microsoft shared\\ClickToRun\\OfficeC2RClient.exe")
+          ("?:\\ProgramData\\Microsoft\\Windows\\UUS\\Packages\\*\\amd64\\MoUsoCoreWorker.exe",
+          "?:\\Windows\\System32\\UsoClient.exe",
+          "?:\\Windows\\System32\\MusNotification.exe",
+          "?:\\Windows\\System32\\MusNotificationUx.exe",
+          "?:\\Windows\\System32\\MusNotifyIcon.exe",
+          "?:\\Windows\\System32\\WerFault.exe",
+          "?:\\Windows\\System32\\WerMgr.exe",
+          "?:\\Windows\\UUS\\amd64\\MoUsoCoreWorker.exe",
+          "?:\\Windows\\System32\\MoUsoCoreWorker.exe",
+          "?:\\Windows\\UUS\\amd64\\UsoCoreWorker.exe",
+          "?:\\Windows\\System32\\UsoCoreWorker.exe",
+          "?:\\Program Files\\Common Files\\microsoft shared\\ClickToRun\\OfficeC2RClient.exe")
 '''
 
 
