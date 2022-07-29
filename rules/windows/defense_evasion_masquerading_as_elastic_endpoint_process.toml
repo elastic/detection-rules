@@ -14,7 +14,7 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Endpoint Security Parent Process"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -30,9 +30,9 @@ process where event.type in ("start", "process_started", "info") and
  process.name : ("esensor.exe", "elastic-endpoint.exe") and
  process.parent.executable != null and
   /* add FPs here */
- not process.parent.executable : ("C:\\Program Files\\Elastic\\*", 
-                                  "C:\\Windows\\System32\\services.exe", 
-                                  "C:\\Windows\\System32\\WerFault*.exe", 
+ not process.parent.executable : ("C:\\Program Files\\Elastic\\*",
+                                  "C:\\Windows\\System32\\services.exe",
+                                  "C:\\Windows\\System32\\WerFault*.exe",
                                   "C:\\Windows\\System32\\wermgr.exe")
 '''
 
