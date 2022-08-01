@@ -10,7 +10,7 @@ from typing import List, Optional, Union
 import eql
 
 import kql
-from . import ecs
+from . import ecs, endgame
 from .rule import QueryValidator, QueryRuleData, RuleMeta
 
 
@@ -40,6 +40,10 @@ class KQLValidator(QueryValidator):
             err_trailer = f'stack: {stack_version}, beats: {beats_version}, ecs: {ecs_version}'
 
             beat_types, beat_schema, schema = self.get_beats_schema(data.index or [], beats_version, ecs_version)
+
+            endgame_os_schema = endgame.read_endgame_schema(os_type="Windows")
+            endgame_schema = endgame.EndgameSchema(endgame_os_schema).endgame_schema
+            schema.update(endgame_schema)
 
             try:
                 kql.parse(self.query, schema=schema)
@@ -86,10 +90,12 @@ class EQLValidator(QueryValidator):
 
             beat_types, beat_schema, schema = self.get_beats_schema(data.index or [], beats_version, ecs_version)
             eql_schema = ecs.KqlSchema2Eql(schema)
+            endgame_os_schema = read_endgame_schema(os_type="Windows")
+            endgame_schema = endgame.EndgameSchema(endgame_os_schema)
 
             try:
                 # TODO: switch to custom cidrmatch that allows ipv6
-                with eql_schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+                with endgame_schema, eql_schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
                     eql.parse_query(self.query)
             except eql.EqlParseError as exc:
                 message = exc.error_msg

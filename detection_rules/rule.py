@@ -21,7 +21,7 @@ from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
 from marshmallow import ValidationError, validates_schema
 
-from . import beats, ecs, utils
+from . import beats, ecs, endgame, utils
 from .misc import load_current_package_version
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
@@ -335,6 +335,7 @@ class QueryValidator:
         ecs_schema = ecs.get_schema(ecs_version)
 
         beat_types, beat_schema, schema = self.get_beats_schema(index or [], beats_version, ecs_version)
+        endgame_schema = self.get_endgame_schema(index or [])
 
         required = []
         unique_fields = self.unique_fields or []
@@ -345,6 +346,16 @@ class QueryValidator:
 
             if beat_schema and not is_ecs:
                 field_type = beat_schema.get(fld, {}).get('type')
+                is_beat = field_type is not None
+
+            if endgame_schema and not is_ecs and not beat_schema:
+                if "endgame" in fld:
+                    field_type = endgame_schema.get(fld, None)
+                    # _, field = fld.split(".", 1)
+                    # for event_field in endgame_schema.values():
+                    #     if field in event_field:
+                    #         field_type = event_field.get(field, None)
+                    #         break
 
             required.append(dict(name=fld, type=field_type or 'unknown', ecs=is_ecs))
 
@@ -357,6 +368,22 @@ class QueryValidator:
         beat_schema = beats.get_schema_from_kql(self.ast, beat_types, version=beats_version) if beat_types else None
         schema = ecs.get_kql_schema(version=ecs_version, indexes=index, beat_schema=beat_schema)
         return beat_types, beat_schema, schema
+
+    @cached
+    def get_endgame_schema(self, index: list) -> (dict, dict):
+        """Get an assembled endgame schema."""
+
+        if "endgame-*" not in index:
+            return None
+
+        # TODO: Figure out how to parse OS types to include varying fields
+        #     E.g. Different OS types have different Endgame OPCODE fields
+        # For now, hardcode the OS types to use Windows which has all event types
+        endgame_os_schema = endgame.read_endgame_schema(os_type="Windows")
+
+        en = endgame.EndgameSchema(endgame.read_endgame_schema(os_type="Windows"))
+
+        return endgame.flatten_schema(endgame_os_schema)
 
 
 @dataclass(frozen=True)
