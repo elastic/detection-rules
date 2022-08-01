@@ -7,16 +7,14 @@
 import base64
 import json
 import shutil
+import sys
 import urllib
 from collections import defaultdict
 from pathlib import Path
-from typing import List, Optional
 
 import eql
-import requests
-from eql.types import TypeHint
 
-from .utils import (ETC_DIR, DateTimeEncoder, cached, gzip_compress, read_gzip)
+from .utils import ETC_DIR, DateTimeEncoder, cached, gzip_compress, read_gzip
 
 ENDGAME_SCHEMA_DIR = Path(ETC_DIR) / "endgame_schemas"
 
@@ -56,7 +54,9 @@ class EndgameSchemaManager:
         """
 
         # build out the individual flat os-specific schemas
-        os_schemas = {"Windows": defaultdict(lambda: {}), "Linux": defaultdict(lambda: {}), "macOS": defaultdict(lambda: {})}
+        os_schemas = {"Windows": defaultdict(lambda: {}),
+                      "Linux": defaultdict(lambda: {}),
+                      "macOS": defaultdict(lambda: {})}
         for os_type in os_schemas:
             os_schema = self.endgame_raw_schemas[os_type].copy()
 
@@ -118,8 +118,7 @@ class EndgameSchema(eql.Schema):
     """Schema for query validation."""
 
     type_mapping = {
-        "keyword": eql.types.TypeHint.String,
-        "ip": eql.types.TypeHint.String,
+
         "float": eql.types.TypeHint.Numeric,
         # "double": eql.types.TypeHint.Numeric,
         # "long": eql.types.TypeHint.Numeric,
@@ -194,10 +193,9 @@ def flatten_schema(schema: dict) -> dict:
     flattened = {}
     for event_type, event_info in schema.items():
         for field, field_value in event_info.items():
-
-
             flattened[f"endgame.{field}"] = field_value
     return flattened
+
 
 @cached
 def read_endgame_schema(os_type: str, warn=False) -> dict:

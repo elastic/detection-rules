@@ -90,7 +90,7 @@ class EQLValidator(QueryValidator):
 
             beat_types, beat_schema, schema = self.get_beats_schema(data.index or [], beats_version, ecs_version)
             eql_schema = ecs.KqlSchema2Eql(schema)
-            endgame_os_schema = read_endgame_schema(os_type="Windows")
+            endgame_os_schema = endgame.read_endgame_schema(os_type="Windows")
             endgame_schema = endgame.EndgameSchema(endgame_os_schema)
 
             try:

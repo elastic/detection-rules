@@ -348,14 +348,9 @@ class QueryValidator:
                 field_type = beat_schema.get(fld, {}).get('type')
                 is_beat = field_type is not None
 
-            if endgame_schema and not is_ecs and not beat_schema:
-                if "endgame" in fld:
-                    field_type = endgame_schema.get(fld, None)
-                    # _, field = fld.split(".", 1)
-                    # for event_field in endgame_schema.values():
-                    #     if field in event_field:
-                    #         field_type = event_field.get(field, None)
-                    #         break
+                if endgame_schema and not is_ecs and not is_beat:
+                    if "endgame" in fld:
+                        field_type = endgame_schema.get(fld, None)
 
             required.append(dict(name=fld, type=field_type or 'unknown', ecs=is_ecs))
 
@@ -370,7 +365,7 @@ class QueryValidator:
         return beat_types, beat_schema, schema
 
     @cached
-    def get_endgame_schema(self, index: list) -> (dict, dict):
+    def get_endgame_schema(self, index: list) -> dict:
         """Get an assembled endgame schema."""
 
         if "endgame-*" not in index:
@@ -380,10 +375,9 @@ class QueryValidator:
         #     E.g. Different OS types have different Endgame OPCODE fields
         # For now, hardcode the OS types to use Windows which has all event types
         endgame_os_schema = endgame.read_endgame_schema(os_type="Windows")
+        endgame_schema = endgame.EndgameSchema(endgame_os_schema).endgame_schema
 
-        en = endgame.EndgameSchema(endgame.read_endgame_schema(os_type="Windows"))
-
-        return endgame.flatten_schema(endgame_os_schema)
+        return endgame_schema
 
 
 @dataclass(frozen=True)
