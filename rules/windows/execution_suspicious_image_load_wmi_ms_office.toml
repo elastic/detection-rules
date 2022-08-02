@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/17"
 maturity = "production"
-updated_date = "2022/03/31"
+updated_date = "2022/08/02"
 
 [rule]
 author = ["Elastic"]
@@ -30,10 +30,10 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-library where process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSPUB.EXE", "MSACCESS.EXE") and
-  event.action : "load" and
-  event.category : "library" and
-  dll.name : "wmiutils.dll"
+any where
+ (event.category == "library" or (event.category == "process" and event.action : "Image loaded*")) and
+  process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSPUB.EXE", "MSACCESS.EXE") and
+  (dll.name : "wmiutils.dll" or file.name : "wmiutils.dll")
 '''
 
 
