@@ -22,15 +22,15 @@ jobs:
             try {
               const result = await github.rest.orgs.getMembershipForUser({
                        org: "elastic",
-                       username: context.payload.sender.login
+                       username: '${{ github.actor }}'
                     })
 
               console.log(result?.data?.state)
               if (result?.data?.state == "active"){
-                console.log("%s: detected as an active member of elastic org", context.payload.sender.login)
+                console.log("%s: detected as an active member of elastic org", '${{ github.actor }}')
                 return "member";
               } else {
-                console.log("%s: not detected as active member of elastic org", context.payload.sender.login)
+                console.log("%s: not detected as active member of elastic org", '${{ github.actor }}')
                 return "notMember";
               }
 
