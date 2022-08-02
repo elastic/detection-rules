@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/10/15"
 maturity = "production"
-updated_date = "2022/06/20"
+updated_date = "2022/08/02"
 
 [rule]
 author = ["Elastic"]
@@ -93,9 +93,13 @@ type = "eql"
 query = '''
 iam where event.action == "user-member-enumerated" and
 
+  /* excluding machine account */
+  not winlog.event_data.SubjectUserName: ("*$", "LOCAL SERVICE", "NETWORK SERVICE") and
+
   /* noisy and usual legit processes excluded */
   not winlog.event_data.CallerProcessName:
-               ("?:\\Windows\\System32\\VSSVC.exe",
+               ("-",
+                "?:\\Windows\\System32\\VSSVC.exe",
                 "?:\\Windows\\System32\\SearchIndexer.exe",
                 "?:\\Windows\\System32\\CompatTelRunner.exe",
                 "?:\\Windows\\System32\\oobe\\msoobe.exe",
@@ -103,6 +107,7 @@ iam where event.action == "user-member-enumerated" and
                 "?:\\Windows\\System32\\svchost.exe",
                 "?:\\Windows\\System32\\Netplwiz.exe",
                 "?:\\Windows\\System32\\msiexec.exe",
+                "?:\\Windows\\SysWOW64\\msiexec.exe",
                 "?:\\Windows\\System32\\CloudExperienceHostBroker.exe",
                 "?:\\Windows\\System32\\wbem\\WmiPrvSE.exe",
                 "?:\\Windows\\System32\\SrTasks.exe",
@@ -111,7 +116,23 @@ iam where event.action == "user-member-enumerated" and
                 "?:\\Windows\\System32\\dfsrs.exe",
                 "?:\\Program Files\\*.exe",
                 "?:\\Program Files (x86)\\*.exe",
-                "?:\\WindowsAzure\\*\\WaAppAgent.exe") and
+                "?:\\WindowsAzure\\*\\WaAppAgent.exe",
+                "?:\\Windows\\System32\\vssadmin.exe",
+                "?:\\Windows\\VeeamVssSupport\\VeeamGuestHelper.exe",
+                "?:\\Windows\\System32\\dllhost.exe",
+                "?:\\Windows\\System32\\mmc.exe",
+                "?:\\Windows\\System32\\SettingSyncHost.exe",
+                "?:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe",
+                "?:\\Windows\\System32\\SystemSettingsAdminFlows.exe",
+                "?:\\Windows\\Temp\\rubrik_vmware???\\snaptool.exe",
+                "?:\\Windows\\System32\\inetsrv\\w3wp.exe",
+                "?:\\$WINDOWS.~BT\\Sources\\*.exe",
+                "?:\\Windows\\System32\\wsmprovhost.exe",
+                "?:\\Windows\\System32\\spool\\drivers\\x64\\3\\x3jobt3?.exe",
+                "?:\\Windows\\System32\\mstsc.exe",
+                "?:\\Windows\\System32\\esentutl.exe",
+                "?:\\Windows\\System32\\RecoveryDrive.exe",
+                "?:\\Windows\\System32\\SystemPropertiesComputerName.exe") and
 
   /* privileged local groups */
   (group.name:("admin*","RemoteDesktopUsers") or
