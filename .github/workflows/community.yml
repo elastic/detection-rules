@@ -24,18 +24,21 @@ jobs:
                        org: "elastic",
                        username: context.payload.sender.login
                     })
+
+              console.log(result?.data?.state)
+              if (result?.data?.state == "active"){
+                console.log("%s: detected as an active member of elastic org", context.payload.sender.login)
+                return "member";
+              } else {
+                console.log("%s: not detected as active member of elastic org", context.payload.sender.login)
+                return "notMember";
+              }
+
             } catch (error) {
               return "notMember";
             }
 
-            console.log(result?.data?.state)
-            if (result?.data?.state == "active"){
-              console.log("%s: detected as an active member of elastic org", context.payload.sender.login)
-              return "member";
-            } else {
-              console.log("%s: not detected as active member of elastic org", context.payload.sender.login)
-              return "notMember";
-            }
+
       - name: Add label for community members
         uses: actions/github-script@v6
         if: ${{ steps.membership.outputs.result == 'notMember' }}
