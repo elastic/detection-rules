@@ -794,7 +794,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                                   eql.ast.Expression], pkg_manifest: dict) -> List[dict]:
         packaged_integrations = list()
 
-        if isinstance(ast_obj, kql.ast.AndExpr):
+        if isinstance(ast_obj, kql.ast.AndExpr) or isinstance(ast_obj, kql.ast.OrExpr):
             for item in ast_obj.items:
                 if isinstance(item, FieldComparison) and str(item.field) == 'event.dataset':
                     event_dataset_values = str(item.value).split(' or ')
@@ -804,6 +804,16 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                         if package not in pkg_manifest.keys():
                             continue
                         packaged_integrations.append({"package": package, "integration": integration})
+                if isinstance(item, kql.ast.AndExpr):
+                    for sub_item in item.items:
+                        if isinstance(sub_item, FieldComparison) and str(sub_item.field) == 'event.dataset':
+                            event_dataset_values = str(item.value).split(' or ')
+
+                            for ints in event_dataset_values:
+                                package, integration = ints.split(".")
+                                if package not in pkg_manifest.keys():
+                                    continue
+                                packaged_integrations.append({"package": package, "integration": integration})
 
         elif isinstance(ast_obj, eql.ast.PipedQuery):
             packages = list()
