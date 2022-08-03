@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/02/01"
 maturity = "production"
-updated_date = "2022/03/31"
+updated_date = "2022/08/03"
 
 [rule]
 author = ["Elastic"]
@@ -39,7 +39,17 @@ registry where event.type in ("creation", "change") and
       "HKLM\\Software\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob",
       "HKLM\\Software\\Policies\\Microsoft\\SystemCertificates\\Root\\Certificates\\*\\Blob",
       "HKLM\\Software\\Policies\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob"
-    )
+    ) and
+  not process.executable :
+              ("?:\\Program Files\\*.exe",
+               "?:\\Program Files (x86)\\*.exe",
+               "?:\\Windows\\System32\\*.exe",
+               "?:\\Windows\\SysWOW64\\*.exe",
+               "?:\\Windows\\Sysmon64.exe",
+               "?:\\Windows\\Sysmon.exe",
+               "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
+               "?:\\Windows\\WinSxS\\*.exe",
+               "?:\\Windows\\UUS\\amd64\\MoUsoCoreWorker.exe")
 '''
 
 
