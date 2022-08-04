@@ -3,7 +3,7 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-"""Integration functions."""
+"""Functions to support and interact with Kibana integrations."""
 import gzip
 import json
 import os
