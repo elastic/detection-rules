@@ -46,7 +46,7 @@ def build_integrations_manifest(token: str, overwrite: bool) -> None:
     if overwrite:
         if os.path.exists(MANIFEST_FILE_PATH):
             os.remove(MANIFEST_FILE_PATH)
-    rule_integrations = [d.name for d in INTEGRATION_RULE_DIR.glob('*')]
+    rule_integrations = [d.name for d in Path(INTEGRATION_RULE_DIR).glob('*')]
     if "endpoint" in rule_integrations:
         rule_integrations.remove("endpoint")
 
@@ -96,16 +96,16 @@ def find_least_compatible_version(package: str, integration: str,
     raise Exception(f"no compatible version for integration {package}:{integration}")
 
 
-def get_integration_manifests(repository, sha: str, pkg_path: Path) -> list:
+def get_integration_manifests(repository, sha: str, pkg_path: str) -> list:
     """Iterates over specified integrations from package-storage and combines manifests per version."""
-    integration = pkg_path.name
+    integration = pkg_path.split("/")[-1]
     versioned_packages = repository.get_dir_contents(pkg_path, ref=sha)
     versions = [p.path.split("/")[-1] for p in versioned_packages]
 
     manifests = []
     for version in versions:
         contents = repository.get_dir_contents(f"{pkg_path}/{version}", ref=sha)
-        print(f"Processing {integration} - Versions: {versions}")
+        print(f"Processing {integration} - Version: {version}")
 
         processing_version = contents[0].path.split("/")[2]
         manifest_content = [c for c in contents if "manifest" in c.path]
