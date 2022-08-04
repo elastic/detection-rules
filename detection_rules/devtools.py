@@ -1101,5 +1101,5 @@ def integrations_group():
 @click.option("--token", required=True, prompt=get_github_token() is None, default=get_github_token(),
               help="GitHub token to use for the PR", hide_input=True)
 def build_integration_manifests(overwrite: bool, token: str):
-    """Builds integrations manifests file"""
+    """Builds consolidated integrations manifests file."""
     build_integrations_manifest(token, overwrite)
