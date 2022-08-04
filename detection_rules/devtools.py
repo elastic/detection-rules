@@ -1096,7 +1096,7 @@ def integrations_group():
     """Commands for dev integrations methods."""
 
 
-@integrations_group.command('build-integration-manifests')
+@integrations_group.command('build-manifests')
 @click.option('--overwrite', '-o', is_flag=True, help="Overwrite the existing integrations-manifest.json.gz file")
 @click.option("--token", required=True, prompt=get_github_token() is None, default=get_github_token(),
               help="GitHub token to use for the PR", hide_input=True)
