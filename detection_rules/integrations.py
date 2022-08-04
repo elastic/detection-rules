@@ -12,13 +12,13 @@ from pathlib import Path
 
 import yaml
 from marshmallow import EXCLUDE, Schema, fields, post_load
-from operator import itemgetter
 
 from .ghwrap import GithubClient
 from .semver import Version
 from .utils import INTEGRATION_RULE_DIR, cached, get_etc_path, read_gzip
 
 MANIFEST_FILE_PATH = Path(get_etc_path('integration-manifests.json.gz'))
+
 
 @cached
 def load_integrations_manifests() -> dict:
@@ -44,8 +44,8 @@ class IntegrationManifestSchema(Schema):
 def build_integrations_manifest(token: str, overwrite: bool) -> None:
     """Builds a new local copy of manifest.yaml from integrations Github."""
     if overwrite:
-        if os.path.exists(manifest_file_path):
-            os.remove(manifest_file_path)
+        if os.path.exists(MANIFEST_FILE_PATH):
+            os.remove(MANIFEST_FILE_PATH)
     rule_integrations = os.listdir(INTEGRATION_RULE_DIR)
     if "endpoint" in rule_integrations:
         rule_integrations.remove("endpoint")
@@ -68,7 +68,7 @@ def build_integrations_manifest(token: str, overwrite: bool) -> None:
             package_version = validated_manifest.pop("version")
             final_integration_manifests[ints][package_version] = validated_manifest
 
-    manifest_file = gzip.open(manifest_file_path, "w+")
+    manifest_file = gzip.open(MANIFEST_FILE_PATH, "w+")
     manifest_file_bytes = json.dumps(final_integration_manifests).encode("utf-8")
     manifest_file.write(manifest_file_bytes)
 
@@ -76,8 +76,7 @@ def build_integrations_manifest(token: str, overwrite: bool) -> None:
 def find_least_compatible_version(package: str, integration: str,
                                   current_stack_version: str, packages_manifest: dict) -> str:
     """Finds least compatible version for specified integration based on stack version supplied."""
-    integration_manifests = {k:v for k,v in sorted(packages_manifest[package].items(), key=Version)}
-    compatible_versions = {}
+    integration_manifests = {k: v for k, v in sorted(packages_manifest[package].items(), key=Version)}
 
     def compare_versions(int_ver: str, pkg_ver: str) -> bool:
         """Compares integration and package version"""
