@@ -60,13 +60,13 @@ def build_integrations_manifest(token: str, overwrite: bool) -> None:
     pkg_storage_prod_branch = repository.get_branch("production")
     pkg_storage_branch_sha = pkg_storage_prod_branch.commit.sha
 
-    for ints in rule_integrations:
+    for integration in rule_integrations:
         integration_manifests = get_integration_manifests(repository, pkg_storage_branch_sha,
-                                                          pkg_path=f"packages/{ints}")
-        for int_man in integration_manifests:
-            validated_manifest = IntegrationManifestSchema(unknown=EXCLUDE).load(int_man)
+                                                          pkg_path=f"packages/{integration}")
+        for manifest in integration_manifests:
+            validated_manifest = IntegrationManifestSchema(unknown=EXCLUDE).load(manifest)
             package_version = validated_manifest.pop("version")
-            final_integration_manifests[ints][package_version] = validated_manifest
+            final_integration_manifests[integration][package_version] = validated_manifest
 
     manifest_file = gzip.open(MANIFEST_FILE_PATH, "w+")
     manifest_file_bytes = json.dumps(final_integration_manifests).encode("utf-8")
