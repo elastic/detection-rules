@@ -674,7 +674,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         """Transform the converted API in place before sending to Kibana."""
         super()._post_dict_transform(obj)
 
-        self.add_related_integrations(obj)
+        self._add_related_integrations(obj)
         self._add_required_fields(obj)
         self._add_setup(obj)
 
@@ -684,18 +684,21 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         subclass.from_dict(obj)
         return obj
 
-    def add_related_integrations(self, obj: dict) -> None:
+    def _add_related_integrations(self, obj: dict) -> None:
         """Add restricted field related_integrations to the obj."""
         field_name = "related_integrations"
         package_integrations = obj.get(field_name, [])
 
-        if self.metadata.integration:
+        if not package_integrations and self.metadata.integration:
             packages_manifest = load_integrations_manifests()
             current_stack_version = load_current_package_version()
 
             if self.check_restricted_field_version(field_name):
                 if isinstance(self.data, QueryRuleData) and self.data.language != 'lucene':
-                    package_integrations = self.get_packaged_integrations(self.data.ast, packages_manifest)
+                    package_integrations = self._get_packaged_integrations(packages_manifest)
+
+                    if not package_integrations:
+                        return
 
                     for package in package_integrations:
                         package["version"] = find_least_compatible_version(
@@ -709,7 +712,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                         if package["integration"] not in policy_templates:
                             del package["integration"]
 
-        obj.setdefault("related_integrations", package_integrations)
+            obj.setdefault("related_integrations", package_integrations)
 
     def _add_required_fields(self, obj: dict) -> None:
         """Add restricted field required_fields to the obj, derived from the query AST."""
@@ -720,7 +723,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             required_fields = []
 
         field_name = "required_fields"
-        if self.check_restricted_field_version(field_name=field_name):
+        if required_fields and self.check_restricted_field_version(field_name=field_name):
             obj.setdefault(field_name, required_fields)
 
     def _add_setup(self, obj: dict) -> None:
@@ -790,30 +793,29 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         max_stack = max_stack or current_version
         return Version(min_stack) <= current_version >= Version(max_stack)
 
-    def get_packaged_integrations(self, ast_obj: Union[kql.ast.Expression,
-                                  eql.ast.Expression], pkg_manifest: dict) -> List[dict]:
-        packaged_integrations = list()
-        dataset_values = []
+    def _get_packaged_integrations(self, package_manifest: dict) -> Optional[List[dict]]:
+        packaged_integrations = []
+        datasets = set()
 
-        for item in ast_obj:
-            if isinstance(item, FieldComparison) and str(item.field) == 'event.dataset':
-                dataset_values.append(str(item.value).split(' or ')[0])
-            elif isinstance(item, kql.ast.AndExpr):
-                [dataset_values.append(str(sub_item.value).split(' or ')[0]) for sub_item in
-                    item.items if isinstance(sub_item, FieldComparison) and str(sub_item.field) == 'event.dataset']
-            elif isinstance(item, eql.ast.PipedQuery):
-                packages = list()
-                for q in ast_obj.first.queries:
-                    for t in q.query.query.terms:
-                        if 'dataset' in t.left.path:
-                            packages.append(t.right.value)
-                [dataset_values.append(p) for p in list(set(packages))]
+        for node in self.data.get('ast', []):
+            if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
+                datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
+            elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
+                datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
 
-        for ints in list(set(dataset_values)):
-            package, integration = ints.split(".")
-            if package not in pkg_manifest.keys():
-                continue
-            packaged_integrations.append({"package": package, "integration": integration})
+        if not datasets:
+            return
+
+        for value in sorted(datasets):
+            integration = 'Unknown'
+            if '.' in value:
+                package, integration = value.split('.', 1)
+            else:
+                package = value
+
+            if package in list(package_manifest):
+                packaged_integrations.append({"package": package, "integration": integration})
+
         return packaged_integrations
 
     @validates_schema
