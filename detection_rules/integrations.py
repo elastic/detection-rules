@@ -8,14 +8,17 @@ import gzip
 import json
 import os
 import re
+from pathlib import Path
 
 import yaml
 from marshmallow import EXCLUDE, Schema, fields, post_load
+from operator import itemgetter
 
 from .ghwrap import GithubClient
 from .semver import Version
 from .utils import INTEGRATION_RULE_DIR, cached, get_etc_path, read_gzip
 
+MANIFEST_FILE_PATH = Path(get_etc_path('integration-manifests.json.gz'))
 
 @cached
 def load_integrations_manifests() -> dict:
@@ -40,7 +43,6 @@ class IntegrationManifestSchema(Schema):
 
 def build_integrations_manifest(token: str, overwrite: bool) -> None:
     """Builds a new local copy of manifest.yaml from integrations Github."""
-    manifest_file_path = get_etc_path('integration-manifests.json.gz')
     if overwrite:
         if os.path.exists(manifest_file_path):
             os.remove(manifest_file_path)
@@ -74,7 +76,7 @@ def build_integrations_manifest(token: str, overwrite: bool) -> None:
 def find_least_compatible_version(package: str, integration: str,
                                   current_stack_version: str, packages_manifest: dict) -> str:
     """Finds least compatible version for specified integration based on stack version supplied."""
-    integration_manifests = packages_manifest[package]
+    integration_manifests = {k:v for k,v in sorted(packages_manifest[package].items(), key=Version)}
     compatible_versions = {}
 
     def compare_versions(int_ver: str, pkg_ver: str) -> bool:
@@ -87,23 +89,14 @@ def find_least_compatible_version(package: str, integration: str,
         compatible = Version(int_ver) <= Version(pkg_ver)
         return compatible
 
-    for ver, manifest in integration_manifests.items():
-        kibana_compat_vers = re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana.version"])
-        kibana_compat_vers = kibana_compat_vers.split(" || ")
-        bool_checks = [compare_versions(kcv, current_stack_version) for kcv in kibana_compat_vers]
-        if any(bool_checks):
-            compatible_versions.setdefault(ver, True)
-
-    if len(list(compatible_versions.keys())) > 0:
-        compatible_version_list = list(compatible_versions.keys())
-        compatible_version_list.sort(key=Version)
-        least_compatible_version = compatible_version_list[0]
-    else:
-        raise Exception(f"no compatible version for integration {package}:{integration}")
-    return least_compatible_version
+    for version, manifest in integration_manifests.items():
+        for kibana_compat_vers in re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana.version"]).split(" || "):
+            if compare_versions(kibana_compat_vers, current_stack_version):
+                return version
+    raise Exception(f"no compatible version for integration {package}:{integration}")
 
 
-def get_integration_manifests(repository, sha: str, pkg_path: str) -> list:
+def get_integration_manifests(repository, sha: str, pkg_path: Path) -> list:
     """Iterates over specified integrations from package-storage and combines manifests per version."""
     integration = pkg_path.split("/")[-1]
     versioned_packages = repository.get_dir_contents(pkg_path, ref=sha)
