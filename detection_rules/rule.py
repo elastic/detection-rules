@@ -793,41 +793,27 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def get_packaged_integrations(self, ast_obj: Union[kql.ast.Expression,
                                   eql.ast.Expression], pkg_manifest: dict) -> List[dict]:
         packaged_integrations = list()
+        dataset_values = []
 
-        if isinstance(ast_obj, kql.ast.AndExpr) or isinstance(ast_obj, kql.ast.OrExpr):
-            for item in ast_obj.items:
-                if isinstance(item, FieldComparison) and str(item.field) == 'event.dataset':
-                    event_dataset_values = str(item.value).split(' or ')
+        for item in ast_obj:
+            if isinstance(item, FieldComparison) and str(item.field) == 'event.dataset':
+                dataset_values.append(str(item.value).split(' or ')[0])
+            elif isinstance(item, kql.ast.AndExpr):
+                [dataset_values.append(str(sub_item.value).split(' or ')[0]) for sub_item in
+                    item.items if isinstance(sub_item, FieldComparison) and str(sub_item.field) == 'event.dataset']
+            elif isinstance(item, eql.ast.PipedQuery):
+                packages = list()
+                for q in ast_obj.first.queries:
+                    for t in q.query.query.terms:
+                        if 'dataset' in t.left.path:
+                            packages.append(t.right.value)
+                [dataset_values.append(p) for p in list(set(packages))]
 
-                    for ints in event_dataset_values:
-                        package, integration = ints.split(".")
-                        if package not in pkg_manifest.keys():
-                            continue
-                        packaged_integrations.append({"package": package, "integration": integration})
-                if isinstance(item, kql.ast.AndExpr):
-                    for sub_item in item.items:
-                        if isinstance(sub_item, FieldComparison) and str(sub_item.field) == 'event.dataset':
-                            event_dataset_values = str(item.value).split(' or ')
-
-                            for ints in event_dataset_values:
-                                package, integration = ints.split(".")
-                                if package not in pkg_manifest.keys():
-                                    continue
-                                packaged_integrations.append({"package": package, "integration": integration})
-
-        elif isinstance(ast_obj, eql.ast.PipedQuery):
-            packages = list()
-            for q in ast_obj.first.queries:
-                for t in q.query.query.terms:
-                    if 'dataset' in t.left.path:
-                        packages.append(t.right.value)
-            packages = list(set(packages))
-            for p in packages:
-                package, integration = p.split(".")
-                packaged_integrations.append({"package": package, "integration": integration})
-        else:
-            raise Exception(f"{type(ast_obj)} type for rule {self.name} is unknown.")
-
+        for ints in list(set(dataset_values)):
+            package, integration = ints.split(".")
+            if package not in pkg_manifest.keys():
+                continue
+            packaged_integrations.append({"package": package, "integration": integration})
         return packaged_integrations
 
     @validates_schema
