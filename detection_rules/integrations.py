@@ -50,7 +50,7 @@ def build_integrations_manifest(token: str, overwrite: bool) -> None:
     if "endpoint" in rule_integrations:
         rule_integrations.remove("endpoint")
 
-    final_integration_manifests = {key: dict() for key in rule_integrations}
+    final_integration_manifests = {integration: {} for integration in rule_integrations}
 
     # initialize github client and point to package-storage prod
     github = GithubClient(token)
