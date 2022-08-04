@@ -46,7 +46,7 @@ def build_integrations_manifest(token: str, overwrite: bool) -> None:
     if overwrite:
         if os.path.exists(MANIFEST_FILE_PATH):
             os.remove(MANIFEST_FILE_PATH)
-    rule_integrations = os.listdir(INTEGRATION_RULE_DIR)
+    rule_integrations = [d.name for d in INTEGRATION_RULE_DIR.glob('*')]
     if "endpoint" in rule_integrations:
         rule_integrations.remove("endpoint")
 
