@@ -98,21 +98,21 @@ def find_least_compatible_version(package: str, integration: str,
 
 def get_integration_manifests(repository, sha: str, pkg_path: Path) -> list:
     """Iterates over specified integrations from package-storage and combines manifests per version."""
-    integration = pkg_path.split("/")[-1]
+    integration = pkg_path.name
     versioned_packages = repository.get_dir_contents(pkg_path, ref=sha)
     versions = [p.path.split("/")[-1] for p in versioned_packages]
-    versioned_packages_contents = list()
-    for v in versions:
-        contents = repository.get_dir_contents(f"{pkg_path}/{v}", ref=sha)
-        versioned_packages_contents.append(contents)
 
-    print(f"Processing {integration} - Versions: {versions}")
     manifests = []
-    for content in versioned_packages_contents:
-        processing_version = content[0].path.split("/")[2]
-        manifest_content = [c for c in content if "manifest" in c.path]
+    for version in versions:
+        contents = repository.get_dir_contents(f"{pkg_path}/{version}", ref=sha)
+        print(f"Processing {integration} - Versions: {versions}")
+
+        processing_version = contents[0].path.split("/")[2]
+        manifest_content = [c for c in contents if "manifest" in c.path]
+
         if len(manifest_content) < 1:
             raise Exception(f"manifest file does not exist for {integration}:{processing_version}")
+
         path = manifest_content[0].path
         manifest_content = yaml.safe_load(repository.get_contents(path, ref=sha).decoded_content.decode())
         manifests.append(manifest_content)
