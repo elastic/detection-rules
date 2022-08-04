@@ -75,7 +75,6 @@ def find_least_compatible_version(package: str, integration: str,
                                   current_stack_version: str, packages_manifest: dict) -> str:
     """Finds least compatible version for specified integration based on stack version supplied."""
     integration_manifests = packages_manifest[package]
-    least_compatible_version = None
     compatible_versions = {}
 
     def compare_versions(int_ver: str, pkg_ver: str) -> bool:
