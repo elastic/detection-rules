@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/05/16"
 maturity = "production"
-updated_date = "2022/05/16"
+updated_date = "2022/07/26"
 
 [rule]
 author = ["Elastic"]
@@ -43,8 +43,9 @@ type = "eql"
 query = '''
 sequence by process.entity_id with maxspan=1m
 [network where event.type == "start" and event.action == "connection_attempted" and user.id == "0" and 
-    not process.executable : ("/bin/ssh", "/sbin/ssh", "/usr/lib/systemd/systemd")]
-[process where event.action == "session_id_change" and user.id == "0"]
+    not process.executable : ("/bin/ssh", "/sbin/ssh", "/usr/lib/systemd/systemd", "/usr/sbin/sshd")]
+[process where event.action == "session_id_change" and user.id == "0" and
+    not process.executable : ("/bin/ssh", "/sbin/ssh", "/usr/lib/systemd/systemd", "/usr/sbin/sshd")]
 '''
 
 
