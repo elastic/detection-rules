@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/03/16"
 maturity = "production"
-updated_date = "2022/05/09"
+updated_date = "2022/07/29"
 
 [rule]
 author = ["Elastic"]
@@ -75,8 +75,10 @@ type = "eql"
 query = '''
 process where event.type in ("start", "process_started") and
   (process.name : "bcdedit.exe" or process.pe.original_file_name == "bcdedit.exe") and
-  (process.args : "/set" and process.args : "bootstatuspolicy" and process.args : "ignoreallfailures") or
-  (process.args : "no" and process.args : "recoveryenabled")
+    (
+      (process.args : "/set" and process.args : "bootstatuspolicy" and process.args : "ignoreallfailures") or
+      (process.args : "no" and process.args : "recoveryenabled")
+    )
 '''
 
 
