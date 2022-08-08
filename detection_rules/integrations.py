@@ -9,6 +9,7 @@ import json
 import os
 import re
 from pathlib import Path
+from typing import Union
 
 import yaml
 from marshmallow import EXCLUDE, Schema, fields, post_load
@@ -74,7 +75,7 @@ def build_integrations_manifest(token: str, overwrite: bool) -> None:
 
 
 def find_least_compatible_version(package: str, integration: str,
-                                  current_stack_version: str, packages_manifest: dict) -> str:
+                                  current_stack_version: str, packages_manifest: dict) -> Union[str, None]:
     """Finds least compatible version for specified integration based on stack version supplied."""
     integration_manifests = {k: v for k, v in sorted(packages_manifest[package].items(), key=Version)}
 
@@ -93,7 +94,8 @@ def find_least_compatible_version(package: str, integration: str,
         for kibana_compat_vers in re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana.version"]).split(" || "):
             if compare_versions(kibana_compat_vers, current_stack_version):
                 return version
-    raise Exception(f"no compatible version for integration {package}:{integration}")
+    print(f"no compatible version for integration {package}:{integration}")
+    return None
 
 
 def get_integration_manifests(repository, sha: str, pkg_path: str) -> list:
