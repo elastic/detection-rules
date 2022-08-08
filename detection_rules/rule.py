@@ -714,7 +714,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                             if package["integration"] not in policy_templates:
                                 del package["integration"]
 
-            obj.setdefault("related_integrations", package_integrations)
+                obj.setdefault("related_integrations", package_integrations)
 
     def _add_required_fields(self, obj: dict) -> None:
         """Add restricted field required_fields to the obj, derived from the query AST."""
