@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/12/14"
 maturity = "production"
-updated_date = "2022/05/09"
+updated_date = "2022/08/08"
 
 [rule]
 author = ["Elastic"]
@@ -92,9 +92,13 @@ network where event.type == "protocol" and network.protocol == "http" and
                   "SolarWinds.BusinessLayerHostx64.exe",
                   "SolarWinds.Collector.Service.exe",
                   "SolarwindsDiagnostics.exe") and
-  (http.request.body.content : "*/swip/Upload.ashx*" and http.request.body.content : ("POST*", "PUT*")) or
-  (http.request.body.content : ("*/swip/SystemDescription*", "*/swip/Events*") and http.request.body.content : ("GET*", "HEAD*")) and
-  not http.request.body.content : "*solarwinds.com*"
+  (
+    (
+      (http.request.body.content : "*/swip/Upload.ashx*" and http.request.body.content : ("POST*", "PUT*")) or
+      (http.request.body.content : ("*/swip/SystemDescription*", "*/swip/Events*") and http.request.body.content : ("GET*", "HEAD*"))
+    ) and
+    not http.request.body.content : "*solarwinds.com*"
+  )
 '''
 
 
