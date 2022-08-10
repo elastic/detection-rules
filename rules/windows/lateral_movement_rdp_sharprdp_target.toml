@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/11"
 maturity = "production"
-updated_date = "2022/02/14"
+updated_date = "2022/08/10"
 
 [rule]
 author = ["Elastic"]
@@ -38,7 +38,7 @@ sequence by host.id with maxspan=1m
    registry.data.strings : ("cmd.exe*", "powershell.exe*", "taskmgr*", "\\\\tsclient\\*.exe\\*")
   ]
   
-  [process where event.type in ("start", "process_started") and
+  [process where event.type == "start" and
    (process.parent.name : ("cmd.exe", "powershell.exe", "taskmgr.exe") or process.args : ("\\\\tsclient\\*.exe")) and 
    not process.name : "conhost.exe"
    ]
