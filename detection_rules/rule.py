@@ -17,11 +17,14 @@ from uuid import uuid4
 
 import eql
 import kql
+from kql.ast import FieldComparison
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
 from marshmallow import ValidationError, validates_schema
 
 from . import beats, ecs, utils
+from .integrations import (find_least_compatible_version,
+                           load_integrations_manifests)
 from .misc import load_current_package_version
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
@@ -166,6 +169,12 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         type: definitions.NonEmptyStr
         ecs: bool
 
+    @dataclass
+    class RelatedIntegrations:
+        package: definitions.NonEmptyStr
+        version: definitions.NonEmptyStr
+        integration: Optional[definitions.NonEmptyStr]
+
     actions: Optional[list]
     author: List[str]
     building_block_type: Optional[str]
@@ -187,7 +196,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     # explicitly NOT allowed!
     # output_index: Optional[str]
     references: Optional[List[str]]
-    related_integrations: Optional[List[str]] = field(metadata=dict(metadata=dict(min_compat="8.3")))
+    related_integrations: Optional[List[RelatedIntegrations]] = field(metadata=dict(metadata=dict(min_compat="8.3")))
     required_fields: Optional[List[RequiredFields]] = field(metadata=dict(metadata=dict(min_compat="8.3")))
     risk_score: definitions.RiskScore
     risk_score_mapping: Optional[List[RiskScoreMapping]]
@@ -666,7 +675,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         """Transform the converted API in place before sending to Kibana."""
         super()._post_dict_transform(obj)
 
-        self.add_related_integrations(obj)
+        self._add_related_integrations(obj)
         self._add_required_fields(obj)
         self._add_setup(obj)
 
@@ -676,10 +685,37 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         subclass.from_dict(obj)
         return obj
 
-    def add_related_integrations(self, obj: dict) -> None:
+    def _add_related_integrations(self, obj: dict) -> None:
         """Add restricted field related_integrations to the obj."""
-        # field_name = "related_integrations"
-        ...
+        field_name = "related_integrations"
+        package_integrations = obj.get(field_name, [])
+
+        if not package_integrations and self.metadata.integration:
+            packages_manifest = load_integrations_manifests()
+            current_stack_version = load_current_package_version()
+
+            if self.check_restricted_field_version(field_name):
+                if isinstance(self.data, QueryRuleData) and self.data.language != 'lucene':
+                    package_integrations = self._get_packaged_integrations(packages_manifest)
+
+                    if not package_integrations:
+                        return
+
+                    for package in package_integrations:
+                        package["version"] = find_least_compatible_version(
+                            package=package["package"],
+                            integration=package["integration"],
+                            current_stack_version=current_stack_version,
+                            packages_manifest=packages_manifest)
+
+                        # if integration is not a policy template remove
+                        if package["version"]:
+                            policy_templates = packages_manifest[
+                                package["package"]][package["version"]]["policy_templates"]
+                            if package["integration"] not in policy_templates:
+                                del package["integration"]
+
+                obj.setdefault("related_integrations", package_integrations)
 
     def _add_required_fields(self, obj: dict) -> None:
         """Add restricted field required_fields to the obj, derived from the query AST."""
@@ -690,7 +726,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             required_fields = []
 
         field_name = "required_fields"
-        if self.check_restricted_field_version(field_name=field_name):
+        if required_fields and self.check_restricted_field_version(field_name=field_name):
             obj.setdefault(field_name, required_fields)
 
     def _add_setup(self, obj: dict) -> None:
@@ -759,6 +795,31 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         current_version = Version(load_current_package_version())
         max_stack = max_stack or current_version
         return Version(min_stack) <= current_version >= Version(max_stack)
+
+    def _get_packaged_integrations(self, package_manifest: dict) -> Optional[List[dict]]:
+        packaged_integrations = []
+        datasets = set()
+
+        for node in self.data.get('ast', []):
+            if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
+                datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
+            elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
+                datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
+
+        if not datasets:
+            return
+
+        for value in sorted(datasets):
+            integration = 'Unknown'
+            if '.' in value:
+                package, integration = value.split('.', 1)
+            else:
+                package = value
+
+            if package in list(package_manifest):
+                packaged_integrations.append({"package": package, "integration": integration})
+
+        return packaged_integrations
 
     @validates_schema
     def post_validation(self, value: dict, **kwargs):
