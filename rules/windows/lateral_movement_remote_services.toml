@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/16"
 maturity = "production"
-updated_date = "2022/01/13"
+updated_date = "2022/08/01"
 
 [rule]
 author = ["Elastic"]
@@ -29,10 +29,33 @@ sequence with maxspan=1s
 
    [process where event.type in ("start", "process_started") and process.parent.name : "services.exe" and 
        not (process.name : "svchost.exe" and process.args : "tiledatamodelsvc") and 
-       not (process.name : "msiexec.exe" and process.args : "/V")
-   
-    /* uncomment if psexec is noisy in your environment */
-    /* and not process.name : "PSEXESVC.exe" */
+       not (process.name : "msiexec.exe" and process.args : "/V") and
+       not process.executable :
+               ("?:\\Windows\\ADCR_Agent\\adcrsvc.exe",
+                "?:\\Windows\\System32\\VSSVC.exe",
+                "?:\\Windows\\servicing\\TrustedInstaller.exe",
+                "?:\\Windows\\System32\\svchost.exe",
+                "?:\\Program Files (x86)\\*.exe",
+                "?:\\Program Files\\*.exe",
+                "?:\\Windows\\PSEXESVC.EXE",
+                "?:\\Windows\\System32\\sppsvc.exe",
+                "?:\\Windows\\System32\\wbem\\WmiApSrv.exe",
+                "?:\\WINDOWS\\RemoteAuditService.exe",
+                "?:\\Windows\\VeeamVssSupport\\VeeamGuestHelper.exe",
+                "?:\\Windows\\VeeamLogShipper\\VeeamLogShipper.exe",
+                "?:\\Windows\\CAInvokerService.exe",
+                "?:\\Windows\\System32\\upfc.exe",
+                "?:\\Windows\\AdminArsenal\\PDQ*.exe",
+                "?:\\Windows\\System32\\vds.exe",
+                "?:\\Windows\\Veeam\\Backup\\VeeamDeploymentSvc.exe",
+                "?:\\Windows\\ProPatches\\Scheduler\\STSchedEx.exe",
+                "?:\\Windows\\System32\\certsrv.exe",
+                "?:\\Windows\\eset-remote-install-service.exe",
+                "?:\\Pella Corporation\\Pella Order Management\\GPAutoSvc.exe",
+                "?:\\Pella Corporation\\OSCToGPAutoService\\OSCToGPAutoSvc.exe",
+                "?:\\Pella Corporation\\Pella Order Management\\GPAutoSvc.exe",
+                "?:\\Windows\\SysWOW64\\NwxExeSvc\\NwxExeSvc.exe",
+                "?:\\Windows\\System32\\taskhostex.exe")
    ] by host.id, process.parent.entity_id
 '''
 
