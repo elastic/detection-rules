@@ -452,12 +452,10 @@ def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...
 @click.option("--label", multiple=True, help="GitHub labels to add to the PR")
 @click.option("--draft", is_flag=True, help="Open the PR as a draft")
 @click.option("--remote", help="Override the remote from 'origin'", default="origin")
-@click.option("--release", required=True, is_flag=True, help="Is is regarding a stack release such as 8.4 or 8.5")
 @click.pass_context
 def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool,
                     pkg_directory: str, base_branch: str, remote: str,
-                    branch_name: Optional[str], github_repo: str, assign: Tuple[str, ...],
-                    label: Tuple[str, ...], release: bool):
+                    branch_name: Optional[str], github_repo: str, assign: Tuple[str, ...], label: Tuple[str, ...]):
     """Create a pull request to publish the Fleet package to elastic/integrations."""
     github = GithubClient(token)
     github.assert_github()
@@ -473,23 +471,7 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
 
     local_repo = os.path.abspath(local_repo)
     stack_version = Package.load_configs()["name"]
-    package_version = click.prompt("Enter package version (vMAJOR.MINOR.PATCH)")
-
-    # validate package_version if 8 s
-    request_session = requests.Session()
-    prod_artifacts = request_session.get('https://epr.elastic.co/search').json()
-    detection_engine_artifact = [art for art in prod_artifacts if art["name"] == "security_detection_engine"][0]
-    prod_artifact_version_split = detection_engine_artifact["version"].split('.')
-    if not release:
-        expected_package_version = "v{}.{}.{}".format(
-            prod_artifact_version_split[1],
-            prod_artifact_version_split[2],
-            int(prod_artifact_version_split[3]) + 1)
-    else: expected_package_version = f"v{stack_version}.1"
-
-    if expected_package_version != package_version:
-        click.echo(f"Version given does not match expected: {package_version} != {expected_package_version}")
-        ctx.exit(1)
+    package_version = Package.load_configs()["registry_data"]["version"].split("-")[0]
 
     release_dir = Path(RELEASE_DIR) / stack_version / "fleet" / package_version
     message = f"[Security Rules] Update security rules package to v{package_version}"
@@ -559,7 +541,6 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
             os.chdir(prev)
 
     elastic_pkg("format")
-    elastic_pkg("lint")
 
     # Upload the files to a branch
     git("add", pkg_directory)
@@ -609,7 +590,7 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     click.echo("PR created:")
     click.echo(pr.html_url)
 
-    # replace the changelog entry with the actual PR link
+    # # replace the changelog entry with the actual PR link
     changelog_entries[0]["changes"][0]["link"] = pr.html_url
     save_changelog()
 
