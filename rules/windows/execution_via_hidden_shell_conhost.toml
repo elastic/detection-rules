@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/08/17"
 maturity = "production"
-updated_date = "2022/05/21"
+updated_date = "2022/08/03"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,7 @@ note = """## Triage and analysis
 The Windows Console Host, or `conhost.exe`, is both the server application for all of the Windows Console APIs as well as
 the classic Windows user interface for working with command-line applications.
 
-Attackers often rely on custom shell implementations to avoid using built-in command interpreters like `cmd.exe` and 
+Attackers often rely on custom shell implementations to avoid using built-in command interpreters like `cmd.exe` and
 `PowerShell.exe` and bypass application allowlisting and security features. Attackers commonly inject these implementations into
 legitimate system processes.
 
@@ -72,7 +72,7 @@ malware components.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
 mean time to respond (MTTR).
 
-## Config
+## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -89,9 +89,12 @@ type = "eql"
 query = '''
 process where event.type in ("start", "process_started") and
   process.name : "conhost.exe" and
-  process.parent.name : ("svchost.exe", "lsass.exe", "services.exe", "smss.exe", "winlogon.exe", "explorer.exe",
-                         "dllhost.exe", "rundll32.exe", "regsvr32.exe", "userinit.exe", "wininit.exe", "spoolsv.exe",
-                         "wermgr.exe", "csrss.exe", "ctfmon.exe")
+  process.parent.name : ("lsass.exe", "services.exe", "smss.exe", "winlogon.exe", "explorer.exe", "dllhost.exe", "rundll32.exe",
+                         "regsvr32.exe", "userinit.exe", "wininit.exe", "spoolsv.exe", "ctfmon.exe") and
+  not (process.parent.name : "rundll32.exe" and
+       process.parent.args : ("?:\\Windows\\Installer\\MSI*.tmp,zzzzInvokeManagedCustomActionOutOfProc",
+                              "?:\\WINDOWS\\system32\\PcaSvc.dll,PcaPatchSdbTask",
+                              "?:\\WINDOWS\\system32\\davclnt.dll,DavSetCookie"))
 '''
 
 

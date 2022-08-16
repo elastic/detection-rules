@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/01/21"
 maturity = "production"
-updated_date = "2022/03/31"
+updated_date = "2022/08/03"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual File Creation - Alternate Data Stream"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -27,8 +27,25 @@ type = "eql"
 
 query = '''
 file where event.type == "creation" and
+
   file.path : "C:\\*:*" and
   not file.path : "C:\\*:zone.identifier*" and
+
+  not process.executable :
+          ("?:\\windows\\System32\\svchost.exe",
+           "?:\\Windows\\System32\\inetsrv\\w3wp.exe",
+           "?:\\Windows\\explorer.exe",
+           "?:\\Windows\\System32\\sihost.exe",
+           "?:\\Windows\\System32\\PickerHost.exe",
+           "?:\\Windows\\System32\\SearchProtocolHost.exe",
+           "?:\\Program Files (x86)\\Dropbox\\Client\\Dropbox.exe",
+           "?:\\Program Files\\Rivet Networks\\SmartByte\\SmartByteNetworkService.exe",
+           "?:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+           "?:\\Program Files\\ExpressConnect\\ExpressConnectNetworkService.exe",
+           "?:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+           "?:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+           "?:\\Program Files\\Mozilla Firefox\\firefox.exe") and
+
   file.extension :
     (
       "pdf",

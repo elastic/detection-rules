@@ -1,0 +1,102 @@
+[metadata]
+creation_date = "2021/07/30"
+deprecation_date = "2022/08/02"
+maturity = "deprecated"
+min_stack_comments = "EQL regex had a bug when dealing with wildcard fields that was fixed in 7.16 (elastic/elasticsearch/issues/78391)"
+min_stack_version = "7.16.0"
+updated_date = "2022/08/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies process execution events where the command line value contains a long sequence of whitespace characters or
+multiple occurrences of contiguous whitespace. Attackers may attempt to evade signature-based detections by padding
+their malicious command with unnecessary whitespace characters. These observations should be investigated for malicious
+behavior.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Whitespace Padding in Process Command Line"
+note = """## Triage and analysis
+
+### Investigating Whitespace Padding in Process Command Line
+
+This rule identifies process execution events where the command line value contains a long sequence of whitespace
+characters or multiple occurrences of contiguous whitespace. Attackers may attempt to evade signature-based detections
+by padding their malicious command with unnecessary whitespace characters.
+
+#### Possible investigation steps
+
+- Analyze the command line of the process in question for evidence of malicious code execution.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Investigate abnormal behaviors observed by the subject process such as network connections, registry or file
+modifications, and any spawned child processes.
+- Retrieve the process executable and determine if it is malicious:
+  - Use a private sandboxed malware analysis system to perform analysis.
+    - Observe and collect information about the following activities:
+      - Attempts to contact external domains and addresses.
+      - File and registry access, modification, and creation activities.
+      - Service creation and launch activities.
+      - Scheduled tasks creation.
+  - Use the PowerShell `Get-FileHash` cmdlet to get the files' SHA-256 hash values.
+    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+
+### False positive analysis
+
+- Alerts derived from this rule are not inherently malicious. Analysts can dismiss the alert if they don't find enough
+evidence of further suspicious activity.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
+  attackers could use to reinfect the system.
+- Remove the malicious certificate from the root certificate store.
+- Remove and block malicious artifacts identified during triage.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
+systems, and web services.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
+
+## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
+references = ["https://twitter.com/JohnLaTwC/status/1419251082736201737"]
+risk_score = 47
+rule_id = "e0dacebe-4311-4d50-9387-b17e89c2e7fd"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  process.command_line regex ".*[ ]{20,}.*" or
+
+  /* this will match on 3 or more separate occurrences of 3+ contiguous whitespace characters */
+  process.command_line regex "([^ ]+[ ]{3,}[^ ]*){3,}.*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
