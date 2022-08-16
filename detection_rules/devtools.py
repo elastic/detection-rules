@@ -590,7 +590,7 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     click.echo("PR created:")
     click.echo(pr.html_url)
 
-    # # replace the changelog entry with the actual PR link
+    # replace the changelog entry with the actual PR link
     changelog_entries[0]["changes"][0]["link"] = pr.html_url
     save_changelog()
 
