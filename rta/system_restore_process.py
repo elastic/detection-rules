@@ -12,10 +12,16 @@ import os
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [],
+    "ENDPOINT": []
+}
+
 SYSTEM_RESTORE = "c:\\System Volume Information"
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(common.PS_EXEC)
 def main():
     status = common.run_system()

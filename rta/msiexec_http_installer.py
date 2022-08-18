@@ -10,8 +10,13 @@
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Unusual Network Activity from a Windows System Binary"],
+    "ENDPOINT": []
+}
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     common.log("MsiExec HTTP Download")
     server, ip, port = common.serve_web()

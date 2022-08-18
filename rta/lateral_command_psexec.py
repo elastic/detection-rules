@@ -12,6 +12,11 @@ import sys
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["PsExec Network Connection"],
+    "ENDPOINT": []
+}
 
 @common.requires_os(common.WINDOWS)
 @common.dependencies(common.PS_EXEC)

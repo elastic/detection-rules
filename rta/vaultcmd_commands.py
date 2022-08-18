@@ -12,8 +12,13 @@ import sys
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Searching for Saved Credentials via VaultCmd"],
+    "ENDPOINT": []
+}
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     common.log("Searching Credential Vaults via VaultCmd")
 

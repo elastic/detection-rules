@@ -15,6 +15,12 @@ import time
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Potential Modification of Accessibility Binaries"],
+    "ENDPOINT": []
+}
+
 TARGET_APP = common.get_path("bin", "myapp.exe")
 
 

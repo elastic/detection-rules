@@ -14,8 +14,13 @@ import sys
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Modification of WDigest Security Provider"],
+    "ENDPOINT": []
+}
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     common.log("Modification of WDigest Security Provider")
 

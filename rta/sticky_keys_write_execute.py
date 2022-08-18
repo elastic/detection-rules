@@ -17,7 +17,14 @@ import time
 from . import common
 
 
-@common.requires_os(common.WINDOWS)
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Potential Modification of Accessibility Binaries",
+             "Persistence via TelemetryController Scheduled Task Hijack"],
+    "ENDPOINT": []
+}
+
+@common.requires_os(PLATFORMS)
 def main():
     # Prep
     bins = ["sethc.exe", "utilman.exe", "narrator.exe", "magnify.exe", "osk.exe", "displayswitch.exe", "atbroker.exe"]

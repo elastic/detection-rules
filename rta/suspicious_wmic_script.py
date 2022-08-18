@@ -11,6 +11,12 @@ import os
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Suspicious WMIC XSL Script Execution"],
+    "ENDPOINT": []
+}
+
 xsl_file = "test.xsl"
 xsl_content = """<?xml version='1.0'?>
 <stylesheet

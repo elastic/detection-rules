@@ -14,8 +14,13 @@ import sys
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Unusual Parent-Child Relationship"],
+    "ENDPOINT": []
+}
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     common.log("Running Windows processes with an unexpected parent of %s" % os.path.basename(sys.executable))
     process_names = [

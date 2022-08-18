@@ -15,8 +15,13 @@ import sys
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Binary Masquerading via Untrusted Path"],
+    "ENDPOINT": []
+}
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main(target_host=None):
     target_host = target_host or common.get_ip()
     host_str = '\\\\%s' % target_host

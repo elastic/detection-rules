@@ -15,6 +15,13 @@ import sys
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Unusual Network Activity from a Windows System Binary",
+             "Unusual Process Network Connection"],
+    "ENDPOINT": []
+}
+
 if sys.version_info > (3,):
     urlliblib = "urllib.request"
 else:

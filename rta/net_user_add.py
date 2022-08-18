@@ -11,6 +11,11 @@
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Potential Hidden Local User Account Creation"],
+    "ENDPOINT": []
+}
 
 @common.requires_os(common.WINDOWS)
 def main():

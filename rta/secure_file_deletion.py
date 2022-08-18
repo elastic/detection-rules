@@ -9,8 +9,13 @@ import tempfile
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["PsExec Network Connection"],
+    "ENDPOINT": []
+}
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     temp_path = os.path.join(tempfile.gettempdir(), os.urandom(16).encode('hex'))
     sdelete_path = common.get_path("bin", 'sdelete.exe')

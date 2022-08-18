@@ -14,6 +14,12 @@ import sys
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Encrypting Files with WinRar or 7z"],
+    "ENDPOINT": []
+}
+
 MY_APP = common.get_path("bin", "myapp.exe")
 WINRAR = common.get_path("bin", "Rar.exe")
 
@@ -25,7 +31,7 @@ def create_exfil(path=os.path.abspath("secret_stuff.txt")):
     return path
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(MY_APP, WINRAR)
 def main(password="s0l33t"):
     # Copies of the rar.exe for various tests

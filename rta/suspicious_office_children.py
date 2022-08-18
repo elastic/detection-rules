@@ -14,6 +14,11 @@ import os
 from . import common
 from . import mshta_network
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Suspicious MS Office Child Process"],
+    "ENDPOINT": []
+}
 
 @common.requires_os(common.WINDOWS)
 def main():

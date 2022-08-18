@@ -13,13 +13,18 @@ import time
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Bypass UAC via Event Viewer"],
+    "ENDPOINT": []
+}
 
 # Default machine value:
 # HKLM\Software\Classes\MSCFile\shell\open\command\(Default)
 # %SystemRoot%\system32\mmc.exe "%1" %*
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main(target_file=common.get_path("bin", "myapp.exe")):
     winreg = common.get_winreg()
     common.log("Bypass UAC with %s" % target_file)

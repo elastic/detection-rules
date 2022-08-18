@@ -14,6 +14,12 @@ import time
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [],
+    "ENDPOINT": []
+}
+
 INF_FILE = common.get_path("bin", "script_launch.inf")
 
 

@@ -13,8 +13,13 @@ import time
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Execution of File Written or Modified by Microsoft Office"],
+    "ENDPOINT": []
+}
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     cmd_path = "c:\\windows\\system32\\cmd.exe"
 

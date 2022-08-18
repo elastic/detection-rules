@@ -14,8 +14,14 @@ import time
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Suspicious MS Outlook Child Process",
+             "Suspicious MS Office Child Process"],
+    "ENDPOINT": []
+}
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     script_data = """
         WScript.CreateObject("wscript.shell")

@@ -12,10 +12,16 @@ import time
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Potential Application Shimming via Sdbinst"],
+    "ENDPOINT": []
+}
+
 SHIM_FILE = common.get_path("bin", "CVE-2013-3893.sdb")
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(SHIM_FILE)
 def main():
     common.log("Application Compatibility Shims")

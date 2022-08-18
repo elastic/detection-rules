@@ -16,12 +16,20 @@ import time
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Local Scheduled Task Creation",
+             "Whoami Process Activity",
+             "Svchost spawning Cmd"
+             ],
+    "ENDPOINT": []
+}
 
 def schtasks(*args, **kwargs):
     return common.execute(['schtasks.exe'] + list(args), **kwargs)
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     common.log("Scheduled Task Privilege Escalation")
 

@@ -10,6 +10,11 @@
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["SIP Provider Modification"],
+    "ENDPOINT": []
+}
 
 CRYPTO_ROOT = "SOFTWARE\\Microsoft\\Cryptography\\OID\\EncodingType 0"
 VERIFY_DLL_KEY = "%s\\CryptSIPDllVerifyIndirectData\\{C689AAB8-8E78-11D0-8C47-00C04FC295EE}" % CRYPTO_ROOT
@@ -45,7 +50,7 @@ else:
 TARGET_APP = common.get_path("bin", "myapp.exe")
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(SIGCHECK, TRUST_PROVIDER_DLL, TARGET_APP)
 def main():
     common.log("Registering SIP provider")

@@ -12,6 +12,11 @@ import sys
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["WMI Incoming Lateral Movement"],
+    "ENDPOINT": []
+}
 
 @common.requires_os(common.WINDOWS)
 def main(remote_host=None):

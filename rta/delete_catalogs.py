@@ -12,8 +12,13 @@ import time
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Deleting Backup Catalogs with Wbadmin"],
+    "ENDPOINT": []
+}
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     warning = "Deleting the backup catalog may have unexpected consequences. Operational issues are unknown."
     common.log("WARNING: %s" % warning, log_type="!")

@@ -14,8 +14,13 @@ import time
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Suspicious MS Office Child Process"],
+    "ENDPOINT": []
+}
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     cmd_path = "c:\\windows\\system32\\cmd.exe"
     server, ip, port = common.serve_web()

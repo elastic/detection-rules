@@ -10,6 +10,12 @@
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["SIP Provider Modification"],
+    "ENDPOINT": []
+}
+
 FINAL_POLICY_KEY = "Software\\Microsoft\\Cryptography\\providers\\trust\\FinalPolicy\\{00AAC56B-CD44-11D0-8CC2-00C04FC295EE}"  # noqa: E501
 
 
@@ -34,7 +40,7 @@ else:
 TARGET_APP = common.get_path("bin", "myapp.exe")
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(SIGCHECK, TRUST_PROVIDER_DLL, TARGET_APP)
 def main():
     common.log("Trust Provider")

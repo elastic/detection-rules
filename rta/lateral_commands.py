@@ -17,6 +17,12 @@ import sys
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Service Command Lateral Movement"],
+    "ENDPOINT": []
+}
+
 MY_APP = common.get_path("bin", "myapp.exe")
 
 

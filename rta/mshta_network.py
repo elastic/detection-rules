@@ -13,7 +13,15 @@ from . import common
 HTA_FILE = common.get_path("bin", "beacon.hta")
 
 
-@common.requires_os(common.WINDOWS)
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Unusual Network Activity from a Windows System Binary",
+             "Mshta Making Network Connections",
+             "Network Connection via Mshta"],
+    "ENDPOINT": []
+}
+
+@common.requires_os(PLATFORMS)
 @common.dependencies(HTA_FILE)
 def main():
     # http server will terminate on main thread exit

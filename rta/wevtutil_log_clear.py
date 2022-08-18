@@ -13,8 +13,13 @@ import time
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Clearing Windows Event Logs"],
+    "ENDPOINT": []
+}
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     common.log("Clearing Windows Event Logs")
     common.log("WARNING - About to clear logs from Windows Event Viewer", log_type="!")

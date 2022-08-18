@@ -12,6 +12,12 @@ import sys
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Startup or Run Key Registry Modification"],
+    "ENDPOINT": []
+}
+
 # There are many unconventional ways to leverage the Registry for persistence:
 
 '''
@@ -57,7 +63,7 @@ key_path == "*\\System\\Setup\\CmdLine"
 '''  # noqa: E501
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main(target="calc.exe"):
     winreg = common.get_winreg()
     hkey = winreg.CreateKey(winreg.HKEY_CURRENT_USER, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon")

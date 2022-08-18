@@ -13,8 +13,13 @@ import time
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Delete Volume USN Journal with Fsutil"],
+    "ENDPOINT": []
+}
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     message = "Deleting the USN journal may have unintended consequences"
     common.log("WARNING: %s" % message, log_type="!")

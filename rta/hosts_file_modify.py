@@ -16,6 +16,11 @@ from string import ascii_letters
 
 from . import common
 
+PLATFORMS = [common.WINDOWS, common.LINUX, common.MACOS]
+TRIGGERED_RULES = {
+    "SIEM": ["Hosts File Modified"],
+    "ENDPOINT": []
+}
 
 def main():
     hosts_files = {

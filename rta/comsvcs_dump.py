@@ -13,8 +13,16 @@ import time
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Potential Credential Access via Renamed COM+ Services DLL",
+             "LSASS Memory Dump Handle Access",
+             "Potential Credential Access via Windows Utilities"
+            ],
+    "ENDPOINT": []
+}
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     common.log("Memory Dump via Comsvcs")
     pid = os.getpid()

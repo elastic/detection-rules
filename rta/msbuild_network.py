@@ -12,10 +12,16 @@
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Microsoft Build Engine Started an Unusual Process"],
+    "ENDPOINT": []
+}
+
 MS_BUILD = 'C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\msbuild.exe'
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(MS_BUILD)
 def main():
     common.log("MsBuild Beacon")

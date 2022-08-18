@@ -13,10 +13,16 @@ import sys
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Direct Outbound SMB Connection"],
+    "ENDPOINT": []
+}
+
 SMB_PORT = 445
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main(ip=None):
     ip = ip or common.get_ip()
 

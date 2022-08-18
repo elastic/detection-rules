@@ -14,8 +14,13 @@ import os
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Modification of Boot Configuration"],
+    "ENDPOINT": []
+}
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     # Messing with the boot configuration is probably not a great idea so create a backup:
     common.log("Exporting the boot configuration....")

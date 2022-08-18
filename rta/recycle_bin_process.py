@@ -13,11 +13,17 @@ import time
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Execution from Unusual Directory - Command Line"],
+    "ENDPOINT": []
+}
+
 RECYCLE_PATHS = ["C:\\$Recycle.Bin", "C:\\Recycler"]
 TARGET_APP = common.get_path("bin", "myapp.exe")
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(TARGET_APP, common.CMD_PATH)
 def main():
     common.log("Execute files from the Recycle Bin")

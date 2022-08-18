@@ -13,8 +13,14 @@ import random
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Windows Network Enumeration",
+             "Enumeration of Administrator Accounts"],
+    "ENDPOINT": []
+}
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main(args=None):
     slow_commands = [
         "gpresult.exe /z",

@@ -16,8 +16,13 @@ import time
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Attempts to Brute Force an Okta User Account"],
+    "ENDPOINT": []
+}
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main(username="rta-tester", remote_host=None):
     if not remote_host:
         common.log('A remote host is required to detonate this RTA', '!')

@@ -13,10 +13,16 @@ import os
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Unusual Parent-Child Relationship"],
+    "ENDPOINT": []
+}
+
 MY_APP = common.get_path("bin", "myapp.exe")
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(MY_APP)
 def main():
     masquerades = [

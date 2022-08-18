@@ -10,6 +10,11 @@
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [],
+    "ENDPOINT": []
+}
 
 @common.requires_os(common.WINDOWS)
 def main():

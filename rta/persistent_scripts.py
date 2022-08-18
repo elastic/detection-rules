@@ -12,11 +12,17 @@ import time
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Local Scheduled Task Creation"],
+    "ENDPOINT": []
+}
+
 VBS = common.get_path("bin", "persistent_script.vbs")
 NAME = "rta-vbs-persistence"
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(common.PS_EXEC, VBS)
 def main():
     common.log("Persistent Scripts")

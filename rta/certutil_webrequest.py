@@ -10,10 +10,16 @@
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Network Connection via Certutil"],
+    "ENDPOINT": []
+}
+
 MY_DLL = common.get_path("bin", "mydll.dll")
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(MY_DLL)
 def main():
     # http server will terminate on main thread exit

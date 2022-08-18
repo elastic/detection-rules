@@ -10,8 +10,14 @@
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [],
+    "ENDPOINT": []
+}
 
-@common.requires_os(common.WINDOWS)
+
+@common.requires_os(PLATFORMS)
 @common.dependencies(common.get_path("bin", "notepad.sct"))
 def main():
     common.log("RegSvr32 with .sct backdoor")

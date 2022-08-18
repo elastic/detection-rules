@@ -12,8 +12,13 @@ import sys
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Incoming DCOM Lateral Movement with MMC"],
+    "ENDPOINT": []
+}
 
-@common.requires_os("windows")
+@common.requires_os(PLATFORMS)
 def main(remote_host=None):
     remote_host = remote_host or common.get_ip()
     common.log("DCOM Lateral Movement with MMC")

@@ -14,13 +14,18 @@ import time
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Bypass UAC via Sdclt"],
+    "ENDPOINT": []
+}
 
 # HKCU:\Software\Classes\exefile\shell\runas\command value: IsolatedCommand
 # "sdclt.exe /KickOffElev" or children of sdclt.exe
 # HKLM value: "%1" %*
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main(target_process=common.get_path("bin", "myapp.exe")):
     target_process = os.path.abspath(target_process)
 

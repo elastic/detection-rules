@@ -15,10 +15,18 @@ import sys
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["InstallUtil Process Making Network Connections",
+             "Unusual Network Activity from a Windows System Binary"
+    ],
+    "ENDPOINT": []
+}
+
 MY_DOT_NET = common.get_path("bin", "mydotnet.exe")
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(MY_DOT_NET)
 def main():
     server, ip, port = common.serve_web()

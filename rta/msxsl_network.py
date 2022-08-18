@@ -10,6 +10,12 @@
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": ["Network Connection via MsXsl"],
+    "ENDPOINT": []
+}
+
 MS_XSL = common.get_path("bin", "msxsl.exe")
 XML_FILE = common.get_path("bin", "customers.xml")
 XSL_FILE = common.get_path("bin", "cscript.xsl")

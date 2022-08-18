@@ -11,8 +11,13 @@ import os
 
 from . import common
 
+PLATFORMS = [common.MACOS]
+TRIGGERED_RULES = {
+    "SIEM": ["User Discovery via Whoami"],
+    "ENDPOINT": []
+}
 
-@common.requires_os(common.MACOS)
+@common.requires_os(PLATFORMS)
 def main():
     common.log("Emulating Microsoft Word running enumeration commands")
     office_path = os.path.abspath("Microsoft Word")
