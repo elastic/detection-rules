@@ -13,7 +13,7 @@ from . import common
 
 PLATFORMS = [common.MACOS]
 TRIGGERED_RULES = {
-    "SIEM": ["User Discovery via Whoami"],
+    "SIEM": [],
     "ENDPOINT": []
 }
 
