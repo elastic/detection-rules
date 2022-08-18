@@ -13,14 +13,43 @@ from detection_rules.rule_loader import RuleCollection
 
 from . import common
 
-CURRENT_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+CURRENT_DIR_PATH = Path(CURRENT_DIR)
+
+
+def get_ttp_list(os_types=None):
+    scripts = []
+    if os_types and not isinstance(os_types, (list, tuple)):
+        os_types = [os_types]
+
+    for script in sorted(glob.glob(os.path.join(CURRENT_DIR, "*.py"))):
+        base_name, _ = os.path.splitext(os.path.basename(script))
+        if base_name not in ("common", "main") and not base_name.startswith("_"):
+            if os_types:
+                # Import it and skip it if it's not supported
+                importlib.import_module(__name__ + "." + base_name)
+                if not any(base_name in common.OS_MAPPING[os_type] for os_type in os_types):
+                    continue
+
+            scripts.append(script)
+
+    return scripts
+
+
+def get_ttp_names(os_types=None):
+    names = []
+    for script in get_ttp_list(os_types):
+        basename, ext = os.path.splitext(os.path.basename(script))
+        names.append(basename)
+    return names
 
 
 def get_available_tests(print_list=False, os_filter=None):
     test_names = []
     test_metadata = []
 
-    for file in list(CURRENT_DIR.rglob("*.py")):
+    for file in list(CURRENT_DIR_PATH.rglob("*.py")):
         if file.stem not in ("common", "main") and not file.stem.startswith("_"):
             module = importlib.import_module(f"rta.{file.stem}")
             if os_filter and os_filter not in module.PLATFORMS:
@@ -42,7 +71,7 @@ def get_available_tests(print_list=False, os_filter=None):
 def get_rta_triggered_rules() -> dict:
     # get all rtas and the rules they cover
     all_rtas = {"windows": [], "linux": [], "macos": []}
-    for file in list(CURRENT_DIR.rglob("*.py")):
+    for file in list(CURRENT_DIR_PATH.rglob("*.py")):
         if file.stem not in ("common", "main") and not file.stem.startswith("_"):
             module = importlib.import_module(f"rta.{file.stem}")
             for platform in module.PLATFORMS:
