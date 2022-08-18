@@ -16,32 +16,6 @@ from . import common
 CURRENT_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
 
 
-def get_ttp_list(os_types=None):
-    scripts = []
-    if os_types and not isinstance(os_types, (list, tuple)):
-        os_types = [os_types]
-
-    for script in sorted(glob.glob(os.path.join(CURRENT_DIR, "*.py"))):
-        base_name, _ = os.path.splitext(os.path.basename(script))
-        if base_name not in ("common", "main") and not base_name.startswith("_"):
-            if os_types:
-                # Import it and skip it if it's not supported
-                importlib.import_module(__name__ + "." + base_name)
-                if not any(base_name in common.OS_MAPPING[os_type] for os_type in os_types):
-                    continue
-
-            scripts.append(script)
-
-    return scripts
-
-
-def get_ttp_names(os_types=None):
-    names = []
-    for script in get_ttp_list(os_types):
-        basename, ext = os.path.splitext(os.path.basename(script))
-        names.append(basename)
-    return names
-
 def get_available_tests(print_list=False, os_filter=None):
     test_names = []
     test_metadata = []
@@ -88,6 +62,7 @@ def get_os_list(rule) -> list:
                 os_list.append(os_type)
     return os_list
 
+
 def build_coverage_map(all_rtas, all_rules) -> dict:
     # get the rules that are not covered by each rta
     coverage_map = {"windows": {"supported": [], "unsupported": []},
@@ -97,9 +72,6 @@ def build_coverage_map(all_rtas, all_rules) -> dict:
     for trule in all_rules.rules:
         rule_covered = False
         os_list = get_os_list(trule)
-        # print
-        # print(os_list)
-
         for os_type in os_list:
             diag = ""
             if "production" not in trule.contents.metadata.maturity:

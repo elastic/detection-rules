@@ -29,8 +29,7 @@ if parsed_args.name:
         exit(module.main(*remaining))
 
 elif parsed_args.list:
-    tests = get_available_tests(print_list=True, os_filter=parsed_args.os_filter)
-    # get_ttp_names()
+    get_available_tests(print_list=True, os_filter=parsed_args.os_filter)
 
 elif parsed_args.rule_coverage:
     rule_coverage(parsed_args.os_filter)
