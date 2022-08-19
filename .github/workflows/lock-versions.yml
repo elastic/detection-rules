@@ -6,7 +6,7 @@ on:
           description: 'List of branches to lock versions (ordered, comma separated)'
           required: true
           # 7.17 was intentionally skipped because it was added late and was bug fix only
-          default: '7.13,7.14,7.15,7.16,8.0,8.1,8.2'
+          default: '7.16,8.0,8.1,8.2,8.3,8.4'
 
 jobs:
   pr:
@@ -49,8 +49,8 @@ jobs:
         env:
           BRANCHES: "${{github.event.inputs.branches}}"
         run: |
-          ./etc/lock-multiple.sh $BRANCHES
-          git add etc/version.lock.json
+          ./detection_rules/etc/lock-multiple.sh $BRANCHES
+          git add detection_rules/etc/version.lock.json
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v3

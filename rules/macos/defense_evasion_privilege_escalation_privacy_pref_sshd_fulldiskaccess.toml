@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/01/11"
 maturity = "production"
-updated_date = "2022/03/31"
+updated_date = "2022/04/20"
 
 [rule]
 author = ["Elastic"]
@@ -15,12 +15,12 @@ index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Privacy Control Bypass via Localhost Secure Copy"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = [
-    "https://blog.trendmicro.com/trendlabs-security-intelligence/xcsset-mac-malware-infects-xcode-projects-performs-uxss-attack-on-safari-other-browsers-leverages-zero-day-exploits/",
+    "https://www.trendmicro.com/en_us/research/20/h/xcsset-mac-malware--infects-xcode-projects--uses-0-days.html",
 ]
 risk_score = 73
 rule_id = "c02c8b9f-5e1d-463c-a1b0-04edcdfe1a3d"
@@ -30,9 +30,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and 
+process where event.type in ("start", "process_started") and
  process.name:"scp" and
- process.args:"StrictHostKeyChecking=no" and 
+ process.args:"StrictHostKeyChecking=no" and
  process.command_line:("scp *localhost:/*", "scp *127.0.0.1:/*") and
  not process.args:"vagrant@*127.0.0.1*"
 '''

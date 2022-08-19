@@ -4,14 +4,15 @@
 # 2.0.
 
 """Wrapper around requests.Session for HTTP requests to Kibana."""
-import json
-import threading
+import atexit
 import base64
+import json
 import sys
+import threading
 import uuid
 
-from elasticsearch import Elasticsearch
 import requests
+from elasticsearch import Elasticsearch
 
 _context = threading.local()
 
@@ -60,8 +61,10 @@ class Kibana(object):
         self.elasticsearch = elasticsearch
 
         if not verify:
-            from requests.packages.urllib3.exceptions import InsecureRequestWarning
+            from requests.packages.urllib3.exceptions import \
+                InsecureRequestWarning
             requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+        atexit.register(self.__close)
 
     @property
     def version(self):
@@ -182,7 +185,7 @@ class Kibana(object):
         self.session = requests.Session()
         self.elasticsearch = None
 
-    def __del__(self):
+    def __close(self):
         if self.authenticated:
             self.logout()
 

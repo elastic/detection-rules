@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/02/22"
 maturity = "production"
-updated_date = "2022/02/22"
+updated_date = "2022/05/23"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,47 @@ from = "now-9m"
 index = ["winlogbeat-*", "logs-system.*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Account configured with never Expiring Password"
+name = "Account Configured with Never-Expiring Password"
+note = """## Triage and analysis
+
+### Investigating Account Configured with Never-Expiring Password
+
+Active Directory provides a setting that prevents users' passwords from expiring. Enabling this setting is bad practice and can expose
+environments to vulnerabilities that weaken security posture, especially when these accounts are privileged.
+
+The setting is usually configured so a user account can act as a service account. Attackers can abuse these accounts to
+persist in the domain and maintain long-term access using compromised accounts with a never-expiring password set.
+
+#### Possible investigation steps
+
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Contact the account owner and confirm whether they are aware of this activity.
+- Investigate other alerts associated with the user/source host during the past 48 hours.
+- Inspect the account for suspicious or abnormal behaviors in the alert timeframe.
+
+### False positive analysis
+
+- This activity should not happen legitimately. The security team should address any potential benign true positive
+(B-TP), as this configuration can put the user and the domain at risk.
+- Using user accounts as service accounts is a bad security practice and should not be allowed in the domain. The
+security team should map and monitor potential benign true positives (B-TPs), especially if the account is privileged.
+For cases in which user accounts cannot be avoided, Microsoft provides the Group Managed Service Accounts (gMSA) feature,
+which ensures that the account password is robust and changed regularly and automatically.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Review the privileges assigned to the user to ensure that the least privilege principle is being followed.
+- Reset the password of the account and update its password settings.
+- Search for other occurrences on the domain.
+    - Using the [Active Directory PowerShell module](https://docs.microsoft.com/en-us/powershell/module/activedirectory/get-aduser):
+        - `get-aduser -filter { passwordNeverExpires -eq $true  -and enabled -eq $true } | ft`
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts, if
+any, are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email,
+business systems, and web services.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
+"""
 references = [
     "https://www.cert.ssi.gouv.fr/uploads/guide-ad.html#dont_expire",
     "https://blog.menasec.net/2019/02/threat-hunting-26-persistent-password.html",
