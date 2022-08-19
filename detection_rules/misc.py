@@ -89,7 +89,7 @@ def nested_get(_dict, dot_key, default=None):
 
 
 def nested_set(_dict, dot_key, value):
-    """Set a nested field from a a key in dot notation."""
+    """Set a nested field from a key in dot notation."""
     keys = dot_key.split('.')
     for key in keys[:-1]:
         _dict = _dict.setdefault(key, {})
@@ -98,6 +98,21 @@ def nested_set(_dict, dot_key, value):
         _dict[keys[-1]] = value
     else:
         raise ValueError('dict cannot set a value to a non-dict for {}'.format(dot_key))
+
+
+def nest_from_dot(dots, value):
+    """Nest a dotted field and set the innermost value."""
+    fields = dots.split('.')
+
+    if not fields:
+        return {}
+
+    nested = {fields.pop(): value}
+
+    for field in reversed(fields):
+        nested = {field: nested}
+
+    return nested
 
 
 def schema_prompt(name, value=None, required=False, **options):

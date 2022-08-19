@@ -12,7 +12,7 @@ import kql
 from kibana import Signal, RuleResource
 from .cli_utils import multi_collection
 from .main import root
-from .misc import add_params, client_error, kibana_options, get_kibana_client
+from .misc import add_params, client_error, kibana_options, get_kibana_client, nested_set
 from .schemas import downgrade
 from .utils import format_command_options
 
@@ -97,13 +97,28 @@ def search_alerts(ctx, query, date_range, columns, extend, max_count):
     with kibana:
         alerts = [a['_source'] for a in Signal.search({'query': kql_query}, size=max_count)['hits']['hits']]
 
-    table_columns = ['host.hostname', 'rule.name', '@timestamp']
-
     # check for events with nested signal fields
-    if alerts and 'signal' in alerts[0]:
-        table_columns = ['host.hostname', 'signal.rule.name', 'signal.status', 'signal.original_time']
-    if columns:
-        columns = list(columns)
-        table_columns = table_columns + columns if extend else columns
-    click.echo(Table.from_list(table_columns, alerts))
+    if alerts:
+        table_columns = ['host.hostname']
+
+        if 'signal' in alerts[0]:
+            table_columns += ['signal.rule.name', 'signal.status', 'signal.original_time']
+        elif 'kibana.alert.rule.name' in alerts[0]:
+            table_columns += ['kibana.alert.rule.name', 'kibana.alert.status', 'kibana.alert.original_time']
+        else:
+            table_columns += ['rule.name', '@timestamp']
+        if columns:
+            columns = list(columns)
+            table_columns = table_columns + columns if extend else columns
+
+        # Table requires the data to be nested, but depending on the version, some data uses dotted keys, so
+        # they must be nested explicitly
+        for alert in alerts:
+            for key in table_columns:
+                if key in alert:
+                    nested_set(alert, key, alert[key])
+
+        click.echo(Table.from_list(table_columns, alerts))
+    else:
+        click.echo('No alerts detected')
     return alerts

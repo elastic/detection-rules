@@ -328,9 +328,6 @@ class QueryValidator:
     def ast(self) -> Any:
         raise NotImplementedError()
 
-    def unique_fields(self):
-        raise NotImplementedError()
-
     @property
     def unique_fields(self) -> Any:
         raise NotImplementedError
@@ -409,6 +406,7 @@ class QueryRuleData(BaseRuleData):
         validator = self.validator
         if validator is not None:
             return validator.get_required_fields(index or [])
+
 
 @dataclass(frozen=True)
 class MachineLearningRuleData(BaseRuleData):
