@@ -82,9 +82,13 @@ class EQLValidator(QueryValidator):
         for stack_version, mapping in meta.get_validation_stack_versions().items():
             beats_version = mapping['beats']
             ecs_version = mapping['ecs']
-            err_trailer = f'stack: {stack_version}, beats: {beats_version}, ecs: {ecs_version}'
+            endgame_version = mapping['endgame']
+            err_trailer = f'stack: {stack_version}, beats: {beats_version}, \
+                            ecs: {ecs_version}, endgame: {endgame_version}'
 
             beat_types, beat_schema, schema = self.get_beats_schema(data.index or [], beats_version, ecs_version)
+            endgame_schema = self.get_endgame_schema(data.index, endgame_version)
+
             eql_schema = ecs.KqlSchema2Eql(schema)
 
             try:
@@ -107,6 +111,12 @@ class EQLValidator(QueryValidator):
             except Exception:
                 print(err_trailer)
                 raise
+
+            # try:
+            #     with endgame_schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+            #         eql.parser.parse_query(self.query)
+            # except eql.EqlParseError as exc:
+            #     print(str(exc))
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
