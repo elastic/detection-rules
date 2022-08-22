@@ -9,6 +9,12 @@
 #              files, such as etc/shadow and etc/passwd
 from . import common
 
+PLATFORMS = [common.LINUX]
+TRIGGERED_RULES = {
+    "SIEM": ["Sensitive Files Compression"],
+    "ENDPOINT": []
+}
+TACTICS = ["Credential Access", "Collection"]
 
 @common.requires_os(common.LINUX)
 def main():
