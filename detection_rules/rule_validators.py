@@ -114,8 +114,8 @@ class EQLValidator(QueryValidator):
 
             if endgame_schema:
                 try:
-                    with endgame_schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
-                        eql.parser.parse_query(self.query)
+                    with endgame_schema:
+                        eql.parse_query(self.query)
                 except eql.EqlParseError as exc:
                     print(str(exc))
 
