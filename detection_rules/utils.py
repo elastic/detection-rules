@@ -33,6 +33,7 @@ import kql
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(CURR_DIR)
 ETC_DIR = os.path.join(ROOT_DIR, "detection_rules", "etc")
+INTEGRATION_RULE_DIR = os.path.join(ROOT_DIR, "rules", "integrations")
 
 
 class NonelessDict(dict):
