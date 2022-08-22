@@ -112,11 +112,12 @@ class EQLValidator(QueryValidator):
                 print(err_trailer)
                 raise
 
-            # try:
-            #     with endgame_schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
-            #         eql.parser.parse_query(self.query)
-            # except eql.EqlParseError as exc:
-            #     print(str(exc))
+            if endgame_schema:
+                try:
+                    with endgame_schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+                        eql.parser.parse_query(self.query)
+                except eql.EqlParseError as exc:
+                    print(str(exc))
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
