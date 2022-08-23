@@ -94,7 +94,7 @@ class EndgameSchema(eql.Schema):
 
     def __init__(self, endgame_schema):
         self.endgame_schema = endgame_schema
-        eql.Schema.__init__(self, {"process": {"name": "string"}}, allow_any=True, allow_generic=False, allow_missing=False)
+        eql.Schema.__init__(self, {}, allow_any=True, allow_generic=False, allow_missing=False)
 
     def get_event_type_hint(self, event_type, path):
         dotted = ".".join(str(p) for p in path)
@@ -108,8 +108,8 @@ class EndgameSchema(eql.Schema):
 @cached
 def read_endgame_schema(endgame_version: str, warn=False) -> dict:
     """Load Endgame json schemas. The schemas
-    must be generated with the `generate_os_schema()` method."""
-    # expect versions to be in format of vN.N.N or master/main
+    must be generated with the `download_endgame_schema()` method."""
+    # expect versions to be in format of N.N.N or master/main
 
     endgame_schema_path = ENDGAME_SCHEMA_DIR / endgame_version / "endgame_flat.json.gz"
 
