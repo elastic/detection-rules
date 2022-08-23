@@ -31,7 +31,7 @@ class EndgameSchemaManager:
         # TODO: Download schema from TBD
         # Temporarily, use the static mapping.json file downloaded from the
         # Endgame UI until we have an authoritative place to download the file.
-        endgame_mapping_path = ENDGAME_SCHEMA_DIR / "v190" / "mapping.json"
+        endgame_mapping_path = ENDGAME_SCHEMA_DIR / self.endgame_version / "mapping.json"
         endgame_mapping = json.loads(endgame_mapping_path.read_bytes())
         return endgame_mapping
 
@@ -79,64 +79,11 @@ class EndgameSchemaManager:
 class EndgameSchema(eql.Schema):
     """Schema for query validation."""
 
-    type_mapping = {
-
-        "float": eql.types.TypeHint.Numeric,
-        # "double": eql.types.TypeHint.Numeric,
-        # "long": eql.types.TypeHint.Numeric,
-        # "short": eql.types.TypeHint.Numeric,
-        "integer": eql.types.TypeHint.Numeric,
-        "boolean": eql.types.TypeHint.Boolean,
-    }
-
     # TODO: Remove endgame mappings from non-ecs-schema.json
 
     def __init__(self, endgame_schema):
         self.endgame_schema = endgame_schema
         eql.Schema.__init__(self, {}, allow_any=True, allow_generic=False, allow_missing=False)
-
-    @staticmethod
-    def elasticsearch_type_family(mapping_type: str) -> str:
-        """Get the family of type for an Elasticsearch mapping type."""
-        # https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-types.html
-        mapping = {
-            # range types
-            "long_range": "range",
-            "double_range": "range",
-            "date_range": "range",
-            "ip_range": "range",
-            # text search types
-            "annotated-text": "text",
-            "completion": "text",
-            "match_only_text": "text",
-            "search-as_you_type": "text",
-            # keyword
-            "constant_keyword": "keyword",
-            "wildcard": "keyword",
-            # date
-            "date_nanos": "date",
-            # integer
-            "token_count": "integer",
-            "long": "integer",
-            "short": "integer",
-            "byte": "integer",
-            "unsigned_long": "integer",
-            "string": "pizza",
-            # float
-            "double": "float",
-            "half_float": "float",
-            "scaled_float": "float",
-        }
-        return mapping.get(mapping_type, mapping_type)
-
-    def get_event_type_hint(self, event_type, path):
-        field = "_".join(str(p) for p in path)
-        elasticsearch_type = self.endgame_schema.get(field)
-        es_type_family = self.elasticsearch_type_family(elasticsearch_type)
-        eql_hint = self.type_mapping.get(es_type_family)
-
-        if eql_hint is not None:
-            return eql_hint, None
 
 
 @cached

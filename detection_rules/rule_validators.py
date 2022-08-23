@@ -83,8 +83,8 @@ class EQLValidator(QueryValidator):
             beats_version = mapping['beats']
             ecs_version = mapping['ecs']
             endgame_version = mapping['endgame']
-            err_trailer = f'stack: {stack_version}, beats: {beats_version}, \
-                            ecs: {ecs_version}, endgame: {endgame_version}'
+            err_trailer = f'stack: {stack_version}, beats: {beats_version},' \
+                          f'ecs: {ecs_version}, endgame: {endgame_version}'
 
             beat_types, beat_schema, schema = self.get_beats_schema(data.index or [], beats_version, ecs_version)
             endgame_schema = self.get_endgame_schema(data.index, endgame_version)
@@ -112,12 +112,21 @@ class EQLValidator(QueryValidator):
                 print(err_trailer)
                 raise
 
-            if endgame_schema:
-                try:
-                    with endgame_schema:
-                        eql.parse_query(self.query)
-                except eql.EqlParseError as exc:
-                    print(str(exc))
+            if not endgame_schema:
+                continue
+
+            try:
+                with endgame_schema:
+                    eql.parse_query(self.query)
+            except eql.EqlParseError as exc:
+                message = exc.error_msg
+                trailer = err_trailer
+
+                raise exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
+                                    len(exc.caret.lstrip()), trailer=trailer) from None
+            except Exception:
+                print(err_trailer)
+                raise
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
