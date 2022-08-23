@@ -471,7 +471,7 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
 
     local_repo = os.path.abspath(local_repo)
     stack_version = Package.load_configs()["name"]
-    package_version = Package.load_configs()["registry_data"]["version"].split("-")[0]
+    package_version = Package.load_configs()["registry_data"]["version"]
 
     release_dir = Path(RELEASE_DIR) / stack_version / "fleet" / package_version
     message = f"[Security Rules] Update security rules package to v{package_version}"
