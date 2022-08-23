@@ -17,7 +17,7 @@ ENDGAME_SCHEMA_DIR = Path(ETC_DIR) / "endgame_schemas"
 
 
 class EndgameSchemaManager:
-    """Class to download, convert, and save endgame schemas from endpoint-eventing-schema."""
+    """Endgame Class to download, convert, and save endgame schemas from TBD."""
 
     def __init__(self, github_client, endgame_version: str):
         # self.repo = github_client.get_repo("elastic/endpoint-eventing-schema")
@@ -77,13 +77,32 @@ class EndgameSchemaManager:
 
 
 class EndgameSchema(eql.Schema):
-    """Schema for query validation."""
+    """Endgame schema for query validation."""
+
+    type_mapping = {
+        "keyword": eql.types.TypeHint.String,
+        "ip": eql.types.TypeHint.String,
+        "float": eql.types.TypeHint.Numeric,
+        # "double": eql.types.TypeHint.Numeric,
+        # "long": eql.types.TypeHint.Numeric,
+        # "short": eql.types.TypeHint.Numeric,
+        "integer": eql.types.TypeHint.Numeric,
+        "boolean": eql.types.TypeHint.Boolean,
+    }
 
     # TODO: Remove endgame mappings from non-ecs-schema.json
 
     def __init__(self, endgame_schema):
         self.endgame_schema = endgame_schema
-        eql.Schema.__init__(self, {}, allow_any=True, allow_generic=False, allow_missing=False)
+        eql.Schema.__init__(self, {"process": {"name": "string"}}, allow_any=True, allow_generic=False, allow_missing=False)
+
+    def get_event_type_hint(self, event_type, path):
+        dotted = ".".join(str(p) for p in path)
+        elasticsearch_type = self.endgame_schema.get(dotted)
+        eql_hint = self.type_mapping.get(elasticsearch_type)
+
+        if eql_hint is not None:
+            return eql_hint, None
 
 
 @cached
