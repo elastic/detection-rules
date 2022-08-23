@@ -107,7 +107,7 @@ class EndgameSchema(eql.Schema):
 
 @cached
 def read_endgame_schema(endgame_version: str, warn=False) -> dict:
-    """Load Endgame json schemas. The schemas
+    """Load Endgame json schema. The schemas
     must be generated with the `download_endgame_schema()` method."""
     # expect versions to be in format of N.N.N or master/main
 
