@@ -116,11 +116,17 @@ class EQLValidator(QueryValidator):
                 continue
 
             try:
-                with endgame_schema:
+                with endgame_schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
                     eql.parse_query(self.query)
             except eql.EqlParseError as exc:
                 message = exc.error_msg
                 trailer = err_trailer
+
+                if "Field not recognized" in message:
+                    text_fields = self.text_fields(eql_schema)
+                    if text_fields:
+                        fields_str = ', '.join(text_fields)
+                        trailer = f"\neql does not support text fields: {fields_str}\n\n{trailer}"
 
                 raise exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
                                     len(exc.caret.lstrip()), trailer=trailer) from None
