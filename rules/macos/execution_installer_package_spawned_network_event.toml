@@ -1,13 +1,15 @@
 [metadata]
 creation_date = "2021/02/23"
 maturity = "production"
-updated_date = "2022/08/17"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the execution of a MacOS installer package with an abnormal child process (e.g bash) followed immediately by a network connection via a suspicious process (e.g curl). 
-Threat actors will build and distribute malicious MacOS installer packages, which have a .pkg extension, many times imitating valid software in order to persuade and infect their victims often using the package files (e.g pre/post install scripts etc.) to download additional tools or malicious software. 
+Detects the execution of a MacOS installer package with an abnormal child process (e.g bash) followed immediately by a network connection via a suspicious process (e.g curl).
+Threat actors will build and distribute malicious MacOS installer packages, which have a .pkg extension, many times imitating valid software in order to persuade and infect their victims often using the package files (e.g pre/post install scripts etc.) to download additional tools or malicious software.
 If this rule fires it should indicate the installation of a malicious or suspicious package.
 """
 false_positives = [
@@ -34,8 +36,8 @@ type = "eql"
 
 query = '''
 sequence by host.id, user.id with maxspan=30s
-[process where event.type == "start" and event.action == "exec" and process.parent.name : ("installer", "package_script_service") and process.name : ("bash", "sh", "zsh", "python", "osascript", "tclsh*")] 
-[network where event.type == "start" and process.name : ("curl", "osascript", "wget", "python")] 
+[process where event.type == "start" and event.action == "exec" and process.parent.name : ("installer", "package_script_service") and process.name : ("bash", "sh", "zsh", "python", "osascript", "tclsh*")]
+[network where event.type == "start" and process.name : ("curl", "osascript", "wget", "python")]
 '''
 
 [[rule.threat]]
