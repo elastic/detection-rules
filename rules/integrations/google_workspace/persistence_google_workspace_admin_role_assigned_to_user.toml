@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/11/17"
 maturity = "production"
-updated_date = "2022/08/24"
+updated_date = "2022/08/25"
 integration = "google_workspace"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
@@ -40,12 +40,12 @@ references = ["https://support.google.com/a/answer/172176?hl=en"]
 risk_score = 47
 rule_id = "68994a6c-c7ba-4e82-b476-26a26877adf6"
 severity = "medium"
-tags = ["Elastic", "Cloud", "Google Workspace", "Continuous Monitoring", "SecOps", "Identity and Access"]
+tags = ["Elastic", "Cloud", "Google Workspace", "Continuous Monitoring", "SecOps", "Identity and Access", "Persistence"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:ASSIGN_ROLE
+event.dataset:"google_workspace.admin" and event.action:"ASSIGN_ROLE"  and event.category:"iam" and google_workspace.event.type:"DELEGATED_ADMIN_SETTINGS" and google_workspace.admin.role.name : *_ADMIN_ROLE
 '''
 
 
@@ -55,7 +55,10 @@ framework = "MITRE ATT&CK"
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
-
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
 
 [rule.threat.tactic]
 id = "TA0003"
