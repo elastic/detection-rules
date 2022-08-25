@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2021/07/14"
 maturity = "production"
-updated_date = "2021/07/14"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -42,7 +44,7 @@ sequence by host.id, user.id with maxspan=5m
   ] by process.pid
  [process where event.type == "start" and process.parent.Ext.real.pid > 0 and
   /* process.parent.Ext.real.pid is only populated if the parent process pid doesn't match */
-  
+
   not (process.name : "msedge.exe" and process.parent.name : "sihost.exe")
  ] by process.parent.Ext.real.pid
 '''
