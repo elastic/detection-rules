@@ -712,13 +712,13 @@ class TestBuildTimeFields(BaseRuleTest):
             errors = []
             for build_field, field_versions in build_fields.items():
                 start_ver, end_ver = field_versions
-                if start_ver is not None and not Version(min_stack) >= start_ver:
+                if start_ver is not None and min_stack is None or not Version(min_stack) >= start_ver:
                     errors.append(f'{build_field} >= {start_ver}')
 
             if errors:
                 err_str = ', '.join(errors)
                 invalids.append(f'{self.rule_str(rule)} uses a rule type with build fields requiring min_stack_versions'
-                                f'to be set: {err_str}')
+                                f' to be set: {err_str}')
 
             if invalids:
                 self.fail(invalids)
