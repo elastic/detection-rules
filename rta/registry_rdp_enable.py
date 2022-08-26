@@ -11,8 +11,15 @@
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [{"rule_id": "7405ddf1-6c8e-41ce-818f-48bea6bcaed8", "rule_name": "Potential Modification of Accessibility Binaries"}],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "1ef2a173-a9c8-446d-9d56-f7e54a197a33"
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     common.log("Enabling RDP Through Registry")
 

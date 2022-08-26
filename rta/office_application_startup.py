@@ -12,8 +12,15 @@ import sys
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "5a979532-2b56-4c7d-b47e-a2aa1ef9547a"
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main(dll_location="c:\\windows\\temp\\evil.dll"):
     # Write evil dll to office test path:
     subkey = "Software\\Microsoft\\Office Test\\Special\\Perf"

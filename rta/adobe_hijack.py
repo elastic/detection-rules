@@ -12,8 +12,15 @@ import os
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [{"rule_id": "2bf78aa2-9c56-48de-b139-f169bf99cf86", "rule_name": "Adobe Hijack Persistence"}],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "2df08481-31db-44a8-b01d-1c0df827bddb"
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     rdr_cef_dir = "C:\\Program Files (x86)\\Adobe\\Acrobat Reader DC\\Reader\\AcroCEF"
     rdrcef_exe = os.path.join(rdr_cef_dir, "RdrCEF.exe")

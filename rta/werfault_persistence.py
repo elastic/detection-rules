@@ -16,7 +16,15 @@ from . import common
 MY_APP = common.get_path("bin", "myapp.exe")
 
 
-@common.requires_os(common.WINDOWS)
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [{"rule_id": "ac5012b8-8da8-440b-aaaf-aedafdea2dff", "rule_name": "Suspicious WerFault Child Process"}],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "cbd90dde-02f4-4010-b654-ccabff3c3c73"
+
+@common.requires_os(PLATFORMS)
 @common.dependencies(MY_APP)
 def main():
     reg_key = "'HKLM:\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting\\hangs'"

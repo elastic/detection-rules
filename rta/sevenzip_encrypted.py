@@ -14,6 +14,14 @@ import sys
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [{"rule_id": "45d273fb-1dca-457d-9855-bcb302180c21", "rule_name": "Encrypting Files with WinRar or 7z"}],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "6cd35061-278b-45e7-a9cb-86b48bc47884"
+
 SEVENZIP = common.get_path("bin", "7za.exe")
 
 
@@ -24,7 +32,7 @@ def create_exfil(path=os.path.abspath("secret_stuff.txt")):
     return path
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(SEVENZIP)
 def main(password="s0l33t"):
     # create 7z.exe with not-7zip name, and exfil

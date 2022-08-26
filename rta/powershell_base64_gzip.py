@@ -10,8 +10,15 @@
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [{"rule_id": "81fe9dc6-a2d7-4192-a2d8-eed98afc766a", "rule_name": "PowerShell Suspicious Payload Encoded and Compressed"}],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "38defc7e-7234-45a2-83ef-e845d0eba3f2"
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     common.log("PowerShell with base64/gzip")
 

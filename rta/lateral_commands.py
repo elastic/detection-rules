@@ -17,10 +17,18 @@ import sys
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [{"rule_id": "d61cbcf8-1bc1-4cff-85ba-e7b21c5beedc", "rule_name": "Service Command Lateral Movement"}],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "389392dc-61db-4e45-846f-099f7d289c1b"
+
 MY_APP = common.get_path("bin", "myapp.exe")
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(MY_APP)
 def main(remote_host=None):
     remote_host = remote_host or common.get_ip()

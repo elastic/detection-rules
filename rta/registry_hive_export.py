@@ -12,10 +12,18 @@ import os
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [{"rule_id": "a7e7bfa3-088e-4f13-b29e-3986e0e756b8", "rule_name": "Credential Acquisition via Registry Hive Dumping"}],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "dfdcc4f4-5aca-486a-8115-b15b653b9b4f"
+
 REG = "reg.exe"
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     for hive in ["sam", "security", "system"]:
         filename = os.path.abspath("%s.reg" % hive)

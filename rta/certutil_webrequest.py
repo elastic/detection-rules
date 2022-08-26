@@ -10,10 +10,18 @@
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [{"rule_id": "3838e0e3-1850-4850-a411-2e8c5ba40ba8", "rule_name": "Network Connection via Certutil"}],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "10609a63-0013-4fd0-9322-66c86c1c9501"
+
 MY_DLL = common.get_path("bin", "mydll.dll")
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(MY_DLL)
 def main():
     # http server will terminate on main thread exit

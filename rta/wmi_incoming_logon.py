@@ -12,8 +12,15 @@ import sys
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [{"rule_id": "f3475224-b179-4f78-8877-c2bd64c26b88", "rule_name": "WMI Incoming Lateral Movement"}],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "3adf005f-94b8-4b34-8994-d5a3dc6666c2"
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main(remote_host=None):
     if not remote_host:
         common.log('A remote host is required to detonate this RTA', '!')

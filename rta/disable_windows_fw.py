@@ -13,8 +13,15 @@ import os
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [{"rule_id": "4b438734-3793-4fda-bd42-ceeada0be8f9", "rule_name": "Disable Windows Firewall Rules via Netsh"}],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "75e14e5a-1188-47ea-9b96-2cf6e9443fc2"
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     common.log("NetSH Advanced Firewall Configuration", log_type="~")
     netsh = "netsh.exe"

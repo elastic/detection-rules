@@ -10,8 +10,15 @@
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [{"rule_id": "16a52c14-7883-47af-8745-9357803f0d4c", "rule_name": "Component Object Model Hijacking"}],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "ac739578-c978-429f-9454-0bbe82f993f4"
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     key = "SOFTWARE\\Classes\\CLSID\\{00000000-0000-0000-0000-0000DEADBEEF}"
     subkey = "InprocServer32"

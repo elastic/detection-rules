@@ -10,12 +10,20 @@
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [{"rule_id": "b86afe07-0d98-4738-b15d-8d7465f95ff5", "rule_name": "Network Connection via MsXsl"}],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "a8331ff5-2199-48cf-9284-88351c859835"
+
 MS_XSL = common.get_path("bin", "msxsl.exe")
 XML_FILE = common.get_path("bin", "customers.xml")
 XSL_FILE = common.get_path("bin", "cscript.xsl")
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(MS_XSL, XML_FILE, XSL_FILE)
 def main():
     common.log("MsXsl Beacon")

@@ -15,10 +15,20 @@ import sys
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [{"rule_id": "a13167f1-eec2-4015-9631-1fee60406dcf", "rule_name": "InstallUtil Process Making Network Connections"},
+             {"rule_id": "1fe3b299-fbb5-4657-a937-1d746f2c711a", "rule_name": "Unusual Network Activity from a Windows System Binary"}
+    ],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "6dfa88c9-9fb2-4fb0-8bea-0bc45222b498"
+
 MY_DOT_NET = common.get_path("bin", "mydotnet.exe")
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(MY_DOT_NET)
 def main():
     server, ip, port = common.serve_web()

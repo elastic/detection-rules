@@ -12,8 +12,15 @@ import os
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "71f67037-1df3-4d5f-b8cb-eaf295ad16ed"
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     common.log("Suspicious File Writes (IQY, PUB)")
     adobe_path = os.path.abspath("AcroRd32.exe")

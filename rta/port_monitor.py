@@ -10,8 +10,15 @@
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [{"rule_id": "8f3e91c7-d791-4704-80a1-42c160d7aa27", "rule_name": "Potential Port Monitor or Print Processor Registration Abuse"}],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "d7d1d0cf-a84a-4526-b0db-be59a210246e"
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     common.log("Writing registry key and dummy dll")
 

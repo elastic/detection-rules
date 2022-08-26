@@ -15,6 +15,14 @@ import time
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [{"rule_id": "7405ddf1-6c8e-41ce-818f-48bea6bcaed8", "rule_name": "Potential Modification of Accessibility Binaries"}],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "c62c65bf-248e-4f5a-ad4f-a48736c1d6f2"
+
 TARGET_APP = common.get_path("bin", "myapp.exe")
 
 
@@ -22,7 +30,7 @@ def pause():
     time.sleep(0.5)
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(TARGET_APP)
 def main():
     common.log("Suspicious Registry Persistence")

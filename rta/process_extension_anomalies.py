@@ -10,10 +10,18 @@
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "c7d9d63d-09ff-40e9-b990-4c273281d6a0"
+
 MY_APP = common.get_path("bin", "myapp.exe")
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(MY_APP)
 def main():
     anomalies = [

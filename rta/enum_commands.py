@@ -13,8 +13,16 @@ import random
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [{"rule_id": "7b8bfc26-81d2-435e-965c-d722ee397ef1", "rule_name": "Windows Network Enumeration"},
+             {"rule_id": "871ea072-1b71-4def-b016-6278b505138d", "rule_name": "Enumeration of Administrator Accounts"}],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "9b19f4a3-7287-45d2-ab0f-9a9c0b1bc8e1"
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main(args=None):
     slow_commands = [
         "gpresult.exe /z",

@@ -11,6 +11,14 @@ import os
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [{"rule_id": "7f370d54-c0eb-4270-ac5a-9a6020585dc6", "rule_name": "Suspicious WMIC XSL Script Execution"}],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "16b3d9c6-e188-49c5-8dce-d3eb5b0fcf91"
+
 xsl_file = "test.xsl"
 xsl_content = """<?xml version='1.0'?>
 <stylesheet
@@ -26,7 +34,7 @@ version="1.0">
 """
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     common.log("Executing suspicious WMIC script")
 

@@ -14,8 +14,15 @@ import time
 
 from . import common
 
+PLATFORMS = [common.WINDOWS]
+TRIGGERED_RULES = {
+    "SIEM": [{"rule_id": "7405ddf1-6c8e-41ce-818f-48bea6bcaed8", "rule_name": "Potential Modification of Accessibility Binaries"}],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "7dea9748-dcac-49a9-8909-bd1f5590e508"
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     # Write to AppData\Local\
     common.execute(['cmd', '/c', 'echo', 'test', '>', '%APPDATA%\\test.SettingContent-ms'])

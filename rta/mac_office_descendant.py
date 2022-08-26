@@ -11,8 +11,15 @@ import os
 
 from . import common
 
+PLATFORMS = [common.MACOS]
+TRIGGERED_RULES = {
+    "SIEM": [],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "bb523eb1-db67-4ae6-9369-af1a93322817"
 
-@common.requires_os(common.MACOS)
+@common.requires_os(PLATFORMS)
 def main():
     common.log("Emulating Microsoft Word running enumeration commands")
     office_path = os.path.abspath("Microsoft Word")

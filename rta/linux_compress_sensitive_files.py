@@ -9,8 +9,15 @@
 #              files, such as etc/shadow and etc/passwd
 from . import common
 
+PLATFORMS = [common.LINUX]
+TRIGGERED_RULES = {
+    "SIEM": [{"rule_id": "6b84d470-9036-4cc0-a27c-6d90bbfe81ab", "rule_name": "Sensitive Files Compression"}],
+    "ENDPOINT": []
+}
+TACTICS = []
+RTA_ID = "f3ffa89b-de47-4e17-ac8e-385e0e7f8253"
 
-@common.requires_os(common.LINUX)
+@common.requires_os(PLATFORMS)
 def main():
     common.log("Compressing sensitive files")
     files = ['totally-legit.tar', 'official-business.zip', 'expense-reports.gz']
