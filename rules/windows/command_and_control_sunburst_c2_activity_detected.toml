@@ -94,9 +94,13 @@ network where event.type == "protocol" and network.protocol == "http" and
                   "SolarWinds.BusinessLayerHostx64.exe",
                   "SolarWinds.Collector.Service.exe",
                   "SolarwindsDiagnostics.exe") and
-  (http.request.body.content : "*/swip/Upload.ashx*" and http.request.body.content : ("POST*", "PUT*")) or
-  (http.request.body.content : ("*/swip/SystemDescription*", "*/swip/Events*") and http.request.body.content : ("GET*", "HEAD*")) and
-  not http.request.body.content : "*solarwinds.com*"
+  (
+    (
+      (http.request.body.content : "*/swip/Upload.ashx*" and http.request.body.content : ("POST*", "PUT*")) or
+      (http.request.body.content : ("*/swip/SystemDescription*", "*/swip/Events*") and http.request.body.content : ("GET*", "HEAD*"))
+    ) and
+    not http.request.body.content : "*solarwinds.com*"
+  )
 '''
 
 

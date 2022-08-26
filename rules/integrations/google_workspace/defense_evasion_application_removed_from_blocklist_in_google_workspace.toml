@@ -1,5 +1,5 @@
 [metadata]
-creation_date = "2020/11/17"
+creation_date = "2022/08/25"
 integration = "google_workspace"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
@@ -9,15 +9,15 @@ updated_date = "2022/08/25"
 [rule]
 author = ["Elastic"]
 description = """
-Assigning the administrative role to a user will grant them access to the Google Admin console and grant them
-administrator privileges which allow them to access and manage various resources and applications. An adversary may
-create a new administrator account for persistence or apply the admin role to an existing user to carry out further
-intrusion efforts. Users with super-admin privileges can bypass single-sign on if enabled in Google Workspace.
+Google Workspace administrators may be aware of malicious applications within the Google marketplace and block these
+applications for user security purposes. An adversary, with administrative privileges, may remove this application from
+the explicit block list to allow distribution of the application amongst users. This may also indicate the unauthorized
+use of an application that had been previously blocked before by a user with admin privileges.
 """
 false_positives = [
     """
-    Google Workspace admin role assignments may be modified by system administrators. Verify that the configuration
-    change was expected. Exceptions can be added to this rule to filter expected behavior.
+    Applications can be added and removed from blocklists by Google Workspace administrators. Verify that the
+    configuration change was expected. Exceptions can be added to this rule to filter expected behavior.
     """,
 ]
 from = "now-130m"
@@ -25,7 +25,7 @@ index = ["filebeat-*", "logs-google_workspace*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
-name = "Google Workspace Admin Role Assigned to a User"
+name = "Application Removed from Blocklist in Google Workspace"
 note = """## Setup
 
 The Google Workspace Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
@@ -38,43 +38,45 @@ The Google Workspace Fleet integration, Filebeat module, or similarly structured
 - See the following references for further information:
   - https://support.google.com/a/answer/7061566
   - https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-google_workspace.html"""
-references = ["https://support.google.com/a/answer/172176?hl=en"]
-risk_score = 73
-rule_id = "68994a6c-c7ba-4e82-b476-26a26877adf6"
-severity = "high"
+references = ["https://support.google.com/a/answer/6328701?hl=en#"]
+risk_score = 47
+rule_id = "495e5f2e-2480-11ed-bea8-f661ea17fbce"
+severity = "medium"
 tags = [
     "Elastic",
     "Cloud",
     "Google Workspace",
     "Continuous Monitoring",
     "SecOps",
-    "Identity and Access",
-    "Persistence",
+    "Configuration Audit",
+    "Impair Defenses",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:"google_workspace.admin" and event.category:"iam" and event.action:"ASSIGN_ROLE"
-  and google_workspace.event.type:"DELEGATED_ADMIN_SETTINGS" and google_workspace.admin.role.name : *_ADMIN_ROLE
+event.dataset:"google_workspace.admin" and event.category:"iam" and event.type:"change"  and
+  event.action:"CHANGE_APPLICATION_SETTING" and
+  google_workspace.admin.application.name:"Google Workspace Marketplace" and
+  google_workspace.admin.old_value: *allowed*false* and google_workspace.admin.new_value: *allowed*true*
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1098"
-name = "Account Manipulation"
-reference = "https://attack.mitre.org/techniques/T1098/"
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
 [[rule.threat.technique.subtechnique]]
-id = "T1098.003"
-name = "Additional Cloud Roles"
-reference = "https://attack.mitre.org/techniques/T1098/003/"
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
 
 
 
 [rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 
