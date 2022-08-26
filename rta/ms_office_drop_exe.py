@@ -15,9 +15,11 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Execution of File Written or Modified by Microsoft Office"],
+    "SIEM": [{"rule_id": "0d8ad79f-9025-45d8-80c1-4f0cd3c5e8e5", "rule_name": "Execution of File Written or Modified by Microsoft Office"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "ce85674f-fb6c-44d5-b880-4ce9062e1028"
 
 @common.requires_os(PLATFORMS)
 def main():

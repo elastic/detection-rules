@@ -18,9 +18,11 @@ MY_APP = common.get_path("bin", "myapp.exe")
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Suspicious WerFault Child Process"],
+    "SIEM": [{"rule_id": "ac5012b8-8da8-440b-aaaf-aedafdea2dff", "rule_name": "Suspicious WerFault Child Process"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "cbd90dde-02f4-4010-b654-ccabff3c3c73"
 
 @common.requires_os(PLATFORMS)
 @common.dependencies(MY_APP)

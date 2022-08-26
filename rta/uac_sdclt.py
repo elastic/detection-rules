@@ -16,9 +16,11 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Bypass UAC via Sdclt"],
+    "SIEM": [{"rule_id": "9b54e002-034a-47ac-9307-ad12c03fa900", "rule_name": "Bypass UAC via Sdclt"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "fd3577f0-a4d6-4a08-b31d-2e53ffff92b2"
 
 # HKCU:\Software\Classes\exefile\shell\runas\command value: IsolatedCommand
 # "sdclt.exe /KickOffElev" or children of sdclt.exe

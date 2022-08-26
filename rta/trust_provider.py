@@ -12,9 +12,11 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["SIP Provider Modification"],
+    "SIEM": [{"rule_id": "f2c7b914-eda3-40c2-96ac-d23ef91776ca", "rule_name": "SIP Provider Modification"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "45541eb5-c636-477b-81c9-b6dcf184c9cc"
 
 FINAL_POLICY_KEY = "Software\\Microsoft\\Cryptography\\providers\\trust\\FinalPolicy\\{00AAC56B-CD44-11D0-8CC2-00C04FC295EE}"  # noqa: E501
 

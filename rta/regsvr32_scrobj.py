@@ -15,7 +15,8 @@ TRIGGERED_RULES = {
     "SIEM": [],
     "ENDPOINT": []
 }
-
+TACTICS = []
+RTA_ID = "e5d741f9-8855-41cd-80ef-caf41452dd2d"
 
 @common.requires_os(PLATFORMS)
 @common.dependencies(common.get_path("bin", "notepad.sct"))

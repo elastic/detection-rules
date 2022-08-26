@@ -15,12 +15,14 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Potential Credential Access via Renamed COM+ Services DLL",
-             "LSASS Memory Dump Handle Access",
-             "Potential Credential Access via Windows Utilities"
+    "SIEM": [{"rule_id": "c5c9f591-d111-4cf8-baec-c26a39bc31ef", "rule_name": "Potential Credential Access via Renamed COM+ Services DLL"},
+             {"rule_id": "208dbe77-01ed-4954-8d44-1e5751cb20de", "rule_name": "LSASS Memory Dump Handle Access"},
+             {"rule_id": "00140285-b827-4aee-aa09-8113f58a08f3", "rule_name": "Potential Credential Access via Windows Utilities"}
             ],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "413cf7ef-0fad-46fd-ab67-e94c4e3e0f0b"
 
 @common.requires_os(PLATFORMS)
 def main():

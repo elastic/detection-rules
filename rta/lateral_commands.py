@@ -19,9 +19,11 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Service Command Lateral Movement"],
+    "SIEM": [{"rule_id": "d61cbcf8-1bc1-4cff-85ba-e7b21c5beedc", "rule_name": "Service Command Lateral Movement"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "389392dc-61db-4e45-846f-099f7d289c1b"
 
 MY_APP = common.get_path("bin", "myapp.exe")
 

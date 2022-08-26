@@ -15,9 +15,11 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Direct Outbound SMB Connection"],
+    "SIEM": [{"rule_id": "c82c7d8f-fb9e-4874-a4bd-fd9e3f9becf1", "rule_name": "Direct Outbound SMB Connection"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "b0e3e1bb-dfa5-473a-8862-b2d1d42819ce"
 
 SMB_PORT = 445
 

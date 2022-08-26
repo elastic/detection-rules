@@ -16,9 +16,11 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Suspicious MS Office Child Process"],
+    "SIEM": [{"rule_id": "a624863f-a70d-417f-a7d2-7a404638d47f", "rule_name": "Suspicious MS Office Child Process"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "858f05e4-19b1-42bd-88dc-799e86775edc"
 
 @common.requires_os(PLATFORMS)
 def main():

@@ -18,6 +18,8 @@ TRIGGERED_RULES = {
     "SIEM": [],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "5efc844c-0c11-4f84-a904-ada611315298"
 
 def encode(command):
     return base64.b64encode(command.encode('utf-16le'))

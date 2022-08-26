@@ -14,9 +14,11 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Incoming DCOM Lateral Movement with MMC"],
+    "SIEM": [{"rule_id": "51ce96fb-9e52-4dad-b0ba-99b54440fc9a", "rule_name": "Incoming DCOM Lateral Movement with MMC"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "7f4cfcf6-881b-48b0-864d-21eba06e57cc"
 
 @common.requires_os(PLATFORMS)
 def main(remote_host=None):

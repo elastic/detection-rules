@@ -13,11 +13,13 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Potential Hidden Local User Account Creation"],
+    "SIEM": [{"rule_id": "41b638a1-8ab6-4f8e-86d9-466317ef2db5", "rule_name": "Potential Hidden Local User Account Creation"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "7884fa56-c4d6-494f-bfa5-825851ee0fda"
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     common.log("Creating local and domain user accounts using net.exe")
     commands = [

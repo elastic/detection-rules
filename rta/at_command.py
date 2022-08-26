@@ -17,9 +17,11 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Binary Masquerading via Untrusted Path"],
+    "SIEM": [],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "961d7a1f-7bad-41d5-a3d9-8e8a2f59a824"
 
 @common.requires_os(PLATFORMS)
 def main(target_host=None):

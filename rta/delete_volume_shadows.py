@@ -14,9 +14,11 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Volume Shadow Copy Deletion via WMIC"],
+    "SIEM": [{"rule_id": "dc9c1f74-dac3-48e3-b47f-eb79db358f57", "rule_name": "Volume Shadow Copy Deletion via WMIC"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "ae6343cc-3b56-4f60-854f-7102db519ec4"
 
 @common.requires_os(PLATFORMS)
 def main():

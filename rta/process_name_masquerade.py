@@ -15,9 +15,11 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Unusual Parent-Child Relationship"],
+    "SIEM": [{"rule_id": "35df0dd8-092d-4a83-88c1-5151a804f31b", "rule_name": "Unusual Parent-Child Relationship"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "ead01ef7-73da-4990-bce3-cef13f8aaca4"
 
 MY_APP = common.get_path("bin", "myapp.exe")
 

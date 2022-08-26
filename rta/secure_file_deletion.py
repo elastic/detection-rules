@@ -11,9 +11,11 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["PsExec Network Connection"],
+    "SIEM": [{"rule_id": "55d551c6-333b-4665-ab7e-5d14a59715ce", "rule_name": "PsExec Network Connection"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "9cb42759-a161-4d93-b07d-3c8254dc8838"
 
 @common.requires_os(PLATFORMS)
 def main():

@@ -15,6 +15,8 @@ TRIGGERED_RULES = {
     "SIEM": [],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "cda5b0b4-5b9c-4285-8adc-f89b375e5485"
 
 @common.requires_os(PLATFORMS)
 def main():

@@ -19,10 +19,12 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Potential Modification of Accessibility Binaries",
-             "Persistence via TelemetryController Scheduled Task Hijack"],
+    "SIEM": [{"rule_id": "7405ddf1-6c8e-41ce-818f-48bea6bcaed8", "rule_name": "Potential Modification of Accessibility Binaries"},
+             {"rule_id": "68921d85-d0dc-48b3-865f-43291ca2c4f2", "rule_name": "Persistence via TelemetryController Scheduled Task Hijack"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "398933ec-f8d4-4d81-93ed-e7d7adcb9d97"
 
 @common.requires_os(PLATFORMS)
 def main():

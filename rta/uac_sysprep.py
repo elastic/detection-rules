@@ -16,6 +16,8 @@ TRIGGERED_RULES = {
     "SIEM": [],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "72e0a6ca-5b2d-48f6-9d6f-a879ace9cdae"
 
 
 @common.requires_os(PLATFORMS)

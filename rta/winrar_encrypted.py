@@ -16,9 +16,11 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Encrypting Files with WinRar or 7z"],
+    "SIEM": [{"rule_id": "45d273fb-1dca-457d-9855-bcb302180c21", "rule_name": "Encrypting Files with WinRar or 7z"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "6d2d3c21-2d71-4395-8ab7-b1d0138d9225"
 
 MY_APP = common.get_path("bin", "myapp.exe")
 WINRAR = common.get_path("bin", "Rar.exe")

@@ -14,9 +14,11 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Credential Acquisition via Registry Hive Dumping"],
+    "SIEM": [{"rule_id": "a7e7bfa3-088e-4f13-b29e-3986e0e756b8", "rule_name": "Credential Acquisition via Registry Hive Dumping"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "dfdcc4f4-5aca-486a-8115-b15b653b9b4f"
 
 REG = "reg.exe"
 

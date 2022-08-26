@@ -14,9 +14,11 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Deleting Backup Catalogs with Wbadmin"],
+    "SIEM": [{"rule_id": "581add16-df76-42bb-af8e-c979bfb39a59", "rule_name": "Deleting Backup Catalogs with Wbadmin"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "8ffd2053-c04a-435a-84b3-a8403a5395db"
 
 @common.requires_os(PLATFORMS)
 def main():

@@ -12,9 +12,11 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Unusual Network Activity from a Windows System Binary"],
+    "SIEM": [{"rule_id": "1fe3b299-fbb5-4657-a937-1d746f2c711a", "rule_name": "Unusual Network Activity from a Windows System Binary"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "d90f48c5-282a-4d29-a021-fb87e220e1a5"
 
 @common.requires_os(PLATFORMS)
 def main():

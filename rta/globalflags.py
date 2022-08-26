@@ -13,9 +13,11 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Image File Execution Options Injection"],
+    "SIEM": [{"rule_id": "6839c821-011d-43bd-bd5b-acff00257226", "rule_name": "Image File Execution Options Injection"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "e09d904a-f3bb-4d36-8eb8-8c234812807c"
 
 @common.requires_os(PLATFORMS)
 def main():

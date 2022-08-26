@@ -16,9 +16,11 @@ from . import mshta_network
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Suspicious MS Office Child Process"],
+    "SIEM": [{"rule_id": "a624863f-a70d-417f-a7d2-7a404638d47f", "rule_name": "Suspicious MS Office Child Process"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "cd8e06c0-fc62-4932-8ef7-b767570e88eb"
 
 @common.requires_os(common.WINDOWS)
 def main():

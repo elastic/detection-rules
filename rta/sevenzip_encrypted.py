@@ -16,9 +16,11 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": ["Encrypting Files with WinRar or 7z"],
+    "SIEM": [{"rule_id": "45d273fb-1dca-457d-9855-bcb302180c21", "rule_name": "Encrypting Files with WinRar or 7z"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "6cd35061-278b-45e7-a9cb-86b48bc47884"
 
 SEVENZIP = common.get_path("bin", "7za.exe")
 

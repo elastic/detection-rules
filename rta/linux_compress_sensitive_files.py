@@ -11,9 +11,11 @@ from . import common
 
 PLATFORMS = [common.LINUX]
 TRIGGERED_RULES = {
-    "SIEM": ["Sensitive Files Compression"],
+    "SIEM": [{"rule_id": "6b84d470-9036-4cc0-a27c-6d90bbfe81ab", "rule_name": "Sensitive Files Compression"}],
     "ENDPOINT": []
 }
+TACTICS = []
+RTA_ID = "f3ffa89b-de47-4e17-ac8e-385e0e7f8253"
 
 @common.requires_os(PLATFORMS)
 def main():
