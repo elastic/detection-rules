@@ -541,7 +541,6 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
             os.chdir(prev)
 
     elastic_pkg("format")
-    elastic_pkg("lint")
 
     # Upload the files to a branch
     git("add", pkg_directory)
