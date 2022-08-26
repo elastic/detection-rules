@@ -14,6 +14,7 @@ import kql
 
 from detection_rules import attack
 from detection_rules.beats import parse_beats_from_index
+from detection_rules.packaging import current_stack_version
 from detection_rules.rule import QueryRuleData
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.schemas import definitions
@@ -382,8 +383,6 @@ class TestRuleMetadata(BaseRuleTest):
 
     def test_deprecated_rules(self):
         """Test that deprecated rules are properly handled."""
-        from detection_rules.packaging import current_stack_version
-
         versions = default_version_lock.version_lock
         deprecations = load_etc_dump('deprecated_rules.json')
         deprecated_rules = {}
@@ -696,6 +695,34 @@ class TestIncompatibleFields(BaseRuleTest):
             err_msg = 'The following rules have min_stack_versions lower than allowed for restricted fields:\n'
             err_msg += invalid_str
             self.fail(err_msg)
+
+
+class TestBuildTimeFields(BaseRuleTest):
+    """Test validity of build-time fields."""
+
+    def test_build_fields_min_stack(self):
+        """Test that newly introduced build-time fields for a min_stack for applicable rules."""
+        current_stack_ver = Version(current_stack_version())
+        invalids = []
+
+        for rule in self.production_rules:
+            min_stack = rule.contents.metadata.min_stack_version
+            build_fields = rule.contents.data.get_build_fields()
+
+            errors = []
+            for build_field, field_versions in build_fields.items():
+                start_ver, end_ver = field_versions
+                if start_ver is not None and current_stack_ver >= start_ver:
+                    if min_stack is None or not Version(min_stack) >= start_ver:
+                        errors.append(f'{build_field} >= {start_ver}')
+
+            if errors:
+                err_str = ', '.join(errors)
+                invalids.append(f'{self.rule_str(rule)} uses a rule type with build fields requiring min_stack_versions'
+                                f' to be set: {err_str}')
+
+            if invalids:
+                self.fail(invalids)
 
 
 class TestRiskScoreMismatch(BaseRuleTest):
