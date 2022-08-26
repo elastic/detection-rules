@@ -14,6 +14,7 @@ import kql
 
 from detection_rules import attack
 from detection_rules.beats import parse_beats_from_index
+from detection_rules.packaging import current_stack_version
 from detection_rules.rule import QueryRuleData
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.schemas import definitions
@@ -382,8 +383,6 @@ class TestRuleMetadata(BaseRuleTest):
 
     def test_deprecated_rules(self):
         """Test that deprecated rules are properly handled."""
-        from detection_rules.packaging import current_stack_version
-
         versions = default_version_lock.version_lock
         deprecations = load_etc_dump('deprecated_rules.json')
         deprecated_rules = {}
@@ -703,6 +702,7 @@ class TestBuildTimeFields(BaseRuleTest):
 
     def test_build_fields_min_stack(self):
         """Test that newly introduced build-time fields for a min_stack for applicable rules."""
+        current_stack_ver = Version(current_stack_version())
         invalids = []
 
         for rule in self.production_rules:
@@ -712,8 +712,9 @@ class TestBuildTimeFields(BaseRuleTest):
             errors = []
             for build_field, field_versions in build_fields.items():
                 start_ver, end_ver = field_versions
-                if start_ver is not None and min_stack is None or not Version(min_stack) >= start_ver:
-                    errors.append(f'{build_field} >= {start_ver}')
+                if start_ver is not None and current_stack_ver >= start_ver:
+                    if min_stack is None or not Version(min_stack) >= start_ver:
+                        errors.append(f'{build_field} >= {start_ver}')
 
             if errors:
                 err_str = ', '.join(errors)
