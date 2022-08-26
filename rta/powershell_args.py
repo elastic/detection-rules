@@ -14,15 +14,13 @@ import os
 from . import common
 
 PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": []
-}
+TRIGGERED_RULES = {"SIEM": [], "ENDPOINT": []}
 TACTICS = []
 RTA_ID = "5efc844c-0c11-4f84-a904-ada611315298"
 
+
 def encode(command):
-    return base64.b64encode(command.encode('utf-16le'))
+    return base64.b64encode(command.encode("utf-16le"))
 
 
 @common.requires_os(PLATFORMS)
@@ -35,9 +33,9 @@ def main():
         f.write("whoami.exe\nexit\n")
 
     powershell_commands = [
-        ['powershell.exe', '-ExecutionPol', 'Bypass', temp_script],
-        ['powershell.exe', 'iex', 'Get-Process'],
-        ['powershell.exe', '-ec', encode('Get-Process' + ' ' * 1000)],
+        ["powershell.exe", "-ExecutionPol", "Bypass", temp_script],
+        ["powershell.exe", "iex", "Get-Process"],
+        ["powershell.exe", "-ec", encode("Get-Process" + " " * 1000)],
     ]
 
     for command in powershell_commands:

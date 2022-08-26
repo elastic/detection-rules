@@ -15,11 +15,17 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "a624863f-a70d-417f-a7d2-7a404638d47f", "rule_name": "Suspicious MS Office Child Process"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "a624863f-a70d-417f-a7d2-7a404638d47f",
+            "rule_name": "Suspicious MS Office Child Process",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "e6d124ee-27d3-48a6-8c59-354072ec9e00"
+
 
 @common.requires_os(PLATFORMS)
 def main():
@@ -40,14 +46,18 @@ def main():
         common.copy_file(cmd_path, office_path)
 
         for command in suspicious_apps:
-            common.execute('%s /c %s /c %s' % (office_path, browser_path, command), timeout=5, kill=True)
+            common.execute(
+                "%s /c %s /c %s" % (office_path, browser_path, command),
+                timeout=5,
+                kill=True,
+            )
 
-        common.log('Cleanup %s' % office_path)
+        common.log("Cleanup %s" % office_path)
         common.remove_file(office_path)
 
     common.log("Sleep 5 to allow processes to finish")
     time.sleep(5)
-    common.log('Cleanup %s' % browser_path)
+    common.log("Cleanup %s" % browser_path)
     common.remove_file(browser_path)
 
 

@@ -14,11 +14,17 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "be8afaed-4bcd-4e0a-b5f9-5562003dde81", "rule_name": "Searching for Saved Credentials via VaultCmd"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "be8afaed-4bcd-4e0a-b5f9-5562003dde81",
+            "rule_name": "Searching for Saved Credentials via VaultCmd",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "53d071d9-36e3-4b40-83c8-d818bd831010"
+
 
 @common.requires_os(PLATFORMS)
 def main():

@@ -14,8 +14,13 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "afcce5ad-65de-4ed2-8516-5e093d3ac99a", "rule_name": "Local Scheduled Task Creation"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "afcce5ad-65de-4ed2-8516-5e093d3ac99a",
+            "rule_name": "Local Scheduled Task Creation",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "2ab62c28-1abb-4ac5-a16d-2f4f75d01d02"
@@ -34,7 +39,7 @@ def main():
         return 1
 
     # Remove any existing profiles
-    user_profile = os.environ['USERPROFILE']
+    user_profile = os.environ["USERPROFILE"]
     log_file = os.path.join(user_profile, NAME + ".log")
 
     # Remove log file if exists

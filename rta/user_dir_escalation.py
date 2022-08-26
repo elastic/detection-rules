@@ -13,12 +13,10 @@ import os
 from . import common
 
 PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": []
-}
+TRIGGERED_RULES = {"SIEM": [], "ENDPOINT": []}
 TACTICS = []
 RTA_ID = "dc734786-66bd-4be6-bd06-eb41fa7b6745"
+
 
 @common.requires_os(PLATFORMS)
 @common.dependencies(common.PS_EXEC)

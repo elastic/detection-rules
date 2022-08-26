@@ -14,11 +14,17 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "51ce96fb-9e52-4dad-b0ba-99b54440fc9a", "rule_name": "Incoming DCOM Lateral Movement with MMC"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "51ce96fb-9e52-4dad-b0ba-99b54440fc9a",
+            "rule_name": "Incoming DCOM Lateral Movement with MMC",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "7f4cfcf6-881b-48b0-864d-21eba06e57cc"
+
 
 @common.requires_os(PLATFORMS)
 def main(remote_host=None):
@@ -36,7 +42,9 @@ def main(remote_host=None):
     $dcom.Document.ActiveView.ExecuteShellCommand('C:\\Windows\\System32\\cmd.exe',$null,'whoami','7');
     $dcom.Document.ActiveView.ExecuteShellCommand('C:\\Windows\\System32\\calc.exe',$null,$null,'7');
     $dcom.quit();
-    """.format(remote_host=remote_host)
+    """.format(
+        remote_host=remote_host
+    )
 
     command = ["powershell", "-c", ps_command]
 

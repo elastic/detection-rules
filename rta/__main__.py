@@ -12,11 +12,27 @@ from . import get_available_tests
 RTA_PLATFORM_TYPES = ["windows", "linux", "macos"]
 
 parser = argparse.ArgumentParser("rta")
-parser.add_argument("-n", "--name", dest="name", help="Name of test to execute. E.g. bitsadmin_execution")
-parser.add_argument("-l", "--list", dest="list", help="Print a list of available tests", action="store_true")
-parser.add_argument("-o", "--os-filter", dest="os_filter", default="all",
-                    help="Filter rule coverage summary by OS. (E.g. windows) Default: all",
-                    choices=RTA_PLATFORM_TYPES)
+parser.add_argument(
+    "-n",
+    "--name",
+    dest="name",
+    help="Name of test to execute. E.g. bitsadmin_execution",
+)
+parser.add_argument(
+    "-l",
+    "--list",
+    dest="list",
+    help="Print a list of available tests",
+    action="store_true",
+)
+parser.add_argument(
+    "-o",
+    "--os-filter",
+    dest="os_filter",
+    default="all",
+    help="Filter rule coverage summary by OS. (E.g. windows) Default: all",
+    choices=RTA_PLATFORM_TYPES,
+)
 
 parsed_args, remaining = parser.parse_known_args()
 

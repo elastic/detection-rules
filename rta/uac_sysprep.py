@@ -12,10 +12,7 @@
 from . import common
 
 PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": []
-}
+TRIGGERED_RULES = {"SIEM": [], "ENDPOINT": []}
 TACTICS = []
 RTA_ID = "72e0a6ca-5b2d-48f6-9d6f-a879ace9cdae"
 
@@ -24,7 +21,10 @@ RTA_ID = "72e0a6ca-5b2d-48f6-9d6f-a879ace9cdae"
 def main():
     common.log("Bypass UAC with CRYPTBASE.dll")
 
-    common.copy_file("C:\\windows\\system32\\kernel32.dll", "C:\\Windows\\system32\sysprep\\CRYPTBASE.DLL")
+    common.copy_file(
+        "C:\\windows\\system32\\kernel32.dll",
+        "C:\\Windows\\system32\sysprep\\CRYPTBASE.DLL",
+    )
     common.execute(["C:\\Windows\\system32\sysprep\\sysprep.exe"], timeout=5, kill=True)
     common.remove_file("C:\\Windows\\system32\sysprep\\CRYPTBASE.DLL")
 

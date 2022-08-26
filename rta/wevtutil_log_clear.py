@@ -15,11 +15,17 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "d331bbe2-6db4-4941-80a5-8270db72eb61", "rule_name": "Clearing Windows Event Logs"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "d331bbe2-6db4-4941-80a5-8270db72eb61",
+            "rule_name": "Clearing Windows Event Logs",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "12b28e92-281f-49a7-a8b3-54681ba6d63e"
+
 
 @common.requires_os(PLATFORMS)
 def main():

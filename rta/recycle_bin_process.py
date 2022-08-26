@@ -15,8 +15,13 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "cff92c41-2225-4763-b4ce-6f71e5bda5e6", "rule_name": "Execution from Unusual Directory - Command Line"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "cff92c41-2225-4763-b4ce-6f71e5bda5e6",
+            "rule_name": "Execution from Unusual Directory - Command Line",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "790cbe6f-ee44-4654-9998-039236dbe0d8"

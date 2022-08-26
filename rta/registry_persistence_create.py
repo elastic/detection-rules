@@ -17,8 +17,13 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "7405ddf1-6c8e-41ce-818f-48bea6bcaed8", "rule_name": "Potential Modification of Accessibility Binaries"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "7405ddf1-6c8e-41ce-818f-48bea6bcaed8",
+            "rule_name": "Potential Modification of Accessibility Binaries",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "c62c65bf-248e-4f5a-ad4f-a48736c1d6f2"
@@ -37,8 +42,18 @@ def main():
     winreg = common.get_winreg()
 
     for hive in (common.HKLM, common.HKCU):
-        common.write_reg(hive, "Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\", "RunOnceTest", TARGET_APP)
-        common.write_reg(hive, "Software\\Microsoft\\Windows\\CurrentVersion\\Run\\", "RunTest", TARGET_APP)
+        common.write_reg(
+            hive,
+            "Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\",
+            "RunOnceTest",
+            TARGET_APP,
+        )
+        common.write_reg(
+            hive,
+            "Software\\Microsoft\\Windows\\CurrentVersion\\Run\\",
+            "RunTest",
+            TARGET_APP,
+        )
 
     # create Services subkey for "ServiceTest"
     common.log("Creating ServiceTest registry key")
@@ -71,31 +86,57 @@ def main():
     # Additional persistence
     common.log("Adding AppInit DLL")
     windows_base = "Software\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\"
-    common.write_reg(common.HKLM, windows_base, "AppInit_Dlls", "evil.dll", restore=True, pause=True)
+    common.write_reg(
+        common.HKLM, windows_base, "AppInit_Dlls", "evil.dll", restore=True, pause=True
+    )
 
     common.log("Adding AppCert DLL")
     appcertdlls_key = "System\\CurrentControlSet\\Control\\Session Manager\\AppCertDlls"
-    common.write_reg(common.HKLM, appcertdlls_key, "evil", "evil.dll", restore=True, pause=True)
+    common.write_reg(
+        common.HKLM, appcertdlls_key, "evil", "evil.dll", restore=True, pause=True
+    )
 
     debugger_targets = [
-        "normalprogram.exe", "sethc.exe", "utilman.exe", "magnify.exe",
-        "narrator.exe", "osk.exe", "displayswitch.exe", "atbroker.exe"
+        "normalprogram.exe",
+        "sethc.exe",
+        "utilman.exe",
+        "magnify.exe",
+        "narrator.exe",
+        "osk.exe",
+        "displayswitch.exe",
+        "atbroker.exe",
     ]
 
     for victim in debugger_targets:
-        common.log("Registering Image File Execution Options debugger for %s -> %s" % (victim, TARGET_APP))
-        base_key = "Software\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\%s" % victim
+        common.log(
+            "Registering Image File Execution Options debugger for %s -> %s"
+            % (victim, TARGET_APP)
+        )
+        base_key = (
+            "Software\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\%s"
+            % victim
+        )
         common.write_reg(common.HKLM, base_key, "Debugger", TARGET_APP, restore=True)
 
     # create new NetSh key value
     common.log("Adding a new NetSh Helper DLL")
     key = "Software\\Microsoft\\NetSh"
-    common.write_reg(common.HKLM, key, "BadHelper", "c:\\windows\\system32\\BadHelper.dll")
+    common.write_reg(
+        common.HKLM, key, "BadHelper", "c:\\windows\\system32\\BadHelper.dll"
+    )
 
     # modify the list of SSPs
     common.log("Adding a new SSP to the list of security packages")
     key = "System\\CurrentControlSet\\Control\\Lsa"
-    common.write_reg(common.HKLM, key, "Security Packages", ["evilSSP"], common.MULTI_SZ, append=True, pause=True)
+    common.write_reg(
+        common.HKLM,
+        key,
+        "Security Packages",
+        ["evilSSP"],
+        common.MULTI_SZ,
+        append=True,
+        pause=True,
+    )
 
     hkey.Close()
     pause()

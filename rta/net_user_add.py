@@ -13,11 +13,17 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "41b638a1-8ab6-4f8e-86d9-466317ef2db5", "rule_name": "Potential Hidden Local User Account Creation"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "41b638a1-8ab6-4f8e-86d9-466317ef2db5",
+            "rule_name": "Potential Hidden Local User Account Creation",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "7884fa56-c4d6-494f-bfa5-825851ee0fda"
+
 
 @common.requires_os(PLATFORMS)
 def main():
@@ -25,9 +31,9 @@ def main():
     commands = [
         'net.exe user macgyver $w!$$@rmy11 /add /fullname:"Angus Macgyver"',
         'net.exe user macgyver $w!$$@rmy11 /add /fullname:"Angus Macgyver" /domain',
-        'net.exe group  Administrators macgyver /add',
+        "net.exe group  Administrators macgyver /add",
         'net.exe group  "Domain Admins"  macgyver  /add  /domain',
-        'net.exe localgroup Administrators macgyver /add',
+        "net.exe localgroup Administrators macgyver /add",
     ]
 
     for cmd in commands:
@@ -35,7 +41,7 @@ def main():
 
     cleanup_commands = [
         "net.exe user macgyver /delete",
-        "net.exe user macgyver /delete /domain"
+        "net.exe user macgyver /delete /domain",
     ]
 
     common.log("Removing local and domain user accounts using net.exe", log_type="-")

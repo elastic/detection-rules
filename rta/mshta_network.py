@@ -15,13 +15,25 @@ HTA_FILE = common.get_path("bin", "beacon.hta")
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "1fe3b299-fbb5-4657-a937-1d746f2c711a", "rule_name": "Unusual Network Activity from a Windows System Binary"},
-             {"rule_id": "c2d90150-0133-451c-a783-533e736c12d7", "rule_name": "Mshta Making Network Connections"},
-             {"rule_id": "a4ec1382-4557-452b-89ba-e413b22ed4b8", "rule_name": "Network Connection via Mshta"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "1fe3b299-fbb5-4657-a937-1d746f2c711a",
+            "rule_name": "Unusual Network Activity from a Windows System Binary",
+        },
+        {
+            "rule_id": "c2d90150-0133-451c-a783-533e736c12d7",
+            "rule_name": "Mshta Making Network Connections",
+        },
+        {
+            "rule_id": "a4ec1382-4557-452b-89ba-e413b22ed4b8",
+            "rule_name": "Network Connection via Mshta",
+        },
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "83465fca-25ae-4d6d-b747-c82cda75b0ae"
+
 
 @common.requires_os(PLATFORMS)
 @common.dependencies(HTA_FILE)
@@ -36,7 +48,7 @@ def main():
     common.log("Updating the callback to %s" % new_callback)
     common.patch_regex(HTA_FILE, common.CALLBACK_REGEX, new_callback)
 
-    mshta = 'mshta.exe'
+    mshta = "mshta.exe"
     common.execute([mshta, HTA_FILE], timeout=3, kill=True)
     server.shutdown()
 

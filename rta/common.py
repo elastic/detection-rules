@@ -29,9 +29,9 @@ try:
 except ImportError:
     from http.server import HTTPServer as TCPServer
 
-to_unicode = type(u"")
+to_unicode = type("")
 long_t = type(1 << 63)
-strings = str, type(u"")
+strings = str, type("")
 
 HOSTNAME = socket.gethostname()
 LOCAL_IP = None
@@ -71,7 +71,7 @@ else:
 
 if CURRENT_OS == WINDOWS:
     CMD_PATH = os.environ.get("COMSPEC")
-    POWERSHELL_PATH = 'C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'
+    POWERSHELL_PATH = "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
 else:
     CMD_PATH = "/bin/sh"
     POWERSHELL_PATH = None
@@ -128,11 +128,17 @@ def requires_os(*os_list):
                 filename = os.path.relpath(inspect.getsourcefile(f))
                 func_name = f.__name__
 
-                log("Unsupported OS for {filename}:{func}(). Expected {os}".format(
-                    filename=filename, func=func_name, os="/".join(os_list)), "!")
+                log(
+                    "Unsupported OS for {filename}:{func}(). Expected {os}".format(
+                        filename=filename, func=func_name, os="/".join(os_list)
+                    ),
+                    "!",
+                )
                 return UNSUPPORTED_RTA
             return f(*args, **kwargs)
+
         return decorated
+
     return decorator
 
 
@@ -155,12 +161,18 @@ def dependencies(*paths):
         @functools.wraps(f)
         def decorated(*args, **kwargs):
             if len(missing):
-                log("Missing dependencies for %s:%s()" % (f.func_code.co_filename, f.func_code.co_name), "!")
+                log(
+                    "Missing dependencies for %s:%s()"
+                    % (f.func_code.co_filename, f.func_code.co_name),
+                    "!",
+                )
                 for dep in missing:
                     print("    - %s" % os.path.relpath(dep, BASE_DIR))
                 return MISSING_DEPENDENCIES
             return f(*args, **kwargs)
+
         return decorated
+
     return decorator
 
 
@@ -184,12 +196,14 @@ def temporary_file(contents, file_name=None):
 
 def temporary_file_helper(contents, file_name=None):
     if not (file_name and os.path.isabs(file_name)):
-        file_name = os.path.join(tempfile.gettempdir(), file_name or 'temp{:d}'.format(hash(contents)))
+        file_name = os.path.join(
+            tempfile.gettempdir(), file_name or "temp{:d}".format(hash(contents))
+        )
 
-    with open(file_name, 'wb' if isinstance(contents, bytes) else 'w') as f:
+    with open(file_name, "wb" if isinstance(contents, bytes) else "w") as f:
         f.write(contents)
 
-    f = open(file_name, 'rb' if isinstance(contents, bytes) else 'r')
+    f = open(file_name, "rb" if isinstance(contents, bytes) else "r")
 
     def close():
         f.close()
@@ -198,8 +212,18 @@ def temporary_file_helper(contents, file_name=None):
     return f, close
 
 
-def execute(command, hide_log=False, mute=False, timeout=30, wait=True, kill=False, drop=False, stdin=None,
-            shell=False, **kwargs):
+def execute(
+    command,
+    hide_log=False,
+    mute=False,
+    timeout=30,
+    wait=True,
+    kill=False,
+    drop=False,
+    stdin=None,
+    shell=False,
+    **kwargs
+):
     """Execute a process and get the output."""
     command_string = command
     close = None
@@ -211,12 +235,14 @@ def execute(command, hide_log=False, mute=False, timeout=30, wait=True, kill=Fal
         if shell:
             command = command_string
     else:
-        sys.stderr.write("Deprecation warning! Switch arguments to a list for common.execute()\n\n")
+        sys.stderr.write(
+            "Deprecation warning! Switch arguments to a list for common.execute()\n\n"
+        )
 
     if not hide_log:
         print("%s @ %s > %s" % (USER_NAME, HOSTNAME, command_string))
 
-    if isinstance(stdin, (bytes, str, type(u""))):
+    if isinstance(stdin, (bytes, str, type(""))):
         stdin, close = temporary_file_helper(stdin)
 
     stdout = subprocess.PIPE
@@ -229,7 +255,14 @@ def execute(command, hide_log=False, mute=False, timeout=30, wait=True, kill=Fal
 
     start = time.time()
 
-    p = subprocess.Popen(command, stdin=stdin or subprocess.PIPE, stdout=stdout, stderr=stderr, shell=shell, **kwargs)
+    p = subprocess.Popen(
+        command,
+        stdin=stdin or subprocess.PIPE,
+        stdout=stdout,
+        stderr=stderr,
+        shell=shell,
+        **kwargs
+    )
 
     if kill:
         delta = 0.5
@@ -246,23 +279,23 @@ def execute(command, hide_log=False, mute=False, timeout=30, wait=True, kill=Fal
         except OSError:
             pass
     elif wait:
-        output = ''
+        output = ""
 
         if not stdin:
             try:
-                p.stdin.write(os.linesep.encode('ascii'))
+                p.stdin.write(os.linesep.encode("ascii"))
             except IOError:
                 # this pipe randomly breaks when executing certain non-zero exit commands on linux
                 pass
 
         while p.poll() is None:
-            line = p.stdout.readline().decode('ascii', 'ignore')
+            line = p.stdout.readline().decode("ascii", "ignore")
             if line:
                 output += line
                 if not (hide_log or mute):
                     print(line.rstrip())
 
-        output += p.stdout.read().decode('ascii', 'ignore')
+        output += p.stdout.read().decode("ascii", "ignore")
         output = output.strip()
 
         # Add artificial sleep to slow down command lines
@@ -287,23 +320,23 @@ def execute(command, hide_log=False, mute=False, timeout=30, wait=True, kill=Fal
         return p
 
 
-def log(message, log_type='+'):
-    print('[%s] %s' % (log_type, message))
+def log(message, log_type="+"):
+    print("[%s] %s" % (log_type, message))
 
 
 def copy_file(source, target):
-    log('Copying %s -> %s' % (source, target))
+    log("Copying %s -> %s" % (source, target))
     shutil.copy(source, target)
 
 
 def link_file(source, target):
-    log('Linking %s -> %s' % (source, target))
+    log("Linking %s -> %s" % (source, target))
     execute(["ln", "-s", source, target])
 
 
 def remove_file(path):
     if os.path.exists(path):
-        log('Removing %s' % path, log_type='-')
+        log("Removing %s" % path, log_type="-")
         # Try three times to remove the file
         for _ in range(3):
             try:
@@ -317,14 +350,14 @@ def remove_file(path):
 def remove_directory(path):
     if os.path.exists(path):
         if os.path.isdir(path):
-            log('Removing directory {:s}'.format(path), log_type='-')
+            log("Removing directory {:s}".format(path), log_type="-")
             shutil.rmtree(path)
         else:
             remove_file(path)
 
 
 def is_64bit():
-    return os.environ.get('PROCESSOR_ARCHITECTURE', "") in ('x64', 'AMD64')
+    return os.environ.get("PROCESSOR_ARCHITECTURE", "") in ("x64", "AMD64")
 
 
 def remove_files(*paths):
@@ -334,7 +367,9 @@ def remove_files(*paths):
 
 def clear_web_cache():
     log("Clearing temporary files", log_type="-")
-    execute(["RunDll32.exe", "InetCpl.cpl,", "ClearMyTracksByProcess", "8"], hide_log=True)
+    execute(
+        ["RunDll32.exe", "InetCpl.cpl,", "ClearMyTracksByProcess", "8"], hide_log=True
+    )
     time.sleep(1)
 
 
@@ -355,7 +390,11 @@ def serve_web(ip=None, port=None, directory=BASE_DIR):
                 pass
 
     def server_thread():
-        log("Starting web server on http://{ip}:{port:d} for directory {dir}".format(ip=ip, port=port, dir=directory))
+        log(
+            "Starting web server on http://{ip}:{port:d} for directory {dir}".format(
+                ip=ip, port=port, dir=directory
+            )
+        )
         os.chdir(directory)
         server.serve_forever()
 
@@ -370,8 +409,15 @@ def serve_web(ip=None, port=None, directory=BASE_DIR):
 
 def patch_file(source_file, old_bytes, new_bytes, target_file=None):
     target_file = target_file or target_file
-    log("Patching bytes %s [%s] --> %s [%s]" % (source_file, binascii.b2a_hex(old_bytes),
-                                                target_file, binascii.b2a_hex(new_bytes)))
+    log(
+        "Patching bytes %s [%s] --> %s [%s]"
+        % (
+            source_file,
+            binascii.b2a_hex(old_bytes),
+            target_file,
+            binascii.b2a_hex(new_bytes),
+        )
+    )
 
     with open(source_file, "rb") as f:
         contents = f.read()
@@ -383,8 +429,8 @@ def patch_file(source_file, old_bytes, new_bytes, target_file=None):
 
 
 def patch_regex(source_file, regex, new_bytes, target_file=None):
-    regex = regex.encode('ascii')
-    new_bytes = new_bytes.encode('ascii')
+    regex = regex.encode("ascii")
+    new_bytes = new_bytes.encode("ascii")
     target_file = target_file or source_file
     log("Patching by regex %s --> %s" % (source_file, target_file))
 
@@ -393,7 +439,7 @@ def patch_regex(source_file, regex, new_bytes, target_file=None):
 
     matches = re.findall(regex, contents)
 
-    log("Changing %s -> %s" % (', '.join('{}'.format(m) for m in matches), new_bytes))
+    log("Changing %s -> %s" % (", ".join("{}".format(m) for m in matches), new_bytes))
     contents = re.sub(regex, new_bytes, contents)
 
     with open(target_file, "wb") as f:
@@ -401,7 +447,7 @@ def patch_regex(source_file, regex, new_bytes, target_file=None):
 
 
 def wchar(s):
-    return s.encode('utf-16le')
+    return s.encode("utf-16le")
 
 
 def find_remote_host():
@@ -415,15 +461,17 @@ def find_remote_host():
     log("Discovery %d possible hosts" % len(hosts))
     for name in hosts[:MAX_HOSTS]:
         name = name.lower()
-        if name.split('.')[0] == HOSTNAME.split('.')[0]:
+        if name.split(".")[0] == HOSTNAME.split(".")[0]:
             continue
 
         # log("Checking if %s has remote admin permissions to %s" % (current_user, name))
         dev_null = open(os.devnull, "w")
-        p = subprocess.Popen('sc.exe \\\\%s query' % name,
-                             stdout=dev_null,
-                             stderr=dev_null,
-                             stdin=subprocess.PIPE)
+        p = subprocess.Popen(
+            "sc.exe \\\\%s query" % name,
+            stdout=dev_null,
+            stderr=dev_null,
+            stdin=subprocess.PIPE,
+        )
         pending[name] = p
 
     if len(pending) > 0:
@@ -436,12 +484,15 @@ def find_remote_host():
                     # Now need to get the IP address
                     ip = get_ipv4_address(hostname)
                     if ip is not None:
-                        log('Using remote host %s (%s)' % (ip, hostname))
+                        log("Using remote host %s (%s)" % (ip, hostname))
                         return ip
                     pending.pop(hostname)
             time.sleep(0.5)
 
-    log("Unable to find a remote host to pivot to. Using local host %s" % HOSTNAME, log_type="!")
+    log(
+        "Unable to find a remote host to pivot to. Using local host %s" % HOSTNAME,
+        log_type="!",
+    )
     return get_ip()
 
 
@@ -500,7 +551,9 @@ def run_system(arguments=None):
     return code
 
 
-def write_reg(hive, key, value, data, data_type=None, restore=True, pause=False, append=False):
+def write_reg(
+    hive, key, value, data, data_type=None, restore=True, pause=False, append=False
+):
     # type: (str, str, str, str|int, str|int|list, bool, bool, bool) -> None
     with temporary_reg(hive, key, value, data, data_type, restore, pause, append):
         pass
@@ -510,10 +563,12 @@ def read_reg(hive, key, value):  # type: (str, str, str) -> (str, str)
     winreg = get_winreg()
 
     if isinstance(hive, strings):
-        hives = {'hklm': winreg.HKEY_LOCAL_MACHINE,
-                 'hkcu': winreg.HKEY_LOCAL_MACHINE,
-                 'hku': winreg.HKEY_USERS,
-                 'hkcr': winreg.HKEY_CLASSES_ROOT}
+        hives = {
+            "hklm": winreg.HKEY_LOCAL_MACHINE,
+            "hkcu": winreg.HKEY_LOCAL_MACHINE,
+            "hku": winreg.HKEY_USERS,
+            "hkcr": winreg.HKEY_CLASSES_ROOT,
+        }
         hive = hives[hive.lower()]
 
     try:
@@ -530,25 +585,29 @@ def read_reg(hive, key, value):  # type: (str, str, str) -> (str, str)
 
 
 @contextlib.contextmanager
-def temporary_reg(hive, key, value, data, data_type="sz", restore=True, pause=False, append=False):
+def temporary_reg(
+    hive, key, value, data, data_type="sz", restore=True, pause=False, append=False
+):
     # type: (str, str, str, str|int, str|int|list, bool, bool, bool) -> None
     winreg = get_winreg()
 
     if isinstance(hive, strings):
-        hives = {'hklm': winreg.HKEY_LOCAL_MACHINE,
-                 'hkcu': winreg.HKEY_CURRENT_USER,
-                 'hku': winreg.HKEY_USERS,
-                 'hkcr': winreg.HKEY_CLASSES_ROOT}
+        hives = {
+            "hklm": winreg.HKEY_LOCAL_MACHINE,
+            "hkcu": winreg.HKEY_CURRENT_USER,
+            "hku": winreg.HKEY_USERS,
+            "hkcr": winreg.HKEY_CLASSES_ROOT,
+        }
         hive = hives[hive.lower()]
 
     if isinstance(data_type, strings):
-        attr = 'REG_' + data_type.upper()
+        attr = "REG_" + data_type.upper()
         data_type = getattr(winreg, attr)
 
     if data_type is None:
         data_type = winreg.REG_SZ
 
-    key = key.rstrip('\\')
+    key = key.rstrip("\\")
     hkey = winreg.CreateKey(hive, key)
     exists = False
     old_data = None
@@ -573,7 +632,7 @@ def temporary_reg(hive, key, value, data, data_type="sz", restore=True, pause=Fa
         if isinstance(old_data, list):
             data = old_data + data
 
-    data_string = ','.join(data) if isinstance(data, list) else data
+    data_string = ",".join(data) if isinstance(data, list) else data
     log("Writing to registry %s\\%s -> %s" % (key, value, data_string))
     winreg.SetValueEx(hkey, value, 0, data_type, data)
     stored, code = winreg.QueryValueEx(hkey, value)
@@ -595,8 +654,13 @@ def temporary_reg(hive, key, value, data, data_type="sz", restore=True, pause=Fa
                 winreg.DeleteValue(hkey, value)
             else:
                 # Otherwise restore the value
-                data_string = ','.join(old_data) if isinstance(old_data, list) else old_data
-                log("Restoring registry %s\\%s -> %s" % (key, value, data_string), log_type="-")
+                data_string = (
+                    ",".join(old_data) if isinstance(old_data, list) else old_data
+                )
+                log(
+                    "Restoring registry %s\\%s -> %s" % (key, value, data_string),
+                    log_type="-",
+                )
                 winreg.SetValueEx(hkey, value, 0, old_type, old_data)
 
         hkey.Close()
@@ -606,15 +670,16 @@ def temporary_reg(hive, key, value, data, data_type="sz", restore=True, pause=Fa
             time.sleep(0.5)
 
 
-def enable_logon_auditing(host='localhost', verbose=True, sleep=2):
+def enable_logon_auditing(host="localhost", verbose=True, sleep=2):
     """Enable logon auditing on local or remote system to enable 4624 and 4625 events."""
     if verbose:
-        log('Ensuring audit logging enabled on {}'.format(host))
+        log("Ensuring audit logging enabled on {}".format(host))
 
-    auditpol = 'auditpol.exe /set /subcategory:Logon /failure:enable /success:enable'
+    auditpol = "auditpol.exe /set /subcategory:Logon /failure:enable /success:enable"
     enable_logging = "Invoke-WmiMethod -ComputerName {} -Class Win32_process -Name create -ArgumentList '{}'".format(
-        host, auditpol)
-    command = ['powershell', '-c', enable_logging]
+        host, auditpol
+    )
+    command = ["powershell", "-c", enable_logging]
     enable = execute(command)
 
     # additional time to allow auditing to process
@@ -625,10 +690,10 @@ def enable_logon_auditing(host='localhost', verbose=True, sleep=2):
 def print_file(path):
     print(path)
     if not os.path.exists(path):
-        print('--- NOT FOUND ----')
+        print("--- NOT FOUND ----")
     else:
-        print('-' * 16)
-        with open(path, 'r') as f:
+        print("-" * 16)
+        with open(path, "r") as f:
             print(f.read().rstrip())
 
-    print('')
+    print("")

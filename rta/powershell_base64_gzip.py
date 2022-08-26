@@ -12,17 +12,23 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "81fe9dc6-a2d7-4192-a2d8-eed98afc766a", "rule_name": "PowerShell Suspicious Payload Encoded and Compressed"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "81fe9dc6-a2d7-4192-a2d8-eed98afc766a",
+            "rule_name": "PowerShell Suspicious Payload Encoded and Compressed",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "38defc7e-7234-45a2-83ef-e845d0eba3f2"
+
 
 @common.requires_os(PLATFORMS)
 def main():
     common.log("PowerShell with base64/gzip")
 
-    command = 'powershell.exe -noni -nop -w hidden -c &([scriptblock]::create((New-Object IO.StreamReader(New-Object IO.Compression.GzipStream((New-Object IO.MemoryStream(,[Convert]::FromBase64String(aaa)'  # noqa: E501
+    command = "powershell.exe -noni -nop -w hidden -c &([scriptblock]::create((New-Object IO.StreamReader(New-Object IO.Compression.GzipStream((New-Object IO.MemoryStream(,[Convert]::FromBase64String(aaa)"  # noqa: E501
     common.execute(command)
 
 

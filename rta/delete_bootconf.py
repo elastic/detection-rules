@@ -16,11 +16,17 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "69c251fb-a5d6-4035-b5ec-40438bd829ff", "rule_name": "Modification of Boot Configuration"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "69c251fb-a5d6-4035-b5ec-40438bd829ff",
+            "rule_name": "Modification of Boot Configuration",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "eaf71384-2e38-4970-b170-9645ccde1d2b"
+
 
 @common.requires_os(PLATFORMS)
 def main():
@@ -32,7 +38,9 @@ def main():
 
     # WARNING: this is a destructive command which might be super bad to run
     common.log("Changing boot configuration", log_type="!")
-    common.execute([bcdedit, "/set", "{current}", "bootstatuspolicy", "ignoreallfailures"])
+    common.execute(
+        [bcdedit, "/set", "{current}", "bootstatuspolicy", "ignoreallfailures"]
+    )
     common.execute([bcdedit, "/set", "{current}", "recoveryenabled", "no"])
 
     # Restore the boot configuration

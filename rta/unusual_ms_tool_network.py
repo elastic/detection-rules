@@ -22,13 +22,20 @@ else:
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "1fe3b299-fbb5-4657-a937-1d746f2c711a", "rule_name": "Unusual Network Activity from a Windows System Binary"},
-             {"rule_id": "610949a1-312f-4e04-bb55-3a79b8c95267", "rule_name": "Unusual Process Network Connection"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "1fe3b299-fbb5-4657-a937-1d746f2c711a",
+            "rule_name": "Unusual Network Activity from a Windows System Binary",
+        },
+        {
+            "rule_id": "610949a1-312f-4e04-bb55-3a79b8c95267",
+            "rule_name": "Unusual Process Network Connection",
+        },
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "cf94f5cc-5265-4287-80e5-82d9663ecf2e"
-
 
 
 process_names = [
@@ -42,7 +49,7 @@ process_names = [
     "cmstp.exe",
     "xwizard.exe",
     "fsi.exe",
-    "odbcconf.exe"
+    "odbcconf.exe",
 ]
 
 
@@ -50,7 +57,13 @@ def http_from_process(name, ip, port):
     path = os.path.join(common.BASE_DIR, name)
     common.log("Making HTTP GET from %s" % path)
     shutil.copy(sys.executable, path)
-    common.execute([path, "-c", "from %s import urlopen ; urlopen('http://%s:%d')" % (urlliblib, ip, port)])
+    common.execute(
+        [
+            path,
+            "-c",
+            "from %s import urlopen ; urlopen('http://%s:%d')" % (urlliblib, ip, port),
+        ]
+    )
     common.remove_file(path)
 
 

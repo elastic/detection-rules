@@ -16,11 +16,17 @@ from . import mshta_network
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "a624863f-a70d-417f-a7d2-7a404638d47f", "rule_name": "Suspicious MS Office Child Process"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "a624863f-a70d-417f-a7d2-7a404638d47f",
+            "rule_name": "Suspicious MS Office Child Process",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "cd8e06c0-fc62-4932-8ef7-b767570e88eb"
+
 
 @common.requires_os(PLATFORMS)
 def main():
@@ -32,9 +38,13 @@ def main():
         common.copy_file(cmd_path, binary)
 
     # Execute a handful of commands
-    common.execute(["adobe.exe", "/c", "regsvr32.exe", "/s", "/?"], timeout=5, kill=True)
+    common.execute(
+        ["adobe.exe", "/c", "regsvr32.exe", "/s", "/?"], timeout=5, kill=True
+    )
     common.execute(["winword.exe", "/c", "certutil.exe"], timeout=5, kill=True)
-    common.execute(["outlook.exe", "/c", "powershell.exe", "-c", "whoami"], timeout=5, kill=True)
+    common.execute(
+        ["outlook.exe", "/c", "powershell.exe", "-c", "whoami"], timeout=5, kill=True
+    )
     common.execute(["excel.exe", "/c", "cscript.exe", "-x"], timeout=5, kill=True)
     # Test out ancestry for mshta
     common.execute(["powerpnt.exe", "/c", mshta_path])

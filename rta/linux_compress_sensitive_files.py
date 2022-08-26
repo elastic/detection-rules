@@ -11,22 +11,28 @@ from . import common
 
 PLATFORMS = [common.LINUX]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "6b84d470-9036-4cc0-a27c-6d90bbfe81ab", "rule_name": "Sensitive Files Compression"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "6b84d470-9036-4cc0-a27c-6d90bbfe81ab",
+            "rule_name": "Sensitive Files Compression",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "f3ffa89b-de47-4e17-ac8e-385e0e7f8253"
 
+
 @common.requires_os(PLATFORMS)
 def main():
     common.log("Compressing sensitive files")
-    files = ['totally-legit.tar', 'official-business.zip', 'expense-reports.gz']
+    files = ["totally-legit.tar", "official-business.zip", "expense-reports.gz"]
 
     # we don't want/need these to actually work, since the rule is only looking for command line, so no need for sudo
     commands = [
-        ['tar', '-cvf', files[0], '/etc/shadow'],
-        ['zip', files[1], '/etc/passwd'],
-        ['gzip', '/etc/group', files[2]]
+        ["tar", "-cvf", files[0], "/etc/shadow"],
+        ["zip", files[1], "/etc/passwd"],
+        ["gzip", "/etc/group", files[2]],
     ]
     for command in commands:
         try:
@@ -37,5 +43,5 @@ def main():
             common.log(str(exc))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

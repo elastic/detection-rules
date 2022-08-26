@@ -12,15 +12,26 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "f2c7b914-eda3-40c2-96ac-d23ef91776ca", "rule_name": "SIP Provider Modification"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "f2c7b914-eda3-40c2-96ac-d23ef91776ca",
+            "rule_name": "SIP Provider Modification",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "b0e3e1bb-dfa5-473a-8862-b2d1d42819ce"
 
 CRYPTO_ROOT = "SOFTWARE\\Microsoft\\Cryptography\\OID\\EncodingType 0"
-VERIFY_DLL_KEY = "%s\\CryptSIPDllVerifyIndirectData\\{C689AAB8-8E78-11D0-8C47-00C04FC295EE}" % CRYPTO_ROOT
-GETSIG_KEY = "%s\\CryptSIPDllGetSignedDataMsg\\{C689AAB8-8E78-11D0-8C47-00C04FC295EE}" % CRYPTO_ROOT
+VERIFY_DLL_KEY = (
+    "%s\\CryptSIPDllVerifyIndirectData\\{C689AAB8-8E78-11D0-8C47-00C04FC295EE}"
+    % CRYPTO_ROOT
+)
+GETSIG_KEY = (
+    "%s\\CryptSIPDllGetSignedDataMsg\\{C689AAB8-8E78-11D0-8C47-00C04FC295EE}"
+    % CRYPTO_ROOT
+)
 
 
 def register_sip_provider(dll_path, verify_function, getsig_function):
@@ -63,7 +74,9 @@ def main():
 
     common.log("Cleaning up", log_type="-")
     wintrust = "C:\\Windows\\System32\\WINTRUST.dll"
-    register_sip_provider(wintrust, "CryptSIPVerifyIndirectData", "CryptSIPGetSignedDataMsg")
+    register_sip_provider(
+        wintrust, "CryptSIPVerifyIndirectData", "CryptSIPGetSignedDataMsg"
+    )
 
 
 if __name__ == "__main__":

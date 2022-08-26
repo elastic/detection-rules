@@ -14,15 +14,20 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "97fc44d3-8dae-4019-ae83-298c3015600f", "rule_name": "Startup or Run Key Registry Modification"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "97fc44d3-8dae-4019-ae83-298c3015600f",
+            "rule_name": "Startup or Run Key Registry Modification",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "ca020d7f-f495-4f0a-a808-da615f3409b4"
 
 # There are many unconventional ways to leverage the Registry for persistence:
 
-'''
+"""
 key_path == "*\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\*" or
 key_path == "*\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Runonce\\*" or
 key_path == "*\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\Load" or
@@ -62,13 +67,16 @@ key_path == "*\\System\\ControlSet*\\Control\\Session Manager\\AppCertDlls\\*" o
 key_path == "*\\System\\ControlSet*\\Control\\BootVerificationProgram\\ImagePath" or
 key_path == "*\\System\\Setup\\CmdLine"
 )
-'''  # noqa: E501
+"""  # noqa: E501
 
 
 @common.requires_os(PLATFORMS)
 def main(target="calc.exe"):
     winreg = common.get_winreg()
-    hkey = winreg.CreateKey(winreg.HKEY_CURRENT_USER, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon")
+    hkey = winreg.CreateKey(
+        winreg.HKEY_CURRENT_USER,
+        "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon",
+    )
 
     common.log("Setting reg key")
     winreg.SetValueEx(hkey, "Userinit", 0, winreg.REG_SZ, target)

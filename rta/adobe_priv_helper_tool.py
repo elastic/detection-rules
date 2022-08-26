@@ -7,12 +7,17 @@ from . import common
 
 PLATFORMS = ["macos"]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "f85ce03f-d8a8-4c83-acdc-5c8cd0592be7",
-              "rule_name": "Suspicious Child Process of Adobe Acrobat Reader Update Service"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_name": "Suspicious Child Process of Adobe Acrobat Reader Update Service",
+            "rule_id": "f85ce03f-d8a8-4c83-acdc-5c8cd0592be7",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
-RTA_ID = "2fcbcdcf-8b44-4704-8b45-693d0b5ebe40"
+RTA_ID = "e5d376ae-d634-41fa-903c-42f35736a615"
+
 
 @common.requires_os(PLATFORMS)
 def main():
@@ -21,7 +26,9 @@ def main():
     common.create_macos_masquerade(masquerade)
 
     # Execute command
-    common.log("Launching fake com.adobe.ARMDC.SMJobBlessHelper commands to adobe mimic privesc")
+    common.log(
+        "Launching fake com.adobe.ARMDC.SMJobBlessHelper commands to adobe mimic privesc"
+    )
     common.execute([masquerade, "childprocess", masquerade], timeout=10, kill=True)
 
     # cleanup

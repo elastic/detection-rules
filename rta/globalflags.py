@@ -13,11 +13,17 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "6839c821-011d-43bd-bd5b-acff00257226", "rule_name": "Image File Execution Options Injection"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "6839c821-011d-43bd-bd5b-acff00257226",
+            "rule_name": "Image File Execution Options Injection",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "e09d904a-f3bb-4d36-8eb8-8c234812807c"
+
 
 @common.requires_os(PLATFORMS)
 def main():
@@ -25,13 +31,17 @@ def main():
     ifeo_subkey = "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\netstat.exe"
     spe_subkey = "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\SilentProcessExit\\netstat.exe"
 
-    with common.temporary_reg(common.HKLM, ifeo_subkey, "GlobalFlag", 512, common.DWORD), \
-            common.temporary_reg(common.HKLM, spe_subkey, "ReportingMode", 1, common.DWORD), \
-            common.temporary_reg(common.HKLM, spe_subkey, "MonitorProcess", "C:\\Windows\\system32\\whoami.exe"):
+    with common.temporary_reg(
+        common.HKLM, ifeo_subkey, "GlobalFlag", 512, common.DWORD
+    ), common.temporary_reg(
+        common.HKLM, spe_subkey, "ReportingMode", 1, common.DWORD
+    ), common.temporary_reg(
+        common.HKLM, spe_subkey, "MonitorProcess", "C:\\Windows\\system32\\whoami.exe"
+    ):
 
         common.log("Opening and closing netstat")
         common.execute(["whoami"], shell=True)
-        common.execute(['taskkill', '/F', '/IM', 'netstat.exe'])
+        common.execute(["taskkill", "/F", "/IM", "netstat.exe"])
 
 
 if __name__ == "__main__":

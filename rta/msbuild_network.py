@@ -14,13 +14,18 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae6", "rule_name": "Microsoft Build Engine Started an Unusual Process"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae6",
+            "rule_name": "Microsoft Build Engine Started an Unusual Process",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "022dc249-a496-413a-9355-c37e3ea41dda"
 
-MS_BUILD = 'C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\msbuild.exe'
+MS_BUILD = "C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\msbuild.exe"
 
 
 @common.requires_os(PLATFORMS)

@@ -14,8 +14,13 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "fd4a992d-6130-4802-9ff8-829b89ae801f", "rule_name": "Potential Application Shimming via Sdbinst"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "fd4a992d-6130-4802-9ff8-829b89ae801f",
+            "rule_name": "Potential Application Shimming via Sdbinst",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "a4a8608e-d94f-4eb1-b500-738328307bbc"

@@ -14,16 +14,24 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "dc9c1f74-dac3-48e3-b47f-eb79db358f57", "rule_name": "Volume Shadow Copy Deletion via WMIC"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "dc9c1f74-dac3-48e3-b47f-eb79db358f57",
+            "rule_name": "Volume Shadow Copy Deletion via WMIC",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "ae6343cc-3b56-4f60-854f-7102db519ec4"
 
+
 @common.requires_os(PLATFORMS)
 def main():
     common.log("Deleting volume shadow copies...")
-    common.execute(["vssadmin.exe", "delete", "shadows", "/for=c:", "/oldest", "/quiet"])
+    common.execute(
+        ["vssadmin.exe", "delete", "shadows", "/for=c:", "/oldest", "/quiet"]
+    )
     # Create a volume shadow copy so that there is at least one to delete
     common.execute(["wmic.exe", "shadowcopy", "call", "create", "volume=c:\\"])
     common.execute(["wmic.exe", "shadowcopy", "delete", "/nointeractive"])

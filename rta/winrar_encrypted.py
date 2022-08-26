@@ -16,8 +16,13 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "45d273fb-1dca-457d-9855-bcb302180c21", "rule_name": "Encrypting Files with WinRar or 7z"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "45d273fb-1dca-457d-9855-bcb302180c21",
+            "rule_name": "Encrypting Files with WinRar or 7z",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "6d2d3c21-2d71-4395-8ab7-b1d0138d9225"
@@ -28,7 +33,7 @@ WINRAR = common.get_path("bin", "Rar.exe")
 
 def create_exfil(path=os.path.abspath("secret_stuff.txt")):
     common.log("Writing dummy exfil to %s" % path)
-    with open(path, 'wb') as f:
+    with open(path, "wb") as f:
         f.write(base64.b64encode(b"This is really secret stuff" * 100))
     return path
 

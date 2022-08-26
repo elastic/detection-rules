@@ -14,11 +14,17 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "55d551c6-333b-4665-ab7e-5d14a59715ce", "rule_name": "PsExec Network Connection"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "55d551c6-333b-4665-ab7e-5d14a59715ce",
+            "rule_name": "PsExec Network Connection",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "90cf6001-11a7-410b-b259-cf20a029b929"
+
 
 @common.requires_os(PLATFORMS)
 @common.dependencies(common.PS_EXEC)

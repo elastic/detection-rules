@@ -19,8 +19,13 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "d61cbcf8-1bc1-4cff-85ba-e7b21c5beedc", "rule_name": "Service Command Lateral Movement"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "d61cbcf8-1bc1-4cff-85ba-e7b21c5beedc",
+            "rule_name": "Service Command Lateral Movement",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "389392dc-61db-4e45-846f-099f7d289c1b"
@@ -70,17 +75,18 @@ def main(remote_host=None):
 
     # Check if the account is local or a domain
     if domain in (hostname, "NT AUTHORITY"):
-        common.log("Need password for remote scheduled task in workgroup. Performing instead on %s." % common.get_ip())
+        common.log(
+            "Need password for remote scheduled task in workgroup. Performing instead on %s."
+            % common.get_ip()
+        )
         schtasks_host = common.get_ip()
 
     task_name = "test_task-%d" % os.getpid()
     schtask_commands = [
         r"schtasks /s {host} /delete /tn {name} /f",
         r"schtasks /s {host} /create /SC MONTHLY /MO first /D SUN /tn {name} /tr c:\windows\system32\ipconfig.exe /f",
-
         r"schtasks /s {host} /run /tn {name}",
         r"schtasks /s {host} /delete /tn {name} /f",
-
     ]
 
     for command in schtask_commands:
@@ -88,7 +94,9 @@ def main(remote_host=None):
         common.execute(command)
 
     # Remote powershell
-    common.execute(["C:\\Windows\\system32\\wsmprovhost.exe", "-Embedding"], timeout=5, kill=True)
+    common.execute(
+        ["C:\\Windows\\system32\\wsmprovhost.exe", "-Embedding"], timeout=5, kill=True
+    )
 
 
 if __name__ == "__main__":

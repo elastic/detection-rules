@@ -3,43 +3,40 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-# Name: Windows Core Process Masquerade
-# RTA: process_name_masquerade.py
-# signal.rule.name: Unusual Parent-Child Relationship
-# ATT&CK: T1036
-# Description: Creates several processes which mimic core Windows process names but that are not those executables.
-
 import os
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
+PLATFORMS = ["windows"]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "35df0dd8-092d-4a83-88c1-5151a804f31b", "rule_name": "Unusual Parent-Child Relationship"}],
-    "ENDPOINT": []
+    "SIEM": [],
+    "ENDPOINT": [
+        {
+            "rule_name": "Binary Masquerading via Untrusted Path",
+            "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f",
+        },
+        {
+            "rule_name": "Potential Masquerading as SVCHOST",
+            "rule_id": "5b00c9ba-9546-47cc-8f9f-1c1a3e95f65c",
+        },
+        {
+            "rule_name": "Execution via Renamed Signed Binary Proxy",
+            "rule_id": "b0207677-5041-470b-981d-13ab956cf5b4",
+        },
+    ],
 }
-TACTICS = []
-RTA_ID = "ead01ef7-73da-4990-bce3-cef13f8aaca4"
-
-MY_APP = common.get_path("bin", "myapp.exe")
+TACTICS = ["TA0005"]
+RTA_ID = "98adf0ff-2d8e-4eea-8d68-42084204bb74"
+CMD_PATH = "c:\\windows\\system32\\cmd.exe"
 
 
 @common.requires_os(PLATFORMS)
-@common.dependencies(MY_APP)
 def main():
-    masquerades = [
-        "svchost.exe",
-        "lsass.exe",
-        "services.exe",
-        "csrss.exe",
-        "smss.exe",
-        "wininit.exe",
-        "explorer.exe",
-    ]
+    masquerades = ["svchost.exe", "lsass.exe"]
 
     for name in masquerades:
         path = os.path.abspath(name)
-        common.copy_file(MY_APP, path)
+        common.copy_file(CMD_PATH, path)
         common.execute(path, timeout=3, kill=True)
         common.remove_file(path)
 

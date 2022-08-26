@@ -1,0 +1,44 @@
+# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
+
+from . import common
+
+PLATFORMS = ["macos"]
+TRIGGERED_RULES = {
+    "SIEM": [],
+    "ENDPOINT": [
+        {
+            "rule_name": "Initial Access via macOS Installer Package",
+            "rule_id": "d40ffcba-b83e-4d0a-8d6d-84385def8e18",
+        }
+    ],
+}
+TACTICS = ["TA0003", "TA0007", "TA0002", "TA0011", "TA0001"]
+RTA_ID = "34040af5-1231-4e97-8189-a26d6622b2e5"
+
+
+@common.requires_os(PLATFORMS)
+def main():
+
+    # create masquerades
+    masquerade = "/tmp/Installer"
+    masquerade2 = "/tmp/curl"
+    common.create_macos_masquerade(masquerade)
+    common.create_macos_masquerade(masquerade2)
+
+    # Execute command
+    common.log("Launching fake macOS installer commands to download payload")
+    common.execute([masquerade], timeout=10, kill=True)
+
+    command = f"{masquerade2} test.amazonaws.comtest "
+    common.execute([masquerade, "childprocess", command], timeout=10, kill=True)
+
+    # cleanup
+    common.remove_file(masquerade)
+    common.remove_file(masquerade2)
+
+
+if __name__ == "__main__":
+    exit(main())

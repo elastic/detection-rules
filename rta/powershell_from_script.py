@@ -16,11 +16,17 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {
-    "SIEM": [{"rule_id": "f545ff26-3c94-4fd0-bd33-3c7f95a3a0fc", "rule_name": "Windows Script Executing PowerShell"}],
-    "ENDPOINT": []
+    "SIEM": [
+        {
+            "rule_id": "f545ff26-3c94-4fd0-bd33-3c7f95a3a0fc",
+            "rule_name": "Windows Script Executing PowerShell",
+        }
+    ],
+    "ENDPOINT": [],
 }
 TACTICS = []
 RTA_ID = "161c5972-6bfe-47b5-92bd-e0399e025dec"
+
 
 @common.requires_os(PLATFORMS)
 def main():
@@ -29,7 +35,7 @@ def main():
     script = """Set objShell = CreateObject("Wscript.shell")
     objShell.run("powershell echo 'Doing evil things...'; sleep 3")
     """
-    with open(script_file, 'w') as f:
+    with open(script_file, "w") as f:
         f.write(script)
 
     # Execute script

@@ -11,10 +11,7 @@
 from . import common
 
 PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": []
-}
+TRIGGERED_RULES = {"SIEM": [], "ENDPOINT": []}
 TACTICS = []
 RTA_ID = "c7d9d63d-09ff-40e9-b990-4c273281d6a0"
 
@@ -31,7 +28,7 @@ def main():
         "bad.pdf",
         "suspicious.bat",
         "hiding.vbs",
-        "evil.xlsx"
+        "evil.xlsx",
     ]
 
     for path in anomalies:
