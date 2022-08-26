@@ -74,7 +74,6 @@ class TestMappings(BaseRuleTest):
 class TestRTAs(unittest.TestCase):
     """Test that all rtas appropriately have fields added."""
 
-
     def test_rtas_with_triggered_rules_have_uuid(self):
         """Ensure that all RTAs with triggered rules have a UUID."""
 
@@ -84,4 +83,5 @@ class TestRTAs(unittest.TestCase):
             self.assertIsNotNone(rta_test.get("uuid"), f'RTA {rta_test.get("name")} missing uuid')
             for rule_info in rta_test.get("siem"):
                 for rule_key in rule_keys:
-                    self.assertIsNotNone(rule_info.get(rule_key), f'RTA {rta_test.get("name")} - {rta_test.get("uuid")} missing {rule_key}')
+                    self.assertIsNotNone(rule_info.get(rule_key),
+                                         f'RTA {rta_test.get("name")} - {rta_test.get("uuid")} missing {rule_key}')

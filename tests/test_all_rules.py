@@ -70,7 +70,6 @@ class TestValidRules(BaseRuleTest):
                 if rta_name not in ttp_names:
                     self.fail(f'{self.rule_str(rule)} references unknown RTA: {rta_name}')
 
-
     def test_duplicate_file_names(self):
         """Test that no file names are duplicated."""
         name_map = defaultdict(list)
