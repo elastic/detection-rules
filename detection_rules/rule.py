@@ -592,6 +592,47 @@ class BaseRuleContents(ABC):
             return existing_sha256 != self.sha256()
 
     @property
+    def lock_entry(self) -> Optional[dict]:
+        lock_entry = self.version_lock.version_lock.data.get(self.id)
+        if lock_entry:
+            return lock_entry.to_dict()
+
+    @property
+    def has_forked(self) -> bool:
+        """Determine if the rule has forked at any point (has a previous entry)."""
+        lock_entry = self.lock_entry
+        if lock_entry:
+            return 'previous' in lock_entry
+        return False
+
+    @property
+    def is_in_forked_version(self) -> bool:
+        """Determine if the rule is in a forked version."""
+        if not self.has_forked:
+            return False
+        locked_min_stack = Version(self.lock_entry['min_stack_version'])
+        current_package_ver = Version(load_current_package_version())
+        return current_package_ver < locked_min_stack
+
+    def get_version_space(self) -> Optional[int]:
+        """Retrieve the number of version spaces available (None for unbound)."""
+        if self.is_in_forked_version:
+            min_stack_version = Version(self.metadata.min_stack_version)
+            previous_entries = self.lock_entry['previous']
+            previous_versions = sorted([Version(v) for v in previous_entries])
+            next_entry_min_stack = next((v for v in previous_versions if v > min_stack_version), None)
+
+            current_version = previous_entries[self.metadata.min_stack_version]['version']
+
+            if next_entry_min_stack is None:
+                # use the root level version because this is currently in the latest previous entry
+                next_version = self.lock_entry['version']
+            else:
+                next_version = previous_entries[next_entry_min_stack]['version']
+
+            return next_version - current_version - 1
+
+    @property
     def latest_version(self) -> Optional[int]:
         """Retrieve the latest known version of the rule."""
         min_stack = self.metadata.get('min_stack_version') or str(get_min_supported_stack_version(drop_patch=True))

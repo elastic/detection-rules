@@ -635,6 +635,28 @@ def license_check(ctx, ignore_directory):
     ctx.exit(int(failed))
 
 
+@dev_group.command('rule-version-check')
+@click.pass_context
+def rule_version_collision_check(ctx: click.Context):
+    """Simulate the incremental step in the version locking to find version change violations."""
+    invalid = []
+    rc = RuleCollection.default()
+    current_stack_ver = current_stack_version()
+
+    click.echo(f'Checking for version collisions in release {current_stack_ver} in {len(rc)} rules')
+    for rule in rc.rules:
+        version_space = rule.contents.get_version_space()
+        if rule.contents.is_dirty and version_space is not None and version_space < 1:
+            invalid.append(f'{rule.id} - {rule.name}')
+
+    if invalid:
+        err_str = '- '.join(invalid)
+        click.secho(f'In package: {current_stack_ver}, the following rules will increment colliding versions:\n'
+                    f' {err_str}', fg='red', err=True)
+
+        ctx.exit(len(invalid))
+
+
 @dev_group.command('package-stats')
 @click.option('--token', '-t', help='GitHub token to search API authenticated (may exceed threshold without auth)')
 @click.option('--threads', default=50, help='Number of threads to download rules from GitHub')
