@@ -22,7 +22,7 @@ TRIGGERED_RULES = {
 TACTICS = []
 RTA_ID = "cd8e06c0-fc62-4932-8ef7-b767570e88eb"
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     mshta_path = os.path.abspath(mshta_network.__file__.replace(".pyc", ".py"))
 

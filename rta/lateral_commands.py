@@ -28,7 +28,7 @@ RTA_ID = "389392dc-61db-4e45-846f-099f7d289c1b"
 MY_APP = common.get_path("bin", "myapp.exe")
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(MY_APP)
 def main(remote_host=None):
     remote_host = remote_host or common.get_ip()

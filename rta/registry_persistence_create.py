@@ -30,7 +30,7 @@ def pause():
     time.sleep(0.5)
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(TARGET_APP)
 def main():
     common.log("Suspicious Registry Persistence")

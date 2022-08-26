@@ -20,7 +20,7 @@ TRIGGERED_RULES = {
 TACTICS = []
 RTA_ID = "3adf005f-94b8-4b34-8994-d5a3dc6666c2"
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main(remote_host=None):
     if not remote_host:
         common.log('A remote host is required to detonate this RTA', '!')

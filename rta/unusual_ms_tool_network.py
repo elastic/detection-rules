@@ -54,7 +54,7 @@ def http_from_process(name, ip, port):
     common.remove_file(path)
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(PLATFORMS)
 def main():
     server, ip, port = common.serve_web()
 
