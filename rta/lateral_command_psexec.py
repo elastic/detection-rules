@@ -20,7 +20,7 @@ TRIGGERED_RULES = {
 TACTICS = []
 RTA_ID = "90cf6001-11a7-410b-b259-cf20a029b929"
 
-@common.requires_os(common.PLATFORMS)
+@common.requires_os(PLATFORMS)
 @common.dependencies(common.PS_EXEC)
 def main(remote_host=None):
     remote_host = remote_host or common.get_ip()
