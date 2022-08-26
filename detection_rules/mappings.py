@@ -9,6 +9,7 @@ from collections import defaultdict
 
 from rta import get_available_tests
 
+from .rule import TOMLRule
 from .schemas import validate_rta_mapping
 from .utils import get_path, load_etc_dump, save_etc_dump
 
@@ -89,7 +90,7 @@ def get_triggered_rules() -> dict:
     return triggered_rules
 
 
-def get_platform_list(rule) -> list:
+def get_platform_list(rule: TOMLRule) -> list:
     """Get the list of OSes for a rule."""
     os_list = []
     if rule.contents.metadata.os_type_list:
@@ -103,8 +104,13 @@ def get_platform_list(rule) -> list:
     return os_list
 
 
-def build_coverage_map(triggered_rules, all_rules) -> dict:
+def build_coverage_map(triggered_rules: dict, all_rules) -> dict:
     """Get the rules that are not covered by each rta."""
+
+    # avoid a circular import
+    from .rule_loader import RuleCollection
+    all_rules: RuleCollection
+
     coverage_map = {"all": 0}
     for trule in all_rules.rules:
         rule_covered = False
