@@ -723,3 +723,27 @@ class TestBuildTimeFields(BaseRuleTest):
 
             if invalids:
                 self.fail(invalids)
+
+
+class TestRiskScoreMismatch(BaseRuleTest):
+    """Test that severity and risk_score fields contain corresponding values"""
+
+    def test_rule_risk_score_severity_mismatch(self):
+        invalid_list = []
+        risk_severity = {
+            "critical": 99,
+            "high": 73,
+            "medium": 47,
+            "low": 21,
+        }
+        for rule in self.all_rules:
+            severity = rule.contents.data.severity
+            risk_score = rule.contents.data.risk_score
+            if risk_severity[severity] != risk_score:
+                invalid_list.append(f'{self.rule_str(rule)} Severity: {severity}, Risk Score: {risk_score}')
+
+        if invalid_list:
+            invalid_str = '\n'.join(invalid_list)
+            err_msg = 'The following rules have mismatches between Severity and Risk Score field values:\n'
+            err_msg += invalid_str
+            self.fail(err_msg)
