@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/08/14"
 maturity = "production"
-updated_date = "2022/03/31"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -27,7 +29,9 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
-  process.name : "cmd.exe" and process.parent.name : "sqlservr.exe"
+  process.name : "cmd.exe" and process.parent.name : "sqlservr.exe" and
+  not process.args : ("\\\\*", "diskfree", "rmdir", "mkdir", "dir", "del", "rename", "bcp", "*XMLNAMESPACES*",
+                      "?:\\MSSQL\\Backup\\Jobs\\sql_agent_backup_job.ps1", "K:\\MSSQL\\Backup\\msdb", "K:\\MSSQL\\Backup\\Logins")
 '''
 
 
