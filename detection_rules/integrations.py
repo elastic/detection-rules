@@ -42,14 +42,11 @@ class IntegrationManifestSchema(Schema):
         return data
 
 
-def build_integrations_manifest(token: str, overwrite: bool) -> None:
+def build_integrations_manifest(token: str, overwrite: bool, rule_integrations: list) -> None:
     """Builds a new local copy of manifest.yaml from integrations Github."""
     if overwrite:
         if os.path.exists(MANIFEST_FILE_PATH):
             os.remove(MANIFEST_FILE_PATH)
-    rule_integrations = [d.name for d in Path(INTEGRATION_RULE_DIR).glob('*') if d.is_dir()]
-    if "endpoint" in rule_integrations:
-        rule_integrations.remove("endpoint")
 
     final_integration_manifests = {integration: {} for integration in rule_integrations}
 

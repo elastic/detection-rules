@@ -1101,4 +1101,7 @@ def integrations_group():
               help="GitHub token to use for the PR", hide_input=True)
 def build_integration_manifests(overwrite: bool, token: str):
     """Builds consolidated integrations manifests file."""
-    build_integrations_manifest(token, overwrite)
+    rules = RuleCollection.default()
+    integration_tags = list(set([r.contents.metadata.integration for r in rules
+        if r.contents.metadata.integration]))
+    build_integrations_manifest(token, overwrite, integration_tags)
