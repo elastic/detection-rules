@@ -1102,6 +1102,5 @@ def integrations_group():
 def build_integration_manifests(overwrite: bool, token: str):
     """Builds consolidated integrations manifests file."""
     rules = RuleCollection.default()
-    integration_tags = list(set([r.contents.metadata.integration for r in rules
-        if r.contents.metadata.integration]))
+    integration_tags = list(set([r.contents.metadata.integration for r in rules if r.contents.metadata.integration]))
     build_integrations_manifest(token, overwrite, integration_tags)

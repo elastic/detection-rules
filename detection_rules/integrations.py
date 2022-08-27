@@ -16,7 +16,7 @@ from marshmallow import EXCLUDE, Schema, fields, post_load
 
 from .ghwrap import GithubClient
 from .semver import Version
-from .utils import INTEGRATION_RULE_DIR, cached, get_etc_path, read_gzip
+from .utils import cached, get_etc_path, read_gzip
 
 MANIFEST_FILE_PATH = Path(get_etc_path('integration-manifests.json.gz'))
 
