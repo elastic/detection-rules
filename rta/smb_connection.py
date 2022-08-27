@@ -23,7 +23,7 @@ TRIGGERED_RULES = {
     ],
     "ENDPOINT": [],
 }
-TACTICS = []
+TACTICS = ["TA0008"]
 RTA_ID = "b0e3e1bb-dfa5-473a-8862-b2d1d42819ce"
 
 SMB_PORT = 445

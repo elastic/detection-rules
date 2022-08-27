@@ -23,7 +23,7 @@ TRIGGERED_RULES = {
     ],
     "ENDPOINT": [],
 }
-TACTICS = []
+TACTICS = ["TA0002", "TA0005"]
 RTA_ID = "790cbe6f-ee44-4654-9998-039236dbe0d8"
 
 RECYCLE_PATHS = ["C:\\$Recycle.Bin", "C:\\Recycler"]
