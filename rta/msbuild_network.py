@@ -22,7 +22,7 @@ TRIGGERED_RULES = {
     ],
     "ENDPOINT": [],
 }
-TACTICS = []
+TACTICS = ["TA0005"]
 RTA_ID = "022dc249-a496-413a-9355-c37e3ea41dda"
 
 MS_BUILD = "C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\msbuild.exe"

@@ -29,7 +29,7 @@ TRIGGERED_RULES = {
     ],
     "ENDPOINT": [],
 }
-TACTICS = []
+TACTICS = ["TA0005"]
 RTA_ID = "6dfa88c9-9fb2-4fb0-8bea-0bc45222b498"
 
 MY_DOT_NET = common.get_path("bin", "mydotnet.exe")

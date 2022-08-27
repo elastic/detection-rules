@@ -20,7 +20,7 @@ TRIGGERED_RULES = {
     ],
     "ENDPOINT": [],
 }
-TACTICS = []
+TACTICS = ["TA0011"]
 RTA_ID = "10609a63-0013-4fd0-9322-66c86c1c9501"
 
 MY_DLL = common.get_path("bin", "mydll.dll")

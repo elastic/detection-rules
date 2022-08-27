@@ -20,7 +20,7 @@ TRIGGERED_RULES = {
     ],
     "ENDPOINT": [],
 }
-TACTICS = []
+TACTICS = ["TA0005"]
 RTA_ID = "a8331ff5-2199-48cf-9284-88351c859835"
 
 MS_XSL = common.get_path("bin", "msxsl.exe")
