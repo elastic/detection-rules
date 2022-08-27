@@ -22,7 +22,7 @@ TRIGGERED_RULES = {
     ],
     "ENDPOINT": [],
 }
-TACTICS = ["TA0003","TA0004"]
+TACTICS = ["TA0003", "TA0004"]
 RTA_ID = "a4a8608e-d94f-4eb1-b500-738328307bbc"
 
 SHIM_FILE = common.get_path("bin", "CVE-2013-3893.sdb")
