@@ -76,6 +76,13 @@ def find_least_compatible_version(package: str, integration: str,
     """Finds least compatible version for specified integration based on stack version supplied."""
     integration_manifests = {k: v for k, v in sorted(packages_manifest[package].items(), key=Version)}
 
+    # trim integration_manifests to only the latest major entries
+    major_versions = \
+        list(set([Version(manifest_version)[0] for manifest_version, manifest in integration_manifests.items()]))
+    major_versions.sort(reverse=True)
+    latest_major_integration_manifests = \
+        {k: v for k, v in integration_manifests.items() if major_versions[0] == Version(k)[0]}
+
     def compare_versions(int_ver: str, pkg_ver: str) -> bool:
         """Compares integration and package version"""
         pkg_major, pkg_minor = Version(pkg_ver)
@@ -87,10 +94,10 @@ def find_least_compatible_version(package: str, integration: str,
         compatible = Version(int_ver) <= Version(pkg_ver)
         return compatible
 
-    for version, manifest in integration_manifests.items():
+    for version, manifest in latest_major_integration_manifests.items():
         for kibana_compat_vers in re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana.version"]).split(" || "):
             if compare_versions(kibana_compat_vers, current_stack_version):
-                return version
+                return f"^{version}"
     print(f"no compatible version for integration {package}:{integration}")
     return None
 
