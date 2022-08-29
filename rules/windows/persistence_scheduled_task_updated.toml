@@ -8,9 +8,9 @@ updated_date = "2022/08/29"
 [rule]
 author = ["Elastic"]
 description = """
-Indicates the update of a scheduled task using Windows event logs. Adversaries can use these to establish persistence, by
-changing the configuration of a legit scheduled task. Some changes such as disabling or enabling a scheduled task are common
-and may may generate noise.
+Indicates the update of a scheduled task using Windows event logs. Adversaries can use these to establish persistence,
+by changing the configuration of a legit scheduled task. Some changes such as disabling or enabling a scheduled task are
+common and may may generate noise.
 """
 false_positives = ["Legitimate scheduled tasks may be created during installation of new software."]
 from = "now-9m"
@@ -26,12 +26,10 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
 type = "eql"
 
 query = '''
-iam where event.action == "scheduled-task-updated" and
+iam where event.action : "scheduled-task-updated" and
 
  /* excluding tasks created by the computer account */
  not user.name : "*$" and
-
- /* TaskContent is not parsed, exclude by full taskname noisy ones */
  not winlog.event_data.TaskName :
           ("\\User_Feed_Synchronization-*",
            "\\OneDrive Reporting Task-S-1-5-21*",
@@ -46,7 +44,6 @@ framework = "MITRE ATT&CK"
 id = "T1053"
 name = "Scheduled Task/Job"
 reference = "https://attack.mitre.org/techniques/T1053/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1053.005"
 name = "Scheduled Task"
