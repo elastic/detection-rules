@@ -23,11 +23,11 @@ Audit events 4624 and 4688 are needed to trigger this rule.
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 
 """
-references = ["https://attack.mitre.org/techniques/T1134/002/",]
+references = ["https://attack.mitre.org/techniques/T1134/002/"]
 risk_score = 47
 rule_id = "42eeee3d-947f-46d3-a14d-7036b962c266"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
 type = "eql"
 
 query = '''
@@ -48,17 +48,22 @@ sequence by host.id with maxspan=1m
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1134"
-reference = "https://attack.mitre.org/techniques/T1134/"
 name = "Access Token Manipulation"
+reference = "https://attack.mitre.org/techniques/T1134/"
 [[rule.threat.technique.subtechnique]]
 id = "T1134.002"
 name = "Create Process with Token"
 reference = "https://attack.mitre.org/techniques/T1134/002/"
 
+[[rule.threat.technique.subtechnique]]
+id = "T1134.003"
+name = "Make and Impersonate Token"
+reference = "https://attack.mitre.org/techniques/T1134/003/"
+
+
 
 [rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
