@@ -25,7 +25,6 @@ from typing import Iterable, Optional, Union
 
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
-to_unicode = type(u"")
 long_t = type(1 << 63)
 strings = str, type(u"")
 
@@ -200,7 +199,6 @@ def execute(command: Iterable, hide_log=False, mute=False, timeout: int = 30, wa
     close = None
 
     if isinstance(command, (list, tuple)):
-        command = [to_unicode(arg) for arg in command]
         command_string = subprocess.list2cmdline(command)
 
         if shell:
