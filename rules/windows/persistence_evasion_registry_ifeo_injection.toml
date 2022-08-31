@@ -1,9 +1,9 @@
 [metadata]
 creation_date = "2020/11/17"
 maturity = "production"
-updated_date = "2022/02/14"
-min_stack_comments = "EQL regex syntax introduced in 7.12"
-min_stack_version = "7.12.0"
+updated_date = "2022/08/24"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,7 @@ name = "Image File Execution Options Injection"
 references = [
     "https://oddvar.moe/2018/04/10/persistence-using-globalflags-in-image-file-execution-options-hidden-from-autoruns-exe/",
 ]
-risk_score = 41
+risk_score = 47
 rule_id = "6839c821-011d-43bd-bd5b-acff00257226"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
@@ -28,9 +28,9 @@ type = "eql"
 
 query = '''
 registry where length(registry.data.strings) > 0 and
- registry.path : ("HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*.exe\\Debugger", 
-                  "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*\\Debugger", 
-                  "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\SilentProcessExit\\*\\MonitorProcess", 
+ registry.path : ("HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*.exe\\Debugger",
+                  "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*\\Debugger",
+                  "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\SilentProcessExit\\*\\MonitorProcess",
                   "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows NT\\CurrentVersion\\SilentProcessExit\\*\\MonitorProcess") and
    /* add FPs here */
  not registry.data.strings regex~ ("""C:\\Program Files( \(x86\))?\\ThinKiosk\\thinkiosk\.exe""", """.*\\PSAppDeployToolkit\\.*""")

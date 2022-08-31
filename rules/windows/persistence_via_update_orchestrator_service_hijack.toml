@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/08/17"
 maturity = "production"
-updated_date = "2022/03/31"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +16,7 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via Update Orchestrator Service Hijack"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -22,7 +24,7 @@ references = ["https://github.com/irsl/CVE-2020-1313"]
 risk_score = 73
 rule_id = "265db8f5-fc73-4d0d-b434-6483b56372e2"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "CVE-2020-1313"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -31,14 +33,19 @@ process where event.type == "start" and
   process.parent.executable : "C:\\Windows\\System32\\svchost.exe" and
   process.parent.args : "UsoSvc" and
   not process.executable :
-         (
-          "C:\\Windows\\System32\\UsoClient.exe",
-          "C:\\Windows\\System32\\MusNotification.exe",
-          "C:\\Windows\\System32\\MusNotificationUx.exe",
-          "C:\\Windows\\System32\\MusNotifyIcon.exe",
-          "C:\\Windows\\System32\\WerFault.exe",
-          "C:\\Windows\\System32\\WerMgr.exe"
-          )
+          ("?:\\ProgramData\\Microsoft\\Windows\\UUS\\Packages\\*\\amd64\\MoUsoCoreWorker.exe",
+          "?:\\Windows\\System32\\UsoClient.exe",
+          "?:\\Windows\\System32\\MusNotification.exe",
+          "?:\\Windows\\System32\\MusNotificationUx.exe",
+          "?:\\Windows\\System32\\MusNotifyIcon.exe",
+          "?:\\Windows\\System32\\WerFault.exe",
+          "?:\\Windows\\System32\\WerMgr.exe",
+          "?:\\Windows\\UUS\\amd64\\MoUsoCoreWorker.exe",
+          "?:\\Windows\\System32\\MoUsoCoreWorker.exe",
+          "?:\\Windows\\UUS\\amd64\\UsoCoreWorker.exe",
+          "?:\\Windows\\System32\\UsoCoreWorker.exe",
+          "?:\\Program Files\\Common Files\\microsoft shared\\ClickToRun\\OfficeC2RClient.exe") and
+  not process.name : ("MoUsoCoreWorker.exe", "OfficeC2RClient.exe")
 '''
 
 

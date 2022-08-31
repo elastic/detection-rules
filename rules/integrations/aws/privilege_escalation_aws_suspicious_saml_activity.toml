@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2021/09/22"
 maturity = "production"
-updated_date = "2021/09/22"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 integration = "aws"
 
 [rule]
@@ -11,7 +13,7 @@ Identifies when SAML activity has occurred in AWS. An adversary could manipulate
 """
 false_positives = [
     """
-    SAML Provider could be updated by a system administrator. Verify whether the user identity, user agent, and/or 
+    SAML Provider could be updated by a system administrator. Verify whether the user identity, user agent, and/or
     hostname should be making changes in your environment. SAML Provider updates by unfamiliar users should
     be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
@@ -21,7 +23,7 @@ index = ["filebeat-*", "logs-aws*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS SAML Activity"
-note = """## Config
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -36,7 +38,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:(iam.amazonaws.com or sts.amazonaws.com) and event.action:(Assumerolewithsaml or 
+event.dataset:aws.cloudtrail and event.provider:(iam.amazonaws.com or sts.amazonaws.com) and event.action:(Assumerolewithsaml or
 UpdateSAMLProvider) and event.outcome:success
 '''
 

@@ -1,9 +1,9 @@
 [metadata]
 creation_date = "2021/01/19"
 maturity = "production"
-min_stack_comments = "EQL regex syntax introduced in 7.12"
-min_stack_version = "7.12.0"
-updated_date = "2022/03/31"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,7 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Executable File Creation with Multiple Extensions"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -30,7 +30,10 @@ type = "eql"
 
 query = '''
 file where event.type == "creation" and file.extension : "exe" and
-  file.name regex~ """.*\.(vbs|vbe|bat|js|cmd|wsh|ps1|pdf|docx?|xlsx?|pptx?|txt|rtf|gif|jpg|png|bmp|hta|txt|img|iso)\.exe"""
+  file.name regex~ """.*\.(vbs|vbe|bat|js|cmd|wsh|ps1|pdf|docx?|xlsx?|pptx?|txt|rtf|gif|jpg|png|bmp|hta|txt|img|iso)\.exe""" and
+  not (process.executable : ("?:\\Windows\\System32\\msiexec.exe", "C:\\Users\\*\\QGIS_SCCM\\Files\\QGIS-OSGeo4W-*-Setup-x86_64.exe") and
+       file.path : "?:\\Program Files\\QGIS *\\apps\\grass\\*.exe") and
+  not process.executable : ("/bin/sh", "/usr/sbin/MailScanner", "/usr/bin/perl")
 '''
 
 
@@ -41,9 +44,9 @@ id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
 [[rule.threat.technique.subtechnique]]
-id = "T1036.004"
-name = "Masquerade Task or Service"
-reference = "https://attack.mitre.org/techniques/T1036/004/"
+id = "T1036.007"
+name = "Double File Extension"
+reference = "https://attack.mitre.org/techniques/T1036/007/"
 
 
 

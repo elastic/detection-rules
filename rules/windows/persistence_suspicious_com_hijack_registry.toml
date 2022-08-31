@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/11/18"
 maturity = "production"
-updated_date = "2022/04/20"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -22,10 +24,11 @@ Adversaries can insert malicious code that can be executed in place of legitimat
 
 #### Possible investigation steps
 
-- Investigate the process execution chain (parent process tree).
-- Identify the user account that performed the action.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Identify the user account that performed the action and whether it should perform this kind of action.
 - Investigate other alerts associated with the user/host during the past 48 hours.
-- Check for similar behavior in other hosts on the environment.
+- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
 - Retrieve the file referenced in the registry and determine if it is malicious:
   - Use a private sandboxed malware analysis system to perform analysis.
     - Observe and collect information about the following activities:
@@ -33,8 +36,8 @@ Adversaries can insert malicious code that can be executed in place of legitimat
       - File and registry access, modification, and creation activities.
       - Service creation and launch activities.
       - Scheduled tasks creation.
-  - Use the PowerShell Get-FileHash cmdlet to get the SHA-256 hash value of the file.
-    - Search for the existence and reputation of this file in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+  - Use the PowerShell Get-FileHash cmdlet to get the files' SHA-256 hash values.
+    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 
 ### False positive analysis
 
@@ -45,14 +48,23 @@ Adversaries can insert malicious code that can be executed in place of legitimat
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved host to prevent further post-compromise behavior.
 - If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement any temporary network rules, procedures, and segmentation required to contain the malware.
-  - Immediately block the IoCs identified.
-- Remove and block malicious artifacts identified on the triage.
-- Disable the involved accounts, or restrict their ability to log on remotely.
-- Reset passwords for the user account and other potentially compromised accounts (email, services, CRMs, etc.).
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
+  attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
+systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 
 
-## Config
+## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -69,13 +81,13 @@ type = "eql"
 query = '''
 registry where
  (registry.path : "HK*}\\InprocServer32\\" and registry.data.strings: ("scrobj.dll", "C:\\*\\scrobj.dll") and
- not registry.path : "*\\{06290BD*-48AA-11D2-8432-006008C3FBFC}\\*") 
+ not registry.path : "*\\{06290BD*-48AA-11D2-8432-006008C3FBFC}\\*")
  or
  /* in general COM Registry changes on Users Hive is less noisy and worth alerting */
  (registry.path : ("HKEY_USERS\\*Classes\\*\\InprocServer32\\",
                    "HKEY_USERS\\*Classes\\*\\LocalServer32\\",
-                   "HKEY_USERS\\*Classes\\*\\DelegateExecute\\", 
-                   "HKEY_USERS\\*Classes\\*\\TreatAs\\", 
+                   "HKEY_USERS\\*Classes\\*\\DelegateExecute\\",
+                   "HKEY_USERS\\*Classes\\*\\TreatAs\\",
                    "HKEY_USERS\\*Classes\\CLSID\\*\\ScriptletURL\\") and
  not (process.executable : "?:\\Program Files*\\Veeam\\Backup and Replication\\Console\\veeam.backup.shell.exe" and
       registry.path : "HKEY_USERS\\S-1-5-21-*_Classes\\CLSID\\*\\LocalServer32\\") and

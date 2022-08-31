@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/08/21"
 maturity = "production"
-updated_date = "2022/03/31"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +25,7 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=5m
- [process where event.type == "start" and 
+ [process where event.type == "start" and
   process.name : ("wscript.exe", "cscript.exe", "mshta.exe", "wmic.exe", "regsvr32.exe", "svchost.exe", "dllhost.exe", "cmstp.exe")]
  [file where event.type != "deletion" and
   file.name : ("wscript.exe.log",

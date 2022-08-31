@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2021/01/11"
 maturity = "production"
-updated_date = "2021/03/03"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -28,6 +30,19 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:file and not event.type:deletion and file.name:~$*.zip
+event.category:file and not event.type:deletion and file.name:~$*.zip and host.os.type:macos
 '''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1497"
+name = "Virtualization/Sandbox Evasion"
+reference = "https://attack.mitre.org/techniques/T1497/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 

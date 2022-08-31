@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2021/10/17"
 maturity = "production"
-updated_date = "2021/10/17"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 integration = "aws"
 
 [rule]
@@ -12,7 +14,7 @@ visibility in applications or a break in the flow with other AWS services.
 """
 false_positives = [
     """
-    EventBridge Rules could be deleted or disabled by a system administrator. Verify whether the user identity, user agent, and/or 
+    EventBridge Rules could be deleted or disabled by a system administrator. Verify whether the user identity, user agent, and/or
     hostname should be making changes in your environment. EventBridge Rules being deleted or disabled by unfamiliar users should
     be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
@@ -22,7 +24,7 @@ index = ["filebeat-*", "logs-aws*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EventBridge Rule Disabled or Deleted"
-note = """## Config
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -32,20 +34,28 @@ references = [
 risk_score = 21
 rule_id = "87594192-4539-4bc4-8543-23bc3d5bd2b4"
 severity = "low"
-tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Monitoring"]
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Monitoring", "Impact"]
 timestamp_override = "event.ingested"
 type = "query"
 
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:eventbridge.amazonaws.com and event.action:(DeleteRule or DisableRule) and 
+event.dataset:aws.cloudtrail and event.provider:eventbridge.amazonaws.com and event.action:(DeleteRule or DisableRule) and
 event.outcome:success
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+name = "Service Stop"
+reference = "https://attack.mitre.org/techniques/T1489/"
+id = "T1489"
+
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+
+
+

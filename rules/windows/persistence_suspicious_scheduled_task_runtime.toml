@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/11/19"
 maturity = "production"
-updated_date = "2022/03/31"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +14,7 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Execution via Scheduled Task"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -50,13 +52,18 @@ process where event.type == "start" and
     /* add suspicious paths here */
     process.args : (
        "C:\\Users\\*",
-       "C:\\ProgramData\\*", 
-       "C:\\Windows\\Temp\\*", 
-       "C:\\Windows\\Tasks\\*", 
-       "C:\\PerfLogs\\*", 
-       "C:\\Intel\\*", 
-       "C:\\Windows\\Debug\\*", 
-       "C:\\HP\\*")
+       "C:\\ProgramData\\*",
+       "C:\\Windows\\Temp\\*",
+       "C:\\Windows\\Tasks\\*",
+       "C:\\PerfLogs\\*",
+       "C:\\Intel\\*",
+       "C:\\Windows\\Debug\\*",
+       "C:\\HP\\*") and
+
+     not (process.name : "cmd.exe" and process.args : "?:\\*.bat" and process.working_directory : "?:\\Windows\\System32\\") and
+     not (process.name : "cscript.exe" and process.args : "?:\\Windows\\system32\\calluxxprovider.vbs") and
+     not (process.name : "powershell.exe" and process.args : ("-File", "-PSConsoleFile") and user.id : "S-1-5-18") and
+     not (process.name : "msiexec.exe" and user.id : "S-1-5-18")
 '''
 
 

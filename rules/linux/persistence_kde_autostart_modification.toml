@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2021/01/06"
 maturity = "production"
-updated_date = "2022/03/31"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +16,7 @@ index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via KDE AutoStart Script or Desktop File Modification"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -43,7 +45,8 @@ file where event.type != "deletion" and
       "/home/*/.local/share/autostart/*", "/root/.local/share/autostart/*",
       "/home/*/.config/autostart-scripts/*", "/root/.config/autostart-scripts/*",
       "/etc/xdg/autostart/*", "/usr/share/autostart/*"
-    )
+    ) and
+    not process.name in ("yum", "dpkg", "install", "dnf", "teams", "yum-cron", "dnf-automatic")
 '''
 
 

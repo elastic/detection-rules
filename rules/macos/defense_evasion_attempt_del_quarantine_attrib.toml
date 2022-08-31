@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/08/14"
 maturity = "production"
-updated_date = "2022/03/31"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +17,7 @@ index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Attempt to Remove File Quarantine Attribute"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -32,17 +34,12 @@ type = "eql"
 
 query = '''
 process where event.type in ("start", "process_started") and
-  process.args : "xattr" and
+  process.name : "xattr" and
   (
     (process.args : "com.apple.quarantine" and process.args : ("-d", "-w")) or
-    (process.args : "-c" and process.command_line :
-      (
-        "/bin/bash -c xattr -c *",
-        "/bin/zsh -c xattr -c *",
-        "/bin/sh -c xattr -c *"
-      )
-    )
-  )
+    (process.args : "-c") or
+    (process.command_line : ("/bin/bash -c xattr -c *", "/bin/zsh -c xattr -c *", "/bin/sh -c xattr -c *"))
+  ) and not process.args_count > 12
 '''
 
 

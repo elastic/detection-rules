@@ -29,7 +29,7 @@ except ImportError:
     GitRelease = None  # noqa: N806
     GitReleaseAsset = None  # noqa: N806
 
-from .utils import add_params, cached, get_path
+from .utils import add_params, cached, get_path, load_etc_dump
 
 _CONFIG = {}
 
@@ -250,6 +250,12 @@ def get_kibana_rules(*rule_paths, repo='elastic/kibana', branch='master', verbos
 
 
 @cached
+def load_current_package_version() -> str:
+    """Load the current package version from config file."""
+    return load_etc_dump('packages.yml')['package']['name']
+
+
+@cached
 def parse_config():
     """Parse a default config file."""
     import eql
@@ -332,14 +338,17 @@ def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, kibana
 
 client_options = {
     'kibana': {
-        'cloud_id': click.Option(['--cloud-id'], default=getdefault('cloud_id')),
+        'cloud_id': click.Option(['--cloud-id'], default=getdefault('cloud_id'),
+                                 help="ID of the cloud instance."),
         'kibana_cookie': click.Option(['--kibana-cookie', '-kc'], default=getdefault('kibana_cookie'),
                                       help='Cookie from an authed session'),
         'kibana_password': click.Option(['--kibana-password', '-kp'], default=getdefault('kibana_password')),
         'kibana_url': click.Option(['--kibana-url'], default=getdefault('kibana_url')),
         'kibana_user': click.Option(['--kibana-user', '-ku'], default=getdefault('kibana_user')),
-        'provider_type': click.Option(['--provider-type'], default=getdefault('provider_type')),
-        'provider_name': click.Option(['--provider-name'], default=getdefault('provider_name')),
+        'provider_type': click.Option(['--provider-type'], default=getdefault('provider_type'),
+                                      help="Elastic Cloud providers: basic and saml (for SSO)"),
+        'provider_name': click.Option(['--provider-name'], default=getdefault('provider_name'),
+                                      help="Elastic Cloud providers: cloud-basic and cloud-saml (for SSO)"),
         'space': click.Option(['--space'], default=None, help='Kibana space'),
         'ignore_ssl_errors': click.Option(['--ignore-ssl-errors'], default=getdefault('ignore_ssl_errors'))
     },

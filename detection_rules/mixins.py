@@ -6,16 +6,19 @@
 """Generic mixin classes."""
 
 from pathlib import Path
-from typing import TypeVar, Type, Optional, Any
+from typing import Any, Optional, TypeVar, Type
 
 import json
 import marshmallow_dataclass
 import marshmallow_dataclass.union_field
 import marshmallow_jsonschema
 import marshmallow_union
-from marshmallow import Schema, ValidationError, fields
+from marshmallow import Schema, ValidationError, fields, validates_schema
 
+from .misc import load_current_package_version
 from .schemas import definitions
+from .schemas.stack_compat import get_incompatible_fields
+from .semver import Version
 from .utils import cached, dict_hash
 
 T = TypeVar('T')
@@ -163,11 +166,32 @@ class LockDataclassMixin:
         contents = self.to_dict()
         return dict_hash(contents)
 
-    def save_to_file(self, lock_file: Path):
+    def save_to_file(self, lock_file: Optional[Path] = None):
         """Save and validate a version lock file."""
-        path: Path = getattr(self, 'file_path', lock_file)
+        path: Path = lock_file or getattr(self, 'file_path', None)
+        assert path, 'No path passed or set'
         contents = self.to_dict()
         path.write_text(json.dumps(contents, indent=2, sort_keys=True))
+
+
+class StackCompatMixin:
+    """Mixin to restrict schema compatibility to defined stack versions."""
+
+    @validates_schema
+    def validate_field_compatibility(self, data: dict, **kwargs):
+        """Verify stack-specific fields are properly applied to schema."""
+        package_version = Version(load_current_package_version())
+        schema_fields = getattr(self, 'fields', {})
+        incompatible = get_incompatible_fields(list(schema_fields.values()), package_version)
+        if not incompatible:
+            return
+
+        package_version = load_current_package_version()
+        for field, bounds in incompatible.items():
+            min_compat, max_compat = bounds
+            if data.get(field) is not None:
+                raise ValidationError(f'Invalid field: "{field}" for stack version: {package_version}, '
+                                      f'min compatibility: {min_compat}, max compatibility: {max_compat}')
 
 
 class PatchedJSONSchema(marshmallow_jsonschema.JSONSchema):

@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/11/03"
 maturity = "production"
-updated_date = "2022/03/31"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +16,7 @@ index = ["auditbeat-*", "winlogbeat-*", "logs-endpoint.events.*", "logs-windows.
 language = "eql"
 license = "Elastic License v2"
 name = "WebServer Access Logs Deleted"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -27,10 +29,10 @@ type = "eql"
 
 query = '''
 file where event.type == "deletion" and
-  file.path : ("C:\\inetpub\\logs\\LogFiles\\*.log", 
+  file.path : ("C:\\inetpub\\logs\\LogFiles\\*.log",
                "/var/log/apache*/access.log",
-               "/etc/httpd/logs/access_log", 
-               "/var/log/httpd/access_log", 
+               "/etc/httpd/logs/access_log",
+               "/var/log/httpd/access_log",
                "/var/www/*/logs/access.log")
 '''
 
