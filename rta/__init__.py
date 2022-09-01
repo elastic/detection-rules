@@ -29,9 +29,12 @@ class RtaMetadata:
         for frame in inspect.stack():
             self.path = Path(frame.filename)
             self.name = self.path.name
-            ignore_files = ["init", "common", "main"]
-            if frame.function == "<module>" and self.path.stem not in ignore_files:
+            if frame.function == "<module>" and valid_rta_file(self.path):
                 break
+
+
+def valid_rta_file(file_path: str) -> bool:
+    return file_path.stem not in ["init", "common", "main"] and not file_path.name.startswith("_")
 
 
 def get_available_tests(
@@ -43,7 +46,7 @@ def get_available_tests(
 
     for file in CURRENT_DIR.rglob("*.py"):
 
-        if file.stem not in ("common", "main") and not file.stem.startswith("_"):
+        if valid_rta_file(file):
             module = importlib.import_module(f"rta.{file.stem}")
 
             if os_filter and os_filter not in module.PLATFORMS and os_filter != "all":
