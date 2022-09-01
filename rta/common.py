@@ -19,25 +19,19 @@ import sys
 import tempfile
 import threading
 import time
+from pathlib import Path
+from typing import Iterable, Optional, Union
 
-try:
-    from SimpleHTTPServer import SimpleHTTPRequestHandler
-except ImportError:
-    from http.server import SimpleHTTPRequestHandler
-try:
-    from SocketServer import TCPServer
-except ImportError:
-    from http.server import HTTPServer as TCPServer
 
-to_unicode = type("")
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+
 long_t = type(1 << 63)
-strings = str, type("")
 
 HOSTNAME = socket.gethostname()
 LOCAL_IP = None
 
 
-def get_ip():
+def get_ip() -> str:
     global LOCAL_IP, HOSTNAME
 
     if LOCAL_IP is None:
@@ -113,7 +107,7 @@ DWORD = "dword"
 OS_MAPPING = {WINDOWS: [], MACOS: [], LINUX: []}
 
 
-def requires_os(*os_list):
+def requires_os(*os_list: str):
     if len(os_list) == 1 and isinstance(os_list[0], (list, tuple)):
         os_list = os_list[0]
 
@@ -128,12 +122,7 @@ def requires_os(*os_list):
                 filename = os.path.relpath(inspect.getsourcefile(f))
                 func_name = f.__name__
 
-                log(
-                    "Unsupported OS for {filename}:{func}(). Expected {os}".format(
-                        filename=filename, func=func_name, os="/".join(os_list)
-                    ),
-                    "!",
-                )
+                log(f"Unsupported OS for {filename}:{func_name}(). Expected {'/'.join(os_list)}", "!")
                 return UNSUPPORTED_RTA
             return f(*args, **kwargs)
 
@@ -142,7 +131,7 @@ def requires_os(*os_list):
     return decorator
 
 
-def check_dependencies(*paths):
+def check_dependencies(*paths: str) -> bool:
     missing = []
     for path in paths:
         if not os.path.exists(path):
@@ -151,7 +140,7 @@ def check_dependencies(*paths):
     return len(missing) == 0
 
 
-def dependencies(*paths):
+def dependencies(*paths: str):
     missing = []
     for path in paths:
         if not os.path.exists(path):
@@ -161,11 +150,7 @@ def dependencies(*paths):
         @functools.wraps(f)
         def decorated(*args, **kwargs):
             if len(missing):
-                log(
-                    "Missing dependencies for %s:%s()"
-                    % (f.func_code.co_filename, f.func_code.co_name),
-                    "!",
-                )
+                log("Missing dependencies for %s:%s()" % (f.func_code.co_filename, f.func_code.co_name), "!")
                 for dep in missing:
                     print("    - %s" % os.path.relpath(dep, BASE_DIR))
                 return MISSING_DEPENDENCIES
@@ -180,8 +165,8 @@ def pause():
     time.sleep(0.5)
 
 
-def get_path(*path):
-    return os.path.join(BASE_DIR, *path)
+def get_path(*path: str) -> str:
+    return str(Path(BASE_DIR).joinpath(*path))
 
 
 @contextlib.contextmanager
@@ -196,9 +181,7 @@ def temporary_file(contents, file_name=None):
 
 def temporary_file_helper(contents, file_name=None):
     if not (file_name and os.path.isabs(file_name)):
-        file_name = os.path.join(
-            tempfile.gettempdir(), file_name or "temp{:d}".format(hash(contents))
-        )
+        file_name = os.path.join(tempfile.gettempdir(), file_name or "temp{:d}".format(hash(contents)))
 
     with open(file_name, "wb" if isinstance(contents, bytes) else "w") as f:
         f.write(contents)
@@ -213,36 +196,33 @@ def temporary_file_helper(contents, file_name=None):
 
 
 def execute(
-    command,
+    command: Iterable,
     hide_log=False,
     mute=False,
-    timeout=30,
+    timeout: int = 30,
     wait=True,
     kill=False,
     drop=False,
-    stdin=None,
+    stdin: Optional[Union[bytes, str]] = None,
     shell=False,
-    **kwargs
+    **kwargs,
 ):
     """Execute a process and get the output."""
     command_string = command
     close = None
 
     if isinstance(command, (list, tuple)):
-        command = [to_unicode(arg) for arg in command]
         command_string = subprocess.list2cmdline(command)
 
         if shell:
             command = command_string
     else:
-        sys.stderr.write(
-            "Deprecation warning! Switch arguments to a list for common.execute()\n\n"
-        )
+        sys.stderr.write("Deprecation warning! Switch arguments to a list for common.execute()\n\n")
 
     if not hide_log:
         print("%s @ %s > %s" % (USER_NAME, HOSTNAME, command_string))
 
-    if isinstance(stdin, (bytes, str, type(""))):
+    if isinstance(stdin, (bytes, str)):
         stdin, close = temporary_file_helper(stdin)
 
     stdout = subprocess.PIPE
@@ -255,14 +235,7 @@ def execute(
 
     start = time.time()
 
-    p = subprocess.Popen(
-        command,
-        stdin=stdin or subprocess.PIPE,
-        stdout=stdout,
-        stderr=stderr,
-        shell=shell,
-        **kwargs
-    )
+    p = subprocess.Popen(command, stdin=stdin or subprocess.PIPE, stdout=stdout, stderr=stderr, shell=shell, **kwargs)
 
     if kill:
         delta = 0.5
@@ -367,9 +340,7 @@ def remove_files(*paths):
 
 def clear_web_cache():
     log("Clearing temporary files", log_type="-")
-    execute(
-        ["RunDll32.exe", "InetCpl.cpl,", "ClearMyTracksByProcess", "8"], hide_log=True
-    )
+    execute(["RunDll32.exe", "InetCpl.cpl,", "ClearMyTracksByProcess", "8"], hide_log=True)
     time.sleep(1)
 
 
@@ -379,22 +350,18 @@ def serve_web(ip=None, port=None, directory=BASE_DIR):
     ip = ip or get_ip()
 
     if port is not None:
-        server = TCPServer((ip, port), handler)
+        server = HTTPServer((ip, port), handler)
     else:
         # Otherwise, try to find a port
         for port in range(8000, 9000):
             try:
-                server = TCPServer((ip, port), handler)
+                server = HTTPServer((ip, port), handler)
                 break
             except socket.error:
                 pass
 
     def server_thread():
-        log(
-            "Starting web server on http://{ip}:{port:d} for directory {dir}".format(
-                ip=ip, port=port, dir=directory
-            )
-        )
+        log("Starting web server on http://{ip}:{port:d} for directory {dir}".format(ip=ip, port=port, dir=directory))
         os.chdir(directory)
         server.serve_forever()
 
@@ -411,12 +378,7 @@ def patch_file(source_file, old_bytes, new_bytes, target_file=None):
     target_file = target_file or target_file
     log(
         "Patching bytes %s [%s] --> %s [%s]"
-        % (
-            source_file,
-            binascii.b2a_hex(old_bytes),
-            target_file,
-            binascii.b2a_hex(new_bytes),
-        )
+        % (source_file, binascii.b2a_hex(old_bytes), target_file, binascii.b2a_hex(new_bytes))
     )
 
     with open(source_file, "rb") as f:
@@ -466,12 +428,7 @@ def find_remote_host():
 
         # log("Checking if %s has remote admin permissions to %s" % (current_user, name))
         dev_null = open(os.devnull, "w")
-        p = subprocess.Popen(
-            "sc.exe \\\\%s query" % name,
-            stdout=dev_null,
-            stderr=dev_null,
-            stdin=subprocess.PIPE,
-        )
+        p = subprocess.Popen("sc.exe \\\\%s query" % name, stdout=dev_null, stderr=dev_null, stdin=subprocess.PIPE)
         pending[name] = p
 
     if len(pending) > 0:
@@ -489,10 +446,7 @@ def find_remote_host():
                     pending.pop(hostname)
             time.sleep(0.5)
 
-    log(
-        "Unable to find a remote host to pivot to. Using local host %s" % HOSTNAME,
-        log_type="!",
-    )
+    log("Unable to find a remote host to pivot to. Using local host %s" % HOSTNAME, log_type="!")
     return get_ip()
 
 
@@ -551,9 +505,7 @@ def run_system(arguments=None):
     return code
 
 
-def write_reg(
-    hive, key, value, data, data_type=None, restore=True, pause=False, append=False
-):
+def write_reg(hive, key, value, data, data_type=None, restore=True, pause=False, append=False):
     # type: (str, str, str, str|int, str|int|list, bool, bool, bool) -> None
     with temporary_reg(hive, key, value, data, data_type, restore, pause, append):
         pass
@@ -562,7 +514,7 @@ def write_reg(
 def read_reg(hive, key, value):  # type: (str, str, str) -> (str, str)
     winreg = get_winreg()
 
-    if isinstance(hive, strings):
+    if isinstance(hive, str):
         hives = {
             "hklm": winreg.HKEY_LOCAL_MACHINE,
             "hkcu": winreg.HKEY_LOCAL_MACHINE,
@@ -585,13 +537,11 @@ def read_reg(hive, key, value):  # type: (str, str, str) -> (str, str)
 
 
 @contextlib.contextmanager
-def temporary_reg(
-    hive, key, value, data, data_type="sz", restore=True, pause=False, append=False
-):
+def temporary_reg(hive, key, value, data, data_type="sz", restore=True, pause=False, append=False):
     # type: (str, str, str, str|int, str|int|list, bool, bool, bool) -> None
     winreg = get_winreg()
 
-    if isinstance(hive, strings):
+    if isinstance(hive, str):
         hives = {
             "hklm": winreg.HKEY_LOCAL_MACHINE,
             "hkcu": winreg.HKEY_CURRENT_USER,
@@ -600,7 +550,7 @@ def temporary_reg(
         }
         hive = hives[hive.lower()]
 
-    if isinstance(data_type, strings):
+    if isinstance(data_type, str):
         attr = "REG_" + data_type.upper()
         data_type = getattr(winreg, attr)
 
@@ -654,13 +604,8 @@ def temporary_reg(
                 winreg.DeleteValue(hkey, value)
             else:
                 # Otherwise restore the value
-                data_string = (
-                    ",".join(old_data) if isinstance(old_data, list) else old_data
-                )
-                log(
-                    "Restoring registry %s\\%s -> %s" % (key, value, data_string),
-                    log_type="-",
-                )
+                data_string = ",".join(old_data) if isinstance(old_data, list) else old_data
+                log("Restoring registry %s\\%s -> %s" % (key, value, data_string), log_type="-")
                 winreg.SetValueEx(hkey, value, 0, old_type, old_data)
 
         hkey.Close()

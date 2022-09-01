@@ -5,12 +5,13 @@
 
 import importlib
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from . import common
 
 CURRENT_DIR = Path(__file__).parent.absolute()
 
+CURRENT_DIR = Path(__file__).resolve().parent
 
 def get_available_tests(
     print_list: bool = False, os_filter: str = None
