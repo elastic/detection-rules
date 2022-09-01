@@ -36,7 +36,7 @@ class RtaMetadata:
 
 def get_available_tests(
     print_list: bool = False, os_filter: str = None
-) -> (List, List[Dict]):
+) -> Dict[str, dict]:
     """Get a list of available tests."""
 
     test_metadata = {}
