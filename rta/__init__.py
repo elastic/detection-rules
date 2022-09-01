@@ -3,22 +3,22 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-import glob
 import importlib
-import os
+from pathlib import Path
+from typing import List, Optional
 
 from . import common
 
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+CURRENT_DIR = Path(__file__).resolve().parent
 
 
-def get_ttp_list(os_types=None):
+def get_ttp_list(os_types: Optional[List[str]] = None) -> List[str]:
     scripts = []
     if os_types and not isinstance(os_types, (list, tuple)):
         os_types = [os_types]
 
-    for script in sorted(glob.glob(os.path.join(CURRENT_DIR, "*.py"))):
-        base_name, _ = os.path.splitext(os.path.basename(script))
+    for script in CURRENT_DIR.glob("*.py"):
+        base_name = script.stem
         if base_name not in ("common", "main") and not base_name.startswith("_"):
             if os_types:
                 # Import it and skip it if it's not supported
@@ -26,15 +26,15 @@ def get_ttp_list(os_types=None):
                 if not any(base_name in common.OS_MAPPING[os_type] for os_type in os_types):
                     continue
 
-            scripts.append(script)
+            scripts.append(str(script))
 
     return scripts
 
 
-def get_ttp_names(os_types=None):
+def get_ttp_names(os_types: Optional[List[str]] = None) -> List[str]:
     names = []
     for script in get_ttp_list(os_types):
-        basename, ext = os.path.splitext(os.path.basename(script))
+        basename = Path(script).stem
         names.append(basename)
     return names
 
