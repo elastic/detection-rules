@@ -21,7 +21,7 @@ TRIGGERED_RULES = {
     ],
     "ENDPOINT": [],
 }
-TACTICS = ["TA0005"]
+TECHNIQUES = ["T1220"]
 RTA_ID = "16b3d9c6-e188-49c5-8dce-d3eb5b0fcf91"
 
 xsl_file = "test.xsl"

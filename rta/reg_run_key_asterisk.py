@@ -15,7 +15,7 @@ TRIGGERED_RULES = {
         }
     ],
 }
-TACTICS = ["TA0003"]
+TECHNIQUES = ["T1547"]
 RTA_ID = "13fbcfdc-ba84-414b-aaa6-49b416806c8e"
 
 

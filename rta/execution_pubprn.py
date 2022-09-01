@@ -23,7 +23,7 @@ TRIGGERED_RULES = {
         },
     ],
 }
-TACTICS = ["TA0002", "TA0005"]
+TECHNIQUES = ["T1216", "T1218", "T1036", "T1059"]
 RTA_ID = "8b5119a5-9f78-492a-8448-ff726b0e0b4f"
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")

@@ -11,7 +11,7 @@ from . import common
 
 PLATFORMS = [common.LINUX]
 TRIGGERED_RULES = {"SIEM": [], "ENDPOINT": []}
-TACTICS = []
+TECHNIQUES = []
 RTA_ID = "82358d3d-6f04-42d0-a182-db37cf98294e"
 
 

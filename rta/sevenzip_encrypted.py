@@ -24,7 +24,7 @@ TRIGGERED_RULES = {
     ],
     "ENDPOINT": [],
 }
-TACTICS = ["TA0009"]
+TECHNIQUES = ["T1560"]
 RTA_ID = "6cd35061-278b-45e7-a9cb-86b48bc47884"
 
 SEVENZIP = common.get_path("bin", "7za.exe")

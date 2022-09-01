@@ -22,7 +22,7 @@ TRIGGERED_RULES = {
     ],
     "ENDPOINT": [],
 }
-TACTICS = ["TA0003"]
+TECHNIQUES = ["T1547"]
 RTA_ID = "ca020d7f-f495-4f0a-a808-da615f3409b4"
 
 # There are many unconventional ways to leverage the Registry for persistence:

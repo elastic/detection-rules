@@ -15,7 +15,7 @@ TRIGGERED_RULES = {
         }
     ],
 }
-TACTICS = ["TA0003", "TA0005"]
+TECHNIQUES = ["T1547", "T1112"]
 RTA_ID = "74d0c16a-8af1-4dbb-9202-cc4b25208ea6"
 EXE_FILE = common.get_path("bin", "DoublePersist.exe")
 

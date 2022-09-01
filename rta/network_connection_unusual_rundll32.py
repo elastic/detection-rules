@@ -19,7 +19,7 @@ TRIGGERED_RULES = {
         },
     ],
 }
-TACTICS = ["TA0005"]
+TECHNIQUES = ["T1055", "T1218", "T1036"]
 RTA_ID = "1bb39cea-8bf2-4b1f-a70e-69f6074a1fb4"
 EXE_FILE = common.get_path("bin", "regsvr32.exe")
 

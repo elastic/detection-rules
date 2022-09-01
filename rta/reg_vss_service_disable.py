@@ -23,7 +23,7 @@ TRIGGERED_RULES = {
         },
     ],
 }
-TACTICS = ["TA0002", "TA0005", "TA0040"]
+TECHNIQUES = ["T1218", "T1112", "T1486", "T1490", "T1059"]
 RTA_ID = "c4eefb59-2c59-4904-a04e-5e3a75f54a46"
 HIGHENTROPY = common.get_path("bin", "highentropy.txt")
 

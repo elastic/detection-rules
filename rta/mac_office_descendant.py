@@ -13,7 +13,7 @@ from . import common
 
 PLATFORMS = [common.MACOS]
 TRIGGERED_RULES = {"SIEM": [], "ENDPOINT": []}
-TACTICS = []
+TECHNIQUES = []
 RTA_ID = "bb523eb1-db67-4ae6-9369-af1a93322817"
 
 

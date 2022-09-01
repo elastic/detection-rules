@@ -22,7 +22,7 @@ TRIGGERED_RULES = {
     ],
     "ENDPOINT": [],
 }
-TACTICS = ["TA0003"]
+TECHNIQUES = ["T1053"]
 RTA_ID = "2ab62c28-1abb-4ac5-a16d-2f4f75d01d02"
 
 VBS = common.get_path("bin", "persistent_script.vbs")

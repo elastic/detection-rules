@@ -21,7 +21,7 @@ TRIGGERED_RULES = {
         },
     ],
 }
-TACTICS = ["TA0002", "TA0005"]
+TECHNIQUES = ["T1218", "T1059"]
 RTA_ID = "7d139669-2b4c-4fc3-9a7c-bd1b643696dc"
 INF_FILE = common.get_path("bin", "notepad_launch.inf")
 

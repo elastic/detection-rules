@@ -34,7 +34,7 @@ TRIGGERED_RULES = {
     ],
     "ENDPOINT": [],
 }
-TACTICS = ["TA0005"]
+TECHNIQUES = ["T1127"]
 RTA_ID = "cf94f5cc-5265-4287-80e5-82d9663ecf2e"
 
 

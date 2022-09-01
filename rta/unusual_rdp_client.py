@@ -15,7 +15,7 @@ TRIGGERED_RULES = {
         }
     ],
 }
-TACTICS = ["TA0008"]
+TECHNIQUES = ["T1021"]
 RTA_ID = "d3c0c965-3167-4fe3-8aee-a9f101766b5a"
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")

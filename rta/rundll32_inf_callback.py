@@ -16,7 +16,7 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {"SIEM": [], "ENDPOINT": []}
-TACTICS = []
+TECHNIQUES = []
 RTA_ID = "a2edc784-e969-45f4-b8d2-fe4556b42cd6"
 
 INF_FILE = common.get_path("bin", "script_launch.inf")

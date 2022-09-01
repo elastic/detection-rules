@@ -20,7 +20,7 @@ TRIGGERED_RULES = {
     ],
     "ENDPOINT": [],
 }
-TACTICS = ["TA0002", "TA0005"]
+TECHNIQUES = ["T1204", "T1036"]
 RTA_ID = "27694576-0454-40b3-9823-e29719c53750"
 
 MY_APP = common.get_path("bin", "myapp_x64.exe")

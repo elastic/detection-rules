@@ -15,7 +15,7 @@ TRIGGERED_RULES = {
         }
     ],
 }
-TACTICS = ["TA0005", "TA0004"]
+TECHNIQUES = ["T1574", "T1548"]
 RTA_ID = "ab957b94-2c39-49dd-93cf-f1e40394ff1b"
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")

@@ -19,7 +19,7 @@ TRIGGERED_RULES = {
         },
     ],
 }
-TACTICS = ["TA0005", "TA0004"]
+TECHNIQUES = ["T1548", "T1036"]
 RTA_ID = "7396debc-65ce-488f-845e-f92e68aceeb1"
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

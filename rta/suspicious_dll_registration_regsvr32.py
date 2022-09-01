@@ -12,7 +12,7 @@ from . import common
 
 PLATFORMS = [common.WINDOWS]
 TRIGGERED_RULES = {"SIEM": [], "ENDPOINT": []}
-TACTICS = []
+TECHNIQUES = []
 RTA_ID = "cda5b0b4-5b9c-4285-8adc-f89b375e5485"
 
 

@@ -25,7 +25,7 @@ TRIGGERED_RULES = {
         },
     ],
 }
-TACTICS = ["TA0005"]
+TECHNIQUES = ["T1218", "T1036"]
 RTA_ID = "98adf0ff-2d8e-4eea-8d68-42084204bb74"
 CMD_PATH = "c:\\windows\\system32\\cmd.exe"
 
