@@ -181,7 +181,7 @@ def temporary_file(contents, file_name=None):
 
 def temporary_file_helper(contents, file_name=None):
     if not (file_name and os.path.isabs(file_name)):
-        file_name = os.path.join(tempfile.gettempdir(), file_name or "temp{:d}".format(hash(contents)))
+        file_name = os.path.join(tempfile.gettempdir(), file_name or f"temp{hash(contents):d}")
 
     with open(file_name, "wb" if isinstance(contents, bytes) else "w") as f:
         f.write(contents)
@@ -323,7 +323,7 @@ def remove_file(path):
 def remove_directory(path):
     if os.path.exists(path):
         if os.path.isdir(path):
-            log("Removing directory {:s}".format(path), log_type="-")
+            log(f"Removing directory {path:s}", log_type="-")
             shutil.rmtree(path)
         else:
             remove_file(path)
@@ -361,7 +361,7 @@ def serve_web(ip=None, port=None, directory=BASE_DIR):
                 pass
 
     def server_thread():
-        log("Starting web server on http://{ip}:{port:d} for directory {dir}".format(ip=ip, port=port, dir=directory))
+        log(f"Starting web server on http://{ip}:{port:d} for directory {directory}")
         os.chdir(directory)
         server.serve_forever()
 
@@ -505,13 +505,21 @@ def run_system(arguments=None):
     return code
 
 
-def write_reg(hive, key, value, data, data_type=None, restore=True, pause=False, append=False):
-    # type: (str, str, str, str|int, str|int|list, bool, bool, bool) -> None
+def write_reg(
+        hive: str,
+        key: str,
+        value: str,
+        data: Union[str, int],
+        data_type: Union[str, int, list],
+        restore=True,
+        pause=False,
+        append=False
+) -> None:
     with temporary_reg(hive, key, value, data, data_type, restore, pause, append):
         pass
 
 
-def read_reg(hive, key, value):  # type: (str, str, str) -> (str, str)
+def read_reg(hive: str, key: str, value: str) -> (str, str):
     winreg = get_winreg()
 
     if isinstance(hive, str):
@@ -537,8 +545,16 @@ def read_reg(hive, key, value):  # type: (str, str, str) -> (str, str)
 
 
 @contextlib.contextmanager
-def temporary_reg(hive, key, value, data, data_type="sz", restore=True, pause=False, append=False):
-    # type: (str, str, str, str|int, str|int|list, bool, bool, bool) -> None
+def temporary_reg(
+        hive: str,
+        key: str,
+        value: str,
+        data: Union[str, int],
+        data_type: Union[str, int, list] = "sz",
+        restore=True,
+        pause=False,
+        append=False
+) -> None:
     winreg = get_winreg()
 
     if isinstance(hive, str):
@@ -618,7 +634,7 @@ def temporary_reg(hive, key, value, data, data_type="sz", restore=True, pause=Fa
 def enable_logon_auditing(host="localhost", verbose=True, sleep=2):
     """Enable logon auditing on local or remote system to enable 4624 and 4625 events."""
     if verbose:
-        log("Ensuring audit logging enabled on {}".format(host))
+        log(f"Ensuring audit logging enabled on {host}")
 
     auditpol = "auditpol.exe /set /subcategory:Logon /failure:enable /success:enable"
     enable_logging = "Invoke-WmiMethod -ComputerName {} -Class Win32_process -Name create -ArgumentList '{}'".format(
