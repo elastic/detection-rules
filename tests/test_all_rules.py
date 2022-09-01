@@ -59,7 +59,7 @@ class TestValidRules(BaseRuleTest):
     def test_production_rules_have_rta(self):
         """Ensure that all production rules have RTAs."""
         mappings = load_etc_dump('rule-mapping.yml')
-        ttp_names = get_available_tests()[0]
+        ttp_names = sorted(get_available_tests().keys())
 
         for rule in self.production_rules:
             if isinstance(rule.contents.data, QueryRuleData) and rule.id in mappings:

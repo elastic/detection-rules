@@ -80,12 +80,12 @@ class RtaMappings(object):
 
 
 def get_triggered_rules() -> dict:
-    """Get the rules that are triggered by each rta."""
+    """Get the rules that are triggered by each RTA."""
     triggered_rules = {}
-    for rta_test in get_available_tests()[1]:
-        for rule_info in rta_test.get("siem"):
+    for rta_test in get_available_tests().values():
+        for rule_info in rta_test.get("siem", []):
             rule_id = rule_info.get("rule_id")
-            for platform in rta_test.get("platforms"):
+            for platform in rta_test.get("platforms", []):
                 triggered_rules.setdefault(platform, []).append(rule_id)
     return triggered_rules
 
@@ -97,8 +97,7 @@ def get_platform_list(rule: TOMLRule) -> list:
         os_list = [r.lower() for r in rule.contents.metadata.os_list]
     elif rule.contents.data.tags:
         tags = [t.lower() for t in rule.contents.data.tags]
-        core_os = RTA_PLATFORM_TYPES
-        for os_type in core_os:
+        for os_type in RTA_PLATFORM_TYPES:
             if os_type in tags:
                 os_list.append(os_type)
     return os_list
@@ -112,23 +111,23 @@ def build_coverage_map(triggered_rules: dict, all_rules) -> dict:
     all_rules: RuleCollection
 
     coverage_map = {"all": 0}
-    for trule in all_rules.rules:
+    for rule in all_rules.rules:
         rule_covered = False
-        os_list = get_platform_list(trule)
+        os_list = get_platform_list(rule)
 
         for os_type in os_list:
-            diag = ""
-            if "production" not in trule.contents.metadata.maturity:
-                if "development" in trule.contents.metadata.maturity:
-                    diag = "DIAG : "
-                else:
-                    diag = "DEPR : "
+            prefix = ""
 
-            if trule.id in triggered_rules[os_type]:
-                coverage_map.setdefault(os_type, {}).setdefault("supported", []).append(f"- [x] {diag}{trule.name}")
+            if rule.contents.metadata.maturity == "development":
+                prefix = "DIAG : "
+            elif rule.contents.metadata.maturity == "deprecated":
+                prefix = "DEPR : "
+
+            if rule.id in triggered_rules[os_type]:
+                coverage_map.setdefault(os_type, {}).setdefault("supported", []).append(f"- [x] {prefix}{rule.name}")
                 rule_covered = True
             else:
-                coverage_map.setdefault(os_type, {}).setdefault("unsupported", []).append(f"- [ ] {diag}{trule.name}")
+                coverage_map.setdefault(os_type, {}).setdefault("unsupported", []).append(f"- [ ] {prefix}{rule.name}")
         if rule_covered:
             coverage_map["all"] += 1
 
@@ -140,16 +139,18 @@ def print_converage_summary(coverage_map: dict, all_rule_count: int, os_filter: 
     print("\n\nCoverage Report\n")
     supported_count = coverage_map["all"]
     print(f"{supported_count} / {all_rule_count} Unique Detection Rules are supported by RTAs for all OS types")
+
     for os_type, results in coverage_map.items():
-        if os_type == os_filter or os_filter == "all":
-            if os_type == "all":
-                continue
+
+        if os_type != "all" and os_type == os_filter or os_filter == "all":
             supported = results["supported"]
             unsupported = results["unsupported"]
+
             print(f"\n{os_type} coverage: {len(supported)} / {len(supported) + len(unsupported)}")
             print("Supported:")
             for rule in sorted(list(set(supported))):
                 print(f"\t{rule}")
+
             print("Unsupported:")
             for rule in sorted(list(set(unsupported))):
                 print(f"\t{rule}")

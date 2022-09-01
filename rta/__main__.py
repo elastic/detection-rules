@@ -21,7 +21,7 @@ RTA_PLATFORM_TYPES = ["windows", "linux", "macos"]
 def run_all():
     """Run a single RTA."""
     errors = []
-    for ttp_file in get_available_tests(CURRENT_OS):
+    for ttp_file in get_available_tests(os_filter=CURRENT_OS):
         print(f"---- {Path(ttp_file).name} ----")
         p = subprocess.Popen([sys.executable, ttp_file])
         p.wait()
@@ -38,7 +38,7 @@ def run_all():
 
 def run(ttp_name: str, *args):
     """Run all RTAs compatible with OS."""
-    if ttp_name not in get_available_tests()[0]:
+    if ttp_name not in get_available_tests().keys():
         raise ValueError(f"Unknown RTA {ttp_name}")
 
     module = importlib.import_module("rta." + ttp_name)

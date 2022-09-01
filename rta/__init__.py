@@ -12,12 +12,34 @@ from . import common
 CURRENT_DIR = Path(__file__).resolve().parent
 
 
+@dataclass
+class RtaMetadata:
+    """Metadata associated with all RTAs."""
+    uuid: str
+    platforms: List[str]
+
+    path: Path = field(init=False)
+    name: str = field(init=False)
+    endpoint: Optional[List[dict]] = None
+    siem: Optional[List[dict]] = None
+    techniques: Optional[List[str]] = None
+
+    def __post_init__(self):
+        """Set the path and name based on the callee."""
+        for frame in inspect.stack():
+            self.path = Path(frame.filename)
+            self.name = self.path.name
+            ignore_files = ["init", "common", "main"]
+            if frame.function == "<module>" and self.path.stem not in ignore_files:
+                break
+
+
 def get_available_tests(
     print_list: bool = False, os_filter: str = None
 ) -> (List, List[Dict]):
     """Get a list of available tests."""
-    test_names = []
-    test_metadata = []
+
+    test_metadata = {}
 
     for file in CURRENT_DIR.rglob("*.py"):
 
@@ -26,21 +48,21 @@ def get_available_tests(
 
             if os_filter and os_filter not in module.PLATFORMS and os_filter != "all":
                 continue
-            test_names.append(file.stem)
-            test_metadata.append(
+
+            test_metadata[file.stem] = {
                 {
-                    "name": file.stem,
-                    "uuid": module.RTA_ID,
-                    "platforms": module.PLATFORMS,
-                    "path": file,
-                    "siem": module.TRIGGERED_RULES.get("SIEM", []),
-                    "endpoint": module.TRIGGERED_RULES.get("ENDPOINT", []),
-                    "tactics": module.TRIGGERED_RULES.get("TACTICS", []),
+                    "name": module.RtaMetadata.name,
+                    "uuid": module.RtaMetadata.uuid,
+                    "platforms": module.RtaMetadata.platforms,
+                    "path": module.RtaMetadata.path,
+                    "siem": module.RtaMetadata.siem,
+                    "endpoint": module.RtaMetadata.endpoint,
+                    "techniques": module.RtaMetadata.techniques,
                 }
-            )
+            }
 
     if print_list:
-        longest_test_name = len(max(test_names, key=len))
+        longest_test_name = len(max(test_metadata.keys(), key=len))
         header = f"{'name':{longest_test_name}} | {'platforms':<30}"
 
         print("Printing available tests")
@@ -52,7 +74,7 @@ def get_available_tests(
                 f"{test['name']:<{longest_test_name}} | {', '.join(test['platforms'])}"
             )
 
-    return test_names, test_metadata
+    return test_metadata
 
 
 __all__ = "common"

@@ -5,7 +5,6 @@
 
 """Test that all rules appropriately match against expected data sets."""
 import copy
-
 import unittest
 import warnings
 
@@ -72,13 +71,13 @@ class TestMappings(BaseRuleTest):
 
 
 class TestRTAs(unittest.TestCase):
-    """Test that all rtas appropriately have fields added."""
+    """Test that all RTAs have appropriate fields added."""
 
     def test_rtas_with_triggered_rules_have_uuid(self):
         """Ensure that all RTAs with triggered rules have a UUID."""
 
         rule_keys = ["rule_id", "rule_name"]
-        for rta_test in get_available_tests()[1]:
+        for rta_test in sorted(get_available_tests().values()):
 
             self.assertIsNotNone(rta_test.get("uuid"), f'RTA {rta_test.get("name")} missing uuid')
             for rule_info in rta_test.get("siem"):
