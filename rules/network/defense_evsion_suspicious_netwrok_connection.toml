@@ -1,0 +1,45 @@
+[metadata]
+creation_date = "2022/09/01"
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a standard system binary, such as ls, making a network connection. This activity should be considered
+highly abnormal and most likely malicious. This may indicated the process has been preloaded or injected
+into by malicious payload. Threat actors will do this in order to hide within safe and usually whitelisted processes.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Shadow file read via commandline utils"
+risk_score = 47
+rule_id = "d00f33e7-b57d-4023-9952-2db91b1767c4"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+network where event.type == "start" and
+process.name : ("cat", "chmod", "ls", "cp", "echo", "mkdir", "mv", "ps", "pwd", "rm", "rmdir", "top", "head", "tail")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1211"
+name = "Exploitation for Defense Evasion"
+reference = "https://attack.mitre.org/techniques/T1211/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
