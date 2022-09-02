@@ -5,26 +5,22 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Execution from Suspicious Directory",
-            "rule_id": "9ba39516-651e-489f-8b6a-f5501e0c492d",
-        },
+
+RtaMetadata(
+    uuid="78e59247-db65-412a-898c-2e757d695851",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Execution from Suspicious Directory", "rule_id": "9ba39516-651e-489f-8b6a-f5501e0c492d"},
         {
             "rule_name": "Executable File Creation Followed by Immediate Network Connection",
             "rule_id": "8d11d741-7a06-41a1-a525-feaaa07ebbae",
         },
-        {
-            "rule_name": "Unusual Kerberos Client Process",
-            "rule_id": "b5c91c3e-9d2d-4df6-afb7-c9d236b5ebe2",
-        },
+        {"rule_name": "Unusual Kerberos Client Process", "rule_id": "b5c91c3e-9d2d-4df6-afb7-c9d236b5ebe2"},
     ],
-}
-TECHNIQUES = ["T1558", "T1204", "T1036"]
-RTA_ID = "78e59247-db65-412a-898c-2e757d695851"
+    siem=[],
+    techniques=["T1558", "T1204", "T1036"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")

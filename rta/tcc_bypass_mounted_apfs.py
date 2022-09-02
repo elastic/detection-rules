@@ -5,18 +5,16 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "TCC Bypass via Mounted APFS Snapshot Access",
-            "rule_id": "b00bcd89-000c-4425-b94c-716ef67762f6",
-        }
+
+RtaMetadata(
+    uuid="4c8675a8-fbed-4f36-88e6-ffceaf82f426",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[
+        {"rule_name": "TCC Bypass via Mounted APFS Snapshot Access", "rule_id": "b00bcd89-000c-4425-b94c-716ef67762f6"}
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1006"]
-RTA_ID = "4c8675a8-fbed-4f36-88e6-ffceaf82f426"
+    techniques=["T1006"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -27,9 +25,7 @@ def main():
 
     # Execute command
     common.log("Launching fake mount_apfs command to mount the APFS snapshot")
-    common.execute(
-        [masquerade, "/System/Volumes/Data", "noowners"], timeout=10, kill=True
-    )
+    common.execute([masquerade, "/System/Volumes/Data", "noowners"], timeout=10, kill=True)
 
     # cleanup
     common.remove_file(masquerade)

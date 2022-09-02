@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
+
+RtaMetadata(
+    uuid="dd39e94e-bfd7-467c-b20d-662d84c0b97e",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[
         {
             "rule_name": "Execution with Explicit Credentials via Scripting",
             "rule_id": "f0eb70e9-71e9-40cd-813f-bf8e8c812cb1",
         }
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1078", "T1548", "T1059"]
-RTA_ID = "dd39e94e-bfd7-467c-b20d-662d84c0b97e"
+    techniques=["T1078", "T1548", "T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -27,9 +28,7 @@ def main():
     common.create_macos_masquerade(masquerade)
 
     # Execute commands
-    common.log(
-        "Launching fake security_authtrampoline process commands to mimic root execution."
-    )
+    common.log("Launching fake security_authtrampoline process commands to mimic root execution.")
     common.execute([masquerade], timeout=5, kill=True)
 
     # cleanup

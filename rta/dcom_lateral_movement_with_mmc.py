@@ -12,18 +12,14 @@ import sys
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "51ce96fb-9e52-4dad-b0ba-99b54440fc9a",
-            "rule_name": "Incoming DCOM Lateral Movement with MMC",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1021"]
-RTA_ID = "7f4cfcf6-881b-48b0-864d-21eba06e57cc"
+
+RtaMetadata(
+    uuid="7f4cfcf6-881b-48b0-864d-21eba06e57cc",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "51ce96fb-9e52-4dad-b0ba-99b54440fc9a", "rule_name": "Incoming DCOM Lateral Movement with MMC"}],
+    techniques=["T1021"],
+)
 
 
 @common.requires_os(PLATFORMS)

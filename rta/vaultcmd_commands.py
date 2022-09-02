@@ -12,18 +12,16 @@ import sys
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "be8afaed-4bcd-4e0a-b5f9-5562003dde81",
-            "rule_name": "Searching for Saved Credentials via VaultCmd",
-        }
+
+RtaMetadata(
+    uuid="53d071d9-36e3-4b40-83c8-d818bd831010",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
+        {"rule_id": "be8afaed-4bcd-4e0a-b5f9-5562003dde81", "rule_name": "Searching for Saved Credentials via VaultCmd"}
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1555", "T1003"]
-RTA_ID = "53d071d9-36e3-4b40-83c8-d818bd831010"
+    techniques=["T1555", "T1003"],
+)
 
 
 @common.requires_os(PLATFORMS)

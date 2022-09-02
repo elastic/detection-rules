@@ -15,9 +15,12 @@ import sys
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
+
+RtaMetadata(
+    uuid="6dfa88c9-9fb2-4fb0-8bea-0bc45222b498",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
         {
             "rule_id": "a13167f1-eec2-4015-9631-1fee60406dcf",
             "rule_name": "InstallUtil Process Making Network Connections",
@@ -27,10 +30,9 @@ TRIGGERED_RULES = {
             "rule_name": "Unusual Network Activity from a Windows System Binary",
         },
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1127", "T1218"]
-RTA_ID = "6dfa88c9-9fb2-4fb0-8bea-0bc45222b498"
+    techniques=["T1127", "T1218"],
+)
+
 
 MY_DOT_NET = common.get_path("bin", "mydotnet.exe")
 
@@ -49,12 +51,8 @@ def main():
         target_file=target_app,
     )
 
-    install_util64 = (
-        "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\InstallUtil.exe"
-    )
-    install_util86 = (
-        "C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\InstallUtil.exe"
-    )
+    install_util64 = "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\InstallUtil.exe"
+    install_util86 = "C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\InstallUtil.exe"
     fallback = False
 
     if os.path.exists(install_util64):
@@ -67,9 +65,7 @@ def main():
 
     if not fallback:
         common.clear_web_cache()
-        common.execute(
-            [install_util, "/logfile=", "/LogToConsole=False", "/U", target_app]
-        )
+        common.execute([install_util, "/logfile=", "/LogToConsole=False", "/U", target_app])
 
     else:
         common.log("Unable to find InstallUtil, creating temp file")
@@ -79,8 +75,7 @@ def main():
             [
                 install_util,
                 "-c",
-                "import urllib; urllib.urlopen('http://%s:%d')"
-                % (common.get_ip(), port),
+                "import urllib; urllib.urlopen('http://%s:%d')" % (common.get_ip(), port),
             ]
         )
         common.remove_file(install_util)

@@ -10,18 +10,19 @@
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
+
+RtaMetadata(
+    uuid="38defc7e-7234-45a2-83ef-e845d0eba3f2",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
         {
             "rule_id": "81fe9dc6-a2d7-4192-a2d8-eed98afc766a",
             "rule_name": "PowerShell Suspicious Payload Encoded and Compressed",
         }
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1140", "T1027", "T1059"]
-RTA_ID = "38defc7e-7234-45a2-83ef-e845d0eba3f2"
+    techniques=["T1140", "T1027", "T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)

@@ -5,18 +5,20 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="74d0c16a-8af1-4dbb-9202-cc4b25208ea6",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Untrusted Process Writing to Commonly Abused Persistence Locations",
             "rule_id": "392b0c89-1427-4601-8b32-01e8e40600a6",
         }
     ],
-}
-TECHNIQUES = ["T1547", "T1112"]
-RTA_ID = "74d0c16a-8af1-4dbb-9202-cc4b25208ea6"
+    siem=[],
+    techniques=["T1547", "T1112"],
+)
+
 EXE_FILE = common.get_path("bin", "DoublePersist.exe")
 
 

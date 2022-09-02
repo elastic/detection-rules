@@ -12,18 +12,14 @@ import os
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "2bf78aa2-9c56-48de-b139-f169bf99cf86",
-            "rule_name": "Adobe Hijack Persistence",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1574"]
-RTA_ID = "2df08481-31db-44a8-b01d-1c0df827bddb"
+
+RtaMetadata(
+    uuid="2df08481-31db-44a8-b01d-1c0df827bddb",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "2bf78aa2-9c56-48de-b139-f169bf99cf86", "rule_name": "Adobe Hijack Persistence"}],
+    techniques=["T1574"],
+)
 
 
 @common.requires_os(PLATFORMS)

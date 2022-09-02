@@ -5,18 +5,17 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Suspicious Windows LUA Script Execution",
-            "rule_id": "8f237d98-1825-4c27-a5cd-e38bde70882a",
-        }
+
+RtaMetadata(
+    uuid="860e5968-c31f-4928-ac05-3c3c2d19450c",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Suspicious Windows LUA Script Execution", "rule_id": "8f237d98-1825-4c27-a5cd-e38bde70882a"}
     ],
-}
-TECHNIQUES = ["T1036"]
-RTA_ID = "860e5968-c31f-4928-ac05-3c3c2d19450c"
+    siem=[],
+    techniques=["T1036"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
@@ -36,9 +35,7 @@ def main():
 
     # Modify the originalfilename to invalidate the code sig
     common.log("Modifying the OriginalFileName attribute")
-    common.execute(
-        [rcedit, dll, "--set-version-string", "OriginalFilename", "unsigned.exe"]
-    )
+    common.execute([rcedit, dll, "--set-version-string", "OriginalFilename", "unsigned.exe"])
 
     common.log("Loading luacom.dll into fake posh")
     common.execute(

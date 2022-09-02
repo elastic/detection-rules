@@ -5,23 +5,16 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "SystemKey Access via Command Line",
-            "rule_id": "d75991f2-b989-419d-b797-ac1e54ec2d61",
-        }
+
+RtaMetadata(
+    uuid="d950ef5f-8277-4ed8-a8dd-d2433e791cef",
+    platforms=["macos"],
+    endpoint=[
+        {"rule_name": "Suspicious SystemKey Access via Command Line", "rule_id": "7d3f98bf-2111-4e5f-9787-9edef8d94dd0"}
     ],
-    "ENDPOINT": [
-        {
-            "rule_name": "Suspicious SystemKey Access via Command Line",
-            "rule_id": "7d3f98bf-2111-4e5f-9787-9edef8d94dd0",
-        }
-    ],
-}
-TECHNIQUES = ["T1555"]
-RTA_ID = "d950ef5f-8277-4ed8-a8dd-d2433e791cef"
+    siem=[{"rule_name": "SystemKey Access via Command Line", "rule_id": "d75991f2-b989-419d-b797-ac1e54ec2d61"}],
+    techniques=["T1555"],
+)
 
 
 @common.requires_os(PLATFORMS)

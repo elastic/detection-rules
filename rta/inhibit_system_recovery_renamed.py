@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="5fe84989-d544-4a7b-9fbf-0e30d86c09ce",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Inhibit System Recovery via Renamed Utilities",
             "rule_id": "153f52e2-2fe5-420b-8691-ddb8562b99d7",
         }
     ],
-}
-TECHNIQUES = ["T1490", "T1218"]
-RTA_ID = "5fe84989-d544-4a7b-9fbf-0e30d86c09ce"
+    siem=[],
+    techniques=["T1490", "T1218"],
+)
 
 
 @common.requires_os(PLATFORMS)

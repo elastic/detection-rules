@@ -14,10 +14,9 @@ import time
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {"SIEM": [], "ENDPOINT": []}
-TECHNIQUES = []
-RTA_ID = "a2edc784-e969-45f4-b8d2-fe4556b42cd6"
+
+RtaMetadata(uuid="a2edc784-e969-45f4-b8d2-fe4556b42cd6", platforms=["windows"], endpoint=[], siem=[], techniques=[])
+
 
 INF_FILE = common.get_path("bin", "script_launch.inf")
 
@@ -36,9 +35,7 @@ def main():
 
     rundll32 = "rundll32.exe"
     dll_entrypoint = "setupapi.dll,InstallHinfSection"
-    common.execute(
-        [rundll32, dll_entrypoint, "DefaultInstall", "128", INF_FILE], shell=False
-    )
+    common.execute([rundll32, dll_entrypoint, "DefaultInstall", "128", INF_FILE], shell=False)
 
     time.sleep(1)
     common.log("Cleanup", log_type="-")

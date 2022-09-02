@@ -12,18 +12,15 @@ import time
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "afcce5ad-65de-4ed2-8516-5e093d3ac99a",
-            "rule_name": "Local Scheduled Task Creation",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1053"]
-RTA_ID = "2ab62c28-1abb-4ac5-a16d-2f4f75d01d02"
+
+RtaMetadata(
+    uuid="2ab62c28-1abb-4ac5-a16d-2f4f75d01d02",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "afcce5ad-65de-4ed2-8516-5e093d3ac99a", "rule_name": "Local Scheduled Task Creation"}],
+    techniques=["T1053"],
+)
+
 
 VBS = common.get_path("bin", "persistent_script.vbs")
 NAME = "rta-vbs-persistence"

@@ -5,18 +5,14 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Suspicious macOS MS Office Child Process",
-            "rule_id": "66da12b1-ac83-40eb-814c-07ed1d82b7b9",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1566"]
-RTA_ID = "65ae1bcd-0b1c-4992-97c3-f40b0f92deb1"
+
+RtaMetadata(
+    uuid="65ae1bcd-0b1c-4992-97c3-f40b0f92deb1",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[{"rule_name": "Suspicious macOS MS Office Child Process", "rule_id": "66da12b1-ac83-40eb-814c-07ed1d82b7b9"}],
+    techniques=["T1566"],
+)
 
 
 @common.requires_os(PLATFORMS)

@@ -5,10 +5,11 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="537de67d-8ba8-4df8-a965-75ca564d0846",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Script Interpreter Process Writing to Commonly Abused Persistence Locations",
             "rule_id": "be42f9fc-bdca-41cd-b125-f223d09eef69",
@@ -18,9 +19,9 @@ TRIGGERED_RULES = {
             "rule_id": "a85000c8-3eac-413b-8353-079343c2b6f0",
         },
     ],
-}
-TECHNIQUES = ["T1547", "T1059"]
-RTA_ID = "537de67d-8ba8-4df8-a965-75ca564d0846"
+    siem=[],
+    techniques=["T1547", "T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)

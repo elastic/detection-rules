@@ -13,18 +13,19 @@ import time
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
+
+RtaMetadata(
+    uuid="ce85674f-fb6c-44d5-b880-4ce9062e1028",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
         {
             "rule_id": "0d8ad79f-9025-45d8-80c1-4f0cd3c5e8e5",
             "rule_name": "Execution of File Written or Modified by Microsoft Office",
         }
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1566"]
-RTA_ID = "ce85674f-fb6c-44d5-b880-4ce9062e1028"
+    techniques=["T1566"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -36,9 +37,7 @@ def main():
         office_path = os.path.abspath(office_app)
         common.copy_file(cmd_path, office_path)
 
-        bad_path = os.path.abspath(
-            "bad-{}-{}.exe".format(hash(office_app), os.getpid())
-        )
+        bad_path = os.path.abspath("bad-{}-{}.exe".format(hash(office_app), os.getpid()))
         common.execute([office_path, "/c", "copy", cmd_path, bad_path])
 
         time.sleep(1)

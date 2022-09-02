@@ -5,18 +5,20 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="75167553-4886-44ba-b5d6-b4c341b33709",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Suspicious Network Connection from Microsoft Equation Editor",
             "rule_id": "365571bb-2b93-4ae8-8c39-0558f8a6c4cc",
         }
     ],
-}
-TECHNIQUES = ["T1203", "T1566"]
-RTA_ID = "75167553-4886-44ba-b5d6-b4c341b33709"
+    siem=[],
+    techniques=["T1203", "T1566"],
+)
+
 EXE_FILE = common.get_path("bin", "regsvr32.exe")
 
 

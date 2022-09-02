@@ -5,30 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Command Shell Activity Started via RunDLL32",
-            "rule_id": "b8a0a3aa-0345-4035-b41d-f758a6c59a78",
-        },
-        {
-            "rule_name": "Execution from Unusual Directory",
-            "rule_id": "16c84e67-e5e7-44ff-aefa-4d771bcafc0c",
-        },
-        {
-            "rule_name": "RunDLL32 with Unusual Arguments",
-            "rule_id": "cfaf983e-1129-464c-b0aa-270f42e20d3d",
-        },
-        {
-            "rule_name": "Binary Proxy Execution via Rundll32",
-            "rule_id": "f60455df-5054-49ff-9ff7-1dc4e37b6ea7",
-        },
+
+RtaMetadata(
+    uuid="3ede81fa-f4e7-48fc-a939-50ad7a9a07ca",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Command Shell Activity Started via RunDLL32", "rule_id": "b8a0a3aa-0345-4035-b41d-f758a6c59a78"},
+        {"rule_name": "Execution from Unusual Directory", "rule_id": "16c84e67-e5e7-44ff-aefa-4d771bcafc0c"},
+        {"rule_name": "RunDLL32 with Unusual Arguments", "rule_id": "cfaf983e-1129-464c-b0aa-270f42e20d3d"},
+        {"rule_name": "Binary Proxy Execution via Rundll32", "rule_id": "f60455df-5054-49ff-9ff7-1dc4e37b6ea7"},
     ],
-}
-TECHNIQUES = ["T1218", "T1059"]
-RTA_ID = "3ede81fa-f4e7-48fc-a939-50ad7a9a07ca"
+    siem=[],
+    techniques=["T1218", "T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)

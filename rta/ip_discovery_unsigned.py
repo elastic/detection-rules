@@ -5,18 +5,20 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="5e1ca4f9-16cc-4dd3-bfba-4bd5c7579f4a",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "External IP Address Discovery via Untrusted Program",
             "rule_id": "dfe28e03-9b0b-47f5-9753-65ed2666663f",
         }
     ],
-}
-TECHNIQUES = ["T1016"]
-RTA_ID = "5e1ca4f9-16cc-4dd3-bfba-4bd5c7579f4a"
+    siem=[],
+    techniques=["T1016"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
@@ -27,9 +29,7 @@ def main():
 
     # Execute command
     common.log("Retrieving the public IP Address using ipify")
-    common.execute(
-        [posh, "/c", "iwr", "http://api.ipify.org/", "-UseBasicParsing"], timeout=10
-    )
+    common.execute([posh, "/c", "iwr", "http://api.ipify.org/", "-UseBasicParsing"], timeout=10)
     common.remove_file(posh)
 
 

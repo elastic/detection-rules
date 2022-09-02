@@ -5,18 +5,16 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Finder Sync Plugin Registered and Enabled",
-            "rule_id": "37f638ea-909d-4f94-9248-edd21e4a9906",
-        }
+
+RtaMetadata(
+    uuid="214db941-51ba-4867-b9bf-9b22ff07eea8",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[
+        {"rule_name": "Finder Sync Plugin Registered and Enabled", "rule_id": "37f638ea-909d-4f94-9248-edd21e4a9906"}
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1543"]
-RTA_ID = "214db941-51ba-4867-b9bf-9b22ff07eea8"
+    techniques=["T1543"],
+)
 
 
 @common.requires_os(PLATFORMS)

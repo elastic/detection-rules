@@ -7,23 +7,25 @@ import platform
 
 from . import common
 
-PLATFORMS = ["windows", "macos", "linux"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Potential Cookies Theft via Browser Debugging",
-            "rule_id": "027ff9ea-85e7-42e3-99d2-bbb7069e02eb",
-        }
-    ],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="e061a96e-4c31-4f67-9745-6ff873f7829e",
+    platforms=["windows", "macos", "linux"],
+    endpoint=[
         {
             "rule_name": "Potential Cookies Theft via Browser Debugging",
             "rule_id": "5d7328aa-973b-41e7-a6b3-6f40ea3094f1",
         }
     ],
-}
-TECHNIQUES = ["T1539"]
-RTA_ID = "e061a96e-4c31-4f67-9745-6ff873f7829e"
+    siem=[
+        {
+            "rule_name": "Potential Cookies Theft via Browser Debugging",
+            "rule_id": "027ff9ea-85e7-42e3-99d2-bbb7069e02eb",
+        }
+    ],
+    techniques=["T1539"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

@@ -16,18 +16,14 @@ from string import ascii_letters
 
 from . import common
 
-PLATFORMS = [common.WINDOWS, common.LINUX, common.MACOS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "9c260313-c811-4ec8-ab89-8f6530e0246c",
-            "rule_name": "Hosts File Modified",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1565"]
-RTA_ID = "f24491d0-720b-4150-a2a1-45b5b07238aa"
+
+RtaMetadata(
+    uuid="f24491d0-720b-4150-a2a1-45b5b07238aa",
+    platforms=["windows", "linux", "macos"],
+    endpoint=[],
+    siem=[{"rule_id": "9c260313-c811-4ec8-ab89-8f6530e0246c", "rule_name": "Hosts File Modified"}],
+    techniques=["T1565"],
+)
 
 
 def main():

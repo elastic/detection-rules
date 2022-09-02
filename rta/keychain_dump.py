@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
+
+RtaMetadata(
+    uuid="f158a6dc-1974-4b98-a3e7-466f6f1afe01",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[
         {
             "rule_name": "Dumping of Keychain Content via Security Command",
             "rule_id": "565d6ca5-75ba-4c82-9b13-add25353471c",
         }
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1555"]
-RTA_ID = "f158a6dc-1974-4b98-a3e7-466f6f1afe01"
+    techniques=["T1555"],
+)
 
 
 @common.requires_os(PLATFORMS)

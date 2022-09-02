@@ -5,18 +5,17 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Credential Access via Known Utilities",
-            "rule_id": "3c44fc50-2672-48b3-af77-ff43b895ac70",
-        }
+
+RtaMetadata(
+    uuid="374718be-d841-4381-a75f-ef54f0d5eb18",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Credential Access via Known Utilities", "rule_id": "3c44fc50-2672-48b3-af77-ff43b895ac70"}
     ],
-}
-TECHNIQUES = ["T1003"]
-RTA_ID = "374718be-d841-4381-a75f-ef54f0d5eb18"
+    siem=[],
+    techniques=["T1003"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed.exe")
 
 

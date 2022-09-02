@@ -5,18 +5,17 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "File Execution via Microsoft HTML Help",
-            "rule_id": "9c3b13f6-bc26-4397-9721-4ba23ddd1014",
-        }
+
+RtaMetadata(
+    uuid="9bbf9aea-33fc-45fc-be55-4cafc744da80",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "File Execution via Microsoft HTML Help", "rule_id": "9c3b13f6-bc26-4397-9721-4ba23ddd1014"}
     ],
-}
-TECHNIQUES = ["T1218", "T1566"]
-RTA_ID = "9bbf9aea-33fc-45fc-be55-4cafc744da80"
+    siem=[],
+    techniques=["T1218", "T1566"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

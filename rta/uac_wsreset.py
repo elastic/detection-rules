@@ -5,18 +5,17 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "UAC Bypass via WSReset Execution Hijack",
-            "rule_id": "11c67af9-9599-4800-9e84-bd38f2a51581",
-        }
+
+RtaMetadata(
+    uuid="e8612e97-2df7-4e85-94ee-e61bc58c6479",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "UAC Bypass via WSReset Execution Hijack", "rule_id": "11c67af9-9599-4800-9e84-bd38f2a51581"}
     ],
-}
-TECHNIQUES = ["T1548"]
-RTA_ID = "e8612e97-2df7-4e85-94ee-e61bc58c6479"
+    siem=[],
+    techniques=["T1548"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

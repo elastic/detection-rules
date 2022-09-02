@@ -5,18 +5,20 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="5e911636-6f68-40d3-b1ef-7a951a397cc9",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Execution of Commonly Abused Utilities via Explorer Trampoline",
             "rule_id": "5e8498bb-8cc0-412f-9017-793d94ab76a5",
         }
     ],
-}
-TECHNIQUES = ["T1218", "T1566", "T1059"]
-RTA_ID = "5e911636-6f68-40d3-b1ef-7a951a397cc9"
+    siem=[],
+    techniques=["T1218", "T1566", "T1059"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

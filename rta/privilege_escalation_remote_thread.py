@@ -8,18 +8,16 @@ import platform
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Potential Code Injection via Remote Thread",
-            "rule_id": "458f0b4b-be9a-45bc-8f19-a26dac267250",
-        }
+
+RtaMetadata(
+    uuid="e1ff47b2-af5d-4cfc-bd94-e0b86828b241",
+    platforms=["macos"],
+    endpoint=[
+        {"rule_name": "Potential Code Injection via Remote Thread", "rule_id": "458f0b4b-be9a-45bc-8f19-a26dac267250"}
     ],
-}
-TECHNIQUES = ["T1055"]
-RTA_ID = "e1ff47b2-af5d-4cfc-bd94-e0b86828b241"
+    siem=[],
+    techniques=["T1055"],
+)
 
 
 @common.requires_os(PLATFORMS)

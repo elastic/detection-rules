@@ -14,18 +14,16 @@ import sys
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "d703a5af-d5b0-43bd-8ddb-7a5d500b7da5",
-            "rule_name": "Modification of WDigest Security Provider",
-        }
+
+RtaMetadata(
+    uuid="c774ab90-d4d0-487b-b51e-928e7f3e9c48",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
+        {"rule_id": "d703a5af-d5b0-43bd-8ddb-7a5d500b7da5", "rule_name": "Modification of WDigest Security Provider"}
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1003"]
-RTA_ID = "c774ab90-d4d0-487b-b51e-928e7f3e9c48"
+    techniques=["T1003"],
+)
 
 
 @common.requires_os(PLATFORMS)

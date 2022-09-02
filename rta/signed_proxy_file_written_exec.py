@@ -5,18 +5,13 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Execution from Unusual Directory",
-            "rule_id": "16c84e67-e5e7-44ff-aefa-4d771bcafc0c",
-        },
-        {
-            "rule_name": "Binary Masquerading via Untrusted Path",
-            "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f",
-        },
+
+RtaMetadata(
+    uuid="cbed76ce-a373-4bc5-b1b3-f5330de18cc7",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Execution from Unusual Directory", "rule_id": "16c84e67-e5e7-44ff-aefa-4d771bcafc0c"},
+        {"rule_name": "Binary Masquerading via Untrusted Path", "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f"},
         {
             "rule_name": "Execution of a File Written by a Signed Binary Proxy",
             "rule_id": "ccbc4a79-3bae-4623-aaef-e28a96bf538b",
@@ -30,9 +25,10 @@ TRIGGERED_RULES = {
             "rule_id": "83da4fac-563a-4af8-8f32-5a3797a9068e",
         },
     ],
-}
-TECHNIQUES = ["T1218", "T1036", "T1055", "T1105", "T1059"]
-RTA_ID = "cbed76ce-a373-4bc5-b1b3-f5330de18cc7"
+    siem=[],
+    techniques=["T1218", "T1036", "T1055", "T1105", "T1059"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

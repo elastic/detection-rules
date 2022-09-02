@@ -8,22 +8,17 @@ from pathlib import Path
 from . import common
 
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Suspicious Bitsadmin Activity",
-            "rule_id": "676ac66c-4899-498f-ae21-ed5620af5477",
-        },
-        {
-            "rule_name": "Suspicious Microsoft Office Child Process",
-            "rule_id": "c34a9dca-66cf-4283-944d-1800b28ae690",
-        },
+RtaMetadata(
+    uuid="e7a55d39-37b4-4f37-9519-3779b3c23bfa",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Suspicious Bitsadmin Activity", "rule_id": "676ac66c-4899-498f-ae21-ed5620af5477"},
+        {"rule_name": "Suspicious Microsoft Office Child Process", "rule_id": "c34a9dca-66cf-4283-944d-1800b28ae690"},
     ],
-}
-TECHNIQUES = ["T1197", "T1566"]
-RTA_ID = "e7a55d39-37b4-4f37-9519-3779b3c23bfa"
+    siem=[],
+    techniques=["T1197", "T1566"],
+)
+
 ROOT_DIR = Path(__file__).parent
 EXE_FILE = common.get_path("bin", "renamed.exe")
 

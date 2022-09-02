@@ -11,10 +11,8 @@ import time
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {"SIEM": [], "ENDPOINT": []}
-TECHNIQUES = []
-RTA_ID = "a52a72cb-6fc7-48b2-b365-8479a6cdb2e6"
+
+RtaMetadata(uuid="a52a72cb-6fc7-48b2-b365-8479a6cdb2e6", platforms=["windows"], endpoint=[], siem=[], techniques=[])
 
 
 @common.requires_os(PLATFORMS)

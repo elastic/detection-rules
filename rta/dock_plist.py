@@ -6,29 +6,23 @@
 from pathlib import Path
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Persistence via Docker Shortcut Modification",
-            "rule_id": "c81cefcb-82b9-4408-a533-3c3df549e62d",
-        }
+
+RtaMetadata(
+    uuid="38c81994-958f-40c8-bb6a-20bc1b93d598",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[
+        {"rule_name": "Persistence via Docker Shortcut Modification", "rule_id": "c81cefcb-82b9-4408-a533-3c3df549e62d"}
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1543"]
-RTA_ID = "38c81994-958f-40c8-bb6a-20bc1b93d598"
+    techniques=["T1543"],
+)
 
 
 @common.requires_os(PLATFORMS)
 def main():
 
-    common.log(
-        "Executing file modification on com.apple.dock.plist to mimic dock plist modification"
-    )
-    common.temporary_file_helper(
-        "testing", file_name=f"{Path.home()}/Library/Preferences/com.apple.dock.plist"
-    )
+    common.log("Executing file modification on com.apple.dock.plist to mimic dock plist modification")
+    common.temporary_file_helper("testing", file_name=f"{Path.home()}/Library/Preferences/com.apple.dock.plist")
 
 
 if __name__ == "__main__":

@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="8ce1099f-26e7-45ea-a7a9-9ab0926a2c4a",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Unexpected SMB Connection from User-mode Process",
             "rule_id": "2fbbd139-3919-4b6b-9c50-9452b0aef005",
         }
     ],
-}
-TECHNIQUES = ["T1021"]
-RTA_ID = "8ce1099f-26e7-45ea-a7a9-9ab0926a2c4a"
+    siem=[],
+    techniques=["T1021"],
+)
 
 
 @common.requires_os(PLATFORMS)

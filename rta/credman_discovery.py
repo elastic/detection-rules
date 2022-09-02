@@ -6,18 +6,19 @@
 from . import common
 import os
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="d12e0abb-017f-4321-adf2-20843f62b55d",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Potential Discovery of Windows Credential Manager Store",
             "rule_id": "cc60be0e-2c6c-4dc9-9902-e97103ff8df9",
         }
     ],
-}
-TECHNIQUES = ["T1555"]
-RTA_ID = "d12e0abb-017f-4321-adf2-20843f62b55d"
+    siem=[],
+    techniques=["T1555"],
+)
 
 
 @common.requires_os(PLATFORMS)

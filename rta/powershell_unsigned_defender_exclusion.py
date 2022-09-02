@@ -5,18 +5,20 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="1ccbd3c6-69c8-4476-b5e5-da3d167a09f1",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Suspicious Windows Defender Exclusions Added via PowerShell",
             "rule_id": "2ad8b514-baf0-4e29-a712-d6734868aa57",
         }
     ],
-}
-TECHNIQUES = ["T1562", "T1059"]
-RTA_ID = "1ccbd3c6-69c8-4476-b5e5-da3d167a09f1"
+    siem=[],
+    techniques=["T1562", "T1059"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

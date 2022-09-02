@@ -506,14 +506,14 @@ def run_system(arguments=None):
 
 
 def write_reg(
-        hive: str,
-        key: str,
-        value: str,
-        data: Union[str, int],
-        data_type: Union[str, int, list],
-        restore=True,
-        pause=False,
-        append=False
+    hive: str,
+    key: str,
+    value: str,
+    data: Union[str, int],
+    data_type: Union[str, int, list],
+    restore=True,
+    pause=False,
+    append=False,
 ) -> None:
     with temporary_reg(hive, key, value, data, data_type, restore, pause, append):
         pass
@@ -546,14 +546,14 @@ def read_reg(hive: str, key: str, value: str) -> (str, str):
 
 @contextlib.contextmanager
 def temporary_reg(
-        hive: str,
-        key: str,
-        value: str,
-        data: Union[str, int],
-        data_type: Union[str, int, list] = "sz",
-        restore=True,
-        pause=False,
-        append=False
+    hive: str,
+    key: str,
+    value: str,
+    data: Union[str, int],
+    data_type: Union[str, int, list] = "sz",
+    restore=True,
+    pause=False,
+    append=False,
 ) -> None:
     winreg = get_winreg()
 

@@ -5,23 +5,24 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Privilege Escalation via Root Crontab File Modification",
-            "rule_id": "0ff84c42-873d-41a2-a4ed-08d74d352d01",
-        }
-    ],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="f9feed6d-bae3-49c6-8952-7ed8e9b0b9ef",
+    platforms=["macos"],
+    endpoint=[
         {
             "rule_name": "Potential Privilege Escalation via Root Crontab File Modification",
             "rule_id": "31151602-1de1-4301-9b75-215ac8902b75",
         }
     ],
-}
-TECHNIQUES = ["T1053"]
-RTA_ID = "f9feed6d-bae3-49c6-8952-7ed8e9b0b9ef"
+    siem=[
+        {
+            "rule_name": "Privilege Escalation via Root Crontab File Modification",
+            "rule_id": "0ff84c42-873d-41a2-a4ed-08d74d352d01",
+        }
+    ],
+    techniques=["T1053"],
+)
 
 
 @common.requires_os(PLATFORMS)

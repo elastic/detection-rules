@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="abd56d74-6538-456e-bd2a-42f08d1bac3c",
+    platforms=["macos"],
+    endpoint=[
         {
             "rule_name": "Reading or Modifying Downloaded Files Database via SQLite Utility",
             "rule_id": "b8fb52cd-5f06-4519-921d-bd1b363dc01b",
         }
     ],
-}
-TECHNIQUES = []
-RTA_ID = "abd56d74-6538-456e-bd2a-42f08d1bac3c"
+    siem=[],
+    techniques=[],
+)
 
 
 @common.requires_os(PLATFORMS)

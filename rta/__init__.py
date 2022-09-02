@@ -4,6 +4,7 @@
 # 2.0.
 
 import importlib
+import inspect
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -16,6 +17,7 @@ CURRENT_DIR = Path(__file__).resolve().parent
 @dataclass
 class RtaMetadata:
     """Metadata associated with all RTAs."""
+
     uuid: str
     platforms: List[str]
 
@@ -38,9 +40,7 @@ def valid_rta_file(file_path: str) -> bool:
     return file_path.stem not in ["init", "common", "main"] and not file_path.name.startswith("_")
 
 
-def get_available_tests(
-    print_list: bool = False, os_filter: str = None
-) -> Dict[str, dict]:
+def get_available_tests(print_list: bool = False, os_filter: str = None) -> Dict[str, dict]:
     """Get a list of available tests."""
 
     test_metadata = {}
@@ -74,9 +74,7 @@ def get_available_tests(
         print("=" * len(header))
 
         for test in test_metadata:
-            print(
-                f"{test['name']:<{longest_test_name}} | {', '.join(test['platforms'])}"
-            )
+            print(f"{test['name']:<{longest_test_name}} | {', '.join(test['platforms'])}")
 
     return test_metadata
 

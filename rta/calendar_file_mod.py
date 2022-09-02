@@ -6,18 +6,14 @@
 from pathlib import Path
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Suspicious Calendar File Modification",
-            "rule_id": "cb71aa62-55c8-42f0-b0dd-afb0bb0b1f51",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1546"]
-RTA_ID = "44345dc0-883f-41b7-ad34-1d84cfd57129"
+
+RtaMetadata(
+    uuid="44345dc0-883f-41b7-ad34-1d84cfd57129",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[{"rule_name": "Suspicious Calendar File Modification", "rule_id": "cb71aa62-55c8-42f0-b0dd-afb0bb0b1f51"}],
+    techniques=["T1546"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -27,9 +23,7 @@ def main():
     cal_calendar = cal_dir.joinpath("test.calendar", "Events")
     cal_calendar.mkdir(parents=True, exist_ok=True)
     cal_path = str(cal_calendar.joinpath("test.ics"))
-    common.log(
-        f"Executing file modification on {cal_path} to mimic suspicious calendar file modification"
-    )
+    common.log(f"Executing file modification on {cal_path} to mimic suspicious calendar file modification")
     common.temporary_file_helper("testing", file_name=cal_path)
 
     # cleanup

@@ -5,23 +5,24 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Modification of Safari Settings via Defaults Command",
-            "rule_id": "6482255d-f468-45ea-a5b3-d3a7de1331ae",
-        }
-    ],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="9d02871f-6338-47aa-84c4-7d622692319f",
+    platforms=["macos"],
+    endpoint=[
         {
             "rule_name": "Modification of Safari Settings via Defaults Command",
             "rule_id": "396e1138-243c-4215-a8ed-be303204710d",
         }
     ],
-}
-TECHNIQUES = ["T1562"]
-RTA_ID = "9d02871f-6338-47aa-84c4-7d622692319f"
+    siem=[
+        {
+            "rule_name": "Modification of Safari Settings via Defaults Command",
+            "rule_id": "6482255d-f468-45ea-a5b3-d3a7de1331ae",
+        }
+    ],
+    techniques=["T1562"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -32,9 +33,7 @@ def main():
 
     # Execute command
     common.log("Launching commands to mimic defaults modifying safari configurations.")
-    common.execute(
-        [masquerade, "write", "com.apple.Safari", "JavaScript"], timeout=10, kill=True
-    )
+    common.execute([masquerade, "write", "com.apple.Safari", "JavaScript"], timeout=10, kill=True)
 
     # cleanup
     common.remove_file(masquerade)

@@ -12,18 +12,15 @@ import sys
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "97fc44d3-8dae-4019-ae83-298c3015600f",
-            "rule_name": "Startup or Run Key Registry Modification",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1547"]
-RTA_ID = "ca020d7f-f495-4f0a-a808-da615f3409b4"
+
+RtaMetadata(
+    uuid="ca020d7f-f495-4f0a-a808-da615f3409b4",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "97fc44d3-8dae-4019-ae83-298c3015600f", "rule_name": "Startup or Run Key Registry Modification"}],
+    techniques=["T1547"],
+)
+
 
 # There are many unconventional ways to leverage the Registry for persistence:
 

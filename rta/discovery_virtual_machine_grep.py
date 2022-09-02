@@ -5,32 +5,26 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Virtual Machine Fingerprinting via Grep",
-            "rule_id": "c85eb82c-d2c8-485c-a36f-534f914b7663",
-        }
-    ],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="92407d57-e5ce-41b1-933a-7cad26158802",
+    platforms=["macos"],
+    endpoint=[
         {
             "rule_name": "Potential Virtual Machine Fingerprinting via Grep",
             "rule_id": "e5c0963c-0367-4d24-bdf2-5af3a233e57b",
         }
     ],
-}
-TECHNIQUES = ["T1082", "T1497"]
-RTA_ID = "92407d57-e5ce-41b1-933a-7cad26158802"
+    siem=[{"rule_name": "Virtual Machine Fingerprinting via Grep", "rule_id": "c85eb82c-d2c8-485c-a36f-534f914b7663"}],
+    techniques=["T1082", "T1497"],
+)
 
 
 @common.requires_os(PLATFORMS)
 def main():
 
     common.log("Executing egrep commands to fingerprint virtual machine.")
-    common.execute(
-        ["egrep", "-i", '"Manufacturer: (parallels|vmware|virtualbox)"'], shell=True
-    )
+    common.execute(["egrep", "-i", '"Manufacturer: (parallels|vmware|virtualbox)"'], shell=True)
 
 
 if __name__ == "__main__":

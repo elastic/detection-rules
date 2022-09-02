@@ -13,22 +13,17 @@ import random
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "7b8bfc26-81d2-435e-965c-d722ee397ef1",
-            "rule_name": "Windows Network Enumeration",
-        },
-        {
-            "rule_id": "871ea072-1b71-4def-b016-6278b505138d",
-            "rule_name": "Enumeration of Administrator Accounts",
-        },
+
+RtaMetadata(
+    uuid="9b19f4a3-7287-45d2-ab0f-9a9c0b1bc8e1",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
+        {"rule_id": "7b8bfc26-81d2-435e-965c-d722ee397ef1", "rule_name": "Windows Network Enumeration"},
+        {"rule_id": "871ea072-1b71-4def-b016-6278b505138d", "rule_name": "Enumeration of Administrator Accounts"},
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1135", "T1069", "T1087", "T1018"]
-RTA_ID = "9b19f4a3-7287-45d2-ab0f-9a9c0b1bc8e1"
+    techniques=["T1135", "T1069", "T1087", "T1018"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -78,9 +73,7 @@ def main(args=None):
     if sample < len(commands):
         random.shuffle(commands)
 
-    common.log(
-        "Running {} out of {} enumeration commands\n".format(sample, len(commands))
-    )
+    common.log("Running {} out of {} enumeration commands\n".format(sample, len(commands)))
     for command in commands[0:sample]:
 
         common.log("About to call {}".format(command))

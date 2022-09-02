@@ -5,18 +5,16 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Virtual Private Network Connection Attempt",
-            "rule_id": "15dacaa0-5b90-466b-acab-63435a59701a",
-        }
+
+RtaMetadata(
+    uuid="f9a34606-863d-46aa-b12d-eeeb68b530e3",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[
+        {"rule_name": "Virtual Private Network Connection Attempt", "rule_id": "15dacaa0-5b90-466b-acab-63435a59701a"}
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1021"]
-RTA_ID = "f9a34606-863d-46aa-b12d-eeeb68b530e3"
+    techniques=["T1021"],
+)
 
 
 @common.requires_os(PLATFORMS)

@@ -5,23 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["macos", "linux"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Security Software Discovery via Grep",
-            "rule_id": "870aecc0-cea4-4110-af3f-e02e9b373655",
-        }
-    ],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="6ef908be-9ed3-413d-8d4d-94446107eecc",
+    platforms=["macos", "linux"],
+    endpoint=[
         {
             "rule_name": "Potential Security Software Discovery via Grep",
             "rule_id": "13eade2e-73dd-4fab-a511-88258635559d",
         }
     ],
-}
-TECHNIQUES = ["T1518"]
-RTA_ID = "6ef908be-9ed3-413d-8d4d-94446107eecc"
+    siem=[{"rule_name": "Security Software Discovery via Grep", "rule_id": "870aecc0-cea4-4110-af3f-e02e9b373655"}],
+    techniques=["T1518"],
+)
 
 
 @common.requires_os(PLATFORMS)

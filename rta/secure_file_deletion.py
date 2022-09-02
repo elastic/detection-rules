@@ -9,18 +9,14 @@ import tempfile
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "55d551c6-333b-4665-ab7e-5d14a59715ce",
-            "rule_name": "PsExec Network Connection",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1569"]
-RTA_ID = "9cb42759-a161-4d93-b07d-3c8254dc8838"
+
+RtaMetadata(
+    uuid="9cb42759-a161-4d93-b07d-3c8254dc8838",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "55d551c6-333b-4665-ab7e-5d14a59715ce", "rule_name": "PsExec Network Connection"}],
+    techniques=["T1569"],
+)
 
 
 @common.requires_os(PLATFORMS)

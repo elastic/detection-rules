@@ -6,18 +6,20 @@
 from . import common
 import os
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="1d486055-38f8-4cf3-aec1-7f4f72d73fb2",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "UAC Bypass via Unsafe Deserialization in Event Viewer",
             "rule_id": "df7e55c9-cd36-4e33-9e82-3a54b9c84495",
         }
     ],
-}
-TECHNIQUES = ["T1548"]
-RTA_ID = "1d486055-38f8-4cf3-aec1-7f4f72d73fb2"
+    siem=[],
+    techniques=["T1548"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

@@ -5,18 +5,14 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Attempt to Install Root Certificate",
-            "rule_id": "bc1eeacf-2972-434f-b782-3a532b100d67",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1553"]
-RTA_ID = "633313a4-dbe5-420f-b4ae-90c481a7f881"
+
+RtaMetadata(
+    uuid="633313a4-dbe5-420f-b4ae-90c481a7f881",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[{"rule_name": "Attempt to Install Root Certificate", "rule_id": "bc1eeacf-2972-434f-b782-3a532b100d67"}],
+    techniques=["T1553"],
+)
 
 
 @common.requires_os(PLATFORMS)

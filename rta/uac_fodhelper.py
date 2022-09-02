@@ -5,18 +5,17 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "UAC Bypass via FodHelper Execution Hijack",
-            "rule_id": "b5c0058e-2bca-4ed5-84b3-4e017c039c57",
-        }
+
+RtaMetadata(
+    uuid="a67586fd-cceb-4fb9-bf0e-d355b9e8921a",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "UAC Bypass via FodHelper Execution Hijack", "rule_id": "b5c0058e-2bca-4ed5-84b3-4e017c039c57"}
     ],
-}
-TECHNIQUES = ["T1548"]
-RTA_ID = "a67586fd-cceb-4fb9-bf0e-d355b9e8921a"
+    siem=[],
+    techniques=["T1548"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

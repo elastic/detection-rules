@@ -5,18 +5,17 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Windows Error Manager/Reporting Masquerading",
-            "rule_id": "3d16f5f9-da4c-4b15-a501-505761b75ca6",
-        }
+
+RtaMetadata(
+    uuid="41c82553-01c2-41d6-a15d-3499fa99b4c0",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Windows Error Manager/Reporting Masquerading", "rule_id": "3d16f5f9-da4c-4b15-a501-505761b75ca6"}
     ],
-}
-TECHNIQUES = ["T1055", "T1036"]
-RTA_ID = "41c82553-01c2-41d6-a15d-3499fa99b4c0"
+    siem=[],
+    techniques=["T1055", "T1036"],
+)
+
 EXE_FILE = common.get_path("bin", "regsvr32.exe")
 
 

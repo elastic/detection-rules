@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="43331e29-57ba-438f-8d61-99f5d6471aaa",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Inhibit System Recovery Followed by a Suspicious File Rename",
             "rule_id": "92f114fb-7113-4e82-b021-6c2c4ca0a507",
         }
     ],
-}
-TECHNIQUES = ["T1490", "T1486"]
-RTA_ID = "43331e29-57ba-438f-8d61-99f5d6471aaa"
+    siem=[],
+    techniques=["T1490", "T1486"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -30,9 +31,7 @@ def main():
 
     # Execute command
     common.log("Deleting Shadow Copies using Vssadmin spawned by cmd")
-    common.execute(
-        [powershell, "/c", vssadmin, "delete", "shadows", "/For=C:"], timeout=10
-    )
+    common.execute([powershell, "/c", vssadmin, "delete", "shadows", "/For=C:"], timeout=10)
 
     common.log("Renaming image to unknown extension")
     common.execute([powershell, "/c", f"Rename-Item {tmppng} {renamed}"], timeout=10)

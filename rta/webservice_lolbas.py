@@ -5,10 +5,11 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="b7a7d246-b1ef-4d08-85ce-92e1cfc18520",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "External IP Address Discovery via a Trusted Program",
             "rule_id": "51894221-7657-4b56-9406-e080e19ad159",
@@ -18,9 +19,9 @@ TRIGGERED_RULES = {
             "rule_id": "c567240c-445b-4000-9612-b5531e21e050",
         },
     ],
-}
-TECHNIQUES = ["T1102", "T1218", "T1016", "T1071"]
-RTA_ID = "b7a7d246-b1ef-4d08-85ce-92e1cfc18520"
+    siem=[],
+    techniques=["T1102", "T1218", "T1016", "T1071"],
+)
 
 
 @common.requires_os(PLATFORMS)

@@ -5,10 +5,11 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="a3461218-f6c2-4178-ad85-f25b8df2d2e1",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Registry Run Key Modified by Unusual Process",
             "rule_id": "b2fcbb09-d9bd-4f6c-a08e-247548b4edcd",
@@ -18,9 +19,10 @@ TRIGGERED_RULES = {
             "rule_id": "727db78e-e1dd-4bc0-89b0-885cd99e069e",
         },
     ],
-}
-TECHNIQUES = ["T1547"]
-RTA_ID = "a3461218-f6c2-4178-ad85-f25b8df2d2e1"
+    siem=[],
+    techniques=["T1547"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

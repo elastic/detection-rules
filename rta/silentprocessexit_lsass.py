@@ -5,18 +5,14 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "LSA Dump via SilentProcessExit",
-            "rule_id": "28969fe6-0ebe-4442-b40c-dbe9b4234f5e",
-        }
-    ],
-}
-TECHNIQUES = ["T1003"]
-RTA_ID = "bf2f893a-513a-41ea-9170-2c9b08a2a55f"
+
+RtaMetadata(
+    uuid="bf2f893a-513a-41ea-9170-2c9b08a2a55f",
+    platforms=["windows"],
+    endpoint=[{"rule_name": "LSA Dump via SilentProcessExit", "rule_id": "28969fe6-0ebe-4442-b40c-dbe9b4234f5e"}],
+    siem=[],
+    techniques=["T1003"],
+)
 
 
 @common.requires_os(PLATFORMS)

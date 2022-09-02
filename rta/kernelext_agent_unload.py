@@ -5,23 +5,24 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Attempt to Unload Elastic Endpoint Security Kernel Extension",
-            "rule_id": "70fa1af4-27fd-4f26-bd03-50b6af6b9e24",
-        }
-    ],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="61f308d8-40c5-4c46-9181-e993cf07e92b",
+    platforms=["macos"],
+    endpoint=[
         {
             "rule_name": "Attempt to Unload Elastic Endpoint Security Kernel Extension",
             "rule_id": "a412fd9b-2a06-49ff-a073-8eb313c2d930",
         }
     ],
-}
-TECHNIQUES = ["T1547", "T1562"]
-RTA_ID = "61f308d8-40c5-4c46-9181-e993cf07e92b"
+    siem=[
+        {
+            "rule_name": "Attempt to Unload Elastic Endpoint Security Kernel Extension",
+            "rule_id": "70fa1af4-27fd-4f26-bd03-50b6af6b9e24",
+        }
+    ],
+    techniques=["T1547", "T1562"],
+)
 
 
 @common.requires_os(PLATFORMS)

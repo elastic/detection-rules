@@ -5,18 +5,20 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="a0245bfc-d934-4b58-9a7c-a80eca05214b",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Windows Firewall Exception List Modified via Untrusted Process",
             "rule_id": "5c01669c-e1cc-4acc-95b6-8b5e4a92c970",
         }
     ],
-}
-TECHNIQUES = ["T1562"]
-RTA_ID = "a0245bfc-d934-4b58-9a7c-a80eca05214b"
+    siem=[],
+    techniques=["T1562"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

@@ -5,26 +5,22 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="64a7cd38-767f-4d46-9350-feb585a32c18",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Unusual DLL Extension Loaded by Rundll32 or Regsvr32",
             "rule_id": "76da5dca-ffe5-4756-85ba-3ac2e6ccf623",
         },
-        {
-            "rule_name": "Execution from Unusual Directory",
-            "rule_id": "16c84e67-e5e7-44ff-aefa-4d771bcafc0c",
-        },
-        {
-            "rule_name": "Binary Masquerading via Untrusted Path",
-            "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f",
-        },
+        {"rule_name": "Execution from Unusual Directory", "rule_id": "16c84e67-e5e7-44ff-aefa-4d771bcafc0c"},
+        {"rule_name": "Binary Masquerading via Untrusted Path", "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f"},
     ],
-}
-TECHNIQUES = ["T1218", "T1036", "T1059"]
-RTA_ID = "64a7cd38-767f-4d46-9350-feb585a32c18"
+    siem=[],
+    techniques=["T1218", "T1036", "T1059"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 
@@ -42,9 +38,7 @@ def main():
     # Execute command
 
     common.log("Loading a.rta into fake rundll32")
-    common.execute(
-        [rundll32, "-c", f"Import-Module {ps1}; Invoke-ImageLoad {dll}"], timeout=10
-    )
+    common.execute([rundll32, "-c", f"Import-Module {ps1}; Invoke-ImageLoad {dll}"], timeout=10)
 
     common.remove_files(rundll32, dll, ps1)
 

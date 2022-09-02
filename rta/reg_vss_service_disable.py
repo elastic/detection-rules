@@ -5,10 +5,11 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="c4eefb59-2c59-4904-a04e-5e3a75f54a46",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Shadow Copy Service Disabled via Registry Modification",
             "rule_id": "b2409cd4-3b23-4b2d-82e4-bbb25594999a",
@@ -22,9 +23,10 @@ TRIGGERED_RULES = {
             "rule_id": "df874d7e-6639-44ce-b47d-96254022ccd5",
         },
     ],
-}
-TECHNIQUES = ["T1218", "T1112", "T1486", "T1490", "T1059"]
-RTA_ID = "c4eefb59-2c59-4904-a04e-5e3a75f54a46"
+    siem=[],
+    techniques=["T1218", "T1112", "T1486", "T1490", "T1059"],
+)
+
 HIGHENTROPY = common.get_path("bin", "highentropy.txt")
 
 
@@ -43,9 +45,7 @@ def main():
     # Creating a high entropy file, and executing the rename operation
     common.copy_file(HIGHENTROPY, jpg)
     common.execute([powershell, "/c", f"Rename-Item {jpg} {jpgenc}"], timeout=10)
-    common.execute(
-        [powershell, "/c", "Remove-Item 'C:\\Users\\Public\\*jpg*' -Force"], timeout=10
-    )
+    common.execute([powershell, "/c", "Remove-Item 'C:\\Users\\Public\\*jpg*' -Force"], timeout=10)
 
 
 if __name__ == "__main__":

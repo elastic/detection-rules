@@ -5,18 +5,14 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Potential Admin Group Account Addition",
-            "rule_id": "565c2b44-7a21-4818-955f-8d4737967d2e",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1078"]
-RTA_ID = "d5643e8a-c3f5-48a7-9f64-7255f603a24a"
+
+RtaMetadata(
+    uuid="d5643e8a-c3f5-48a7-9f64-7255f603a24a",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[{"rule_name": "Potential Admin Group Account Addition", "rule_id": "565c2b44-7a21-4818-955f-8d4737967d2e"}],
+    techniques=["T1078"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -26,9 +22,7 @@ def main():
     common.create_macos_masquerade(masquerade)
 
     # Execute command
-    common.log(
-        "Launching fake dseditgroup commands to mimic adding a user to an admin group"
-    )
+    common.log("Launching fake dseditgroup commands to mimic adding a user to an admin group")
     common.execute([masquerade, "admin", "-append"], timeout=10, kill=True)
 
     # cleanup

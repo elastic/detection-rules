@@ -5,18 +5,20 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="049f1e5e-99a9-4a0f-afac-b7b41b96ed12",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Connection to WebService by an Unsigned Binary",
             "rule_id": "2c3efa34-fecd-4b3b-bdb6-30d547f2a1a4",
         }
     ],
-}
-TECHNIQUES = ["T1102", "T1071"]
-RTA_ID = "049f1e5e-99a9-4a0f-afac-b7b41b96ed12"
+    siem=[],
+    techniques=["T1102", "T1071"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
@@ -27,9 +29,7 @@ def main():
 
     # Execute command
     common.log("Using PowerShell to connect to Google Drive")
-    common.execute(
-        [posh, "/c", "iwr", "https://drive.google.com", "-UseBasicParsing"], timeout=10
-    )
+    common.execute([posh, "/c", "iwr", "https://drive.google.com", "-UseBasicParsing"], timeout=10)
     common.remove_file(posh)
 
 

@@ -5,18 +5,17 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Suspicious Microsoft IIS Worker Descendant",
-            "rule_id": "89c9c5a0-a136-41e9-8cc8-f21ef5ad894b",
-        }
+
+RtaMetadata(
+    uuid="be6619a2-324a-443b-9f23-2dc84733c847",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Suspicious Microsoft IIS Worker Descendant", "rule_id": "89c9c5a0-a136-41e9-8cc8-f21ef5ad894b"}
     ],
-}
-TECHNIQUES = ["T1190", "T1059"]
-RTA_ID = "be6619a2-324a-443b-9f23-2dc84733c847"
+    siem=[],
+    techniques=["T1190", "T1059"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

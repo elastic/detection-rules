@@ -5,18 +5,20 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="42eed432-af05-45d3-b788-7e3220f81f9a",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Suspicious ImageLoad via Windows Update Auto Update Client",
             "rule_id": "3788c03d-28a5-4466-b157-d6dd4dc449bb",
         }
     ],
-}
-TECHNIQUES = ["T1218"]
-RTA_ID = "42eed432-af05-45d3-b788-7e3220f81f9a"
+    siem=[],
+    techniques=["T1218"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
@@ -36,9 +38,7 @@ def main():
 
     # Modify the originalfilename to invalidate the code sig
     common.log("Modifying the OriginalFileName attribute")
-    common.execute(
-        [rcedit, dll, "--set-version-string", "OriginalFilename", "unsigned.exe"]
-    )
+    common.execute([rcedit, dll, "--set-version-string", "OriginalFilename", "unsigned.exe"])
 
     common.log("Loading unsigned.dll into fake wuauclt")
     common.execute(

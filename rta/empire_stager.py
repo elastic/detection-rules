@@ -5,18 +5,14 @@
 
 from . import common
 
-PLATFORMS = ["macos", "linux"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Empire Stager Execution",
-            "rule_id": "b7974ff6-82ff-4743-9e07-1c6901b1f0ea",
-        }
-    ],
-}
-TECHNIQUES = ["T1132", "T1059"]
-RTA_ID = "4d7ce5b3-f8e4-434c-9caa-c7e133146b27"
+
+RtaMetadata(
+    uuid="4d7ce5b3-f8e4-434c-9caa-c7e133146b27",
+    platforms=["macos", "linux"],
+    endpoint=[{"rule_name": "Empire Stager Execution", "rule_id": "b7974ff6-82ff-4743-9e07-1c6901b1f0ea"}],
+    siem=[],
+    techniques=["T1132", "T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)

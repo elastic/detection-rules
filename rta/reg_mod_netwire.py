@@ -5,18 +5,14 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "NetWire RAT Registry Modification",
-            "rule_id": "102f340f-1839-4bad-8493-824cc02c4e69",
-        }
-    ],
-}
-TECHNIQUES = ["T1112"]
-RTA_ID = "2bb1f4df-dc38-45a6-a0f4-54660c93a652"
+
+RtaMetadata(
+    uuid="2bb1f4df-dc38-45a6-a0f4-54660c93a652",
+    platforms=["windows"],
+    endpoint=[{"rule_name": "NetWire RAT Registry Modification", "rule_id": "102f340f-1839-4bad-8493-824cc02c4e69"}],
+    siem=[],
+    techniques=["T1112"],
+)
 
 
 @common.requires_os(PLATFORMS)

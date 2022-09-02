@@ -5,18 +5,20 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="6c399694-d21c-4a19-9e58-8fa24eb399b9",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Windows Command Shell Spawned via Microsoft Office",
             "rule_id": "2a396a3c-b343-42a9-b74b-c5b9925b6ee2",
         }
     ],
-}
-TECHNIQUES = ["T1566", "T1059"]
-RTA_ID = "6c399694-d21c-4a19-9e58-8fa24eb399b9"
+    siem=[],
+    techniques=["T1566", "T1059"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed.exe")
 
 

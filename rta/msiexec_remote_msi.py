@@ -5,18 +5,14 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Remote File Execution via MSIEXEC",
-            "rule_id": "8ba98e28-d83e-451e-8df7-f0964f7e69b6",
-        }
-    ],
-}
-TECHNIQUES = ["T1218"]
-RTA_ID = "de245f02-8614-4fdd-b6e4-e845bbadd056"
+
+RtaMetadata(
+    uuid="de245f02-8614-4fdd-b6e4-e845bbadd056",
+    platforms=["windows"],
+    endpoint=[{"rule_name": "Remote File Execution via MSIEXEC", "rule_id": "8ba98e28-d83e-451e-8df7-f0964f7e69b6"}],
+    siem=[],
+    techniques=["T1218"],
+)
 
 
 @common.requires_os(PLATFORMS)

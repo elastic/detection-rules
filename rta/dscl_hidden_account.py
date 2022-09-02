@@ -5,18 +5,16 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Potential Hidden Local User Account Creation",
-            "rule_id": "41b638a1-8ab6-4f8e-86d9-466317ef2db5",
-        }
+
+RtaMetadata(
+    uuid="b084e9dd-0c79-480c-b488-049ab8167b38",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[
+        {"rule_name": "Potential Hidden Local User Account Creation", "rule_id": "41b638a1-8ab6-4f8e-86d9-466317ef2db5"}
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1078"]
-RTA_ID = "b084e9dd-0c79-480c-b488-049ab8167b38"
+    techniques=["T1078"],
+)
 
 
 @common.requires_os(PLATFORMS)

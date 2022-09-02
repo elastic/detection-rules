@@ -6,18 +6,17 @@
 from . import common
 import os
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Suspicious File Delivery via HTML Smuggling",
-            "rule_id": "4415ab60-7cff-41dc-b3f0-939bd22c1810",
-        }
+
+RtaMetadata(
+    uuid="0debe15f-1c9b-4ff8-9e4c-478647ca45e2",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Suspicious File Delivery via HTML Smuggling", "rule_id": "4415ab60-7cff-41dc-b3f0-939bd22c1810"}
     ],
-}
-TECHNIQUES = ["T1027", "T1566"]
-RTA_ID = "0debe15f-1c9b-4ff8-9e4c-478647ca45e2"
+    siem=[],
+    techniques=["T1027", "T1566"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

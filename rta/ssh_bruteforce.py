@@ -6,18 +6,14 @@
 from . import common
 from multiprocessing import Process
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Potential SSH Brute Force Detected",
-            "rule_id": "ace1e989-a541-44df-93a8-a8b0591b63c0",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1110"]
-RTA_ID = "61369084-af6a-4fd0-903f-b44467f5d6e7"
+
+RtaMetadata(
+    uuid="61369084-af6a-4fd0-903f-b44467f5d6e7",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[{"rule_name": "Potential SSH Brute Force Detected", "rule_id": "ace1e989-a541-44df-93a8-a8b0591b63c0"}],
+    techniques=["T1110"],
+)
 
 
 def test(masquerade, masquerade2):

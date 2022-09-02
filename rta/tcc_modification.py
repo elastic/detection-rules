@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
+
+RtaMetadata(
+    uuid="34cddcb3-bd49-4363-8092-677307abaa82",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[
         {
             "rule_name": "Potential Privacy Control Bypass via TCCDB Modification",
             "rule_id": "eea82229-b002-470e-a9e1-00be38b14d32",
         }
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1562"]
-RTA_ID = "34cddcb3-bd49-4363-8092-677307abaa82"
+    techniques=["T1562"],
+)
 
 
 @common.requires_os(PLATFORMS)

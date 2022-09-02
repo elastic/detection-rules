@@ -5,18 +5,17 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Renamed Windows Automaton Script Interpreter",
-            "rule_id": "92d720dd-93b2-49e0-b68a-d5d6acbe4910",
-        }
+
+RtaMetadata(
+    uuid="8c128a2b-fa7b-4bfc-9ec9-934395460420",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Renamed Windows Automaton Script Interpreter", "rule_id": "92d720dd-93b2-49e0-b68a-d5d6acbe4910"}
     ],
-}
-TECHNIQUES = ["T1036"]
-RTA_ID = "8c128a2b-fa7b-4bfc-9ec9-934395460420"
+    siem=[],
+    techniques=["T1036"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
 

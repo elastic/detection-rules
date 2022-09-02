@@ -5,18 +5,16 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Initial Access via macOS Installer Package",
-            "rule_id": "d40ffcba-b83e-4d0a-8d6d-84385def8e18",
-        }
+
+RtaMetadata(
+    uuid="34040af5-1231-4e97-8189-a26d6622b2e5",
+    platforms=["macos"],
+    endpoint=[
+        {"rule_name": "Initial Access via macOS Installer Package", "rule_id": "d40ffcba-b83e-4d0a-8d6d-84385def8e18"}
     ],
-}
-TECHNIQUES = ["T1105", "T1543", "T1082", "T1566", "T1204", "T1547", "T1569", "T1059"]
-RTA_ID = "34040af5-1231-4e97-8189-a26d6622b2e5"
+    siem=[],
+    techniques=["T1105", "T1543", "T1082", "T1566", "T1204", "T1547", "T1569", "T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)

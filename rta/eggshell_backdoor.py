@@ -5,23 +5,14 @@
 
 from . import common
 
-PLATFORMS = ["macos", "linux"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "EggShell Backdoor Execution",
-            "rule_id": "41824afb-d68c-4d0e-bfee-474dac1fa56e",
-        }
-    ],
-    "ENDPOINT": [
-        {
-            "rule_name": "EggShell Backdoor Execution",
-            "rule_id": "feed7842-34a6-4764-b858-6e5ac01a5ab7",
-        }
-    ],
-}
-TECHNIQUES = ["T1059"]
-RTA_ID = "be090f8e-dc7b-41eb-9c7e-74a0aed0dad1"
+
+RtaMetadata(
+    uuid="be090f8e-dc7b-41eb-9c7e-74a0aed0dad1",
+    platforms=["macos", "linux"],
+    endpoint=[{"rule_name": "EggShell Backdoor Execution", "rule_id": "feed7842-34a6-4764-b858-6e5ac01a5ab7"}],
+    siem=[{"rule_name": "EggShell Backdoor Execution", "rule_id": "41824afb-d68c-4d0e-bfee-474dac1fa56e"}],
+    techniques=["T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)

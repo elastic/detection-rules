@@ -5,18 +5,20 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="7cc740ff-2e6c-4740-9323-46dcbb4dbfbc",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "UAC Bypass via ComputerDefaults Execution Hijack",
             "rule_id": "7c0048d5-356d-4f69-839e-10c1e194958f",
         }
     ],
-}
-TECHNIQUES = ["T1548"]
-RTA_ID = "7cc740ff-2e6c-4740-9323-46dcbb4dbfbc"
+    siem=[],
+    techniques=["T1548"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

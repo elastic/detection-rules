@@ -12,18 +12,14 @@ import time
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "581add16-df76-42bb-af8e-c979bfb39a59",
-            "rule_name": "Deleting Backup Catalogs with Wbadmin",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1490"]
-RTA_ID = "8ffd2053-c04a-435a-84b3-a8403a5395db"
+
+RtaMetadata(
+    uuid="8ffd2053-c04a-435a-84b3-a8403a5395db",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "581add16-df76-42bb-af8e-c979bfb39a59", "rule_name": "Deleting Backup Catalogs with Wbadmin"}],
+    techniques=["T1490"],
+)
 
 
 @common.requires_os(PLATFORMS)

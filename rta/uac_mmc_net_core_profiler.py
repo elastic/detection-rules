@@ -5,22 +5,21 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Binary Masquerading via Untrusted Path",
-            "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f",
-        },
+
+RtaMetadata(
+    uuid="33f20563-7d1b-46a4-8644-a563f2488120",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Binary Masquerading via Untrusted Path", "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f"},
         {
             "rule_name": "UAC Bypass Attempt via MMC DLL Search Order Hijacking",
             "rule_id": "28996098-b9be-4aa8-a1f3-4923c84b2649",
         },
     ],
-}
-TECHNIQUES = ["T1574", "T1548", "T1036"]
-RTA_ID = "33f20563-7d1b-46a4-8644-a563f2488120"
+    siem=[],
+    techniques=["T1574", "T1548", "T1036"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

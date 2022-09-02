@@ -14,18 +14,15 @@ import sys
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "45d273fb-1dca-457d-9855-bcb302180c21",
-            "rule_name": "Encrypting Files with WinRar or 7z",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1560"]
-RTA_ID = "6cd35061-278b-45e7-a9cb-86b48bc47884"
+
+RtaMetadata(
+    uuid="6cd35061-278b-45e7-a9cb-86b48bc47884",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "45d273fb-1dca-457d-9855-bcb302180c21", "rule_name": "Encrypting Files with WinRar or 7z"}],
+    techniques=["T1560"],
+)
+
 
 SEVENZIP = common.get_path("bin", "7za.exe")
 
@@ -58,9 +55,7 @@ def main(password="s0l33t"):
         if ext == "bz2":
             continue
 
-        common.execute(
-            [svnz2, "a", out_jpg, "-p" + password, "-t" + ext, exfil], mute=True
-        )
+        common.execute([svnz2, "a", out_jpg, "-p" + password, "-t" + ext, exfil], mute=True)
         common.remove_file(out_jpg)
 
     common.execute([SEVENZIP, "a", out_jpg, "-p" + password, exfil], mute=True)

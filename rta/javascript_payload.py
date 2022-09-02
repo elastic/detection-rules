@@ -6,18 +6,16 @@
 from . import common
 from time import sleep
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Download and Execution of JavaScript Payload",
-            "rule_id": "871f0c30-a7c5-40a5-80e3-a50c6714632f",
-        }
+
+RtaMetadata(
+    uuid="9332cece-38b7-49e1-9f8d-e879913ffdfb",
+    platforms=["macos"],
+    endpoint=[
+        {"rule_name": "Download and Execution of JavaScript Payload", "rule_id": "871f0c30-a7c5-40a5-80e3-a50c6714632f"}
     ],
-}
-TECHNIQUES = ["T1059"]
-RTA_ID = "9332cece-38b7-49e1-9f8d-e879913ffdfb"
+    siem=[],
+    techniques=["T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)

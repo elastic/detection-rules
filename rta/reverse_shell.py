@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["macos", "linux"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="83b04be5-ed0f-4efd-a7fd-d5db2b8ab62f",
+    platforms=["macos", "linux"],
+    endpoint=[
         {
             "rule_name": "Potential Reverse Shell Activity via Terminal",
             "rule_id": "d0e45f6c-1f83-4d97-a8d9-c8f9eb61c15c",
         }
     ],
-}
-TECHNIQUES = ["T1071", "T1059"]
-RTA_ID = "83b04be5-ed0f-4efd-a7fd-d5db2b8ab62f"
+    siem=[],
+    techniques=["T1071", "T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)

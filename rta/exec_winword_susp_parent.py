@@ -5,18 +5,20 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="65c661e6-7a15-45c0-97ad-0635eda560ba",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Suspicious Execution via Microsoft Office Add-Ins",
             "rule_id": "9efd977a-6d4a-4cc8-8ab3-355587b0ef69",
         }
     ],
-}
-TECHNIQUES = ["T1137", "T1566"]
-RTA_ID = "65c661e6-7a15-45c0-97ad-0635eda560ba"
+    siem=[],
+    techniques=["T1137", "T1566"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
@@ -27,9 +29,7 @@ def main():
     common.copy_file(EXE_FILE, winword)
 
     # Execute command
-    common.execute(
-        [powershell, "/c", winword, "/c", "echo", "doc.wll"], timeout=5, kill=True
-    )
+    common.execute([powershell, "/c", winword, "/c", "echo", "doc.wll"], timeout=5, kill=True)
     common.remove_file(winword)
 
 

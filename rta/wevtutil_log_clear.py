@@ -13,18 +13,14 @@ import time
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "d331bbe2-6db4-4941-80a5-8270db72eb61",
-            "rule_name": "Clearing Windows Event Logs",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1070"]
-RTA_ID = "12b28e92-281f-49a7-a8b3-54681ba6d63e"
+
+RtaMetadata(
+    uuid="12b28e92-281f-49a7-a8b3-54681ba6d63e",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "d331bbe2-6db4-4941-80a5-8270db72eb61", "rule_name": "Clearing Windows Event Logs"}],
+    techniques=["T1070"],
+)
 
 
 @common.requires_os(PLATFORMS)

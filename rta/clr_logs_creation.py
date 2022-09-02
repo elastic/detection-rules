@@ -6,31 +6,28 @@
 from . import common
 import os
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Execution from Unusual Directory",
-            "rule_id": "16c84e67-e5e7-44ff-aefa-4d771bcafc0c",
-        },
+
+RtaMetadata(
+    uuid="9bf3622b-dd76-4156-a89c-6845dca46b1f",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Execution from Unusual Directory", "rule_id": "16c84e67-e5e7-44ff-aefa-4d771bcafc0c"},
         {
             "rule_name": "Managed .NET Code Execution via Windows Script Interpreter",
             "rule_id": "5a898048-d98c-44c6-b7ba-f63a31eb3571",
         },
     ],
-}
-TECHNIQUES = ["T1220", "T1218", "T1055", "T1059"]
-RTA_ID = "9bf3622b-dd76-4156-a89c-6845dca46b1f"
+    siem=[],
+    techniques=["T1220", "T1218", "T1055", "T1059"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
 @common.requires_os(PLATFORMS)
 def main():
     msxsl = "C:\\Users\\Public\\msxsl.exe"
-    fake_clr_path = (
-        "C:\\Users\\Administrator\\AppData\\Local\\Microsoft\\CLR_v4.0\\UsageLogs"
-    )
+    fake_clr_path = "C:\\Users\\Administrator\\AppData\\Local\\Microsoft\\CLR_v4.0\\UsageLogs"
     fake_clr_logs = fake_clr_path + "\\msxsl.exe.log"
     common.copy_file(EXE_FILE, msxsl)
 

@@ -5,26 +5,22 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Potential Microsoft Office Sandbox Evasion",
-            "rule_id": "d22a85c6-d2ad-4cc4-bf7b-54787473669a",
-        }
+
+RtaMetadata(
+    uuid="dce9cb95-b97d-4874-ab7a-26382a1ba348",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[
+        {"rule_name": "Potential Microsoft Office Sandbox Evasion", "rule_id": "d22a85c6-d2ad-4cc4-bf7b-54787473669a"}
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1497"]
-RTA_ID = "dce9cb95-b97d-4874-ab7a-26382a1ba348"
+    techniques=["T1497"],
+)
 
 
 @common.requires_os(PLATFORMS)
 def main():
 
-    common.log(
-        "Creating suspicious zip file with special characters to mimic evasion of sanboxed office apps."
-    )
+    common.log("Creating suspicious zip file with special characters to mimic evasion of sanboxed office apps.")
     common.temporary_file_helper("testing", file_name="/tmp/~$test.zip")
 
 

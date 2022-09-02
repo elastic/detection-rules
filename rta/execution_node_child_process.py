@@ -5,23 +5,24 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Execution via Electron Child Process Node.js Module",
-            "rule_id": "35330ba2-c859-4c98-8b7f-c19159ea0e58",
-        }
-    ],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="20631e46-d3c4-45c0-bfa8-37f6b287db36",
+    platforms=["macos"],
+    endpoint=[
         {
             "rule_name": "Execution via Electron Child Process Node.js Module",
             "rule_id": "1d43f87d-2466-4714-8fef-d52816cc25fb",
         }
     ],
-}
-TECHNIQUES = ["T1548", "T1059"]
-RTA_ID = "20631e46-d3c4-45c0-bfa8-37f6b287db36"
+    siem=[
+        {
+            "rule_name": "Execution via Electron Child Process Node.js Module",
+            "rule_id": "35330ba2-c859-4c98-8b7f-c19159ea0e58",
+        }
+    ],
+    techniques=["T1548", "T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)

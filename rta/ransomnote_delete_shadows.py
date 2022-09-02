@@ -5,18 +5,14 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Potential Ransomware Note File",
-            "rule_id": "5dba1130-72df-46f1-b581-18d9c866cb23",
-        }
-    ],
-}
-TECHNIQUES = ["T1485"]
-RTA_ID = "2ab87570-d9ad-40f4-9f52-d5a2942e11ac"
+
+RtaMetadata(
+    uuid="2ab87570-d9ad-40f4-9f52-d5a2942e11ac",
+    platforms=["windows"],
+    endpoint=[{"rule_name": "Potential Ransomware Note File", "rule_id": "5dba1130-72df-46f1-b581-18d9c866cb23"}],
+    siem=[],
+    techniques=["T1485"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -28,9 +24,7 @@ def main():
     common.log("Deleting Shadow Copies and writing ransom note")
     common.execute([vssadmin, "delete", "shadows", "/For=C:"], timeout=10)
 
-    common.execute(
-        [powershell, "/c", "echo 'Ooops! All your' > readme.txt"], timeout=10
-    )
+    common.execute([powershell, "/c", "echo 'Ooops! All your' > readme.txt"], timeout=10)
 
 
 if __name__ == "__main__":

@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="38cea037-c1a8-4749-a434-ba4c7d6e91f8",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Privilege Escalation via Windir or SystemRoot Environment Variable",
             "rule_id": "18ffee0c-5f40-4dd8-aa9a-28251a308dbc",
         }
     ],
-}
-TECHNIQUES = ["T1574"]
-RTA_ID = "38cea037-c1a8-4749-a434-ba4c7d6e91f8"
+    siem=[],
+    techniques=["T1574"],
+)
 
 
 @common.requires_os(PLATFORMS)

@@ -20,22 +20,20 @@ if sys.version_info > (3,):
 else:
     urlliblib = "urllib"
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
+
+RtaMetadata(
+    uuid="cf94f5cc-5265-4287-80e5-82d9663ecf2e",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
         {
             "rule_id": "1fe3b299-fbb5-4657-a937-1d746f2c711a",
             "rule_name": "Unusual Network Activity from a Windows System Binary",
         },
-        {
-            "rule_id": "610949a1-312f-4e04-bb55-3a79b8c95267",
-            "rule_name": "Unusual Process Network Connection",
-        },
+        {"rule_id": "610949a1-312f-4e04-bb55-3a79b8c95267", "rule_name": "Unusual Process Network Connection"},
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1127"]
-RTA_ID = "cf94f5cc-5265-4287-80e5-82d9663ecf2e"
+    techniques=["T1127"],
+)
 
 
 process_names = [

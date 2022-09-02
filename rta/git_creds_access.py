@@ -6,18 +6,16 @@
 from . import common
 import os
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Sensitive File Access - Cloud Credentials",
-            "rule_id": "39f60a36-8c5a-4703-8576-ad3e8c800a0f",
-        }
+
+RtaMetadata(
+    uuid="e15ea2ec-c8a9-4203-8d01-d18d1c27fd58",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Sensitive File Access - Cloud Credentials", "rule_id": "39f60a36-8c5a-4703-8576-ad3e8c800a0f"}
     ],
-}
-TECHNIQUES = ["T1552"]
-RTA_ID = "e15ea2ec-c8a9-4203-8d01-d18d1c27fd58"
+    siem=[],
+    techniques=["T1552"],
+)
 
 
 @common.requires_os(PLATFORMS)

@@ -5,18 +5,14 @@
 
 from . import common
 
-PLATFORMS = ["macos", "linux"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "DARKRADIATION Ransomware Infection",
-            "rule_id": "33309858-3154-47a6-b601-eda2de62557b",
-        }
-    ],
-}
-TECHNIQUES = ["T1486"]
-RTA_ID = "4843eb25-3579-473a-b309-76d02eda3085"
+
+RtaMetadata(
+    uuid="4843eb25-3579-473a-b309-76d02eda3085",
+    platforms=["macos", "linux"],
+    endpoint=[{"rule_name": "DARKRADIATION Ransomware Infection", "rule_id": "33309858-3154-47a6-b601-eda2de62557b"}],
+    siem=[],
+    techniques=["T1486"],
+)
 
 
 @common.requires_os(PLATFORMS)

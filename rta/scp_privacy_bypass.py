@@ -5,23 +5,24 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Potential Privacy Control Bypass via Localhost Secure Copy",
-            "rule_id": "c02c8b9f-5e1d-463c-a1b0-04edcdfe1a3d",
-        }
-    ],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="75fec962-54a4-4bb1-80ea-995269e90b30",
+    platforms=["macos"],
+    endpoint=[
         {
             "rule_name": "Potential Privacy Control Bypass via Localhost Secure Copy",
             "rule_id": "55df8e91-fd3c-4cc1-b36f-f01ded8c6da3",
         }
     ],
-}
-TECHNIQUES = ["T1548"]
-RTA_ID = "75fec962-54a4-4bb1-80ea-995269e90b30"
+    siem=[
+        {
+            "rule_name": "Potential Privacy Control Bypass via Localhost Secure Copy",
+            "rule_id": "c02c8b9f-5e1d-463c-a1b0-04edcdfe1a3d",
+        }
+    ],
+    techniques=["T1548"],
+)
 
 
 @common.requires_os(PLATFORMS)

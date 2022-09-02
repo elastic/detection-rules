@@ -10,19 +10,15 @@
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {"SIEM": [], "ENDPOINT": []}
-TECHNIQUES = []
-RTA_ID = "332d6bb9-845f-401d-af5a-368f1f10e27a"
+
+RtaMetadata(uuid="332d6bb9-845f-401d-af5a-368f1f10e27a", platforms=["windows"], endpoint=[], siem=[], techniques=[])
 
 
 @common.requires_os(PLATFORMS)
 def main():
     path = "c:\\rta"
     common.log("Searching for passwords on %s" % path)
-    common.execute(
-        ["dir", path, "/s", "/b", "|", "findstr", "password"], shell=True, timeout=15
-    )
+    common.execute(["dir", path, "/s", "/b", "|", "findstr", "password"], shell=True, timeout=15)
 
 
 if __name__ == "__main__":

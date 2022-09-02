@@ -5,18 +5,14 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Persistence via Folder Action Script",
-            "rule_id": "c292fa52-4115-408a-b897-e14f684b3cb7",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1037", "T1059"]
-RTA_ID = "4e63cb99-b56d-4c75-9cda-3a7f30861d35"
+
+RtaMetadata(
+    uuid="4e63cb99-b56d-4c75-9cda-3a7f30861d35",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[{"rule_name": "Persistence via Folder Action Script", "rule_id": "c292fa52-4115-408a-b897-e14f684b3cb7"}],
+    techniques=["T1037", "T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -29,9 +25,7 @@ def main():
     common.create_macos_masquerade(masquerade2)
 
     # Execute command
-    common.log(
-        "Launching fake commands to mimic modification of a Folder Action script"
-    )
+    common.log("Launching fake commands to mimic modification of a Folder Action script")
     common.execute([masquerade, "childprocess", masquerade2], timeout=1, kill=True)
 
     # cleanup

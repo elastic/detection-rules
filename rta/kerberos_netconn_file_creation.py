@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="f8ffc63a-4a54-44a8-ac55-9c63e1bb584c",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Suspicious Credential Files Creation via Kerberos",
             "rule_id": "ced93ac0-f153-402f-9239-17ae32f304e2",
         }
     ],
-}
-TECHNIQUES = ["T1558", "T1021"]
-RTA_ID = "f8ffc63a-4a54-44a8-ac55-9c63e1bb584c"
+    siem=[],
+    techniques=["T1558", "T1021"],
+)
 
 
 @common.requires_os(PLATFORMS)

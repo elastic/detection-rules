@@ -5,18 +5,16 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Registry Run Key Prefixed with Asterisk",
-            "rule_id": "94d35931-5c48-49ed-8c18-d601c4f8aeaa",
-        }
+
+RtaMetadata(
+    uuid="13fbcfdc-ba84-414b-aaa6-49b416806c8e",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Registry Run Key Prefixed with Asterisk", "rule_id": "94d35931-5c48-49ed-8c18-d601c4f8aeaa"}
     ],
-}
-TECHNIQUES = ["T1547"]
-RTA_ID = "13fbcfdc-ba84-414b-aaa6-49b416806c8e"
+    siem=[],
+    techniques=["T1547"],
+)
 
 
 @common.requires_os(PLATFORMS)

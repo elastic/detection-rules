@@ -6,18 +6,19 @@
 from pathlib import Path
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
+
+RtaMetadata(
+    uuid="7548a786-50f7-40e5-8f8a-b005e9e8d864",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[
         {
             "rule_name": "Launch Agent Creation or Modification and Immediate Loading",
             "rule_id": "082e3f8c-6f80-485c-91eb-5b112cb79b28",
         }
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1543"]
-RTA_ID = "7548a786-50f7-40e5-8f8a-b005e9e8d864"
+    techniques=["T1543"],
+)
 
 
 @common.requires_os(PLATFORMS)

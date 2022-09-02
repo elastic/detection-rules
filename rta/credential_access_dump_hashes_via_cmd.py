@@ -5,23 +5,18 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Dumping Account Hashes via Built-In Commands",
-            "rule_id": "02ea4563-ec10-4974-b7de-12e65aa4f9b3",
-        }
+
+RtaMetadata(
+    uuid="0a6fcfaa-db5e-498f-9253-0f76b8a18687",
+    platforms=["macos"],
+    endpoint=[
+        {"rule_name": "Dumping Account Hashes via Built-In Commands", "rule_id": "2ed766db-e0b0-4a07-8ec1-4e41dd406b64"}
     ],
-    "ENDPOINT": [
-        {
-            "rule_name": "Dumping Account Hashes via Built-In Commands",
-            "rule_id": "2ed766db-e0b0-4a07-8ec1-4e41dd406b64",
-        }
+    siem=[
+        {"rule_name": "Dumping Account Hashes via Built-In Commands", "rule_id": "02ea4563-ec10-4974-b7de-12e65aa4f9b3"}
     ],
-}
-TECHNIQUES = ["T1003"]
-RTA_ID = "0a6fcfaa-db5e-498f-9253-0f76b8a18687"
+    techniques=["T1003"],
+)
 
 
 @common.requires_os(PLATFORMS)

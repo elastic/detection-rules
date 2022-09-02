@@ -5,27 +5,26 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="f94f70a3-7c63-4f75-b5bc-f2227e284934",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Privilege Escalation via Named Pipe Impersonation",
             "rule_id": "a0265178-779d-4bc5-b3f1-abb3bcddedab",
         }
     ],
-}
-TECHNIQUES = ["T1134"]
-RTA_ID = "f94f70a3-7c63-4f75-b5bc-f2227e284934"
+    siem=[],
+    techniques=["T1134"],
+)
 
 
 @common.requires_os(PLATFORMS)
 def main():
 
     # Execute command
-    common.execute(
-        ["cmd.exe", "/c", "'echo", "cmd.exe", ">", "\\\\.\\pipe\\named'"], timeout=5
-    )
+    common.execute(["cmd.exe", "/c", "'echo", "cmd.exe", ">", "\\\\.\\pipe\\named'"], timeout=5)
 
 
 if __name__ == "__main__":

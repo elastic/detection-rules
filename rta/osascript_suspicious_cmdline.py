@@ -5,18 +5,14 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Suspicious Apple Script Execution",
-            "rule_id": "7b9d544a-5b2a-4f0d-984a-cdc89a7fad25",
-        }
-    ],
-}
-TECHNIQUES = ["T1105", "T1059"]
-RTA_ID = "af8d27bb-1673-463f-8631-a5b30278cf33"
+
+RtaMetadata(
+    uuid="af8d27bb-1673-463f-8631-a5b30278cf33",
+    platforms=["macos"],
+    endpoint=[{"rule_name": "Suspicious Apple Script Execution", "rule_id": "7b9d544a-5b2a-4f0d-984a-cdc89a7fad25"}],
+    siem=[],
+    techniques=["T1105", "T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)

@@ -5,18 +5,16 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Suspicious Windows Service DLL Creation",
-            "rule_id": "2c624716-75a1-42d9-bcb8-1defcb9bded9",
-        }
+
+RtaMetadata(
+    uuid="58b3052d-4242-4b41-9f28-b04ce5962761",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Suspicious Windows Service DLL Creation", "rule_id": "2c624716-75a1-42d9-bcb8-1defcb9bded9"}
     ],
-}
-TECHNIQUES = ["T1543"]
-RTA_ID = "58b3052d-4242-4b41-9f28-b04ce5962761"
+    siem=[],
+    techniques=["T1543"],
+)
 
 
 @common.requires_os(PLATFORMS)

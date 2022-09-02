@@ -5,18 +5,16 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "CrashDump Disabled via Registry Modification",
-            "rule_id": "77ca3fcc-f607-45e0-837e-e4173e4ffc2a",
-        }
+
+RtaMetadata(
+    uuid="775ffaa8-7a44-490b-b13d-1bfa2100b1ae",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "CrashDump Disabled via Registry Modification", "rule_id": "77ca3fcc-f607-45e0-837e-e4173e4ffc2a"}
     ],
-}
-TECHNIQUES = ["T1112"]
-RTA_ID = "775ffaa8-7a44-490b-b13d-1bfa2100b1ae"
+    siem=[],
+    techniques=["T1112"],
+)
 
 
 @common.requires_os(PLATFORMS)

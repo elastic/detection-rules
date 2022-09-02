@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="bf7645b2-d0cf-428d-a158-b1479160e60c",
+    platforms=["macos"],
+    endpoint=[
         {
             "rule_name": "Payload Downloaded by Process Running in Suspicious Directory",
             "rule_id": "04d124d4-2be7-405e-b830-9494f927a51e",
         }
     ],
-}
-TECHNIQUES = ["T1105"]
-RTA_ID = "bf7645b2-d0cf-428d-a158-b1479160e60c"
+    siem=[],
+    techniques=["T1105"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -27,9 +28,7 @@ def main():
 
     # Execute command
     common.log("Launching fake curl commands to download payload")
-    common.execute(
-        [masquerade, "childprocess", "curl", "portquiz.net"], timeout=5, kill=True
-    )
+    common.execute([masquerade, "childprocess", "curl", "portquiz.net"], timeout=5, kill=True)
 
     # cleanup
     common.remove_file(masquerade)

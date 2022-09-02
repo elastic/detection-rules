@@ -13,10 +13,8 @@ import os
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {"SIEM": [], "ENDPOINT": []}
-TECHNIQUES = []
-RTA_ID = "5efc844c-0c11-4f84-a904-ada611315298"
+
+RtaMetadata(uuid="5efc844c-0c11-4f84-a904-ada611315298", platforms=["windows"], endpoint=[], siem=[], techniques=[])
 
 
 def encode(command):

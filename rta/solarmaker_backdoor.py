@@ -5,18 +5,16 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "SolarMarker Backdoor Registry Modification",
-            "rule_id": "f7e6d239-9af5-42e3-8d23-91e7188a5cb0",
-        }
+
+RtaMetadata(
+    uuid="c2786f8d-d565-494d-84e2-5dcb2da711c4",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "SolarMarker Backdoor Registry Modification", "rule_id": "f7e6d239-9af5-42e3-8d23-91e7188a5cb0"}
     ],
-}
-TECHNIQUES = ["T1112", "T1546"]
-RTA_ID = "c2786f8d-d565-494d-84e2-5dcb2da711c4"
+    siem=[],
+    techniques=["T1112", "T1546"],
+)
 
 
 @common.requires_os(PLATFORMS)

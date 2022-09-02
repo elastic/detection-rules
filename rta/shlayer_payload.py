@@ -5,18 +5,14 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Shlayer Malware Infection",
-            "rule_id": "3dda1ac2-86ef-41f5-ad3b-d9396383e104",
-        }
-    ],
-}
-TECHNIQUES = ["T1105"]
-RTA_ID = "c0f3618b-a7d9-403c-8b42-572da0b20f47"
+
+RtaMetadata(
+    uuid="c0f3618b-a7d9-403c-8b42-572da0b20f47",
+    platforms=["macos"],
+    endpoint=[{"rule_name": "Shlayer Malware Infection", "rule_id": "3dda1ac2-86ef-41f5-ad3b-d9396383e104"}],
+    siem=[],
+    techniques=["T1105"],
+)
 
 
 @common.requires_os(PLATFORMS)

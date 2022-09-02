@@ -5,23 +5,14 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Suspicious Emond Child Process",
-            "rule_id": "3e3d15c6-1509-479a-b125-21718372157e",
-        }
-    ],
-    "ENDPOINT": [
-        {
-            "rule_name": "Potential Persistence via Emond",
-            "rule_id": "1cd247d8-00e8-4c62-b9ee-90cd1811460b",
-        }
-    ],
-}
-TECHNIQUES = ["T1546"]
-RTA_ID = "d1988e82-a079-4fc2-99f7-2bdbc9af0e00"
+
+RtaMetadata(
+    uuid="d1988e82-a079-4fc2-99f7-2bdbc9af0e00",
+    platforms=["macos"],
+    endpoint=[{"rule_name": "Potential Persistence via Emond", "rule_id": "1cd247d8-00e8-4c62-b9ee-90cd1811460b"}],
+    siem=[{"rule_name": "Suspicious Emond Child Process", "rule_id": "3e3d15c6-1509-479a-b125-21718372157e"}],
+    techniques=["T1546"],
+)
 
 
 @common.requires_os(PLATFORMS)

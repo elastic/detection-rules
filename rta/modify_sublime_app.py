@@ -6,18 +6,19 @@
 from pathlib import Path
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
+
+RtaMetadata(
+    uuid="5fc46f6e-5a2a-4336-98f3-5fdc27db7152",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[
         {
             "rule_name": "Sublime Plugin or Application Script Modification",
             "rule_id": "88817a33-60d3-411f-ba79-7c905d865b2a",
         }
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1554"]
-RTA_ID = "5fc46f6e-5a2a-4336-98f3-5fdc27db7152"
+    techniques=["T1554"],
+)
 
 
 @common.requires_os(PLATFORMS)

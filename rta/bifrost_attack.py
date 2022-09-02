@@ -5,23 +5,16 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Potential Kerberos Attack via Bifrost",
-            "rule_id": "16904215-2c95-4ac8-bf5c-12354e047192",
-        }
+
+RtaMetadata(
+    uuid="057f2c1b-28cc-4286-92ce-75e789aa8e74",
+    platforms=["macos"],
+    endpoint=[
+        {"rule_name": "Potential Kerberos Attack via Bifrost", "rule_id": "fecebe4f-2d28-46e7-9bc1-71cdd8ecdd60"}
     ],
-    "ENDPOINT": [
-        {
-            "rule_name": "Potential Kerberos Attack via Bifrost",
-            "rule_id": "fecebe4f-2d28-46e7-9bc1-71cdd8ecdd60",
-        }
-    ],
-}
-TECHNIQUES = ["T1558", "T1550"]
-RTA_ID = "057f2c1b-28cc-4286-92ce-75e789aa8e74"
+    siem=[{"rule_name": "Potential Kerberos Attack via Bifrost", "rule_id": "16904215-2c95-4ac8-bf5c-12354e047192"}],
+    techniques=["T1558", "T1550"],
+)
 
 
 @common.requires_os(PLATFORMS)

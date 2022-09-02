@@ -5,18 +5,16 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Potential Credential Access via Mimikatz",
-            "rule_id": "86bf5d50-7f5d-44b4-977b-dff222379727",
-        }
+
+RtaMetadata(
+    uuid="75fdde39-92bb-4a71-a4f1-f70e9c85d6db",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Potential Credential Access via Mimikatz", "rule_id": "86bf5d50-7f5d-44b4-977b-dff222379727"}
     ],
-}
-TECHNIQUES = ["T1558", "T1003"]
-RTA_ID = "75fdde39-92bb-4a71-a4f1-f70e9c85d6db"
+    siem=[],
+    techniques=["T1558", "T1003"],
+)
 
 
 @common.requires_os(PLATFORMS)

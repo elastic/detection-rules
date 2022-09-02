@@ -5,25 +5,21 @@
 
 from . import common
 
-PLATFORMS = ["linux"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Privilege Escalation via PKEXEC Exploitation",
-            "rule_id": "30c89cc9-d93c-4134-a976-58f8413f2f32",
-        }
+
+RtaMetadata(
+    uuid="dc1baf0d-8048-481a-b142-73313181fe31",
+    platforms=["linux"],
+    endpoint=[
+        {"rule_name": "Privilege Escalation via PKEXEC Exploitation", "rule_id": "30c89cc9-d93c-4134-a976-58f8413f2f32"}
     ],
-}
-TECHNIQUES = ["T1574", "T1068"]
-RTA_ID = "dc1baf0d-8048-481a-b142-73313181fe31"
+    siem=[],
+    techniques=["T1574", "T1068"],
+)
 
 
 @common.requires_os(PLATFORMS)
 def main():
-    common.log(
-        "Executing command to simulate privilege escalation via PKEXEC exploitation"
-    )
+    common.log("Executing command to simulate privilege escalation via PKEXEC exploitation")
     # The exploit reproduction is available for commercial usage via MIT License
     # https://github.com/berdav/CVE-2021-4034/blob/main/LICENSE
     # The RTA script has complied binary in the /bin folder. Refer src folder for the origin code.

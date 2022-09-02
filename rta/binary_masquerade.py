@@ -6,18 +6,19 @@
 import platform
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="62eb4521-cfb8-4fb8-bc6d-792fe57273b7",
+    platforms=["macos"],
+    endpoint=[
         {
             "rule_name": "Potential Binary Masquerading via Invalid Code Signature",
             "rule_id": "4154c8ce-c718-4641-80db-a6a52276f1a4",
         }
     ],
-}
-TECHNIQUES = ["T1036"]
-RTA_ID = "62eb4521-cfb8-4fb8-bc6d-792fe57273b7"
+    siem=[],
+    techniques=["T1036"],
+)
 
 
 @common.requires_os(PLATFORMS)

@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="05f1f2a3-430d-4d20-9c0c-767d3b950cbb",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Script Execution via Microsoft HTML Application",
             "rule_id": "f0630213-c4c4-4898-9514-746395eb9962",
         }
     ],
-}
-TECHNIQUES = ["T1218"]
-RTA_ID = "05f1f2a3-430d-4d20-9c0c-767d3b950cbb"
+    siem=[],
+    techniques=["T1218"],
+)
 
 
 @common.requires_os(PLATFORMS)

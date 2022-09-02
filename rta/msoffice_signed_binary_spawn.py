@@ -5,22 +5,20 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="498c13e2-789c-4a6c-b32d-0589d2f907c2",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Signed Binary Execution via Microsoft Office",
             "rule_id": "321e7877-075a-4582-8eff-777dde15e787",
         },
-        {
-            "rule_name": "Execution via Renamed Signed Binary Proxy",
-            "rule_id": "b0207677-5041-470b-981d-13ab956cf5b4",
-        },
+        {"rule_name": "Execution via Renamed Signed Binary Proxy", "rule_id": "b0207677-5041-470b-981d-13ab956cf5b4"},
     ],
-}
-TECHNIQUES = ["T1574", "T1218", "T1566"]
-RTA_ID = "498c13e2-789c-4a6c-b32d-0589d2f907c2"
+    siem=[],
+    techniques=["T1574", "T1218", "T1566"],
+)
 
 
 @common.requires_os(PLATFORMS)

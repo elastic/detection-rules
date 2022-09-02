@@ -13,18 +13,14 @@ import time
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "f675872f-6d85-40a3-b502-c0d2ef101e92",
-            "rule_name": "Delete Volume USN Journal with Fsutil",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1070"]
-RTA_ID = "5d049893-b5ca-4482-a9ea-c38c6d01c171"
+
+RtaMetadata(
+    uuid="5d049893-b5ca-4482-a9ea-c38c6d01c171",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "f675872f-6d85-40a3-b502-c0d2ef101e92", "rule_name": "Delete Volume USN Journal with Fsutil"}],
+    techniques=["T1070"],
+)
 
 
 @common.requires_os(PLATFORMS)

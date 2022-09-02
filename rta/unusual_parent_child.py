@@ -14,26 +14,19 @@ import sys
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "35df0dd8-092d-4a83-88c1-5151a804f31b",
-            "rule_name": "Unusual Parent-Child Relationship",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1055"]
-RTA_ID = "6cf12026-f99f-4e5c-8cd4-3dbc7bce3e67"
+
+RtaMetadata(
+    uuid="6cf12026-f99f-4e5c-8cd4-3dbc7bce3e67",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "35df0dd8-092d-4a83-88c1-5151a804f31b", "rule_name": "Unusual Parent-Child Relationship"}],
+    techniques=["T1055"],
+)
 
 
 @common.requires_os(PLATFORMS)
 def main():
-    common.log(
-        "Running Windows processes with an unexpected parent of %s"
-        % os.path.basename(sys.executable)
-    )
+    common.log("Running Windows processes with an unexpected parent of %s" % os.path.basename(sys.executable))
     process_names = [
         # "C:\\Windows\\System32\\smss.exe", BSOD (avoid this)
         # "C:\\Windows\\System32\\csrss.exe", BSOD (avoid this)

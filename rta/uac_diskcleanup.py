@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="37b8d4d9-5acc-40c0-bc78-aba24a2c3f80",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "UAC Bypass via DiskCleanup Scheduled Task Hijack",
             "rule_id": "d487049e-381d-44ad-9ec9-d23e88dbf573",
         }
     ],
-}
-TECHNIQUES = ["T1548"]
-RTA_ID = "37b8d4d9-5acc-40c0-bc78-aba24a2c3f80"
+    siem=[],
+    techniques=["T1548"],
+)
 
 
 @common.requires_os(PLATFORMS)

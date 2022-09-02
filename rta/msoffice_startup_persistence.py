@@ -5,18 +5,20 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="ea9a54fe-62ed-4825-b302-0ebbee22233f",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Microsoft Office Process Setting Persistence via Startup",
             "rule_id": "2b8ea430-897d-486c-85a8-add9d7072ff3",
         }
     ],
-}
-TECHNIQUES = ["T1547", "T1566"]
-RTA_ID = "ea9a54fe-62ed-4825-b302-0ebbee22233f"
+    siem=[],
+    techniques=["T1547", "T1566"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

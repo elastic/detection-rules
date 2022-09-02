@@ -12,10 +12,8 @@ import os
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {"SIEM": [], "ENDPOINT": []}
-TECHNIQUES = []
-RTA_ID = "dc734786-66bd-4be6-bd06-eb41fa7b6745"
+
+RtaMetadata(uuid="dc734786-66bd-4be6-bd06-eb41fa7b6745", platforms=["windows"], endpoint=[], siem=[], techniques=[])
 
 
 @common.requires_os(PLATFORMS)

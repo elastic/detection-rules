@@ -14,22 +14,17 @@ import time
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "32f4675e-6c49-4ace-80f9-97c9259dca2e",
-            "rule_name": "Suspicious MS Outlook Child Process",
-        },
-        {
-            "rule_id": "a624863f-a70d-417f-a7d2-7a404638d47f",
-            "rule_name": "Suspicious MS Office Child Process",
-        },
+
+RtaMetadata(
+    uuid="a3cdd478-b817-4513-bb3d-897a5f92c836",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
+        {"rule_id": "32f4675e-6c49-4ace-80f9-97c9259dca2e", "rule_name": "Suspicious MS Outlook Child Process"},
+        {"rule_id": "a624863f-a70d-417f-a7d2-7a404638d47f", "rule_name": "Suspicious MS Office Child Process"},
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1566"]
-RTA_ID = "a3cdd478-b817-4513-bb3d-897a5f92c836"
+    techniques=["T1566"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -48,9 +43,7 @@ def main():
         app_path = os.path.abspath(application)
         common.copy_file(cmd_path, app_path)
 
-        common.execute(
-            [app_path, "/c", "wscript.exe", "script_path"], timeout=1, kill=True
-        )
+        common.execute([app_path, "/c", "wscript.exe", "script_path"], timeout=1, kill=True)
 
         common.log("Killing wscript window")
         common.execute("taskkill /IM wscript.exe")

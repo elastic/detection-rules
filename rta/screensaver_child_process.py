@@ -5,23 +5,24 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Unexpected Child Process of macOS Screensaver Engine",
-            "rule_id": "48d7f54d-c29e-4430-93a9-9db6b5892270",
-        }
-    ],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="adc70542-4d6e-4449-bf96-4cd44367bfbb",
+    platforms=["macos"],
+    endpoint=[
         {
             "rule_name": "Unexpected Child Process of macOS Screensaver Engine",
             "rule_id": "fba012f6-7aa8-448e-8f59-cdecce2845b5",
         }
     ],
-}
-TECHNIQUES = ["T1546"]
-RTA_ID = "adc70542-4d6e-4449-bf96-4cd44367bfbb"
+    siem=[
+        {
+            "rule_name": "Unexpected Child Process of macOS Screensaver Engine",
+            "rule_id": "48d7f54d-c29e-4430-93a9-9db6b5892270",
+        }
+    ],
+    techniques=["T1546"],
+)
 
 
 @common.requires_os(PLATFORMS)

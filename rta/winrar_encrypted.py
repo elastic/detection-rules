@@ -14,18 +14,15 @@ import sys
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "45d273fb-1dca-457d-9855-bcb302180c21",
-            "rule_name": "Encrypting Files with WinRar or 7z",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1560"]
-RTA_ID = "6d2d3c21-2d71-4395-8ab7-b1d0138d9225"
+
+RtaMetadata(
+    uuid="6d2d3c21-2d71-4395-8ab7-b1d0138d9225",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "45d273fb-1dca-457d-9855-bcb302180c21", "rule_name": "Encrypting Files with WinRar or 7z"}],
+    techniques=["T1560"],
+)
+
 
 MY_APP = common.get_path("bin", "myapp.exe")
 WINRAR = common.get_path("bin", "Rar.exe")

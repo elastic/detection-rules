@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="88905741-350f-4a20-a363-22be1e71840c",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Access to Windows Passwords Vault via Powershell",
             "rule_id": "7a4d1be2-db47-4545-a08c-9d4b20bad0d0",
         }
     ],
-}
-TECHNIQUES = ["T1555", "T1059"]
-RTA_ID = "88905741-350f-4a20-a363-22be1e71840c"
+    siem=[],
+    techniques=["T1555", "T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)

@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
+
+RtaMetadata(
+    uuid="23997dfa-9e30-4091-9ee2-8bd45a2da70a",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[
         {
             "rule_name": "Remote SSH Login Enabled via systemsetup Command",
             "rule_id": "5ae4e6f8-d1bf-40fa-96ba-e29645e1e4dc",
         }
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1021"]
-RTA_ID = "23997dfa-9e30-4091-9ee2-8bd45a2da70a"
+    techniques=["T1021"],
+)
 
 
 @common.requires_os(PLATFORMS)

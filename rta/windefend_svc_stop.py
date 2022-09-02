@@ -5,22 +5,20 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Binary Masquerading via Untrusted Path",
-            "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f",
-        },
+
+RtaMetadata(
+    uuid="811ccfc2-d0fc-4a2a-85f6-6dc1235278bf",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Binary Masquerading via Untrusted Path", "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f"},
         {
             "rule_name": "Attempt to Disable Windows Defender Services",
             "rule_id": "32ab2977-2932-4172-9117-36e382591818",
         },
     ],
-}
-TECHNIQUES = ["T1562", "T1036"]
-RTA_ID = "811ccfc2-d0fc-4a2a-85f6-6dc1235278bf"
+    siem=[],
+    techniques=["T1562", "T1036"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -30,9 +28,7 @@ def main():
     common.copy_file(powershell, tempshell)
 
     # Execute command
-    common.log(
-        "Attempting to stop Windefend, which will not work unless running as SYSTEM"
-    )
+    common.log("Attempting to stop Windefend, which will not work unless running as SYSTEM")
     common.execute([tempshell, "/c", "sc.exe stop Windefend"])
     common.remove_file(tempshell)
 

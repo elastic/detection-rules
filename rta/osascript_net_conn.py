@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
+
+RtaMetadata(
+    uuid="66407efa-a32e-4f4d-b339-def48e23e810",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[
         {
             "rule_name": "Apple Script Execution followed by Network Connection",
             "rule_id": "47f76567-d58a-4fed-b32b-21f571e28910",
         }
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1105", "T1059"]
-RTA_ID = "66407efa-a32e-4f4d-b339-def48e23e810"
+    techniques=["T1105", "T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -26,9 +27,7 @@ def main():
     common.copy_file("/usr/bin/curl", masquerade)
 
     # Execute command
-    common.log(
-        "Launching fake commands to mimic creating a network connection with osascript"
-    )
+    common.log("Launching fake commands to mimic creating a network connection with osascript")
     common.execute([masquerade, "portquiz.net"], timeout=10, kill=True)
 
     # cleanup

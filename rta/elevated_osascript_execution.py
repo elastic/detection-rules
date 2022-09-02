@@ -5,23 +5,24 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Apple Scripting Execution with Administrator Privileges",
-            "rule_id": "827f8d8f-4117-4ae4-b551-f56d54b9da6b",
-        }
-    ],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="086c6cae-22ac-47b6-bd24-85b33d8cf3a2",
+    platforms=["macos"],
+    endpoint=[
         {
             "rule_name": "Elevated Apple Script Execution via Unsigned Parent",
             "rule_id": "f17c8dcf-d65f-479a-b047-3558233f774e",
         }
     ],
-}
-TECHNIQUES = ["T1078", "T1548", "T1059"]
-RTA_ID = "086c6cae-22ac-47b6-bd24-85b33d8cf3a2"
+    siem=[
+        {
+            "rule_name": "Apple Scripting Execution with Administrator Privileges",
+            "rule_id": "827f8d8f-4117-4ae4-b551-f56d54b9da6b",
+        }
+    ],
+    techniques=["T1078", "T1548", "T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -34,9 +35,7 @@ def main():
     # Execute commands
     common.log("Launching fake osascript commands to mimic apple script execution")
     command = "osascript with administrator privileges"
-    common.execute(
-        [masquerade, "childprocess", command], shell=True, timeout=5, kill=True
-    )
+    common.execute([masquerade, "childprocess", command], shell=True, timeout=5, kill=True)
 
     # cleanup
     common.remove_file(masquerade)

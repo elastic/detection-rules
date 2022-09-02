@@ -5,18 +5,15 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "WMI Image Load via Microsoft Office",
-            "rule_id": "46952f58-6741-4280-8e74-fa43f63c9604",
-        }
-    ],
-}
-TECHNIQUES = ["T1047", "T1566"]
-RTA_ID = "d2671cc5-87d0-4612-9e3c-0862b137d242"
+
+RtaMetadata(
+    uuid="d2671cc5-87d0-4612-9e3c-0862b137d242",
+    platforms=["windows"],
+    endpoint=[{"rule_name": "WMI Image Load via Microsoft Office", "rule_id": "46952f58-6741-4280-8e74-fa43f63c9604"}],
+    siem=[],
+    techniques=["T1047", "T1566"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 
@@ -34,9 +31,7 @@ def main():
     common.copy_file(EXE_FILE, wmiprvse)
 
     common.log("Loading wmiutils.dll into fake winword")
-    common.execute(
-        [winword, "-c", f"Import-Module {ps1}; Invoke-ImageLoad {dll}"], timeout=10
-    )
+    common.execute([winword, "-c", f"Import-Module {ps1}; Invoke-ImageLoad {dll}"], timeout=10)
     common.execute([wmiprvse, "/c", "powershell"], timeout=1, kill=True)
     common.remove_files(winword, dll, ps1)
 

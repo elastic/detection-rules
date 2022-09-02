@@ -5,22 +5,18 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Execution from Unusual Directory",
-            "rule_id": "16c84e67-e5e7-44ff-aefa-4d771bcafc0c",
-        },
-        {
-            "rule_name": "Script Execution via MSXSL",
-            "rule_id": "de3615bc-4e50-485e-b3b5-8548ef6faa3d",
-        },
+
+RtaMetadata(
+    uuid="cd549ba9-63be-4eff-ab6c-f567445e1977",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Execution from Unusual Directory", "rule_id": "16c84e67-e5e7-44ff-aefa-4d771bcafc0c"},
+        {"rule_name": "Script Execution via MSXSL", "rule_id": "de3615bc-4e50-485e-b3b5-8548ef6faa3d"},
     ],
-}
-TECHNIQUES = ["T1220", "T1218", "T1059"]
-RTA_ID = "cd549ba9-63be-4eff-ab6c-f567445e1977"
+    siem=[],
+    techniques=["T1220", "T1218", "T1059"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
@@ -40,14 +36,10 @@ def main():
 
     # Execute command
     common.log("Modifying the OriginalFileName attribute")
-    common.execute(
-        [rcedit, msxsl, "--set-version-string", "OriginalFilename", "msxsl.exe"]
-    )
+    common.execute([rcedit, msxsl, "--set-version-string", "OriginalFilename", "msxsl.exe"])
 
     common.log("Loading scrobj.dll into fake msxsl")
-    common.execute(
-        [msxsl, "-c", f"Import-Module {ps1}; Invoke-ImageLoad {dll}"], timeout=10
-    )
+    common.execute([msxsl, "-c", f"Import-Module {ps1}; Invoke-ImageLoad {dll}"], timeout=10)
 
     common.remove_files(msxsl, dll, ps1, rcedit)
 

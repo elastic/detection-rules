@@ -7,22 +7,18 @@ import time
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Scriptlet Execution via Rundll32",
-            "rule_id": "93438ae3-becd-43fa-81de-645ce17afa8e",
-        },
-        {
-            "rule_name": "Binary Proxy Execution via Rundll32",
-            "rule_id": "f60455df-5054-49ff-9ff7-1dc4e37b6ea7",
-        },
+
+RtaMetadata(
+    uuid="7d139669-2b4c-4fc3-9a7c-bd1b643696dc",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Scriptlet Execution via Rundll32", "rule_id": "93438ae3-becd-43fa-81de-645ce17afa8e"},
+        {"rule_name": "Binary Proxy Execution via Rundll32", "rule_id": "f60455df-5054-49ff-9ff7-1dc4e37b6ea7"},
     ],
-}
-TECHNIQUES = ["T1218", "T1059"]
-RTA_ID = "7d139669-2b4c-4fc3-9a7c-bd1b643696dc"
+    siem=[],
+    techniques=["T1218", "T1059"],
+)
+
 INF_FILE = common.get_path("bin", "notepad_launch.inf")
 
 

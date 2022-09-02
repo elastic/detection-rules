@@ -5,18 +5,17 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Suspicious MS Office Execution via DCOM",
-            "rule_id": "6a714747-2671-4523-b233-744f119949b6",
-        }
+
+RtaMetadata(
+    uuid="456ec321-41c8-4a41-8f6f-40b8e3d1c295",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Suspicious MS Office Execution via DCOM", "rule_id": "6a714747-2671-4523-b233-744f119949b6"}
     ],
-}
-TECHNIQUES = ["T1112", "T1566"]
-RTA_ID = "456ec321-41c8-4a41-8f6f-40b8e3d1c295"
+    siem=[],
+    techniques=["T1112", "T1566"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
@@ -31,9 +30,7 @@ def main():
 
     with common.temporary_reg(common.HKCU, key, value, data):
         pass
-    common.execute(
-        [winword, "-c", "echo", "-Embedding", ";powershell"], timeout=5, kill=True
-    )
+    common.execute([winword, "-c", "echo", "-Embedding", ";powershell"], timeout=5, kill=True)
     common.remove_file(winword)
 
 

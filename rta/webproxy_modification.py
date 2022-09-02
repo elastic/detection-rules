@@ -5,18 +5,14 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "WebProxy Settings Modification",
-            "rule_id": "10a500bb-a28f-418e-ba29-ca4c8d1a9f2f",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1539"]
-RTA_ID = "bc6130d9-f4fd-46c6-bcfe-623be6c51a3b"
+
+RtaMetadata(
+    uuid="bc6130d9-f4fd-46c6-bcfe-623be6c51a3b",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[{"rule_name": "WebProxy Settings Modification", "rule_id": "10a500bb-a28f-418e-ba29-ca4c8d1a9f2f"}],
+    techniques=["T1539"],
+)
 
 
 @common.requires_os(PLATFORMS)

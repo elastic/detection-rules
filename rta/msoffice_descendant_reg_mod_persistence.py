@@ -5,18 +5,20 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="8fc20141-a73e-4c5e-9c9b-70acb69ab1dd",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Registry Persistence via Microsoft Office Descendant Process",
             "rule_id": "999e7a9a-334f-4b74-834f-a652f91531f2",
         }
     ],
-}
-TECHNIQUES = ["T1547", "T1112", "T1566"]
-RTA_ID = "8fc20141-a73e-4c5e-9c9b-70acb69ab1dd"
+    siem=[],
+    techniques=["T1547", "T1112", "T1566"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

@@ -5,22 +5,21 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="ca0cc06d-6a8f-4d9b-a9c2-9315c62f924a",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Suspicious Execution via Windows Management Instrumentation",
             "rule_id": "7e554c18-6435-41ce-b57b-d0ac3b73817f",
         },
-        {
-            "rule_name": "Microsoft Office File Execution via WMI",
-            "rule_id": "792411bd-59ef-4ac0-89be-786d52d1a5c8",
-        },
+        {"rule_name": "Microsoft Office File Execution via WMI", "rule_id": "792411bd-59ef-4ac0-89be-786d52d1a5c8"},
     ],
-}
-TECHNIQUES = ["T1047", "T1566"]
-RTA_ID = "ca0cc06d-6a8f-4d9b-a9c2-9315c62f924a"
+    siem=[],
+    techniques=["T1047", "T1566"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

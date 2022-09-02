@@ -15,18 +15,20 @@ import time
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
+
+RtaMetadata(
+    uuid="c62c65bf-248e-4f5a-ad4f-a48736c1d6f2",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
         {
             "rule_id": "7405ddf1-6c8e-41ce-818f-48bea6bcaed8",
             "rule_name": "Potential Modification of Accessibility Binaries",
         }
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1546"]
-RTA_ID = "c62c65bf-248e-4f5a-ad4f-a48736c1d6f2"
+    techniques=["T1546"],
+)
+
 
 TARGET_APP = common.get_path("bin", "myapp.exe")
 
@@ -86,15 +88,11 @@ def main():
     # Additional persistence
     common.log("Adding AppInit DLL")
     windows_base = "Software\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\"
-    common.write_reg(
-        common.HKLM, windows_base, "AppInit_Dlls", "evil.dll", restore=True, pause=True
-    )
+    common.write_reg(common.HKLM, windows_base, "AppInit_Dlls", "evil.dll", restore=True, pause=True)
 
     common.log("Adding AppCert DLL")
     appcertdlls_key = "System\\CurrentControlSet\\Control\\Session Manager\\AppCertDlls"
-    common.write_reg(
-        common.HKLM, appcertdlls_key, "evil", "evil.dll", restore=True, pause=True
-    )
+    common.write_reg(common.HKLM, appcertdlls_key, "evil", "evil.dll", restore=True, pause=True)
 
     debugger_targets = [
         "normalprogram.exe",
@@ -108,22 +106,14 @@ def main():
     ]
 
     for victim in debugger_targets:
-        common.log(
-            "Registering Image File Execution Options debugger for %s -> %s"
-            % (victim, TARGET_APP)
-        )
-        base_key = (
-            "Software\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\%s"
-            % victim
-        )
+        common.log("Registering Image File Execution Options debugger for %s -> %s" % (victim, TARGET_APP))
+        base_key = "Software\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\%s" % victim
         common.write_reg(common.HKLM, base_key, "Debugger", TARGET_APP, restore=True)
 
     # create new NetSh key value
     common.log("Adding a new NetSh Helper DLL")
     key = "Software\\Microsoft\\NetSh"
-    common.write_reg(
-        common.HKLM, key, "BadHelper", "c:\\windows\\system32\\BadHelper.dll"
-    )
+    common.write_reg(common.HKLM, key, "BadHelper", "c:\\windows\\system32\\BadHelper.dll")
 
     # modify the list of SSPs
     common.log("Adding a new SSP to the list of security packages")

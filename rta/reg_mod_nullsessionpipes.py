@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="a6263f00-58b4-4555-b88f-9d66a7395891",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Suspicious NullSessionPipe Registry Modification",
             "rule_id": "11d374d8-2dad-4d9b-83a2-ee908eac8269",
         }
     ],
-}
-TECHNIQUES = ["T1021", "T1112"]
-RTA_ID = "a6263f00-58b4-4555-b88f-9d66a7395891"
+    siem=[],
+    techniques=["T1021", "T1112"],
+)
 
 
 @common.requires_os(PLATFORMS)

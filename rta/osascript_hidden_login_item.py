@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
+
+RtaMetadata(
+    uuid="d00ef4d9-4690-4eb1-aa60-7ff3ce3bd75b",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[
         {
             "rule_name": "Creation of Hidden Login Item via Apple Script",
             "rule_id": "f24bcae1-8980-4b30-b5dd-f851b055c9e7",
         }
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1547", "T1059"]
-RTA_ID = "d00ef4d9-4690-4eb1-aa60-7ff3ce3bd75b"
+    techniques=["T1547", "T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)

@@ -5,18 +5,20 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="9e85eb9f-ee9e-4c73-8a83-14dd29a5aa80",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Connection to Dynamic DNS Provider by an Unsigned Binary",
             "rule_id": "75b80e66-90d0-4ab6-9e6b-976f7d690906",
         }
     ],
-}
-TECHNIQUES = ["T1071"]
-RTA_ID = "9e85eb9f-ee9e-4c73-8a83-14dd29a5aa80"
+    siem=[],
+    techniques=["T1071"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
@@ -27,9 +29,7 @@ def main():
 
     # Execute command
     common.log("Using PowerShell to connect to a DDNS provider website")
-    common.execute(
-        [posh, "/c", "iwr", "https://www.noip.com", "-UseBasicParsing"], timeout=10
-    )
+    common.execute([posh, "/c", "iwr", "https://www.noip.com", "-UseBasicParsing"], timeout=10)
     common.remove_file(posh)
 
 

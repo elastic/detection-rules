@@ -5,23 +5,24 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Screensaver Plist File Modified by Unexpected Process",
-            "rule_id": "e6e8912f-283f-4d0d-8442-e0dcaf49944b",
-        }
-    ],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="ce87d15a-9b72-42c4-8721-ae4bcff86a05",
+    platforms=["macos"],
+    endpoint=[
         {
             "rule_name": "Screensaver Plist File Modified by Unexpected Process",
             "rule_id": "ebae5222-71ba-4b73-afe9-8e034f8b4a04",
         }
     ],
-}
-TECHNIQUES = ["T1546"]
-RTA_ID = "ce87d15a-9b72-42c4-8721-ae4bcff86a05"
+    siem=[
+        {
+            "rule_name": "Screensaver Plist File Modified by Unexpected Process",
+            "rule_id": "e6e8912f-283f-4d0d-8442-e0dcaf49944b",
+        }
+    ],
+    techniques=["T1546"],
+)
 
 
 @common.requires_os(PLATFORMS)

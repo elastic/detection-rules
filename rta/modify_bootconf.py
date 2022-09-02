@@ -7,18 +7,15 @@ import os
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "BCDEdit Safe Mode Command Execution",
-            "rule_id": "6d660b32-23bf-434b-a588-1cdc91224664",
-        }
-    ],
-}
-TECHNIQUES = ["T1490", "T1218", "T1059"]
-RTA_ID = "672cd0e6-fa5a-468f-80c8-04f92bead469"
+
+RtaMetadata(
+    uuid="672cd0e6-fa5a-468f-80c8-04f92bead469",
+    platforms=["windows"],
+    endpoint=[{"rule_name": "BCDEdit Safe Mode Command Execution", "rule_id": "6d660b32-23bf-434b-a588-1cdc91224664"}],
+    siem=[],
+    techniques=["T1490", "T1218", "T1059"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed.exe")
 
 

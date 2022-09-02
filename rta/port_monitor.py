@@ -10,18 +10,19 @@
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
+
+RtaMetadata(
+    uuid="d7d1d0cf-a84a-4526-b0db-be59a210246e",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
         {
             "rule_id": "8f3e91c7-d791-4704-80a1-42c160d7aa27",
             "rule_name": "Potential Port Monitor or Print Processor Registration Abuse",
         }
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1547"]
-RTA_ID = "d7d1d0cf-a84a-4526-b0db-be59a210246e"
+    techniques=["T1547"],
+)
 
 
 @common.requires_os(PLATFORMS)

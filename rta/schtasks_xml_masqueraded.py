@@ -5,26 +5,25 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="4bb0b65e-8e78-4680-ab37-d6c0723f97a9",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Suspicious Scheduled Task Creation via Masqueraded XML File",
             "rule_id": "1efc0496-106b-4c09-b99b-91cdd17ba7b3",
         }
     ],
-}
-TECHNIQUES = ["T1053", "T1036"]
-RTA_ID = "4bb0b65e-8e78-4680-ab37-d6c0723f97a9"
+    siem=[],
+    techniques=["T1053", "T1036"],
+)
 
 
 @common.requires_os(PLATFORMS)
 def main():
     # Execute Command
-    common.log(
-        "Executing command to simulate the task creation (This will not create a task)"
-    )
+    common.log("Executing command to simulate the task creation (This will not create a task)")
     common.execute(["schtasks.exe", "/CREATE", "/XML", "update", "/TN", "Test", "/F"])
 
 

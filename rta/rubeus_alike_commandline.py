@@ -5,18 +5,16 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Potential Credential Access via Rubeus",
-            "rule_id": "0783f666-75ad-4015-9dd5-d39baec8f6b0",
-        }
+
+RtaMetadata(
+    uuid="85cf6796-5f53-4fed-a5cb-8b211882543c",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Potential Credential Access via Rubeus", "rule_id": "0783f666-75ad-4015-9dd5-d39baec8f6b0"}
     ],
-}
-TECHNIQUES = ["T1558"]
-RTA_ID = "85cf6796-5f53-4fed-a5cb-8b211882543c"
+    siem=[],
+    techniques=["T1558"],
+)
 
 
 @common.requires_os(PLATFORMS)

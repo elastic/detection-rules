@@ -5,18 +5,17 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Suspicious Execution from MSSQL Service",
-            "rule_id": "547636af-cad2-4be0-a74e-613c7bb86664",
-        }
+
+RtaMetadata(
+    uuid="0885b643-a199-4453-95e0-be0d1f29aafc",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Suspicious Execution from MSSQL Service", "rule_id": "547636af-cad2-4be0-a74e-613c7bb86664"}
     ],
-}
-TECHNIQUES = ["T1059"]
-RTA_ID = "0885b643-a199-4453-95e0-be0d1f29aafc"
+    siem=[],
+    techniques=["T1059"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

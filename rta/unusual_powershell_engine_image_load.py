@@ -5,18 +5,14 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Unusual PowerShell Engine ImageLoad",
-            "rule_id": "f57505bb-a1d2-4d3b-b7b5-1d81d7bdb80e",
-        }
-    ],
-}
-TECHNIQUES = ["T1059"]
-RTA_ID = "a5d82c62-6d4e-4d31-94f2-a996c9613604"
+
+RtaMetadata(
+    uuid="a5d82c62-6d4e-4d31-94f2-a996c9613604",
+    platforms=["windows"],
+    endpoint=[{"rule_name": "Unusual PowerShell Engine ImageLoad", "rule_id": "f57505bb-a1d2-4d3b-b7b5-1d81d7bdb80e"}],
+    siem=[],
+    techniques=["T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)

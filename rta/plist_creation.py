@@ -6,18 +6,19 @@
 from . import common
 from pathlib import Path
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="12e70377-e24e-4374-8aec-42064614d706",
+    platforms=["macos"],
+    endpoint=[
         {
             "rule_name": "Suspicious Property List File Creation or Modification",
             "rule_id": "901f0c30-a7c5-40a5-80e3-a50c6714432f",
         }
     ],
-}
-TECHNIQUES = ["T1547", "T1543"]
-RTA_ID = "12e70377-e24e-4374-8aec-42064614d706"
+    siem=[],
+    techniques=["T1547", "T1543"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -38,17 +39,11 @@ def main():
         shell=True,
     )
     common.pause()
-    common.execute(
-        [f"{plistbuddy_bin}", "-c", "Add :RunAtLoad bool true", f"{plist_file}"]
-    )
+    common.execute([f"{plistbuddy_bin}", "-c", "Add :RunAtLoad bool true", f"{plist_file}"])
     common.pause()
-    common.execute(
-        [f"{plistbuddy_bin}", "-c", "Add :StartInterval integer 3600", f"{plist_file}"]
-    )
+    common.execute([f"{plistbuddy_bin}", "-c", "Add :StartInterval integer 3600", f"{plist_file}"])
     common.pause()
-    common.execute(
-        [f"{plistbuddy_bin}", "-c", "Add :ProgramArguments array", f"{plist_file}"]
-    )
+    common.execute([f"{plistbuddy_bin}", "-c", "Add :ProgramArguments array", f"{plist_file}"])
     common.pause()
     common.execute(
         [

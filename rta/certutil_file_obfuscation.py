@@ -13,18 +13,14 @@ import os
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "fd70c98a-c410-42dc-a2e3-761c71848acf",
-            "rule_name": "Suspicious CertUtil Commands",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1140"]
-RTA_ID = "7b2c1b3e-2097-4e2f-bf5c-e157a91b8001"
+
+RtaMetadata(
+    uuid="7b2c1b3e-2097-4e2f-bf5c-e157a91b8001",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "fd70c98a-c410-42dc-a2e3-761c71848acf", "rule_name": "Suspicious CertUtil Commands"}],
+    techniques=["T1140"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -42,9 +38,7 @@ def main():
     )
 
     common.log("Decoding target")
-    common.execute(
-        ["c:\\Windows\\System32\\certutil.exe", "-decode", encoded_file, decoded_file]
-    )
+    common.execute(["c:\\Windows\\System32\\certutil.exe", "-decode", encoded_file, decoded_file])
 
     common.log("Cleaning up")
     common.remove_file(encoded_file)

@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
+
+RtaMetadata(
+    uuid="762adc57-58c2-413d-a98d-258a223c07da",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[
         {
             "rule_name": "LaunchDaemon Creation or Modification and Immediate Loading",
             "rule_id": "9d19ece6-c20e-481a-90c5-ccca596537de",
         }
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1543"]
-RTA_ID = "762adc57-58c2-413d-a98d-258a223c07da"
+    techniques=["T1543"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -29,9 +30,7 @@ def main():
     common.temporary_file_helper("testing", file_name=payload_file)
 
     # Execute command
-    common.log(
-        "Launching fake launchctl command to mimic LaunchDaemons payload persistence"
-    )
+    common.log("Launching fake launchctl command to mimic LaunchDaemons payload persistence")
     common.execute([masquerade, "load"], timeout=10, kill=True)
 
     # cleanup

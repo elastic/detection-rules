@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="b11e12a4-271c-427f-b215-12a7a25cb3be",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Inhibit System Recovery via Obfuscated Commands",
             "rule_id": "99358f31-a84a-4f92-bb91-4370083acda0",
         }
     ],
-}
-TECHNIQUES = ["T1490", "T1047", "T1059"]
-RTA_ID = "b11e12a4-271c-427f-b215-12a7a25cb3be"
+    siem=[],
+    techniques=["T1490", "T1047", "T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)

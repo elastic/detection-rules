@@ -5,26 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Binary Masquerading via Untrusted Path",
-            "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f",
-        },
-        {
-            "rule_name": "Potential Masquerading as SVCHOST",
-            "rule_id": "5b00c9ba-9546-47cc-8f9f-1c1a3e95f65c",
-        },
-        {
-            "rule_name": "Suspicious Windows Schedule Child Process",
-            "rule_id": "eb04896b-935f-4d12-b2ad-579db82e1f42",
-        },
+
+RtaMetadata(
+    uuid="e9ee4f0c-b8c6-4471-b132-1edf4a7ca441",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Binary Masquerading via Untrusted Path", "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f"},
+        {"rule_name": "Potential Masquerading as SVCHOST", "rule_id": "5b00c9ba-9546-47cc-8f9f-1c1a3e95f65c"},
+        {"rule_name": "Suspicious Windows Schedule Child Process", "rule_id": "eb04896b-935f-4d12-b2ad-579db82e1f42"},
     ],
-}
-TECHNIQUES = ["T1218", "T1036", "T1216", "T1220", "T1053", "T1059"]
-RTA_ID = "e9ee4f0c-b8c6-4471-b132-1edf4a7ca441"
+    siem=[],
+    techniques=["T1218", "T1036", "T1216", "T1220", "T1053", "T1059"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

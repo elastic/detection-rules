@@ -5,18 +5,20 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="ab957b94-2c39-49dd-93cf-f1e40394ff1b",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "UAC Bypass Attempt via WOW64 Logger DLL Side-Loading",
             "rule_id": "28a39a43-e850-4941-8605-ffa23dcfd25a",
         }
     ],
-}
-TECHNIQUES = ["T1574", "T1548"]
-RTA_ID = "ab957b94-2c39-49dd-93cf-f1e40394ff1b"
+    siem=[],
+    techniques=["T1574", "T1548"],
+)
+
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
 
@@ -33,9 +35,7 @@ def main():
     common.copy_file(RENAMER, rcedit)
 
     common.log("Modifying the OriginalFileName attribute to invalidate the signature")
-    common.execute(
-        [rcedit, dll, "--set-version-string", "OriginalFilename", "wow64log.dll"]
-    )
+    common.execute([rcedit, dll, "--set-version-string", "OriginalFilename", "wow64log.dll"])
 
     common.log("Loading wow64log.dll and spawning a high integrity process")
     common.execute(

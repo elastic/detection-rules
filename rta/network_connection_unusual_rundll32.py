@@ -5,22 +5,18 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Binary Masquerading via Untrusted Path",
-            "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f",
-        },
-        {
-            "rule_name": "Unusual Network Connection via RunDLL32",
-            "rule_id": "2e708541-c6e8-4ded-923f-78a6c160987e",
-        },
+
+RtaMetadata(
+    uuid="1bb39cea-8bf2-4b1f-a70e-69f6074a1fb4",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Binary Masquerading via Untrusted Path", "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f"},
+        {"rule_name": "Unusual Network Connection via RunDLL32", "rule_id": "2e708541-c6e8-4ded-923f-78a6c160987e"},
     ],
-}
-TECHNIQUES = ["T1055", "T1218", "T1036"]
-RTA_ID = "1bb39cea-8bf2-4b1f-a70e-69f6074a1fb4"
+    siem=[],
+    techniques=["T1055", "T1218", "T1036"],
+)
+
 EXE_FILE = common.get_path("bin", "regsvr32.exe")
 
 

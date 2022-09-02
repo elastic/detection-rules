@@ -5,23 +5,16 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Suspicious Automator Workflows Execution",
-            "rule_id": "5d9f8cfc-0d03-443e-a167-2b0597ce0965",
-        }
+
+RtaMetadata(
+    uuid="6294e8bd-a82e-4d60-9de7-cceb639e91d9",
+    platforms=["macos"],
+    endpoint=[
+        {"rule_name": "Suspicious Automator Workflows Execution", "rule_id": "e390d36d-c739-43ee-9e3d-5a76fa853bd5"}
     ],
-    "ENDPOINT": [
-        {
-            "rule_name": "Suspicious Automator Workflows Execution",
-            "rule_id": "e390d36d-c739-43ee-9e3d-5a76fa853bd5",
-        }
-    ],
-}
-TECHNIQUES = ["T1059"]
-RTA_ID = "6294e8bd-a82e-4d60-9de7-cceb639e91d9"
+    siem=[{"rule_name": "Suspicious Automator Workflows Execution", "rule_id": "5d9f8cfc-0d03-443e-a167-2b0597ce0965"}],
+    techniques=["T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)

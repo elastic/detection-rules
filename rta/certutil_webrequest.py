@@ -10,18 +10,15 @@
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "3838e0e3-1850-4850-a411-2e8c5ba40ba8",
-            "rule_name": "Network Connection via Certutil",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1105"]
-RTA_ID = "10609a63-0013-4fd0-9322-66c86c1c9501"
+
+RtaMetadata(
+    uuid="10609a63-0013-4fd0-9322-66c86c1c9501",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "3838e0e3-1850-4850-a411-2e8c5ba40ba8", "rule_name": "Network Connection via Certutil"}],
+    techniques=["T1105"],
+)
+
 
 MY_DLL = common.get_path("bin", "mydll.dll")
 

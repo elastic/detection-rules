@@ -5,18 +5,14 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Suspicious Browser Child Process",
-            "rule_id": "080bc66a-5d56-4d1f-8071-817671716db9",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1203", "T1189"]
-RTA_ID = "459d7b3c-2c6d-4101-b830-d6c317d4b355"
+
+RtaMetadata(
+    uuid="459d7b3c-2c6d-4101-b830-d6c317d4b355",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[{"rule_name": "Suspicious Browser Child Process", "rule_id": "080bc66a-5d56-4d1f-8071-817671716db9"}],
+    techniques=["T1203", "T1189"],
+)
 
 
 @common.requires_os(PLATFORMS)

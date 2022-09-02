@@ -5,18 +5,16 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Attempt to Mount SMB Share via Command Line",
-            "rule_id": "661545b4-1a90-4f45-85ce-2ebd7c6a15d0",
-        }
+
+RtaMetadata(
+    uuid="d275922f-a702-4668-a77d-c60e8df58646",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[
+        {"rule_name": "Attempt to Mount SMB Share via Command Line", "rule_id": "661545b4-1a90-4f45-85ce-2ebd7c6a15d0"}
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1021"]
-RTA_ID = "d275922f-a702-4668-a77d-c60e8df58646"
+    techniques=["T1021"],
+)
 
 
 @common.requires_os(PLATFORMS)

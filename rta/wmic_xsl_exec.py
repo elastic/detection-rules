@@ -5,22 +5,18 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Binary Masquerading via Untrusted Path",
-            "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f",
-        },
-        {
-            "rule_name": "Suspicious WMIC XSL Script Execution",
-            "rule_id": "18371ec4-ee2f-465b-8757-ee726914006c",
-        },
+
+RtaMetadata(
+    uuid="b9d5427a-33c4-4b1d-838d-f47c5f3b0b43",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Binary Masquerading via Untrusted Path", "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f"},
+        {"rule_name": "Suspicious WMIC XSL Script Execution", "rule_id": "18371ec4-ee2f-465b-8757-ee726914006c"},
     ],
-}
-TECHNIQUES = ["T1220", "T1047", "T1036"]
-RTA_ID = "b9d5427a-33c4-4b1d-838d-f47c5f3b0b43"
+    siem=[],
+    techniques=["T1220", "T1047", "T1036"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 

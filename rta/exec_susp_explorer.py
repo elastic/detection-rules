@@ -5,18 +5,16 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Suspicious Windows Explorer Execution",
-            "rule_id": "f8ec5b76-53cf-4989-b451-7d16abec7298",
-        }
+
+RtaMetadata(
+    uuid="76050b81-a8da-43d2-8a83-f18b31162b94",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Suspicious Windows Explorer Execution", "rule_id": "f8ec5b76-53cf-4989-b451-7d16abec7298"}
     ],
-}
-TECHNIQUES = ["T1055", "T1036"]
-RTA_ID = "76050b81-a8da-43d2-8a83-f18b31162b94"
+    siem=[],
+    techniques=["T1055", "T1036"],
+)
 
 
 @common.requires_os(PLATFORMS)

@@ -9,10 +9,8 @@
 #              files, such as etc/shadow and etc/passwd
 from . import common
 
-PLATFORMS = [common.LINUX]
-TRIGGERED_RULES = {"SIEM": [], "ENDPOINT": []}
-TECHNIQUES = []
-RTA_ID = "82358d3d-6f04-42d0-a182-db37cf98294e"
+
+RtaMetadata(uuid="82358d3d-6f04-42d0-a182-db37cf98294e", platforms=["linux"], endpoint=[], siem=[], techniques=[])
 
 
 @common.requires_os(PLATFORMS)

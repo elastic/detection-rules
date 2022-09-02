@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="4d9af153-a878-4ae3-b6c4-b3f14e516f25",
+    platforms=["macos"],
+    endpoint=[
         {
             "rule_name": "Manual Loading of a Suspicious Chromium Extension",
             "rule_id": "e8d52cc6-8785-43d2-8e98-30f07e19e16c",
         }
     ],
-}
-TECHNIQUES = ["T1176"]
-RTA_ID = "4d9af153-a878-4ae3-b6c4-b3f14e516f25"
+    siem=[],
+    techniques=["T1176"],
+)
 
 
 @common.requires_os(PLATFORMS)

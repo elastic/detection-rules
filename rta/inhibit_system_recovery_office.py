@@ -5,10 +5,11 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="aa05a870-7075-42f9-a009-49aa75ea99fa",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Inhibit System Recovery via Untrusted Parent Process",
             "rule_id": "d3588fad-43ae-4f2d-badd-15a27df72132",
@@ -18,9 +19,10 @@ TRIGGERED_RULES = {
             "rule_id": "58a08390-e69d-4b32-9487-1d1ddb16ba09",
         },
     ],
-}
-TECHNIQUES = ["T1490", "T1047", "T1566"]
-RTA_ID = "aa05a870-7075-42f9-a009-49aa75ea99fa"
+    siem=[],
+    techniques=["T1490", "T1047", "T1566"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed.exe")
 
 

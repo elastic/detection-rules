@@ -5,30 +5,23 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Suspicious Windows Script File Name",
-            "rule_id": "8c69476a-d8ea-46da-8052-6a4f9254125c",
-        },
-        {
-            "rule_name": "Execution from Unusual Directory",
-            "rule_id": "16c84e67-e5e7-44ff-aefa-4d771bcafc0c",
-        },
-        {
-            "rule_name": "Binary Masquerading via Untrusted Path",
-            "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f",
-        },
+
+RtaMetadata(
+    uuid="84579cd0-2b30-4846-9b4e-9663ae2c400a",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Suspicious Windows Script File Name", "rule_id": "8c69476a-d8ea-46da-8052-6a4f9254125c"},
+        {"rule_name": "Execution from Unusual Directory", "rule_id": "16c84e67-e5e7-44ff-aefa-4d771bcafc0c"},
+        {"rule_name": "Binary Masquerading via Untrusted Path", "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f"},
         {
             "rule_name": "Script Execution via Microsoft HTML Application",
             "rule_id": "f0630213-c4c4-4898-9514-746395eb9962",
         },
     ],
-}
-TECHNIQUES = ["T1036", "T1218", "T1566", "T1059"]
-RTA_ID = "84579cd0-2b30-4846-9b4e-9663ae2c400a"
+    siem=[],
+    techniques=["T1036", "T1218", "T1566", "T1059"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
 

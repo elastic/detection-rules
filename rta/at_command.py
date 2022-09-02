@@ -15,10 +15,8 @@ import sys
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {"SIEM": [], "ENDPOINT": []}
-TECHNIQUES = []
-RTA_ID = "961d7a1f-7bad-41d5-a3d9-8e8a2f59a824"
+
+RtaMetadata(uuid="961d7a1f-7bad-41d5-a3d9-8e8a2f59a824", platforms=["windows"], endpoint=[], siem=[], techniques=[])
 
 
 @common.requires_os(PLATFORMS)
@@ -28,9 +26,7 @@ def main(target_host=None):
 
     # Current time at \\localhost is 11/16/2017 11:25:50 AM
     code, output = common.execute(["net", "time", host_str])
-    match = re.search(
-        r"Current time at .*? is (\d+)/(\d+)/(\d+) (\d+):(\d+):(\d+) (AM|PM)", output
-    )
+    match = re.search(r"Current time at .*? is (\d+)/(\d+)/(\d+) (\d+):(\d+):(\d+) (AM|PM)", output)
     groups = match.groups()
     m, d, y, hh, mm, ss, period = groups
     now = datetime.datetime(
@@ -54,9 +50,7 @@ def main(target_host=None):
     common.execute(["at.exe", host_str])
 
     # Create a job 1 hour into the future
-    code, output = common.execute(
-        ["at", host_str, time_string, "cmd /c echo hello world"]
-    )
+    code, output = common.execute(["at", host_str, time_string, "cmd /c echo hello world"])
 
     if code == 1 and "deprecated" in output:
         common.log("Unable to continue RTA. Not supported in this version of Windows")

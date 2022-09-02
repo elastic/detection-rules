@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="1a483c55-443d-4d01-a9de-e2c69df744f3",
+    platforms=["macos"],
+    endpoint=[
         {
             "rule_name": "Initial Access or Execution via Microsoft Office Application",
             "rule_id": "64021ef9-19d3-4797-ac3c-79e38d5e5a5a",
         }
     ],
-}
-TECHNIQUES = ["T1105", "T1140", "T1027", "T1566", "T1547", "T1204", "T1059"]
-RTA_ID = "1a483c55-443d-4d01-a9de-e2c69df744f3"
+    siem=[],
+    techniques=["T1105", "T1140", "T1027", "T1566", "T1547", "T1204", "T1059"],
+)
 
 
 @common.requires_os(PLATFORMS)

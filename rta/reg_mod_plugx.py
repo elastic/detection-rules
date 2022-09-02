@@ -5,18 +5,16 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Potential PlugX Registry Modification",
-            "rule_id": "7a201712-9f3c-4f40-b4fc-2418a44b8ecb",
-        }
+
+RtaMetadata(
+    uuid="31fdd029-5fac-474f-9201-3b7bfb60e0cf",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Potential PlugX Registry Modification", "rule_id": "7a201712-9f3c-4f40-b4fc-2418a44b8ecb"}
     ],
-}
-TECHNIQUES = ["T1547", "T1112", "T1219"]
-RTA_ID = "31fdd029-5fac-474f-9201-3b7bfb60e0cf"
+    siem=[],
+    techniques=["T1547", "T1112", "T1219"],
+)
 
 
 @common.requires_os(PLATFORMS)

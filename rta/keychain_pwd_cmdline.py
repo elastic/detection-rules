@@ -5,23 +5,21 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Keychain Password Retrieval via Command Line",
-            "rule_id": "9092cd6c-650f-4fa3-8a8a-28256c7489c9",
-        }
-    ],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="f964558b-0674-4c97-afcc-42d4b6a813c6",
+    platforms=["macos"],
+    endpoint=[
         {
             "rule_name": "Web Browsers Password Access via Command Line",
             "rule_id": "77d71ede-3025-4c71-bb99-ada7c344bf89",
         }
     ],
-}
-TECHNIQUES = ["T1555"]
-RTA_ID = "f964558b-0674-4c97-afcc-42d4b6a813c6"
+    siem=[
+        {"rule_name": "Keychain Password Retrieval via Command Line", "rule_id": "9092cd6c-650f-4fa3-8a8a-28256c7489c9"}
+    ],
+    techniques=["T1555"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -32,9 +30,7 @@ def main():
 
     # Execute command
     common.log("Launching fake commands to collect credentials")
-    common.execute(
-        [masquerade, "-wa", "find-generic-password", "Chrome"], timeout=10, kill=True
-    )
+    common.execute([masquerade, "-wa", "find-generic-password", "Chrome"], timeout=10, kill=True)
 
     # cleanup
     common.remove_file(masquerade)

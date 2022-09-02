@@ -5,18 +5,17 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Suspicious Microsoft Office Child Process",
-            "rule_id": "c34a9dca-66cf-4283-944d-1800b28ae690",
-        }
+
+RtaMetadata(
+    uuid="c798f63a-f8be-459a-bb75-407e97f55faa",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Suspicious Microsoft Office Child Process", "rule_id": "c34a9dca-66cf-4283-944d-1800b28ae690"}
     ],
-}
-TECHNIQUES = ["T1566"]
-RTA_ID = "c798f63a-f8be-459a-bb75-407e97f55faa"
+    siem=[],
+    techniques=["T1566"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed.exe")
 
 

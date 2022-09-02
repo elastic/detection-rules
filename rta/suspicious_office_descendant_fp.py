@@ -13,18 +13,14 @@ import time
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "a624863f-a70d-417f-a7d2-7a404638d47f",
-            "rule_name": "Suspicious MS Office Child Process",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1566"]
-RTA_ID = "e6d124ee-27d3-48a6-8c59-354072ec9e00"
+
+RtaMetadata(
+    uuid="e6d124ee-27d3-48a6-8c59-354072ec9e00",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "a624863f-a70d-417f-a7d2-7a404638d47f", "rule_name": "Suspicious MS Office Child Process"}],
+    techniques=["T1566"],
+)
 
 
 @common.requires_os(PLATFORMS)

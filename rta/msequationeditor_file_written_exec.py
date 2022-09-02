@@ -5,22 +5,21 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="a0b7435a-1f48-4fae-b3dc-c596dc70490d",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Execution of File Written or Modified by Microsoft Equation Editor",
             "rule_id": "8bc4f22c-9bb1-4c76-a7b6-195bee3579db",
         },
-        {
-            "rule_name": "Microsoft Equation Editor Child Process",
-            "rule_id": "60eb5960-b26e-494a-8cf2-35ab5939f6c1",
-        },
+        {"rule_name": "Microsoft Equation Editor Child Process", "rule_id": "60eb5960-b26e-494a-8cf2-35ab5939f6c1"},
     ],
-}
-TECHNIQUES = ["T1203", "T1566"]
-RTA_ID = "a0b7435a-1f48-4fae-b3dc-c596dc70490d"
+    siem=[],
+    techniques=["T1203", "T1566"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 

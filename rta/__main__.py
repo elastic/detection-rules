@@ -45,12 +45,18 @@ def run(ttp_name: str, *args):
     return module.main(*args)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser("rta")
     parser.add_argument("-n", "--name", dest="name", help="Name of test to execute. E.g. bitsadmin_execution")
     parser.add_argument("-l", "--list", dest="list", action="store_true", help="Print a list of available tests")
-    parser.add_argument("-o", "--os-filter", dest="os_filter", default="all", choices=RTA_PLATFORM_TYPES,
-                        help="Filter rule coverage summary by OS. (E.g. windows) Default: all")
+    parser.add_argument(
+        "-o",
+        "--os-filter",
+        dest="os_filter",
+        default="all",
+        choices=RTA_PLATFORM_TYPES,
+        help="Filter rule coverage summary by OS. (E.g. windows) Default: all",
+    )
     parser.add_argument("--run-all", action="store_true")
     parser.add_argument("--delay", type=int, help="For run-all, the delay between executions")
     parsed_args, remaining = parser.parse_known_args()

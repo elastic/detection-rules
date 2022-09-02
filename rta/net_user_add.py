@@ -11,18 +11,16 @@
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "41b638a1-8ab6-4f8e-86d9-466317ef2db5",
-            "rule_name": "Potential Hidden Local User Account Creation",
-        }
+
+RtaMetadata(
+    uuid="7884fa56-c4d6-494f-bfa5-825851ee0fda",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
+        {"rule_id": "41b638a1-8ab6-4f8e-86d9-466317ef2db5", "rule_name": "Potential Hidden Local User Account Creation"}
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1078"]
-RTA_ID = "7884fa56-c4d6-494f-bfa5-825851ee0fda"
+    techniques=["T1078"],
+)
 
 
 @common.requires_os(PLATFORMS)

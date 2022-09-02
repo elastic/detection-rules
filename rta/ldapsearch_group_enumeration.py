@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
+
+RtaMetadata(
+    uuid="370c3432-65f5-4068-b879-916bc1297c60",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[
         {
             "rule_name": "Enumeration of Users or Groups via Built-in Commands",
             "rule_id": "6e9b351e-a531-4bdc-b73e-7034d6eed7ff",
         }
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1069", "T1087"]
-RTA_ID = "370c3432-65f5-4068-b879-916bc1297c60"
+    techniques=["T1069", "T1087"],
+)
 
 
 @common.requires_os(PLATFORMS)

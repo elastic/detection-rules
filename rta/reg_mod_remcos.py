@@ -5,18 +5,16 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Remcos RAT Registry or File Modification",
-            "rule_id": "9769d372-4115-4ef8-8d7b-aaad05dad9ae",
-        }
+
+RtaMetadata(
+    uuid="0e5a4099-f76d-43f8-aa91-0ed1ad5fed81",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Remcos RAT Registry or File Modification", "rule_id": "9769d372-4115-4ef8-8d7b-aaad05dad9ae"}
     ],
-}
-TECHNIQUES = ["T1112"]
-RTA_ID = "0e5a4099-f76d-43f8-aa91-0ed1ad5fed81"
+    siem=[],
+    techniques=["T1112"],
+)
 
 
 @common.requires_os(PLATFORMS)

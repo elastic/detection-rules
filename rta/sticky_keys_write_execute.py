@@ -17,9 +17,11 @@ import time
 from . import common
 
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
+RtaMetadata(
+    uuid="398933ec-f8d4-4d81-93ed-e7d7adcb9d97",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
         {
             "rule_id": "7405ddf1-6c8e-41ce-818f-48bea6bcaed8",
             "rule_name": "Potential Modification of Accessibility Binaries",
@@ -29,10 +31,8 @@ TRIGGERED_RULES = {
             "rule_name": "Persistence via TelemetryController Scheduled Task Hijack",
         },
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1546", "T1053"]
-RTA_ID = "398933ec-f8d4-4d81-93ed-e7d7adcb9d97"
+    techniques=["T1546", "T1053"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -68,9 +68,7 @@ def main():
 
         # Restore Original File and Permissions on file
         common.copy_file(temp, bin_path)
-        common.execute(
-            ["icacls", bin_path, "/setowner", "NT SERVICE\\TrustedInstaller"]
-        )
+        common.execute(["icacls", bin_path, "/setowner", "NT SERVICE\\TrustedInstaller"])
         common.execute(["icacls", bin_path, "/grant:r", "Administrators:RX"])
         common.remove_file(temp)
 

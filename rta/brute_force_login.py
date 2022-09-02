@@ -16,18 +16,16 @@ import time
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "e08ccd49-0380-4b2b-8d71-8000377d6e49",
-            "rule_name": "Attempts to Brute Force an Okta User Account",
-        }
+
+RtaMetadata(
+    uuid="35bb73a9-cafa-4b2c-81f0-a97e2afa5e1c",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
+        {"rule_id": "e08ccd49-0380-4b2b-8d71-8000377d6e49", "rule_name": "Attempts to Brute Force an Okta User Account"}
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1110"]
-RTA_ID = "35bb73a9-cafa-4b2c-81f0-a97e2afa5e1c"
+    techniques=["T1110"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -38,9 +36,7 @@ def main(username="rta-tester", remote_host=None):
 
     common.enable_logon_auditing(remote_host)
 
-    common.log(
-        "Brute forcing login with invalid password against {}".format(remote_host)
-    )
+    common.log("Brute forcing login with invalid password against {}".format(remote_host))
     ps_command = """
     $PW = ConvertTo-SecureString "such-secure-passW0RD!" -AsPlainText -Force
     $CREDS = New-Object System.Management.Automation.PsCredential {username}, $PW

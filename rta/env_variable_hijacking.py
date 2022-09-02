@@ -5,18 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
+
+RtaMetadata(
+    uuid="a18454da-5f28-4223-95d6-5dc1f58c861a",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[
         {
             "rule_name": "Modification of Environment Variable via Launchctl",
             "rule_id": "7453e19e-3dbf-4e4e-9ae0-33d6c6ed15e1",
         }
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1574"]
-RTA_ID = "a18454da-5f28-4223-95d6-5dc1f58c861a"
+    techniques=["T1574"],
+)
 
 
 @common.requires_os(PLATFORMS)

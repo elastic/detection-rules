@@ -5,26 +5,19 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Execution from Unusual Directory",
-            "rule_id": "16c84e67-e5e7-44ff-aefa-4d771bcafc0c",
-        },
-        {
-            "rule_name": "Binary Masquerading via Untrusted Path",
-            "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f",
-        },
-        {
-            "rule_name": "Scriptlet Execution via CMSTP",
-            "rule_id": "8adfa9ad-0ed2-4b1b-bdad-f2c52e1d2a00",
-        },
+
+RtaMetadata(
+    uuid="aa6bf766-db74-4db5-8eec-f91386b1285b",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Execution from Unusual Directory", "rule_id": "16c84e67-e5e7-44ff-aefa-4d771bcafc0c"},
+        {"rule_name": "Binary Masquerading via Untrusted Path", "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f"},
+        {"rule_name": "Scriptlet Execution via CMSTP", "rule_id": "8adfa9ad-0ed2-4b1b-bdad-f2c52e1d2a00"},
     ],
-}
-TECHNIQUES = ["T1218", "T1036", "T1059"]
-RTA_ID = "aa6bf766-db74-4db5-8eec-f91386b1285b"
+    siem=[],
+    techniques=["T1218", "T1036", "T1059"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
@@ -44,14 +37,10 @@ def main():
 
     # Execute command
     common.log("Modifying the OriginalFileName attribute")
-    common.execute(
-        [rcedit, cmstp, "--set-version-string", "OriginalFilename", "CMSTP.EXE"]
-    )
+    common.execute([rcedit, cmstp, "--set-version-string", "OriginalFilename", "CMSTP.EXE"])
 
     common.log("Loading scrobj.dll into fake cmstp")
-    common.execute(
-        [cmstp, "-c", f"Import-Module {ps1}; Invoke-ImageLoad {dll}"], timeout=10
-    )
+    common.execute([cmstp, "-c", f"Import-Module {ps1}; Invoke-ImageLoad {dll}"], timeout=10)
 
     common.remove_files(cmstp, dll, ps1, rcedit)
 

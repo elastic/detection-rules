@@ -5,18 +5,20 @@
 
 from . import common
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
+
+RtaMetadata(
+    uuid="4ad6b308-f457-4805-89b9-43b99e32b24f",
+    platforms=["windows"],
+    endpoint=[
         {
             "rule_name": "Microsoft Office Loaded a Dropped Executable File",
             "rule_id": "a0a82ad6-98ed-4426-abd8-52e7b052e297",
         }
     ],
-}
-TECHNIQUES = ["T1566"]
-RTA_ID = "4ad6b308-f457-4805-89b9-43b99e32b24f"
+    siem=[],
+    techniques=["T1566"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 

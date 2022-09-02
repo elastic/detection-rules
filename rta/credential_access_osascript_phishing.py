@@ -5,23 +5,16 @@
 
 from . import common
 
-PLATFORMS = ["macos"]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_name": "Prompt for Credentials with OSASCRIPT",
-            "rule_id": "38948d29-3d5d-42e3-8aec-be832aaaf8eb",
-        }
+
+RtaMetadata(
+    uuid="cc7b01f9-852c-4232-8c70-ada3fb5cc515",
+    platforms=["macos"],
+    endpoint=[
+        {"rule_name": "Potential Credentials Phishing via OSASCRIPT", "rule_id": "318d3d9d-ba60-40e3-bc8c-3d3304209a3c"}
     ],
-    "ENDPOINT": [
-        {
-            "rule_name": "Potential Credentials Phishing via OSASCRIPT",
-            "rule_id": "318d3d9d-ba60-40e3-bc8c-3d3304209a3c",
-        }
-    ],
-}
-TECHNIQUES = ["T1056"]
-RTA_ID = "cc7b01f9-852c-4232-8c70-ada3fb5cc515"
+    siem=[{"rule_name": "Prompt for Credentials with OSASCRIPT", "rule_id": "38948d29-3d5d-42e3-8aec-be832aaaf8eb"}],
+    techniques=["T1056"],
+)
 
 
 @common.requires_os(PLATFORMS)
@@ -32,9 +25,7 @@ def main():
 
     # Execute command
     common.log("Launching fake osascript commands to display passwords")
-    common.execute(
-        [masquerade, "osascript*display dialog*password*"], timeout=10, kill=True
-    )
+    common.execute([masquerade, "osascript*display dialog*password*"], timeout=10, kill=True)
 
     # cleanup
     common.remove_file(masquerade)

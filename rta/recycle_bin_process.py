@@ -13,18 +13,20 @@ import time
 
 from . import common
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
+
+RtaMetadata(
+    uuid="790cbe6f-ee44-4654-9998-039236dbe0d8",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
         {
             "rule_id": "cff92c41-2225-4763-b4ce-6f71e5bda5e6",
             "rule_name": "Execution from Unusual Directory - Command Line",
         }
     ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1036", "T1059"]
-RTA_ID = "790cbe6f-ee44-4654-9998-039236dbe0d8"
+    techniques=["T1036", "T1059"],
+)
+
 
 RECYCLE_PATHS = ["C:\\$Recycle.Bin", "C:\\Recycler"]
 TARGET_APP = common.get_path("bin", "myapp.exe")

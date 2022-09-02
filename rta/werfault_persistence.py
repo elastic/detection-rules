@@ -16,18 +16,13 @@ from . import common
 MY_APP = common.get_path("bin", "myapp.exe")
 
 
-PLATFORMS = [common.WINDOWS]
-TRIGGERED_RULES = {
-    "SIEM": [
-        {
-            "rule_id": "ac5012b8-8da8-440b-aaaf-aedafdea2dff",
-            "rule_name": "Suspicious WerFault Child Process",
-        }
-    ],
-    "ENDPOINT": [],
-}
-TECHNIQUES = ["T1036"]
-RTA_ID = "cbd90dde-02f4-4010-b654-ccabff3c3c73"
+RtaMetadata(
+    uuid="cbd90dde-02f4-4010-b654-ccabff3c3c73",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "ac5012b8-8da8-440b-aaaf-aedafdea2dff", "rule_name": "Suspicious WerFault Child Process"}],
+    techniques=["T1036"],
+)
 
 
 @common.requires_os(PLATFORMS)

@@ -6,22 +6,21 @@
 from . import common
 import os
 
-PLATFORMS = ["windows"]
-TRIGGERED_RULES = {
-    "SIEM": [],
-    "ENDPOINT": [
-        {
-            "rule_name": "Binary Masquerading via Untrusted Path",
-            "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f",
-        },
+
+RtaMetadata(
+    uuid="7e9a94f4-46aa-45eb-b95b-53da7c01a033",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Binary Masquerading via Untrusted Path", "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f"},
         {
             "rule_name": "UAC Bypass Attempt via CDSSync Scheduled Task Hijack",
             "rule_id": "d8b7a157-c98f-42bd-8aac-7d1e4fcd53f4",
         },
     ],
-}
-TECHNIQUES = ["T1574", "T1548", "T1036"]
-RTA_ID = "7e9a94f4-46aa-45eb-b95b-53da7c01a033"
+    siem=[],
+    techniques=["T1574", "T1548", "T1036"],
+)
+
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 
