@@ -11,6 +11,7 @@ import functools
 import getpass
 import inspect
 import os
+import platform
 import re
 import shutil
 import socket
@@ -300,6 +301,16 @@ def log(message, log_type="+"):
 def copy_file(source, target):
     log("Copying %s -> %s" % (source, target))
     shutil.copy(source, target)
+
+
+def create_macos_masquerade(masquerade: str):
+    if platform.processor() == "arm":
+        name = "com.apple.ditto_and_spawn_arm"
+    else:
+        name = "com.apple.ditto_and_spawn_intel"
+    source = get_path("bin", name)
+
+    copy_file(source, masquerade)
 
 
 def link_file(source, target):
