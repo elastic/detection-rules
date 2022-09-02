@@ -50,7 +50,7 @@ def get_available_tests(print_list: bool = False, os_filter: str = None) -> Dict
         if valid_rta_file(file):
             module = importlib.import_module(f"rta.{file.stem}")
 
-            if os_filter and os_filter not in module.PLATFORMS and os_filter != "all":
+            if os_filter and os_filter not in module.metadata.platforms and os_filter != "all":
                 continue
 
             test_metadata[file.stem] = {
@@ -71,7 +71,7 @@ def get_available_tests(print_list: bool = False, os_filter: str = None) -> Dict
         print(header)
         print("=" * len(header))
 
-        for test in test_metadata:
+        for test in test_metadata.values():
             print(f"{test['name']:<{longest_test_name}} | {', '.join(test['platforms'])}")
 
     return test_metadata

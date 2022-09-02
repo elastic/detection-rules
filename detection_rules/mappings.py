@@ -142,7 +142,7 @@ def print_converage_summary(coverage_map: dict, all_rule_count: int, os_filter: 
 
     for os_type, results in coverage_map.items():
 
-        if os_type != "all" and os_type == os_filter or os_filter == "all":
+        if os_type != "all" and (os_type == os_filter or os_filter == "all"):
             supported = results["supported"]
             unsupported = results["unsupported"]
 
