@@ -23,7 +23,7 @@ def run_all():
     errors = []
     for ttp_file in get_available_tests(os_filter=CURRENT_OS):
         print(f"---- {Path(ttp_file).name} ----")
-        p = subprocess.Popen([sys.executable, ttp_file])
+        p = subprocess.Popen([sys.executable, "-m", "rta", "-n", ttp_file])
         p.wait()
         code = p.returncode
 
