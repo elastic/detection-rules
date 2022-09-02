@@ -9,9 +9,10 @@
 # Description: Drops dummy DLL to Monitors registry path as non-system user, which would be executed with SYSTEM privs.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="d7d1d0cf-a84a-4526-b0db-be59a210246e",
     platforms=["windows"],
     endpoint=[],
@@ -25,7 +26,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Writing registry key and dummy dll")
 

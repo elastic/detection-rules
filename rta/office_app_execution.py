@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="1a483c55-443d-4d01-a9de-e2c69df744f3",
     platforms=["macos"],
     endpoint=[
@@ -20,7 +21,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     masquerade = "/tmp/Microsoft PowerPoint"

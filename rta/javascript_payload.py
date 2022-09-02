@@ -4,10 +4,11 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 from time import sleep
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="9332cece-38b7-49e1-9f8d-e879913ffdfb",
     platforms=["macos"],
     endpoint=[
@@ -18,7 +19,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     # Setup web server
     common.serve_web()

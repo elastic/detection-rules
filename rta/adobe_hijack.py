@@ -11,9 +11,10 @@
 import os
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="2df08481-31db-44a8-b01d-1c0df827bddb",
     platforms=["windows"],
     endpoint=[],
@@ -22,7 +23,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     rdr_cef_dir = "C:\\Program Files (x86)\\Adobe\\Acrobat Reader DC\\Reader\\AcroCEF"
     rdrcef_exe = os.path.join(rdr_cef_dir, "RdrCEF.exe")

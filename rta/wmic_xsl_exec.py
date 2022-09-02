@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="b9d5427a-33c4-4b1d-838d-f47c5f3b0b43",
     platforms=["windows"],
     endpoint=[
@@ -21,7 +22,7 @@ EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     wmic = "C:\\Users\\Public\\wmic.exe"
     user32 = "C:\\Windows\\System32\\user32.dll"

@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="2c186f11-d07c-4df6-8b86-bf9ffd6ca871",
     platforms=["macos"],
     endpoint=[],
@@ -15,7 +16,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     common.log("Executing file modification on test.plist to mimic emond file modification")

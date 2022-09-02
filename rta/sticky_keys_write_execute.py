@@ -15,9 +15,10 @@ import os
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="398933ec-f8d4-4d81-93ed-e7d7adcb9d97",
     platforms=["windows"],
     endpoint=[],
@@ -35,7 +36,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     # Prep
     bins = [

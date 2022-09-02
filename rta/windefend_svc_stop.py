@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="811ccfc2-d0fc-4a2a-85f6-6dc1235278bf",
     platforms=["windows"],
     endpoint=[
@@ -21,7 +22,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     powershell = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
     tempshell = "C:\\Users\\Public\\powershell.exe"

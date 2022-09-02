@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="c4eefb59-2c59-4904-a04e-5e3a75f54a46",
     platforms=["windows"],
     endpoint=[
@@ -30,7 +31,7 @@ RtaMetadata(
 HIGHENTROPY = common.get_path("bin", "highentropy.txt")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     key = "SYSTEM\\CurrentControlSet\\Services\\VSS"
     value = "Start"

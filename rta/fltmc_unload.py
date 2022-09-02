@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="54be1902-0608-49df-8053-40020d8a9210",
     platforms=["windows"],
     endpoint=[
@@ -20,7 +21,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     # Execute command

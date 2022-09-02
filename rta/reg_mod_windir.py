@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="38cea037-c1a8-4749-a434-ba4c7d6e91f8",
     platforms=["windows"],
     endpoint=[
@@ -20,7 +21,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     key = "System\\Environment"
     value = "windir"

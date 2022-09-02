@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="4c8675a8-fbed-4f36-88e6-ffceaf82f426",
     platforms=["macos"],
     endpoint=[],
@@ -17,7 +18,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     masquerade = "/tmp/mount_apfs"

@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="a6263f00-58b4-4555-b88f-9d66a7395891",
     platforms=["windows"],
     endpoint=[
@@ -20,7 +21,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Modifying NullSessionPipes reg key...")
 

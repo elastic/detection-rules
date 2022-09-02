@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="0e5a4099-f76d-43f8-aa91-0ed1ad5fed81",
     platforms=["windows"],
     endpoint=[
@@ -17,7 +18,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Temporarily creating a Remcos RAT alike reg key...")
 

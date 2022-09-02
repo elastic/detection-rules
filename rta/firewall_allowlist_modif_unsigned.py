@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="a0245bfc-d934-4b58-9a7c-a80eca05214b",
     platforms=["windows"],
     endpoint=[
@@ -22,7 +23,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     posh = "C:\\Users\\Public\\posh.exe"
     common.copy_file(EXE_FILE, posh)

@@ -13,9 +13,10 @@ import os
 import sys
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="6cf12026-f99f-4e5c-8cd4-3dbc7bce3e67",
     platforms=["windows"],
     endpoint=[],
@@ -24,7 +25,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Running Windows processes with an unexpected parent of %s" % os.path.basename(sys.executable))
     process_names = [

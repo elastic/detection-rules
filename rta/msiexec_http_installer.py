@@ -9,9 +9,10 @@
 # Description: Use msiexec.exe to download an executable from a remote site over HTTP and run it.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="d90f48c5-282a-4d29-a021-fb87e220e1a5",
     platforms=["windows"],
     endpoint=[],
@@ -25,7 +26,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("MsiExec HTTP Download")
     server, ip, port = common.serve_web()

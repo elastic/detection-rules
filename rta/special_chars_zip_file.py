@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="dce9cb95-b97d-4874-ab7a-26382a1ba348",
     platforms=["macos"],
     endpoint=[],
@@ -17,7 +18,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     common.log("Creating suspicious zip file with special characters to mimic evasion of sanboxed office apps.")

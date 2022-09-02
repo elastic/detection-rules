@@ -14,6 +14,7 @@ import shutil
 import sys
 
 from . import common
+from . import RtaMetadata
 
 if sys.version_info > (3,):
     urlliblib = "urllib.request"
@@ -21,7 +22,7 @@ else:
     urlliblib = "urllib"
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="cf94f5cc-5265-4287-80e5-82d9663ecf2e",
     platforms=["windows"],
     endpoint=[],
@@ -65,7 +66,7 @@ def http_from_process(name, ip, port):
     common.remove_file(path)
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     server, ip, port = common.serve_web()
 

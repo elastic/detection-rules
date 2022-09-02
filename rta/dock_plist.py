@@ -5,9 +5,10 @@
 
 from pathlib import Path
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="38c81994-958f-40c8-bb6a-20bc1b93d598",
     platforms=["macos"],
     endpoint=[],
@@ -18,7 +19,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     common.log("Executing file modification on com.apple.dock.plist to mimic dock plist modification")

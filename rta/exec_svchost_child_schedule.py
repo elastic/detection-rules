@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="e9ee4f0c-b8c6-4471-b132-1edf4a7ca441",
     platforms=["windows"],
     endpoint=[
@@ -21,7 +22,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     svchost = "C:\\Users\\Public\\svchost.exe"
     common.copy_file(EXE_FILE, svchost)

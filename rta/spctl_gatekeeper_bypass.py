@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="cf71bf97-e3ba-474c-9b6b-538e5a8008b0",
     platforms=["macos"],
     endpoint=[],
@@ -15,7 +16,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     masquerade = "/tmp/spctl"

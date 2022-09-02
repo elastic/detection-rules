@@ -4,10 +4,11 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 import os
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="9bf3622b-dd76-4156-a89c-6845dca46b1f",
     platforms=["windows"],
     endpoint=[
@@ -24,7 +25,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     msxsl = "C:\\Users\\Public\\msxsl.exe"
     fake_clr_path = "C:\\Users\\Administrator\\AppData\\Local\\Microsoft\\CLR_v4.0\\UsageLogs"

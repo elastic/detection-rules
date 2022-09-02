@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="75167553-4886-44ba-b5d6-b4c341b33709",
     platforms=["windows"],
     endpoint=[
@@ -22,7 +23,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "regsvr32.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     eqnedt32 = "C:\\Users\\Public\\eqnedt32.exe"
 

@@ -7,9 +7,10 @@ import os
 import platform
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="e1ff47b2-af5d-4cfc-bd94-e0b86828b241",
     platforms=["macos"],
     endpoint=[
@@ -20,7 +21,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     if platform.processor() == "arm":

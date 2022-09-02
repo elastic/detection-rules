@@ -11,9 +11,10 @@
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="8ffd2053-c04a-435a-84b3-a8403a5395db",
     platforms=["windows"],
     endpoint=[],
@@ -22,7 +23,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     warning = "Deleting the backup catalog may have unexpected consequences. Operational issues are unknown."
     common.log("WARNING: %s" % warning, log_type="!")

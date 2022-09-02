@@ -13,9 +13,10 @@ import os
 import sys
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="6d2d3c21-2d71-4395-8ab7-b1d0138d9225",
     platforms=["windows"],
     endpoint=[],
@@ -35,7 +36,7 @@ def create_exfil(path=os.path.abspath("secret_stuff.txt")):
     return path
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 @common.dependencies(MY_APP, WINRAR)
 def main(password="s0l33t"):
     # Copies of the rar.exe for various tests

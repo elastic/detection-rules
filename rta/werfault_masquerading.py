@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="41c82553-01c2-41d6-a15d-3499fa99b4c0",
     platforms=["windows"],
     endpoint=[
@@ -19,7 +20,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "regsvr32.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     werfault = "C:\\Users\\Public\\werfault.exe"
 

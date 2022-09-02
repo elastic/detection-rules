@@ -11,9 +11,10 @@ import os
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="2ab62c28-1abb-4ac5-a16d-2f4f75d01d02",
     platforms=["windows"],
     endpoint=[],
@@ -26,7 +27,7 @@ VBS = common.get_path("bin", "persistent_script.vbs")
 NAME = "rta-vbs-persistence"
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 @common.dependencies(common.PS_EXEC, VBS)
 def main():
     common.log("Persistent Scripts")

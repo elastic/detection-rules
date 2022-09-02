@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="0885b643-a199-4453-95e0-be0d1f29aafc",
     platforms=["windows"],
     endpoint=[
@@ -19,7 +20,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     powershell = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
     sqlserver = "C:\\Users\\Public\\sqlserver.exe"

@@ -13,9 +13,10 @@
 import os
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="eaf71384-2e38-4970-b170-9645ccde1d2b",
     platforms=["windows"],
     endpoint=[],
@@ -24,7 +25,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     # Messing with the boot configuration is probably not a great idea so create a backup:
     common.log("Exporting the boot configuration....")

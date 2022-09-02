@@ -12,9 +12,10 @@ import os
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="e6d124ee-27d3-48a6-8c59-354072ec9e00",
     platforms=["windows"],
     endpoint=[],
@@ -23,7 +24,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("MS Office unusual child process emulation")
     suspicious_apps = [

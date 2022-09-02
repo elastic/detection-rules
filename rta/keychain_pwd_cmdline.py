@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="f964558b-0674-4c97-afcc-42d4b6a813c6",
     platforms=["macos"],
     endpoint=[
@@ -22,7 +23,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     masquerade = "/tmp/security"

@@ -10,9 +10,10 @@
 # Description: Adds an account to the local host using the net.exe command
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="7884fa56-c4d6-494f-bfa5-825851ee0fda",
     platforms=["windows"],
     endpoint=[],
@@ -23,7 +24,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Creating local and domain user accounts using net.exe")
     commands = [

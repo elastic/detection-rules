@@ -10,9 +10,10 @@
 import os
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="16b3d9c6-e188-49c5-8dce-d3eb5b0fcf91",
     platforms=["windows"],
     endpoint=[],
@@ -36,7 +37,7 @@ version="1.0">
 """
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Executing suspicious WMIC script")
 

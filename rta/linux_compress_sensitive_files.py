@@ -8,9 +8,10 @@
 # Description: Uses built-in commands for *nix operating systems to compress known sensitive
 #              files, such as etc/shadow and etc/passwd
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="f3ffa89b-de47-4e17-ac8e-385e0e7f8253",
     platforms=["linux"],
     endpoint=[],
@@ -19,7 +20,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Compressing sensitive files")
     files = ["totally-legit.tar", "official-business.zip", "expense-reports.gz"]

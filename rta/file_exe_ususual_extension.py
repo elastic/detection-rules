@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="5370760b-09ea-4258-bcfa-e426726a4777",
     platforms=["windows"],
     endpoint=[
@@ -22,7 +23,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     powershell = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
     unusualext = "C:\\Users\\Public\\powershell.exe.pdf"

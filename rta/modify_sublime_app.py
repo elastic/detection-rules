@@ -5,9 +5,10 @@
 
 from pathlib import Path
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="5fc46f6e-5a2a-4336-98f3-5fdc27db7152",
     platforms=["macos"],
     endpoint=[],
@@ -21,7 +22,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     sublime_dir = Path(f"{Path.home()}/Library/Application Support/Sublime Text 4/")

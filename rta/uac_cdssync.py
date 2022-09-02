@@ -4,10 +4,11 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 import os
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="7e9a94f4-46aa-45eb-b95b-53da7c01a033",
     platforms=["windows"],
     endpoint=[
@@ -25,7 +26,7 @@ EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     powershell = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
     taskhostw = "C:\\Users\\Public\\taskhostw.exe"

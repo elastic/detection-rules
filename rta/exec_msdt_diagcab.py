@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="71c81436-242d-4bc8-a195-93d1fdbc774b",
     platforms=["windows"],
     endpoint=[
@@ -23,7 +24,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     firefox = "C:\\Users\\Public\\firefox.exe"
     msdt = "C:\\Users\\Public\\msdt.exe"

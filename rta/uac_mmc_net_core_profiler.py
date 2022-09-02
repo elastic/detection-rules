@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="33f20563-7d1b-46a4-8644-a563f2488120",
     platforms=["windows"],
     endpoint=[
@@ -23,7 +24,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     key = "Environment"
     value = "COR_PROFILER_PATH"

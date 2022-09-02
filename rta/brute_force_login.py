@@ -15,9 +15,10 @@ import sys
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="35bb73a9-cafa-4b2c-81f0-a97e2afa5e1c",
     platforms=["windows"],
     endpoint=[],
@@ -28,7 +29,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main(username="rta-tester", remote_host=None):
     if not remote_host:
         common.log("A remote host is required to detonate this RTA", "!")

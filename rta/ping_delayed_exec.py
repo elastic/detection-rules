@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="48419773-64de-498a-be98-cb1f6815e80c",
     platforms=["windows"],
     endpoint=[{"rule_name": "Delayed Execution via Ping", "rule_id": "7615ca4b-c291-4f05-9488-114b6bf99157"}],
@@ -15,7 +16,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     cmd = "C:\\Windows\\System32\\cmd.exe"
 

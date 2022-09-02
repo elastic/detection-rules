@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="e0e95f35-173d-4545-a1cc-ee35ee1d89b1",
     platforms=["windows"],
     endpoint=[
@@ -24,7 +25,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     dllhost = "C:\\Users\\Public\\dllhost.exe"
     common.copy_file(EXE_FILE, dllhost)

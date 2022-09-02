@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="ff744c89-20cb-4be0-9725-2430d0be7f6a",
     platforms=["macos"],
     endpoint=[],
@@ -20,7 +21,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     common.log("Executing file modification on test.dsplug to mimic DirectoryService plugin modification")

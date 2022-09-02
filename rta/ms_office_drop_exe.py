@@ -12,9 +12,10 @@ import os
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="ce85674f-fb6c-44d5-b880-4ce9062e1028",
     platforms=["windows"],
     endpoint=[],
@@ -28,7 +29,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     cmd_path = "c:\\windows\\system32\\cmd.exe"
 

@@ -14,9 +14,10 @@
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="c62c65bf-248e-4f5a-ad4f-a48736c1d6f2",
     platforms=["windows"],
     endpoint=[],
@@ -37,7 +38,7 @@ def pause():
     time.sleep(0.5)
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 @common.dependencies(TARGET_APP)
 def main():
     common.log("Suspicious Registry Persistence")

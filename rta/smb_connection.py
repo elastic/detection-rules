@@ -12,9 +12,10 @@ import socket
 import sys
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="b0e3e1bb-dfa5-473a-8862-b2d1d42819ce",
     platforms=["windows"],
     endpoint=[],
@@ -26,7 +27,7 @@ RtaMetadata(
 SMB_PORT = 445
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main(ip=None):
     ip = ip or common.get_ip()
 

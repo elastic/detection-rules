@@ -12,9 +12,10 @@ import os
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="413cf7ef-0fad-46fd-ab67-e94c4e3e0f0b",
     platforms=["windows"],
     endpoint=[],
@@ -33,7 +34,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Memory Dump via Comsvcs")
     pid = os.getpid()

@@ -4,10 +4,11 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 import time
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="d8de8c03-d5d0-4118-8971-32439638d69f",
     platforms=["windows"],
     endpoint=[
@@ -28,7 +29,7 @@ PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     cscript = "C:\\Users\\Public\\cscript.exe"
     user32 = "C:\\Windows\\System32\\user32.dll"

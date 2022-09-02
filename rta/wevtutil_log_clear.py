@@ -12,9 +12,10 @@
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="12b28e92-281f-49a7-a8b3-54681ba6d63e",
     platforms=["windows"],
     endpoint=[],
@@ -23,7 +24,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Clearing Windows Event Logs")
     common.log("WARNING - About to clear logs from Windows Event Viewer", log_type="!")

@@ -14,9 +14,10 @@ import os
 import sys
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="6dfa88c9-9fb2-4fb0-8bea-0bc45222b498",
     platforms=["windows"],
     endpoint=[],
@@ -37,7 +38,7 @@ RtaMetadata(
 MY_DOT_NET = common.get_path("bin", "mydotnet.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 @common.dependencies(MY_DOT_NET)
 def main():
     server, ip, port = common.serve_web()

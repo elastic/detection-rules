@@ -6,9 +6,10 @@
 import subprocess
 from pathlib import Path
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="e7a55d39-37b4-4f37-9519-3779b3c23bfa",
     platforms=["windows"],
     endpoint=[
@@ -23,7 +24,7 @@ ROOT_DIR = Path(__file__).parent
 EXE_FILE = common.get_path("bin", "renamed.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     fake_word = ROOT_DIR / "winword.exe"

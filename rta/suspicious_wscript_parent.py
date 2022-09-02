@@ -13,9 +13,10 @@ import os
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="a3cdd478-b817-4513-bb3d-897a5f92c836",
     platforms=["windows"],
     endpoint=[],
@@ -27,7 +28,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     script_data = """
         WScript.CreateObject("wscript.shell")

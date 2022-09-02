@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="23f0dde3-4803-4976-9a2a-5b5faca50b54",
     platforms=["windows"],
     endpoint=[
@@ -28,7 +29,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     rundll32 = "C:\\Users\\Public\\rundll32.exe"
     dfsvc = "C:\\Users\\Public\\dfsvc.exe"

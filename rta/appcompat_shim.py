@@ -11,9 +11,10 @@
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="a4a8608e-d94f-4eb1-b500-738328307bbc",
     platforms=["windows"],
     endpoint=[],
@@ -27,7 +28,7 @@ RtaMetadata(
 SHIM_FILE = common.get_path("bin", "CVE-2013-3893.sdb")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 @common.dependencies(SHIM_FILE)
 def main():
     common.log("Application Compatibility Shims")

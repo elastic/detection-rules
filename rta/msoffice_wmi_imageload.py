@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="d2671cc5-87d0-4612-9e3c-0862b137d242",
     platforms=["windows"],
     endpoint=[{"rule_name": "WMI Image Load via Microsoft Office", "rule_id": "46952f58-6741-4280-8e74-fa43f63c9604"}],
@@ -18,7 +19,7 @@ EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     winword = "C:\\Users\\Public\\winword.exe"
     user32 = "C:\\Windows\\System32\\user32.dll"

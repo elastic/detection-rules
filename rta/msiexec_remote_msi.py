@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="de245f02-8614-4fdd-b6e4-e845bbadd056",
     platforms=["windows"],
     endpoint=[{"rule_name": "Remote File Execution via MSIEXEC", "rule_id": "8ba98e28-d83e-451e-8df7-f0964f7e69b6"}],
@@ -15,7 +16,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     # Execute command

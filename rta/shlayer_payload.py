@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="c0f3618b-a7d9-403c-8b42-572da0b20f47",
     platforms=["macos"],
     endpoint=[{"rule_name": "Shlayer Malware Infection", "rule_id": "3dda1ac2-86ef-41f5-ad3b-d9396383e104"}],
@@ -15,7 +16,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     masquerade = "/tmp/curl"

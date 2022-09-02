@@ -13,9 +13,10 @@
 import sys
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="c774ab90-d4d0-487b-b51e-928e7f3e9c48",
     platforms=["windows"],
     endpoint=[],
@@ -26,7 +27,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Modification of WDigest Security Provider")
 

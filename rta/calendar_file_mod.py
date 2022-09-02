@@ -5,9 +5,10 @@
 
 from pathlib import Path
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="44345dc0-883f-41b7-ad34-1d84cfd57129",
     platforms=["macos"],
     endpoint=[],
@@ -16,7 +17,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     cal_dir = Path(f"{Path.home()}/Library/Calendars/")

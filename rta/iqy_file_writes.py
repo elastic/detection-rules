@@ -11,12 +11,13 @@
 import os
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(uuid="71f67037-1df3-4d5f-b8cb-eaf295ad16ed", platforms=["windows"], endpoint=[], siem=[], techniques=[])
+metadata = RtaMetadata(uuid="71f67037-1df3-4d5f-b8cb-eaf295ad16ed", platforms=["windows"], endpoint=[], siem=[], techniques=[])
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Suspicious File Writes (IQY, PUB)")
     adobe_path = os.path.abspath("AcroRd32.exe")

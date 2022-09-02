@@ -5,9 +5,10 @@
 
 from pathlib import Path
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="72c2470b-c96e-4b44-88ec-1a67c4ec091c",
     platforms=["macos"],
     endpoint=[],
@@ -21,7 +22,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     atom_dir = Path.home().joinpath(".atom")

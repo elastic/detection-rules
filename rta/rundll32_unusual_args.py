@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="3ede81fa-f4e7-48fc-a939-50ad7a9a07ca",
     platforms=["windows"],
     endpoint=[
@@ -20,7 +21,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     source_dll = "C:\\Windows\\System32\\IEAdvpack.dll"
     dll = "C:\\Users\\Public\\IEAdvpack.dll"

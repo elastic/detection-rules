@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="be6619a2-324a-443b-9f23-2dc84733c847",
     platforms=["windows"],
     endpoint=[
@@ -19,7 +20,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     w3wp = "C:\\Users\\Public\\w3wp.exe"
     common.copy_file(EXE_FILE, w3wp)

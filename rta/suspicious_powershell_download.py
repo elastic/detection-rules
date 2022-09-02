@@ -7,9 +7,10 @@ import os
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="20b96aa7-609e-473f-ac35-5ac19d10f9a5",
     platforms=["windows"],
     endpoint=[
@@ -26,7 +27,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     server, ip, port = common.serve_web()
     url = "http://{}:{}/bad.ps1".format(ip, port)

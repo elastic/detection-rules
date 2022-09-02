@@ -11,9 +11,10 @@
 import sys
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="ca020d7f-f495-4f0a-a808-da615f3409b4",
     platforms=["windows"],
     endpoint=[],
@@ -67,7 +68,7 @@ key_path == "*\\System\\Setup\\CmdLine"
 """  # noqa: E501
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main(target="calc.exe"):
     winreg = common.get_winreg()
     hkey = winreg.CreateKey(

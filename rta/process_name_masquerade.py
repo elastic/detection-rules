@@ -6,9 +6,10 @@
 import os
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="98adf0ff-2d8e-4eea-8d68-42084204bb74",
     platforms=["windows"],
     endpoint=[
@@ -23,7 +24,7 @@ RtaMetadata(
 CMD_PATH = "c:\\windows\\system32\\cmd.exe"
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     masquerades = ["svchost.exe", "lsass.exe"]
 

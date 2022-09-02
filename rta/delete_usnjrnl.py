@@ -12,9 +12,10 @@
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="5d049893-b5ca-4482-a9ea-c38c6d01c171",
     platforms=["windows"],
     endpoint=[],
@@ -23,7 +24,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     message = "Deleting the USN journal may have unintended consequences"
     common.log("WARNING: %s" % message, log_type="!")

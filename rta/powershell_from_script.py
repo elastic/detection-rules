@@ -13,9 +13,10 @@ import os
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="161c5972-6bfe-47b5-92bd-e0399e025dec",
     platforms=["windows"],
     endpoint=[],
@@ -24,7 +25,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     # Write script
     script_file = os.path.abspath("launchpowershell.vbs")

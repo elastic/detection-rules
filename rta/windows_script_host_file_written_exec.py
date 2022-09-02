@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="6ffcba60-acde-46e2-994a-a79ec8e07ef3",
     platforms=["windows"],
     endpoint=[
@@ -28,7 +29,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     server, ip, port = common.serve_web()
     url = f"http://{ip}:{port}/bin/renamed_posh.exe"

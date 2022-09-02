@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="be090f8e-dc7b-41eb-9c7e-74a0aed0dad1",
     platforms=["macos", "linux"],
     endpoint=[{"rule_name": "EggShell Backdoor Execution", "rule_id": "feed7842-34a6-4764-b858-6e5ac01a5ab7"}],
@@ -15,7 +16,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     masquerade = "/tmp/eggshell"

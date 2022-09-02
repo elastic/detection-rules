@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="aa6bf766-db74-4db5-8eec-f91386b1285b",
     platforms=["windows"],
     endpoint=[
@@ -23,7 +24,7 @@ PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     cmstp = "C:\\Users\\Public\\cmstp.exe"
     user32 = "C:\\Windows\\System32\\user32.dll"

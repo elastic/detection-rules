@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="bf2f893a-513a-41ea-9170-2c9b08a2a55f",
     platforms=["windows"],
     endpoint=[{"rule_name": "LSA Dump via SilentProcessExit", "rule_id": "28969fe6-0ebe-4442-b40c-dbe9b4234f5e"}],
@@ -15,7 +16,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Temporarily creating LSA SilentProcessExit reg key...")
 

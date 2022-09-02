@@ -77,7 +77,7 @@ class TestRTAs(unittest.TestCase):
         """Ensure that all RTAs with triggered rules have a UUID."""
 
         rule_keys = ["rule_id", "rule_name"]
-        for rta_test in sorted(get_available_tests().values()):
+        for rta_test in sorted(get_available_tests().values(), key=lambda r: r['name']):
 
             self.assertIsNotNone(rta_test.get("uuid"), f'RTA {rta_test.get("name")} missing uuid')
             for rule_info in rta_test.get("siem"):

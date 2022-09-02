@@ -11,9 +11,10 @@
 import sys
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="90cf6001-11a7-410b-b259-cf20a029b929",
     platforms=["windows"],
     endpoint=[],
@@ -22,7 +23,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 @common.dependencies(common.PS_EXEC)
 def main(remote_host=None):
     remote_host = remote_host or common.get_ip()

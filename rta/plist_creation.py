@@ -4,10 +4,11 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 from pathlib import Path
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="12e70377-e24e-4374-8aec-42064614d706",
     platforms=["macos"],
     endpoint=[
@@ -21,7 +22,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     launch_agents_dir = Path.home() / "Library" / "Launchagents"
     plistbuddy_bin = "/usr/libexec/PlistBuddy"

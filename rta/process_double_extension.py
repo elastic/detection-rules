@@ -9,9 +9,10 @@
 # Description: Create and run a process with a double extension.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="27694576-0454-40b3-9823-e29719c53750",
     platforms=["windows"],
     endpoint=[],
@@ -28,7 +29,7 @@ RtaMetadata(
 MY_APP = common.get_path("bin", "myapp_x64.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 @common.dependencies(MY_APP)
 def main():
     anomalies = ["test.txt.exe"]

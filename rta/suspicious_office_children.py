@@ -12,10 +12,11 @@
 import os
 
 from . import common
+from . import RtaMetadata
 from . import mshta_network
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="cd8e06c0-fc62-4932-8ef7-b767570e88eb",
     platforms=["windows"],
     endpoint=[],
@@ -24,7 +25,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     mshta_path = os.path.abspath(mshta_network.__file__.replace(".pyc", ".py"))
 

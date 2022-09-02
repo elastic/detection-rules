@@ -4,10 +4,11 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 import os
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="1d486055-38f8-4cf3-aec1-7f4f72d73fb2",
     platforms=["windows"],
     endpoint=[
@@ -23,7 +24,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     appdata = os.getenv("LOCALAPPDATA")
     path = appdata + "\\Microsoft\\Event Viewer"

@@ -8,9 +8,10 @@ import subprocess
 import tempfile
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="9cb42759-a161-4d93-b07d-3c8254dc8838",
     platforms=["windows"],
     endpoint=[],
@@ -19,7 +20,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     temp_path = os.path.join(tempfile.gettempdir(), os.urandom(16).encode("hex"))
     sdelete_path = common.get_path("bin", "sdelete.exe")

@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="2f19d0f2-64cb-41db-81e6-da06f9e83bcb",
     platforms=["windows"],
     endpoint=[
@@ -24,7 +25,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     mmc = "C:\\Users\\Public\\mmc.exe"
     dllhost = "C:\\Users\\Public\\dllhost.exe"

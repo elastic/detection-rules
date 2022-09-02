@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="a67586fd-cceb-4fb9-bf0e-d355b9e8921a",
     platforms=["windows"],
     endpoint=[
@@ -19,7 +20,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     key = "Software\\Classes\\ms-settings\\shell\\open\\command"
     value = "test"

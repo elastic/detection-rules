@@ -12,9 +12,10 @@
 import os
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="75e14e5a-1188-47ea-9b96-2cf6e9443fc2",
     platforms=["windows"],
     endpoint=[],
@@ -23,7 +24,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("NetSH Advanced Firewall Configuration", log_type="~")
     netsh = "netsh.exe"

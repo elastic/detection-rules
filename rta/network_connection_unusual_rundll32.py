@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="1bb39cea-8bf2-4b1f-a70e-69f6074a1fb4",
     platforms=["windows"],
     endpoint=[
@@ -20,7 +21,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "regsvr32.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     binary = "rundll32.exe"
     common.copy_file(EXE_FILE, binary)

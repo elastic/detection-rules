@@ -12,9 +12,10 @@ import argparse
 import random
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="9b19f4a3-7287-45d2-ab0f-9a9c0b1bc8e1",
     platforms=["windows"],
     endpoint=[],
@@ -26,7 +27,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main(args=None):
     slow_commands = ["gpresult.exe /z", "systeminfo.exe"]
 

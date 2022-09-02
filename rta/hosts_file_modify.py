@@ -15,9 +15,10 @@ import time
 from string import ascii_letters
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="f24491d0-720b-4150-a2a1-45b5b07238aa",
     platforms=["windows", "linux", "macos"],
     endpoint=[],

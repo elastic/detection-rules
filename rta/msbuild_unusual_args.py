@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="511278ac-4996-438e-ba03-bef8f10665b5",
     platforms=["windows"],
     endpoint=[
@@ -21,7 +22,7 @@ RENAMER = common.get_path("bin", "rcedit-x64.exe")
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     msbuild = "C:\\Users\\Public\\posh.exe"
     rcedit = "C:\\Users\\Public\\rcedit.exe"

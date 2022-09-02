@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="42eed432-af05-45d3-b788-7e3220f81f9a",
     platforms=["windows"],
     endpoint=[
@@ -24,7 +25,7 @@ PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     wuauclt = "C:\\Users\\Public\\wuauclt.exe"
     user32 = "C:\\Windows\\System32\\user32.dll"

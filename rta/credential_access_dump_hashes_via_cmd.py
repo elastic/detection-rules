@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="0a6fcfaa-db5e-498f-9253-0f76b8a18687",
     platforms=["macos"],
     endpoint=[
@@ -19,7 +20,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     common.log("Executing defaults commands to dump hashes.")

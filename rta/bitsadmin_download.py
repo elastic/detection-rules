@@ -13,9 +13,10 @@ import os
 import subprocess
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="aee48793-01ec-428f-9890-c5db9df07830",
     platforms=["windows"],
     endpoint=[],
@@ -24,7 +25,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Running Windows BitsAdmin to Download")
     server, ip, port = common.serve_web()

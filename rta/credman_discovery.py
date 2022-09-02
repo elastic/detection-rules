@@ -4,10 +4,11 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 import os
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="d12e0abb-017f-4321-adf2-20843f62b55d",
     platforms=["windows"],
     endpoint=[
@@ -21,7 +22,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     appdata = os.getenv("LOCALAPPDATA")
     credmanfile = f"{appdata}\\Microsoft\\Credentials\\a.txt"

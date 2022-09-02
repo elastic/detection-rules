@@ -11,9 +11,10 @@
 import sys
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="3adf005f-94b8-4b34-8994-d5a3dc6666c2",
     platforms=["windows"],
     endpoint=[],
@@ -22,7 +23,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main(remote_host=None):
     if not remote_host:
         common.log("A remote host is required to detonate this RTA", "!")

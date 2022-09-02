@@ -5,9 +5,10 @@
 
 from pathlib import Path
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="ea187b1f-4aa0-4ffc-bac9-9ee1d55552fd",
     platforms=["macos"],
     endpoint=[
@@ -21,7 +22,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     masquerade = "/tmp/bash"

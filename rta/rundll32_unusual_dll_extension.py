@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="64a7cd38-767f-4d46-9350-feb585a32c18",
     platforms=["windows"],
     endpoint=[
@@ -25,7 +26,7 @@ EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     rundll32 = "C:\\Users\\Public\\rundll32.exe"
     user32 = "C:\\Windows\\System32\\user32.dll"

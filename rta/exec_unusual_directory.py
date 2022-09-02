@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="0860c487-e9e0-4f86-9829-5bb98f615046",
     platforms=["windows"],
     endpoint=[
@@ -18,7 +19,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     exe_path = "c:\\windows\\system32\\cscript.exe"
     binary = "c:\\Users\\Public\\cscript.exe"

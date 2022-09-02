@@ -10,12 +10,13 @@
 import os
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(uuid="bb523eb1-db67-4ae6-9369-af1a93322817", platforms=["macos"], endpoint=[], siem=[], techniques=[])
+metadata = RtaMetadata(uuid="bb523eb1-db67-4ae6-9369-af1a93322817", platforms=["macos"], endpoint=[], siem=[], techniques=[])
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Emulating Microsoft Word running enumeration commands")
     office_path = os.path.abspath("Microsoft Word")

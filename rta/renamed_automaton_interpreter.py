@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="8c128a2b-fa7b-4bfc-9ec9-934395460420",
     platforms=["windows"],
     endpoint=[
@@ -20,7 +21,7 @@ EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     autohotkey = "C:\\Users\\Public\\notaut0hotkey.exe"
     rcedit = "C:\\Users\\Public\\rcedit.exe"

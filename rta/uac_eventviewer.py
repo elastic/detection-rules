@@ -12,9 +12,10 @@ import sys
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="1185afa2-49aa-4cca-8702-228d238c0bd5",
     platforms=["windows"],
     endpoint=[],
@@ -28,7 +29,7 @@ RtaMetadata(
 # %SystemRoot%\system32\mmc.exe "%1" %*
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main(target_file=common.get_path("bin", "myapp.exe")):
     winreg = common.get_winreg()
     common.log("Bypass UAC with %s" % target_file)

@@ -54,15 +54,13 @@ def get_available_tests(print_list: bool = False, os_filter: str = None) -> Dict
                 continue
 
             test_metadata[file.stem] = {
-                {
-                    "name": module.RtaMetadata.name,
-                    "uuid": module.RtaMetadata.uuid,
-                    "platforms": module.RtaMetadata.platforms,
-                    "path": module.RtaMetadata.path,
-                    "siem": module.RtaMetadata.siem,
-                    "endpoint": module.RtaMetadata.endpoint,
-                    "techniques": module.RtaMetadata.techniques,
-                }
+                "name": module.metadata.name,
+                "uuid": module.metadata.uuid,
+                "platforms": module.metadata.platforms,
+                "path": module.metadata.path,
+                "siem": module.metadata.siem,
+                "endpoint": module.metadata.endpoint,
+                "techniques": module.metadata.techniques,
             }
 
     if print_list:

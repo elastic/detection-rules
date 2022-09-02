@@ -6,9 +6,10 @@
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="7d139669-2b4c-4fc3-9a7c-bd1b643696dc",
     platforms=["windows"],
     endpoint=[

@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="76050b81-a8da-43d2-8a83-f18b31162b94",
     platforms=["windows"],
     endpoint=[
@@ -17,7 +18,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     explorer = "C:\\Windows\\explorer.exe"
     common.execute([explorer, "easyminerRTA"], timeout=1, kill=True)

@@ -10,9 +10,10 @@
 #              process (notepad.exe) is closed.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="e09d904a-f3bb-4d36-8eb8-8c234812807c",
     platforms=["windows"],
     endpoint=[],
@@ -21,7 +22,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Setting up persistence using Globalflags")
     ifeo_subkey = "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\netstat.exe"

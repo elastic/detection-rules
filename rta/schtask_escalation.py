@@ -15,9 +15,10 @@ import os
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="1a61241e-5b1b-44ec-8c9f-3ae4652550be",
     platforms=["windows"],
     endpoint=[],
@@ -34,7 +35,7 @@ def schtasks(*args, **kwargs):
     return common.execute(["schtasks.exe"] + list(args), **kwargs)
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Scheduled Task Privilege Escalation")
 

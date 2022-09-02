@@ -11,12 +11,13 @@
 import os
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(uuid="6d2d3c21-2d71-4395-8ab7-b1d0138d9225", platforms=["windows"], endpoint=[], siem=[], techniques=[])
+metadata = RtaMetadata(uuid="6d2d3c21-2d71-4395-8ab7-b1d0138d9225", platforms=["windows"], endpoint=[], siem=[], techniques=[])
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("WinRAR StartUp Folder Persistence")
     win_rar_path = os.path.abspath("WinRAR.exe")

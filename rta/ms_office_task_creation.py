@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="804463e7-b146-41ba-a757-d131d0a021ac",
     platforms=["windows"],
     endpoint=[
@@ -26,7 +27,7 @@ PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     winword = "C:\\Users\\Public\\winword.exe"
     svchost = "C:\\Users\\Public\\svchost.exe"

@@ -9,9 +9,10 @@
 # Description: Registers a mock SIP provider to bypass code integrity checks and execute mock malware.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="b0e3e1bb-dfa5-473a-8862-b2d1d42819ce",
     platforms=["windows"],
     endpoint=[],
@@ -54,7 +55,7 @@ else:
 TARGET_APP = common.get_path("bin", "myapp.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 @common.dependencies(SIGCHECK, TRUST_PROVIDER_DLL, TARGET_APP)
 def main():
     common.log("Registering SIP provider")

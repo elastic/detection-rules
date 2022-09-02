@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="bbbfc3e3-e1ba-45ad-9d30-cbbe115a0c6c",
     platforms=["windows"],
     endpoint=[
@@ -21,7 +22,7 @@ RENAMER = common.get_path("bin", "rcedit-x64.exe")
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     dll = "C:\\Users\\Public\\sqlite3.dll"
     posh = "C:\\Users\\Public\\posh.exe"

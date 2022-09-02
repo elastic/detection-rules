@@ -6,9 +6,10 @@
 import platform
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="e061a96e-4c31-4f67-9745-6ff873f7829e",
     platforms=["windows", "macos", "linux"],
     endpoint=[
@@ -29,7 +30,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     param1 = "--remote-debugging-port=9222"
     param2 = "--user-data-dir=remote-profile"

@@ -9,9 +9,10 @@
 # Description: Substitutes an invalid code authentication policy, enabling trust policy bypass.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="45541eb5-c636-477b-81c9-b6dcf184c9cc",
     platforms=["windows"],
     endpoint=[],
@@ -44,7 +45,7 @@ else:
 TARGET_APP = common.get_path("bin", "myapp.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 @common.dependencies(SIGCHECK, TRUST_PROVIDER_DLL, TARGET_APP)
 def main():
     common.log("Trust Provider")

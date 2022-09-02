@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="dc1baf0d-8048-481a-b142-73313181fe31",
     platforms=["linux"],
     endpoint=[
@@ -17,7 +18,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Executing command to simulate privilege escalation via PKEXEC exploitation")
     # The exploit reproduction is available for commercial usage via MIT License

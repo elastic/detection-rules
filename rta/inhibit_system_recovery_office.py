@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="aa05a870-7075-42f9-a009-49aa75ea99fa",
     platforms=["windows"],
     endpoint=[
@@ -26,7 +27,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     binary = "winword.exe"
     common.copy_file(EXE_FILE, binary)

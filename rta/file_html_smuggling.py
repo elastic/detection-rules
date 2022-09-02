@@ -4,10 +4,11 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 import os
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="0debe15f-1c9b-4ff8-9e4c-478647ca45e2",
     platforms=["windows"],
     endpoint=[
@@ -20,7 +21,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     userprofile = os.getenv("USERPROFILE")
     partial = f"{userprofile}\\Downloads\\a.partial"

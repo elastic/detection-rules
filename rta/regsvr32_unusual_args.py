@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="469d383a-d03f-470a-bcba-15da9dd373ed",
     platforms=["windows"],
     endpoint=[
@@ -21,7 +22,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     binary = "regsvr32.exe"
     common.copy_file(EXE_FILE, binary)

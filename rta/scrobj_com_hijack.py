@@ -9,9 +9,10 @@
 # Description: Modifies the Registry to create a new user-defined COM broker, "scrobj.dll".
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="ac739578-c978-429f-9454-0bbe82f993f4",
     platforms=["windows"],
     endpoint=[],
@@ -20,7 +21,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     key = "SOFTWARE\\Classes\\CLSID\\{00000000-0000-0000-0000-0000DEADBEEF}"
     subkey = "InprocServer32"

@@ -6,9 +6,10 @@
 import os
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="672cd0e6-fa5a-468f-80c8-04f92bead469",
     platforms=["windows"],
     endpoint=[{"rule_name": "BCDEdit Safe Mode Command Execution", "rule_id": "6d660b32-23bf-434b-a588-1cdc91224664"}],

@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="2bb1f4df-dc38-45a6-a0f4-54660c93a652",
     platforms=["windows"],
     endpoint=[{"rule_name": "NetWire RAT Registry Modification", "rule_id": "102f340f-1839-4bad-8493-824cc02c4e69"}],
@@ -15,7 +16,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Temporarily creating a Netwire RAT-like reg key...")
 

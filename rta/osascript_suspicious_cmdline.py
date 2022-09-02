@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="af8d27bb-1673-463f-8631-a5b30278cf33",
     platforms=["macos"],
     endpoint=[{"rule_name": "Suspicious Apple Script Execution", "rule_id": "7b9d544a-5b2a-4f0d-984a-cdc89a7fad25"}],
@@ -15,7 +16,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     masquerade = "/tmp/osascript"

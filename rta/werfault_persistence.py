@@ -12,11 +12,12 @@
 import time
 
 from . import common
+from . import RtaMetadata
 
 MY_APP = common.get_path("bin", "myapp.exe")
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="cbd90dde-02f4-4010-b654-ccabff3c3c73",
     platforms=["windows"],
     endpoint=[],
@@ -25,7 +26,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 @common.dependencies(MY_APP)
 def main():
     reg_key = "'HKLM:\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting\\hangs'"

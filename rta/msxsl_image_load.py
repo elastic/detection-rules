@@ -4,9 +4,10 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="cd549ba9-63be-4eff-ab6c-f567445e1977",
     platforms=["windows"],
     endpoint=[
@@ -22,7 +23,7 @@ PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     msxsl = "C:\\Users\\Public\\msxsl.exe"
     user32 = "C:\\Windows\\System32\\user32.dll"

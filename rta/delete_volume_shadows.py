@@ -11,9 +11,10 @@
 # Description: Uses both vssadmin.exe and wmic.exe to delete volume shadow copies.
 
 from . import common
+from . import RtaMetadata
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="ae6343cc-3b56-4f60-854f-7102db519ec4",
     platforms=["windows"],
     endpoint=[],
@@ -22,7 +23,7 @@ RtaMetadata(
 )
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Deleting volume shadow copies...")
     common.execute(["vssadmin.exe", "delete", "shadows", "/for=c:", "/oldest", "/quiet"])

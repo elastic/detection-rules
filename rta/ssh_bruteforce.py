@@ -4,10 +4,11 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 from multiprocessing import Process
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="61369084-af6a-4fd0-903f-b44467f5d6e7",
     platforms=["macos"],
     endpoint=[],
@@ -20,7 +21,7 @@ def test(masquerade, masquerade2):
     common.execute([masquerade2, "childprocess", masquerade], timeout=0.3, kill=True)
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
 
     masquerade = "/tmp/sshd-keygen-wrapper"

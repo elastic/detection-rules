@@ -4,10 +4,11 @@
 # 2.0.
 
 from . import common
+from . import RtaMetadata
 import time
 
 
-RtaMetadata(
+metadata = RtaMetadata(
     uuid="9a0c0715-5225-4170-a505-0e3cc4dfd63e",
     platforms=["windows"],
     endpoint=[
@@ -33,7 +34,7 @@ RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(PLATFORMS)
+@common.requires_os(metadata.platforms)
 def main():
     powershell = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
     tempowershell = "C:\\Windows\\notp0sh.exe"
