@@ -60,8 +60,9 @@ if __name__ == "__main__":
         if parsed_args.run_all:
             raise ValueError(f"Pass --ttp-name or --run-all, not both")
         else:
-            rta_name = Path(parsed_args.run).stem
-            exit(run(rta_name, *remaining))
+            for rta_test in parsed_args.name:
+                rta_name = Path(rta_test).stem
+                exit(run(rta_name, *remaining))
 
     elif parsed_args.list:
         get_available_tests(print_list=True, os_filter=parsed_args.os_filter)
