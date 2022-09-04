@@ -1,23 +1,25 @@
 [metadata]
-creation_date = "2020/11/17"
+creation_date = "2022/08/24"
 integration = "google_workspace"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/25"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
 description = """
-Assigning the administrative role to a user will grant them access to the Google Admin console and grant them
-administrator privileges which allow them to access and manage various resources and applications. An adversary may
-create a new administrator account for persistence or apply the admin role to an existing user to carry out further
-intrusion efforts. Users with super-admin privileges can bypass single-sign on if enabled in Google Workspace.
+User groups in Google Workspace are created to help manage users permissions and access to various resources and
+applications. The security label is only applied to a group when users within that group are expected to access
+sensitive data and/or resources so administrators add this label to easily manage security groups better. Adversaries
+with administrator access may modify a security group to allow external access from members outside the organization.
+This detection does not capture all modifications to security groups, but only those that could increase the risk
+associated with them.
 """
 false_positives = [
     """
-    Google Workspace admin role assignments may be modified by system administrators. Verify that the configuration
-    change was expected. Exceptions can be added to this rule to filter expected behavior.
+    User group access may be modified by an administrator to allow external access for community purposes. Doing so for
+    a user group whom has access to sensitive information or operational resources should be monitored closely.
     """,
 ]
 from = "now-130m"
@@ -25,7 +27,7 @@ index = ["filebeat-*", "logs-google_workspace*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
-name = "Google Workspace Admin Role Assigned to a User"
+name = "Google Workspace User Group Access Modified to Allow External Access"
 note = """## Setup
 
 The Google Workspace Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
@@ -38,10 +40,10 @@ The Google Workspace Fleet integration, Filebeat module, or similarly structured
 - See the following references for further information:
   - https://support.google.com/a/answer/7061566
   - https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-google_workspace.html"""
-references = ["https://support.google.com/a/answer/172176?hl=en"]
-risk_score = 73
-rule_id = "68994a6c-c7ba-4e82-b476-26a26877adf6"
-severity = "high"
+references = ["https://support.google.com/a/answer/9468710?hl=en"]
+risk_score = 47
+rule_id = "9cf7a0ae-2404-11ed-ae7d-f661ea17fbce"
+severity = "medium"
 tags = [
     "Elastic",
     "Cloud",
@@ -55,8 +57,10 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:"google_workspace.admin" and event.category:"iam" and event.action:"ASSIGN_ROLE"
-  and google_workspace.event.type:"DELEGATED_ADMIN_SETTINGS" and google_workspace.admin.role.name : *_ADMIN_ROLE
+event.dataset:"google_workspace.admin" and event.action:"CHANGE_GROUP_SETTING" and event.category:"iam"
+    and ((google_workspace.admin.setting.name:"ALLOW_EXTERNAL_MEMBERS" and google_workspace.admin.new_value:"true")
+        or (google_workspace.admin.setting.name:"WHO_CAN_JOIN" and not (google_workspace.admin.new_value:"INVITED_CAN_JOIN"
+            or google_workspace.admin.new_value:"CAN_REQUEST_TO_JOIN")))
 '''
 
 
