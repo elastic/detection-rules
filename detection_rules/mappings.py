@@ -17,12 +17,12 @@ RTA_DIR = get_path("rta")
 RTA_PLATFORM_TYPES = ["windows", "linux", "macos"]
 
 
-class RtaMappings(object):
+class RtaMappings:
     """Rta-mapping helper class."""
 
     def __init__(self):
         """Rta-mapping validation and prep."""
-        self.mapping = load_etc_dump('rule-mapping.yml')  # type: dict
+        self.mapping: dict = load_etc_dump('rule-mapping.yml')
         self.validate()
 
         self._rta_mapping = defaultdict(list)
