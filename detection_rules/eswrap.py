@@ -290,7 +290,7 @@ class CollectEvents(object):
             try:
                 rule_results['search_count'] = self.count(query=rule.contents.data.query,
                                                           language=rule.contents.data.language,
-                                                          index=rule.contents.get('index', '*'),
+                                                          index=rule.contents.data.get('index', '*'),
                                                           start_time=start_time,
                                                           end_time=end_time)
             except (elasticsearch.NotFoundError, elasticsearch.RequestError):
