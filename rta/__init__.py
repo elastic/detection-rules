@@ -5,7 +5,7 @@
 
 import importlib
 import inspect
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -28,12 +28,18 @@ class RtaMetadata:
     techniques: Optional[List[str]] = None
 
     def __post_init__(self):
-        """Set the path and name based on the callee."""
+        """Set the path and name based on the callee and check for platforms."""
+
+        # set the path of the callee
         for frame in inspect.stack():
             self.path = Path(frame.filename)
             self.name = self.path.name
             if frame.function == "<module>" and valid_rta_file(self.path):
                 break
+
+        # check for valid platforms
+        if not self.platforms and (self.endpoint or self.siem):
+            raise ValueError(f"RTA {self.name} has no platforms specified but has rule info provided.")
 
 
 def valid_rta_file(file_path: str) -> bool:
@@ -53,15 +59,7 @@ def get_available_tests(print_list: bool = False, os_filter: str = None) -> Dict
             if os_filter and os_filter not in module.metadata.platforms and os_filter != "all":
                 continue
 
-            test_metadata[file.stem] = {
-                "name": module.metadata.name,
-                "uuid": module.metadata.uuid,
-                "platforms": module.metadata.platforms,
-                "path": module.metadata.path,
-                "siem": module.metadata.siem,
-                "endpoint": module.metadata.endpoint,
-                "techniques": module.metadata.techniques,
-            }
+            test_metadata[file.stem] = asdict(module.metadata)
 
     if print_list:
         longest_test_name = len(max(test_metadata.keys(), key=len))

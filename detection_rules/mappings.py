@@ -82,7 +82,7 @@ class RtaMappings:
 def get_triggered_rules() -> dict:
     """Get the rules that are triggered by each RTA."""
     triggered_rules = {}
-    for rta_test in get_available_tests().values():
+    for rta_test in list(get_available_tests().values()):
         for rule_info in rta_test.get("siem", []):
             rule_id = rule_info.get("rule_id")
             for platform in rta_test.get("platforms", []):
@@ -97,9 +97,7 @@ def get_platform_list(rule: TOMLRule) -> list:
         os_list = [r.lower() for r in rule.contents.metadata.os_list]
     elif rule.contents.data.tags:
         tags = [t.lower() for t in rule.contents.data.tags]
-        for os_type in RTA_PLATFORM_TYPES:
-            if os_type in tags:
-                os_list.append(os_type)
+        os_list = [t for t in RTA_PLATFORM_TYPES if t in tags]
     return os_list
 
 
@@ -138,7 +136,7 @@ def print_converage_summary(coverage_map: dict, all_rule_count: int, os_filter: 
     """Print the coverage summary."""
     print("\n\nCoverage Report\n")
     supported_count = coverage_map["all"]
-    print(f"{supported_count} / {all_rule_count} Unique Detection Rules are supported by RTAs for all OS types")
+    print(f"{supported_count} / {all_rule_count} unique detection rules are supported by RTAs for all OS types")
 
     for os_type, results in coverage_map.items():
 
@@ -148,9 +146,9 @@ def print_converage_summary(coverage_map: dict, all_rule_count: int, os_filter: 
 
             print(f"\n{os_type} coverage: {len(supported)} / {len(supported) + len(unsupported)}")
             print("Supported:")
-            for rule in sorted(list(set(supported))):
+            for rule in sorted(set(supported)):
                 print(f"\t{rule}")
 
             print("Unsupported:")
-            for rule in sorted(list(set(unsupported))):
+            for rule in sorted(set(unsupported)):
                 print(f"\t{rule}")
