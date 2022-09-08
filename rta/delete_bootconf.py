@@ -13,9 +13,19 @@
 import os
 
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(
+    uuid="eaf71384-2e38-4970-b170-9645ccde1d2b",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "69c251fb-a5d6-4035-b5ec-40438bd829ff", "rule_name": "Modification of Boot Configuration"}],
+    techniques=["T1490"],
+)
+
+
+@common.requires_os(metadata.platforms)
 def main():
     # Messing with the boot configuration is probably not a great idea so create a backup:
     common.log("Exporting the boot configuration....")
