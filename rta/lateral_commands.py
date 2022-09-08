@@ -16,11 +16,22 @@ import re
 import sys
 
 from . import common
+from . import RtaMetadata
+
+
+metadata = RtaMetadata(
+    uuid="389392dc-61db-4e45-846f-099f7d289c1b",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "d61cbcf8-1bc1-4cff-85ba-e7b21c5beedc", "rule_name": "Service Command Lateral Movement"}],
+    techniques=["T1569", "T1021", "T1543"],
+)
+
 
 MY_APP = common.get_path("bin", "myapp.exe")
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(metadata.platforms)
 @common.dependencies(MY_APP)
 def main(remote_host=None):
     remote_host = remote_host or common.get_ip()
@@ -69,10 +80,8 @@ def main(remote_host=None):
     schtask_commands = [
         r"schtasks /s {host} /delete /tn {name} /f",
         r"schtasks /s {host} /create /SC MONTHLY /MO first /D SUN /tn {name} /tr c:\windows\system32\ipconfig.exe /f",
-
         r"schtasks /s {host} /run /tn {name}",
         r"schtasks /s {host} /delete /tn {name} /f",
-
     ]
 
     for command in schtask_commands:
