@@ -9,11 +9,16 @@
 # Description: Creates processes with anomalous extensions
 
 from . import common
+from . import RtaMetadata
+
+
+metadata = RtaMetadata(uuid="c7d9d63d-09ff-40e9-b990-4c273281d6a0", platforms=["windows"], endpoint=[], siem=[], techniques=[])
+
 
 MY_APP = common.get_path("bin", "myapp.exe")
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(metadata.platforms)
 @common.dependencies(MY_APP)
 def main():
     anomalies = [
@@ -23,7 +28,7 @@ def main():
         "bad.pdf",
         "suspicious.bat",
         "hiding.vbs",
-        "evil.xlsx"
+        "evil.xlsx",
     ]
 
     for path in anomalies:

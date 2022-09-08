@@ -8,18 +8,28 @@
 # Description: Uses built-in commands for *nix operating systems to compress known sensitive
 #              files, such as etc/shadow and etc/passwd
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.LINUX)
+metadata = RtaMetadata(
+    uuid="f3ffa89b-de47-4e17-ac8e-385e0e7f8253",
+    platforms=["linux"],
+    endpoint=[],
+    siem=[{"rule_id": "6b84d470-9036-4cc0-a27c-6d90bbfe81ab", "rule_name": "Sensitive Files Compression"}],
+    techniques=["T1560", "T1552"],
+)
+
+
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Compressing sensitive files")
-    files = ['totally-legit.tar', 'official-business.zip', 'expense-reports.gz']
+    files = ["totally-legit.tar", "official-business.zip", "expense-reports.gz"]
 
     # we don't want/need these to actually work, since the rule is only looking for command line, so no need for sudo
     commands = [
-        ['tar', '-cvf', files[0], '/etc/shadow'],
-        ['zip', files[1], '/etc/passwd'],
-        ['gzip', '/etc/group', files[2]]
+        ["tar", "-cvf", files[0], "/etc/shadow"],
+        ["zip", files[1], "/etc/passwd"],
+        ["gzip", "/etc/group", files[2]],
     ]
     for command in commands:
         try:
@@ -30,5 +40,5 @@ def main():
             common.log(str(exc))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
