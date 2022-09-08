@@ -12,10 +12,8 @@ from pathlib import Path
 from typing import Union
 
 import requests
-import yaml
 from marshmallow import EXCLUDE, Schema, fields, post_load
 
-from .ghwrap import GithubClient
 from .semver import Version
 from .utils import cached, get_etc_path, read_gzip
 
@@ -98,11 +96,12 @@ def find_least_compatible_version(package: str, integration: str,
 def get_integration_manifests(integration: str) -> list:
     """Iterates over specified integrations from package-storage and combines manifests per version."""
     epr_search_url = "https://epr.elastic.co/search"
-    epr_search_parameters = {"package":f"{integration}","prerelease":"true",
-                        "all":"true","include_policy_templates":"true"}
+    epr_search_parameters = {"package": f"{integration}", "prerelease": "true",
+                             "all": "true", "include_policy_templates": "true"}
     epr_search_response = requests.get(epr_search_url, params=epr_search_parameters)
     manifests = json.loads(epr_search_response.content)
     if epr_search_response.status_code != 200 or manifests == []:
         raise Exception(f"EPR search for {integration} integration package failed")
-    print(f"loaded {integration} manifests from the following package versions: {[manifest['version'] for manifest in manifests]}")
+    print(f"loaded {integration} manifests from the following package versions: \
+        {[manifest['version'] for manifest in manifests]}")
     return manifests
