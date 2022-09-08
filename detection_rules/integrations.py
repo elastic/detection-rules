@@ -86,7 +86,7 @@ def find_least_compatible_version(package: str, integration: str,
         return compatible
 
     for version, manifest in latest_major_integration_manifests.items():
-        for kibana_compat_vers in re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana.version"]).split(" || "):
+        for kibana_compat_vers in re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana"]["version"]).split(" || "):
             if compare_versions(kibana_compat_vers, current_stack_version):
                 return f"^{version}"
     print(f"no compatible version for integration {package}:{integration}")
@@ -96,12 +96,15 @@ def find_least_compatible_version(package: str, integration: str,
 def get_integration_manifests(integration: str) -> list:
     """Iterates over specified integrations from package-storage and combines manifests per version."""
     epr_search_url = "https://epr.elastic.co/search"
+
+    # link for search parameters - https://github.com/elastic/package-registry
     epr_search_parameters = {"package": f"{integration}", "prerelease": "true",
                              "all": "true", "include_policy_templates": "true"}
     epr_search_response = requests.get(epr_search_url, params=epr_search_parameters)
+    epr_search_response.raise_for_status()
     manifests = json.loads(epr_search_response.content)
-    if epr_search_response.status_code != 200 or manifests == []:
-        raise Exception(f"EPR search for {integration} integration package failed")
-    print(f"loaded {integration} manifests from the following package versions: \
-        {[manifest['version'] for manifest in manifests]}")
+    if manifests == []:
+        raise Exception(f"EPR search for {integration} integration package returned blank list")
+    print(f"loaded {integration} manifests from the following package versions: "
+          f"{[manifest['version'] for manifest in manifests]}")
     return manifests
