@@ -338,7 +338,7 @@ class QueryValidator:
 
     @property
     def ast(self) -> Any:
-        raise NotImplementedError
+        raise NotImplementedError()
 
     @property
     def unique_fields(self) -> Any:
