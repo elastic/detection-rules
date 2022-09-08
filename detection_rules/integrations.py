@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 from typing import Union
 
+import requests
 import yaml
 from marshmallow import EXCLUDE, Schema, fields, post_load
 
@@ -34,7 +35,7 @@ class IntegrationManifestSchema(Schema):
     description = fields.Str(required=True)
     conditions = fields.Dict(required=True)
     policy_templates = fields.List(fields.Dict, required=True)
-    owner = fields.Dict(required=True)
+    owner = fields.Dict(required=False)
 
     @post_load
     def transform_policy_template(self, data, **kwargs):
@@ -42,7 +43,7 @@ class IntegrationManifestSchema(Schema):
         return data
 
 
-def build_integrations_manifest(token: str, overwrite: bool, rule_integrations: list) -> None:
+def build_integrations_manifest(overwrite: bool, rule_integrations: list) -> None:
     """Builds a new local copy of manifest.yaml from integrations Github."""
     if overwrite:
         if os.path.exists(MANIFEST_FILE_PATH):
@@ -50,17 +51,8 @@ def build_integrations_manifest(token: str, overwrite: bool, rule_integrations: 
 
     final_integration_manifests = {integration: {} for integration in rule_integrations}
 
-    # initialize github client and point to package-storage prod
-    github = GithubClient(token)
-    client = github.authenticated_client
-    organization = client.get_organization("elastic")
-    repository = organization.get_repo("package-storage")
-    pkg_storage_prod_branch = repository.get_branch("production")
-    pkg_storage_branch_sha = pkg_storage_prod_branch.commit.sha
-
     for integration in rule_integrations:
-        integration_manifests = get_integration_manifests(repository, pkg_storage_branch_sha,
-                                                          pkg_path=f"packages/{integration}")
+        integration_manifests = get_integration_manifests(integration)
         for manifest in integration_manifests:
             validated_manifest = IntegrationManifestSchema(unknown=EXCLUDE).load(manifest)
             package_version = validated_manifest.pop("version")
@@ -69,6 +61,7 @@ def build_integrations_manifest(token: str, overwrite: bool, rule_integrations: 
     manifest_file = gzip.open(MANIFEST_FILE_PATH, "w+")
     manifest_file_bytes = json.dumps(final_integration_manifests).encode("utf-8")
     manifest_file.write(manifest_file_bytes)
+    print(f"final integrations manifests dumped: {MANIFEST_FILE_PATH}")
 
 
 def find_least_compatible_version(package: str, integration: str,
@@ -102,25 +95,14 @@ def find_least_compatible_version(package: str, integration: str,
     return None
 
 
-def get_integration_manifests(repository, sha: str, pkg_path: str) -> list:
+def get_integration_manifests(integration: str) -> list:
     """Iterates over specified integrations from package-storage and combines manifests per version."""
-    integration = pkg_path.split("/")[-1]
-    versioned_packages = repository.get_dir_contents(pkg_path, ref=sha)
-    versions = [p.path.split("/")[-1] for p in versioned_packages]
-
-    manifests = []
-    for version in versions:
-        contents = repository.get_dir_contents(f"{pkg_path}/{version}", ref=sha)
-        print(f"Processing {integration} - Version: {version}")
-
-        processing_version = contents[0].path.split("/")[2]
-        manifest_content = [c for c in contents if "manifest" in c.path]
-
-        if len(manifest_content) < 1:
-            raise Exception(f"manifest file does not exist for {integration}:{processing_version}")
-
-        path = manifest_content[0].path
-        manifest_content = yaml.safe_load(repository.get_contents(path, ref=sha).decoded_content.decode())
-        manifests.append(manifest_content)
-
+    epr_search_url = "https://epr.elastic.co/search"
+    epr_search_parameters = {"package":f"{integration}","prerelease":"true",
+                        "all":"true","include_policy_templates":"true"}
+    epr_search_response = requests.get(epr_search_url, params=epr_search_parameters)
+    manifests = json.loads(epr_search_response.content)
+    if epr_search_response.status_code != 200 or manifests == []:
+        raise Exception(f"EPR search for {integration} integration package failed")
+    print(f"loaded {integration} manifests from the following package versions: {[manifest['version'] for manifest in manifests]}")
     return manifests

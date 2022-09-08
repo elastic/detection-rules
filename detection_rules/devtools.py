@@ -1103,10 +1103,10 @@ def integrations_group():
 
 @integrations_group.command('build-manifests')
 @click.option('--overwrite', '-o', is_flag=True, help="Overwrite the existing integrations-manifest.json.gz file")
-@click.option("--token", required=True, prompt=get_github_token() is None, default=get_github_token(),
-              help="GitHub token to use for the PR", hide_input=True)
-def build_integration_manifests(overwrite: bool, token: str):
+def build_integration_manifests(overwrite: bool):
     """Builds consolidated integrations manifests file."""
+    click.echo("loading rules to determine all integration tags")
     rules = RuleCollection.default()
     integration_tags = list(set([r.contents.metadata.integration for r in rules if r.contents.metadata.integration]))
-    build_integrations_manifest(token, overwrite, integration_tags)
+    click.echo(f"integration tags identified: {integration_tags}")
+    build_integrations_manifest(overwrite, integration_tags)
