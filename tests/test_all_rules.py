@@ -445,7 +445,7 @@ class TestRuleMetadata(BaseRuleTest):
 
         packages_manifest = load_integrations_manifests()
         epr_search_url = "https://epr.elastic.co/search"
-        epr_search_response = requests.get(epr_search_url, params={"all":"true"})
+        epr_search_response = requests.get(epr_search_url, params={"all": "true"})
         epr_search_response.raise_for_status()
         valid_integrations = json.loads(epr_search_response.content)
         valid_integration_names = list(set([ints['name'] for ints in valid_integrations]))
@@ -468,7 +468,6 @@ class TestRuleMetadata(BaseRuleTest):
                 The following rules have missing or invalid integrations tags per https://epr.elastic.co/search:\n
                 """
             self.fail(err_msg + '\n'.join(failures))
-
 
     def test_rule_demotions(self):
         """Test to ensure a locked rule is not dropped to development, only deprecated"""
