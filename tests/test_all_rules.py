@@ -4,6 +4,7 @@
 # 2.0.
 
 """Test that all rules have valid metadata and syntax."""
+import json
 import os
 import re
 import warnings
@@ -11,17 +12,19 @@ from collections import defaultdict
 from pathlib import Path
 
 import kql
-
+import requests
 from detection_rules import attack
 from detection_rules.beats import parse_beats_from_index
 from detection_rules.packaging import current_stack_version
-from detection_rules.rule import QueryRuleData
+from detection_rules.rule import (QueryRuleData, TOMLRuleContents,
+                                  load_integrations_manifests)
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.schemas import definitions
 from detection_rules.semver import Version
 from detection_rules.utils import get_path, load_etc_dump
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
+
 from .base import BaseRuleTest
 
 
@@ -440,20 +443,32 @@ class TestRuleMetadata(BaseRuleTest):
         """Test that rules in integrations folders have matching integration defined."""
         failures = []
 
-        for rule in self.production_rules:
-            rules_path = get_path('rules')
-            *_, grandparent, parent, _ = rule.path.parts
-            in_integrations = grandparent == 'integrations'
-            integration = rule.contents.metadata.get('integration')
-            has_integration = integration is not None
+        packages_manifest = load_integrations_manifests()
+        epr_search_url = "https://epr.elastic.co/search"
+        epr_search_response = requests.get(epr_search_url, params={"all":"true"})
+        epr_search_response.raise_for_status()
+        valid_integrations = json.loads(epr_search_response.content)
+        valid_integration_names = list(set([ints['name'] for ints in valid_integrations]))
 
-            if (in_integrations or has_integration) and (parent != integration):
-                err_msg = f'{self.rule_str(rule)}\nintegration: {integration}\npath: {rule.path.relative_to(rules_path)}'  # noqa: E501
+        for rule in self.production_rules:
+            rule_integration = rule.contents.metadata.get('integration')
+
+            if rule_integration and rule_integration not in valid_integration_names:
+                err_msg = f'{self.rule_str(rule)} integration is invalid: {rule_integration}'
                 failures.append(err_msg)
 
+            if isinstance(rule.contents.data, QueryRuleData) and rule.contents.data.language != 'lucene':
+                trc = TOMLRuleContents(rule.contents.metadata, rule.contents.data)
+                package_integrations = trc._get_packaged_integrations(packages_manifest)
+                if package_integrations and not rule_integration:
+                    err_msg = f'{self.rule_str(rule)} integration tag should exist: '
+
         if failures:
-            err_msg = 'The following rules have missing/incorrect integrations or are not in an integrations folder:\n'
+            err_msg = """
+                The following rules have missing or invalid integrations tags per https://epr.elastic.co/search:\n
+                """
             self.fail(err_msg + '\n'.join(failures))
+
 
     def test_rule_demotions(self):
         """Test to ensure a locked rule is not dropped to development, only deprecated"""
