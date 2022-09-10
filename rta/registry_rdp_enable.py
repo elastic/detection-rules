@@ -10,9 +10,24 @@
 # Description: Identifies registry write modification to enable RDP access.
 
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(
+    uuid="1ef2a173-a9c8-446d-9d56-f7e54a197a33",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
+        {
+            "rule_id": "7405ddf1-6c8e-41ce-818f-48bea6bcaed8",
+            "rule_name": "Potential Modification of Accessibility Binaries",
+        }
+    ],
+    techniques=["T1546"],
+)
+
+
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Enabling RDP Through Registry")
 

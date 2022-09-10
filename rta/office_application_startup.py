@@ -11,9 +11,13 @@
 import sys
 
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(uuid="5a979532-2b56-4c7d-b47e-a2aa1ef9547a", platforms=["windows"], endpoint=[], siem=[], techniques=[])
+
+
+@common.requires_os(metadata.platforms)
 def main(dll_location="c:\\windows\\temp\\evil.dll"):
     # Write evil dll to office test path:
     subkey = "Software\\Microsoft\\Office Test\\Special\\Perf"
