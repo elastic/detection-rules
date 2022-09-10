@@ -12,10 +12,20 @@
 import os
 
 from . import common
+from . import RtaMetadata
 from . import mshta_network
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(
+    uuid="cd8e06c0-fc62-4932-8ef7-b767570e88eb",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "a624863f-a70d-417f-a7d2-7a404638d47f", "rule_name": "Suspicious MS Office Child Process"}],
+    techniques=["T1566"],
+)
+
+
+@common.requires_os(metadata.platforms)
 def main():
     mshta_path = os.path.abspath(mshta_network.__file__.replace(".pyc", ".py"))
 
