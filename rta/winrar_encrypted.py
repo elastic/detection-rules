@@ -13,6 +13,17 @@ import os
 import sys
 
 from . import common
+from . import RtaMetadata
+
+
+metadata = RtaMetadata(
+    uuid="6d2d3c21-2d71-4395-8ab7-b1d0138d9225",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "45d273fb-1dca-457d-9855-bcb302180c21", "rule_name": "Encrypting Files with WinRar or 7z"}],
+    techniques=["T1560"],
+)
+
 
 MY_APP = common.get_path("bin", "myapp.exe")
 WINRAR = common.get_path("bin", "Rar.exe")
@@ -20,12 +31,12 @@ WINRAR = common.get_path("bin", "Rar.exe")
 
 def create_exfil(path=os.path.abspath("secret_stuff.txt")):
     common.log("Writing dummy exfil to %s" % path)
-    with open(path, 'wb') as f:
+    with open(path, "wb") as f:
         f.write(base64.b64encode(b"This is really secret stuff" * 100))
     return path
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(metadata.platforms)
 @common.dependencies(MY_APP, WINRAR)
 def main(password="s0l33t"):
     # Copies of the rar.exe for various tests
