@@ -12,13 +12,17 @@ import base64
 import os
 
 from . import common
+from . import RtaMetadata
+
+
+metadata = RtaMetadata(uuid="5efc844c-0c11-4f84-a904-ada611315298", platforms=["windows"], endpoint=[], siem=[], techniques=[])
 
 
 def encode(command):
-    return base64.b64encode(command.encode('utf-16le'))
+    return base64.b64encode(command.encode("utf-16le"))
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("PowerShell Suspicious Commands")
     temp_script = os.path.abspath("tmp.ps1")
@@ -28,9 +32,9 @@ def main():
         f.write("whoami.exe\nexit\n")
 
     powershell_commands = [
-        ['powershell.exe', '-ExecutionPol', 'Bypass', temp_script],
-        ['powershell.exe', 'iex', 'Get-Process'],
-        ['powershell.exe', '-ec', encode('Get-Process' + ' ' * 1000)],
+        ["powershell.exe", "-ExecutionPol", "Bypass", temp_script],
+        ["powershell.exe", "iex", "Get-Process"],
+        ["powershell.exe", "-ec", encode("Get-Process" + " " * 1000)],
     ]
 
     for command in powershell_commands:
