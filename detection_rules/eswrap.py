@@ -39,9 +39,15 @@ def parse_unique_field_results(rule_type: str, unique_fields: List[str], search_
     hits = hits['hits'] if rule_type != 'eql' else hits.get('events') or hits.get('sequences', [])
     for hit in hits:
         for field in unique_fields:
-            match = nested_get(hit['_source'], field)
-            if not match:
-                continue
+            if 'events' in hit:
+                for event in hit['events']:
+                    match = nested_get(event['_source'], field)
+                    if not match:
+                        continue
+            else:
+                match = nested_get(hit['_source'], field)
+                if not match:
+                    continue
 
             match = ','.join(sorted(match)) if isinstance(match, list) else match
             parsed_results[field][match] += 1
