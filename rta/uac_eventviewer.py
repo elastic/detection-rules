@@ -12,6 +12,16 @@ import sys
 import time
 
 from . import common
+from . import RtaMetadata
+
+
+metadata = RtaMetadata(
+    uuid="1185afa2-49aa-4cca-8702-228d238c0bd5",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "31b4c719-f2b4-41f6-a9bd-fce93c2eaf62", "rule_name": "Bypass UAC via Event Viewer"}],
+    techniques=["T1548"],
+)
 
 
 # Default machine value:
@@ -19,7 +29,7 @@ from . import common
 # %SystemRoot%\system32\mmc.exe "%1" %*
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(metadata.platforms)
 def main(target_file=common.get_path("bin", "myapp.exe")):
     winreg = common.get_winreg()
     common.log("Bypass UAC with %s" % target_file)
@@ -33,7 +43,7 @@ def main(target_file=common.get_path("bin", "myapp.exe")):
 
     time.sleep(3)
     common.log("Killing MMC", log_type="!")
-    common.execute(['taskkill', '/f', '/im', 'mmc.exe'])
+    common.execute(["taskkill", "/f", "/im", "mmc.exe"])
 
     common.log("Restoring registry key", log_type="-")
     winreg.DeleteValue(hkey, "")

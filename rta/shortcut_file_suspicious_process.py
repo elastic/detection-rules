@@ -9,13 +9,17 @@
 # Description: Create a .lnk file using cmd.exe
 
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(uuid="755e88fd-1fe1-44c7-b5f0-688a39fec420", platforms=["windows"], endpoint=[], siem=[], techniques=[])
+
+
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Writing dummy shortcut file")
-    shortcut_path = 'C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\StartUp\\evil.lnk'
-    common.execute(['cmd', '/c', 'echo', 'dummy_shortcut', '>', shortcut_path])
+    shortcut_path = "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\StartUp\\evil.lnk"
+    common.execute(["cmd", "/c", "echo", "dummy_shortcut", ">", shortcut_path])
 
     common.log("Deleting dummy shortcut file")
     common.remove_file(shortcut_path)
