@@ -40,8 +40,10 @@ def parse_unique_field_results(rule_type: str, unique_fields: List[str], search_
     for hit in hits:
         for field in unique_fields:
             if 'events' in hit:
+                match = []
                 for event in hit['events']:
-                    match = nested_get(event['_source'], field)
+                    matched = nested_get(event['_source'], field)
+                    match.extend([matched] if not isinstance(matched, list) else matched)
                     if not match:
                         continue
             else:
