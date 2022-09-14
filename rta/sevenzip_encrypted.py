@@ -13,18 +13,29 @@ import os
 import sys
 
 from . import common
+from . import RtaMetadata
+
+
+metadata = RtaMetadata(
+    uuid="6cd35061-278b-45e7-a9cb-86b48bc47884",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "45d273fb-1dca-457d-9855-bcb302180c21", "rule_name": "Encrypting Files with WinRar or 7z"}],
+    techniques=["T1560"],
+)
+
 
 SEVENZIP = common.get_path("bin", "7za.exe")
 
 
 def create_exfil(path=os.path.abspath("secret_stuff.txt")):
     common.log("Writing dummy exfil to %s" % path)
-    with open(path, 'wb') as f:
+    with open(path, "wb") as f:
         f.write(base64.b64encode(b"This is really secret stuff\n" * 100))
     return path
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(metadata.platforms)
 @common.dependencies(SEVENZIP)
 def main(password="s0l33t"):
     # create 7z.exe with not-7zip name, and exfil
