@@ -1,0 +1,68 @@
+[metadata]
+creation_date = "2022/09/14"
+integration = "kubernetes"
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects when a user modifies a running pod/container to run in privileged mode or to run as root. A highly
+privileged container has access to the node's resources and breaks the isolation between containers. Processes in a
+privileged container are essentially equivalent to root on the host. If compromised, an attacker can use the privileged
+container to gain access to the underlying host. Gaining access to the host may provide the adversary with the
+opportunity to achieve follow-on objectives, such as establishing persistence, moving laterally within the environment,
+or setting up a command and control channel on the host.
+"""
+false_positives = [
+    """
+    By default a container is not allowed to access any devices on the host, but a "privileged" container is given
+    access to all devices on the host. This allows the container nearly all the same access as processes running on the
+    host. An administrator may want to run a privileged container to use operating system administrative capabilities
+    such as manipulating the network stack or accessing hardware devices from within the cluster. However, permissive
+    changes to the security context of running pods or containers could indicate compromise and should be investigated.
+    """,
+]
+index = ["logs-kubernetes.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kubernetes Suspicious Change to Privileges of Running Security Context"
+note = """## Setup
+The Kubernetes Fleet integration with Audit Logs enabled or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://media.defense.gov/2021/Aug/03/2002820425/-1/-1/1/CTR_KUBERNETES%20HARDENING%20GUIDANCE.PDF",
+    "https://kubernetes.io/docs/tasks/configure-pod-container/security-context/",
+]
+risk_score = 47
+rule_id = "63c058da-339a-11ed-a261-0242ac120002"
+severity = "medium"
+tags = ["Elastic", "Kubernetes", "Continuous Monitoring", "Execution", "Privilege Escalation"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+kubernetes.audit.objectRef.resource : "pods" 
+  and kubernetes.audit.verb : ("update" or "patch") 
+  and (kubernetes.audit.requestObject.spec.containers.securityContext.privileged: true 
+  or kubernetes.audit.requestObject.spec.containers.securityContext.allowPrivilegeEscalation: true 
+  or kubernetes.audit.requestObject.spec.securityContext.runAsUser: 0 
+  or kubernetes.audit.requestObject.spec.containers.securityContext.runAsUser: 0 
+  or kubernetes.audit.requestObject.spec.containers.securityContext.runAsGroup: 0)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
