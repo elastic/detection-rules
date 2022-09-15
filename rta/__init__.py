@@ -43,7 +43,7 @@ class RtaMetadata:
 
 
 def valid_rta_file(file_path: str) -> bool:
-    return file_path.stem not in ["init", "common", "main", "deprecated"] and not file_path.name.startswith("_")
+    return file_path.stem not in ["init", "common", "main"] and not file_path.name.startswith("_")
 
 
 def get_available_tests(print_list: bool = False, os_filter: str = None) -> Dict[str, dict]:
