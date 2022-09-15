@@ -103,8 +103,9 @@ def get_integration_manifests(integration: str) -> list:
     epr_search_response.raise_for_status()
     manifests = epr_search_response.json()
 
-    if manifests == []:
-        raise Exception(f"EPR search for {integration} integration package returned blank list")
+    if not manifests:
+        raise ValueError(f"EPR search for {integration} integration package returned empty list")
+
     print(f"loaded {integration} manifests from the following package versions: "
           f"{[manifest['version'] for manifest in manifests]}")
     return manifests
