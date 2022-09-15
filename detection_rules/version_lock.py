@@ -12,7 +12,7 @@ import click
 
 from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
 from .rule_loader import RuleCollection
-from .schemas import definitions, get_min_supported_stack_version
+from .schemas import definitions
 from .semver import Version
 from .utils import cached, get_etc_path
 
@@ -89,15 +89,6 @@ class DeprecatedRulesFile(LockDataclassMixin):
         if item not in self.data:
             raise KeyError(item)
         return self.data[item]
-
-
-def _convert_lock_version(stack_version: Optional[str]) -> Version:
-    """Convert an optional stack version to the minimum for the lock."""
-    min_version = get_min_supported_stack_version(drop_patch=True)
-    if stack_version is None:
-        return min_version
-    short_stack_version = Version(Version(stack_version)[:2])
-    return max(short_stack_version, min_version)
 
 
 @cached
@@ -211,7 +202,7 @@ class VersionLock:
         for rule in rules:
             if rule.contents.metadata.maturity == "production" or rule.id in newly_deprecated:
                 # assume that older stacks are always locked first
-                min_stack = _convert_lock_version(rule.contents.metadata.min_stack_version)
+                min_stack = Version(rule.contents.get_supported_version())
 
                 lock_from_rule = rule.contents.lock_info(bump=not exclude_version_update)
                 lock_from_file: dict = lock_file_contents.setdefault(rule.id, {})
@@ -230,7 +221,8 @@ class VersionLock:
                 # 2) on the latest, after a breaking change has been locked
                 # 3) on the latest stack, locking in a breaking change
                 # 4) on an old stack, after a breaking change has been made
-                latest_locked_stack_version = _convert_lock_version(lock_from_file.get("min_stack_version"))
+                latest_locked_stack_version = rule.contents.convert_supported_version(
+                    lock_from_file.get("min_stack_version"))
 
                 if not lock_from_file or min_stack == latest_locked_stack_version:
                     route = 'A'
