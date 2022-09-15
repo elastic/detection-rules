@@ -617,20 +617,11 @@ class BaseRuleContents(ABC):
     def get_version_space(self) -> Optional[int]:
         """Retrieve the number of version spaces available (None for unbound)."""
         if self.is_in_forked_version:
-            min_stack_version = Version(self.metadata.min_stack_version)
-            previous_entries = self.lock_entry['previous']
-            previous_versions = sorted([Version(v) for v in previous_entries])
-            next_entry_min_stack = next((v for v in previous_versions if v > min_stack_version), None)
+            current_entry = self.lock_entry['previous'][self.metadata.min_stack_version]
+            current_version = current_entry['version']
+            max_allowable_version = current_entry['max_allowable_version']
 
-            current_version = previous_entries[self.metadata.min_stack_version]['version']
-
-            if next_entry_min_stack is None:
-                # use the root level version because this is currently in the latest previous entry
-                next_version = self.lock_entry['version']
-            else:
-                next_version = previous_entries[next_entry_min_stack]['version']
-
-            return next_version - current_version - 1
+            return max_allowable_version - current_version - 1
 
     @property
     def latest_version(self) -> Optional[int]:

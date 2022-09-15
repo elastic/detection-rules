@@ -35,10 +35,18 @@ class BaseEntry:
 
 
 @dataclass(frozen=True)
+class PreviousEntry(BaseEntry):
+
+    # this is Optional for resiliency in already tagged branches missing this field. This means we should strictly
+    # validate elsewhere
+    max_allowable_version: Optional[int]
+
+
+@dataclass(frozen=True)
 class VersionLockFileEntry(MarshmallowDataclassMixin, BaseEntry):
     """Schema for a rule entry in the version lock."""
     min_stack_version: Optional[definitions.SemVerMinorOnly]
-    previous: Optional[Dict[definitions.SemVerMinorOnly, BaseEntry]]
+    previous: Optional[Dict[definitions.SemVerMinorOnly, PreviousEntry]]
 
 
 @dataclass(frozen=True)
@@ -241,6 +249,7 @@ class VersionLock:
                     route = 'B'
                     # 3) on the latest stack, locking in a breaking change
                     previous_lock_info = {
+                        "max_allowable_version": lock_from_rule['version'] - 1,
                         "rule_name": lock_from_file["rule_name"],
                         "sha256": lock_from_file["sha256"],
                         "version": lock_from_file["version"],
@@ -272,11 +281,18 @@ class VersionLock:
                     #       We can still inspect the version lock manually after locks are made,
                     #       since it's a good summary of everything that happens
 
-                    # if version bump collides with future bump, fail
-                    # if space, change and log
+                    previous_entry = lock_from_file["previous"][str(min_stack)]
+                    max_allowable_version = previous_entry['max_allowable_version']
+
+                    # if version bump collides with future bump: fail
+                    # if space: change and log
                     info_from_rule = (lock_from_rule['sha256'], lock_from_rule['version'])
-                    info_from_file = (lock_from_file["previous"][str(min_stack)]['sha256'],
-                                      lock_from_file["previous"][str(min_stack)]['version'])
+                    info_from_file = (previous_entry['sha256'], previous_entry['version'])
+
+                    if lock_from_rule['version'] > max_allowable_version:
+                        raise ValueError(f'Forked rule: {rule.id} - {rule.name} has changes that will force it to '
+                                         f'exceed the max allowable version of {max_allowable_version}')
+
                     if info_from_rule != info_from_file:
                         lock_from_file["previous"][str(min_stack)] = lock_from_rule
                         new_version = lock_from_rule["version"]
@@ -285,14 +301,6 @@ class VersionLock:
                     continue
                 else:
                     raise RuntimeError("Unreachable code")
-
-                if 'previous' in lock_from_file:
-                    current_rule_version = rule.contents.lock_info()['version']
-                    for min_stack_version, versioned_lock in lock_from_file['previous'].items():
-                        existing_lock_version = versioned_lock['version']
-                        if current_rule_version < existing_lock_version:
-                            raise ValueError(f'{rule.id} - previous {min_stack_version=} {existing_lock_version=} '
-                                             f'has a higher version than {current_rule_version=}')
 
         for rule in rules.deprecated:
             if rule.id in newly_deprecated:
