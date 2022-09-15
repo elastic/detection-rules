@@ -13,14 +13,29 @@
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(
+    uuid="7dea9748-dcac-49a9-8909-bd1f5590e508",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
+        {
+            "rule_id": "7405ddf1-6c8e-41ce-818f-48bea6bcaed8",
+            "rule_name": "Potential Modification of Accessibility Binaries",
+        }
+    ],
+    techniques=["T1546"],
+)
+
+
+@common.requires_os(metadata.platforms)
 def main():
     # Write to AppData\Local\
-    common.execute(['cmd', '/c', 'echo', 'test', '>', '%APPDATA%\\test.SettingContent-ms'])
+    common.execute(["cmd", "/c", "echo", "test", ">", "%APPDATA%\\test.SettingContent-ms"])
     time.sleep(1)
-    common.execute(['cmd', '/c', 'del', '%APPDATA%\\test.SettingContent-ms'])
+    common.execute(["cmd", "/c", "del", "%APPDATA%\\test.SettingContent-ms"])
 
 
 if __name__ == "__main__":
