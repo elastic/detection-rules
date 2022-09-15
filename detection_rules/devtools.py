@@ -635,26 +635,30 @@ def license_check(ctx, ignore_directory):
     ctx.exit(int(failed))
 
 
-@dev_group.command('rule-version-check')
-@click.pass_context
-def rule_version_collision_check(ctx: click.Context):
+@dev_group.command('test-version-lock')
+@click.argument('branches', nargs=-1, required=True)
+@click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
+def test_version_lock(branches: tuple, remote: str):
     """Simulate the incremental step in the version locking to find version change violations."""
-    invalid = []
-    rc = RuleCollection.default()
-    current_stack_ver = current_stack_version()
+    git = utils.make_git('-C', '.')
+    current_branch = git('rev-parse', '--abbrev-ref', 'HEAD')
 
-    click.echo(f'Checking for version collisions in release {current_stack_ver} in {len(rc)} rules')
-    for rule in rc.rules:
-        version_space = rule.contents.get_version_space()
-        if rule.contents.is_dirty and version_space is not None and version_space < 1:
-            invalid.append(f'{rule.id} - {rule.name}')
+    try:
+        click.echo(f'iterating lock process for branches: {branches}')
+        for branch in branches:
+            click.echo(branch)
+            git('checkout', f'{remote}/{branch}')
+            subprocess.check_call(['python', '-m', 'detection_rules', 'dev', 'build-release', '-u'])
 
-    if invalid:
-        err_str = '- '.join(invalid)
-        click.secho(f'In package: {current_stack_ver}, the following rules will increment colliding versions:\n'
-                    f' {err_str}', fg='red', err=True)
+    finally:
+        diff = git('--no-pager', 'diff', get_etc_path('version.lock.json'))
+        outfile = Path(get_path()).joinpath('lock-diff.txt')
+        outfile.write_text(diff)
+        click.echo(f'diff saved to {outfile}')
 
-        ctx.exit(len(invalid))
+        click.echo('reverting changes in version.lock')
+        git('checkout', '-f')
+        git('checkout', current_branch)
 
 
 @dev_group.command('package-stats')

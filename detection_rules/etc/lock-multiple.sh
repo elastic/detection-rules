@@ -10,7 +10,6 @@ do
     echo $BRANCH
     git checkout $BRANCH
     git pull
-    python -m detection_rules dev rule-version-check
     python -m detection_rules dev build-release --update-version-lock
 done
 
