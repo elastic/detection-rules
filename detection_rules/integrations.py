@@ -101,7 +101,8 @@ def get_integration_manifests(integration: str) -> list:
                              "all": "true", "include_policy_templates": "true"}
     epr_search_response = requests.get(epr_search_url, params=epr_search_parameters)
     epr_search_response.raise_for_status()
-    manifests = json.loads(epr_search_response.content)
+    manifests = epr_search_response.json()
+
     if manifests == []:
         raise Exception(f"EPR search for {integration} integration package returned blank list")
     print(f"loaded {integration} manifests from the following package versions: "
