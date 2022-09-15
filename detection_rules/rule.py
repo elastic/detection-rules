@@ -31,7 +31,7 @@ from .rule_formatter import nested_normalize, toml_write
 from .schemas import (SCHEMA_DIR, definitions, downgrade,
                       get_min_supported_stack_version, get_stack_schemas)
 from .schemas.stack_compat import get_restricted_fields
-from .semver import Version
+from .semver import Version, max_versions
 from .utils import cached
 
 _META_SCHEMA_REQ_DEFAULTS = {}
@@ -576,6 +576,16 @@ class BaseRuleContents(ABC):
     def type(self):
         pass
 
+    def get_stack_version(self) -> str:
+        """Get the lowest stack version for the rule that is currently supported."""
+        min_stack = self.metadata.get('min_stack_version')
+        min_supported = str(get_min_supported_stack_version(drop_patch=True))
+        if min_stack:
+            min_stack = max_versions(min_stack, min_supported)
+        else:
+            min_stack = min_supported
+        return min_stack
+
     def lock_info(self, bump=True) -> dict:
         version = self.autobumped_version if bump else (self.latest_version or 1)
         contents = {"rule_name": self.name, "sha256": self.sha256(), "version": version, "type": self.type}
@@ -585,8 +595,7 @@ class BaseRuleContents(ABC):
     @property
     def is_dirty(self) -> Optional[bool]:
         """Determine if the rule has changed since its version was locked."""
-        min_stack = self.metadata.get('min_stack_version') or str(get_min_supported_stack_version(drop_patch=True))
-        existing_sha256 = self.version_lock.get_locked_hash(self.id, min_stack)
+        existing_sha256 = self.version_lock.get_locked_hash(self.id, self.get_stack_version())
 
         if existing_sha256 is not None:
             return existing_sha256 != self.sha256()
@@ -626,8 +635,7 @@ class BaseRuleContents(ABC):
     @property
     def latest_version(self) -> Optional[int]:
         """Retrieve the latest known version of the rule."""
-        min_stack = self.metadata.get('min_stack_version') or str(get_min_supported_stack_version(drop_patch=True))
-        return self.version_lock.get_locked_version(self.id, min_stack)
+        return self.version_lock.get_locked_version(self.id, self.get_stack_version())
 
     @property
     def autobumped_version(self) -> Optional[int]:
