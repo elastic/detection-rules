@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2021/01/21"
 maturity = "production"
-updated_date = "2022/03/31"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -27,8 +29,25 @@ type = "eql"
 
 query = '''
 file where event.type == "creation" and
+
   file.path : "C:\\*:*" and
   not file.path : "C:\\*:zone.identifier*" and
+
+  not process.executable :
+          ("?:\\windows\\System32\\svchost.exe",
+           "?:\\Windows\\System32\\inetsrv\\w3wp.exe",
+           "?:\\Windows\\explorer.exe",
+           "?:\\Windows\\System32\\sihost.exe",
+           "?:\\Windows\\System32\\PickerHost.exe",
+           "?:\\Windows\\System32\\SearchProtocolHost.exe",
+           "?:\\Program Files (x86)\\Dropbox\\Client\\Dropbox.exe",
+           "?:\\Program Files\\Rivet Networks\\SmartByte\\SmartByteNetworkService.exe",
+           "?:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+           "?:\\Program Files\\ExpressConnect\\ExpressConnectNetworkService.exe",
+           "?:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+           "?:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+           "?:\\Program Files\\Mozilla Firefox\\firefox.exe") and
+
   file.extension :
     (
       "pdf",

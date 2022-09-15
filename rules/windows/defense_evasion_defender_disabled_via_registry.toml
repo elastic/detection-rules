@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/12/23"
 maturity = "production"
-updated_date = "2022/05/21"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -83,7 +85,12 @@ registry where event.type in ("creation", "change") and
       registry.path:"HKLM\\System\\*ControlSet*\\Services\\WinDefend\\Start" and
       registry.data.strings in ("3", "4", "0x00000003", "0x00000004")
    )
-  )
+  ) and
+
+  not process.executable :
+           ("?:\\WINDOWS\\system32\\services.exe",
+            "?:\\Windows\\System32\\svchost.exe",
+            "?:\\Program Files (x86)\\Trend Micro\\Security Agent\\NTRmv.exe")
 '''
 
 

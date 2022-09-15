@@ -38,6 +38,7 @@ _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
 
 BUILD_FIELD_VERSIONS = {
+    "related_integrations": (Version('8.3'), None),
     "required_fields": (Version('8.3'), None),
     "setup": (Version("8.3"), None)
 }
@@ -250,6 +251,17 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     def is_elastic_rule(self):
         return 'elastic' in [a.lower() for a in self.author]
 
+    def get_build_fields(self) -> {}:
+        """Get a list of build-time fields along with the stack versions which they will build within."""
+        build_fields = {}
+        rule_fields = {f.name: f for f in dataclasses.fields(self)}
+
+        for fld in BUILD_FIELD_VERSIONS:
+            if fld in rule_fields:
+                build_fields[fld] = BUILD_FIELD_VERSIONS[fld]
+
+        return build_fields
+
 
 class DataValidator:
     """Additional validation beyond base marshmallow schema validation."""
@@ -326,7 +338,7 @@ class QueryValidator:
 
     @property
     def ast(self) -> Any:
-        raise NotImplementedError
+        raise NotImplementedError()
 
     @property
     def unique_fields(self) -> Any:

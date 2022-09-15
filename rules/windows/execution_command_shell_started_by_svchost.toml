@@ -1,9 +1,9 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2022/07/05"
-min_stack_comments = "Comprehensive timeline templates only available in 8.2+"
-min_stack_version = "8.2"
+updated_date = "2022/08/24"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
 
 [rule]
 author = ["Elastic"]
@@ -81,14 +81,26 @@ type = "eql"
 
 query = '''
 process where event.type == "start" and
+
   process.parent.name : "svchost.exe" and process.name : "cmd.exe" and
-  not (process.pe.original_file_name : "cmd.exe" and process.args : (
-    "??:\\Program Files\\Npcap\\CheckStatus.bat?",
-    "?:\\Program Files\\Npcap\\CheckStatus.bat",
-    "\\system32\\cleanmgr.exe",
-    "?:\\Windows\\system32\\silcollector.cmd",
-    "\\system32\\AppHostRegistrationVerifier.exe",
-    "\\system32\\ServerManagerLauncher.exe"))
+
+  not process.args :
+         ("??:\\Program Files\\Npcap\\CheckStatus.bat?",
+          "?:\\Program Files\\Npcap\\CheckStatus.bat",
+          "\\system32\\cleanmgr.exe",
+          "?:\\Windows\\system32\\silcollector.cmd",
+          "\\system32\\AppHostRegistrationVerifier.exe",
+          "\\system32\\ServerManagerLauncher.exe",
+          "dir",
+          "?:\\Program Files\\*",
+          "?:\\Program Files (x86)\\*",
+          "?:\\Windows\\LSDeployment\\Lspush.exe",
+          "(x86)\\FMAuditOnsite\\watchdog.bat",
+          "?:\\ProgramData\\chocolatey\\bin\\choco-upgrade-all.bat",
+          "Files\\Npcap\\CheckStatus.bat") and
+
+   /* very noisy pattern - bat or cmd script executed via scheduled tasks */
+  not (process.parent.args : "netsvcs" and process.args : ("?:\\*.bat", "?:\\*.cmd"))
 '''
 
 
