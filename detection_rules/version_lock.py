@@ -170,7 +170,7 @@ class VersionLock:
 
     def manage_versions(self, rules: RuleCollection,
                         exclude_version_update=False, save_changes=False,
-                        verbose=True, buffer_int: int = 99) -> (List[str], List[str], List[str]):
+                        verbose=True, buffer_int: int = 100) -> (List[str], List[str], List[str]):
         """Update the contents of the version.lock file and optionally save changes."""
         from .packaging import current_stack_version
 
@@ -240,6 +240,12 @@ class VersionLock:
                 elif min_stack > latest_locked_stack_version:
                     route = 'B'
                     # 3) on the latest stack, locking in a breaking change
+
+                    # preserve buffer space to support forked version spacing
+                    if exclude_version_update:
+                        buffer_int -= 1
+                    lock_from_rule["version"] = lock_from_file["version"] + buffer_int
+
                     previous_lock_info = {
                         "max_allowable_version": lock_from_rule['version'] - 1,
                         "rule_name": lock_from_file["rule_name"],
@@ -251,11 +257,6 @@ class VersionLock:
 
                     # move the current locked info into the previous section
                     lock_from_file["previous"][str(latest_locked_stack_version)] = previous_lock_info
-
-                    # preserve buffer space to support forked version spacing
-                    if exclude_version_update:
-                        buffer_int += 1
-                    lock_from_rule["version"] = lock_from_file["version"] + buffer_int
 
                     # overwrite the "latest" part of the lock at the top level
                     lock_from_file.update(lock_from_rule, min_stack_version=str(min_stack))
