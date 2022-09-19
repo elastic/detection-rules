@@ -273,7 +273,7 @@ class VersionLock:
                     assert str(min_stack) in lock_from_file.get("previous", {}), \
                         f"Expected {rule.id} @ v{min_stack} in the rule lock"
 
-                    # Support locking old versions if we have buffer space in between
+                    # TODO: Figure out whether we support locking old versions and if we want to
                     #       "leave room" by skipping versions when breaking changes are made.
                     #       We can still inspect the version lock manually after locks are made,
                     #       since it's a good summary of everything that happens
