@@ -196,11 +196,13 @@ class GitChangeEntry:
 @dev_group.command("unstage-incompatible-rules")
 @click.option("--target-stack-version", "-t", help="Minimum stack version to filter the staging area", required=True)
 @click.option("--dry-run", is_flag=True, help="List the changes that would be made")
-def prune_staging_area(target_stack_version: str, dry_run: bool):
+@click.option("--exception-list", help="List of files to skip staging", default="")
+def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list: list):
     """Prune the git staging area to remove changes to incompatible rules."""
     exceptions = {
         "detection_rules/etc/packages.yml",
     }
+    exceptions.update(exception_list.split(","))
 
     target_stack_version = Version(target_stack_version)[:2]
 
