@@ -3,7 +3,7 @@ creation_date = "2021/01/19"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2022/09/19"
 
 [rule]
 author = ["Elastic"]
@@ -16,7 +16,45 @@ index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious JAVA Child Process"
-note = """## Setup
+note = """## Triage and analysis
+
+### Investigating Suspicious JAVA Child Process
+
+This rule identifies suspicious child processes of the Java interpreter process. This may indicate an attempt to execute
+a malicious JAR file or an exploitation attempt via a JAVA specific vulnerability.
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence and whether they are located in expected locations.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Investigate abnormal behaviors observed using the account, such as commands executed, files created or modified, and
+network connections.
+- Investigate abnormal behaviors observed by the subject process such as network connections, file modifications, and
+any spawned child processes.
+- Examine the command line to determine if the command executed is potentially harmful or malicious.
+- Inspect the host for suspicious or abnormal behaviors in the alert timeframe.
+
+### False positive analysis
+
+- If this activity is expected and noisy in your environment, consider adding exceptions — preferably with a combination
+of process and command line conditions.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved hosts to prevent further post-compromise behavior.
+- Remove and block malicious artifacts identified during triage.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
+systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
+
+## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
