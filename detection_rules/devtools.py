@@ -637,6 +637,32 @@ def license_check(ctx, ignore_directory):
     ctx.exit(int(failed))
 
 
+@dev_group.command('test-version-lock')
+@click.argument('branches', nargs=-1, required=True)
+@click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
+def test_version_lock(branches: tuple, remote: str):
+    """Simulate the incremental step in the version locking to find version change violations."""
+    git = utils.make_git('-C', '.')
+    current_branch = git('rev-parse', '--abbrev-ref', 'HEAD')
+
+    try:
+        click.echo(f'iterating lock process for branches: {branches}')
+        for branch in branches:
+            click.echo(branch)
+            git('checkout', f'{remote}/{branch}')
+            subprocess.check_call(['python', '-m', 'detection_rules', 'dev', 'build-release', '-u'])
+
+    finally:
+        diff = git('--no-pager', 'diff', get_etc_path('version.lock.json'))
+        outfile = Path(get_path()).joinpath('lock-diff.txt')
+        outfile.write_text(diff)
+        click.echo(f'diff saved to {outfile}')
+
+        click.echo('reverting changes in version.lock')
+        git('checkout', '-f')
+        git('checkout', current_branch)
+
+
 @dev_group.command('package-stats')
 @click.option('--token', '-t', help='GitHub token to search API authenticated (may exceed threshold without auth)')
 @click.option('--threads', default=50, help='Number of threads to download rules from GitHub')
