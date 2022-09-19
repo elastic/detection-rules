@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/12/07"
 maturity = "production"
-updated_date = "2021/03/03"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +28,7 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan=1m
- [file where event.type != "deletion" and 
+ [file where event.type != "deletion" and
   file.path : ("/System/Library/LaunchAgents/*", "/Library/LaunchAgents/*", "/Users/*/Library/LaunchAgents/*")
  ]
  [process where event.type in ("start", "process_started") and process.name == "launchctl" and process.args == "load"]
