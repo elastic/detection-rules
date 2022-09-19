@@ -35,21 +35,6 @@ def add_field(schema, name, info):
     add_field(schema, remaining, info)
 
 
-def nest_from_dot(dots, value):
-    """Nest a dotted field and set the inner most value."""
-    fields = dots.split('.')
-
-    if not fields:
-        return {}
-
-    nested = {fields.pop(): value}
-
-    for field in reversed(fields):
-        nested = {field: nested}
-
-    return nested
-
-
 def _recursive_merge(existing, new, depth=0):
     """Return an existing dict merged into a new one."""
     for key, value in existing.items():

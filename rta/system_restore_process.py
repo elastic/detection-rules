@@ -11,11 +11,16 @@
 import os
 
 from . import common
+from . import RtaMetadata
+
+
+metadata = RtaMetadata(uuid="0fcf5aeb-cebd-466d-8a2e-ddb710ec845d", platforms=["windows"], endpoint=[], siem=[], techniques=[])
+
 
 SYSTEM_RESTORE = "c:\\System Volume Information"
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(metadata.platforms)
 @common.dependencies(common.PS_EXEC)
 def main():
     status = common.run_system()

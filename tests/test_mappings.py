@@ -5,10 +5,12 @@
 
 """Test that all rules appropriately match against expected data sets."""
 import copy
+import unittest
 import warnings
 
 from . import get_data_files, get_fp_data_files
 from detection_rules.utils import combine_sources, evaluate, load_etc_dump
+from rta import get_available_tests
 from .base import BaseRuleTest
 
 
@@ -66,3 +68,19 @@ class TestMappings(BaseRuleTest):
                 for fp_name, merged_data in get_fp_data_files().items():
                     msg = 'Unexpected FP match for: {} - {}, against: {}'.format(rule.id, rule.name, fp_name)
                     self.evaluate(copy.deepcopy(merged_data), rule, 0, msg)
+
+
+class TestRTAs(unittest.TestCase):
+    """Test that all RTAs have appropriate fields added."""
+
+    def test_rtas_with_triggered_rules_have_uuid(self):
+        """Ensure that all RTAs with triggered rules have a UUID."""
+
+        rule_keys = ["rule_id", "rule_name"]
+        for rta_test in sorted(get_available_tests().values(), key=lambda r: r['name']):
+
+            self.assertIsNotNone(rta_test.get("uuid"), f'RTA {rta_test.get("name")} missing uuid')
+            for rule_info in rta_test.get("siem"):
+                for rule_key in rule_keys:
+                    self.assertIsNotNone(rule_info.get(rule_key),
+                                         f'RTA {rta_test.get("name")} - {rta_test.get("uuid")} missing {rule_key}')
