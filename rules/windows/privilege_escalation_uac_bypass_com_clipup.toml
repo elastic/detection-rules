@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/10/28"
 maturity = "production"
-updated_date = "2022/03/31"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -27,7 +29,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and process.name : "Clipup.exe" and
+process where event.type == "start" and process.name : "Clipup.exe" and
   not process.executable : "C:\\Windows\\System32\\ClipUp.exe" and process.parent.name : "dllhost.exe" and
   /* CLSID of the Elevated COM Interface IEditionUpgradeManager */
   process.parent.args : "/Processid:{BD54C901-076B-434E-B6C7-17C531F4AB41}"

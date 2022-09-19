@@ -11,9 +11,13 @@
 import os
 
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(uuid="dc734786-66bd-4be6-bd06-eb41fa7b6745", platforms=["windows"], endpoint=[], siem=[], techniques=[])
+
+
+@common.requires_os(metadata.platforms)
 @common.dependencies(common.PS_EXEC)
 def main():
     # make sure path is absolute for psexec

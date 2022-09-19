@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/09/02"
 maturity = "production"
-updated_date = "2021/03/03"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +24,7 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan = 1m
-  [process where event.type in ("start", "process_started") and
+  [process where event.type == "start" and
      (process.name : "sc.exe" or process.pe.original_file_name : "sc.exe") and
       process.args : "\\\\*" and process.args : ("binPath=*", "binpath=*") and
       process.args : ("create", "config", "failure", "start")]
