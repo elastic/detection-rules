@@ -1,0 +1,59 @@
+[metadata]
+creation_date = "2022/08/29"
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Indicates the update of a scheduled task using Windows event logs. Adversaries can use these to establish persistence,
+by changing the configuration of a legit scheduled task. Some changes such as disabling or enabling a scheduled task are
+common and may may generate noise.
+"""
+false_positives = ["Legitimate scheduled tasks may be created during installation of new software."]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-system.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "A scheduled task was updated"
+references = ["https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4698"]
+risk_score = 21
+rule_id = "a02cb68e-7c93-48d1-93b2-2c39023308eb"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+iam where event.action == "scheduled-task-updated" and
+
+ /* excluding tasks created by the computer account */
+ not user.name : "*$" and
+ not winlog.event_data.TaskName :
+          ("\\User_Feed_Synchronization-*",
+           "\\OneDrive Reporting Task-S-1-5-21*",
+           "\\Hewlett-Packard\\HP Web Products Detection",
+           "\\Hewlett-Packard\\HPDeviceCheck")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+[[rule.threat.technique.subtechnique]]
+id = "T1053.005"
+name = "Scheduled Task"
+reference = "https://attack.mitre.org/techniques/T1053/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

@@ -29,3 +29,8 @@ class Version(tuple):
                 recovered_str += "." + str(additional)
 
         return recovered_str
+
+
+def max_versions(*versions: str) -> str:
+    """Return the max versioned string."""
+    return str(max([Version(v) for v in versions]))
