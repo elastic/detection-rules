@@ -1,9 +1,9 @@
 [metadata]
 creation_date = "2020/03/18"
 maturity = "production"
-min_stack_comments = "EQL optional fields syntax was not introduced until 7.16"
-min_stack_version = "7.16.0"
-updated_date = "2022/04/21"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -69,7 +69,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where event.type == "start" and
   (?process.Ext.token.integrity_level_name : "System" or
   ?winlog.event_data.IntegrityLevel : "System") and
   (process.name : "whoami.exe" or

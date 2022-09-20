@@ -3,29 +3,33 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-# Name: RegSvr32 Backdoor with .sct Files
-# RTA: regsvr32_scrobj.py
-# ATT&CK: T1121, T1117, T1064
-# Description: Loads a .sct network callback with RegSvr32
-
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.WINDOWS)
-@common.dependencies(common.get_path("bin", "notepad.sct"))
+metadata = RtaMetadata(
+    uuid="469c7bb5-44e2-4a85-b14d-5aee4f2b18c1",
+    platforms=["windows"],
+    endpoint=[
+        {"rule_name": "Execution from Unusual Directory", "rule_id": "16c84e67-e5e7-44ff-aefa-4d771bcafc0c"},
+        {"rule_name": "Regsvr32 Scriptlet Execution", "rule_id": "0524c24c-e45e-4220-b21a-abdba0c46c4d"},
+        {"rule_name": "Binary Masquerading via Untrusted Path", "rule_id": "35dedf0c-8db6-4d70-b2dc-a133b808211f"},
+        {"rule_name": "Regsvr32 with Unusual Arguments", "rule_id": "5db08297-bf72-49f4-b426-f405c2b01326"},
+    ],
+    siem=[],
+    techniques=["T1218", "T1036", "T1059"],
+)
+
+EXE_FILE = common.get_path("bin", "renamed_posh.exe")
+
+
+@common.requires_os(metadata.platforms)
 def main():
-    common.log("RegSvr32 with .sct backdoor")
-    server, ip, port = common.serve_web()
-    common.clear_web_cache()
+    regsvr32 = "C:\\Users\\Public\\regsvr32.exe"
+    common.copy_file(EXE_FILE, regsvr32)
 
-    uri = 'bin/notepad.sct'
-    url = 'http://%s:%d/%s' % (ip, port, uri)
-
-    common.execute(["regsvr32.exe", "/u", "/n", "/s", "/i:%s" % url, "scrobj.dll"])
-    common.log("Killing all notepads to cleanup", "-")
-    common.execute(["taskkill", "/f", "/im", "notepad.exe"])
-
-    server.shutdown()
+    common.execute([regsvr32, "/c", "echo", "scrobj.exe /i:"], timeout=10)
+    common.remove_files(regsvr32)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/03/16"
 maturity = "production"
-updated_date = "2022/07/29"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -73,7 +75,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where event.type == "start" and
   (process.name : "bcdedit.exe" or process.pe.original_file_name == "bcdedit.exe") and
     (
       (process.args : "/set" and process.args : "bootstatuspolicy" and process.args : "ignoreallfailures") or
