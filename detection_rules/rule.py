@@ -338,11 +338,11 @@ class QueryValidator:
 
     @property
     def ast(self) -> Any:
-        raise NotImplementedError
+        raise NotImplementedError()
 
     @property
     def unique_fields(self) -> Any:
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
         raise NotImplementedError()
@@ -585,16 +585,48 @@ class BaseRuleContents(ABC):
     @property
     def is_dirty(self) -> Optional[bool]:
         """Determine if the rule has changed since its version was locked."""
-        min_stack = self.metadata.get('min_stack_version') or str(get_min_supported_stack_version(drop_patch=True))
+        min_stack = self.get_supported_version()
         existing_sha256 = self.version_lock.get_locked_hash(self.id, min_stack)
 
         if existing_sha256 is not None:
             return existing_sha256 != self.sha256()
 
     @property
+    def lock_entry(self) -> Optional[dict]:
+        lock_entry = self.version_lock.version_lock.data.get(self.id)
+        if lock_entry:
+            return lock_entry.to_dict()
+
+    @property
+    def has_forked(self) -> bool:
+        """Determine if the rule has forked at any point (has a previous entry)."""
+        lock_entry = self.lock_entry
+        if lock_entry:
+            return 'previous' in lock_entry
+        return False
+
+    @property
+    def is_in_forked_version(self) -> bool:
+        """Determine if the rule is in a forked version."""
+        if not self.has_forked:
+            return False
+        locked_min_stack = Version(self.lock_entry['min_stack_version'])
+        current_package_ver = Version(load_current_package_version())
+        return current_package_ver < locked_min_stack
+
+    def get_version_space(self) -> Optional[int]:
+        """Retrieve the number of version spaces available (None for unbound)."""
+        if self.is_in_forked_version:
+            current_entry = self.lock_entry['previous'][self.metadata.min_stack_version]
+            current_version = current_entry['version']
+            max_allowable_version = current_entry['max_allowable_version']
+
+            return max_allowable_version - current_version - 1
+
+    @property
     def latest_version(self) -> Optional[int]:
         """Retrieve the latest known version of the rule."""
-        min_stack = self.metadata.get('min_stack_version') or str(get_min_supported_stack_version(drop_patch=True))
+        min_stack = self.get_supported_version()
         return self.version_lock.get_locked_version(self.id, min_stack)
 
     @property
@@ -605,6 +637,21 @@ class BaseRuleContents(ABC):
             return 1
 
         return version + 1 if self.is_dirty else version
+
+    @classmethod
+    def convert_supported_version(cls, stack_version: Optional[str]) -> Version:
+        """Convert an optional stack version to the minimum for the lock in the form major.minor."""
+        min_version = get_min_supported_stack_version(drop_patch=True)
+        if stack_version is None:
+            return min_version
+        short_stack_version = Version(Version(stack_version)[:2])
+        return max(short_stack_version, min_version)
+
+    def get_supported_version(self) -> str:
+        """Get the lowest stack version for the rule that is currently supported in the form major.minor."""
+        rule_min_stack = self.metadata.get('min_stack_version')
+        min_stack = self.convert_supported_version(rule_min_stack)
+        return str(min_stack)
 
     def _post_dict_transform(self, obj: dict) -> dict:
         """Transform the converted API in place before sending to Kibana."""

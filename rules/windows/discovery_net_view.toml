@@ -64,7 +64,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where event.type == "start" and
   ((process.name : "net.exe" or process.pe.original_file_name == "net.exe") or
    ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and
        not process.parent.name : "net.exe")) and
@@ -72,7 +72,7 @@ process where event.type in ("start", "process_started") and
 
 
   /* expand when ancestry is available
-  and not descendant of [process where event.type == ("start", "process_started") and process.name : "cmd.exe" and
+  and not descendant of [process where event.type == "start" and process.name : "cmd.exe" and
                            ((process.parent.name : "userinit.exe") or
                             (process.parent.name : "gpscript.exe") or
                             (process.parent.name : "explorer.exe" and
