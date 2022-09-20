@@ -1,0 +1,73 @@
+[metadata]
+creation_date = "2022/09/20"
+integration = "kubernetes"
+maturity = "production"
+min_stack_comments = "New fields added to Kubernetes Integration"
+min_stack_version = "8.4.0"
+updated_date = "2022/09/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects a container deployed with one or more dangerously permissive Linux capabilities that can be used for
+container escapes. Added capabilities entitle containers in a pod with additional privileges that can be used to change
+core processes and networking settings of a cluster. An attacker with the ability to deploy a container with added
+capabilities could use this for further execution, lateral movement, or privilege escalation within a cluster or
+directly to the host machine. This rule detects the following capabilities and leaves space for the exception of trusted
+container images specific to your environment. BPF - Allow creating BPF maps, loading BPF Type Format (BTF) data,
+retrieve JITed code of BPF programs, and more. DAC_READ_SEARCH - Bypass file read permission checks and directory read
+and execute permission checks. NET_ADMIN - Perform various network-related operations. SYS_ADMIN - Perform a range of
+system administration operations. SYS_BOOT - Use reboot(2) and kexec_load(2), reboot and load a new kernel for later
+execution. SYS_MODULE - Load and unload kernel modules. SYS_PTRACE - Trace arbitrary processes using ptrace(2).
+SYS_RAWIO - Perform I/O port operations (iopl(2) and ioperm(2)). SYSLOG - Perform privileged syslog(2) operations.
+"""
+false_positives = [
+    """
+    Some trusted container images require the addition of privileged capabilities. To add an exception to this rule,
+    specific to your environment, add the trusted container image name to the query field "and not
+    kubernetes.audit.requestObject.spec.containers.image: ("rancher/*" or "<trusted_image/name>")"
+    """,
+]
+index = ["logs-kubernetes.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kubernetes Container Created with Excessive Linux Capabilities"
+note = """## Setup
+
+The Kubernetes Fleet integration with Audit Logs enabled or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-capabilities-for-a-container",
+    "https://0xn3va.gitbook.io/cheat-sheets/container/escaping/excessive-capabilities",
+    "https://man7.org/linux/man-pages/man7/capabilities.7.html",
+    "https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities",
+]
+risk_score = 47
+rule_id = "7164081a-3930-11ed-a261-0242ac120002"
+severity = "medium"
+tags = ["Elastic", "Kubernetes", "Continuous Monitoring", "Execution", "Privilege Escalation"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: kubernetes.audit_logs 
+  and kubernetes.audit.verb: create 
+  and kubernetes.audit.objectRef.resource: pods 
+  and kubernetes.audit.requestObject.spec.containers.securityContext.capabilities.add: 
+  ("BPF" or "DAC_READ_SEARCH"  or "NET_ADMIN" or "SYS_ADMIN" or "SYS_BOOT" or "SYS_MODULE" or "SYS_PTRACE" or "SYS_RAWIO"  or "SYSLOG") 
+  and not kubernetes.audit.requestObject.spec.containers.image: ("rancher/*" or "")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
