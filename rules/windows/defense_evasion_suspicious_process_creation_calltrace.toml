@@ -3,7 +3,7 @@ creation_date = "2021/10/24"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2022/09/20"
 
 [rule]
 author = ["Elastic"]
@@ -16,6 +16,43 @@ index = ["winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Process Creation CallTrace"
+note = """## Triage and analysis
+
+### Investigating Suspicious Process Creation CallTrace
+
+To evade detection mechanisms and be more difficult to find during forensics, attackers may inject code into child
+processes' memory to hide its actual activity. This rule looks for a spawned process by MS office, scripting, and
+command-line applications, followed by a process access event for an unknown memory region by the parent process, which
+can indicate a code injection or hollowing attempt. 
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate abnormal behaviors observed by the subject process such as network connections, registry or file
+modifications, and any spawned child processes.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Inspect the host for suspicious or abnormal behaviors in the alert timeframe.
+- Create a memory dump of the child process for analysis.
+
+### False positive analysis
+
+- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- Remove and block malicious artifacts identified during triage.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
+systems, and web services.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
+"""
 risk_score = 47
 rule_id = "3ed032b2-45d8-4406-bc79-7ad1eabb2c72"
 severity = "medium"
