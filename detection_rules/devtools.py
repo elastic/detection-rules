@@ -196,11 +196,13 @@ class GitChangeEntry:
 @dev_group.command("unstage-incompatible-rules")
 @click.option("--target-stack-version", "-t", help="Minimum stack version to filter the staging area", required=True)
 @click.option("--dry-run", is_flag=True, help="List the changes that would be made")
-def prune_staging_area(target_stack_version: str, dry_run: bool):
+@click.option("--exception-list", help="List of files to skip staging", default="")
+def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list: list):
     """Prune the git staging area to remove changes to incompatible rules."""
     exceptions = {
         "detection_rules/etc/packages.yml",
     }
+    exceptions.update(exception_list.split(","))
 
     target_stack_version = Version(target_stack_version)[:2]
 
@@ -633,6 +635,32 @@ def license_check(ctx, ignore_directory):
             click.echo(relative_path, err=True)
 
     ctx.exit(int(failed))
+
+
+@dev_group.command('test-version-lock')
+@click.argument('branches', nargs=-1, required=True)
+@click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
+def test_version_lock(branches: tuple, remote: str):
+    """Simulate the incremental step in the version locking to find version change violations."""
+    git = utils.make_git('-C', '.')
+    current_branch = git('rev-parse', '--abbrev-ref', 'HEAD')
+
+    try:
+        click.echo(f'iterating lock process for branches: {branches}')
+        for branch in branches:
+            click.echo(branch)
+            git('checkout', f'{remote}/{branch}')
+            subprocess.check_call(['python', '-m', 'detection_rules', 'dev', 'build-release', '-u'])
+
+    finally:
+        diff = git('--no-pager', 'diff', get_etc_path('version.lock.json'))
+        outfile = Path(get_path()).joinpath('lock-diff.txt')
+        outfile.write_text(diff)
+        click.echo(f'diff saved to {outfile}')
+
+        click.echo('reverting changes in version.lock')
+        git('checkout', '-f')
+        git('checkout', current_branch)
 
 
 @dev_group.command('package-stats')
