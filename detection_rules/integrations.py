@@ -68,10 +68,9 @@ def find_least_compatible_version(package: str, integration: str,
     integration_manifests = {k: v for k, v in sorted(packages_manifest[package].items(), key=Version)}
 
     # trim integration_manifests to only the latest major entries
-    major_versions = sorted(set([Version(manifest_version)[0] for manifest_version in integration_manifests]),
-                            reverse=True)
+    max_major, *_ = max([Version(manifest_version) for manifest_version in integration_manifests])
     latest_major_integration_manifests = \
-        {k: v for k, v in integration_manifests.items() if major_versions[0] == Version(k)[0]}
+        {k: v for k, v in integration_manifests.items() if Version(k)[0] == max_major}
 
     def compare_versions(int_ver: str, pkg_ver: str) -> bool:
         """Compares integration and package version"""

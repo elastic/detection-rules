@@ -21,7 +21,7 @@ from detection_rules.rule import (QueryRuleData, TOMLRuleContents,
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.schemas import definitions
 from detection_rules.semver import Version
-from detection_rules.utils import get_path, load_etc_dump
+from detection_rules.utils import get_path, load_etc_dump, INTEGRATION_RULE_DIR
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
@@ -453,10 +453,19 @@ class TestRuleMetadata(BaseRuleTest):
         for rule in self.production_rules:
             rule_integration = rule.contents.metadata.get('integration')
 
+            # checks if metadata tag matches from a list of integrations in EPR
             if rule_integration and rule_integration not in valid_integration_names:
                 err_msg = f'{self.rule_str(rule)} integration is invalid: {rule_integration}'
                 failures.append(err_msg)
 
+            # checks if the rule path matches the intended integration
+            valid_integration_folders = [p.name for p in list(Path(INTEGRATION_RULE_DIR).glob("*"))]
+            if rule_integration and rule_integration in valid_integration_folders:
+                if rule_integration != rule.path.parent.name:
+                    err_msg = f'{self.rule_str(rule)} {rule_integration} tag, but path is {rule.path.parent.name}'
+                    failures.append(err_msg)
+
+            # checks if event.dataset exists in query object and a tag exists in metadata
             if isinstance(rule.contents.data, QueryRuleData) and rule.contents.data.language != 'lucene':
                 trc = TOMLRuleContents(rule.contents.metadata, rule.contents.data)
                 package_integrations = trc._get_packaged_integrations(packages_manifest)
