@@ -32,20 +32,20 @@ Linux applications may need to save their process identification number (PID) fo
 a program is running to serving as a signal that a previous instance of an application didn't exit successfully; for
 this, they use PID files. PID files contain its creator process PID in an integer value.
 
-Linux lock files are files used to coordinate operations in files to prevent conflicts and race conditions.
+Linux lock files are used to coordinate operations in files so that conflicts and race conditions are prevented.
 
 This rule identifies the creation of PID, lock, or reboot files in the /var/run/ directory. Attackers can masquerade
-malware, payloads, staged data for exfiltration, etc., as legitimate PID files.
+malware, payloads, staged data for exfiltration, and more, as legitimate PID files.
 
 #### Possible investigation steps
 
 - Retrieve the file and determine if it is malicious:
     - Check the contents of the PID files, it should only contain an integer string.
-    - Check the file type of the lock and PID files to determine if they are an executable, which is only observed in
+    - Check the file type of the lock and PID files to determine if they are an executable — this is only observed in
     malicious files.
-    - Check the file size of the subject file. Legitimate PID files should be under 10 bytes.
-    - Check if the lock or PID file has high entropy, which indicates a encrypted payload.
-    - Examine the reputation of the SHA256 hash from the PID file in a database like VirusTotal to identify additional
+    - Check the size of the subject file. Legitimate PID files should be under 10 bytes.
+    - Check if the lock or PID file has high entropy. This typically indicates an encrypted payload.
+    - Examine the reputation of the SHA256 hash in the PID file. Use a database like VirusTotal to identify additional
     pivots and artifacts for investigation.
 - Trace the file's creation to ensure it came from a legitimate or authorized process.
 - Investigate other alerts associated with the user/host during the past 48 hours.
@@ -56,8 +56,8 @@ spawned child processes.
 
 ### False positive analysis
 
-- False-Positives (FP) can appear if the PID file is legitimate and holding a process ID as intended. To differentiate,
-if the PID file is an executable or larger than 10 bytes, it should be ruled suspicious.
+- False-Positives (FP) can appear if the PID file is legitimate and holding a process ID as intended. If the PID file is
+an executable or has a file size that's larger than 10 bytes, it should be ruled suspicious.
 - If this activity is expected and noisy in your environment, consider adding exceptions — preferably with a combination
 of file name and process executable conditions.
 
