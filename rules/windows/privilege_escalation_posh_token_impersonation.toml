@@ -1,0 +1,118 @@
+[metadata]
+creation_date = "2022/08/17"
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects scripts that contain PowerShell functions, structures, or Windows API functions related to token
+impersonation/theft. Attackers may duplicate then impersonate another user's token to escalate privileges and bypass
+access controls.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "PowerShell Script with Token Impersonation Capabilities"
+note = """## Setup
+
+The 'PowerShell Script Block Logging' logging policy must be configured (Enable).
+
+Steps to implement the logging policy with with Advanced Audit Configuration:
+
+```
+Computer Configuration >
+Administrative Templates >
+Windows PowerShell >
+Turn on PowerShell Script Block Logging (Enable)
+```
+
+Steps to implement the logging policy via registry:
+
+```
+reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+```
+"""
+references = [
+  "https://github.com/decoder-it/psgetsystem",
+  "https://github.com/PowerShellMafia/PowerSploit/blob/master/Privesc/Get-System.ps1",
+  "https://github.com/EmpireProject/Empire/blob/master/data/module_source/privesc/Invoke-MS16032.ps1",
+  "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0109_windows_powershell_script_block_log.md"
+]
+risk_score = 47
+rule_id = "11dd9713-0ec6-4110-9707-32daae1ee68c"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.category:process and
+  powershell.file.script_block_text:(
+    "Invoke-TokenManipulation" or
+    "ImpersonateNamedPipeClient" or
+    "NtImpersonateThread" or
+    (
+      "STARTUPINFOEX" and
+      "UpdateProcThreadAttribute"
+    ) or
+    (
+      "AdjustTokenPrivileges" and
+      "SeDebugPrivilege"
+    ) or
+    (
+      ("DuplicateToken" or
+      "DuplicateTokenEx") and
+      ("SetThreadToken" or
+      "ImpersonateLoggedOnUser" or 
+	  "CreateProcessWithTokenW" or 
+	  "CreatePRocessAsUserW" or 
+	  "CreateProcessAsUserA")
+    ) 
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+name = "Access Token Manipulation"
+id = "T1134"
+reference = "https://attack.mitre.org/techniques/T1134/"
+
+[[rule.threat.technique.subtechnique]]
+name = "Token Impersonation/Theft"
+id = "T1134.001"
+reference = "https://attack.mitre.org/techniques/T1134/001/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+id = "T1059"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "PowerShell"
+    reference = "https://attack.mitre.org/techniques/T1059/001/"
+    id = "T1059.001"
+
+[[rule.threat.technique]]
+name = "Native API"
+reference = "https://attack.mitre.org/techniques/T1106/"
+id = "T1106"
+
+[rule.threat.tactic]
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+id = "TA0002"
+
