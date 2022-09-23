@@ -3,7 +3,7 @@ creation_date = "2020/12/04"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2022/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -59,12 +59,12 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 47
 rule_id = "7b8bfc26-81d2-435e-965c-d722ee397ef1"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery", "has_guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where event.type == "start" and
   ((process.name : "net.exe" or process.pe.original_file_name == "net.exe") or
    ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and
        not process.parent.name : "net.exe")) and
@@ -72,7 +72,7 @@ process where event.type in ("start", "process_started") and
 
 
   /* expand when ancestry is available
-  and not descendant of [process where event.type == ("start", "process_started") and process.name : "cmd.exe" and
+  and not descendant of [process where event.type == "start" and process.name : "cmd.exe" and
                            ((process.parent.name : "userinit.exe") or
                             (process.parent.name : "gpscript.exe") or
                             (process.parent.name : "explorer.exe" and

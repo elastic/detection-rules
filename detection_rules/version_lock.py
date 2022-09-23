@@ -286,7 +286,7 @@ class VersionLock:
                                          f'exceed the max allowable version of {max_allowable_version}')
 
                     if info_from_rule != info_from_file:
-                        lock_from_file["previous"][str(min_stack)] = lock_from_rule
+                        lock_from_file["previous"][str(min_stack)].update(lock_from_rule)
                         new_version = lock_from_rule["version"]
                         log_changes(rule, route, 'unchanged',
                                     f'previous version {min_stack} updated version to {new_version}')
