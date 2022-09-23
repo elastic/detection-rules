@@ -228,7 +228,6 @@ class RuleCollection(BaseCollection):
             file_map[rule_path] = rule
 
 
-
     def add_rule(self, rule: TOMLRule):
         self._assert_new(rule)
         self.id_map[rule.id] = rule
