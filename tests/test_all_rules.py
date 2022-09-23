@@ -82,13 +82,6 @@ class TestValidRules(BaseRuleTest):
         if duplicates:
             self.fail(f"Found duplicated file names: {duplicates}")
 
-    def test_duplicate_rule_names(self):
-        """Test that no rule names are duplicated."""
-        rule_names = [rule.name for rule in self.all_rules]
-        duplicate_rule_names = [rule_name for rule_name in rule_names if rule_names.count(rule_name) > 1]
-        if duplicate_rule_names:
-            self.fail(f"Found duplicated rule names: {list(set(duplicate_rule_names))}")
-
     def test_rule_type_changes(self):
         """Test that a rule type did not change for a locked version"""
         default_version_lock.manage_versions(self.production_rules)
