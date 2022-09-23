@@ -3,7 +3,7 @@ creation_date = "2021/08/24"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2022/09/20"
 
 [rule]
 author = ["Elastic"]
@@ -18,10 +18,60 @@ from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Webshell Detection: Script Process Child of Common Web Processes"
+name = "Web Shell Detection: Script Process Child of Common Web Processes"
 note = """## Triage and analysis
 
-Detections should be investigated to identify if the activity corresponds to legitimate activity. As this rule detects post-exploitation process activity, investigations into this should be prioritized.
+### Investigating Web Shell Detection: Script Process Child of Common Web Processes
+
+Adversaries may backdoor web servers with web shells to establish persistent access to systems. A web shell is a web
+script that is placed on an openly accessible web server to allow an adversary to use the web server as a gateway into a
+network. A web shell may provide a set of functions to execute or a command-line interface on the system that hosts the
+web server.
+
+This rule detects a web server process spawning script and command-line interface programs, potentially indicating
+attackers executing commands using the web shell.
+
+#### Possible investigation steps
+
+- Investigate abnormal behaviors observed by the subject process such as network connections, registry or file
+modifications, and any other spawned child processes.
+- Examine the command line to determine which commands or scripts were executed.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
+- If scripts or executables were dropped, retrieve the files and determine if they are malicious:
+  - Use a private sandboxed malware analysis system to perform analysis.
+    - Observe and collect information about the following activities:
+      - Attempts to contact external domains and addresses.
+      - File and registry access, modification, and creation activities.
+      - Service creation and launch activities.
+      - Scheduled task creation.
+  - Use the PowerShell Get-FileHash cmdlet to get the files' SHA-256 hash values.
+    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+
+### False positive analysis
+
+- This activity is unlikely to happen legitimately. Any activity that triggered the alert and is not inherently
+malicious must be monitored by the security team.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
+  attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
+systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 
 ## Setup
 
