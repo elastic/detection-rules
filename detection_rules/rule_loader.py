@@ -227,7 +227,6 @@ class RuleCollection(BaseCollection):
             assert rule_path not in file_map, f"Rule file {rule_path} already loaded"
             file_map[rule_path] = rule
 
-
     def add_rule(self, rule: TOMLRule):
         self._assert_new(rule)
         self.id_map[rule.id] = rule
