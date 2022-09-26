@@ -83,7 +83,7 @@ class TestValidRules(BaseRuleTest):
 
         duplicates = {name: paths for name, paths in name_map.items() if len(paths) > 1}
         if duplicates:
-            self.fail(f"Found duplicated file names {duplicates}")
+            self.fail(f"Found duplicated file names: {duplicates}")
 
     def test_rule_type_changes(self):
         """Test that a rule type did not change for a locked version"""
