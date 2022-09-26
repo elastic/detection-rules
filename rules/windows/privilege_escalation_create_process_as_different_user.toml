@@ -1,0 +1,69 @@
+[metadata]
+creation_date = "2022/08/30"
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies process creation with alternate credentials. Adversaries may create a new process with a different token to
+escalate privileges and bypass access controls.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-system.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Process Creation via Secondary Logon"
+note = """## Setup
+
+Audit events 4624 and 4688 are needed to trigger this rule.
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+
+"""
+references = ["https://attack.mitre.org/techniques/T1134/002/"]
+risk_score = 47
+rule_id = "42eeee3d-947f-46d3-a14d-7036b962c266"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
+type = "eql"
+
+query = '''
+sequence by host.id with maxspan=1m
+
+[authentication where event.action:"logged-in" and
+ event.outcome == "success" and user.id:"S-1-5-21-*" and
+
+ /* seclogon service */
+ process.name == "svchost.exe" and 
+ winlog.event_data.LogonProcessName : "seclogo*" and source.ip == "::1" ] by winlog.event_data.TargetLogonId
+
+[process where event.type == "start"] by winlog.event_data.TargetLogonId
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1134"
+name = "Access Token Manipulation"
+reference = "https://attack.mitre.org/techniques/T1134/"
+[[rule.threat.technique.subtechnique]]
+id = "T1134.002"
+name = "Create Process with Token"
+reference = "https://attack.mitre.org/techniques/T1134/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1134.003"
+name = "Make and Impersonate Token"
+reference = "https://attack.mitre.org/techniques/T1134/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

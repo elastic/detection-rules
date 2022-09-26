@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/09/02"
 maturity = "production"
-updated_date = "2022/08/17"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +26,7 @@ query = '''
 /* the benefit of doing this as an eql sequence vs kql is this will limit to alerting only on the first network connection */
 
 sequence by process.entity_id
-  [process where event.type in ("start", "process_started") and process.name : "installutil.exe"]
+  [process where event.type == "start" and process.name : "installutil.exe"]
   [network where process.name : "installutil.exe" and network.direction : ("outgoing", "egress")]
 '''
 

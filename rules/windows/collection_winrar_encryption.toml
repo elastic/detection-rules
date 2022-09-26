@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/12/04"
 maturity = "production"
-updated_date = "2022/05/09"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -69,7 +71,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where event.type == "start" and
   ((process.name:"rar.exe" or process.code_signature.subject_name == "win.rar GmbH" or
       process.pe.original_file_name == "Command line RAR") and
     process.args == "a" and process.args : ("-hp*", "-p*", "-dw", "-tb", "-ta", "/hp*", "/p*", "/dw", "/tb", "/ta"))

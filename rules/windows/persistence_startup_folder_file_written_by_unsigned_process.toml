@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/11/29"
 maturity = "production"
-updated_date = "2022/08/17"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -71,7 +73,7 @@ malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
 mean time to respond (MTTR).
-""" 
+"""
 risk_score = 47
 rule_id = "2fba96c0-ade5-4bce-b92f-a5df2509da3f"
 severity = "medium"
@@ -80,17 +82,17 @@ type = "eql"
 
 query = '''
 sequence by host.id, process.entity_id with maxspan=5s
-  [process where event.type in ("start", "process_started") and process.code_signature.trusted == false and
+  [process where event.type == "start" and process.code_signature.trusted == false and
   /* suspicious paths can be added here  */
-   process.executable : ("C:\\Users\\*.exe", 
-                         "C:\\ProgramData\\*.exe", 
-                         "C:\\Windows\\Temp\\*.exe", 
-                         "C:\\Windows\\Tasks\\*.exe", 
-                         "C:\\Intel\\*.exe", 
+   process.executable : ("C:\\Users\\*.exe",
+                         "C:\\ProgramData\\*.exe",
+                         "C:\\Windows\\Temp\\*.exe",
+                         "C:\\Windows\\Tasks\\*.exe",
+                         "C:\\Intel\\*.exe",
                          "C:\\PerfLogs\\*.exe")
    ]
    [file where event.type != "deletion" and user.domain != "NT AUTHORITY" and
-    file.path : ("C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\*", 
+    file.path : ("C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\*",
                  "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\StartUp\\*")
    ]
 '''
