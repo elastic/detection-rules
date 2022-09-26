@@ -20,38 +20,22 @@ class EndgameSchemaManager:
     """Endgame Class to download, convert, and save endgame schemas from TBD."""
 
     def __init__(self, github_client, endgame_version: str):
-        # self.repo = github_client.get_repo("elastic/endpoint-eventing-schema")
+        self.repo = github_client.get_repo("elastic/endgame-evecs")
         self.endgame_version = endgame_version
-        self.endgame_raw_schema = self.download_endgame_schema()
-        self.endgame_schema = self.flatten(self.endgame_raw_schema['mappings']['properties'])
+        self.endgame_schema = self.download_endgame_schema()
 
     def download_endgame_schema(self) -> dict:
-        """Download schema from TBD."""
+        """Download schema from endgame-evecs."""
 
-        # TODO: Download schema from TBD
-        # Temporarily, use the static mapping.json file downloaded from the
-        # Endgame UI until we have an authoritative place to download the file.
-        endgame_mapping_path = ENDGAME_SCHEMA_DIR / self.endgame_version / "mapping.json"
-        endgame_mapping = json.loads(endgame_mapping_path.read_bytes())
+        # Use the static mapping.json file downloaded from the endgame-evecs repo.
+        # main_branch = self.repo.get_branch("master")
+        main_branch = self.repo.get_branch("trade")
+        main_branch_sha = main_branch.commit.sha
+        schema_path = "pkg/mapper/ecs/schema.json"
+        endgame_mapping = self.repo.get_contents(schema_path, ref=main_branch_sha)
+        endgame_mapping = json.loads(endgame_mapping.decoded_content.decode())
+
         return endgame_mapping
-
-    def flatten(self, mapping) -> dict:
-        """Flatten Endgame - ECS mapping into a flat dictionary schema."""
-        flattened = {}
-        for k, v in mapping.items():
-            if "properties" in k or "fields" in k:
-                flattened.update((vk, vv) for vk, vv in self.flatten(v).items())
-            elif k in ["ignore_above", "norms", "scaling_factor"]:
-                continue
-            elif isinstance(v, dict):
-                for vk, vv in self.flatten(v).items():
-                    if "type" in vk:
-                        flattened[k] = vv
-                    else:
-                        flattened[k + "." + vk] = vv
-            else:
-                flattened[k] = v
-        return flattened
 
     def save_schemas(self, overwrite: bool = False):
 
@@ -63,17 +47,11 @@ class EndgameSchemaManager:
             schemas_dir.mkdir()
 
         # write the raw schema to disk
-        raw_os_schema = self.endgame_raw_schema
+        raw_os_schema = self.endgame_schema
         os_schema_path = schemas_dir / "endgame_ecs_mapping.json.gz"
         compressed = gzip_compress(json.dumps(raw_os_schema, sort_keys=True, cls=DateTimeEncoder))
         os_schema_path.write_bytes(compressed)
         print(f"Endgame raw schema file saved: {os_schema_path}")
-
-        # write the parsed schema to disk
-        os_schema_path = schemas_dir / "endgame_flat.json.gz"
-        compressed = gzip_compress(json.dumps(self.endgame_schema, sort_keys=True, cls=DateTimeEncoder))
-        os_schema_path.write_bytes(compressed)
-        print(f"Endgame parsed schema file saved: {os_schema_path}")
 
 
 class EndgameSchema(eql.Schema):
@@ -111,7 +89,7 @@ def read_endgame_schema(endgame_version: str, warn=False) -> dict:
     must be generated with the `download_endgame_schema()` method."""
     # expect versions to be in format of N.N.N or master/main
 
-    endgame_schema_path = ENDGAME_SCHEMA_DIR / endgame_version / "endgame_flat.json.gz"
+    endgame_schema_path = ENDGAME_SCHEMA_DIR / endgame_version / "endgame_ecs_mapping.json.gz"
 
     if not endgame_schema_path.exists():
         if warn:

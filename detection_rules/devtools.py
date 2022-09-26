@@ -1114,7 +1114,7 @@ def update_rule_data_schemas():
 @schemas_group.command("generate-endgame-schema")
 @click.option("--token", required=True, prompt=get_github_token() is None, default=get_github_token(),
               help="GitHub token to use for the PR", hide_input=True)
-@click.option("--endgame-version", "-e", required=True, help="Tagged version from TBD. e.g., v190")
+@click.option("--endgame-version", "-e", required=True, help="Tagged version from TBD. e.g., 1.9.0")
 @click.option("--overwrite", is_flag=True, help="Overwrite if versions exist")
 def generate_endgame_schema(token: str, endgame_version: str, overwrite: bool):
     """Download Endgame-ECS mapping.json and generate flattend schema."""
