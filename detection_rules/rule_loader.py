@@ -135,6 +135,7 @@ class DeprecatedCollection(BaseCollection):
 
     id_map: Dict[str, DeprecatedRule] = field(default_factory=dict)
     file_map: Dict[Path, DeprecatedRule] = field(default_factory=dict)
+    name_map: Dict[str, DeprecatedRule] = field(default_factory=dict)
     rules: List[DeprecatedRule] = field(default_factory=list)
 
     def __contains__(self, rule: DeprecatedRule):
@@ -161,6 +162,7 @@ class RuleCollection(BaseCollection):
 
         self.id_map: Dict[definitions.UUIDString, TOMLRule] = {}
         self.file_map: Dict[Path, TOMLRule] = {}
+        self.name_map: Dict[definitions.RuleName, TOMLRule] = {}
         self.rules: List[TOMLRule] = []
         self.deprecated: DeprecatedCollection = DeprecatedCollection()
         self.errors: Dict[Path, Exception] = {}
@@ -208,13 +210,17 @@ class RuleCollection(BaseCollection):
         if is_deprecated:
             id_map = self.deprecated.id_map
             file_map = self.deprecated.file_map
+            name_map = self.deprecated.name_map
         else:
             id_map = self.id_map
             file_map = self.file_map
+            name_map = self.name_map
 
         assert not self.frozen, f"Unable to add rule {rule.name} {rule.id} to a frozen collection"
         assert rule.id not in id_map, \
             f"Rule ID {rule.id} for {rule.name} collides with rule {id_map.get(rule.id).name}"
+        assert rule.name not in name_map, \
+            f"Rule Name {rule.name} for {rule.id} collides with rule ID {name_map.get(rule.name).id}"
 
         if rule.path is not None:
             rule_path = rule.path.resolve()
@@ -224,11 +230,13 @@ class RuleCollection(BaseCollection):
     def add_rule(self, rule: TOMLRule):
         self._assert_new(rule)
         self.id_map[rule.id] = rule
+        self.name_map[rule.name] = rule
         self.rules.append(rule)
 
     def add_deprecated_rule(self, rule: DeprecatedRule):
         self._assert_new(rule, is_deprecated=True)
         self.deprecated.id_map[rule.id] = rule
+        self.deprecated.name_map[rule.name] = rule
         self.deprecated.rules.append(rule)
 
     def load_dict(self, obj: dict, path: Optional[Path] = None) -> Union[TOMLRule, DeprecatedRule]:
