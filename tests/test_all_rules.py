@@ -19,7 +19,7 @@ from detection_rules.rule import (QueryRuleData, TOMLRuleContents,
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.schemas import definitions
 from detection_rules.semver import Version
-from detection_rules.utils import get_path, load_etc_dump, INTEGRATION_RULE_DIR
+from detection_rules.utils import INTEGRATION_RULE_DIR, get_path, load_etc_dump
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
