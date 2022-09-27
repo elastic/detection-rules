@@ -4,7 +4,6 @@
 # 2.0.
 
 """Test that all rules have valid metadata and syntax."""
-import json
 import os
 import re
 import warnings
@@ -12,7 +11,6 @@ from collections import defaultdict
 from pathlib import Path
 
 import kql
-import requests
 from detection_rules import attack
 from detection_rules.beats import parse_beats_from_index
 from detection_rules.packaging import current_stack_version
@@ -444,18 +442,13 @@ class TestRuleMetadata(BaseRuleTest):
         failures = []
 
         packages_manifest = load_integrations_manifests()
-        epr_search_url = "https://epr.elastic.co/search"
-        epr_search_response = requests.get(epr_search_url, params={"all": "true"})
-        epr_search_response.raise_for_status()
-        valid_integrations = json.loads(epr_search_response.content)
-        valid_integration_names = list(set([ints['name'] for ints in valid_integrations]))
 
         for rule in self.production_rules:
             rule_integration = rule.contents.metadata.get('integration')
 
             # checks if metadata tag matches from a list of integrations in EPR
-            if rule_integration and rule_integration not in valid_integration_names:
-                err_msg = f'{self.rule_str(rule)} integration is invalid: {rule_integration}'
+            if rule_integration and rule_integration not in packages_manifest.keys():
+                err_msg = f"{self.rule_str(rule)} integration '{rule_integration}' unknown"
                 failures.append(err_msg)
 
             # checks if the rule path matches the intended integration
@@ -474,7 +467,9 @@ class TestRuleMetadata(BaseRuleTest):
 
         if failures:
             err_msg = """
-                The following rules have missing or invalid integrations tags per https://epr.elastic.co/search:\n
+                The following rules have missing or invalid integrations tags.
+                Try updating the integrations manifest file:
+                    - `python -m detection_rules dev integrations build-manifests`\n
                 """
             self.fail(err_msg + '\n'.join(failures))
 
