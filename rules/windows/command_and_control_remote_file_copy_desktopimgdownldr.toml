@@ -3,7 +3,7 @@ creation_date = "2020/09/03"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/00/00"
+updated_date = "2022/09/27"
 
 [rule]
 author = ["Elastic"]
@@ -43,7 +43,7 @@ from an internal system.
       - Attempts to contact external domains and addresses.
       - File and registry access, modification, and creation activities.
       - Service creation and launch activities.
-      - Scheduled tasks creation.
+      - Scheduled task creation.
   - Use the PowerShell Get-FileHash cmdlet to get the files' SHA-256 hash values.
     - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 
@@ -82,12 +82,12 @@ references = ["https://labs.sentinelone.com/living-off-windows-land-a-new-native
 risk_score = 47
 rule_id = "15c0b7a7-9c34-4869-b25b-fa6518414899"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control", "has_guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where event.type == "start" and
   (process.name : "desktopimgdownldr.exe" or process.pe.original_file_name == "desktopimgdownldr.exe") and
   process.args : "/lockscreenurl:http*"
 '''

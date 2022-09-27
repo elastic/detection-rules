@@ -8,7 +8,7 @@ import json
 import os
 import time
 from collections import defaultdict
-from typing import Union
+from typing import List, Union
 
 import click
 import elasticsearch
@@ -17,7 +17,7 @@ from elasticsearch.client import AsyncSearchClient
 
 import kql
 from .main import root
-from .misc import add_params, client_error, elasticsearch_options, get_elasticsearch_client
+from .misc import add_params, client_error, elasticsearch_options, get_elasticsearch_client, nested_get
 from .rule import TOMLRule
 from .rule_loader import rta_mappings, RuleCollection
 from .utils import format_command_options, normalize_timing_and_sort, unix_time_to_formatted, get_path
@@ -33,7 +33,31 @@ def add_range_to_dsl(dsl_filter, start_time, end_time='now'):
     )
 
 
-class RtaEvents(object):
+def parse_unique_field_results(rule_type: str, unique_fields: List[str], search_results: dict):
+    parsed_results = defaultdict(lambda: defaultdict(int))
+    hits = search_results['hits']
+    hits = hits['hits'] if rule_type != 'eql' else hits.get('events') or hits.get('sequences', [])
+    for hit in hits:
+        for field in unique_fields:
+            if 'events' in hit:
+                match = []
+                for event in hit['events']:
+                    matched = nested_get(event['_source'], field)
+                    match.extend([matched] if not isinstance(matched, list) else matched)
+                    if not match:
+                        continue
+            else:
+                match = nested_get(hit['_source'], field)
+                if not match:
+                    continue
+
+            match = ','.join(sorted(match)) if isinstance(match, list) else match
+            parsed_results[field][match] += 1
+    # if rule.type == eql, structure is different
+    return {'results': parsed_results} if parsed_results else {}
+
+
+class RtaEvents:
     """Events collected from Elasticsearch."""
 
     def __init__(self, events):
@@ -64,7 +88,7 @@ class RtaEvents(object):
         """Evaluate a rule against collected events and update mapping."""
         from .utils import combine_sources, evaluate
 
-        rule = next((rule for rule in RuleCollection.default() if rule.id == rule_id), None)
+        rule = RuleCollection.default().id_map.get(rule_id)
         assert rule is not None, f"Unable to find rule with ID {rule_id}"
         merged_events = combine_sources(*self.events.values())
         filtered = evaluate(rule, merged_events)
@@ -112,7 +136,7 @@ class CollectEvents(object):
 
     def _get_last_event_time(self, index_str, dsl=None):
         """Get timestamp of most recent event."""
-        last_event = self.client.search(dsl, index_str, size=1, sort='@timestamp:desc')['hits']['hits']
+        last_event = self.client.search(query=dsl, index=index_str, size=1, sort='@timestamp:desc')['hits']['hits']
         if not last_event:
             return
 
@@ -146,7 +170,7 @@ class CollectEvents(object):
         elif language == 'dsl':
             formatted_dsl = {'query': query}
         else:
-            raise ValueError('Unknown search language')
+            raise ValueError(f'Unknown search language: {language}')
 
         if start_time or end_time:
             end_time = end_time or 'now'
@@ -172,84 +196,78 @@ class CollectEvents(object):
 
         return results
 
-    def search_from_rule(self, *rules: TOMLRule, start_time=None, end_time='now', size=None):
+    def search_from_rule(self, rules: RuleCollection, start_time=None, end_time='now', size=None):
         """Search an elasticsearch instance using a rule."""
-        from .misc import nested_get
-
         async_client = AsyncSearchClient(self.client)
         survey_results = {}
-
-        def parse_unique_field_results(rule_type, unique_fields, search_results):
-            parsed_results = defaultdict(lambda: defaultdict(int))
-            hits = search_results['hits']
-            hits = hits['hits'] if rule_type != 'eql' else hits.get('events') or hits.get('sequences', [])
-            for hit in hits:
-                for field in unique_fields:
-                    match = nested_get(hit['_source'], field)
-                    match = ','.join(sorted(match)) if isinstance(match, list) else match
-                    parsed_results[field][match] += 1
-            # if rule.type == eql, structure is different
-            return {'results': parsed_results} if parsed_results else {}
-
         multi_search = []
         multi_search_rules = []
-        async_searches = {}
-        eql_searches = {}
+        async_searches = []
+        eql_searches = []
 
         for rule in rules:
-            if not rule.query:
+            if not rule.contents.data.get('query'):
                 continue
 
-            index_str, formatted_dsl, lucene_query = self._prep_query(query=rule.query,
-                                                                      language=rule.contents.get('language'),
-                                                                      index=rule.contents.get('index', '*'),
+            language = rule.contents.data.get('language')
+            query = rule.contents.data.query
+            rule_type = rule.contents.data.type
+            index_str, formatted_dsl, lucene_query = self._prep_query(query=query,
+                                                                      language=language,
+                                                                      index=rule.contents.data.get('index', '*'),
                                                                       start_time=start_time,
                                                                       end_time=end_time)
             formatted_dsl.update(size=size or self.max_events)
 
             # prep for searches: msearch for kql | async search for lucene | eql client search for eql
-            if rule.contents['language'] == 'kuery':
+            if language == 'kuery':
                 multi_search_rules.append(rule)
-                multi_search.append(json.dumps(
-                    {'index': index_str, 'allow_no_indices': 'true', 'ignore_unavailable': 'true'}))
-                multi_search.append(json.dumps(formatted_dsl))
-            elif rule.contents['language'] == 'lucene':
+                multi_search.append({'index': index_str, 'allow_no_indices': 'true', 'ignore_unavailable': 'true'})
+                multi_search.append(formatted_dsl)
+            elif language == 'lucene':
                 # wait for 0 to try and force async with no immediate results (not guaranteed)
-                result = async_client.submit(body=formatted_dsl, q=rule.query, index=index_str,
+                result = async_client.submit(body=formatted_dsl, q=query, index=index_str,
                                              allow_no_indices=True, ignore_unavailable=True,
                                              wait_for_completion_timeout=0)
                 if result['is_running'] is True:
-                    async_searches[rule] = result['id']
+                    async_searches.append((rule, result['id']))
                 else:
-                    survey_results[rule.id] = parse_unique_field_results(rule.type, rule.unique_fields,
+                    survey_results[rule.id] = parse_unique_field_results(rule_type, ['process.name'],
                                                                          result['response'])
-            elif rule.contents['language'] == 'eql':
+            elif language == 'eql':
                 eql_body = {
                     'index': index_str,
                     'params': {'ignore_unavailable': 'true', 'allow_no_indices': 'true'},
-                    'body': {'query': rule.query, 'filter': formatted_dsl['filter']}
+                    'body': {'query': query, 'filter': formatted_dsl['filter']}
                 }
-                eql_searches[rule] = eql_body
+                eql_searches.append((rule, eql_body))
 
         # assemble search results
-        multi_search_results = self.client.msearch('\n'.join(multi_search) + '\n')
+        multi_search_results = self.client.msearch(searches=multi_search)
         for index, result in enumerate(multi_search_results['responses']):
             try:
                 rule = multi_search_rules[index]
-                survey_results[rule.id] = parse_unique_field_results(rule.type, rule.unique_fields, result)
+                survey_results[rule.id] = parse_unique_field_results(rule.contents.data.type,
+                                                                     rule.contents.data.unique_fields, result)
             except KeyError:
                 survey_results[multi_search_rules[index].id] = {'error_retrieving_results': True}
 
-        for rule, search_args in eql_searches.items():
+        for entry in eql_searches:
+            rule: TOMLRule
+            search_args: dict
+            rule, search_args = entry
             try:
                 result = self.client.eql.search(**search_args)
-                survey_results[rule.id] = parse_unique_field_results(rule.type, rule.unique_fields, result)
+                survey_results[rule.id] = parse_unique_field_results(rule.contents.data.type,
+                                                                     rule.contents.data.unique_fields, result)
             except (elasticsearch.NotFoundError, elasticsearch.RequestError) as e:
                 survey_results[rule.id] = {'error_retrieving_results': True, 'error': e.info['error']['reason']}
 
-        for rule, async_id in async_searches.items():
-            result = async_client.get(async_id)['response']
-            survey_results[rule.id] = parse_unique_field_results(rule.type, rule.unique_fields, result)
+        for entry in async_searches:
+            rule: TOMLRule
+            rule, async_id = entry
+            result = async_client.get(id=async_id)['response']
+            survey_results[rule.id] = parse_unique_field_results(rule.contents.data.type, ['process.name'], result)
 
         return survey_results
 
@@ -267,19 +285,21 @@ class CollectEvents(object):
             return self.client.count(body=formatted_dsl, index=index_str, q=lucene_query, allow_no_indices=True,
                                      ignore_unavailable=True)['count']
 
-    def count_from_rule(self, *rules, start_time=None, end_time='now'):
+    def count_from_rule(self, rules: RuleCollection, start_time=None, end_time='now'):
         """Get a count of documents from elasticsearch using a rule."""
         survey_results = {}
 
-        for rule in rules:
+        for rule in rules.rules:
             rule_results = {'rule_id': rule.id, 'name': rule.name}
 
-            if not rule.query:
+            if not rule.contents.data.get('query'):
                 continue
 
             try:
-                rule_results['search_count'] = self.count(query=rule.query, language=rule.contents.get('language'),
-                                                          index=rule.contents.get('index', '*'), start_time=start_time,
+                rule_results['search_count'] = self.count(query=rule.contents.data.query,
+                                                          language=rule.contents.data.language,
+                                                          index=rule.contents.data.get('index', '*'),
+                                                          start_time=start_time,
                                                           end_time=end_time)
             except (elasticsearch.NotFoundError, elasticsearch.RequestError):
                 rule_results['search_count'] = -1

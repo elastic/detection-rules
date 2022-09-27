@@ -1,9 +1,9 @@
 [metadata]
 creation_date = "2020/10/13"
 maturity = "production"
-updated_date = "2022/00/00"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
+updated_date = "2022/09/27"
 
 [rule]
 author = ["Elastic"]
@@ -31,7 +31,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where event.type == "start" and
   (process.pe.original_file_name == "wuauclt.exe" or process.name : "wuauclt.exe") and
    /* necessary windows update client args to load a dll */
    process.args : "/RunHandlerComServer" and process.args : "/UpdateDeploymentProvider" and

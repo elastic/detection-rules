@@ -9,9 +9,13 @@
 # Description: Pretends to register DLL without traditional DLL extension using RegSvr32
 
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(uuid="cda5b0b4-5b9c-4285-8adc-f89b375e5485", platforms=["windows"], endpoint=[], siem=[], techniques=[])
+
+
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Suspicious DLL Registration by Regsvr32")
 

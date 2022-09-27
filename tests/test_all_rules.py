@@ -21,7 +21,7 @@ from detection_rules.schemas import definitions
 from detection_rules.semver import Version
 from detection_rules.utils import get_path, load_etc_dump
 from detection_rules.version_lock import default_version_lock
-from rta import get_ttp_names
+from rta import get_available_tests
 from .base import BaseRuleTest
 
 
@@ -59,7 +59,7 @@ class TestValidRules(BaseRuleTest):
     def test_production_rules_have_rta(self):
         """Ensure that all production rules have RTAs."""
         mappings = load_etc_dump('rule-mapping.yml')
-        ttp_names = get_ttp_names()
+        ttp_names = sorted(get_available_tests())
 
         for rule in self.production_rules:
             if isinstance(rule.contents.data, QueryRuleData) and rule.id in mappings:
@@ -80,7 +80,7 @@ class TestValidRules(BaseRuleTest):
 
         duplicates = {name: paths for name, paths in name_map.items() if len(paths) > 1}
         if duplicates:
-            self.fail(f"Found duplicated file names {duplicates}")
+            self.fail(f"Found duplicated file names: {duplicates}")
 
     def test_rule_type_changes(self):
         """Test that a rule type did not change for a locked version"""

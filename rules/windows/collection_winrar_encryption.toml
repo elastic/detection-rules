@@ -3,7 +3,7 @@ creation_date = "2020/12/04"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/00/00"
+updated_date = "2022/09/27"
 
 [rule]
 author = ["Elastic"]
@@ -66,12 +66,12 @@ references = ["https://www.welivesecurity.com/2020/12/02/turla-crutch-keeping-ba
 risk_score = 47
 rule_id = "45d273fb-1dca-457d-9855-bcb302180c21"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Collection"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Collection", "has_guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where event.type == "start" and
   ((process.name:"rar.exe" or process.code_signature.subject_name == "win.rar GmbH" or
       process.pe.original_file_name == "Command line RAR") and
     process.args == "a" and process.args : ("-hp*", "-p*", "-dw", "-tb", "-ta", "/hp*", "/p*", "/dw", "/tb", "/ta"))
