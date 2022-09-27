@@ -3,7 +3,7 @@ creation_date = "2020/11/04"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2022/00/00"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ of these files can occur during an intrusion, or as part of a post-intrusion pro
 footprint.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Process Termination followed by Deletion"
@@ -27,7 +27,7 @@ type = "eql"
 query = '''
 sequence by host.id with maxspan=5s
    [process where event.type == "end" and
-    process.code_signature.trusted == false and
+    process.code_signature.trusted != true and
     not process.executable : ("C:\\Windows\\SoftwareDistribution\\*.exe", "C:\\Windows\\WinSxS\\*.exe")
    ] by process.executable
    [file where event.type == "deletion" and file.extension : ("exe", "scr", "com") and
