@@ -268,8 +268,7 @@ def get_kibana_rules(*rule_paths, repo='elastic/kibana', branch='master', verbos
 def load_current_package_version(patch=False) -> str:
     """Load the current package version from config file."""
     current_package_version = load_etc_dump('packages.yml')['package']['name']
-    if patch:
-        current_package_version += ".0"
+    current_package_version += ".0" if patch else current_package_version
     return current_package_version
 
 
