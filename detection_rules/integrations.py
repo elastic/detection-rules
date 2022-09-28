@@ -72,23 +72,13 @@ def find_least_compatible_version(package: str, integration: str,
     latest_major_integration_manifests = \
         {k: v for k, v in integration_manifests.items() if Version(k)[0] == max_major}
 
-    def compare_versions(int_ver: str, pkg_ver: str) -> bool:
-        """Compares integration and package version"""
-
-        # check version majors are the same
-        if int(Version(pkg_ver)[0]) != int(Version(int_ver)[0]):
-            return False
-
-        # compare full semantic versions
-        compatible = Version(int_ver) <= Version(pkg_ver + ".0")
-        return compatible
-
     # iterates through ascending integration manifests
     # returns latest major version that is least compatible
     for version, manifest in latest_major_integration_manifests.items():
         for kibana_compat_vers in re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana"]["version"]).split(" || "):
-            if compare_versions(kibana_compat_vers, current_stack_version):
-                return f"^{version}"
+            if int(kibana_compat_vers[0]) == int(current_stack_version[0]):
+                if Version(kibana_compat_vers) <= Version(current_stack_version + ".0"):
+                    return f"^{version}"
 
     raise ValueError(f"no compatible version for integration {package}:{integration}")
 
