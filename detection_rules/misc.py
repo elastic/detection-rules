@@ -265,10 +265,9 @@ def get_kibana_rules(*rule_paths, repo='elastic/kibana', branch='master', verbos
 
 
 @cached
-def load_current_package_version(patch: bool = False) -> str:
+def load_current_package_version() -> str:
     """Load the current package version from config file."""
-    current_package_version = load_etc_dump('packages.yml')['package']['name']
-    return current_package_version if not patch else (current_package_version + ".0")
+    return load_etc_dump('packages.yml')['package']['name']
 
 
 @cached
