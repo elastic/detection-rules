@@ -750,7 +750,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         if not package_integrations and self.metadata.integration:
             packages_manifest = load_integrations_manifests()
-            current_stack_version = load_current_package_version()
+            current_stack_version = load_current_package_version(patch=True)
 
             if self.check_restricted_field_version(field_name):
                 if isinstance(self.data, QueryRuleData) and self.data.language != 'lucene':
