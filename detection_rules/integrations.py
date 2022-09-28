@@ -74,11 +74,9 @@ def find_least_compatible_version(package: str, integration: str,
 
     def compare_versions(int_ver: str, pkg_ver: str) -> bool:
         """Compares integration and package version"""
-        pkg_major, _ = Version(pkg_ver)
-        integration_major, _, _ = Version(int_ver)
 
         # check version majors are the same
-        if int(pkg_major) != int(integration_major):
+        if int(Version(pkg_ver)[0]) != int(Version(int_ver)[0]):
             return False
 
         # compare full semantic versions
