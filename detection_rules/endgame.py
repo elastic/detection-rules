@@ -28,8 +28,7 @@ class EndgameSchemaManager:
         """Download schema from endgame-evecs."""
 
         # Use the static mapping.json file downloaded from the endgame-evecs repo.
-        # main_branch = self.repo.get_branch("master")
-        main_branch = self.repo.get_branch("trade")
+        main_branch = self.repo.get_branch("master")
         main_branch_sha = main_branch.commit.sha
         schema_path = "pkg/mapper/ecs/schema.json"
         endgame_mapping = self.repo.get_contents(schema_path, ref=main_branch_sha)
