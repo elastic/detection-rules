@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/12/14"
 maturity = "production"
-updated_date = "2022/04/20"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +16,7 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious SolarWinds Child Process"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -30,7 +32,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where event.type == "start" and
  process.parent.name: ("SolarWinds.BusinessLayerHost.exe", "SolarWinds.BusinessLayerHostx64.exe") and
  not process.name : (
         "APMServiceControl*.exe",
@@ -40,7 +42,10 @@ process where event.type in ("start", "process_started") and
         "Database-Maint.exe",
         "SolarWinds.Orion.ApiPoller.Service.exe",
         "WerFault.exe",
-        "WerMgr.exe")
+        "WerMgr.exe",
+        "SolarWinds.BusinessLayerHost.exe",
+        "SolarWinds.BusinessLayerHostx64.exe") and
+ not process.executable : ("?:\\Windows\\SysWOW64\\ARP.EXE", "?:\\Windows\\SysWOW64\\lodctr.exe", "?:\\Windows\\SysWOW64\\unlodctr.exe")
 '''
 
 

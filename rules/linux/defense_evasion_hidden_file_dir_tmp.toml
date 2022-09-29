@@ -1,9 +1,9 @@
 [metadata]
 creation_date = "2020/04/29"
 maturity = "production"
-min_stack_comments = "EQL regex syntax introduced in 7.12"
-min_stack_version = "7.12.0"
-updated_date = "2022/03/31"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -23,8 +23,8 @@ index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 max_signals = 33
-name = "Creation of Hidden Files and Directories"
-note = """## Config
+name = "Creation of Hidden Files and Directories via CommandLine"
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -39,7 +39,7 @@ query = '''
 process where event.type in ("start", "process_started") and
   process.working_directory in ("/tmp", "/var/tmp", "/dev/shm") and
   process.args regex~ """\.[a-z0-9_\-][a-z0-9_\-\.]{1,254}""" and
-  not process.name in ("ls", "find")
+  not process.name in ("ls", "find", "grep")
 '''
 
 

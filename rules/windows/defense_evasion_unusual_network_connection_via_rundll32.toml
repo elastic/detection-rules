@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/05/26"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -14,16 +16,59 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual Network Connection via RunDLL32"
-references = ["https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml"]
+note = """## Triage and analysis
+
+### Investigating Unusual Network Connection via RunDLL32
+
+RunDLL32 is a built-in Windows utility and also a vital component used by the operating system itself. The functionality
+provided by RunDLL32 to execute Dynamic Link Libraries (DLLs) is widely abused by attackers, because it makes it hard to
+differentiate malicious activity from normal operations.
+
+This rule looks for external network connections established using RunDLL32 when the utility is being executed with no
+arguments, which can potentially indicate command and control activity.
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Investigate the target host that RunDLL32 is communicating with.
+  - Check if the domain is newly registered or unexpected.
+  - Check the reputation of the domain or IP address.
+- Identify the target computer and its role in the IT environment.
+- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
+
+### False positive analysis
+
+- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved hosts to prevent further post-compromise behavior.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
+systems, and web services.
+- Run a full scan using the antimalware tool in place. This scan can reveal additional artifacts left in the system,
+persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Review the privileges assigned to the user to ensure that the least privilege principle is being followed.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
+"""
+references = [
+  "https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml",
+  "https://redcanary.com/threat-detection-report/techniques/rundll32/"
+]
 risk_score = 47
 rule_id = "52aaab7b-b51c-441a-89ce-4387b3aea886"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "has_guide"]
 type = "eql"
 
 query = '''
 sequence by host.id, process.entity_id with maxspan=1m
-  [process where event.type in ("start", "process_started") and process.name : "rundll32.exe" and process.args_count == 1]
+  [process where event.type == "start" and process.name : "rundll32.exe" and process.args_count == 1]
   [network where process.name : "rundll32.exe" and
    not cidrmatch(destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24",
        "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32",
@@ -37,7 +82,7 @@ sequence by host.id, process.entity_id with maxspan=1m
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1218"
-name = "Signed Binary Proxy Execution"
+name = "System Binary Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1218/"
 [[rule.threat.technique.subtechnique]]
 id = "T1218.011"

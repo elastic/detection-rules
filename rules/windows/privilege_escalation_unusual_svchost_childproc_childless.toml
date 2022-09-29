@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/10/13"
 maturity = "production"
-updated_date = "2022/03/31"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +17,7 @@ index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual Service Host Child Process - Childless Service"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -27,7 +29,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where event.type == "start" and
      process.parent.name : "svchost.exe" and
 
      /* based on svchost service arguments -s svcname where the service is known to be childless */
@@ -41,7 +43,12 @@ process where event.type in ("start", "process_started") and
 
       /* unknown FPs can be added here */
 
-     not process.name : ("WerFault.exe","WerFaultSecure.exe","wermgr.exe")
+     not process.name : ("WerFault.exe","WerFaultSecure.exe","wermgr.exe") and
+     not (process.executable : "?:\\Windows\\System32\\RelPost.exe" and process.parent.args : "WdiSystemHost") and
+     not (process.name : "rundll32.exe" and
+          process.args : "?:\\WINDOWS\\System32\\winethc.dll,ForceProxyDetectionOnNextRun" and process.parent.args : "WdiServiceHost") and
+     not (process.executable : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*", "?:\\Windows\\System32\\Kodak\\kds_i4x50\\lib\\lexexe.exe") and
+          process.parent.args : "imgsvc")
 '''
 
 

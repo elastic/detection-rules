@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/09/21"
 maturity = "production"
-updated_date = "2022/02/28"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 integration = "gcp"
 
 [rule]
@@ -24,7 +26,7 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Logging Bucket Deletion"
-note = """## Config
+note = """## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/logging/docs/buckets", "https://cloud.google.com/logging/docs/storage"]
@@ -36,7 +38,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.logging.v*.ConfigServiceV*.DeleteBucket and event.outcome:success
+event.dataset:gcp.audit and event.action:google.logging.v*.ConfigServiceV*.DeleteBucket and event.outcome:success
 '''
 
 

@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/09/02"
 maturity = "production"
-updated_date = "2021/03/03"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +16,7 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious WMIC XSL Script Execution"
-risk_score = 21
+risk_score = 47
 rule_id = "7f370d54-c0eb-4270-ac5a-9a6020585dc6"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
@@ -22,11 +24,12 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan = 2m
-[process where event.type in ("start", "process_started") and
+[process where event.type == "start" and
    (process.name : "WMIC.exe" or process.pe.original_file_name : "wmic.exe") and
    process.args : ("format*:*", "/format*:*", "*-format*:*") and
    not process.command_line : "* /format:table *"]
-[library where event.type == "start" and dll.name : ("jscript.dll", "vbscript.dll")]
+[any where (event.category == "library" or (event.category == "process" and event.action : "Image loaded*")) and
+ (dll.name : ("jscript.dll", "vbscript.dll") or file.name : ("jscript.dll", "vbscript.dll"))]
 '''
 
 

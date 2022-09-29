@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/09/21"
 maturity = "production"
-updated_date = "2021/07/20"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 integration = "gcp"
 
 [rule]
@@ -22,7 +24,7 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP IAM Custom Role Creation"
-note = """## Config
+note = """## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/iam/docs/understanding-custom-roles"]
@@ -34,7 +36,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.iam.admin.v*.CreateRole and event.outcome:success
+event.dataset:gcp.audit and event.action:google.iam.admin.v*.CreateRole and event.outcome:success
 '''
 
 

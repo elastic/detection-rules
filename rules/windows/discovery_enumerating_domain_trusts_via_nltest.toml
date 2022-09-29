@@ -1,0 +1,62 @@
+[metadata]
+creation_date = "2022/05/31"
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the use of nltest.exe for domain trust discovery purposes. Adversaries may use this command-line utility to
+enumerate domain trusts and gain insight into trust relationships, as well as the state of Domain Controller (DC)
+replication in a Microsoft Windows NT Domain.
+"""
+false_positives = [
+    """
+    Domain administrators may use this command-line utility for legitimate information gathering purposes, but it is not
+    common for environments with Windows Server 2012 and newer.
+    """,
+]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Enumerating Domain Trusts via NLTEST.EXE"
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
+references = [
+    "https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2012-r2-and-2012/cc731935(v=ws.11)",
+    "https://redcanary.com/blog/how-one-hospital-thwarted-a-ryuk-ransomware-outbreak/",
+]
+risk_score = 21
+rule_id = "84da2554-e12a-11ec-b896-f661ea17fbcd"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and
+    process.name : "nltest.exe" and process.args : (
+        "/DCLIST:*", "/DCNAME:*", "/DSGET*",
+        "/LSAQUERYFTI:*", "/PARENTDOMAIN",
+        "/DOMAIN_TRUSTS", "/BDC_QUERY:*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1482"
+name = "Domain Trust Discovery"
+reference = "https://attack.mitre.org/techniques/T1482/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+

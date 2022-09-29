@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2021/11/08"
 maturity = "production"
-updated_date = "2022/04/20"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/13"
 
 [rule]
 author = ["Elastic"]
@@ -22,12 +24,12 @@ file.
 
 #### Possible investigation steps
 
-- This attack abuses a legitimate mechanism of the Active Directory, so it is important to determine whether the activity
+- This attack abuses a legitimate mechanism of Active Directory, so it is important to determine whether the activity
 is legitimate and the administrator is authorized to perform this operation.
 - Retrieve the contents of the `ScheduledTasks.xml` file, and check the `<Command>` and `<Arguments>` XML tags for any
-potentially malicious commands and binaries.
-- Investigate other alerts related to the user/host in the last 48 hours.
-- Scope which objects have been affected.
+potentially malicious commands or binaries.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Scope which objects may be compromised by retrieving information about which objects are controlled by the GPO.
 
 ### False positive analysis
 
@@ -44,20 +46,23 @@ potentially malicious commands and binaries.
 - The investigation and containment must be performed in every computer controlled by the GPO, where necessary.
 - Remove the script from the GPO.
 - Check if other GPOs have suspicious scheduled tasks attached.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 
-## Config
+## Setup
 
 The 'Audit Detailed File Share' audit policy must be configured (Success Failure).
 Steps to implement the logging policy with with Advanced Audit Configuration:
 
 ```
-Computer Configuration > 
-Policies > 
-Windows Settings > 
-Security Settings > 
-Advanced Audit Policies Configuration > 
-Audit Policies > 
-Object Access > 
+Computer Configuration >
+Policies >
+Windows Settings >
+Security Settings >
+Advanced Audit Policies Configuration >
+Audit Policies >
+Object Access >
 Audit Detailed File Share (Success,Failure)
 ```
 
@@ -65,13 +70,13 @@ The 'Audit Directory Service Changes' audit policy must be configured (Success F
 Steps to implement the logging policy with with Advanced Audit Configuration:
 
 ```
-Computer Configuration > 
-Policies > 
-Windows Settings > 
-Security Settings > 
-Advanced Audit Policies Configuration > 
-Audit Policies > 
-DS Access > 
+Computer Configuration >
+Policies >
+Windows Settings >
+Security Settings >
+Advanced Audit Policies Configuration >
+Audit Policies >
+DS Access >
 Audit Directory Service Changes (Success,Failure)
 ```
 """
@@ -85,13 +90,13 @@ references = [
 risk_score = 47
 rule_id = "15a8ba77-1c13-4274-88fe-6bd14133861e"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Active Directory"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Active Directory", "has_guide"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-(event.code: "5136" and winlog.event_data.AttributeLDAPDisplayName:("gPCMachineExtensionNames" or "gPCUserExtensionNames") and 
-   winlog.event_data.AttributeValue:(*CAB54552-DEEA-4691-817E-ED4A4D1AFC72* and *AADCED64-746C-4633-A97C-D61349046527*)) 
+(event.code: "5136" and winlog.event_data.AttributeLDAPDisplayName:("gPCMachineExtensionNames" or "gPCUserExtensionNames") and
+   winlog.event_data.AttributeValue:(*CAB54552-DEEA-4691-817E-ED4A4D1AFC72* and *AADCED64-746C-4633-A97C-D61349046527*))
 or
 (event.code: "5145" and winlog.event_data.ShareName: "\\\\*\\SYSVOL" and winlog.event_data.RelativeTargetName: *ScheduledTasks.xml and
   (message: WriteData or winlog.event_data.AccessList: *%%4417*))

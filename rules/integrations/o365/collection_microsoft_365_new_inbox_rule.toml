@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2021/03/29"
 maturity = "production"
-updated_date = "2022/04/25"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 integration = "o365"
 
 [rule]
@@ -23,7 +25,7 @@ index = ["filebeat-*", "logs-o365*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft 365 Inbox Forwarding Rule Created"
-note = """## Config
+note = """## Setup
 
 The Office 365 Logs Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -41,12 +43,12 @@ type = "query"
 
 query = '''
 event.dataset:o365.audit and event.provider:Exchange and
-event.category:web and event.action:"New-InboxRule" and
+event.category:web and event.action:("New-InboxRule" or "Set-InboxRule") and
     (
         o365.audit.Parameters.ForwardTo:* or
         o365.audit.Parameters.ForwardAsAttachmentTo:* or
         o365.audit.Parameters.RedirectTo:*
-    ) 
+    )
     and event.outcome:success
 '''
 

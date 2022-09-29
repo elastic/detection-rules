@@ -4,14 +4,15 @@
 # 2.0.
 
 """Wrapper around requests.Session for HTTP requests to Kibana."""
-import json
-import threading
+import atexit
 import base64
+import json
 import sys
+import threading
 import uuid
 
-from elasticsearch import Elasticsearch
 import requests
+from elasticsearch import Elasticsearch
 
 _context = threading.local()
 
@@ -42,6 +43,9 @@ class Kibana(object):
             self.domain, self.es_uuid, self.kibana_uuid = \
                 base64.b64decode(cloud_info.encode("utf-8")).decode("utf-8").split("$")
 
+            if self.domain.endswith(':443'):
+                self.domain = self.domain[:-4]
+
             kibana_url_from_cloud = f"https://{self.kibana_uuid}.{self.domain}:9243"
             if self.kibana_url and self.kibana_url != kibana_url_from_cloud:
                 raise ValueError(f'kibana_url provided ({self.kibana_url}) does not match url derived from cloud_id '
@@ -57,8 +61,10 @@ class Kibana(object):
         self.elasticsearch = elasticsearch
 
         if not verify:
-            from requests.packages.urllib3.exceptions import InsecureRequestWarning
+            from requests.packages.urllib3.exceptions import \
+                InsecureRequestWarning
             requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+        atexit.register(self.__close)
 
     @property
     def version(self):
@@ -179,7 +185,7 @@ class Kibana(object):
         self.session = requests.Session()
         self.elasticsearch = None
 
-    def __del__(self):
+    def __close(self):
         if self.authenticated:
             self.logout()
 

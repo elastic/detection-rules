@@ -1,16 +1,18 @@
 [metadata]
 creation_date = "2020/11/17"
-maturity = "production"
-updated_date = "2022/01/13"
 integration = "google_workspace"
-min_stack_comments = "Google Workspace schema deprecated gsuite fields in 8.0"
-min_stack_version = "8.0"
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/25"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when an admin role is assigned to a Google Workspace user. An adversary may assign an admin role to a user in
-order to elevate the permissions of another user account and persist in their target’s environment.
+Assigning the administrative role to a user will grant them access to the Google Admin console and grant them
+administrator privileges which allow them to access and manage various resources and applications. An adversary may
+create a new administrator account for persistence or apply the admin role to an existing user to carry out further
+intrusion efforts. Users with super-admin privileges can bypass single-sign on if enabled in Google Workspace.
 """
 false_positives = [
     """
@@ -24,7 +26,7 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "Google Workspace Admin Role Assigned to a User"
-note = """## Config
+note = """## Setup
 
 The Google Workspace Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 
@@ -37,15 +39,24 @@ The Google Workspace Fleet integration, Filebeat module, or similarly structured
   - https://support.google.com/a/answer/7061566
   - https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-google_workspace.html"""
 references = ["https://support.google.com/a/answer/172176?hl=en"]
-risk_score = 47
+risk_score = 73
 rule_id = "68994a6c-c7ba-4e82-b476-26a26877adf6"
-severity = "medium"
-tags = ["Elastic", "Cloud", "Google Workspace", "Continuous Monitoring", "SecOps", "Identity and Access"]
+severity = "high"
+tags = [
+    "Elastic",
+    "Cloud",
+    "Google Workspace",
+    "Continuous Monitoring",
+    "SecOps",
+    "Identity and Access",
+    "Persistence",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:ASSIGN_ROLE
+event.dataset:"google_workspace.admin" and event.category:"iam" and event.action:"ASSIGN_ROLE"
+  and google_workspace.event.type:"DELEGATED_ADMIN_SETTINGS" and google_workspace.admin.role.name : *_ADMIN_ROLE
 '''
 
 
@@ -55,6 +66,11 @@ framework = "MITRE ATT&CK"
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
 
 
 [rule.threat.tactic]

@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2021/01/25"
 maturity = "production"
-updated_date = "2022/03/31"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +16,7 @@ index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Attempt to Mount SMB Share via Command Line"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -33,7 +35,8 @@ process where event.type in ("start", "process_started") and
     (process.name : "open" and process.args : "smb://*") or
     (process.name : "mount" and process.args : "smbfs") or
     (process.name : "osascript" and process.command_line : "osascript*mount volume*smb://*")
-  )
+  ) and
+  not process.parent.executable : "/Applications/Google Drive.app/Contents/MacOS/Google Drive"
 '''
 
 

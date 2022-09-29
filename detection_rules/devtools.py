@@ -34,12 +34,13 @@ from .ghwrap import GithubClient, update_gist
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import PACKAGE_FILE, RELEASE_DIR, CURRENT_RELEASE_PATH, Package, current_stack_version
-from .version_lock import default_version_lock
+from .version_lock import VersionLockFile, default_version_lock
 from .rule import AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData, ThreatMapping, TOMLRule
 from .rule_loader import RuleCollection, production_filter
-from .schemas import definitions
+from .schemas import definitions, get_stack_versions
 from .semver import Version
-from .utils import dict_hash, get_path, load_dump
+from .utils import dict_hash, get_path, get_etc_path, load_dump
+from .integrations import build_integrations_manifest
 
 RULES_DIR = get_path('rules')
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
@@ -195,11 +196,13 @@ class GitChangeEntry:
 @dev_group.command("unstage-incompatible-rules")
 @click.option("--target-stack-version", "-t", help="Minimum stack version to filter the staging area", required=True)
 @click.option("--dry-run", is_flag=True, help="List the changes that would be made")
-def prune_staging_area(target_stack_version: str, dry_run: bool):
+@click.option("--exception-list", help="List of files to skip staging", default="")
+def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list: list):
     """Prune the git staging area to remove changes to incompatible rules."""
     exceptions = {
         "detection_rules/etc/packages.yml",
     }
+    exceptions.update(exception_list.split(","))
 
     target_stack_version = Version(target_stack_version)[:2]
 
@@ -540,7 +543,6 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
             os.chdir(prev)
 
     elastic_pkg("format")
-    elastic_pkg("lint")
 
     # Upload the files to a branch
     git("add", pkg_directory)
@@ -633,6 +635,32 @@ def license_check(ctx, ignore_directory):
             click.echo(relative_path, err=True)
 
     ctx.exit(int(failed))
+
+
+@dev_group.command('test-version-lock')
+@click.argument('branches', nargs=-1, required=True)
+@click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
+def test_version_lock(branches: tuple, remote: str):
+    """Simulate the incremental step in the version locking to find version change violations."""
+    git = utils.make_git('-C', '.')
+    current_branch = git('rev-parse', '--abbrev-ref', 'HEAD')
+
+    try:
+        click.echo(f'iterating lock process for branches: {branches}')
+        for branch in branches:
+            click.echo(branch)
+            git('checkout', f'{remote}/{branch}')
+            subprocess.check_call(['python', '-m', 'detection_rules', 'dev', 'build-release', '-u'])
+
+    finally:
+        diff = git('--no-pager', 'diff', get_etc_path('version.lock.json'))
+        outfile = Path(get_path()).joinpath('lock-diff.txt')
+        outfile.write_text(diff)
+        click.echo(f'diff saved to {outfile}')
+
+        click.echo('reverting changes in version.lock')
+        git('checkout', '-f')
+        git('checkout', current_branch)
 
 
 @dev_group.command('package-stats')
@@ -821,6 +849,51 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
     return generated_urls
 
 
+@dev_group.command('trim-version-lock')
+@click.argument('min_version')
+@click.option('--dry-run', is_flag=True, help='Print the changes rather than saving the file')
+def trim_version_lock(min_version: str, dry_run: bool):
+    """Trim all previous entries within the version lock file which are lower than the min_version."""
+    stack_versions = get_stack_versions()
+    assert min_version in stack_versions, f'Unknown min_version ({min_version}), expected: {", ".join(stack_versions)}'
+
+    min_version = Version(min_version)
+    version_lock_dict = default_version_lock.version_lock.to_dict()
+    removed = {}
+
+    for rule_id, lock in version_lock_dict.items():
+        if 'previous' in lock:
+            prev_vers = [Version(v) for v in list(lock['previous'])]
+            outdated_vers = [v for v in prev_vers if v <= min_version]
+
+            if not outdated_vers:
+                continue
+
+            # we want to remove all "old" versions, but save the latest that is <= the min version as the new
+            # min_version. Essentially collapsing the entries and bumping it to a new "true" min
+            latest_version = max(outdated_vers)
+
+            if dry_run:
+                outdated_minus_current = [str(v) for v in outdated_vers if v != min_version]
+                if outdated_minus_current:
+                    removed[rule_id] = outdated_minus_current
+            for outdated in outdated_vers:
+                popped = lock['previous'].pop(str(outdated))
+                if outdated == latest_version:
+                    lock['previous'][str(min_version)] = popped
+
+            # remove the whole previous entry if it is now blank
+            if not lock['previous']:
+                lock.pop('previous')
+
+    if dry_run:
+        click.echo(f'The following versions would be collapsed to {min_version}:' if removed else 'No changes')
+        click.echo('\n'.join(f'{k}: {", ".join(v)}' for k, v in removed.items()))
+    else:
+        new_lock = VersionLockFile.from_dict(dict(data=version_lock_dict))
+        new_lock.save_to_file()
+
+
 @dev_group.group('diff')
 def diff_group():
     """Commands for statistics on changes and diffs."""
@@ -979,6 +1052,7 @@ def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_coun
     """Survey rule counts."""
     from kibana.resources import Signal
     from .main import search_rules
+    # from .eswrap import parse_unique_field_results
 
     survey_results = []
     start_time, end_time = date_range
@@ -994,15 +1068,20 @@ def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_coun
     click.echo(f'Saving detailed dump to: {dump_file}')
 
     collector = CollectEvents(elasticsearch_client)
-    details = collector.search_from_rule(*rules, start_time=start_time, end_time=end_time)
-    counts = collector.count_from_rule(*rules, start_time=start_time, end_time=end_time)
+    details = collector.search_from_rule(rules, start_time=start_time, end_time=end_time)
+    counts = collector.count_from_rule(rules, start_time=start_time, end_time=end_time)
 
     # add alerts
     with kibana_client:
         range_dsl = {'query': {'bool': {'filter': []}}}
         add_range_to_dsl(range_dsl['query']['bool']['filter'], start_time, end_time)
         alerts = {a['_source']['signal']['rule']['rule_id']: a['_source']
-                  for a in Signal.search(range_dsl)['hits']['hits']}
+                  for a in Signal.search(range_dsl, size=10000)['hits']['hits']}
+
+    # for alert in alerts:
+    #     rule_id = alert['signal']['rule']['rule_id']
+    #     rule = rules.id_map[rule_id]
+    #     unique_results = parse_unique_field_results(rule.contents.data.type, rule.contents.data.unique_fields, alert)
 
     for rule_id, count in counts.items():
         alert_count = len(alerts.get(rule_id, []))
@@ -1030,3 +1109,32 @@ def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_coun
         json.dump(details, f, indent=2, sort_keys=True)
 
     return survey_results
+
+
+@dev_group.group('utils')
+def utils_group():
+    """Commands for dev utility methods."""
+
+
+@utils_group.command('get-branches')
+@click.option('--outfile', '-o', type=Path, default=get_etc_path("target-branches.yml"), help='File to save output to')
+def get_branches(outfile: Path):
+    branch_list = get_stack_versions(drop_patch=True)
+    target_branches = json.dumps(branch_list[:-1]) + "\n"
+    outfile.write_text(target_branches)
+
+
+@dev_group.group('integrations')
+def integrations_group():
+    """Commands for dev integrations methods."""
+
+
+@integrations_group.command('build-manifests')
+@click.option('--overwrite', '-o', is_flag=True, help="Overwrite the existing integrations-manifest.json.gz file")
+def build_integration_manifests(overwrite: bool):
+    """Builds consolidated integrations manifests file."""
+    click.echo("loading rules to determine all integration tags")
+    rules = RuleCollection.default()
+    integration_tags = list(set([r.contents.metadata.integration for r in rules if r.contents.metadata.integration]))
+    click.echo(f"integration tags identified: {integration_tags}")
+    build_integrations_manifest(overwrite, integration_tags)

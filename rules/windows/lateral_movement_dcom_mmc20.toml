@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/11/06"
 maturity = "production"
-updated_date = "2022/01/13"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -28,7 +30,7 @@ sequence by host.id with maxspan=1m
  destination.port >= 49152 and source.ip != "127.0.0.1" and source.ip != "::1" and
   network.direction : ("incoming", "ingress") and network.transport == "tcp"
  ] by process.entity_id
- [process where event.type in ("start", "process_started") and process.parent.name : "mmc.exe"
+ [process where event.type == "start" and process.parent.name : "mmc.exe"
  ] by process.parent.entity_id
 '''
 

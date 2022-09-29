@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/11/03"
 maturity = "production"
-updated_date = "2022/03/31"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +16,7 @@ index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "System Log File Deletion"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -29,19 +31,20 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.type == "deletion" and 
-  file.path : 
+file where event.type == "deletion" and
+  file.path :
     (
-    "/var/run/utmp", 
-    "/var/log/wtmp", 
-    "/var/log/btmp", 
-    "/var/log/lastlog", 
+    "/var/run/utmp",
+    "/var/log/wtmp",
+    "/var/log/btmp",
+    "/var/log/lastlog",
     "/var/log/faillog",
-    "/var/log/syslog", 
-    "/var/log/messages", 
-    "/var/log/secure", 
+    "/var/log/syslog",
+    "/var/log/messages",
+    "/var/log/secure",
     "/var/log/auth.log"
-    )
+    ) and
+    not process.name : ("gzip")
 '''
 
 

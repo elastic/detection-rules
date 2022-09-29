@@ -1,23 +1,25 @@
 [metadata]
 creation_date = "2021/10/18"
 maturity = "production"
-updated_date = "2021/11/22"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 integration = "azure"
 
 [rule]
 author = ["Austin Songer"]
 description = """
-Identifies the creation of role binding or cluster role bindings. You can assign these roles to Kubernetes subjects 
+Identifies the creation of role binding or cluster role bindings. You can assign these roles to Kubernetes subjects
 (users, groups, or service accounts) with role bindings and cluster role bindings. An adversary who has permissions to create
 bindings and cluster-bindings in the cluster can create a binding to the cluster-admin ClusterRole or to other high privileges
-roles. 
+roles.
 """
 from = "now-20m"
 index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Kubernetes Rolebindings Created"
-note = """## Config
+note = """## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -34,7 +36,7 @@ type = "query"
 query = '''
 event.dataset:azure.activitylogs and azure.activitylogs.operation_name:
 	("MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/ROLEBINDINGS/WRITE" or
-	 "MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/CLUSTERROLEBINDINGS/WRITE") and 
+	 "MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/CLUSTERROLEBINDINGS/WRITE") and
 event.outcome:(Success or success)
 '''
 

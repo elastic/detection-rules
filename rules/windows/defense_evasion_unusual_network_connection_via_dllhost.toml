@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2021/05/28"
 maturity = "production"
-updated_date = "2022/03/31"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -27,7 +29,7 @@ type = "eql"
 
 query = '''
 sequence by host.id, process.entity_id with maxspan=1m
-  [process where event.type in ("start", "process_started") and process.name : "dllhost.exe" and process.args_count == 1]
+  [process where event.type == "start" and process.name : "dllhost.exe" and process.args_count == 1]
   [network where process.name : "dllhost.exe" and
    not cidrmatch(destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24",
     "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
@@ -40,7 +42,7 @@ sequence by host.id, process.entity_id with maxspan=1m
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-name = "Signed Binary Proxy Execution"
+name = "System Binary Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1218/"
 id = "T1218"
 

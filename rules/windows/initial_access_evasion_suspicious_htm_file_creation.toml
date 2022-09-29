@@ -1,0 +1,93 @@
+[metadata]
+creation_date = "2022/07/03"
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of a browser process to open an HTML file with high entropy and size. Adversaries may smuggle
+data and files past content filters by hiding malicious payloads inside of seemingly benign HTML files.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious HTML File Creation"
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
+risk_score = 47
+rule_id = "f0493cb4-9b15-43a9-9359-68c23a7f2cf3"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access"]
+type = "eql"
+
+query = '''
+sequence by user.id with maxspan=5m
+ [file where event.action in ("creation", "rename") and
+  file.extension : ("htm", "html") and
+   file.path : ("?:\\Users\\*\\Downloads\\*",
+                "?:\\Users\\*\\Content.Outlook\\*",
+                "?:\\Users\\*\\AppData\\Local\\Temp\\Temp?_*",
+                "?:\\Users\\*\\AppData\\Local\\Temp\\7z*",
+                "?:\\Users\\*\\AppData\\Local\\Temp\\Rar$*") and
+   ((file.Ext.entropy >= 5 and file.size >= 150000) or file.size >= 1000000)]
+ [process where event.action == "start" and
+  (
+   (process.name in ("chrome.exe", "msedge.exe", "brave.exe", "whale.exe", "browser.exe", "dragon.exe", "vivaldi.exe", "opera.exe")
+    and process.args == "--single-argument") or
+   (process.name == "iexplore.exe" and process.args_count == 2) or
+   (process.name in ("firefox.exe", "waterfox.exe") and process.args == "-url")
+  )
+  and process.args : ("?:\\Users\\*\\Downloads\\*.htm*",
+                      "?:\\Users\\*\\Content.Outlook\\*.htm*",
+                      "?:\\Users\\*\\AppData\\Local\\Temp\\Temp?_*.htm*",
+                      "?:\\Users\\*\\AppData\\Local\\Temp\\7z*.htm*",
+                      "?:\\Users\\*\\AppData\\Local\\Temp\\Rar$*.htm*")]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.001"
+name = "Spearphishing Attachment"
+reference = "https://attack.mitre.org/techniques/T1566/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+[[rule.threat.technique.subtechnique]]
+id = "T1027.006"
+name = "HTML Smuggling"
+reference = "https://attack.mitre.org/techniques/T1027/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

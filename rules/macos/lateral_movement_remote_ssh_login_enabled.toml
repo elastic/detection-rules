@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/08/18"
 maturity = "production"
-updated_date = "2021/03/03"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +28,8 @@ type = "query"
 query = '''
 event.category:process and event.type:(start or process_started) and
  process.name:systemsetup and
- process.args:("-setremotelogin" and on)
+ process.args:("-setremotelogin" and on) and
+ not process.parent.executable : /usr/local/jamf/bin/jamf
 '''
 
 
@@ -36,6 +39,11 @@ framework = "MITRE ATT&CK"
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
+[[rule.threat.technique.subtechnique]]
+id = "T1021.004"
+name = "SSH"
+reference = "https://attack.mitre.org/techniques/T1021/004/"
+
 
 
 [rule.threat.tactic]

@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/12/14"
 maturity = "production"
-updated_date = "2022/04/20"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +16,7 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Command Execution via SolarWinds Process"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -30,7 +32,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and process.name: ("cmd.exe", "powershell.exe") and
+process where event.type == "start" and process.name: ("cmd.exe", "powershell.exe") and
 process.parent.name: (
      "ConfigurationWizard*.exe",
      "NetflowDatabaseMaintenance*.exe",

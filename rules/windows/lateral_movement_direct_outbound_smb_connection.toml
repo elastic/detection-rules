@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/02/18"
 maturity = "production"
-updated_date = "2021/09/23"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/20"
 
 [rule]
 author = ["Elastic"]
@@ -16,15 +18,76 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Direct Outbound SMB Connection"
+note = """## Triage and analysis
+
+### Investigating Direct Outbound SMB Connection
+
+This rule looks for unexpected processes making network connections over port 445. Windows file sharing is typically
+implemented over Server Message Block (SMB), which communicates between hosts using port 445. When legitimate, these
+network connections are established by the kernel (PID 4). Occurrences of non-system processes using this port can indicate
+port scanners, exploits, and tools used to move laterally on the environment.
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Contact the account owner and confirm whether they are aware of this activity.
+- Investigate any abnormal behavior by the subject process such as network connections, registry or file modifications,
+and any spawned child processes.
+- Retrieve the process executable and determine if it is malicious:
+  - Use a private sandboxed malware analysis system to perform analysis.
+    - Observe and collect information about the following activities:
+      - Attempts to contact external domains and addresses.
+      - File and registry access, modification, and creation activities.
+      - Service creation and launch activities.
+      - Scheduled task creation.
+  - Use the PowerShell Get-FileHash cmdlet to get the files' SHA-256 hash values.
+    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+
+### False positive analysis
+
+- If this rule is noisy in your environment due to expected activity, consider adding exceptions — preferably with a combination
+of user and command line conditions.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
+  attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
+"""
 risk_score = 47
 rule_id = "c82c7d8f-fb9e-4874-a4bd-fd9e3f9becf1"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement", "has_guide"]
 type = "eql"
 
 query = '''
 sequence by process.entity_id
-  [process where event.type == "start" and process.pid != 4]
+  [process where event.type == "start" and host.os.name == "Windows" and process.pid != 4 and
+   not (process.executable : "D:\\EnterpriseCare\\tools\\jre.1\\bin\\java.exe" and process.args : "com.emeraldcube.prism.launcher.Invoker") and
+   not (process.executable : "C:\\Docusnap 11\\Tools\\nmap\\nmap.exe" and process.args : "smb-os-discovery.nse") and
+   not process.executable :
+              ("?:\\Program Files\\SentinelOne\\Sentinel Agent *\\Ranger\\SentinelRanger.exe",
+               "?:\\Program Files\\Ivanti\\Security Controls\\ST.EngineHost.exe",
+               "?:\\Program Files (x86)\\Fortinet\\FSAE\\collectoragent.exe",
+               "?:\\Program Files (x86)\\Nmap\\nmap.exe",
+               "?:\\Program Files\\Azure Advanced Threat Protection Sensor\\*\\Microsoft.Tri.Sensor.exe",
+               "?:\\Program Files\\CloudMatters\\auvik\\AuvikService-release-*\\AuvikService.exe",
+               "?:\\Program Files\\uptime software\\uptime\\UptimeDataCollector.exe",
+               "?:\\Program Files\\CloudMatters\\auvik\\AuvikAgentService.exe",
+               "?:\\Program Files\\Rumble\\rumble-agent-*.exe")]
   [network where destination.port == 445 and process.pid != 4 and
      not cidrmatch(destination.ip, "127.0.0.1", "::1")]
 '''

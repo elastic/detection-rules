@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/12/15"
 maturity = "production"
-updated_date = "2022/03/31"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +17,7 @@ index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "New ActiveSyncAllowedDeviceID Added via PowerShell"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -31,7 +33,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where event.type == "start" and
   process.name: ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and process.args : "Set-CASMailbox*ActiveSyncAllowedDeviceIDs*"
 '''
 
@@ -44,7 +46,7 @@ name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
 [[rule.threat.technique.subtechnique]]
 id = "T1098.002"
-name = "Exchange Email Delegate Permissions"
+name = "Additional Email Delegate Permissions"
 reference = "https://attack.mitre.org/techniques/T1098/002/"
 
 

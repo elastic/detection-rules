@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/11/27"
 maturity = "production"
-updated_date = "2021/03/08"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -22,8 +24,9 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan = 5s
-    [library where dll.name : "wmiutils.dll" and process.name : ("wscript.exe", "cscript.exe")]
-    [process where event.type in ("start", "process_started") and
+    [any where (event.category == "library" or (event.category == "process" and event.action : "Image loaded*")) and
+     (dll.name : "wmiutils.dll" or file.name : "wmiutils.dll") and process.name : ("wscript.exe", "cscript.exe")]
+    [process where event.type == "start" and
      process.parent.name : "wmiprvse.exe" and
      user.domain != "NT AUTHORITY" and
      (process.pe.original_file_name :

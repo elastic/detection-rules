@@ -11,16 +11,18 @@ from collections import defaultdict
 from pathlib import Path
 
 import kql
-
 from detection_rules import attack
 from detection_rules.beats import parse_beats_from_index
-from detection_rules.rule import QueryRuleData
+from detection_rules.packaging import current_stack_version
+from detection_rules.rule import (QueryRuleData, TOMLRuleContents,
+                                  load_integrations_manifests)
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.schemas import definitions
 from detection_rules.semver import Version
-from detection_rules.utils import get_path, load_etc_dump
+from detection_rules.utils import INTEGRATION_RULE_DIR, get_path, load_etc_dump
 from detection_rules.version_lock import default_version_lock
-from rta import get_ttp_names
+from rta import get_available_tests
+
 from .base import BaseRuleTest
 
 
@@ -58,7 +60,7 @@ class TestValidRules(BaseRuleTest):
     def test_production_rules_have_rta(self):
         """Ensure that all production rules have RTAs."""
         mappings = load_etc_dump('rule-mapping.yml')
-        ttp_names = get_ttp_names()
+        ttp_names = sorted(get_available_tests())
 
         for rule in self.production_rules:
             if isinstance(rule.contents.data, QueryRuleData) and rule.id in mappings:
@@ -79,7 +81,7 @@ class TestValidRules(BaseRuleTest):
 
         duplicates = {name: paths for name, paths in name_map.items() if len(paths) > 1}
         if duplicates:
-            self.fail(f"Found duplicated file names {duplicates}")
+            self.fail(f"Found duplicated file names: {duplicates}")
 
     def test_rule_type_changes(self):
         """Test that a rule type did not change for a locked version"""
@@ -382,8 +384,6 @@ class TestRuleMetadata(BaseRuleTest):
 
     def test_deprecated_rules(self):
         """Test that deprecated rules are properly handled."""
-        from detection_rules.packaging import current_stack_version
-
         versions = default_version_lock.version_lock
         deprecations = load_etc_dump('deprecated_rules.json')
         deprecated_rules = {}
@@ -441,19 +441,36 @@ class TestRuleMetadata(BaseRuleTest):
         """Test that rules in integrations folders have matching integration defined."""
         failures = []
 
-        for rule in self.production_rules:
-            rules_path = get_path('rules')
-            *_, grandparent, parent, _ = rule.path.parts
-            in_integrations = grandparent == 'integrations'
-            integration = rule.contents.metadata.get('integration')
-            has_integration = integration is not None
+        packages_manifest = load_integrations_manifests()
 
-            if (in_integrations or has_integration) and (parent != integration):
-                err_msg = f'{self.rule_str(rule)}\nintegration: {integration}\npath: {rule.path.relative_to(rules_path)}'  # noqa: E501
+        for rule in self.production_rules:
+            rule_integration = rule.contents.metadata.get('integration')
+
+            # checks if metadata tag matches from a list of integrations in EPR
+            if rule_integration and rule_integration not in packages_manifest.keys():
+                err_msg = f"{self.rule_str(rule)} integration '{rule_integration}' unknown"
                 failures.append(err_msg)
 
+            # checks if the rule path matches the intended integration
+            valid_integration_folders = [p.name for p in list(Path(INTEGRATION_RULE_DIR).glob("*"))]
+            if rule_integration and rule_integration in valid_integration_folders:
+                if rule_integration != rule.path.parent.name:
+                    err_msg = f'{self.rule_str(rule)} {rule_integration} tag, but path is {rule.path.parent.name}'
+                    failures.append(err_msg)
+
+            # checks if event.dataset exists in query object and a tag exists in metadata
+            if isinstance(rule.contents.data, QueryRuleData) and rule.contents.data.language != 'lucene':
+                trc = TOMLRuleContents(rule.contents.metadata, rule.contents.data)
+                package_integrations = trc._get_packaged_integrations(packages_manifest)
+                if package_integrations and not rule_integration:
+                    err_msg = f'{self.rule_str(rule)} integration tag should exist: '
+
         if failures:
-            err_msg = 'The following rules have missing/incorrect integrations or are not in an integrations folder:\n'
+            err_msg = """
+                The following rules have missing or invalid integrations tags.
+                Try updating the integrations manifest file:
+                    - `python -m detection_rules dev integrations build-manifests`\n
+                """
             self.fail(err_msg + '\n'.join(failures))
 
     def test_rule_demotions(self):
@@ -652,7 +669,7 @@ class TestIntegrationRules(BaseRuleTest):
 
     def test_integration_guide(self):
         """Test that rules which require a config note are using standard verbiage."""
-        config = '## Config\n\n'
+        config = '## Setup\n\n'
         beats_integration_pattern = config + 'The {} Fleet integration, Filebeat module, or similarly ' \
                                              'structured data is required to be compatible with this rule.'
         render = beats_integration_pattern.format
@@ -677,3 +694,74 @@ class TestIntegrationRules(BaseRuleTest):
                     self.fail(f'{self.rule_str(rule)} expected {integration} config missing\n\n'
                               f'Expected: {note_str}\n\n'
                               f'Actual: {rule.contents.data.note}')
+
+
+class TestIncompatibleFields(BaseRuleTest):
+    """Test stack restricted fields do not backport beyond allowable limits."""
+
+    def test_rule_backports_for_restricted_fields(self):
+        """Test that stack restricted fields will not backport to older rule versions."""
+        invalid_rules = []
+
+        for rule in self.all_rules:
+            invalid = rule.contents.check_restricted_fields_compatibility()
+            if invalid:
+                invalid_rules.append(f'{self.rule_str(rule)} {invalid}')
+
+        if invalid_rules:
+            invalid_str = '\n'.join(invalid_rules)
+            err_msg = 'The following rules have min_stack_versions lower than allowed for restricted fields:\n'
+            err_msg += invalid_str
+            self.fail(err_msg)
+
+
+class TestBuildTimeFields(BaseRuleTest):
+    """Test validity of build-time fields."""
+
+    def test_build_fields_min_stack(self):
+        """Test that newly introduced build-time fields for a min_stack for applicable rules."""
+        current_stack_ver = Version(current_stack_version())
+        invalids = []
+
+        for rule in self.production_rules:
+            min_stack = rule.contents.metadata.min_stack_version
+            build_fields = rule.contents.data.get_build_fields()
+
+            errors = []
+            for build_field, field_versions in build_fields.items():
+                start_ver, end_ver = field_versions
+                if start_ver is not None and current_stack_ver >= start_ver:
+                    if min_stack is None or not Version(min_stack) >= start_ver:
+                        errors.append(f'{build_field} >= {start_ver}')
+
+            if errors:
+                err_str = ', '.join(errors)
+                invalids.append(f'{self.rule_str(rule)} uses a rule type with build fields requiring min_stack_versions'
+                                f' to be set: {err_str}')
+
+            if invalids:
+                self.fail(invalids)
+
+
+class TestRiskScoreMismatch(BaseRuleTest):
+    """Test that severity and risk_score fields contain corresponding values"""
+
+    def test_rule_risk_score_severity_mismatch(self):
+        invalid_list = []
+        risk_severity = {
+            "critical": 99,
+            "high": 73,
+            "medium": 47,
+            "low": 21,
+        }
+        for rule in self.all_rules:
+            severity = rule.contents.data.severity
+            risk_score = rule.contents.data.risk_score
+            if risk_severity[severity] != risk_score:
+                invalid_list.append(f'{self.rule_str(rule)} Severity: {severity}, Risk Score: {risk_score}')
+
+        if invalid_list:
+            invalid_str = '\n'.join(invalid_list)
+            err_msg = 'The following rules have mismatches between Severity and Risk Score field values:\n'
+            err_msg += invalid_str
+            self.fail(err_msg)

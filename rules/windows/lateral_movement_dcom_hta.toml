@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/11/03"
 maturity = "production"
-updated_date = "2022/02/28"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -24,10 +26,10 @@ type = "eql"
 
 query = '''
 sequence with maxspan=1m
-  [process where event.type in ("start", "process_started") and
+  [process where event.type == "start" and
      process.name : "mshta.exe" and process.args : "-Embedding"
   ] by host.id, process.entity_id
-  [network where event.type == "start" and process.name : "mshta.exe" and 
+  [network where event.type == "start" and process.name : "mshta.exe" and
      network.direction : ("incoming", "ingress") and network.transport == "tcp" and
      source.port > 49151 and destination.port > 49151 and source.ip != "127.0.0.1" and source.ip != "::1"
   ] by host.id, process.entity_id
@@ -57,7 +59,7 @@ reference = "https://attack.mitre.org/tactics/TA0008/"
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1218"
-name = "Signed Binary Proxy Execution"
+name = "System Binary Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1218/"
 [[rule.threat.technique.subtechnique]]
 id = "T1218.005"

@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/09/02"
 maturity = "production"
-updated_date = "2021/04/06"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -22,8 +24,8 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=2m
-  [process where event.type == "start" 
-   and (process.code_signature.subject_name in ("Microsoft Corporation", "Microsoft Windows") and 
+  [process where event.type == "start"
+   and (process.code_signature.subject_name in ("Microsoft Corporation", "Microsoft Windows") and
    process.code_signature.trusted == true) and
      not process.executable : (
        "?:\\Windows\\System32\\cscript.exe",
@@ -51,7 +53,7 @@ sequence by process.entity_id with maxspan=2m
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1218"
-name = "Signed Binary Proxy Execution"
+name = "System Binary Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1218/"
 
 [rule.threat.tactic]

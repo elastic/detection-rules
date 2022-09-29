@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/01/11"
 maturity = "production"
-updated_date = "2022/04/20"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +17,7 @@ index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Privacy Control Bypass via Localhost Secure Copy"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -30,9 +32,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and 
+process where event.type in ("start", "process_started") and
  process.name:"scp" and
- process.args:"StrictHostKeyChecking=no" and 
+ process.args:"StrictHostKeyChecking=no" and
  process.command_line:("scp *localhost:/*", "scp *127.0.0.1:/*") and
  not process.args:"vagrant@*127.0.0.1*"
 '''

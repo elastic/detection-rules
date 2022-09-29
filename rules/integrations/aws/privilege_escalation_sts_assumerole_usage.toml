@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2021/05/17"
 maturity = "production"
-updated_date = "2021/10/05"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/08/24"
 integration = "aws"
 
 [rule]
@@ -20,7 +22,7 @@ language = "kuery"
 license = "Elastic License v2"
 name = "AWS Security Token Service (STS) AssumeRole Usage"
 references = ["https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html"]
-note = """## Config
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 risk_score = 21
@@ -31,7 +33,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:aws.cloudtrail and event.provider:sts.amazonaws.com and event.action:AssumedRole and 
+event.dataset:aws.cloudtrail and event.provider:sts.amazonaws.com and event.action:AssumedRole and
 aws.cloudtrail.user_identity.session_context.session_issuer.type:Role and event.outcome:success
 '''
 

@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/06/11"
 maturity = "production"
-updated_date = "2021/07/20"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/13"
 integration = "aws"
 
 [rule]
@@ -21,14 +23,56 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS Management Console Root Login"
-note = """## Config
+note = """## Triage and analysis
+
+### Investigating AWS Management Console Root Login
+
+The AWS root account is the one identity that has complete access to all AWS services and resources in the account,
+which is created when the AWS account is created. AWS strongly recommends that you do not use the root user for your
+everyday tasks, even the administrative ones. Instead, adhere to the best practice of using the root user only to create
+your first IAM user. Then securely lock away the root user credentials and use them to perform only a few account and
+service management tasks. AWS provides a [list of the tasks that require root user](https://docs.aws.amazon.com/general/latest/gr/root-vs-iam.html#aws_tasks-that-require-root).
+
+This rule looks for attempts to log in to the AWS Management Console as the root user.
+
+#### Possible investigation steps
+
+- Investigate other alerts associated with the user account during the past 48 hours.
+- Examine whether this activity is common in the environment by looking for past occurrences on your logs.
+- Consider the source IP address and geolocation for the calling user who issued the command. Do they look normal for the
+  calling user?
+- Examine the commands, API calls, and data management actions performed by the account in the last 24 hours.
+- Contact the account owner and confirm whether they are aware of this activity.
+- If you suspect the account has been compromised, scope potentially compromised assets by tracking access to servers,
+services, and data accessed by the account in the last 24 hours.
+
+### False positive analysis
+
+- The alert can be dismissed if this operation is done under change management and approved according to the
+organization's policy for performing a task that needs this privilege level.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
+    - Identify the account role in the cloud environment.
+    - Identify the services or servers involved criticality.
+    - Work with your IT team to identify and minimize the impact on users.
+    - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
+    - Identify if there are any regulatory or legal ramifications related to this activity.
+- Configure multi-factor authentication for the user.
+- Follow security best practices [outlined](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/) by AWS.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
+
+## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html"]
-risk_score = 73
+risk_score = 47
 rule_id = "e2a67480-3b79-403d-96e3-fdd2992c50ef"
-severity = "high"
-tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Identity and Access"]
+severity = "medium"
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Identity and Access", "has_guide"]
 timestamp_override = "event.ingested"
 type = "query"
 

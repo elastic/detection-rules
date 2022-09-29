@@ -1,7 +1,9 @@
 [metadata]
 creation_date = "2020/10/28"
 maturity = "production"
-updated_date = "2022/03/31"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +16,7 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "UAC Bypass Attempt with IEditionUpgradeManager Elevated COM Interface"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -27,7 +29,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and process.name : "Clipup.exe" and
+process where event.type == "start" and process.name : "Clipup.exe" and
   not process.executable : "C:\\Windows\\System32\\ClipUp.exe" and process.parent.name : "dllhost.exe" and
   /* CLSID of the Elevated COM Interface IEditionUpgradeManager */
   process.parent.args : "/Processid:{BD54C901-076B-434E-B6C7-17C531F4AB41}"
