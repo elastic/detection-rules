@@ -8,8 +8,8 @@ import gzip
 import json
 import os
 import re
+from collections import OrderedDict
 from pathlib import Path
-from typing import Union
 
 import requests
 from marshmallow import EXCLUDE, Schema, fields, post_load
@@ -63,32 +63,28 @@ def build_integrations_manifest(overwrite: bool, rule_integrations: list) -> Non
 
 
 def find_least_compatible_version(package: str, integration: str,
-                                  current_stack_version: str, packages_manifest: dict) -> Union[str, None]:
+                                  current_stack_version: str, packages_manifest: dict) -> str:
     """Finds least compatible version for specified integration based on stack version supplied."""
-    integration_manifests = {k: v for k, v in sorted(packages_manifest[package].items(), key=Version)}
+    integration_manifests = {k: v for k, v in sorted(packages_manifest[package].items(),
+                             key=lambda x: Version(str(x[0])))}
 
-    # trim integration_manifests to only the latest major entries
+    # filter integration_manifests to only the latest major entries
     max_major, *_ = max([Version(manifest_version) for manifest_version in integration_manifests])
     latest_major_integration_manifests = \
         {k: v for k, v in integration_manifests.items() if Version(k)[0] == max_major}
 
-    def compare_versions(int_ver: str, pkg_ver: str) -> bool:
-        """Compares integration and package version"""
-        pkg_major, pkg_minor = Version(pkg_ver)
-        integration_major, integration_minor = Version(int_ver)[:2]
+    # iterates through ascending integration manifests
+    # returns latest major version that is least compatible
+    for version, manifest in OrderedDict(sorted(latest_major_integration_manifests.items(),
+                                                key=lambda x: Version(str(x[0])))).items():
+        compatible_versions = re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana"]["version"]).split(" || ")
+        for kibana_ver in compatible_versions:
+            # check versions have the same major
+            if int(kibana_ver[0]) == int(current_stack_version[0]):
+                if Version(kibana_ver) <= Version(current_stack_version + ".0"):
+                    return f"^{version}"
 
-        if int(integration_major) < int(pkg_major) or int(pkg_major) > int(integration_major):
-            return False
-
-        compatible = Version(int_ver) <= Version(pkg_ver)
-        return compatible
-
-    for version, manifest in latest_major_integration_manifests.items():
-        for kibana_compat_vers in re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana"]["version"]).split(" || "):
-            if compare_versions(kibana_compat_vers, current_stack_version):
-                return f"^{version}"
-    print(f"no compatible version for integration {package}:{integration}")
-    return None
+    raise ValueError(f"no compatible version for integration {package}:{integration}")
 
 
 def get_integration_manifests(integration: str) -> list:
