@@ -76,8 +76,9 @@ def find_least_compatible_version(package: str, integration: str,
     # returns latest major version that is least compatible
     for version, manifest in latest_major_integration_manifests.items():
         for kibana_compat_vers in re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana"]["version"]).split(" || "):
-            if int(kibana_compat_vers[0]) == int(current_stack_version[0]):
-                if Version(kibana_compat_vers) <= Version(current_stack_version + ".0"):
+            # check versions have the same major
+            if int(kibana_ver[0]) == int(current_stack_version[0]):
+                if Version(kibana_ver) <= Version(current_stack_version + ".0"):
                     return f"^{version}"
 
     raise ValueError(f"no compatible version for integration {package}:{integration}")
