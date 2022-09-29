@@ -8,6 +8,7 @@ import gzip
 import json
 import os
 import re
+from collections import OrderedDict
 from pathlib import Path
 
 import requests
@@ -74,7 +75,8 @@ def find_least_compatible_version(package: str, integration: str,
 
     # iterates through ascending integration manifests
     # returns latest major version that is least compatible
-    for version, manifest in latest_major_integration_manifests.items():
+    for version, manifest in OrderedDict(sorted(latest_major_integration_manifests.items(),
+                                                key=lambda x: Version(str(x[0])))).items():
         compatible_versions = re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana"]["version"]).split(" || ")
         for kibana_ver in compatible_versions:
             # check versions have the same major
