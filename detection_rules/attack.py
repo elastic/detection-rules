@@ -28,7 +28,7 @@ tactics_map = {}
 def get_attack_file_path() -> str:
     pattern = 'attack-v*.json.gz'
     attack_file = get_etc_glob_path(pattern)
-    if len(attack_file) != 1:
+    if len(attack_file) < 1:
         raise FileNotFoundError(f'Missing required {pattern} file')
     return attack_file[0]
 
