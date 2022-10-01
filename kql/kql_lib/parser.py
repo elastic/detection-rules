@@ -14,7 +14,7 @@ from lark import Tree, Lark
 from lark.exceptions import LarkError, UnexpectedEOF
 from lark.visitors import Interpreter
 
-from kql.errors import KqlParseError
+from .errors import KqlParseError
 from .ast import *  # noqa: F403
 
 
