@@ -8,7 +8,7 @@ import os
 import re
 from typing import Optional, Set
 
-import eql
+import kql.eql
 from lark import Token  # noqa: F401
 from lark import Tree, Lark
 from lark.exceptions import LarkError, UnexpectedEOF
