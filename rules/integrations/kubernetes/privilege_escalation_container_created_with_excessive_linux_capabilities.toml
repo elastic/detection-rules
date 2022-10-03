@@ -4,7 +4,7 @@ integration = "kubernetes"
 maturity = "production"
 min_stack_comments = "New fields added to Kubernetes Integration"
 min_stack_version = "8.4.0"
-updated_date = "2022/09/20"
+updated_date = "2022/10/03"
 
 [rule]
 author = ["Elastic"]
@@ -64,10 +64,11 @@ type = "query"
 
 query = '''
 event.dataset: kubernetes.audit_logs 
+  and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow"
   and kubernetes.audit.verb: create 
   and kubernetes.audit.objectRef.resource: pods 
   and kubernetes.audit.requestObject.spec.containers.securityContext.capabilities.add: ("BPF" or "DAC_READ_SEARCH"  or "NET_ADMIN" or "SYS_ADMIN" or "SYS_BOOT" or "SYS_MODULE" or "SYS_PTRACE" or "SYS_RAWIO"  or "SYSLOG") 
-  and not kubernetes.audit.requestObject.spec.containers.image: ("docker.elastic.co\/*" or "rancher\/*" or "")
+  and not kubernetes.audit.requestObject.spec.containers.image : ("docker.elastic.co/beats/elastic-agent:8.4.0" or "rancher/klipper-lb:v0.3.5" or "")
 '''
 
 
