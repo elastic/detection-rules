@@ -8,10 +8,10 @@ from functools import cached_property
 from typing import List, Optional, Union
 
 import eql
-
 import kql
-from . import ecs
-from .rule import QueryValidator, QueryRuleData, RuleMeta
+
+from . import ecs, endgame
+from .rule import QueryRuleData, QueryValidator, RuleMeta
 
 
 class KQLValidator(QueryValidator):
@@ -73,6 +73,29 @@ class EQLValidator(QueryValidator):
     def unique_fields(self) -> List[str]:
         return list(set(str(f) for f in self.ast if isinstance(f, eql.ast.Field)))
 
+    def validate_query_with_schema(self, schema: Union[ecs.KqlSchema2Eql, endgame.EndgameSchema],
+                                   err_trailer: str, beat_types: list = None) -> None:
+        """Validate the query against the schema."""
+        try:
+            with schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+                eql.parse_query(self.query)
+        except eql.EqlParseError as exc:
+            message = exc.error_msg
+            trailer = err_trailer
+            if "Unknown field" in message and beat_types:
+                trailer = f"\nTry adding event.module or event.dataset to specify beats module\n\n{trailer}"
+            elif "Field not recognized" in message:
+                text_fields = self.text_fields(schema)
+                if text_fields:
+                    fields_str = ', '.join(text_fields)
+                    trailer = f"\neql does not support text fields: {fields_str}\n\n{trailer}"
+
+            raise exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
+                                len(exc.caret.lstrip()), trailer=trailer) from None
+        except Exception:
+            print(err_trailer)
+            raise
+
     def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
         """Validate an EQL query while checking TOMLRule."""
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
@@ -88,51 +111,16 @@ class EQLValidator(QueryValidator):
 
             beat_types, beat_schema, schema = self.get_beats_schema(data.index or [], beats_version, ecs_version)
             endgame_schema = self.get_endgame_schema(data.index, endgame_version)
-
             eql_schema = ecs.KqlSchema2Eql(schema)
 
-            try:
-                # TODO: switch to custom cidrmatch that allows ipv6
-                with eql_schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
-                    eql.parse_query(self.query)
-            except eql.EqlParseError as exc:
-                message = exc.error_msg
-                trailer = err_trailer
-                if "Unknown field" in message and beat_types:
-                    trailer = f"\nTry adding event.module or event.dataset to specify beats module\n\n{trailer}"
-                elif "Field not recognized" in message:
-                    text_fields = self.text_fields(eql_schema)
-                    if text_fields:
-                        fields_str = ', '.join(text_fields)
-                        trailer = f"\neql does not support text fields: {fields_str}\n\n{trailer}"
-
-                raise exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
-                                    len(exc.caret.lstrip()), trailer=trailer) from None
-            except Exception:
-                print(err_trailer)
-                raise
+            # validate query against the beats and eql schema
+            self.validate_query_with_schema(schema=eql_schema, err_trailer=err_trailer, beat_types=beat_types)
 
             if not endgame_schema:
                 continue
 
-            try:
-                with endgame_schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
-                    eql.parse_query(self.query)
-            except eql.EqlParseError as exc:
-                message = exc.error_msg
-                trailer = err_trailer
-
-                if "Field not recognized" in message:
-                    text_fields = self.text_fields(eql_schema)
-                    if text_fields:
-                        fields_str = ', '.join(text_fields)
-                        trailer = f"\neql does not support text fields: {fields_str}\n\n{trailer}"
-
-                raise exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
-                                    len(exc.caret.lstrip()), trailer=trailer) from None
-            except Exception:
-                print(err_trailer)
-                raise
+            # validate query against the endgame schema
+            self.validate_query_with_schema(schema=endgame_schema, err_trailer=err_trailer)
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
