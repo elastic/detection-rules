@@ -1152,7 +1152,7 @@ def refresh_attack_data() -> dict:
     return data
 
 
-@attack_group.command('refresh-threat-mappings')
+@attack_group.command('refresh-redirect-mappings')
 def refresh_threat_mappings():
     """Refresh the ATT&CK redirect file and update all rule threat mappings."""
     # refresh the attack_technique_redirects
@@ -1204,4 +1204,8 @@ def update_attack_in_rules(rules: RuleCollection) -> List[Optional[TOMLRule]]:
             new_rule.save_toml()
             new_rules.append(new_rule)
 
+    if new_rules:
+        click.echo(f'{len(new_rules)} rules updated')
+    else:
+        click.echo('No rule changes needed')
     return new_rules
