@@ -109,11 +109,10 @@ def docs_group():
 @click.argument('registry-version', type=str)
 @click.option('--pre', required=True, help='Tag for pre-existing rules')
 @click.option('--post', required=True, help='Tag for rules post updates')
-@click.option('--directory', '-d', type=Path, required=True, help='Output directory to save docs to')
 @click.option('--force', '-f', is_flag=True, help='Bypass the confirmation prompt')
 @click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
 @click.pass_context
-def generate(ctx: click.Context, feature: str, registry_version: str, pre: str, post: str, directory: Path,
+def generate(ctx: click.Context, feature: str, registry_version: str, pre: str, post: str,
                            force: bool, remote: Optional[str] = 'origin') -> Union[IntegrationSecurityDocs,KibanaSecurityDocs]:
     """Build documents from two git tags for an integration package."""
     if not force:
@@ -122,9 +121,9 @@ def generate(ctx: click.Context, feature: str, registry_version: str, pre: str, 
 
     rules_changes = get_release_diff(pre, post, remote)
     if feature == "integration":
-        docs = IntegrationSecurityDocs(registry_version, directory, True, *rules_changes)
+        docs = IntegrationSecurityDocs(registry_version, True, *rules_changes)
     elif feature == "kibana":
-        docs = KibanaSecurityDocs(registry_version, directory, True, *rule_changes)
+        docs = KibanaSecurityDocs(registry_version, True, *rules_changes)
     package_dir = docs.generate()
 
     click.echo(f'Generated documents saved to: {package_dir}')

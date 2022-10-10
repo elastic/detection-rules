@@ -22,6 +22,15 @@ from .rule_loader import DeprecatedCollection, RuleCollection
 from .rule import ThreatMapping, TOMLRule
 from .semver import Version
 
+ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_LOCAL_DOCS = ROOT.joinpath('..', 'security-docs').resolve()
+DEFAULT_DOCS_RULES_DIR = DEFAULT_LOCAL_DOCS.joinpath('prebuilt-rules-scripts')
+DEFAULT_DOCS_GENERATED_ASCII = DEFAULT_LOCAL_DOCS.joinpath('generated-ascii-files')
+DEFAULT_LOCAL_KIBANA = ROOT.joinpath('..', 'kibana').resolve()
+DEFAULT_KIBANA_RULES_DIR = DEFAULT_LOCAL_KIBANA.joinpath('x-pack', 'plugins', 'security_solution', 'server', 'lib',
+                                               'detection_engine', 'rules', 'prepackaged_rules')
+
+
 
 class PackageDocument(xlsxwriter.Workbook):
     """Excel document for summarizing a rules package."""
@@ -276,17 +285,31 @@ class KibanaSecurityDocs:
 
     """
 
-    @staticmethod
-    def cmp_value(value):
-        if isinstance(value, list):
-            cmp_new = tuple(value)
-        elif isinstance(value, dict):
-            cmp_new = json.dumps(value, sort_keys=True, indent=2)
-        else:
-            cmp_new = value
+    def __init__(self, registry_version: str, overwrite=False,
+                 updated_rules: Optional[Dict[str, TOMLRule]] = None, new_rules: Optional[Dict[str, TOMLRule]] = None,
+                 deprecated_rules: Optional[Dict[str, TOMLRule]] = None):
+        self.new_rules = new_rules
+        self.updated_rules = updated_rules
+        self.deprecated_rules = deprecated_rules
+        self.included_rules = list(itertools.chain(new_rules.values(),
+                                                   updated_rules.values(),
+                                                   deprecated_rules.values()))
+        self.registry_version = Version(registry_version)
 
-        return cmp_new
+    def get_release_rules(self):
+        """Load rules from local kibana repository and store in security docs."""
 
+        rule_files = DEFAULT_KIBANA_RULES_DIR.glob('*.json')
+        rule_list = sorted([json.loads(open(rf).read()) for rf in rule_files], key=lambda x: x["name"])
+        rule_dump_path = str(DEFAULT_DOCS_RULES_DIR.joinpath('orig-rules-json-files',
+                         f'{str(self.registry_version)}-prebuilt-rule.json'))
+        with open(rule_dump_path, "w") as f:
+            json.dump(rule_list, f, indent=2)
+        click.echo(f'saved file: {rule_dump_path}')
+
+
+    def generate(self) -> Path:
+        self.get_release_rules()
 
 class KibanaRuleDetail:
     """Rule detail page generation for Kibana rules."""
@@ -295,7 +318,7 @@ class KibanaRuleDetail:
 class IntegrationSecurityDocs:
     """Generate docs for prebuilt rules in Elastic documentation."""
 
-    def __init__(self, registry_version: str, directory: Path, overwrite=False,
+    def __init__(self, registry_version: str, overwrite=False,
                  updated_rules: Optional[Dict[str, TOMLRule]] = None, new_rules: Optional[Dict[str, TOMLRule]] = None,
                  deprecated_rules: Optional[Dict[str, TOMLRule]] = None):
         self.new_rules = new_rules
@@ -306,7 +329,7 @@ class IntegrationSecurityDocs:
                                                    deprecated_rules.values()))
 
         self.registry_version_str, self.base_name, self.prebuilt_rule_base = self.parse_registry(registry_version)
-        self.package_directory = directory / self.base_name
+        self.package_directory = DEFAULT_LOCAL_DOCS / self.base_name
 
         if overwrite:
             shutil.rmtree(self.package_directory, ignore_errors=True)
