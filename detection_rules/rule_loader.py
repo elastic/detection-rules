@@ -13,6 +13,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Union
 
 import click
 import pytoml
+import json
 from marshmallow.exceptions import ValidationError
 
 from . import utils
@@ -81,7 +82,6 @@ production_filter = metadata_filter(maturity="production")
 
 def load_locks_from_tag(remote: str, tag: str) -> (str, dict, dict):
     """Loads version and deprecated lock files from git tag."""
-    import json
     git = utils.make_git()
 
     exists_args = ['ls-remote']

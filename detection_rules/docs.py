@@ -269,6 +269,13 @@ class SecurityDocs:
 class KibanaSecurityDocs:
     """Generate docs for prebuilt rules in Elastic documentation."""
 
+    #TODO
+    """
+    1. Identify what docs are adjusted for Kibana docs
+    2. Identify parsing library for asciidoc
+
+    """
+
     @staticmethod
     def cmp_value(value):
         if isinstance(value, list):
@@ -279,6 +286,10 @@ class KibanaSecurityDocs:
             cmp_new = value
 
         return cmp_new
+
+
+class KibanaRuleDetail:
+    """Rule detail page generation for Kibana rules."""
 
 
 class IntegrationSecurityDocs:
@@ -304,6 +315,8 @@ class IntegrationSecurityDocs:
 
     @staticmethod
     def parse_registry(registry_version: str) -> (str, str, str):
+        """Determine registry version and rule base."""
+
         registry_version = Version(registry_version)
         short_registry_version = [str(n) for n in registry_version[:3]]
         registry_version_str = '.'.join(short_registry_version)
@@ -313,7 +326,13 @@ class IntegrationSecurityDocs:
         return registry_version_str, base_name, prebuilt_rule_base
 
     def generate_appendix(self):
-        # appendix
+        """Generate and format appendix for pre-built rules."""
+
+        #TODO
+        """
+        1. Optimize string usage and parsing  or store separately
+        """
+
         appendix = self.package_directory / f'prebuilt-rules-{self.base_name}-appendix.asciidoc'
 
         appendix_header = textwrap.dedent(f"""
@@ -330,6 +349,13 @@ class IntegrationSecurityDocs:
         appendix.write_text(appendix_str)
 
     def generate_summary(self):
+        """Generate the summary for pre-built integration package."""
+
+        #TODO
+        """
+        1. Optimize string usage and parsing  or store separately
+        """
+
         summary = self.package_directory / f'prebuilt-rules-{self.base_name}-summary.asciidoc'
 
         summary_header = textwrap.dedent(f"""
@@ -372,6 +398,14 @@ class IntegrationSecurityDocs:
         # https://www.elastic.co/guide/en/security/current/prebuilt-rules-downloadable-updates.html
         today = datetime.today().strftime('%d %b %Y')
 
+
+        #TODO
+        """
+        1. Identify library for parsing asciidoc
+        2. parse prebuilt-rules-downloadable-updates.asciidoc and add values from update_table_include
+        3. parse prebuilt-rules-downloadable-updates.asciidoc and add values from update_table_entry
+        4. parse index.asciidoc and add values from update_index_include
+        """
         updates['detections/prebuilt-rules/prebuilt-rules-downloadable-updates.asciidoc'] = {
             'update_table_entry': (f'|<<prebuilt-rule-{self.base_name}-prebuilt-rules-{self.base_name}-summary, '
                                    f'{self.registry_version_str}>> | {today} | {len(self.new_rules)} | '
@@ -396,7 +430,7 @@ class IntegrationSecurityDocs:
 
 
 class IntegrationRuleDetail:
-    """Rule detail page generation."""
+    """Rule detail page generation for pre-built rules integration."""
 
     def __init__(self, rule_id: str, rule: dict, changelog: Dict[str, dict], package_str: str):
         self.rule_id = rule_id

@@ -17,30 +17,32 @@ import typing
 import urllib.parse
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, List, Optional, Tuple, Union
 
 import click
 import requests.exceptions
 import yaml
 from elasticsearch import Elasticsearch
 from eql.table import Table
-
 from kibana.connector import Kibana
+
 from . import rule_loader, utils
 from .cli_utils import single_collection
-from .docs import IntegrationSecurityDocs
+from .docs import IntegrationSecurityDocs, KibanaSecurityDocs
 from .eswrap import CollectEvents, add_range_to_dsl
-from .ghwrap import GithubClient, update_gist
+from .ghwrap import GithubClient, get_release_diff, update_gist
+from .integrations import build_integrations_manifest
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
-from .packaging import PACKAGE_FILE, RELEASE_DIR, CURRENT_RELEASE_PATH, Package, current_stack_version
-from .version_lock import VersionLockFile, default_version_lock
-from .rule import AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData, ThreatMapping, TOMLRule
+from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
+                        Package, current_stack_version)
+from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
+                   ThreatMapping, TOMLRule)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
 from .semver import Version
-from .utils import dict_hash, get_path, get_etc_path, load_dump
-from .integrations import build_integrations_manifest
+from .utils import dict_hash, get_etc_path, get_path, load_dump
+from .version_lock import VersionLockFile, default_version_lock
 
 RULES_DIR = get_path('rules')
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
@@ -97,44 +99,32 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     return package
 
 
-def get_release_diff(pre: str, post: str, remote: Optional[str] = 'origin'
-                     ) -> (Dict[str, TOMLRule], Dict[str, TOMLRule], Dict[str, DeprecatedRule]):
-    """Build documents from two git tags for an integration package."""
-    pre_rules = RuleCollection()
-    pre_rules.load_git_tag(pre, remote, skip_query_validation=True)
-
-    if pre_rules.errors:
-        click.echo(f'error loading {len(pre_rules.errors)} rule(s) from: {pre}, skipping:')
-        click.echo(' - ' + '\n - '.join([str(p) for p in pre_rules.errors]))
-
-    post_rules = RuleCollection()
-    post_rules.load_git_tag(post, remote, skip_query_validation=True)
-
-    if post_rules.errors:
-        click.echo(f'error loading {len(post_rules.errors)} rule(s) from: {post}, skipping:')
-        click.echo(' - ' + '\n - '.join([str(p) for p in post_rules.errors]))
-
-    rules_changes = pre_rules.compare_collections(post_rules)
-    return rules_changes
+@dev_group.group('docs')
+def docs_group():
+    """Commands for dev security docs methods."""
 
 
-@dev_group.command('build-integration-docs')
-@click.argument('registry-version')
+@docs_group.command('generate')
+@click.argument('feature', type=str)
+@click.argument('registry-version', type=str)
 @click.option('--pre', required=True, help='Tag for pre-existing rules')
 @click.option('--post', required=True, help='Tag for rules post updates')
 @click.option('--directory', '-d', type=Path, required=True, help='Output directory to save docs to')
 @click.option('--force', '-f', is_flag=True, help='Bypass the confirmation prompt')
 @click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
 @click.pass_context
-def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, post: str, directory: Path, force: bool,
-                           remote: Optional[str] = 'origin') -> IntegrationSecurityDocs:
+def generate(ctx: click.Context, feature: str, registry_version: str, pre: str, post: str, directory: Path,
+                           force: bool, remote: Optional[str] = 'origin') -> Union[IntegrationSecurityDocs,KibanaSecurityDocs]:
     """Build documents from two git tags for an integration package."""
     if not force:
         if not click.confirm(f'This will refresh tags and may overwrite local tags for: {pre} and {post}. Continue?'):
             ctx.exit(1)
 
     rules_changes = get_release_diff(pre, post, remote)
-    docs = IntegrationSecurityDocs(registry_version, directory, True, *rules_changes)
+    if feature == "integration":
+        docs = IntegrationSecurityDocs(registry_version, directory, True, *rules_changes)
+    elif feature == "kibana":
+        docs = KibanaSecurityDocs(registry_version, directory, True, *rule_changes)
     package_dir = docs.generate()
 
     click.echo(f'Generated documents saved to: {package_dir}')
@@ -695,6 +685,7 @@ def package_stats(ctx, token, threads):
 def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
     """Use KQL or EQL to find matching rules from active GitHub PRs."""
     from uuid import uuid4
+
     from .main import search_rules
 
     all_rules: Dict[Path, TOMLRule] = {}
@@ -1051,7 +1042,9 @@ def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_coun
                 elasticsearch_client: Elasticsearch = None, kibana_client: Kibana = None):
     """Survey rule counts."""
     from kibana.resources import Signal
+
     from .main import search_rules
+
     # from .eswrap import parse_unique_field_results
 
     survey_results = []

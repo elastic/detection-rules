@@ -21,14 +21,16 @@ import click
 import requests
 from requests import Response
 
+from .rule import DeprecatedRule, TOMLRule
+from .rule_loader import RuleCollection
 from .schemas import definitions
 
 # this is primarily for type hinting - all use of the github client should come from GithubClient class
 try:
     from github import Github
-    from github.Repository import Repository
     from github.GitRelease import GitRelease
     from github.GitReleaseAsset import GitReleaseAsset
+    from github.Repository import Repository
 except ImportError:
     # for type hinting
     Github = None  # noqa: N806
@@ -47,6 +49,27 @@ def get_gh_release(repo: Repository, release_name: Optional[str] = None, tag_nam
             return release
         elif tag_name and tag_name == release.tag_name:
             return release
+
+
+def get_release_diff(pre: str, post: str, remote: Optional[str] = 'origin'
+                     ) -> (Dict[str, TOMLRule], Dict[str, TOMLRule], Dict[str, DeprecatedRule]):
+    """Get release difference based on Git integration tags."""
+    pre_rules = RuleCollection()
+    pre_rules.load_git_tag(pre, remote, skip_query_validation=True)
+
+    if pre_rules.errors:
+        click.echo(f'error loading {len(pre_rules.errors)} rule(s) from: {pre}, skipping:')
+        click.echo(' - ' + '\n - '.join([str(p) for p in pre_rules.errors]))
+
+    post_rules = RuleCollection()
+    post_rules.load_git_tag(post, remote, skip_query_validation=True)
+
+    if post_rules.errors:
+        click.echo(f'error loading {len(post_rules.errors)} rule(s) from: {post}, skipping:')
+        click.echo(' - ' + '\n - '.join([str(p) for p in post_rules.errors]))
+
+    rules_changes = pre_rules.compare_collections(post_rules)
+    return rules_changes
 
 
 def load_zipped_gh_assets_with_metadata(url: str) -> Tuple[str, dict]:
