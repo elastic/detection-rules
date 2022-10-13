@@ -1,0 +1,53 @@
+[metadata]
+creation_date = "2022/10/13"
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/10/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the use of Distributed Component Object Model (DCOM) to run commands from a remote host, which are launched
+via the IEnterpriseModernAppManager COM Interface. This behavior may indicate an attacker abusing a DCOM application to move
+laterally.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Lateral Movement via EnterpriseAppMgmtSvc"
+references = ["https://www.pentestpartners.com/security-blog/ms-enterprise-app-management-service-rce-cve-2022-35841/"]
+risk_score = 47
+rule_id = "b659ca6f-9eb9-45a4-a830-a98dce062f55"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+type = "eql"
+
+query = '''
+sequence by host.id, process.entity_id with maxspan=3s
+ [process where event.action == "start" and process.name : "svchost.exe" and process.args : "appmodel"]
+ [network where event.action == "connection_accepted" and
+  process.name : "svchost.exe" and
+  source.port >= 49152 and destination.port >= 49152 and source.ip != "127.0.0.1" and source.ip != "::1"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+  [[rule.threat.technique.subtechnique]]
+  id = "T1021.003"
+  name = "Distributed Component Object Model"
+  reference = "https://attack.mitre.org/techniques/T1021/003/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
