@@ -186,11 +186,12 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     filters: Optional[List[dict]]
     # trailing `_` required since `from` is a reserved word in python
     from_: Optional[str] = field(metadata=dict(data_key="from"))
-
+    history_window_start: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.4")))
     interval: Optional[definitions.Interval]
     max_signals: Optional[definitions.MaxSignals]
     meta: Optional[Dict[str, Any]]
     name: definitions.RuleName
+    new_terms_fields: Optional[List[str]] = field(metadata=dict(metadata=dict(min_compat="8.4")))
     note: Optional[definitions.Markdown]
     # can we remove this comment?
     # explicitly NOT allowed!
@@ -273,10 +274,12 @@ class DataValidator:
                  setup: Optional[str] = None,
                  **extras):
         # only define fields needing additional validation
+        self.rule_id = extras.get("rule_id", None)
         self.name = name
         self.is_elastic_rule = is_elastic_rule
         self.note = note
         self.setup = setup
+        self.new_terms_fields = extras.get("new_terms_fields", None)
 
         self._setup_in_note = False
 
@@ -330,6 +333,18 @@ class DataValidator:
         # raise if setup header is in note and in setup
         if self.setup_in_note and self.setup:
             raise ValidationError("Setup header found in both note and setup fields.")
+
+    def validate_new_terms_fields(self, meta: RuleMeta) -> None:
+        """Validates terms in new_terms_fields are valid ECS schema."""
+        if self.new_terms_fields:
+            non_ecs = ecs.get_non_ecs_schema()
+            stack_version = Version(meta.get("min_stack_version",
+                                    Version(Version(load_current_package_version()) + (0,))))
+            ecs_version = get_stack_schemas()[str(stack_version)]['ecs']
+            ecs_schema = ecs.get_schema(ecs_version)
+            for new_terms_field in self.new_terms_fields:
+                assert new_terms_field in ecs_schema.keys(), \
+                f"{new_terms_field} not found in ECS schema (version {ecs_version})"
 
 
 @dataclass
@@ -887,6 +902,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         data.validate_query(metadata)
         data.data_validator.validate_note()
+        data.data_validator.validate_new_terms_fields(metadata)
 
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can

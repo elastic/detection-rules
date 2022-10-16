@@ -81,6 +81,8 @@ ThresholdValue = NewType("ThresholdValue", int, validate=validate.Range(min=1))
 TimelineTemplateId = NewType('TimelineTemplateId', str, validate=validate.OneOf(list(TIMELINE_TEMPLATES)))
 TimelineTemplateTitle = NewType('TimelineTemplateTitle', str, validate=validate.OneOf(TIMELINE_TEMPLATES.values()))
 UUIDString = NewType('UUIDString', str, validate=validate.Regexp(UUID_PATTERN))
+NewTermsFields = NewType('NewTermsFields', List[NonEmptyStr], validate=validate.Length(min=0, max=1))
+HistoryWindowStart = NewType('HistoryWindowStart', str)
 
 
 # experimental machine learning features and releases
