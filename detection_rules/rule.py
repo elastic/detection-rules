@@ -274,7 +274,6 @@ class DataValidator:
                  setup: Optional[str] = None,
                  **extras):
         # only define fields needing additional validation
-        self.rule_id = extras.get("rule_id", None)
         self.name = name
         self.is_elastic_rule = is_elastic_rule
         self.note = note
