@@ -337,14 +337,13 @@ class DataValidator:
     def validate_new_terms_fields(self, meta: RuleMeta) -> None:
         """Validates terms in new_terms_fields are valid ECS schema."""
         if self.new_terms_fields:
-            non_ecs = ecs.get_non_ecs_schema()
             stack_version = Version(meta.get("min_stack_version",
                                     Version(Version(load_current_package_version()) + (0,))))
             ecs_version = get_stack_schemas()[str(stack_version)]['ecs']
             ecs_schema = ecs.get_schema(ecs_version)
             for new_terms_field in self.new_terms_fields:
                 assert new_terms_field in ecs_schema.keys(), \
-                f"{new_terms_field} not found in ECS schema (version {ecs_version})"
+                    f"{new_terms_field} not found in ECS schema (version {ecs_version})"
 
 
 @dataclass
