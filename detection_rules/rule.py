@@ -280,7 +280,7 @@ class DataValidator:
         self.note = note
         self.setup = setup
         self.new_terms_fields = extras.get("new_terms_fields", None)
-
+        self.history_window_start = extras.get("history_window_start", None)
         self._setup_in_note = False
 
     @cached_property
@@ -337,6 +337,8 @@ class DataValidator:
     def validate_new_terms_fields(self, meta: RuleMeta) -> None:
         """Validates terms in new_terms_fields are valid ECS schema."""
         if self.new_terms_fields:
+            assert self.history_window_start, \
+                "new_terms_field found with no history_window_start field defined"
             stack_version = Version(meta.get("min_stack_version",
                                     Version(Version(load_current_package_version()) + (0,))))
             ecs_version = get_stack_schemas()[str(stack_version)]['ecs']
