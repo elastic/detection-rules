@@ -117,11 +117,9 @@ class EQLValidator(QueryValidator):
             # validate query against the beats and eql schema
             self.validate_query_with_schema(schema=eql_schema, err_trailer=err_trailer, beat_types=beat_types)
 
-            if not endgame_schema:
-                continue
-
-            # validate query against the endgame schema
-            self.validate_query_with_schema(schema=endgame_schema, err_trailer=err_trailer)
+            if endgame_schema:
+                # validate query against the endgame schema
+                self.validate_query_with_schema(schema=endgame_schema, err_trailer=err_trailer)
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
