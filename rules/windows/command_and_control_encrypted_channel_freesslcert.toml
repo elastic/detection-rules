@@ -3,7 +3,7 @@ creation_date = "2020/11/04"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/27"
+updated_date = "2022/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ Identifies unusual processes connecting to domains using known free SSL certific
 encryption algorithm to conceal command and control traffic.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Connection to Commonly Abused Free SSL Certificate Providers"
@@ -23,12 +23,12 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 21
 rule_id = "e3cf38fa-d5b8-46cc-87f9-4a7513e4281d"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control", "Elastic Endgame"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-network where (network.protocol == "dns" or event.action == "request_event") and
+network where network.protocol == "dns" and
   /* Add new free SSL certificate provider domains here */
   dns.question.name : ("*letsencrypt.org", "*.sslforfree.com", "*.zerossl.com", "*.freessl.org") and
 
