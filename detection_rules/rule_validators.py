@@ -66,7 +66,7 @@ class EQLValidator(QueryValidator):
     def text_fields(self, eql_schema: Union[ecs.KqlSchema2Eql, endgame.EndgameSchema]) -> List[str]:
         """Return a list of fields of type text."""
         from kql.parser import elasticsearch_type_family
-        schema = eql_schema.kql_schema if isinstance(ecs.KqlSchema2Eql) else eql_schema.endgame_schema
+        schema = eql_schema.kql_schema if isinstance(eql_schema, ecs.KqlSchema2Eql) else eql_schema.endgame_schema
 
         return [f for f in self.unique_fields if elasticsearch_type_family(schema.get(f)) == 'text']
 
