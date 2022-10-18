@@ -1138,7 +1138,7 @@ def schemas_group():
     """Commands for dev schema methods."""
 
 
-@schemas_group.command("update-rule-data-schemas")
+@schemas_group.command("update-rule-data")
 def update_rule_data_schemas():
     classes = [BaseRuleData] + list(typing.get_args(AnyRuleData))
 
@@ -1146,7 +1146,7 @@ def update_rule_data_schemas():
         cls.save_schema()
 
 
-@schemas_group.command("generate-endgame-schema")
+@schemas_group.command("generate-endgame")
 @click.option("--token", required=True, prompt=get_github_token() is None, default=get_github_token(),
               help="GitHub token to use for the PR", hide_input=True)
 @click.option("--endgame-version", "-e", required=True, help="Tagged version from TBD. e.g., 1.9.0")

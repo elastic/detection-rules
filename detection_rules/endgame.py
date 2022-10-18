@@ -17,7 +17,7 @@ ENDGAME_SCHEMA_DIR = Path(ETC_DIR) / "endgame_schemas"
 
 
 class EndgameSchemaManager:
-    """Endgame Class to download, convert, and save endgame schemas from TBD."""
+    """Endgame Class to download, convert, and save endgame schemas from endgame-evecs."""
 
     def __init__(self, github_client, endgame_version: str):
         self.repo = github_client.get_repo("elastic/endgame-evecs")
@@ -31,12 +31,13 @@ class EndgameSchemaManager:
         main_branch = self.repo.get_branch("master")
         main_branch_sha = main_branch.commit.sha
         schema_path = "pkg/mapper/ecs/schema.json"
-        endgame_mapping = self.repo.get_contents(schema_path, ref=main_branch_sha)
-        endgame_mapping = json.loads(endgame_mapping.decoded_content.decode())
+        contents = self.repo.get_contents(schema_path, ref=main_branch_sha)
+        endgame_mapping = json.loads(contents.decoded_content.decode())
 
         return endgame_mapping
 
     def save_schemas(self, overwrite: bool = False):
+        """Save the endgame schemas to the etc/endgame_schemas directory."""
 
         schemas_dir = ENDGAME_SCHEMA_DIR / self.endgame_version
         if schemas_dir.exists() and not overwrite:
@@ -66,8 +67,6 @@ class EndgameSchema(eql.Schema):
         "integer": eql.types.TypeHint.Numeric,
         "boolean": eql.types.TypeHint.Boolean,
     }
-
-    # TODO: Remove endgame mappings from non-ecs-schema.json
 
     def __init__(self, endgame_schema):
         self.endgame_schema = endgame_schema

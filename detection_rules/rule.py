@@ -385,7 +385,7 @@ class QueryValidator:
         return beat_types, beat_schema, schema
 
     @cached
-    def get_endgame_schema(self, index: list, endgame_version: str) -> dict:
+    def get_endgame_schema(self, index: list, endgame_version: str) -> Optional[endgame.EndgameSchema]:
         """Get an assembled flat endgame schema."""
 
         if "endgame-*" not in index:
