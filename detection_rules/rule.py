@@ -369,7 +369,7 @@ class QueryValidator:
             if beat_schema and not is_ecs:
                 field_type = beat_schema.get(fld, {}).get('type')
 
-            if endgame_schema:
+            elif endgame_schema and is_ecs:
                 field_type = endgame_schema.endgame_schema.get(fld, None)
 
             required.append(dict(name=fld, type=field_type or 'unknown', ecs=is_ecs))
