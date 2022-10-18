@@ -63,11 +63,12 @@ class EQLValidator(QueryValidator):
         with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
             return eql.parse_query(self.query)
 
-    def text_fields(self, eql_schema: ecs.KqlSchema2Eql) -> List[str]:
+    def text_fields(self, eql_schema: Union[ecs.KqlSchema2Eql, endgame.EndgameSchema]) -> List[str]:
         """Return a list of fields of type text."""
         from kql.parser import elasticsearch_type_family
+        schema = eql_schema.kql_schema if isinstance(ecs.KqlSchema2Eql) else eql_schema.endgame_schema
 
-        return [f for f in self.unique_fields if elasticsearch_type_family(eql_schema.kql_schema.get(f)) == 'text']
+        return [f for f in self.unique_fields if elasticsearch_type_family(schema.get(f)) == 'text']
 
     @cached_property
     def unique_fields(self) -> List[str]:
