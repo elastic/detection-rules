@@ -3,7 +3,7 @@ creation_date = "2022/01/31"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/13"
+updated_date = "2022/09/27"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ Identifies attempts to disable PowerShell Script Block Logging via registry modi
 logging to conceal their activities in the host and evade detection.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "PowerShell Script Block Logging Disabled"
@@ -88,15 +88,16 @@ references = [
 risk_score = 47
 rule_id = "818e23e6-2094-4f0e-8c01-22d30f3506c6"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "has_guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "has_guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 registry where event.type == "change" and
-    registry.path :
-        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging\\EnableScriptBlockLogging"
-    and registry.data.strings : ("0", "0x00000000")
+    registry.path : (
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging\\EnableScriptBlockLogging",
+        "\\REGISTRY\\MACHINE\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging\\EnableScriptBlockLogging"
+    ) and registry.data.strings : ("0", "0x00000000")
 '''
 
 

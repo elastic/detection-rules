@@ -3,7 +3,7 @@ creation_date = "2020/11/17"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/20"
+updated_date = "2022/09/27"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ Identifies the PowerShell engine being invoked by unexpected processes. Rather t
 with powershell.exe, some attackers do this to operate more stealthily.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious PowerShell Engine ImageLoad"
@@ -95,12 +95,12 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 47
 rule_id = "852c1f19-68e8-43a6-9dce-340771fe1be3"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution", "has_guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution", "has_guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where (event.category == "library" or (event.category == "process" and event.action : "Image loaded*")) and
+any where (event.category : ("library", "driver") or (event.category == "process" and event.action : "Image loaded*")) and
  (dll.name : ("System.Management.Automation.ni.dll", "System.Management.Automation.dll") or
   file.name : ("System.Management.Automation.ni.dll", "System.Management.Automation.dll")) and
 
