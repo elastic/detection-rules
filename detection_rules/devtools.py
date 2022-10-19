@@ -29,6 +29,7 @@ from kibana.connector import Kibana
 from . import rule_loader, utils
 from .cli_utils import single_collection
 from .docs import IntegrationSecurityDocs
+from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
 from .main import root
@@ -779,14 +780,6 @@ def deprecate_rule(ctx: click.Context, rule_file: Path):
     click.echo(f'Rule moved to {deprecated_path} - remember to git add this file')
 
 
-@dev_group.command("update-schemas")
-def update_schemas():
-    classes = [BaseRuleData] + list(typing.get_args(AnyRuleData))
-
-    for cls in classes:
-        cls.save_schema()
-
-
 @dev_group.command('update-navigator-gists')
 @click.option('--directory', type=Path, default=CURRENT_RELEASE_PATH.joinpath('extras', 'navigator_layers'),
               help='Directory containing only navigator files.')
@@ -1138,3 +1131,29 @@ def build_integration_manifests(overwrite: bool):
     integration_tags = list(set([r.contents.metadata.integration for r in rules if r.contents.metadata.integration]))
     click.echo(f"integration tags identified: {integration_tags}")
     build_integrations_manifest(overwrite, integration_tags)
+
+
+@dev_group.group('schemas')
+def schemas_group():
+    """Commands for dev schema methods."""
+
+
+@schemas_group.command("update-rule-data")
+def update_rule_data_schemas():
+    classes = [BaseRuleData] + list(typing.get_args(AnyRuleData))
+
+    for cls in classes:
+        cls.save_schema()
+
+
+@schemas_group.command("generate-endgame")
+@click.option("--token", required=True, prompt=get_github_token() is None, default=get_github_token(),
+              help="GitHub token to use for the PR", hide_input=True)
+@click.option("--endgame-version", "-e", required=True, help="Tagged version from TBD. e.g., 1.9.0")
+@click.option("--overwrite", is_flag=True, help="Overwrite if versions exist")
+def generate_endgame_schema(token: str, endgame_version: str, overwrite: bool):
+    """Download Endgame-ECS mapping.json and generate flattend schema."""
+    github = GithubClient(token)
+    client = github.authenticated_client
+    schema_manager = EndgameSchemaManager(client, endgame_version)
+    schema_manager.save_schemas(overwrite=overwrite)
