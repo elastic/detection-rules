@@ -3,7 +3,7 @@ creation_date = "2021/11/22"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/13"
+updated_date = "2022/09/27"
 
 [rule]
 author = ["Austin Songer"]
@@ -12,7 +12,7 @@ Identifies when a user attempts to clear console history. An adversary may clear
 account to conceal the actions undertaken during an intrusion.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Clearing Windows Console History"
@@ -68,12 +68,12 @@ references = [
 risk_score = 47
 rule_id = "b5877334-677f-4fb9-86d5-a9721274223b"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "has_guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "has_guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.action == "start" and
+process where event.type == "start" and
   (process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") or process.pe.original_file_name == "PowerShell.EXE") and
      (process.args : "*Clear-History*" or
      (process.args : ("*Remove-Item*", "rm") and process.args : ("*ConsoleHost_history.txt*", "*(Get-PSReadlineOption).HistorySavePath*")) or
