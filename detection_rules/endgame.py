@@ -61,11 +61,9 @@ class EndgameSchema(eql.Schema):
         "keyword": eql.types.TypeHint.String,
         "ip": eql.types.TypeHint.String,
         "float": eql.types.TypeHint.Numeric,
-        # "double": eql.types.TypeHint.Numeric,
-        # "long": eql.types.TypeHint.Numeric,
-        # "short": eql.types.TypeHint.Numeric,
         "integer": eql.types.TypeHint.Numeric,
         "boolean": eql.types.TypeHint.Boolean,
+        "text": eql.types.TypeHint.String,
     }
 
     def __init__(self, endgame_schema):
@@ -73,9 +71,11 @@ class EndgameSchema(eql.Schema):
         eql.Schema.__init__(self, {}, allow_any=True, allow_generic=False, allow_missing=False)
 
     def get_event_type_hint(self, event_type, path):
+        from kql.parser import elasticsearch_type_family
         dotted = ".".join(str(p) for p in path)
         elasticsearch_type = self.endgame_schema.get(dotted)
-        eql_hint = self.type_mapping.get(elasticsearch_type)
+        es_type_family = elasticsearch_type_family(elasticsearch_type)
+        eql_hint = self.type_mapping.get(es_type_family)
 
         if eql_hint is not None:
             return eql_hint, None
