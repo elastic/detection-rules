@@ -34,7 +34,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and 
+process where host.os.type:("linux","macos") and
+  event.type == "start" and 
   (process.args:("* ", "./* ") or process.name: "* ") and not 
   process.name in ("ls", "find", "grep", "xkbcomp")
 '''
