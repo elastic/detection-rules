@@ -3,7 +3,7 @@ creation_date = "2020/12/04"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/15"
+updated_date = "2022/09/27"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ Identifies instances of lower privilege accounts enumerating Administrator accou
 tools.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Enumeration of Administrator Accounts"
@@ -34,8 +34,8 @@ as mapping targets for credential compromise and other post-exploitation activit
 for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Identify the user account that performed the action and whether it should perform this kind of action.
 - Investigate other alerts associated with the user/host during the past 48 hours.
-- Investigate abnormal behaviors observed using the account, such as commands executed, files created or modified, and
-network connections.
+- Investigate any abnormal account behavior, such as command executions, file creations or modifications, and network
+connections.
 
 ### False positive analysis
 
@@ -55,7 +55,7 @@ identified. Reset passwords for these accounts and other potentially compromised
 systems, and web services.
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
 malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
 mean time to respond (MTTR).
 
@@ -66,7 +66,7 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 21
 rule_id = "871ea072-1b71-4def-b016-6278b505138d"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery", "has_guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 

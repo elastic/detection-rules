@@ -3,7 +3,7 @@ creation_date = "2021/02/01"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2022/09/27"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ certificate would allow an attacker the ability to masquerade malicious files as
 """
 false_positives = ["Certain applications may install root certificates for the purpose of inspecting SSL traffic."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Creation or Modification of Root Certificate"
@@ -45,7 +45,7 @@ modifications, and any spawned child processes.
       - Attempts to contact external domains and addresses.
       - File and registry access, modification, and creation activities.
       - Service creation and launch activities.
-      - Scheduled tasks creation.
+      - Scheduled task creation.
   - Use the PowerShell `Get-FileHash` cmdlet to get the files' SHA-256 hash values.
     - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 
@@ -86,7 +86,7 @@ references = [
 risk_score = 21
 rule_id = "203ab79b-239b-4aa5-8e54-fc50623ee8e4"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "has_guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -97,7 +97,11 @@ registry where event.type in ("creation", "change") and
       "HKLM\\Software\\Microsoft\\SystemCertificates\\Root\\Certificates\\*\\Blob",
       "HKLM\\Software\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob",
       "HKLM\\Software\\Policies\\Microsoft\\SystemCertificates\\Root\\Certificates\\*\\Blob",
-      "HKLM\\Software\\Policies\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob"
+      "HKLM\\Software\\Policies\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob",
+      "\\REGISTRY\\MACHINE\\Software\\Microsoft\\SystemCertificates\\Root\\Certificates\\*\\Blob",
+      "\\REGISTRY\\MACHINE\\Software\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob",
+      "\\REGISTRY\\MACHINE\\Software\\Policies\\Microsoft\\SystemCertificates\\Root\\Certificates\\*\\Blob",
+      "\\REGISTRY\\MACHINE\\Software\\Policies\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob"
     ) and
   not process.executable :
               ("?:\\Program Files\\*.exe",

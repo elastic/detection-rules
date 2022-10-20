@@ -3,7 +3,7 @@ creation_date = "2020/08/17"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/15"
+updated_date = "2022/09/27"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ Detects when the Console Window Host (conhost.exe) process is spawned by a suspi
 indicative of code injection.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Conhost Spawned By Suspicious Parent Process"
@@ -34,14 +34,14 @@ for prevalence, whether they are located in expected locations, and if they are 
 - Investigate abnormal behaviors observed by the subject process, such as network connections, registry or file
 modifications, and any spawned child processes.
 - Investigate other alerts associated with the user/host during the past 48 hours.
-- Inspect the host for suspicious or abnormal behaviors in the alert timeframe.
+- Inspect the host for suspicious or abnormal behavior in the alert timeframe.
 - Retrieve the parent process executable and determine if it is malicious:
   - Use a private sandboxed malware analysis system to perform analysis.
     - Observe and collect information about the following activities:
       - Attempts to contact external domains and addresses.
       - File and registry access, modification, and creation activities.
       - Service creation and launch activities.
-      - Scheduled tasks creation.
+      - Scheduled task creation.
   - Use the PowerShell `Get-FileHash` cmdlet to get the files' SHA-256 hash values.
     - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 
@@ -84,7 +84,7 @@ references = [
 risk_score = 73
 rule_id = "05b358de-aa6d-4f6c-89e6-78f74018b43b"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution", "has_guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 

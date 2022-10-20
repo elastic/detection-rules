@@ -2,9 +2,9 @@
 creation_date = "2022/07/05"
 integration = "kubernetes"
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+min_stack_comments = "New fields added to Kubernetes Integration"
+min_stack_version = "8.4.0"
+updated_date = "2022/10/18"
 
 [rule]
 author = ["Elastic"]
@@ -16,10 +16,11 @@ applied to its given namespace.
 """
 false_positives = [
     """
-    An administrator or developer may want to use a pod that runs as root and shares the host�s IPC, Network, and PID
+    An administrator or developer may want to use a pod that runs as root and shares the hosts IPC, Network, and PID
     namespaces for debugging purposes. If something is going wrong in the cluster and there is no easy way to SSH onto
     the host nodes directly, a privileged pod of this nature can be useful for viewing things like iptable rules and
-    network namespaces from the host's perspective.
+    network namespaces from the host's perspective. Add exceptions for trusted container images using the query field
+    "kubernetes.audit.requestObject.spec.container.image"
     """,
 ]
 index = ["logs-kubernetes.*"]
@@ -42,7 +43,12 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-kubernetes.audit.objectRef.resource:"pods" and kubernetes.audit.verb:("create" or "update" or "patch") and kubernetes.audit.requestObject.spec.hostNetwork:true
+event.dataset : "kubernetes.audit_logs" 
+  and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" 
+  and kubernetes.audit.objectRef.resource:"pods" 
+  and kubernetes.audit.verb:("create" or "update" or "patch") 
+  and kubernetes.audit.requestObject.spec.hostNetwork:true
+  and not kubernetes.audit.requestObject.spec.containers.image: ("docker.elastic.co/beats/elastic-agent:8.4.0")
 '''
 
 
@@ -58,4 +64,17 @@ reference = "https://attack.mitre.org/techniques/T1611/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 
