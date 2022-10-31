@@ -9,32 +9,31 @@ updated_date = "2022/10/18"
 author = ["Elastic"]
 description = """
 Identifies adversaries (malicious process) who(which) may communicate using a port paring that are
-typically not associated with ssh. For example, ssh over port 2200 or port 2222 as opposed to the traditional port 22.
-Adversaries may make changes to the standard port used by a protocol to bypass filtering or
+typically not associated with http(s). For example, http over port 300 or port 4430 as opposed to the traditional port
+80 or 443.Adversaries may make changes to the standard port used by a protocol to bypass filtering or
 muddle analysis/parsing of network data.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Potential Non-Standard Port SSH connection(s)"
+name = "Potential Non-Standard Port http(s) connection(s)"
 references = [
     "https://attack.mitre.org/techniques/T1571/"
 ]
 risk_score = 47
-rule_id = "bc8ca7e0-92fd-4b7c-b11e-ee0266b8d9c9"
+rule_id = "c49d3540-15fd-473f-ab43-b758a694782b"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Command and Control"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Command and Control", "macOS"]
 type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=1m
-[process where event.action == "exec" and process.name:"ssh"]
-[network where process.name:"ssh"
- and event.action in ("connection_attempted", "connection_accepted")
- and destination.port != 22
- and destination.ip != "127.0.0.1"
-]
+[process where event.action == "exec" and process.name:"http"]
+[network where process.name == "http"
+  and destination.port not in (80, 443)
+  and event.action in ("connection_attempted", "connection_accepted")
+  and destination.ip !="127.0.0.1"]
 '''
 
 
