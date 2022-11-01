@@ -7,6 +7,7 @@
 import re
 import time
 from pathlib import Path
+from typing import Optional
 
 import json
 import requests
@@ -93,7 +94,7 @@ technique_id_list = [t for t in technique_lookup if '.' not in t]
 sub_technique_id_list = [t for t in technique_lookup if '.' in t]
 
 
-def refresh_attack_data(save=True):
+def refresh_attack_data(save=True) -> (Optional[dict], Optional[bytes]):
     """Refresh ATT&CK data from Mitre."""
     attack_path = Path(get_attack_file_path())
     filename, _, _ = attack_path.name.rsplit('.', 2)
@@ -221,7 +222,7 @@ def build_redirected_techniques_map(threads=50):
     return technique_map
 
 
-def refresh_redirected_techniques_map(threads=50):
+def refresh_redirected_techniques_map(threads: int = 50):
     """Refresh the locally saved copy of the mapping."""
     replacement_map = build_redirected_techniques_map(threads)
     mapping = {'saved_date': time.asctime(), 'mapping': replacement_map}
