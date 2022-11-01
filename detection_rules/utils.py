@@ -126,7 +126,7 @@ def save_etc_dump(contents, *path, **kwargs):
         return eql.utils.save_dump(contents, path)
 
 
-def gzip_compress(contents):
+def gzip_compress(contents) -> bytes:
     gz_file = io.BytesIO()
 
     with gzip.GzipFile(mode="w", fileobj=gz_file) as f:
