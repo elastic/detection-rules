@@ -44,13 +44,14 @@ def root(ctx, debug):
 
 @root.command('create-rule')
 @click.argument('path', type=Path)
-@click.option('--config', '-c', type=click.Path(exists=True, dir_okay=False), help='Rule or config file')
+@click.option('--config', '-c', type=click.Path(exists=True, dir_okay=False, path_type=Path),
+              help='Rule or config file')
 @click.option('--required-only', is_flag=True, help='Only prompt for required fields')
 @click.option('--rule-type', '-t', type=click.Choice(sorted(TOMLRuleContents.all_rule_types())),
               help='Type of rule to create')
 def create_rule(path, config, required_only, rule_type):
     """Create a detection rule."""
-    contents = load_rule_contents(Path(config), single_only=True)[0] if config else {}
+    contents = load_rule_contents(config, single_only=True)[0] if config else {}
     return rule_prompt(path, rule_type=rule_type, required_only=required_only, save=True, **contents)
 
 
