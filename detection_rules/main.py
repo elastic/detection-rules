@@ -44,7 +44,8 @@ def root(ctx, debug):
 
 @root.command('create-rule')
 @click.argument('path', type=Path)
-@click.option('--config', '-c', type=click.Path(exists=True, dir_okay=False), help='Rule or config file')
+@click.option('--config', '-c', type=click.Path(exists=True, dir_okay=False, path_type=Path),
+              help='Rule or config file')
 @click.option('--required-only', is_flag=True, help='Only prompt for required fields')
 @click.option('--rule-type', '-t', type=click.Choice(sorted(TOMLRuleContents.all_rule_types())),
               help='Type of rule to create')
