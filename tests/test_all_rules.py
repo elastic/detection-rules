@@ -93,7 +93,7 @@ class TestThreatMappings(BaseRuleTest):
 
     def test_technique_deprecations(self):
         """Check for use of any ATT&CK techniques that have been deprecated."""
-        replacement_map = attack.techniques_redirect_map
+        replacement_map = attack.load_techniques_redirect()
         revoked = list(attack.revoked)
         deprecated = list(attack.deprecated)
 

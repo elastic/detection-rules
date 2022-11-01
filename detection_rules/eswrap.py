@@ -6,6 +6,7 @@
 """Elasticsearch cli commands."""
 import json
 import os
+import sys
 import time
 from collections import defaultdict
 from typing import List, Union
@@ -347,7 +348,7 @@ def es_group(ctx: click.Context, **kwargs):
     ctx.ensure_object(dict)
 
     # only initialize an es client if the subcommand is invoked without help (hacky)
-    if click.get_os_args()[-1] in ctx.help_option_names:
+    if sys.argv[-1] in ctx.help_option_names:
         click.echo('Elasticsearch client:')
         click.echo(format_command_options(ctx))
 
