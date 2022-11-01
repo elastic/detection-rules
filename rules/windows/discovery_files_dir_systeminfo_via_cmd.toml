@@ -3,52 +3,34 @@ creation_date = "2022/11/01"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/1/01"
+updated_date = "2022/11/01"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies attempts to dump Wireless saved access keys in clear text using the Windows builtin utility Netsh.
+Identifies the execution of discovery commands to enumerate system info or files and folders using the Windows Command Shell.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Wireless Key Discovery using Netsh Command"
+name = "System Information Discovery via Windows Command Shell"
 note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
-references = [
-    "https://learn.microsoft.com/en-us/windows-server/networking/technologies/netsh/netsh-contexts",
-    "https://www.geeksforgeeks.org/how-to-find-the-wi-fi-password-using-cmd-in-windows/",
-]
-risk_score = 73
-rule_id = "2de87d72-ee0c-43e2-b975-5f0b029ac600"
-severity = "high"
+risk_score = 21
+rule_id = "d68e95ad-1c82-4074-a12a-125fe10ac8ba"
+severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Credential Access", "Discovery"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where event.type == "start" and
- (process.name : "netsh.exe" or process.pe.original_file_name == "netsh.exe") and
-  process.args : "wlan" and process.args : "key*clear"
+ process.name : "cmd.exe" and process.args : "/c" and process.args : ("set", "dir")
 '''
 
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1003"
-name = "OS Credential Dumping"
-reference = "https://attack.mitre.org/techniques/T1003/"
-
-
-[rule.threat.tactic]
-id = "TA0006"
-name = "Credential Access"
-reference = "https://attack.mitre.org/tactics/TA0006/"
 
 
 [[rule.threat]]
@@ -58,9 +40,32 @@ id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
 
+[[rule.threat.technique]]
+id = "T1083"
+name = "File and Directory Discovery"
+reference = "https://attack.mitre.org/techniques/T1083/"
+
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
 
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+    [[rule.threat.technique.subtechnique]]
+    id = "T1059.003"
+    name = "Windows Command Shell"
+    reference = "https://attack.mitre.org/techniques/T1059/003/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
