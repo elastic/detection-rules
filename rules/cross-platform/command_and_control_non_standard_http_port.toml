@@ -12,6 +12,15 @@ Identifies potentially malicious processes communicating via a port paring typic
 example, HTTP over port 300 or port 4430 as opposed to the traditional port 80 or 443. Adversaries may make changes to
 the standard port a protocol uses to bypass filtering or muddle analysis/parsing of network data.
 """
+false_positives = [
+    """
+    HTTP over ports apart from the traditional port 80 or 443 is highly uncommon.
+    This rule alerts the usage of the such uncommon ports by the HTTP service.
+    Tuning is needed to have higher confidence.
+    If this activity is expected and noisy in your environment, consider adding exceptions — preferably with a
+    combination whitelisted ports for such legitimate HTTP activities.
+    """,
+]
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
 language = "eql"
