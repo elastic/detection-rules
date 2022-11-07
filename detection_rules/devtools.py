@@ -26,8 +26,8 @@ from elasticsearch import Elasticsearch
 from eql.table import Table
 
 from kibana.connector import Kibana
-from . import rule_loader, utils
-from .cli_utils import single_collection
+from . import attack, rule_loader, utils
+from .cli_utils import single_collection, multi_collection
 from .docs import IntegrationSecurityDocs
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
@@ -1157,3 +1157,74 @@ def generate_endgame_schema(token: str, endgame_version: str, overwrite: bool):
     client = github.authenticated_client
     schema_manager = EndgameSchemaManager(client, endgame_version)
     schema_manager.save_schemas(overwrite=overwrite)
+
+
+@dev_group.group('attack')
+def attack_group():
+    """Commands for managing Mitre ATT&CK data and mappings."""
+
+
+@attack_group.command('refresh-data')
+def refresh_attack_data() -> dict:
+    """Refresh the ATT&CK data file."""
+    data, _ = attack.refresh_attack_data()
+    return data
+
+
+@attack_group.command('refresh-redirect-mappings')
+def refresh_threat_mappings():
+    """Refresh the ATT&CK redirect file and update all rule threat mappings."""
+    # refresh the attack_technique_redirects
+    click.echo('refreshing data in attack_technique_redirects.json')
+    attack.refresh_redirected_techniques_map()
+
+
+@attack_group.command('update-rules')
+@multi_collection
+def update_attack_in_rules(rules: RuleCollection) -> List[Optional[TOMLRule]]:
+    """Update threat mappings attack data in all rules."""
+    new_rules = []
+    redirected_techniques = attack.load_techniques_redirect()
+    today = time.strftime('%Y/%m/%d')
+
+    for rule in rules.rules:
+        needs_update = False
+        valid_threat: List[ThreatMapping] = []
+        threat_pending_update = {}
+        threat = rule.contents.data.threat or []
+
+        for entry in threat:
+            tactic = entry.tactic.name
+            techniques = []
+            for technique in entry.technique or []:
+                techniques.append(technique.id)
+                techniques.extend([st.id for st in technique.subtechnique or []])
+
+            if any([t for t in techniques if t in redirected_techniques]):
+                needs_update = True
+                threat_pending_update[tactic] = techniques
+            else:
+                valid_threat.append(entry)
+
+        if needs_update:
+            for tactic, techniques in threat_pending_update.items():
+                try:
+                    updated_threat = attack.build_threat_map_entry(tactic, *techniques)
+                except ValueError as err:
+                    raise ValueError(f'{rule.id} - {rule.name}: {err}')
+
+                tm = ThreatMapping.from_dict(updated_threat)
+                valid_threat.append(tm)
+
+            new_meta = dataclasses.replace(rule.contents.metadata, updated_date=today)
+            new_data = dataclasses.replace(rule.contents.data, threat=valid_threat)
+            new_contents = dataclasses.replace(rule.contents, data=new_data, metadata=new_meta)
+            new_rule = TOMLRule(contents=new_contents)
+            new_rule.save_toml()
+            new_rules.append(new_rule)
+
+    if new_rules:
+        click.echo(f'{len(new_rules)} rules updated')
+    else:
+        click.echo('No rule changes needed')
+    return new_rules
