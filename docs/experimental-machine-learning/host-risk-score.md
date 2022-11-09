@@ -1,3 +1,4 @@
+**The setup instructions in this document have been deprecated. Please follow the steps outlined [here](https://www.elastic.co/guide/en/security/current/host-risk-score.html), to enable Host Risk Score in your environment.** 
 # Host Risk Score
 
 Host Risk Score is an experimental feature that assigns risk scores to hosts in a given Kibana space. Risk scores are calculated for each host by utilizing transforms on the alerting indices. The transform runs hourly to update the score as new alerts are generated. The Host Risk Score [package](https://github.com/elastic/detection-rules/releases) contains all of the required artifacts for setup. The Host Risk Score feature provides drilldown Lens dashboards and additional Kibana features such as the **Host Risk Score Card** on the Overview page of the Elastic Security app, and the **Host Risk Keyword** on the Alert details flyout for an enhanced experience.
