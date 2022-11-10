@@ -1,3 +1,4 @@
+**The setup instructions in this document have been deprecated. Please follow the steps outlined in [this](https://www.elastic.co/security-labs/detect-domain-generation-algorithm-activity-with-new-Kibana-integration) blog to enable DGA detection in your environment.**
 # Machine Learning on Domain Generation Algorithm (DGA)
 
 To create and use supervised DGA ML models to enrich data within the stack, check out these Elastic blogs:
