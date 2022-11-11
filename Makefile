@@ -13,7 +13,7 @@ all: release
 
 
 $(VENV):
-	pip install virtualenv
+	pip3 install virtualenv
 	virtualenv $(VENV) --python=python3.8
 	$(PIP) install .[dev]
 	$(PIP) install setuptools -U

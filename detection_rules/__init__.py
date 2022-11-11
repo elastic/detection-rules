@@ -5,9 +5,9 @@
 
 """Detection rules."""
 
-from pkg_resources import get_distribution, DistributionNotFound
-
 import sys
+
+from pkg_resources import DistributionNotFound
 
 assert (3, 8) <= sys.version_info < (4, 0), "Only Python 3.8+ supported"
 
@@ -46,6 +46,8 @@ __all__ = (
 )
 
 try:
-    __version__ = get_distribution(__name__).version
+    # use version from etc/packages.yml to build package
+    with open("VERSION.txt", 'w') as f: f.write(misc.load_current_package_version())
 except DistributionNotFound:
     pass  # package is not installed
+

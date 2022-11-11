@@ -33,6 +33,8 @@ def get_attack_file_path() -> str:
     attack_file = get_etc_glob_path(pattern)
     if len(attack_file) < 1:
         raise FileNotFoundError(f'Missing required {pattern} file')
+    elif len(attack_file) != 1:
+        raise FileExistsError(f'Multiple files found with {pattern} pattern. Only one is allowed')
     return attack_file[0]
 
 
