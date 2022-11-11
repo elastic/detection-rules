@@ -47,7 +47,7 @@ __all__ = (
 
 try:
     # use version from etc/packages.yml to build package
-    with open("VERSION.txt", 'w') as f: f.write(misc.load_current_package_version())
+    with open("VERSION.txt", 'w') as f:
+        f.write(misc.load_current_package_version())
 except DistributionNotFound:
     pass  # package is not installed
-
