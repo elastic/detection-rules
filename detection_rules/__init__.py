@@ -7,7 +7,6 @@
 
 import sys
 
-from pkg_resources import DistributionNotFound
 
 assert (3, 8) <= sys.version_info < (4, 0), "Only Python 3.8+ supported"
 
@@ -44,10 +43,3 @@ __all__ = (
     'schemas',
     'utils'
 )
-
-try:
-    # use version from etc/packages.yml to build package
-    with open("VERSION.txt", 'w') as f:
-        f.write(misc.load_current_package_version())
-except DistributionNotFound:
-    pass  # package is not installed

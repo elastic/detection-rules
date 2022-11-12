@@ -17,7 +17,7 @@ import typing
 import urllib.parse
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, List, Optional, Tuple
 
 import click
 import requests.exceptions
@@ -26,22 +26,26 @@ from elasticsearch import Elasticsearch
 from eql.table import Table
 
 from kibana.connector import Kibana
+
 from . import attack, rule_loader, utils
-from .cli_utils import single_collection, multi_collection
+from .cli_utils import multi_collection, single_collection
 from .docs import IntegrationSecurityDocs
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
+from .integrations import build_integrations_manifest
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
-from .packaging import PACKAGE_FILE, RELEASE_DIR, CURRENT_RELEASE_PATH, Package, current_stack_version
-from .version_lock import VersionLockFile, default_version_lock
-from .rule import AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData, ThreatMapping, TOMLRule
+from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
+                        Package, current_stack_version)
+from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
+                   ThreatMapping, TOMLRule)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
 from .semver import Version
-from .utils import dict_hash, get_path, get_etc_path, load_dump
-from .integrations import build_integrations_manifest
+from .utils import (ROOT_DIR, dict_hash, get_etc_path, get_path, load_dump, save_etc_dump,
+                    load_etc_dump)
+from .version_lock import VersionLockFile, default_version_lock
 
 RULES_DIR = get_path('rules')
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
@@ -146,6 +150,34 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
 
     return docs
 
+
+@dev_group.command("bump-versions")
+@click.option("--major", is_flag=True, help="bump the major version")
+@click.option("--minor", is_flag=True, help="bump the minor version")
+@click.option("--patch", is_flag=True, help="bump the patch version")
+@click.option("--save", is_flag=True, help="Update the VERSIONS.txt and packages.yml file")
+def bump_versions(major, minor, patch, save):
+    """Bump the versions"""
+
+    package = load_etc_dump('packages.yml')['package']
+    ver = package["name"]
+    new_version = Version(ver).bump(major, minor, patch)
+    kibana_version = f"^{new_version}"
+    registry_version = f"{new_version}-dev.0"
+
+    # print the new versions
+    click.echo(f"New package version: {new_version}")
+    click.echo(f"New registry data version: {registry_version}")
+    click.echo(f"New Kibana version: {kibana_version}")
+    package["name"] = str(new_version)
+    package["registry_data"]["conditions"]["kibana.version"] = kibana_version
+    package["registry_data"]["version"] = registry_version
+
+    if save:
+        save_etc_dump(package, "packages.yml")
+
+        version_file = Path(ROOT_DIR) / "VERSION.txt"
+        version_file.write_text(str(new_version))
 
 @dataclasses.dataclass
 class GitChangeEntry:
@@ -696,6 +728,7 @@ def package_stats(ctx, token, threads):
 def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
     """Use KQL or EQL to find matching rules from active GitHub PRs."""
     from uuid import uuid4
+
     from .main import search_rules
 
     all_rules: Dict[Path, TOMLRule] = {}
@@ -1044,7 +1077,9 @@ def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_coun
                 elasticsearch_client: Elasticsearch = None, kibana_client: Kibana = None):
     """Survey rule counts."""
     from kibana.resources import Signal
+
     from .main import search_rules
+
     # from .eswrap import parse_unique_field_results
 
     survey_results = []
