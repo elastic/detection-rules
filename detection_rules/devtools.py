@@ -179,6 +179,7 @@ def bump_versions(major, minor, patch, save):
         version_file = Path(ROOT_DIR) / "VERSION.txt"
         version_file.write_text(str(new_version))
 
+
 @dataclasses.dataclass
 class GitChangeEntry:
     status: str

@@ -38,7 +38,7 @@ class Version(tuple):
         if minor:
             versions[1] += 1
         if patch and len(versions) > 2:
-            versions[-1] +=1
+            versions[-1] += 1
         elif patch and len(versions) == 2:
             versions.append(1)
         return Version(versions)
