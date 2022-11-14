@@ -156,7 +156,7 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
 @click.option("--major", is_flag=True, help="bump the major version")
 @click.option("--minor", is_flag=True, help="bump the minor version")
 @click.option("--patch", is_flag=True, help="bump the patch version")
-@click.option("--save", is_flag=True, help="Update the VERSIONS.txt and packages.yml file")
+@click.option("--save", is_flag=True, help="Update the setup.cfg and packages.yml file")
 def bump_versions(major, minor, patch, save):
     """Bump the versions"""
 
