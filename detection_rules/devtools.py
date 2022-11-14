@@ -4,6 +4,7 @@
 # 2.0.
 
 """CLI commands for internal detection_rules dev team."""
+import configparser
 import dataclasses
 import functools
 import io
@@ -162,8 +163,9 @@ def bump_versions(major, minor, patch, save):
     package = load_etc_dump('packages.yml')['package']
     ver = package["name"]
     new_version = Version(ver).bump(major, minor, patch)
-    kibana_version = f"^{new_version}"
-    registry_version = f"{new_version}-dev.0"
+
+    kibana_version = f"^{new_version}.0" if not patch else "^{new_version}"
+    registry_version = f"{new_version}.0-dev.0" if not patch else f"{new_version}-dev.0"
 
     # print the new versions
     click.echo(f"New package version: {new_version}")
@@ -174,10 +176,17 @@ def bump_versions(major, minor, patch, save):
     package["registry_data"]["version"] = registry_version
 
     if save:
-        save_etc_dump(package, "packages.yml")
+        # update packages.yml
+        save_etc_dump({"package": package}, "packages.yml")
 
-        version_file = Path(ROOT_DIR) / "VERSION.txt"
-        version_file.write_text(str(new_version))
+        # update setup.cfg
+        config = configparser.ConfigParser()
+
+        config_path = Path(ROOT_DIR) / "setup.cfg"
+        config.read(config_path)
+        config["metadata"]["version"] = str(new_version)
+        with open(config_path, 'w', encoding="utf-8") as configfile:
+            config.write(configfile)
 
 
 @dataclasses.dataclass
