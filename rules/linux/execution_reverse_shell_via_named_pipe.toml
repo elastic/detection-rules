@@ -38,7 +38,7 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan = 5s
-    [process where process.executable : ("/usr/bin/mkfifo","/usr/bin/mknod") and process.args:("/tmp/*","$*")]
+    [process where event.type == "start" and process.executable : ("/usr/bin/mkfifo","/usr/bin/mknod") and process.args:("/tmp/*","$*")]
     [process where process.executable : ("/bin/sh","/bin/bash") and process.args:("-i") or
         (process.executable: ("/usr/bin/openssl") and process.args: ("-connect"))]
     [process where (process.name:("nc","ncat","netcat","netcat.openbsd","netcat.traditional") or
