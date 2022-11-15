@@ -4,6 +4,7 @@
 # 2.0.
 
 """Kibana cli commands."""
+import sys
 import uuid
 
 import click
@@ -25,7 +26,7 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
     ctx.ensure_object(dict)
 
     # only initialize an kibana client if the subcommand is invoked without help (hacky)
-    if click.get_os_args()[-1] in ctx.help_option_names:
+    if sys.argv[-1] in ctx.help_option_names:
         click.echo('Kibana client:')
         click.echo(format_command_options(ctx))
 
