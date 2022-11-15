@@ -26,9 +26,10 @@ from elasticsearch import Elasticsearch
 from eql.table import Table
 
 from kibana.connector import Kibana
-from . import rule_loader, utils
-from .cli_utils import single_collection
+from . import attack, rule_loader, utils
+from .cli_utils import single_collection, multi_collection
 from .docs import IntegrationSecurityDocs
+from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
 from .main import root
@@ -779,14 +780,6 @@ def deprecate_rule(ctx: click.Context, rule_file: Path):
     click.echo(f'Rule moved to {deprecated_path} - remember to git add this file')
 
 
-@dev_group.command("update-schemas")
-def update_schemas():
-    classes = [BaseRuleData] + list(typing.get_args(AnyRuleData))
-
-    for cls in classes:
-        cls.save_schema()
-
-
 @dev_group.command('update-navigator-gists')
 @click.option('--directory', type=Path, default=CURRENT_RELEASE_PATH.joinpath('extras', 'navigator_layers'),
               help='Directory containing only navigator files.')
@@ -1131,8 +1124,107 @@ def integrations_group():
 
 @integrations_group.command('build-manifests')
 @click.option('--overwrite', '-o', is_flag=True, help="Overwrite the existing integrations-manifest.json.gz file")
+def build_integration_manifests(overwrite: bool):
+    """Builds consolidated integrations manifests file."""
+    click.echo("loading rules to determine all integration tags")
+    rules = RuleCollection.default()
+    integration_tags = list(set([r.contents.metadata.integration for r in rules if r.contents.metadata.integration]))
+    click.echo(f"integration tags identified: {integration_tags}")
+    build_integrations_manifest(overwrite, integration_tags)
+
+
+@dev_group.group('schemas')
+def schemas_group():
+    """Commands for dev schema methods."""
+
+
+@schemas_group.command("update-rule-data")
+def update_rule_data_schemas():
+    classes = [BaseRuleData] + list(typing.get_args(AnyRuleData))
+
+    for cls in classes:
+        cls.save_schema()
+
+
+@schemas_group.command("generate-endgame")
 @click.option("--token", required=True, prompt=get_github_token() is None, default=get_github_token(),
               help="GitHub token to use for the PR", hide_input=True)
-def build_integration_manifests(overwrite: bool, token: str):
-    """Builds consolidated integrations manifests file."""
-    build_integrations_manifest(token, overwrite)
+@click.option("--endgame-version", "-e", required=True, help="Tagged version from TBD. e.g., 1.9.0")
+@click.option("--overwrite", is_flag=True, help="Overwrite if versions exist")
+def generate_endgame_schema(token: str, endgame_version: str, overwrite: bool):
+    """Download Endgame-ECS mapping.json and generate flattend schema."""
+    github = GithubClient(token)
+    client = github.authenticated_client
+    schema_manager = EndgameSchemaManager(client, endgame_version)
+    schema_manager.save_schemas(overwrite=overwrite)
+
+
+@dev_group.group('attack')
+def attack_group():
+    """Commands for managing Mitre ATT&CK data and mappings."""
+
+
+@attack_group.command('refresh-data')
+def refresh_attack_data() -> dict:
+    """Refresh the ATT&CK data file."""
+    data, _ = attack.refresh_attack_data()
+    return data
+
+
+@attack_group.command('refresh-redirect-mappings')
+def refresh_threat_mappings():
+    """Refresh the ATT&CK redirect file and update all rule threat mappings."""
+    # refresh the attack_technique_redirects
+    click.echo('refreshing data in attack_technique_redirects.json')
+    attack.refresh_redirected_techniques_map()
+
+
+@attack_group.command('update-rules')
+@multi_collection
+def update_attack_in_rules(rules: RuleCollection) -> List[Optional[TOMLRule]]:
+    """Update threat mappings attack data in all rules."""
+    new_rules = []
+    redirected_techniques = attack.load_techniques_redirect()
+    today = time.strftime('%Y/%m/%d')
+
+    for rule in rules.rules:
+        needs_update = False
+        valid_threat: List[ThreatMapping] = []
+        threat_pending_update = {}
+        threat = rule.contents.data.threat or []
+
+        for entry in threat:
+            tactic = entry.tactic.name
+            techniques = []
+            for technique in entry.technique or []:
+                techniques.append(technique.id)
+                techniques.extend([st.id for st in technique.subtechnique or []])
+
+            if any([t for t in techniques if t in redirected_techniques]):
+                needs_update = True
+                threat_pending_update[tactic] = techniques
+            else:
+                valid_threat.append(entry)
+
+        if needs_update:
+            for tactic, techniques in threat_pending_update.items():
+                try:
+                    updated_threat = attack.build_threat_map_entry(tactic, *techniques)
+                except ValueError as err:
+                    raise ValueError(f'{rule.id} - {rule.name}: {err}')
+
+                tm = ThreatMapping.from_dict(updated_threat)
+                valid_threat.append(tm)
+
+            new_meta = dataclasses.replace(rule.contents.metadata, updated_date=today)
+            new_data = dataclasses.replace(rule.contents.data, threat=valid_threat)
+            new_contents = dataclasses.replace(rule.contents, data=new_data, metadata=new_meta)
+            new_rule = TOMLRule(contents=new_contents)
+            new_rule.save_toml()
+            new_rules.append(new_rule)
+
+    if new_rules:
+        click.echo(f'{len(new_rules)} rules updated')
+    else:
+        click.echo('No rule changes needed')
+    return new_rules

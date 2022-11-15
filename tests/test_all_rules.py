@@ -11,17 +11,18 @@ from collections import defaultdict
 from pathlib import Path
 
 import kql
-
 from detection_rules import attack
 from detection_rules.beats import parse_beats_from_index
 from detection_rules.packaging import current_stack_version
-from detection_rules.rule import QueryRuleData
+from detection_rules.rule import (QueryRuleData, TOMLRuleContents,
+                                  load_integrations_manifests)
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.schemas import definitions
 from detection_rules.semver import Version
-from detection_rules.utils import get_path, load_etc_dump
+from detection_rules.utils import INTEGRATION_RULE_DIR, get_path, load_etc_dump
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
+
 from .base import BaseRuleTest
 
 
@@ -80,7 +81,7 @@ class TestValidRules(BaseRuleTest):
 
         duplicates = {name: paths for name, paths in name_map.items() if len(paths) > 1}
         if duplicates:
-            self.fail(f"Found duplicated file names {duplicates}")
+            self.fail(f"Found duplicated file names: {duplicates}")
 
     def test_rule_type_changes(self):
         """Test that a rule type did not change for a locked version"""
@@ -92,7 +93,7 @@ class TestThreatMappings(BaseRuleTest):
 
     def test_technique_deprecations(self):
         """Check for use of any ATT&CK techniques that have been deprecated."""
-        replacement_map = attack.techniques_redirect_map
+        replacement_map = attack.load_techniques_redirect()
         revoked = list(attack.revoked)
         deprecated = list(attack.deprecated)
 
@@ -440,19 +441,36 @@ class TestRuleMetadata(BaseRuleTest):
         """Test that rules in integrations folders have matching integration defined."""
         failures = []
 
-        for rule in self.production_rules:
-            rules_path = get_path('rules')
-            *_, grandparent, parent, _ = rule.path.parts
-            in_integrations = grandparent == 'integrations'
-            integration = rule.contents.metadata.get('integration')
-            has_integration = integration is not None
+        packages_manifest = load_integrations_manifests()
 
-            if (in_integrations or has_integration) and (parent != integration):
-                err_msg = f'{self.rule_str(rule)}\nintegration: {integration}\npath: {rule.path.relative_to(rules_path)}'  # noqa: E501
+        for rule in self.production_rules:
+            rule_integration = rule.contents.metadata.get('integration')
+
+            # checks if metadata tag matches from a list of integrations in EPR
+            if rule_integration and rule_integration not in packages_manifest.keys():
+                err_msg = f"{self.rule_str(rule)} integration '{rule_integration}' unknown"
                 failures.append(err_msg)
 
+            # checks if the rule path matches the intended integration
+            valid_integration_folders = [p.name for p in list(Path(INTEGRATION_RULE_DIR).glob("*"))]
+            if rule_integration and rule_integration in valid_integration_folders:
+                if rule_integration != rule.path.parent.name:
+                    err_msg = f'{self.rule_str(rule)} {rule_integration} tag, but path is {rule.path.parent.name}'
+                    failures.append(err_msg)
+
+            # checks if event.dataset exists in query object and a tag exists in metadata
+            if isinstance(rule.contents.data, QueryRuleData) and rule.contents.data.language != 'lucene':
+                trc = TOMLRuleContents(rule.contents.metadata, rule.contents.data)
+                package_integrations = trc._get_packaged_integrations(packages_manifest)
+                if package_integrations and not rule_integration:
+                    err_msg = f'{self.rule_str(rule)} integration tag should exist: '
+
         if failures:
-            err_msg = 'The following rules have missing/incorrect integrations or are not in an integrations folder:\n'
+            err_msg = """
+                The following rules have missing or invalid integrations tags.
+                Try updating the integrations manifest file:
+                    - `python -m detection_rules dev integrations build-manifests`\n
+                """
             self.fail(err_msg + '\n'.join(failures))
 
     def test_rule_demotions(self):

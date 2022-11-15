@@ -2,9 +2,9 @@
 creation_date = "2022/07/11"
 integration = "kubernetes"
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+min_stack_comments = "New fields added to Kubernetes Integration"
+min_stack_version = "8.4.0"
+updated_date = "2022/10/18"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,8 @@ false_positives = [
     legitimacy by determining if the kuberenetes.audit.requestObject.spec.volumes.hostPath.path triggered is one needed
     by its target container/pod. For example, when the fleet managed elastic agent is deployed as a daemonset it creates
     several hostPath volume mounts, some of which are sensitive host directories like /proc, /etc/kubernetes, and
-    /var/log.
+    /var/log. Add exceptions for trusted container images using the query field
+    "kubernetes.audit.requestObject.spec.container.image"
     """,
 ]
 index = ["logs-kubernetes.*"]
@@ -42,9 +43,28 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-kubernetes.audit.objectRef.resource:"pods"
+event.dataset : "kubernetes.audit_logs" 
+  and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" 
+  and kubernetes.audit.objectRef.resource:"pods"
   and kubernetes.audit.verb:("create" or "update" or "patch")
-  and kubernetes.audit.requestObject.spec.volumes.hostPath.path:("/" or "/proc" or "/root" or "/var" or "/var/run/docker.sock" or "/var/run/crio/crio.sock" or "/var/run/cri-dockerd.sock" or "/var/lib/kubelet" or "/var/lib/kubelet/pki" or "/var/lib/docker/overlay2" or "/etc" or "/etc/kubernetes" or "/etc/kubernetes/manifests" or "/home/admin")
+  and kubernetes.audit.requestObject.spec.volumes.hostPath.path:
+  ("/" or 
+  "/proc" or 
+  "/root" or 
+  "/var" or 
+  "/var/run" or 
+  "/var/run/docker.sock" or 
+  "/var/run/crio/crio.sock" or 
+  "/var/run/cri-dockerd.sock" or 
+  "/var/lib/kubelet" or 
+  "/var/lib/kubelet/pki" or 
+  "/var/lib/docker/overlay2" or 
+  "/etc" or 
+  "/etc/kubernetes" or 
+  "/etc/kubernetes/manifests" or 
+  "/etc/kubernetes/pki" or
+  "/home/admin")
+  and not kubernetes.audit.requestObject.spec.containers.image: ("docker.elastic.co/beats/elastic-agent:8.4.0")
 '''
 
 
@@ -60,4 +80,17 @@ reference = "https://attack.mitre.org/techniques/T1611/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 

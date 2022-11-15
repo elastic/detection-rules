@@ -22,7 +22,7 @@ from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
 from marshmallow import ValidationError, validates_schema
 
-from . import beats, ecs, utils
+from . import beats, ecs, endgame, utils
 from .integrations import (find_least_compatible_version,
                            load_integrations_manifests)
 from .misc import load_current_package_version
@@ -353,9 +353,11 @@ class QueryValidator:
         current_version = Version(Version(load_current_package_version()) + (0,))
         ecs_version = get_stack_schemas()[str(current_version)]['ecs']
         beats_version = get_stack_schemas()[str(current_version)]['beats']
+        endgame_version = get_stack_schemas()[str(current_version)]['endgame']
         ecs_schema = ecs.get_schema(ecs_version)
 
         beat_types, beat_schema, schema = self.get_beats_schema(index or [], beats_version, ecs_version)
+        endgame_schema = self.get_endgame_schema(index or [], endgame_version)
 
         required = []
         unique_fields = self.unique_fields or []
@@ -364,8 +366,11 @@ class QueryValidator:
             field_type = ecs_schema.get(fld, {}).get('type')
             is_ecs = field_type is not None
 
-            if beat_schema and not is_ecs:
-                field_type = beat_schema.get(fld, {}).get('type')
+            if not is_ecs:
+                if beat_schema:
+                    field_type = beat_schema.get(fld, {}).get('type')
+                elif endgame_schema:
+                    field_type = endgame_schema.endgame_schema.get(fld, None)
 
             required.append(dict(name=fld, type=field_type or 'unknown', ecs=is_ecs))
 
@@ -378,6 +383,16 @@ class QueryValidator:
         beat_schema = beats.get_schema_from_kql(self.ast, beat_types, version=beats_version) if beat_types else None
         schema = ecs.get_kql_schema(version=ecs_version, indexes=index, beat_schema=beat_schema)
         return beat_types, beat_schema, schema
+
+    @cached
+    def get_endgame_schema(self, index: list, endgame_version: str) -> Optional[endgame.EndgameSchema]:
+        """Get an assembled flat endgame schema."""
+
+        if "endgame-*" not in index:
+            return None
+
+        endgame_schema = endgame.read_endgame_schema(endgame_version=endgame_version)
+        return endgame.EndgameSchema(endgame_schema)
 
 
 @dataclass(frozen=True)
@@ -769,7 +784,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                         # if integration is not a policy template remove
                         if package["version"]:
                             policy_templates = packages_manifest[
-                                package["package"]][package["version"]]["policy_templates"]
+                                package["package"]][package["version"].strip("^")]["policy_templates"]
                             if package["integration"] not in policy_templates:
                                 del package["integration"]
 
