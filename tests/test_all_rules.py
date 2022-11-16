@@ -773,11 +773,11 @@ class TestOsqueryPluginNote(BaseRuleTest):
     def test_note_guide(self):
         osquery_note = '> **Note**:\n'
         osquery_note_pattern = osquery_note + '> This Investigation Guide uses the Osquery Markdown Plugin which ' \
-                                    'was introduced in Elastic 8.5, so users using older Elastic versions will see ' \
-                                    'the raw syntax of the buttons.'
+            'was introduced in Elastic 8.5, so users using older Elastic versions will see ' \
+            'the raw syntax of the buttons.'
 
         for rule in self.all_rules:
             if rule.contents.data.note and "!{osquery" in rule.contents.data.note:
                 if osquery_note_pattern not in rule.contents.data.note:
-                    self.fail(f'{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain ' \
+                    self.fail(f'{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain '
                               f'the following note:\n{osquery_note_pattern}')
