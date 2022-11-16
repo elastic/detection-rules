@@ -3,7 +3,7 @@ creation_date = "2021/06/01"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/20"
+updated_date = "2022/09/27"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ Identifies modifications of the AmsiEnable registry key to 0, which disables the
 adversary can modify this key to disable AMSI protections.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Modification of AmsiEnable Registry Key"
@@ -85,7 +85,7 @@ references = [
 risk_score = 73
 rule_id = "f874315d-5188-4b4a-8521-d1c73093a7e4"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "has_guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "has_guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -93,7 +93,8 @@ query = '''
 registry where event.type in ("creation", "change") and
   registry.path : (
     "HKEY_USERS\\*\\Software\\Microsoft\\Windows Script\\Settings\\AmsiEnable",
-    "HKU\\*\\Software\\Microsoft\\Windows Script\\Settings\\AmsiEnable"
+    "HKU\\*\\Software\\Microsoft\\Windows Script\\Settings\\AmsiEnable",
+    "\\REGISTRY\\USER\\*\\Software\\Microsoft\\Windows Script\\Settings\\AmsiEnable"
   ) and
   registry.data.strings: ("0", "0x00000000")
 '''
