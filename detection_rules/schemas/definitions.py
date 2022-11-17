@@ -85,7 +85,6 @@ TimelineTemplateTitle = NewType('TimelineTemplateTitle', str, validate=validate.
 UUIDString = NewType('UUIDString', str, validate=validate.Regexp(UUID_PATTERN))
 
 
-
 # experimental machine learning features and releases
 MachineLearningType = Literal['DGA', 'ProblemChild']
 MachineLearningTypeLower = Literal['dga', 'problemchild']

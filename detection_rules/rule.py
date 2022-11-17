@@ -560,6 +560,7 @@ class ThreatMatchRuleData(QueryRuleData):
 
             threat_query_validator.validate(self, meta)
 
+
 @dataclass(frozen=True)
 class NewTermsRuleData(QueryRuleData):
     """Specific fields for new terms field rule."""
@@ -591,6 +592,7 @@ class NewTermsRuleData(QueryRuleData):
             for new_terms_field in self.new_terms_fields:
                 assert new_terms_field in ecs_schema.keys(), \
                     f"{new_terms_field} not found in ECS schema (version {ecs_version})"
+
 
 # All of the possible rule types
 # Sort inverse of any inheritance - see comment in TOMLRuleContents.to_dict
@@ -932,7 +934,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         data.validate_query(metadata)
         data.data_validator.validate_note()
-        data.data_validator.validate_new_terms_fields(metadata)
 
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
