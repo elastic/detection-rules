@@ -186,12 +186,10 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     filters: Optional[List[dict]]
     # trailing `_` required since `from` is a reserved word in python
     from_: Optional[str] = field(metadata=dict(data_key="from"))
-    history_window_start: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.4")))
     interval: Optional[definitions.Interval]
     max_signals: Optional[definitions.MaxSignals]
     meta: Optional[Dict[str, Any]]
     name: definitions.RuleName
-    new_terms_fields: Optional[List[str]] = field(metadata=dict(metadata=dict(min_compat="8.4")))
     note: Optional[definitions.Markdown]
     # can we remove this comment?
     # explicitly NOT allowed!
@@ -278,8 +276,6 @@ class DataValidator:
         self.is_elastic_rule = is_elastic_rule
         self.note = note
         self.setup = setup
-        self.new_terms_fields = extras.get("new_terms_fields", None)
-        self.history_window_start = extras.get("history_window_start", None)
         self._setup_in_note = False
 
     @cached_property
@@ -332,19 +328,6 @@ class DataValidator:
         # raise if setup header is in note and in setup
         if self.setup_in_note and self.setup:
             raise ValidationError("Setup header found in both note and setup fields.")
-
-    def validate_new_terms_fields(self, meta: RuleMeta) -> None:
-        """Validates terms in new_terms_fields are valid ECS schema."""
-        if self.new_terms_fields:
-            assert self.history_window_start, \
-                "new_terms_field found with no history_window_start field defined"
-            stack_version = Version(meta.get("min_stack_version",
-                                    Version(Version(load_current_package_version()) + (0,))))
-            ecs_version = get_stack_schemas()[str(stack_version)]['ecs']
-            ecs_schema = ecs.get_schema(ecs_version)
-            for new_terms_field in self.new_terms_fields:
-                assert new_terms_field in ecs_schema.keys(), \
-                    f"{new_terms_field} not found in ECS schema (version {ecs_version})"
 
 
 @dataclass
@@ -577,10 +560,42 @@ class ThreatMatchRuleData(QueryRuleData):
 
             threat_query_validator.validate(self, meta)
 
+@dataclass(frozen=True)
+class NewTermsRuleData(QueryRuleData):
+    """Specific fields for new terms field rule."""
+
+    @dataclass(frozen=True)
+    class NewTermsMapping:
+        @dataclass(frozen=True)
+        class HistoryWindowStart:
+            field: definitions.NonEmptyStr
+            value: definitions.HistoryWindowStart
+
+        field: List[definitions.NonEmptyStr]
+        value: definitions.NewTermsFields
+        history_window_start: HistoryWindowStart
+
+    type: Literal["new_terms"]
+    new_terms = NewTermsMapping
+
+    def validation(self, meta: RuleMeta) -> None:
+        """Validates terms in new_terms_fields are valid ECS schema."""
+
+        if self.new_terms_fields:
+            assert self.history_window_start, \
+                "new_terms_field found with no history_window_start field defined"
+            stack_version = Version(meta.get("min_stack_version",
+                                    Version(Version(load_current_package_version()) + (0,))))
+            ecs_version = get_stack_schemas()[str(stack_version)]['ecs']
+            ecs_schema = ecs.get_schema(ecs_version)
+            for new_terms_field in self.new_terms_fields:
+                assert new_terms_field in ecs_schema.keys(), \
+                    f"{new_terms_field} not found in ECS schema (version {ecs_version})"
 
 # All of the possible rule types
 # Sort inverse of any inheritance - see comment in TOMLRuleContents.to_dict
-AnyRuleData = Union[EQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData, MachineLearningRuleData, QueryRuleData]
+AnyRuleData = Union[EQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData,
+                    MachineLearningRuleData, QueryRuleData, NewTermsRuleData]
 
 
 class BaseRuleContents(ABC):
