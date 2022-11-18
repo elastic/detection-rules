@@ -1,9 +1,9 @@
 [metadata]
 creation_date = "2020/10/15"
 maturity = "production"
+updated_date = "2022/11/04"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/20"
 
 [rule]
 author = ["Elastic"]
@@ -28,6 +28,9 @@ This rule looks for the enumeration of privileged local groups' membership by su
 legitimate utilities and programs installed. Attackers can use this information to decide the next steps of the attack,
 such as mapping targets for credential compromise and other post-exploitation activities.
 
+> **Note**:
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic stack version 8.5.0. Older Elastic stacks versions will see unrendered markdown in this guide.
+
 #### Possible investigation steps
 
 - Identify the process, host and user involved on the event.
@@ -36,14 +39,22 @@ for prevalence, whether they are located in expected locations, and if they are 
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Investigate any abnormal account behavior, such as command executions, file creations or modifications, and network
 connections.
-- Retrieve the process executable and determine if it is malicious:
-  - Check if the file belongs to the operating system or has a valid digital signature.
-  - Use a private sandboxed malware analysis system to perform analysis.
-    - Observe and collect information about the following activities:
-      - Attempts to contact external domains and addresses.
-      - File and registry access, modification, and creation activities.
-      - Service creation and launch activities.
-      - Scheduled task creation.
+- Examine the host for derived artifacts that indicates suspicious activities:
+  - Analyze the process executable using a private sandboxed analysis system.
+  - Observe and collect information about the following activities in both the sandbox and the alert subject host:
+    - Attempts to contact external domains and addresses.
+      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by
+      filtering by the process' `process.entity_id`.
+      - Examine the DNS cache for suspicious or anomalous entries.
+        - !{osquery{"query":"SELECT * FROM dns_cache", "label":"Osquery - Retrieve DNS Cache"}}
+    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related
+    processes in the process tree.
+    - Examine the host services for suspicious or anomalous entries.
+      - !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services","label":"Osquery - Retrieve All Services"}}
+      - !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE NOT (user_account LIKE \"%LocalSystem\" OR user_account LIKE \"%LocalService\" OR user_account LIKE \"%NetworkService\" OR user_account == null)","label":"Osquery - Retrieve Services Running on User Accounts"}}
+      - !{osquery{"query":"SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid, services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path = authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != \"trusted\"","label":"Osquery - Retrieve Service Unsigned Executables with Virustotal Link"}}
+  - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and
+  reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 
 ### False positive analysis
 
@@ -88,7 +99,7 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 47
 rule_id = "291a0de9-937a-4189-94c0-3e847c8b13e4"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery", "has_guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery", "Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
