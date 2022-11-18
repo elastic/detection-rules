@@ -187,7 +187,7 @@ class TestRuleTags(BaseRuleTest):
 
     def test_casing_and_spacing(self):
         """Ensure consistent and expected casing for controlled tags."""
-        
+
         expected_tags = [
             'APM', 'AWS', 'Asset Visibility', 'Azure', 'Configuration Audit', 'Continuous Monitoring',
             'Data Protection', 'Elastic', 'Elastic Endgame', 'Endpoint Security', 'GCP', 'Identity and Access',
