@@ -93,7 +93,7 @@ class TestThreatMappings(BaseRuleTest):
 
     def test_technique_deprecations(self):
         """Check for use of any ATT&CK techniques that have been deprecated."""
-        replacement_map = attack.techniques_redirect_map
+        replacement_map = attack.load_techniques_redirect()
         revoked = list(attack.revoked)
         deprecated = list(attack.deprecated)
 
@@ -765,3 +765,19 @@ class TestRiskScoreMismatch(BaseRuleTest):
             err_msg = 'The following rules have mismatches between Severity and Risk Score field values:\n'
             err_msg += invalid_str
             self.fail(err_msg)
+
+
+class TestOsqueryPluginNote(BaseRuleTest):
+    """Test if a guide containing Osquery Plugin syntax contains the version note."""
+
+    def test_note_guide(self):
+        osquery_note = '> **Note**:\n'
+        osquery_note_pattern = osquery_note + '> This investigation guide uses the [Osquery Markdown Plugin]' \
+            '(https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic ' \
+            'stack version 8.5.0. Older Elastic stacks versions will see unrendered markdown in this guide.'
+
+        for rule in self.all_rules:
+            if rule.contents.data.note and "!{osquery" in rule.contents.data.note:
+                if osquery_note_pattern not in rule.contents.data.note:
+                    self.fail(f'{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain '
+                              f'the following note:\n{osquery_note_pattern}')
