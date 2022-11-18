@@ -572,7 +572,7 @@ class NewTermsRuleData(QueryRuleData):
             field: definitions.NonEmptyStr
             value: definitions.HistoryWindowStart
 
-        field: List[definitions.NonEmptyStr]
+        field: definitions.NonEmptyStr
         value: definitions.NewTermsFields
         history_window_start: HistoryWindowStart
 
