@@ -187,23 +187,21 @@ class TestRuleTags(BaseRuleTest):
 
     def test_casing_and_spacing(self):
         """Ensure consistent and expected casing for controlled tags."""
-        def normalize(s):
-            return ''.join(s.lower().split())
-
+        
         expected_tags = [
             'APM', 'AWS', 'Asset Visibility', 'Azure', 'Configuration Audit', 'Continuous Monitoring',
             'Data Protection', 'Elastic', 'Elastic Endgame', 'Endpoint Security', 'GCP', 'Identity and Access',
             'Investigation Guide', 'Linux', 'Logging', 'ML', 'macOS', 'Monitoring', 'Network', 'Okta', 'Packetbeat',
             'Post-Execution', 'SecOps', 'Windows'
         ]
-        expected_case = {normalize(t): t for t in expected_tags}
+        expected_case = {t.casefold(): t for t in expected_tags}
 
         for rule in self.all_rules:
             rule_tags = rule.contents.data.tags
 
             if rule_tags:
-                invalid_tags = {t: expected_case[normalize(t)] for t in rule_tags
-                                if normalize(t) in list(expected_case) and t != expected_case[normalize(t)]}
+                invalid_tags = {t: expected_case[t.casefold()] for t in rule_tags
+                                if t.casefold() in list(expected_case) and t != expected_case[t.casefold()]}
 
                 if invalid_tags:
                     error_msg = f'{self.rule_str(rule)} Invalid casing for expected tags\n'
