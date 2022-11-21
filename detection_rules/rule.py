@@ -481,16 +481,16 @@ class NewTermsRuleData(QueryRuleData):
     def validation(self, meta: RuleMeta) -> None:
         """Validates terms in new_terms_fields are valid ECS schema."""
 
-        if self.new_terms_fields:
-            assert self.history_window_start, \
-                "new_terms_field found with no history_window_start field defined"
-            stack_version = Version(meta.get("min_stack_version",
-                                    Version(Version(load_current_package_version()) + (0,))))
-            ecs_version = get_stack_schemas()[str(stack_version)]['ecs']
-            ecs_schema = ecs.get_schema(ecs_version)
-            for new_terms_field in self.new_terms_fields:
-                assert new_terms_field in ecs_schema.keys(), \
-                    f"{new_terms_field} not found in ECS schema (version {ecs_version})"
+        super(NewTermsRuleData, self).validate_query(meta)
+        assert self.new_terms.history_window_start, \
+            "new_terms_field found with no history_window_start field defined"
+        stack_version = Version(meta.get("min_stack_version",
+                                Version(Version(load_current_package_version()) + (0,))))
+        ecs_version = get_stack_schemas()[str(stack_version)]['ecs']
+        ecs_schema = ecs.get_schema(ecs_version)
+        for new_terms_field in self.new_terms.value:
+            assert new_terms_field in ecs_schema.keys(), \
+                f"{new_terms_field} not found in ECS schema (version {ecs_version})"
 
 
 @dataclass(frozen=True)
@@ -934,6 +934,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         data.validate_query(metadata)
         data.data_validator.validate_note()
+        data.validation(metadata) if data.validation else None
 
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
