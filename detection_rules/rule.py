@@ -934,7 +934,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         data.validate_query(metadata)
         data.data_validator.validate_note()
-        data.validation(metadata) if  hasattr(data, 'validation') else None
+        data.validation(metadata) if hasattr(data, 'validation') else None
 
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
