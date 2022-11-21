@@ -459,6 +459,7 @@ class ThresholdQueryRuleData(QueryRuleData):
     type: Literal["threshold"]
     threshold: ThresholdMapping
 
+
 @dataclass(frozen=True)
 class NewTermsRuleData(QueryRuleData):
     """Specific fields for new terms field rule."""
@@ -490,6 +491,7 @@ class NewTermsRuleData(QueryRuleData):
             for new_terms_field in self.new_terms_fields:
                 assert new_terms_field in ecs_schema.keys(), \
                     f"{new_terms_field} not found in ECS schema (version {ecs_version})"
+
 
 @dataclass(frozen=True)
 class EQLRuleData(QueryRuleData):
