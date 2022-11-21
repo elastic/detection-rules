@@ -459,6 +459,37 @@ class ThresholdQueryRuleData(QueryRuleData):
     type: Literal["threshold"]
     threshold: ThresholdMapping
 
+@dataclass(frozen=True)
+class NewTermsRuleData(QueryRuleData):
+    """Specific fields for new terms field rule."""
+
+    @dataclass(frozen=True)
+    class NewTermsMapping(MarshmallowDataclassMixin):
+        @dataclass(frozen=True)
+        class HistoryWindowStart:
+            field: definitions.NonEmptyStr
+            value: definitions.HistoryWindowStart
+
+        field: definitions.NonEmptyStr
+        value: definitions.NewTermsFields
+        history_window_start: Optional[List[HistoryWindowStart]]
+
+    type: Literal["new_terms"]
+    new_terms: NewTermsMapping
+
+    def validation(self, meta: RuleMeta) -> None:
+        """Validates terms in new_terms_fields are valid ECS schema."""
+
+        if self.new_terms_fields:
+            assert self.history_window_start, \
+                "new_terms_field found with no history_window_start field defined"
+            stack_version = Version(meta.get("min_stack_version",
+                                    Version(Version(load_current_package_version()) + (0,))))
+            ecs_version = get_stack_schemas()[str(stack_version)]['ecs']
+            ecs_schema = ecs.get_schema(ecs_version)
+            for new_terms_field in self.new_terms_fields:
+                assert new_terms_field in ecs_schema.keys(), \
+                    f"{new_terms_field} not found in ECS schema (version {ecs_version})"
 
 @dataclass(frozen=True)
 class EQLRuleData(QueryRuleData):
@@ -559,39 +590,6 @@ class ThreatMatchRuleData(QueryRuleData):
                 return
 
             threat_query_validator.validate(self, meta)
-
-
-@dataclass(frozen=True)
-class NewTermsRuleData(QueryRuleData):
-    """Specific fields for new terms field rule."""
-
-    @dataclass(frozen=True)
-    class NewTermsMapping:
-        @dataclass(frozen=True)
-        class HistoryWindowStart:
-            field: definitions.NonEmptyStr
-            value: definitions.HistoryWindowStart
-
-        field: definitions.NonEmptyStr
-        value: definitions.NewTermsFields
-        history_window_start: HistoryWindowStart
-
-    type: Literal["new_terms"]
-    new_terms = NewTermsMapping
-
-    def validation(self, meta: RuleMeta) -> None:
-        """Validates terms in new_terms_fields are valid ECS schema."""
-
-        if self.new_terms_fields:
-            assert self.history_window_start, \
-                "new_terms_field found with no history_window_start field defined"
-            stack_version = Version(meta.get("min_stack_version",
-                                    Version(Version(load_current_package_version()) + (0,))))
-            ecs_version = get_stack_schemas()[str(stack_version)]['ecs']
-            ecs_schema = ecs.get_schema(ecs_version)
-            for new_terms_field in self.new_terms_fields:
-                assert new_terms_field in ecs_schema.keys(), \
-                    f"{new_terms_field} not found in ECS schema (version {ecs_version})"
 
 
 # All of the possible rule types
