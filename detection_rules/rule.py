@@ -473,7 +473,7 @@ class NewTermsRuleData(QueryRuleData):
 
         field: definitions.NonEmptyStr
         value: definitions.NewTermsFields
-        history_window_start: Optional[List[HistoryWindowStart]]
+        history_window_start: List[HistoryWindowStart]
 
     type: Literal["new_terms"]
     new_terms: NewTermsMapping
@@ -491,6 +491,14 @@ class NewTermsRuleData(QueryRuleData):
         for new_terms_field in self.new_terms.value:
             assert new_terms_field in ecs_schema.keys(), \
                 f"{new_terms_field} not found in ECS schema (version {ecs_version})"
+
+    def transform(self, obj: dict) -> dict:
+        """Transforms new terms data to API format for Kibana."""
+
+        obj[obj["new_terms"].get("field")] = obj["new_terms"].get("value")
+        obj["history_window_start"] = obj["new_terms"]["history_window_start"][0].get("value")
+        del obj["new_terms"]
+        return obj
 
 
 @dataclass(frozen=True)
@@ -780,6 +788,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         """Transform the converted API in place before sending to Kibana."""
         super()._post_dict_transform(obj)
 
+        # build time fields
         self._add_related_integrations(obj)
         self._add_required_fields(obj)
         self._add_setup(obj)
@@ -788,6 +797,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         rule_type = obj['type']
         subclass = self.get_data_subclass(rule_type)
         subclass.from_dict(obj)
+
+        # rule type transforms
+        self.data.transform(obj) if hasattr(self.data, 'transform') else None
+
         return obj
 
     def _add_related_integrations(self, obj: dict) -> None:
