@@ -313,7 +313,7 @@ def kibana_diff(rule_id, repo, branch, threads):
 def add_kibana_git_args(f):
     @click.argument("local-repo", default=get_path("..", "kibana"))
     @click.option("--kibana-directory", "-d", help="Directory to overwrite in Kibana",
-                  default="x-pack/plugins/security_solution/server/lib/detection_engine"
+                  default="x-pack/plugins/security_solution/server/lib/detection_engine/"
                           "prebuilt_rules/content/prepackaged_rules")
     @click.option("--base-branch", "-b", help="Base branch in Kibana", default="main")
     @click.option("--branch-name", "-n", help="New branch for the rules commit")
