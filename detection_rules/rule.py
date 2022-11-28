@@ -485,7 +485,7 @@ class NewTermsRuleData(QueryRuleData):
 
         # validate history window start field exists
         assert self.new_terms.history_window_start, \
-            "new_terms_field found with no history_window_start field defined"
+            "new terms field found with no history_window_start field defined"
 
         # ecs validation
         stack_version = Version(meta.get("min_stack_version",
@@ -500,7 +500,11 @@ class NewTermsRuleData(QueryRuleData):
         # validates length of new_terms to stack version - https://github.com/elastic/kibana/issues/142862
         if stack_version >= Version('8.4.0') and stack_version < Version('8.6.0'):
             assert len(self.new_terms.value) == 1, \
-                "new terms fields have a max limit of 1 for stack versions below 8.6.0"
+                "new terms have a max limit of 1 for stack versions below 8.6.0"
+
+        # validate fields are unique
+        assert len(set(self.new_terms.value)) == len(self.new_terms.value), \
+            f"new terms fields values are not unique - {self.new_terms.value}"
 
     def transform(self, obj: dict) -> dict:
         """Transforms new terms data to API format for Kibana."""
