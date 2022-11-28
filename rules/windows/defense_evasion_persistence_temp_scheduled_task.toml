@@ -3,7 +3,7 @@ creation_date = "2022/08/29"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/29"
+updated_date = "2022/11/28"
 
 [rule]
 author = ["Elastic"]
@@ -26,8 +26,8 @@ type = "eql"
 
 query = '''
 sequence by host.id, winlog.event_data.TaskName with maxspan=5m
-   [iam where event.action == "scheduled-task-created"]
-   [iam where event.action == "scheduled-task-deleted"]
+   [iam where event.action == "scheduled-task-created" and not user.name : "*$"]
+   [iam where event.action == "scheduled-task-deleted" and not user.name : "*$"]
 '''
 
 [[rule.threat]]
