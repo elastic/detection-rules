@@ -3,7 +3,7 @@ creation_date = "2021/07/19"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/20"
+updated_date = "2022/11/28"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -20,15 +20,11 @@ note = """## Triage and analysis
 
 ### Investigating Volume Shadow Copy Deletion via PowerShell
 
-The Volume Shadow Copy Service (VSS) is a Windows feature that enables system administrators to take snapshots of volumes
-that can later be restored or mounted to recover specific files or folders.
+The Volume Shadow Copy Service (VSS) is a Windows feature that enables system administrators to take snapshots of volumes that can later be restored or mounted to recover specific files or folders.
 
-A typical step in the playbook of an attacker attempting to deploy ransomware is to delete Volume Shadow
-Copies to ensure that victims have no alternative to paying the ransom, making any action that deletes shadow
-copies worth monitoring.
+A typical step in the playbook of an attacker attempting to deploy ransomware is to delete Volume Shadow Copies to ensure that victims have no alternative to paying the ransom, making any action that deletes shadow copies worth monitoring.
 
-This rule monitors the execution of PowerShell cmdlets to interact with the Win32_ShadowCopy WMI class, retrieve shadow
-copy objects, and delete them.
+This rule monitors the execution of PowerShell cmdlets to interact with the Win32_ShadowCopy WMI class, retrieve shadow copy objects, and delete them.
 
 #### Possible investigation steps
 
@@ -51,8 +47,7 @@ copy objects, and delete them.
 
 ### False positive analysis
 
-- This rule has chances of producing benign true positives (B-TPs). If this activity is expected and noisy in your
-environment, consider adding exceptions — preferably with a combination of user and command line conditions.
+- This rule has chances of producing benign true positives (B-TPs). If this activity is expected and noisy in your environment, consider adding exceptions — preferably with a combination of user and command line conditions.
 
 ### Related rules
 
@@ -68,19 +63,14 @@ environment, consider adding exceptions — preferably with a combination of use
   - Implement temporary network rules, procedures, and segmentation to contain the malware.
   - Stop suspicious processes.
   - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
-  attackers could use to reinfect the system.
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
 - Remove and block malicious artifacts identified during triage.
 - If data was encrypted, deleted, or modified, activate your data recovery plan.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
-identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
-systems, and web services.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
 - Perform data recovery locally or restore the backups from replicated copies (cloud, other servers, etc.).
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
-malware components.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 
 ## Setup

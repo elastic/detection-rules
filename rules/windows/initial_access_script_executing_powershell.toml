@@ -3,7 +3,7 @@ creation_date = "2020/02/18"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/20"
+updated_date = "2022/11/28"
 
 [rule]
 author = ["Elastic"]
@@ -20,18 +20,15 @@ note = """## Triage and analysis
 
 ### Investigating Windows Script Executing PowerShell
 
-The Windows Script Host (WSH) is an Windows automation technology, which is ideal for non-interactive scripting needs,
-such as logon scripting, administrative scripting, and machine automation.
+The Windows Script Host (WSH) is an Windows automation technology, which is ideal for non-interactive scripting needs, such as logon scripting, administrative scripting, and machine automation.
 
-Attackers commonly use WSH scripts as their initial access method, acting like droppers for second stage payloads, but
-can also use them to download tools and utilities needed to accomplish their goals.
+Attackers commonly use WSH scripts as their initial access method, acting like droppers for second stage payloads, but can also use them to download tools and utilities needed to accomplish their goals.
 
 This rule looks for the spawn of the `powershell.exe` process with `cscript.exe` or `wscript.exe` as its parent process.
 
 #### Possible investigation steps
 
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
-for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Investigate commands executed by the spawned PowerShell process.
 - If unsigned files are found on the process tree, retrieve them and determine if they are malicious:
   - Use a private sandboxed malware analysis system to perform analysis.
@@ -47,8 +44,7 @@ for prevalence, whether they are located in expected locations, and if they are 
 
 ### False positive analysis
 
-- The usage of these script engines by regular users is unlikely. In the case of authorized benign true positives
-(B-TPs), exceptions can be added.
+- The usage of these script engines by regular users is unlikely. In the case of authorized benign true positives (B-TPs), exceptions can be added.
 
 ### Response and remediation
 
@@ -58,8 +54,7 @@ for prevalence, whether they are located in expected locations, and if they are 
   - Implement temporary network rules, procedures, and segmentation to contain the malware.
   - Stop suspicious processes.
   - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
-  attackers could use to reinfect the system.
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
 - Remove and block malicious artifacts identified during triage.
 - If the malicious file was delivered via phishing:
   - Block the email sender from sending future emails.
@@ -67,11 +62,9 @@ for prevalence, whether they are located in expected locations, and if they are 
   - Remove emails from the sender from mailboxes.
   - Consider improvements to the security awareness program.
 - Reimage the host operating system and restore compromised files to clean versions.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
-malware components.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 ## Setup
 
