@@ -66,7 +66,7 @@ Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
 Markdown = NewType("MarkdownField", CodeString)
 Maturity = Literal['development', 'experimental', 'beta', 'production', 'deprecated']
 MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
-NewTermsFields = NewType('NewTermsFields', List[NonEmptyStr], validate=validate.Length(min=0, max=1))
+NewTermsFields = NewType('NewTermsFields', List[NonEmptyStr], validate=validate.Length(min=1, max=3))
 Operator = Literal['equals']
 OSType = Literal['windows', 'linux', 'macos']
 PositiveInteger = NewType('PositiveInteger', int, validate=validate.Range(min=1))

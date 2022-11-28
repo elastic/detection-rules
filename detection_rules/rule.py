@@ -482,15 +482,25 @@ class NewTermsRuleData(QueryRuleData):
         """Validates terms in new_terms_fields are valid ECS schema."""
 
         super(NewTermsRuleData, self).validate_query(meta)
+
+        # validate history window start field exists
         assert self.new_terms.history_window_start, \
             "new_terms_field found with no history_window_start field defined"
+
+        # ecs validation
         stack_version = Version(meta.get("min_stack_version",
                                 Version(Version(load_current_package_version()) + (0,))))
+        assert stack_version >= Version('8.4.0'), "New Terms rule types only compatible with 8.4.0+"
         ecs_version = get_stack_schemas()[str(stack_version)]['ecs']
         ecs_schema = ecs.get_schema(ecs_version)
         for new_terms_field in self.new_terms.value:
             assert new_terms_field in ecs_schema.keys(), \
                 f"{new_terms_field} not found in ECS schema (version {ecs_version})"
+
+        # validates length of new_terms to stack version - https://github.com/elastic/kibana/issues/142862
+        if stack_version >= Version('8.4.0') and stack_version < Version('8.6.0'):
+            assert len(self.new_terms.value) == 1, \
+                "new terms fields have a max limit of 1 for stack versions below 8.6.0"
 
     def transform(self, obj: dict) -> dict:
         """Transforms new terms data to API format for Kibana."""
@@ -947,7 +957,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         data.validate_query(metadata)
         data.data_validator.validate_note()
-        data.validation(metadata) if hasattr(data, 'validation') else None
+        data.validation(metadata) if hasattr(data, 'validation') else False
 
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
