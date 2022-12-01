@@ -469,7 +469,7 @@ class NewTermsRuleData(QueryRuleData):
         @dataclass(frozen=True)
         class HistoryWindowStart:
             field: definitions.NonEmptyStr
-            value: definitions.HistoryWindowStart
+            value: definitions.NonEmptyStr
 
         field: definitions.NonEmptyStr
         value: definitions.NewTermsFields
@@ -813,7 +813,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         subclass.from_dict(obj)
 
         # rule type transforms
-        self.data.transform(obj) if hasattr(self.data, 'transform') else False
+        self.data.transform(obj) if hasattr(self.data, 'transform') else None
 
         return obj
 
