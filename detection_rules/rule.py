@@ -813,7 +813,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         subclass.from_dict(obj)
 
         # rule type transforms
-        self.data.transform(obj) if hasattr(self.data, 'transform') else None
+        self.data.transform(obj) if hasattr(self.data, 'transform') else False
 
         return obj
 
