@@ -478,7 +478,7 @@ class NewTermsRuleData(QueryRuleData):
     type: Literal["new_terms"]
     new_terms: NewTermsMapping
 
-    def validation(self, meta: RuleMeta) -> None:
+    def validate(self, meta: RuleMeta) -> None:
         """Validates terms in new_terms_fields are valid ECS schema."""
 
         super(NewTermsRuleData, self).validate_query(meta)
@@ -961,7 +961,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         data.validate_query(metadata)
         data.data_validator.validate_note()
-        data.validation(metadata) if hasattr(data, 'validation') else False
+        data.validate(metadata) if hasattr(data, 'validate') else False
 
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
