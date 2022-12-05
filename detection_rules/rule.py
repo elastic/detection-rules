@@ -513,7 +513,7 @@ class NewTermsRuleData(QueryRuleData):
         if stack_version >= Version(feature_min_stack) and \
             stack_version < Version(feature_min_stack_extended_fields):
             assert len(self.new_terms.value) == 1, \
-                "new terms have a max limit of 1 for stack versions below 8.6.0"
+                f"new terms have a max limit of 1 for stack versions below {feature_min_stack_extended_fields}"
 
         # validate fields are unique
         assert len(set(self.new_terms.value)) == len(self.new_terms.value), \
