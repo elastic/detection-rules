@@ -49,7 +49,8 @@ TIMELINE_TEMPLATES: Final[dict] = {
     'e70679c2-6cde-4510-9764-4823df18f7db': 'Comprehensive Process Timeline',
     '300afc76-072d-4261-864d-4149714bf3f1': 'Comprehensive Network Timeline',
     '3e47ef71-ebfc-4520-975c-cb27fc090799': 'Comprehensive Registry Timeline',
-    '3e827bab-838a-469f-bd1e-5e19a2bff2fd': 'Alerts Involving a Single User Timeline'
+    '3e827bab-838a-469f-bd1e-5e19a2bff2fd': 'Alerts Involving a Single User Timeline',
+    '4434b91a-94ca-4a89-83cb-a37cdc0532b7': 'Alerts Involving a Single Host Timeline'
 }
 
 
