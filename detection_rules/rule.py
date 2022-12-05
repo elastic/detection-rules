@@ -483,9 +483,15 @@ class NewTermsRuleData(QueryRuleData):
 
         super(NewTermsRuleData, self).validate_query(meta)
 
-        # validate history window start field exists
+        # validate history window start field exists and is correct
         assert self.new_terms.history_window_start, \
             "new terms field found with no history_window_start field defined"
+        assert self.new_terms.history_window_start.field == "history_window_start", \
+            f"{self.new_terms.history_window_start} should be 'history_window_start'"
+
+        # validate new terms and history window start fields is correct
+        assert self.new_terms.field == "new_terms_fields", \
+            f"{self.new_terms.field} should be 'new_terms_fields' for new_terms rule type"
 
         # ecs validation
         min_stack_version = meta.get("min_stack_version")
