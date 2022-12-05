@@ -482,11 +482,13 @@ class NewTermsRuleData(QueryRuleData):
         """Validates terms in new_terms_fields are valid ECS schema."""
 
         super(NewTermsRuleData, self).validate_query(meta)
+        feature_min_stack = '8.4.0'
+        feature_min_stack_extended_fields = '8.6.0'
 
         # validate history window start field exists and is correct
         assert self.new_terms.history_window_start, \
             "new terms field found with no history_window_start field defined"
-        assert self.new_terms.history_window_start.field == "history_window_start", \
+        assert self.new_terms.history_window_start[0].field == "history_window_start", \
             f"{self.new_terms.history_window_start} should be 'history_window_start'"
 
         # validate new terms and history window start fields is correct
@@ -498,8 +500,9 @@ class NewTermsRuleData(QueryRuleData):
         if min_stack_version is None:
             min_stack_version = str(Version(Version(load_current_package_version()) + (0,)))
 
-        stack_version = Version(min_stack_version)
-        assert stack_version >= Version('8.4.0'), "New Terms rule types only compatible with 8.4.0+"
+        stack_version = Version(feature_min_stack)
+        assert stack_version >= Version(feature_min_stack), \
+            "New Terms rule types only compatible with 8.4.0+"
         ecs_version = get_stack_schemas()[str(stack_version)]['ecs']
         ecs_schema = ecs.get_schema(ecs_version)
         for new_terms_field in self.new_terms.value:
@@ -507,7 +510,8 @@ class NewTermsRuleData(QueryRuleData):
                 f"{new_terms_field} not found in ECS schema (version {ecs_version})"
 
         # validates length of new_terms to stack version - https://github.com/elastic/kibana/issues/142862
-        if stack_version >= Version('8.4.0') and stack_version < Version('8.6.0'):
+        if stack_version >= Version(feature_min_stack) and \
+            stack_version < Version(feature_min_stack_extended_fields):
             assert len(self.new_terms.value) == 1, \
                 "new terms have a max limit of 1 for stack versions below 8.6.0"
 
