@@ -186,7 +186,6 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     filters: Optional[List[dict]]
     # trailing `_` required since `from` is a reserved word in python
     from_: Optional[str] = field(metadata=dict(data_key="from"))
-
     interval: Optional[definitions.Interval]
     max_signals: Optional[definitions.MaxSignals]
     meta: Optional[Dict[str, Any]]
@@ -277,7 +276,6 @@ class DataValidator:
         self.is_elastic_rule = is_elastic_rule
         self.note = note
         self.setup = setup
-
         self._setup_in_note = False
 
     @cached_property
@@ -463,6 +461,74 @@ class ThresholdQueryRuleData(QueryRuleData):
 
 
 @dataclass(frozen=True)
+class NewTermsRuleData(QueryRuleData):
+    """Specific fields for new terms field rule."""
+
+    @dataclass(frozen=True)
+    class NewTermsMapping(MarshmallowDataclassMixin):
+        @dataclass(frozen=True)
+        class HistoryWindowStart:
+            field: definitions.NonEmptyStr
+            value: definitions.NonEmptyStr
+
+        field: definitions.NonEmptyStr
+        value: definitions.NewTermsFields
+        history_window_start: List[HistoryWindowStart]
+
+    type: Literal["new_terms"]
+    new_terms: NewTermsMapping
+
+    def validate(self, meta: RuleMeta) -> None:
+        """Validates terms in new_terms_fields are valid ECS schema."""
+
+        super(NewTermsRuleData, self).validate_query(meta)
+        feature_min_stack = '8.4.0'
+        feature_min_stack_extended_fields = '8.6.0'
+
+        # validate history window start field exists and is correct
+        assert self.new_terms.history_window_start, \
+            "new terms field found with no history_window_start field defined"
+        assert self.new_terms.history_window_start[0].field == "history_window_start", \
+            f"{self.new_terms.history_window_start} should be 'history_window_start'"
+
+        # validate new terms and history window start fields is correct
+        assert self.new_terms.field == "new_terms_fields", \
+            f"{self.new_terms.field} should be 'new_terms_fields' for new_terms rule type"
+
+        # ecs validation
+        min_stack_version = meta.get("min_stack_version")
+        if min_stack_version is None:
+            min_stack_version = str(Version(Version(load_current_package_version()) + (0,)))
+
+        stack_version = Version(feature_min_stack)
+        assert stack_version >= Version(feature_min_stack), \
+            f"New Terms rule types only compatible with {feature_min_stack}+"
+        ecs_version = get_stack_schemas()[str(stack_version)]['ecs']
+        ecs_schema = ecs.get_schema(ecs_version)
+        for new_terms_field in self.new_terms.value:
+            assert new_terms_field in ecs_schema.keys(), \
+                f"{new_terms_field} not found in ECS schema (version {ecs_version})"
+
+        # validates length of new_terms to stack version - https://github.com/elastic/kibana/issues/142862
+        if stack_version >= Version(feature_min_stack) and \
+                stack_version < Version(feature_min_stack_extended_fields):
+            assert len(self.new_terms.value) == 1, \
+                f"new terms have a max limit of 1 for stack versions below {feature_min_stack_extended_fields}"
+
+        # validate fields are unique
+        assert len(set(self.new_terms.value)) == len(self.new_terms.value), \
+            f"new terms fields values are not unique - {self.new_terms.value}"
+
+    def transform(self, obj: dict) -> dict:
+        """Transforms new terms data to API format for Kibana."""
+
+        obj[obj["new_terms"].get("field")] = obj["new_terms"].get("value")
+        obj["history_window_start"] = obj["new_terms"]["history_window_start"][0].get("value")
+        del obj["new_terms"]
+        return obj
+
+
+@dataclass(frozen=True)
 class EQLRuleData(QueryRuleData):
     """EQL rules are a special case of query rules."""
     type: Literal["eql"]
@@ -565,7 +631,8 @@ class ThreatMatchRuleData(QueryRuleData):
 
 # All of the possible rule types
 # Sort inverse of any inheritance - see comment in TOMLRuleContents.to_dict
-AnyRuleData = Union[EQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData, MachineLearningRuleData, QueryRuleData]
+AnyRuleData = Union[EQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData,
+                    MachineLearningRuleData, QueryRuleData, NewTermsRuleData]
 
 
 class BaseRuleContents(ABC):
@@ -748,6 +815,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         """Transform the converted API in place before sending to Kibana."""
         super()._post_dict_transform(obj)
 
+        # build time fields
         self._add_related_integrations(obj)
         self._add_required_fields(obj)
         self._add_setup(obj)
@@ -756,6 +824,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         rule_type = obj['type']
         subclass = self.get_data_subclass(rule_type)
         subclass.from_dict(obj)
+
+        # rule type transforms
+        self.data.transform(obj) if hasattr(self.data, 'transform') else False
+
         return obj
 
     def _add_related_integrations(self, obj: dict) -> None:
@@ -902,6 +974,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         data.validate_query(metadata)
         data.data_validator.validate_note()
+        data.validate(metadata) if hasattr(data, 'validate') else False
 
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
