@@ -502,7 +502,7 @@ class NewTermsRuleData(QueryRuleData):
 
         stack_version = Version(feature_min_stack)
         assert stack_version >= Version(feature_min_stack), \
-            "New Terms rule types only compatible with 8.4.0+"
+            f"New Terms rule types only compatible with {feature_min_stack}+"
         ecs_version = get_stack_schemas()[str(stack_version)]['ecs']
         ecs_schema = ecs.get_schema(ecs_version)
         for new_terms_field in self.new_terms.value:
