@@ -488,8 +488,11 @@ class NewTermsRuleData(QueryRuleData):
             "new terms field found with no history_window_start field defined"
 
         # ecs validation
-        stack_version = Version(meta.get("min_stack_version",
-                                Version(Version(load_current_package_version()) + (0,))))
+        min_stack_version = meta.get("min_stack_version")
+        if min_stack_version is None:
+            min_stack_version = str(Version(Version(load_current_package_version()) + (0,)))
+
+        stack_version = Version(min_stack_version)
         assert stack_version >= Version('8.4.0'), "New Terms rule types only compatible with 8.4.0+"
         ecs_version = get_stack_schemas()[str(stack_version)]['ecs']
         ecs_schema = ecs.get_schema(ecs_version)
