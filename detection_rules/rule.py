@@ -511,7 +511,7 @@ class NewTermsRuleData(QueryRuleData):
 
         # validates length of new_terms to stack version - https://github.com/elastic/kibana/issues/142862
         if stack_version >= Version(feature_min_stack) and \
-            stack_version < Version(feature_min_stack_extended_fields):
+                stack_version < Version(feature_min_stack_extended_fields):
             assert len(self.new_terms.value) == 1, \
                 f"new terms have a max limit of 1 for stack versions below {feature_min_stack_extended_fields}"
 
