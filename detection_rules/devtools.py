@@ -155,14 +155,14 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
 @click.option("--major", is_flag=True, help="bump the major version")
 @click.option("--minor", is_flag=True, help="bump the minor version")
 @click.option("--patch", is_flag=True, help="bump the patch version")
-@click.option("--package", is_flag=True, help="Update the packages.yml file")
-@click.option("--kibana", is_flag=True, help="Update the packages.yml file")
-@click.option("--registry", is_flag=True, help="Update the packages.yml file")
+@click.option("--package", is_flag=True, help="Update the package version in the packages.yml file")
+@click.option("--kibana", is_flag=True, help="Update the kibana version in the packages.yml file")
+@click.option("--registry", is_flag=True, help="Update the registry version in the packages.yml file")
 def bump_versions(major, minor, patch, package, kibana, registry):
     """Bump the versions"""
 
-    package = load_etc_dump('packages.yml')['package']
-    ver = package["name"]
+    package_data = load_etc_dump('packages.yml')['package']
+    ver = package_data["name"]
     new_version = Version(ver).bump(major, minor, patch)
 
     kibana_version = f"^{new_version}.0" if not patch else f"^{new_version}"
@@ -175,19 +175,19 @@ def bump_versions(major, minor, patch, package, kibana, registry):
 
     if package:
         # update package version
-        package["name"] = str(new_version)
+        package_data["name"] = str(new_version)
 
     if kibana:
         # update kibana version
-        package["registry_data"]["conditions"]["kibana.version"] = kibana_version
+        package_data["registry_data"]["conditions"]["kibana.version"] = kibana_version
 
     if registry:
         # update registry version
-        package["registry_data"]["version"] = registry_version
+        package_data["registry_data"]["version"] = registry_version
         # update packages.yml
 
     if package or kibana or registry:
-        save_etc_dump({"package": package}, "packages.yml")
+        save_etc_dump({"package": package_data}, "packages.yml")
 
 
 @dataclasses.dataclass
