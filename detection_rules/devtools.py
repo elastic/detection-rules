@@ -156,7 +156,7 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
 @click.option("--major", is_flag=True, help="bump the major version")
 @click.option("--minor", is_flag=True, help="bump the minor version")
 @click.option("--patch", is_flag=True, help="bump the patch version")
-@click.option("--save", is_flag=True, help="Update the setup.cfg and packages.yml file")
+@click.option("--save", is_flag=True, help="Update the packages.yml file")
 def bump_versions(major, minor, patch, save):
     """Bump the versions"""
 
@@ -171,23 +171,14 @@ def bump_versions(major, minor, patch, save):
     click.echo(f"New package version: {new_version}")
     click.echo(f"New registry data version: {registry_version}")
     click.echo(f"New Kibana version: {kibana_version}")
-   
+
     if save:
-        # update package object 
+        # update package object
         package["name"] = str(new_version)
         package["registry_data"]["conditions"]["kibana.version"] = kibana_version
         package["registry_data"]["version"] = registry_version
         # update packages.yml
         save_etc_dump({"package": package}, "packages.yml")
-
-        # update setup.cfg
-        config = configparser.ConfigParser()
-
-        config_path = Path(ROOT_DIR) / "setup.cfg"
-        config.read(config_path)
-        config["metadata"]["version"] = str(new_version)
-        with open(config_path, 'w', encoding="utf-8") as configfile:
-            config.write(configfile)
 
 
 @dataclasses.dataclass
