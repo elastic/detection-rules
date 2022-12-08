@@ -4,7 +4,6 @@
 # 2.0.
 
 """CLI commands for internal detection_rules dev team."""
-import configparser
 import dataclasses
 import functools
 import io
@@ -44,7 +43,7 @@ from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
 from .semver import Version
-from .utils import (ROOT_DIR, dict_hash, get_etc_path, get_path, load_dump, save_etc_dump,
+from .utils import (dict_hash, get_etc_path, get_path, load_dump, save_etc_dump,
                     load_etc_dump)
 from .version_lock import VersionLockFile, default_version_lock
 
