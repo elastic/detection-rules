@@ -39,7 +39,7 @@ Detection Rules contains more than just static rule files. This repository also 
 
 Although rules can be added by manually creating `.toml` files, we don't recommend it. This repository also consists of a python module that aids rule creation and unit testing. Assuming you have Python 3.8+, run the below command to install the dependencies:
 ```console
-$ pip install -r requirements.txt
+$ pip3 install ".[dev]"
 Collecting jsl==0.2.4
   Downloading jsl-0.2.4.tar.gz (21 kB)
 Collecting jsonschema==3.2.0
