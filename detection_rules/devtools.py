@@ -164,18 +164,19 @@ def bump_versions(major, minor, patch, save):
     ver = package["name"]
     new_version = Version(ver).bump(major, minor, patch)
 
-    kibana_version = f"^{new_version}.0" if not patch else "^{new_version}"
+    kibana_version = f"^{new_version}.0" if not patch else f"^{new_version}"
     registry_version = f"{new_version}.0-dev.0" if not patch else f"{new_version}-dev.0"
 
     # print the new versions
     click.echo(f"New package version: {new_version}")
     click.echo(f"New registry data version: {registry_version}")
     click.echo(f"New Kibana version: {kibana_version}")
-    package["name"] = str(new_version)
-    package["registry_data"]["conditions"]["kibana.version"] = kibana_version
-    package["registry_data"]["version"] = registry_version
-
+   
     if save:
+        # update package object 
+        package["name"] = str(new_version)
+        package["registry_data"]["conditions"]["kibana.version"] = kibana_version
+        package["registry_data"]["version"] = registry_version
         # update packages.yml
         save_etc_dump({"package": package}, "packages.yml")
 
