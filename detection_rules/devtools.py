@@ -28,7 +28,7 @@ from eql.table import Table
 from kibana.connector import Kibana
 
 from . import attack, rule_loader, utils
-from .cli_utils import multi_collection, single_collection
+from .cli_utils import single_collection
 from .docs import IntegrationSecurityDocs
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
@@ -1230,7 +1230,6 @@ def update_attack_in_rules() -> List[Optional[TOMLRule]]:
     """Update threat mappings attack data in all rules."""
     new_rules = []
     redirected_techniques = attack.load_techniques_redirect()
-    attack_mappings = attack.load_attack_gz()
     today = time.strftime('%Y/%m/%d')
 
     rules = RuleCollection.default()
@@ -1287,7 +1286,7 @@ def update_attack_in_rules() -> List[Optional[TOMLRule]]:
             new_rules.append(new_rule)
 
     if new_rules:
-        click.echo(f'Finished - {len(new_rules)} rules updated!')
+        click.echo(f'\nFinished - {len(new_rules)} rules updated!')
     else:
         click.echo('No rule changes needed')
     return new_rules
