@@ -1,0 +1,52 @@
+id = "206cfc37-9fa4-41db-888f-eba7b381f5c6"
+created_at = "2022-11-23T14:58:56.657Z"
+created_by = "prashanth.pulisetti@gmail.com"
+name = "Suspicious Certreq Command to Download"
+tags = [ "Production", "Windows", ]
+interval = "5m"
+enabled = true
+description = "Detects a suspicious certreq execution taken from the LOLBAS examples, which can be abused to download (small) files"
+risk_score = 47
+severity = "medium"
+license = "Sai Prashanth Pulisetti"
+output_index = ""
+author = [ "Sai Prashanth Pulisetti" ]
+false_positives = [ ]
+from = "now-360s"
+rule_id = "206cfc37-9fa4-41db-888f-eba7b381f5c6"
+max_signals = 100
+risk_score_mapping = [ ]
+severity_mapping = [ ]
+to = "now"
+references = [ "https://lolbas-project.github.io/lolbas/Binaries/Certreq/" ]
+version = 1
+exceptions_list = [ ]
+immutable = false
+related_integrations = [ ]
+required_fields = [ ]
+setup = ""
+type = "query"
+language = "kuery"
+index = [ "*:winlogbeat-*" ]
+query = 'process.command_line.text :("certreq.exe" and "Post" and "config")'
+filters = [ ]
+throttle = "no_actions"
+actions = [ ]
+
+[meta]
+from = "1m"
+kibana_siem_app_url = "https://ezesiem-ccs.kb.us-east-1.aws.found.io:9243/s/soc/app/security"
+
+[[threat]]
+framework = "MITRE ATT&CK"
+
+  [threat.tactic]
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011"
+  name = "Command and Control"
+
+  [[threat.technique]]
+  id = "T1105"
+  reference = "https://attack.mitre.org/techniques/T1105"
+  name = "Ingress Tool Transfer"
+  subtechnique = [ ]
