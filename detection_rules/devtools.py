@@ -1256,6 +1256,7 @@ def update_attack_in_rules() -> List[Optional[TOMLRule]]:
             if any([tid for tid in technique_ids if tid in redirected_techniques]):
                 needs_update = True
                 threat_pending_update[tactic] = technique_ids
+                click.echo(f"'{rule.contents.name}' requires update - technique ID change")
 
             # check for name change
             # happens if technique ID is the same but name changes
@@ -1263,6 +1264,7 @@ def update_attack_in_rules() -> List[Optional[TOMLRule]]:
             if any([tname for tname in technique_names if tname not in expected_technique_names]):
                 needs_update = True
                 threat_pending_update[tactic] = technique_ids
+                click.echo(f"'{rule.contents.name}' requires update - technique name change")
 
             else:
                 valid_threat.append(entry)
@@ -1285,7 +1287,7 @@ def update_attack_in_rules() -> List[Optional[TOMLRule]]:
             new_rules.append(new_rule)
 
     if new_rules:
-        click.echo(f'{len(new_rules)} rules updated')
+        click.echo(f'Finished - {len(new_rules)} rules updated!')
     else:
         click.echo('No rule changes needed')
     return new_rules
