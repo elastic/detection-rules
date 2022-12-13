@@ -8,34 +8,32 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="43636c0c-162b-4445-bcd0-348cbd203fa3",
+    uuid="465eb9a9-2f8b-458b-9ea4-e50912ce1b89",
     platforms=["windows"],
-    endpoint=[{"rule_name": "Renamed AutoIt Scripts Interpreter", "rule_id": "99f2327e-871f-4b8a-ae75-d1c4697aefe4"}],
-    siem=[{'rule_id': '2e1e835d-01e5-48ca-b9fc-7a61f7f11902', 'rule_name': 'Renamed AutoIt Scripts Interpreter'}],
-    techniques=["T1036"],
+    endpoint=[],
+    siem=[{
+        'rule_id': '9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae4',
+        'rule_name': 'Microsoft Build Engine Using an Alternate Name'
+    }],
+    techniques=[""],
 )
-
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    autoit = "C:\\Users\\Public\\rta.exe"
+    msbuild = "C:\\Users\\Public\\rta.exe"
     rcedit = "C:\\Users\\Public\\rcedit.exe"
-
     common.copy_file(RENAMER, rcedit)
-    common.copy_file(EXE_FILE, autoit)
+    common.copy_file(EXE_FILE, msbuild)
 
-    # Execute command
     common.log("Modifying the OriginalFileName attribute")
-    common.execute(
-        [rcedit, autoit, "--set-version-string", "OriginalFileName", "autoitrta.exe"],
-        timeout=10,
-    )
-    common.execute([autoit], timeout=5, kill=True)
+    common.execute([rcedit, msbuild, "--set-version-string", "OriginalFilename", "MSBuild.exe"])
 
-    common.remove_files(autoit, rcedit)
+    common.execute([msbuild], timeout=2, kill=True)
+
+    common.remove_files(rcedit, msbuild)
 
 
 if __name__ == "__main__":

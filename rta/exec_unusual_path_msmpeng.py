@@ -8,34 +8,32 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="43636c0c-162b-4445-bcd0-348cbd203fa3",
+    uuid="1f0afcd1-e091-4489-a750-5b0b44e69e45",
     platforms=["windows"],
-    endpoint=[{"rule_name": "Renamed AutoIt Scripts Interpreter", "rule_id": "99f2327e-871f-4b8a-ae75-d1c4697aefe4"}],
-    siem=[{'rule_id': '2e1e835d-01e5-48ca-b9fc-7a61f7f11902', 'rule_name': 'Renamed AutoIt Scripts Interpreter'}],
-    techniques=["T1036"],
+    endpoint=[],
+    siem=[{
+        'rule_id': '053a0387-f3b5-4ba5-8245-8002cca2bd08',
+        'rule_name': 'Potential DLL Side-Loading via Microsoft Antimalware Service Executable'
+    }],
+    techniques=[""],
 )
-
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    autoit = "C:\\Users\\Public\\rta.exe"
+    msmpeng = "C:\\Users\\Public\\MsMpEng.exe"
     rcedit = "C:\\Users\\Public\\rcedit.exe"
-
     common.copy_file(RENAMER, rcedit)
-    common.copy_file(EXE_FILE, autoit)
+    common.copy_file(EXE_FILE, msmpeng)
 
-    # Execute command
     common.log("Modifying the OriginalFileName attribute")
-    common.execute(
-        [rcedit, autoit, "--set-version-string", "OriginalFileName", "autoitrta.exe"],
-        timeout=10,
-    )
-    common.execute([autoit], timeout=5, kill=True)
+    common.execute([rcedit, msmpeng, "--set-version-string", "OriginalFilename", "MsMpEng.exe"])
 
-    common.remove_files(autoit, rcedit)
+    common.execute([msmpeng], timeout=2, kill=True)
+
+    common.remove_files(rcedit, msmpeng)
 
 
 if __name__ == "__main__":

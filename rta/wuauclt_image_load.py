@@ -16,7 +16,10 @@ metadata = RtaMetadata(
             "rule_id": "3788c03d-28a5-4466-b157-d6dd4dc449bb",
         }
     ],
-    siem=[],
+    siem=[{
+        'rule_id': 'edf8ee23-5ea7-4123-ba19-56b41e424ae3',
+        'rule_name': 'ImageLoad via Windows Update Auto Update Client'
+    }],
     techniques=["T1218"],
 )
 
@@ -51,6 +54,7 @@ def main():
             "/RunHandlerComServer",
             ";echo",
             "/UpdateDeploymentProvider",
+            "C:\\Users\\a.dll"
         ],
         timeout=10,
     )
