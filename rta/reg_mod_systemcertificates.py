@@ -8,21 +8,24 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="878ffa93-dea6-48f8-9441-e199bc23ec6b",
+    uuid="5781ea36-ac63-4746-8e0f-a1ebd5ec481d",
     platforms=["windows"],
     endpoint=[],
-    siem=[{'rule_id': 'd703a5af-d5b0-43bd-8ddb-7a5d500b7da5', 'rule_name': 'Modification of WDigest Security Provider'}],
-    techniques=["T1003"],
+    siem=[{
+        'rule_id': '203ab79b-239b-4aa5-8e54-fc50623ee8e4',
+        'rule_name': 'Creation or Modification of Root Certificate'
+    }],
+    techniques=[""],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    key = "System\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
-    value = "UseLogonCredential"
-    data = 1
+    key = "Software\\Microsoft\\SystemCertificates\\Root\\Certificates\\Test"
+    value = "Blob"
+    data = "test"
 
-    with common.temporary_reg(common.HKLM, key, value, data, data_type="dword"):
+    with common.temporary_reg(common.HKLM, key, value, data):
         pass
 
 

@@ -8,21 +8,21 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="878ffa93-dea6-48f8-9441-e199bc23ec6b",
+    uuid="8896c6ac-ead6-4f4e-aecf-8308fd53e78c",
     platforms=["windows"],
     endpoint=[],
-    siem=[{'rule_id': 'd703a5af-d5b0-43bd-8ddb-7a5d500b7da5', 'rule_name': 'Modification of WDigest Security Provider'}],
-    techniques=["T1003"],
+    siem=[{'rule_id': '3535c8bb-3bd5-40f4-ae32-b7cd589d5372', 'rule_name': 'Port Forwarding Rule Addition'}],
+    techniques=[""],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    key = "System\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
-    value = "UseLogonCredential"
-    data = 1
+    key = "System\\CurrentControlSet\\Services\\PortProxy\\v4tov4"
+    value = "a"
+    data = "0"
 
-    with common.temporary_reg(common.HKLM, key, value, data, data_type="dword"):
+    with common.temporary_reg(common.HKLM, key, value, data):
         pass
 
 

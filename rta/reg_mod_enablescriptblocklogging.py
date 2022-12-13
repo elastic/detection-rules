@@ -8,19 +8,19 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="878ffa93-dea6-48f8-9441-e199bc23ec6b",
+    uuid="5ef57ec6-32a0-40b2-b9a7-c4eda4cd3e49",
     platforms=["windows"],
     endpoint=[],
-    siem=[{'rule_id': 'd703a5af-d5b0-43bd-8ddb-7a5d500b7da5', 'rule_name': 'Modification of WDigest Security Provider'}],
-    techniques=["T1003"],
+    siem=[{'rule_id': '818e23e6-2094-4f0e-8c01-22d30f3506c6', 'rule_name': 'PowerShell Script Block Logging Disabled'}],
+    techniques=[""],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    key = "System\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
-    value = "UseLogonCredential"
-    data = 1
+    key = "SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging"
+    value = "EnableScriptBlockLogging"
+    data = 0
 
     with common.temporary_reg(common.HKLM, key, value, data, data_type="dword"):
         pass

@@ -8,21 +8,24 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="878ffa93-dea6-48f8-9441-e199bc23ec6b",
+    uuid="1b4050d9-e3fa-4559-b188-522b620584c8",
     platforms=["windows"],
     endpoint=[],
-    siem=[{'rule_id': 'd703a5af-d5b0-43bd-8ddb-7a5d500b7da5', 'rule_name': 'Modification of WDigest Security Provider'}],
-    techniques=["T1003"],
+    siem=[{
+        'rule_id': '54c3d186-0461-4dc3-9b33-2dc5c7473936',
+        'rule_name': 'Network Logon Provider Registry Modification'
+    }],
+    techniques=[""],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    key = "System\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
-    value = "UseLogonCredential"
-    data = 1
+    key = "System\\CurrentControlSet\\Services\\Test\\NetworkProvider"
+    value = "ProviderPath"
+    data = "C:\\Nonexistent.exe"
 
-    with common.temporary_reg(common.HKLM, key, value, data, data_type="dword"):
+    with common.temporary_reg(common.HKLM, key, value, data):
         pass
 
 
