@@ -17,7 +17,7 @@ import typing
 import urllib.parse
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, List, Optional, Tuple
 
 import click
 import requests.exceptions
@@ -26,22 +26,26 @@ from elasticsearch import Elasticsearch
 from eql.table import Table
 
 from kibana.connector import Kibana
-from . import rule_loader, utils
-from .cli_utils import single_collection
+
+from . import attack, rule_loader, utils
+from .cli_utils import multi_collection, single_collection
 from .docs import IntegrationSecurityDocs
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
+from .integrations import build_integrations_manifest
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
-from .packaging import PACKAGE_FILE, RELEASE_DIR, CURRENT_RELEASE_PATH, Package, current_stack_version
-from .version_lock import VersionLockFile, default_version_lock
-from .rule import AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData, ThreatMapping, TOMLRule
+from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
+                        Package, current_stack_version)
+from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
+                   ThreatMapping, TOMLRule)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
 from .semver import Version
-from .utils import dict_hash, get_path, get_etc_path, load_dump
-from .integrations import build_integrations_manifest
+from .utils import (dict_hash, get_etc_path, get_path, load_dump, save_etc_dump,
+                    load_etc_dump)
+from .version_lock import VersionLockFile, default_version_lock
 
 RULES_DIR = get_path('rules')
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
@@ -145,6 +149,45 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
     click.echo(f'- {len(deprecated)} deprecated rules')
 
     return docs
+
+
+@dev_group.command("bump-versions")
+@click.option("--major", is_flag=True, help="bump the major version")
+@click.option("--minor", is_flag=True, help="bump the minor version")
+@click.option("--patch", is_flag=True, help="bump the patch version")
+@click.option("--package", is_flag=True, help="Update the package version in the packages.yml file")
+@click.option("--kibana", is_flag=True, help="Update the kibana version in the packages.yml file")
+@click.option("--registry", is_flag=True, help="Update the registry version in the packages.yml file")
+def bump_versions(major, minor, patch, package, kibana, registry):
+    """Bump the versions"""
+
+    package_data = load_etc_dump('packages.yml')['package']
+    ver = package_data["name"]
+    new_version = Version(ver).bump(major, minor, patch)
+
+    kibana_version = f"^{new_version}.0" if not patch else f"^{new_version}"
+    registry_version = f"{new_version}.0-dev.0" if not patch else f"{new_version}-dev.0"
+
+    # print the new versions
+    click.echo(f"New package version: {new_version}")
+    click.echo(f"New registry data version: {registry_version}")
+    click.echo(f"New Kibana version: {kibana_version}")
+
+    if package:
+        # update package version
+        package_data["name"] = str(new_version)
+
+    if kibana:
+        # update kibana version
+        package_data["registry_data"]["conditions"]["kibana.version"] = kibana_version
+
+    if registry:
+        # update registry version
+        package_data["registry_data"]["version"] = registry_version
+        # update packages.yml
+
+    if package or kibana or registry:
+        save_etc_dump({"package": package_data}, "packages.yml")
 
 
 @dataclasses.dataclass
@@ -696,6 +739,7 @@ def package_stats(ctx, token, threads):
 def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
     """Use KQL or EQL to find matching rules from active GitHub PRs."""
     from uuid import uuid4
+
     from .main import search_rules
 
     all_rules: Dict[Path, TOMLRule] = {}
@@ -1044,7 +1088,9 @@ def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_coun
                 elasticsearch_client: Elasticsearch = None, kibana_client: Kibana = None):
     """Survey rule counts."""
     from kibana.resources import Signal
+
     from .main import search_rules
+
     # from .eswrap import parse_unique_field_results
 
     survey_results = []
@@ -1157,3 +1203,74 @@ def generate_endgame_schema(token: str, endgame_version: str, overwrite: bool):
     client = github.authenticated_client
     schema_manager = EndgameSchemaManager(client, endgame_version)
     schema_manager.save_schemas(overwrite=overwrite)
+
+
+@dev_group.group('attack')
+def attack_group():
+    """Commands for managing Mitre ATT&CK data and mappings."""
+
+
+@attack_group.command('refresh-data')
+def refresh_attack_data() -> dict:
+    """Refresh the ATT&CK data file."""
+    data, _ = attack.refresh_attack_data()
+    return data
+
+
+@attack_group.command('refresh-redirect-mappings')
+def refresh_threat_mappings():
+    """Refresh the ATT&CK redirect file and update all rule threat mappings."""
+    # refresh the attack_technique_redirects
+    click.echo('refreshing data in attack_technique_redirects.json')
+    attack.refresh_redirected_techniques_map()
+
+
+@attack_group.command('update-rules')
+@multi_collection
+def update_attack_in_rules(rules: RuleCollection) -> List[Optional[TOMLRule]]:
+    """Update threat mappings attack data in all rules."""
+    new_rules = []
+    redirected_techniques = attack.load_techniques_redirect()
+    today = time.strftime('%Y/%m/%d')
+
+    for rule in rules.rules:
+        needs_update = False
+        valid_threat: List[ThreatMapping] = []
+        threat_pending_update = {}
+        threat = rule.contents.data.threat or []
+
+        for entry in threat:
+            tactic = entry.tactic.name
+            techniques = []
+            for technique in entry.technique or []:
+                techniques.append(technique.id)
+                techniques.extend([st.id for st in technique.subtechnique or []])
+
+            if any([t for t in techniques if t in redirected_techniques]):
+                needs_update = True
+                threat_pending_update[tactic] = techniques
+            else:
+                valid_threat.append(entry)
+
+        if needs_update:
+            for tactic, techniques in threat_pending_update.items():
+                try:
+                    updated_threat = attack.build_threat_map_entry(tactic, *techniques)
+                except ValueError as err:
+                    raise ValueError(f'{rule.id} - {rule.name}: {err}')
+
+                tm = ThreatMapping.from_dict(updated_threat)
+                valid_threat.append(tm)
+
+            new_meta = dataclasses.replace(rule.contents.metadata, updated_date=today)
+            new_data = dataclasses.replace(rule.contents.data, threat=valid_threat)
+            new_contents = dataclasses.replace(rule.contents, data=new_data, metadata=new_meta)
+            new_rule = TOMLRule(contents=new_contents)
+            new_rule.save_toml()
+            new_rules.append(new_rule)
+
+    if new_rules:
+        click.echo(f'{len(new_rules)} rules updated')
+    else:
+        click.echo('No rule changes needed')
+    return new_rules

@@ -1,3 +1,4 @@
+**The setup instructions in this document have been deprecated. Please follow the steps outlined [here](https://www.elastic.co/guide/en/security/current/user-risk-score.html), to enable User Risk Score in your environment.**
 # User Risk Score
 
 The User Risk Score feature highlights risky usernames from within your environment. It utilizes a transform with a scripted metric aggregation to calculate user risk scores based on alerts that were generated within the past three months. The transform runs hourly to update the score as new alerts are generated. Each alert's contribution to the user risk score is based on the alert's risk score (`signal.rule.risk_score`). The risk score is calculated using a weighted sum where rules with higher time-corrected risk scores also have higher weights. Each risk score is normalized to a scale of 0 to 100.
