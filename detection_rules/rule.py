@@ -952,7 +952,12 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                 datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
 
         if not datasets:
-            return
+            # windows and endpoint integration do not have event.dataset fields in queries
+            if self.metadata.integration in ["windows","endpoint"]:
+                packaged_integrations.append({"package": self.metadata.integration,
+                                              "integration": self.metadata.integration})
+            else:
+                return
 
         for value in sorted(datasets):
             integration = 'Unknown'

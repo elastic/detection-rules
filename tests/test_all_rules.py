@@ -438,8 +438,10 @@ class TestRuleMetadata(BaseRuleTest):
     def test_integration(self):
         """Test that rules in integrations folders have matching integration defined."""
         failures = []
+        index_pattern_integrations = ["apm","endpoint","windows","winlog"]
 
         packages_manifest = load_integrations_manifests()
+        valid_integration_folders = [p.name for p in list(Path(INTEGRATION_RULE_DIR).glob("*")) if p.name != 'endpoint']
 
         for rule in self.production_rules:
             rule_integration = rule.contents.metadata.get('integration')
@@ -450,18 +452,26 @@ class TestRuleMetadata(BaseRuleTest):
                 failures.append(err_msg)
 
             # checks if the rule path matches the intended integration
-            valid_integration_folders = [p.name for p in list(Path(INTEGRATION_RULE_DIR).glob("*"))]
             if rule_integration and rule_integration in valid_integration_folders:
                 if rule_integration != rule.path.parent.name:
                     err_msg = f'{self.rule_str(rule)} {rule_integration} tag, but path is {rule.path.parent.name}'
                     failures.append(err_msg)
 
-            # checks if event.dataset exists in query object and a tag exists in metadata
             if isinstance(rule.contents.data, QueryRuleData) and rule.contents.data.language != 'lucene':
+                # checks if event.dataset exists in query object and a tag exists in metadata
                 trc = TOMLRuleContents(rule.contents.metadata, rule.contents.data)
                 package_integrations = trc._get_packaged_integrations(packages_manifest)
                 if package_integrations and not rule_integration:
                     err_msg = f'{self.rule_str(rule)} integration tag should exist: '
+
+                # checks if rule has index pattern integration and the integration tag exists
+                ignore_ids = ["eb079c62-4481-4d6e-9643-3ca499df7aaa"]
+                if any([re.search("|".join(index_pattern_integrations), i, re.IGNORECASE) for i in rule.contents.data.index]):
+                    if rule.contents.data.type in ["query","eql","threshold"] and not rule.contents.metadata.integration \
+                        and rule.id not in ignore_ids:
+                            err_msg = f'substrings {index_pattern_integrations} found in '\
+                                    f'{self.rule_str(rule)} rule index patterns are {rule.contents.data.index}, but no integration tag found'
+                            failures.append(err_msg)
 
         if failures:
             err_msg = """
