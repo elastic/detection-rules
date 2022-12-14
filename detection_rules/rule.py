@@ -953,7 +953,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         if not datasets:
             # windows and endpoint integration do not have event.dataset fields in queries
-            if self.metadata.integration in ["windows","endpoint"]:
+            if self.metadata.integration in ["windows", "endpoint"]:
                 packaged_integrations.append({"package": self.metadata.integration,
                                               "integration": self.metadata.integration})
             else:
