@@ -53,7 +53,7 @@ class RuleMeta(MarshmallowDataclassMixin):
 
     # Optional fields
     comments: Optional[str]
-    integration: Optional[str]
+    integration: Optional[List[str]]
     maturity: Optional[definitions.Maturity]
     min_stack_version: Optional[definitions.SemVer]
     min_stack_comments: Optional[str]
@@ -953,11 +953,11 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         if not datasets:
             # windows and endpoint integration do not have event.dataset fields in queries
-            if self.metadata.integration in ["windows", "endpoint", "apm"]:
-                packaged_integrations.append({"package": self.metadata.integration,
-                                              "integration": self.metadata.integration})
-            else:
-                return
+            for integration_tag in self.metadata.integration:
+                if integration_tag in ["windows", "endpoint", "apm"]:
+                    packaged_integrations.append({"package": integration_tag, "integration": integration_tag})
+                else:
+                    return
 
         for value in sorted(datasets):
             integration = 'Unknown'
