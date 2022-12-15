@@ -26,7 +26,8 @@ type = "eql"
 query = '''
 /* This rule is compatible with Elastic Endpoint only */
 
-sequence by host.id, user.id with maxspan=5m
+sequence by host.id, user.id with maxspan=5m 
+
  [process where event.type == "start" and 
  
   process.Ext.token.integrity_level_name != "system" and 
@@ -39,7 +40,6 @@ sequence by host.id, user.id with maxspan=5m
                                      
     (process.executable : ("?:\\Users\\*.exe",
                            "?:\\ProgramData\\*.exe",
-                           "?:\\Windows\\Microsoft.NET\\*.exe",
                            "?:\\Windows\\Temp\\*.exe",
                            "?:\\Windows\\Tasks\\*") and 
       (process.code_signature.exists == false or process.code_signature.status : "errorBadDigest")) or 
@@ -52,12 +52,21 @@ sequence by host.id, user.id with maxspan=5m
               "?:\\WINDOWS\\SysWOW64\\WerFaultSecure.exe",
               "?:\\Windows\\System32\\WerFault.exe",
               "?:\\Windows\\SysWOW64\\WerFault.exe")
-  ] by process.pid
- [process where event.type == "start" and process.parent.Ext.real.pid > 0 and
+  ] by process.entity_id
+ [process where event.type == "start" and 
+  
+  process.parent.Ext.real.pid > 0 and 
+ 
   /* process.parent.Ext.real.pid is only populated if the parent process pid doesn't match */
 
-  not (process.name : "msedge.exe" and process.parent.name : "sihost.exe")
- ] by process.parent.Ext.real.pid
+  not (process.name : "msedge.exe" and process.parent.name : "sihost.exe") and 
+  
+   not process.executable : 
+             ("?:\\Windows\\System32\\WerFaultSecure.exe", 
+              "?:\\WINDOWS\\SysWOW64\\WerFaultSecure.exe",
+              "?:\\Windows\\System32\\WerFault.exe",
+              "?:\\Windows\\SysWOW64\\WerFault.exe")
+ ] by process.parent.Ext.real.entity_id
 '''
 
 
