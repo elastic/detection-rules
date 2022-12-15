@@ -1259,7 +1259,7 @@ def update_attack_in_rules() -> List[Optional[TOMLRule]]:
 
             # check for name change
             # happens if technique ID is the same but name changes
-            expected_technique_names = [attack.technique_lookup[f"{tid}"]["name"] for tid in technique_ids]
+            expected_technique_names = [attack.technique_lookup[str(tid)]["name"] for tid in technique_ids]
             if any([tname for tname in technique_names if tname not in expected_technique_names]):
                 needs_update = True
                 threat_pending_update[tactic] = technique_ids
