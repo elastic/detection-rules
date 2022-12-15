@@ -26,7 +26,7 @@ type = "eql"
 query = '''
 /* This rule is compatible with Elastic Endpoint only */
 
-sequence by host.id, user.id with maxspan=5m 
+sequence by host.id, user.id with maxspan=3m 
 
  [process where event.type == "start" and 
  
@@ -52,7 +52,7 @@ sequence by host.id, user.id with maxspan=5m
               "?:\\WINDOWS\\SysWOW64\\WerFaultSecure.exe",
               "?:\\Windows\\System32\\WerFault.exe",
               "?:\\Windows\\SysWOW64\\WerFault.exe")
-  ] by process.entity_id
+  ] by process.pid
  [process where event.type == "start" and 
   
   process.parent.Ext.real.pid > 0 and 
@@ -66,7 +66,7 @@ sequence by host.id, user.id with maxspan=5m
               "?:\\WINDOWS\\SysWOW64\\WerFaultSecure.exe",
               "?:\\Windows\\System32\\WerFault.exe",
               "?:\\Windows\\SysWOW64\\WerFault.exe")
- ] by process.parent.Ext.real.entity_id
+ ] by process.parent.Ext.real.pid
 '''
 
 
