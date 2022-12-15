@@ -467,6 +467,7 @@ class TestRuleMetadata(BaseRuleTest):
                             err_msg = f'{self.rule_str(rule)} integration tag should exist: '
 
                         # checks if rule has index pattern integration and the integration tag exists
+                        # ignore the External Alerts rule
                         ignore_ids = ["eb079c62-4481-4d6e-9643-3ca499df7aaa"]
                         if any([re.search("|".join(NON_DATASET_PACKAGES), i, re.IGNORECASE)
                                 for i in rule.contents.data.index]):
