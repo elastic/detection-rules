@@ -29,9 +29,7 @@ query = '''
 sequence by host.id, user.id with maxspan=3m 
 
  [process where event.type == "start" and 
- 
   process.Ext.token.integrity_level_name != "system" and 
-  
   (
     process.pe.original_file_name : ("winword.exe", "excel.exe", "outlook.exe", "powerpnt.exe", "eqnedt32.exe",
                                      "fltldr.exe", "mspub.exe", "msaccess.exe", "powershell.exe", "pwsh.exe",
@@ -54,11 +52,9 @@ sequence by host.id, user.id with maxspan=3m
               "?:\\Windows\\SysWOW64\\WerFault.exe")
   ] by process.pid
  [process where event.type == "start" and 
-  
   process.parent.Ext.real.pid > 0 and 
  
   /* process.parent.Ext.real.pid is only populated if the parent process pid doesn't match */
-
   not (process.name : "msedge.exe" and process.parent.name : "sihost.exe") and 
   
    not process.executable : 
