@@ -438,7 +438,7 @@ class TestRuleMetadata(BaseRuleTest):
     def test_integration(self):
         """Test that rules in integrations folders have matching integration defined."""
         failures = []
-        index_pattern_integrations = ["apm", "endpoint", "windows", "winlog"]
+        NON_DATASET_PACKAGES = ["apm", "endpoint", "windows", "winlog"]
 
         packages_manifest = load_integrations_manifests()
         valid_integration_folders = [p.name for p in list(Path(INTEGRATION_RULE_DIR).glob("*")) if p.name != 'endpoint']
@@ -468,11 +468,11 @@ class TestRuleMetadata(BaseRuleTest):
 
                         # checks if rule has index pattern integration and the integration tag exists
                         ignore_ids = ["eb079c62-4481-4d6e-9643-3ca499df7aaa"]
-                        if any([re.search("|".join(index_pattern_integrations), i, re.IGNORECASE)
+                        if any([re.search("|".join(NON_DATASET_PACKAGES), i, re.IGNORECASE)
                                 for i in rule.contents.data.index]):
                             if rule.contents.data.type in ["query", "eql", "threshold"] and \
                                     not rule.contents.metadata.integration and rule.id not in ignore_ids:
-                                err_msg = f'substrings {index_pattern_integrations} found in '\
+                                err_msg = f'substrings {NON_DATASET_PACKAGES} found in '\
                                           f'{self.rule_str(rule)} rule index patterns are {rule.contents.data.index},' \
                                           f'but no integration tag found'
                                 failures.append(err_msg)
