@@ -3,7 +3,7 @@ creation_date = "2021/05/06"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/11/28"
+updated_date = "2022/12/12"
 
 [rule]
 author = ["Elastic", "Ivan Ninichuck", "Austin Songer"]
@@ -52,13 +52,21 @@ This rule looks for the usage of different utilities to disable the EventLog ser
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = [
-  "https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/logman",
-  "https://medium.com/palantir/tampering-with-windows-event-tracing-background-offense-and-defense-4be7ac62ac63",
+    "https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/logman",
+    "https://medium.com/palantir/tampering-with-windows-event-tracing-background-offense-and-defense-4be7ac62ac63",
 ]
 risk_score = 21
 rule_id = "4de76544-f0e5-486a-8f84-eae0b6063cdc"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Investigation Guide", "Elastic Endgame"]
+tags = [
+    "Elastic",
+    "Host",
+    "Windows",
+    "Threat Detection",
+    "Defense Evasion",
+    "Investigation Guide",
+    "Elastic Endgame",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -80,23 +88,24 @@ process where event.type == "start" and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1070"
-name = "Indicator Removal on Host"
+name = "Indicator Removal"
 reference = "https://attack.mitre.org/techniques/T1070/"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.001"
+name = "Clear Windows Event Logs"
+reference = "https://attack.mitre.org/techniques/T1070/001/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1070.001"
-  name = "Clear Windows Event Logs"
-  reference = "https://attack.mitre.org/techniques/T1070/001/"
 
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.006"
+name = "Indicator Blocking"
+reference = "https://attack.mitre.org/techniques/T1562/006/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1562.006"
-  name = "Indicator Blocking"
-  reference = "https://attack.mitre.org/techniques/T1562/006/"
+
 
 [rule.threat.tactic]
 id = "TA0005"
