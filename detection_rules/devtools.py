@@ -28,7 +28,7 @@ from eql.table import Table
 from kibana.connector import Kibana
 
 from . import attack, rule_loader, utils
-from .cli_utils import multi_collection, single_collection
+from .cli_utils import single_collection
 from .docs import IntegrationSecurityDocs
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
@@ -1226,12 +1226,13 @@ def refresh_threat_mappings():
 
 
 @attack_group.command('update-rules')
-@multi_collection
-def update_attack_in_rules(rules: RuleCollection) -> List[Optional[TOMLRule]]:
+def update_attack_in_rules() -> List[Optional[TOMLRule]]:
     """Update threat mappings attack data in all rules."""
     new_rules = []
     redirected_techniques = attack.load_techniques_redirect()
     today = time.strftime('%Y/%m/%d')
+
+    rules = RuleCollection.default()
 
     for rule in rules.rules:
         needs_update = False
@@ -1241,14 +1242,29 @@ def update_attack_in_rules(rules: RuleCollection) -> List[Optional[TOMLRule]]:
 
         for entry in threat:
             tactic = entry.tactic.name
-            techniques = []
+            technique_ids = []
+            technique_names = []
             for technique in entry.technique or []:
-                techniques.append(technique.id)
-                techniques.extend([st.id for st in technique.subtechnique or []])
+                technique_ids.append(technique.id)
+                technique_names.append(technique.name)
+                technique_ids.extend([st.id for st in technique.subtechnique or []])
+                technique_names.extend([st.name for st in technique.subtechnique or []])
 
-            if any([t for t in techniques if t in redirected_techniques]):
+            # check redirected techniques by ID
+            # redirected techniques are technique IDs that have changed but represent the same technique
+            if any([tid for tid in technique_ids if tid in redirected_techniques]):
                 needs_update = True
-                threat_pending_update[tactic] = techniques
+                threat_pending_update[tactic] = technique_ids
+                click.echo(f"'{rule.contents.name}' requires update - technique ID change")
+
+            # check for name change
+            # happens if technique ID is the same but name changes
+            expected_technique_names = [attack.technique_lookup[str(tid)]["name"] for tid in technique_ids]
+            if any([tname for tname in technique_names if tname not in expected_technique_names]):
+                needs_update = True
+                threat_pending_update[tactic] = technique_ids
+                click.echo(f"'{rule.contents.name}' requires update - technique name change")
+
             else:
                 valid_threat.append(entry)
 
@@ -1265,12 +1281,12 @@ def update_attack_in_rules(rules: RuleCollection) -> List[Optional[TOMLRule]]:
             new_meta = dataclasses.replace(rule.contents.metadata, updated_date=today)
             new_data = dataclasses.replace(rule.contents.data, threat=valid_threat)
             new_contents = dataclasses.replace(rule.contents, data=new_data, metadata=new_meta)
-            new_rule = TOMLRule(contents=new_contents)
+            new_rule = TOMLRule(contents=new_contents, path=rule.path)
             new_rule.save_toml()
             new_rules.append(new_rule)
 
     if new_rules:
-        click.echo(f'{len(new_rules)} rules updated')
+        click.echo(f'\nFinished - {len(new_rules)} rules updated!')
     else:
         click.echo('No rule changes needed')
     return new_rules
