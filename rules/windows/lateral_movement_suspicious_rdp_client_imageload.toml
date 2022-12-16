@@ -12,7 +12,7 @@ Identifies suspicious Image Loading of the Remote Desktop Services ActiveX Clien
 presence of RDP lateral movement capability.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious RDP ActiveX Client Loaded"
@@ -24,12 +24,12 @@ references = ["https://posts.specterops.io/revisiting-remote-desktop-lateral-mov
 risk_score = 47
 rule_id = "71c5cb27-eca5-4151-bb47-64bc3f883270"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where (event.category == "library" or (event.category == "process" and event.action : "Image loaded*")) and
+any where (event.category : ("library", "driver") or (event.category == "process" and event.action : "Image loaded*")) and
  (dll.name : "mstscax.dll" or file.name : "mstscax.dll") and
    /* depending on noise in your env add here extra paths  */
   process.executable :
