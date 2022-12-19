@@ -481,7 +481,8 @@ class NewTermsRuleData(QueryRuleData):
     def validate(self, meta: RuleMeta) -> None:
         """Validates terms in new_terms_fields are valid ECS schema."""
 
-        super(NewTermsRuleData, self).validate_query(meta)
+        kql_validator = KQLValidator(self.query)
+        kql_validator.validate(self, meta)
         feature_min_stack = '8.4.0'
         feature_min_stack_extended_fields = '8.6.0'
 
@@ -507,8 +508,7 @@ class NewTermsRuleData(QueryRuleData):
         beats_version = get_stack_schemas()[str(min_stack_version)]['beats']
 
         # checks if new terms field(s) are in ecs, beats or non-ecs schemas
-        query_validator = KQLValidator(self.query)
-        _, _, schema = query_validator.get_beats_schema(self.index or [], beats_version, ecs_version)
+        _, _, schema = kql_validator.get_beats_schema(self.index or [], beats_version, ecs_version)
 
         for new_terms_field in self.new_terms.value:
             assert new_terms_field in schema.keys(), \
