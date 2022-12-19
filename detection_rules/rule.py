@@ -504,27 +504,15 @@ class NewTermsRuleData(QueryRuleData):
         assert Version(min_stack_version) >= Version(feature_min_stack), \
             f"New Terms rule types only compatible with {feature_min_stack}+"
         ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
-        ecs_schema = ecs.get_schema(ecs_version)
-        non_ecs_schema = ecs.get_non_ecs_schema()
-        valid_schema_checks = []
+        beats_version = get_stack_schemas()[str(min_stack_version)]['beats']
 
-        # check if new terms field in ecs
-        # if not in ecs check non-ecs based on index pattern defined
+        # checks if new terms field(s) are in ecs, beats or non-ecs schemas
+        query_validator = KQLValidator(self.query)
+        _, _, schema = query_validator.get_beats_schema(self.index or [], beats_version, ecs_version)
+
         for new_terms_field in self.new_terms.value:
-            if new_terms_field not in ecs_schema.keys():
-                for index_pattern in self.index:
-                    target_non_ecs = ecs.flatten(non_ecs_schema.get(index_pattern, {}))
-                    if target_non_ecs:
-                        if new_terms_field not in target_non_ecs.keys():
-                            valid_schema_checks.append(False)
-                        else:
-                            valid_schema_checks.append(True)
-                    else:
-                        valid_schema_checks.append(False)
-            else:
-                valid_schema_checks.append(True)
-        assert any(valid_schema_checks), \
-            f"{new_terms_field} not found in ECS schema (version {ecs_version}) or non-ecs file"
+            assert new_terms_field in schema.keys(), \
+                f"{new_terms_field} not found in ECS, Beats or non-ecs schemas"
 
         # validates length of new_terms to stack version - https://github.com/elastic/kibana/issues/142862
         if Version(min_stack_version) >= Version(feature_min_stack) and \
