@@ -513,7 +513,7 @@ class NewTermsRuleData(QueryRuleData):
 
         for new_terms_field in self.new_terms.value:
             assert new_terms_field in schema.keys(), \
-                f"{new_terms_field} not found in ECS, Beats or non-ecs schemas"
+                f"{new_terms_field} not found in ECS, Beats, or non-ecs schemas"
 
         # validates length of new_terms to stack version - https://github.com/elastic/kibana/issues/142862
         if min_stack_version >= feature_min_stack and \
