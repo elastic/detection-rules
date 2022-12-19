@@ -483,8 +483,8 @@ class NewTermsRuleData(QueryRuleData):
 
         kql_validator = KQLValidator(self.query)
         kql_validator.validate(self, meta)
-        feature_min_stack = '8.4.0'
-        feature_min_stack_extended_fields = '8.6.0'
+        feature_min_stack = Version('8.4.0')
+        feature_min_stack_extended_fields = Version('8.6.0')
 
         # validate history window start field exists and is correct
         assert self.new_terms.history_window_start, \
@@ -499,9 +499,11 @@ class NewTermsRuleData(QueryRuleData):
         # ecs validation
         min_stack_version = meta.get("min_stack_version")
         if min_stack_version is None:
-            min_stack_version = str(Version(Version(load_current_package_version()) + (0,)))
+            min_stack_version = Version(Version(load_current_package_version()) + (0,))
+        else:
+            min_stack_version = Version(min_stack_version)
 
-        assert Version(min_stack_version) >= Version(feature_min_stack), \
+        assert min_stack_version >= feature_min_stack, \
             f"New Terms rule types only compatible with {feature_min_stack}+"
         ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
         beats_version = get_stack_schemas()[str(min_stack_version)]['beats']
@@ -514,8 +516,8 @@ class NewTermsRuleData(QueryRuleData):
                 f"{new_terms_field} not found in ECS, Beats or non-ecs schemas"
 
         # validates length of new_terms to stack version - https://github.com/elastic/kibana/issues/142862
-        if Version(min_stack_version) >= Version(feature_min_stack) and \
-                Version(min_stack_version) < Version(feature_min_stack_extended_fields):
+        if min_stack_version >= feature_min_stack and \
+                min_stack_version < feature_min_stack_extended_fields:
             assert len(self.new_terms.value) == 1, \
                 f"new terms have a max limit of 1 for stack versions below {feature_min_stack_extended_fields}"
 
