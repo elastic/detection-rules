@@ -500,18 +500,35 @@ class NewTermsRuleData(QueryRuleData):
         if min_stack_version is None:
             min_stack_version = str(Version(Version(load_current_package_version()) + (0,)))
 
-        stack_version = Version(feature_min_stack)
-        assert stack_version >= Version(feature_min_stack), \
+        # stack_version = Version(min_stack_version)
+        assert Version(min_stack_version) >= Version(feature_min_stack), \
             f"New Terms rule types only compatible with {feature_min_stack}+"
-        ecs_version = get_stack_schemas()[str(stack_version)]['ecs']
+        ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
         ecs_schema = ecs.get_schema(ecs_version)
+        non_ecs_schema = ecs.get_non_ecs_schema()
+        valid_schema_checks = []
+
+        # check if new terms field in ecs
+        # if not in ecs check non-ecs based on index pattern defined
         for new_terms_field in self.new_terms.value:
-            assert new_terms_field in ecs_schema.keys(), \
-                f"{new_terms_field} not found in ECS schema (version {ecs_version})"
+            if new_terms_field not in ecs_schema.keys():
+                for index_pattern in self.index:
+                    target_non_ecs = ecs.flatten(non_ecs_schema.get(index_pattern, {}))
+                    if target_non_ecs:
+                        if new_terms_field not in target_non_ecs.keys():
+                            valid_schema_checks.append(False)
+                        else:
+                            valid_schema_checks.append(True)
+                    else:
+                        valid_schema_checks.append(False)
+            else:
+                valid_schema_checks.append(True)
+        assert any(valid_schema_checks), \
+            f"{new_terms_field} not found in ECS schema (version {ecs_version}) or non-ecs file"
 
         # validates length of new_terms to stack version - https://github.com/elastic/kibana/issues/142862
-        if stack_version >= Version(feature_min_stack) and \
-                stack_version < Version(feature_min_stack_extended_fields):
+        if Version(min_stack_version) >= Version(feature_min_stack) and \
+                Version(min_stack_version) < Version(feature_min_stack_extended_fields):
             assert len(self.new_terms.value) == 1, \
                 f"new terms have a max limit of 1 for stack versions below {feature_min_stack_extended_fields}"
 
