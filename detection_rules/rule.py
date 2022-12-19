@@ -501,7 +501,6 @@ class NewTermsRuleData(QueryRuleData):
         if min_stack_version is None:
             min_stack_version = str(Version(Version(load_current_package_version()) + (0,)))
 
-        # stack_version = Version(min_stack_version)
         assert Version(min_stack_version) >= Version(feature_min_stack), \
             f"New Terms rule types only compatible with {feature_min_stack}+"
         ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
