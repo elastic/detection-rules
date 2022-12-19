@@ -3,7 +3,7 @@ creation_date = "2021/01/21"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2022/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +26,10 @@ type = "eql"
 
 query = '''
 registry where event.type == "change" and
-  registry.path : "HKLM\\SYSTEM\\*ControlSet*\\Control\\Lsa\\Authentication Packages" and
+  registry.path : (
+      "HKLM\\SYSTEM\\*ControlSet*\\Control\\Lsa\\Authentication Packages",
+      "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Control\\Lsa\\Authentication Packages"
+  ) and
   /* exclude SYSTEM SID - look for changes by non-SYSTEM user */
   not user.id : "S-1-5-18"
 '''

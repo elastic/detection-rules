@@ -3,7 +3,7 @@ creation_date = "2020/01/07"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/10/11"
+updated_date = "2022/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ that can be loaded from a different location by a native Windows process. This m
 privileges via privileged file write vulnerabilities.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious DLL Loaded for Persistence or Privilege Escalation"
@@ -81,19 +81,19 @@ references = [
 risk_score = 73
 rule_id = "bfeaf89b-a2a7-48a3-817f-e41829dc61ee"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Privilege Escalation", "Investigation Guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Privilege Escalation", "Investigation Guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 any where
- (event.category == "library" or (event.category == "process" and event.action : "Image loaded*")) and
+ (event.category : ("driver", "library") or (event.category == "process" and event.action : "Image loaded*")) and
  (
   /* compatible with Elastic Endpoint Library Events */
   (dll.name : ("wlbsctrl.dll", "wbemcomn.dll", "WptsExtensions.dll", "Tsmsisrv.dll", "TSVIPSrv.dll", "Msfte.dll",
                "wow64log.dll", "WindowsCoreDeviceInfo.dll", "Ualapi.dll", "wlanhlp.dll", "phoneinfo.dll", "EdgeGdi.dll",
                "cdpsgshims.dll", "windowsperformancerecordercontrol.dll", "diagtrack_win.dll")
-   and (dll.code_signature.trusted == false or dll.code_signature.exists == false)) or
+   and (dll.code_signature.trusted != true or dll.code_signature.exists != true)) or
 
   /* compatible with Sysmon EventID 7 - Image Load */
   (file.name : ("wlbsctrl.dll", "wbemcomn.dll", "WptsExtensions.dll", "Tsmsisrv.dll", "TSVIPSrv.dll", "Msfte.dll",

@@ -3,7 +3,7 @@ creation_date = "2021/01/20"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/10/11"
+updated_date = "2022/12/19"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ administrator-level access to the system. This rule identifies registry value ch
 (UAC) protection.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Disabling User Account Control via Registry Modification"
@@ -88,7 +88,7 @@ references = [
 risk_score = 47
 rule_id = "d31f183a-e5b1-451b-8534-ba62bca0b404"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Investigation Guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Investigation Guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -98,7 +98,10 @@ registry where event.type == "change" and
     (
       "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\EnableLUA",
       "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\ConsentPromptBehaviorAdmin",
-      "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\PromptOnSecureDesktop"
+      "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\PromptOnSecureDesktop",
+      "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\EnableLUA",
+      "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\ConsentPromptBehaviorAdmin",
+      "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\PromptOnSecureDesktop"
     ) and
   registry.data.strings : ("0", "0x00000000")
 '''
