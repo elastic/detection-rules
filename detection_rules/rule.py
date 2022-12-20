@@ -53,7 +53,7 @@ class RuleMeta(MarshmallowDataclassMixin):
 
     # Optional fields
     comments: Optional[str]
-    integration: Optional[List[str]]
+    integration: Optional[Union[str, List[str]]]
     maturity: Optional[definitions.Maturity]
     min_stack_version: Optional[definitions.SemVer]
     min_stack_comments: Optional[str]

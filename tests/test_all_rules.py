@@ -7,6 +7,7 @@
 import os
 import re
 import warnings
+import unittest
 from collections import defaultdict
 from pathlib import Path
 
@@ -24,6 +25,8 @@ from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
 from .base import BaseRuleTest
+
+PACKAGE_STACK_VERSION = Version(current_stack_version()) + (0,)
 
 
 class TestValidRules(BaseRuleTest):
@@ -435,8 +438,10 @@ class TestRuleMetadata(BaseRuleTest):
             rule_str = f'{rule_id} - {entry["rule_name"]} ->'
             self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
 
-    def test_integration(self):
-        """Test that rules in integrations folders have matching integration defined."""
+    @unittest.skipIf(PACKAGE_STACK_VERSION < Version("8.3.0"),
+                     "Test only applicable to 8.3+ stacks")
+    def test_integration_tag(self):
+        """Test integration rules defined by metadata tag."""
         failures = []
         non_dataset_packages = ["apm", "endpoint", "windows", "winlog"]
 
@@ -444,10 +449,16 @@ class TestRuleMetadata(BaseRuleTest):
         valid_integration_folders = [p.name for p in list(Path(INTEGRATION_RULE_DIR).glob("*")) if p.name != 'endpoint']
 
         for rule in self.production_rules:
+            rule_min_stack = rule.contents.metadata.get("min_stack_version", "")
+            if rule_min_stack:
+                # Only applicable if rule min stack defined is greater than current package version
+                # This avoids conflict with backporting code but not all rules
+                if PACKAGE_STACK_VERSION < Version(rule_min_stack):
+                    continue
             rule_integrations = rule.contents.metadata.get('integration')
             if rule_integrations:
+                rule_integrations = [rule_integrations] if isinstance(rule_integrations, str) else rule_integrations
                 for rule_integration in rule_integrations:
-
                     # checks if metadata tag matches from a list of integrations in EPR
                     if rule_integration not in packages_manifest.keys():
                         err_msg = f"{self.rule_str(rule)} integration '{rule_integration}' unknown"
@@ -466,6 +477,7 @@ class TestRuleMetadata(BaseRuleTest):
                     package_integrations = trc._get_packaged_integrations(packages_manifest)
                     if package_integrations:
                         err_msg = f'{self.rule_str(rule)} integration tag should exist: '
+                        failures.append(err_msg)
 
                     # checks if rule has index pattern integration and the integration tag exists
                     # ignore the External Alerts rule, Threat Indicator Matching Rules
@@ -489,6 +501,39 @@ class TestRuleMetadata(BaseRuleTest):
                     - `python -m detection_rules dev integrations build-manifests`\n
                 """
             self.fail(err_msg + '\n'.join(failures))
+
+
+class TestIntegrationRules(BaseRuleTest):
+    """Test integration rules."""
+
+    @unittest.skip("8.3+ Stacks Have Related Integrations Feature")
+    def test_integration_guide(self):
+        """Test that rules which require a config note are using standard verbiage."""
+        config = '## Setup\n\n'
+        beats_integration_pattern = config + 'The {} Fleet integration, Filebeat module, or similarly ' \
+                                             'structured data is required to be compatible with this rule.'
+        render = beats_integration_pattern.format
+        integration_notes = {
+            'aws': render('AWS'),
+            'azure': render('Azure'),
+            'cyberarkpas': render('CyberArk Privileged Access Security (PAS)'),
+            'gcp': render('GCP'),
+            'google_workspace': render('Google Workspace'),
+            'o365': render('Office 365 Logs'),
+            'okta': render('Okta'),
+        }
+
+        for rule in self.all_rules:
+            integration = rule.contents.metadata.integration
+            note_str = integration_notes.get(integration)
+
+            if note_str:
+                self.assert_(rule.contents.data.note, f'{self.rule_str(rule)} note required for config information')
+
+                if note_str not in rule.contents.data.note:
+                    self.fail(f'{self.rule_str(rule)} expected {integration} config missing\n\n'
+                              f'Expected: {note_str}\n\n'
+                              f'Actual: {rule.contents.data.note}')
 
     def test_rule_demotions(self):
         """Test to ensure a locked rule is not dropped to development, only deprecated"""
