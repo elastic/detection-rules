@@ -960,11 +960,11 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if not datasets:
             # windows and endpoint integration do not have event.dataset fields in queries
             # integration is None to remove duplicate references upstream in Kibana
-            for integration_tag in self.metadata.integration:
-                if integration_tag in ["windows", "endpoint", "apm"]:
-                    packaged_integrations.append({"package": integration_tag, "integration": None})
-                else:
-                    return
+            rule_integrations = self.metadata.get("integration", [])
+            if rule_integrations:
+                for integration in rule_integrations:
+                    if integration in ["windows", "endpoint", "apm"]:
+                        packaged_integrations.append({"package": integration, "integration": None})
 
         for value in sorted(datasets):
             integration = 'Unknown'
