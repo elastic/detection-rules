@@ -439,7 +439,7 @@ class TestRuleMetadata(BaseRuleTest):
             self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
 
     @unittest.skipIf(PACKAGE_STACK_VERSION < Version("8.3.0"),
-                     "Test only applicable to 8.3+ stacks")
+                     "Test only applicable to 8.3+ stacks regarding related integrations build time field.")
     def test_integration_tag(self):
         """Test integration rules defined by metadata tag."""
         failures = []
