@@ -449,12 +449,6 @@ class TestRuleMetadata(BaseRuleTest):
         valid_integration_folders = [p.name for p in list(Path(INTEGRATION_RULE_DIR).glob("*")) if p.name != 'endpoint']
 
         for rule in self.production_rules:
-            rule_min_stack = rule.contents.metadata.get("min_stack_version", "")
-            if rule_min_stack:
-                # Only applicable if rule min stack defined is greater than current package version
-                # This avoids conflict with backporting code but not all rules
-                if PACKAGE_STACK_VERSION < Version(rule_min_stack):
-                    continue
             rule_integrations = rule.contents.metadata.get('integration')
             if rule_integrations:
                 rule_integrations = [rule_integrations] if isinstance(rule_integrations, str) else rule_integrations
