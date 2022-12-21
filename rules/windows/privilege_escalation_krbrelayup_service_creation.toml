@@ -4,7 +4,11 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
+<<<<<<< HEAD
 updated_date = "2022/12/14"
+=======
+updated_date = "2022/12/21"
+>>>>>>> main
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +18,7 @@ localhost, followed by a sevice creation from the same LogonId. This may indicat
 relay attack variant that can be used to elevate privilege locally from a domain joined user to local System privileges.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*"]
+index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Service Creation via Local Kerberos Authentication"
@@ -27,11 +31,11 @@ references = [
 risk_score = 73
 rule_id = "e4e31051-ee01-4307-a6ee-b21b186958f4"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Credential Access"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Credential Access", "Active Directory"]
 type = "eql"
 
 query = '''
-sequence by host.id with maxspan=5m
+sequence by winlog.computer_name with maxspan=5m
  [authentication where
 
   /* event 4624 need to be logged */

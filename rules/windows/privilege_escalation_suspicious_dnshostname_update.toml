@@ -4,7 +4,11 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
+<<<<<<< HEAD
 updated_date = "2022/12/14"
+=======
+updated_date = "2022/12/21"
+>>>>>>> main
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +19,7 @@ step to exploit CVE-2022-26923 in an attempt to elevate privileges from a standa
 privileges.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*"]
+index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Remote Computer Account DnsHostName Update"
@@ -30,7 +34,7 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"
 type = "eql"
 
 query = '''
-sequence by host.id with maxspan=5m
+sequence by winlog.computer_name with maxspan=5m
 
   [authentication where event.action == "logged-in" and
    winlog.logon.type == "Network" and event.outcome == "success" and

@@ -4,7 +4,11 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
+<<<<<<< HEAD
 updated_date = "2022/12/14"
+=======
+updated_date = "2022/12/21"
+>>>>>>> main
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +17,7 @@ Identifies a remote logon followed by a scheduled task creation on the target ho
 adversary lateral movement.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*"]
+index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Remote Logon followed by Scheduled Task Creation"
@@ -66,7 +70,7 @@ type = "eql"
 query = '''
 /* Network Logon followed by Scheduled Task creation  */
 
-sequence by host.id with maxspan=1m
+sequence by winlog.computer_name with maxspan=1m
   [authentication where event.action == "logged-in" and
    winlog.logon.type == "Network" and event.outcome == "success" and
    not user.name == "ANONYMOUS LOGON" and not winlog.event_data.SubjectUserName : "*$" and

@@ -4,7 +4,11 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
+<<<<<<< HEAD
 updated_date = "2022/12/14"
+=======
+updated_date = "2022/12/21"
+>>>>>>> main
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +18,7 @@ malicious execution via the schedule service and perform clean up.
 """
 false_positives = ["Legitimate scheduled tasks may be created during installation of new software."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*"]
+index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Temporarily Scheduled Task Creation"
@@ -26,7 +30,7 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
 type = "eql"
 
 query = '''
-sequence by host.id, winlog.event_data.TaskName with maxspan=5m
+sequence by winlog.computer_name, winlog.event_data.TaskName with maxspan=5m
    [iam where event.action == "scheduled-task-created" and not user.name : "*$"]
    [iam where event.action == "scheduled-task-deleted" and not user.name : "*$"]
 '''
