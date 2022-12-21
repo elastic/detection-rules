@@ -23,7 +23,7 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement", "P
 type = "eql"
 
 query = '''
-sequence by winlog.logon.id, host.id with maxspan=1m
+sequence by winlog.logon.id, winlog.computer_name with maxspan=1m
 [authentication where event.action == "logged-in" and winlog.logon.type : "Network" and
 event.outcome=="success" and source.ip != null and source.ip != "127.0.0.1" and source.ip != "::1"]
 [iam where event.action == "service-installed" and
