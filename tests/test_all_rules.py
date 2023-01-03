@@ -474,11 +474,12 @@ class TestRuleMetadata(BaseRuleTest):
                         failures.append(err_msg)
 
                     # checks if rule has index pattern integration and the integration tag exists
-                    # ignore the External Alerts rule, Threat Indicator Matching Rules
+                    # ignore the External Alerts rule, Threat Indicator Matching Rules, Guided onboarding
                     ignore_ids = [
                         "eb079c62-4481-4d6e-9643-3ca499df7aaa",
                         "699e9fdb-b77c-4c01-995c-1c15019b9c43",
-                        "0c9a14d9-d65d-486f-9b5b-91e4e6b22bd0"
+                        "0c9a14d9-d65d-486f-9b5b-91e4e6b22bd0",
+                        "a198fbbd-9413-45ec-a269-47ae4ccf59ce"
                     ]
                     if any([re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
                             for i in rule.contents.data.index]):
