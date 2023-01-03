@@ -3,7 +3,7 @@ creation_date = "2020/11/12"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/13"
+updated_date = "2022/12/21"
 
 [rule]
 author = ["Elastic", "Anabella Cristaldi"]
@@ -12,7 +12,7 @@ Identifies attempts to clear Windows event log stores. This is often done by att
 or destroy forensic evidence on a system.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*"]
+index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Windows Event Logs Cleared"
@@ -70,13 +70,13 @@ event.action:("audit-log-cleared" or "Log clear")
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1070"
-name = "Indicator Removal on Host"
+name = "Indicator Removal"
 reference = "https://attack.mitre.org/techniques/T1070/"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.001"
+name = "Clear Windows Event Logs"
+reference = "https://attack.mitre.org/techniques/T1070/001/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1070.001"
-  name = "Clear Windows Event Logs"
-  reference = "https://attack.mitre.org/techniques/T1070/001/"
 
 
 [rule.threat.tactic]
