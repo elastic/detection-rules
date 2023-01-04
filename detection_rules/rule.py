@@ -53,7 +53,7 @@ class RuleMeta(MarshmallowDataclassMixin):
 
     # Optional fields
     comments: Optional[str]
-    integration: Optional[str]
+    integration: Optional[Union[str, List[str]]]
     maturity: Optional[definitions.Maturity]
     min_stack_version: Optional[definitions.SemVer]
     min_stack_comments: Optional[str]
@@ -958,7 +958,13 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                 datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
 
         if not datasets:
-            return
+            # windows and endpoint integration do not have event.dataset fields in queries
+            # integration is None to remove duplicate references upstream in Kibana
+            rule_integrations = self.metadata.get("integration", [])
+            if rule_integrations:
+                for integration in rule_integrations:
+                    if integration in ["windows", "endpoint", "apm"]:
+                        packaged_integrations.append({"package": integration, "integration": None})
 
         for value in sorted(datasets):
             integration = 'Unknown'
