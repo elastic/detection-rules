@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2021/10/13"
+integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/13"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -80,7 +81,7 @@ reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLo
 """
 references = [
     "https://github.com/BC-SECURITY/Empire/blob/9259e5106986847d2bb770c4289c0c0f1adf2344/data/module_source/situational_awareness/network/powerview.ps1#L21413",
-    "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0109_windows_powershell_script_block_log.md"
+    "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0109_windows_powershell_script_block_log.md",
 ]
 risk_score = 47
 rule_id = "61ac3638-40a3-44b2-855a-985636ca985e"
@@ -109,34 +110,32 @@ event.category:process and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
+[[rule.threat.technique.subtechnique]]
+id = "T1069.001"
+name = "Local Groups"
+reference = "https://attack.mitre.org/techniques/T1069/001/"
+
 
 [[rule.threat.technique]]
 id = "T1135"
 name = "Network Share Discovery"
 reference = "https://attack.mitre.org/techniques/T1135/"
 
-[[rule.threat.technique]]
-id = "T1069"
-name = "Permission Groups Discovery"
-reference = "https://attack.mitre.org/techniques/T1069/"
-
-  [[rule.threat.technique.subtechnique]]
-  id = "T1069.001"
-  name = "Local Groups"
-  reference = "https://attack.mitre.org/techniques/T1069/001/"
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.001"
 name = "PowerShell"
