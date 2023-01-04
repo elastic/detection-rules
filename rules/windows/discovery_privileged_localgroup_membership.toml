@@ -1,5 +1,6 @@
 [metadata]
 creation_date = "2020/10/15"
+integration = ["windows"]
 maturity = "production"
 updated_date = "2022/12/21"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
@@ -51,8 +52,8 @@ connections.
     processes in the process tree.
     - Examine the host services for suspicious or anomalous entries.
       - !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services","label":"Osquery - Retrieve All Services"}}
-      - !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE NOT (user_account LIKE \"%LocalSystem\" OR user_account LIKE \"%LocalService\" OR user_account LIKE \"%NetworkService\" OR user_account == null)","label":"Osquery - Retrieve Services Running on User Accounts"}}
-      - !{osquery{"query":"SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid, services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path = authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != \"trusted\"","label":"Osquery - Retrieve Service Unsigned Executables with Virustotal Link"}}
+      - !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE NOT (user_account LIKE "%LocalSystem" OR user_account LIKE "%LocalService" OR user_account LIKE "%NetworkService" OR user_account == null)","label":"Osquery - Retrieve Services Running on User Accounts"}}
+      - !{osquery{"query":"SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid, services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path = authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != "trusted"","label":"Osquery - Retrieve Service Unsigned Executables with Virustotal Link"}}
   - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and
   reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 
@@ -156,18 +157,18 @@ iam where event.action == "user-member-enumerated" and
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-reference = "https://attack.mitre.org/techniques/T1069/"
 id = "T1069"
 name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
 [[rule.threat.technique.subtechnique]]
-reference = "https://attack.mitre.org/techniques/T1069/001/"
 id = "T1069.001"
 name = "Local Groups"
+reference = "https://attack.mitre.org/techniques/T1069/001/"
 
 
 
 [rule.threat.tactic]
-reference = "https://attack.mitre.org/tactics/TA0007/"
 id = "TA0007"
 name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
 
