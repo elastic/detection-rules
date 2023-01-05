@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/01/07"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/10/11"
+updated_date = "2022/12/28"
 
 [rule]
 author = ["Elastic"]
@@ -81,7 +82,15 @@ references = [
 risk_score = 73
 rule_id = "bfeaf89b-a2a7-48a3-817f-e41829dc61ee"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Privilege Escalation", "Investigation Guide"]
+tags = [
+    "Elastic",
+    "Host",
+    "Windows",
+    "Threat Detection",
+    "Persistence",
+    "Privilege Escalation",
+    "Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -92,13 +101,15 @@ any where
   /* compatible with Elastic Endpoint Library Events */
   (dll.name : ("wlbsctrl.dll", "wbemcomn.dll", "WptsExtensions.dll", "Tsmsisrv.dll", "TSVIPSrv.dll", "Msfte.dll",
                "wow64log.dll", "WindowsCoreDeviceInfo.dll", "Ualapi.dll", "wlanhlp.dll", "phoneinfo.dll", "EdgeGdi.dll",
-               "cdpsgshims.dll", "windowsperformancerecordercontrol.dll", "diagtrack_win.dll")
+               "cdpsgshims.dll", "windowsperformancerecordercontrol.dll", "diagtrack_win.dll", "oci.dll", "TPPCOIPW32.dll", 
+               "tpgenlic.dll", "thinmon.dll", "fxsst.dll", "msTracer.dll")
    and (dll.code_signature.trusted == false or dll.code_signature.exists == false)) or
 
   /* compatible with Sysmon EventID 7 - Image Load */
   (file.name : ("wlbsctrl.dll", "wbemcomn.dll", "WptsExtensions.dll", "Tsmsisrv.dll", "TSVIPSrv.dll", "Msfte.dll",
                "wow64log.dll", "WindowsCoreDeviceInfo.dll", "Ualapi.dll", "wlanhlp.dll", "phoneinfo.dll", "EdgeGdi.dll",
-               "cdpsgshims.dll", "windowsperformancerecordercontrol.dll", "diagtrack_win.dll")
+               "cdpsgshims.dll", "windowsperformancerecordercontrol.dll", "diagtrack_win.dll", "oci.dll", "TPPCOIPW32.dll", 
+               "tpgenlic.dll", "thinmon.dll", "fxsst.dll", "msTracer.dll")
    and not file.code_signature.status == "Valid")
   )
 '''

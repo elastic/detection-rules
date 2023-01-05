@@ -1,5 +1,6 @@
 [metadata]
 creation_date = "2021/10/19"
+integration = ["windows"]
 maturity = "production"
 updated_date = "2023/01/05"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
@@ -51,8 +52,8 @@ prevalence, whether they are located in expected locations, and if they are sign
     processes in the process tree.
     - Examine the host services for suspicious or anomalous entries.
       - !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services","label":"Osquery - Retrieve All Services"}}
-      - !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE NOT (user_account LIKE \"%LocalSystem\" OR user_account LIKE \"%LocalService\" OR user_account LIKE \"%NetworkService\" OR user_account == null)","label":"Osquery - Retrieve Services Running on User Accounts"}}
-      - !{osquery{"query":"SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid, services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path = authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != \"trusted\"","label":"Osquery - Retrieve Service Unsigned Executables with Virustotal Link"}}
+      - !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE NOT (user_account LIKE "%LocalSystem" OR user_account LIKE "%LocalService" OR user_account LIKE "%NetworkService" OR user_account == null)","label":"Osquery - Retrieve Services Running on User Accounts"}}
+      - !{osquery{"query":"SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid, services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path = authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != "trusted"","label":"Osquery - Retrieve Service Unsigned Executables with Virustotal Link"}}
   - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and
   reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
 
@@ -130,36 +131,35 @@ event.category:process and
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
 id = "T1140"
 name = "Deobfuscate/Decode Files or Information"
 reference = "https://attack.mitre.org/techniques/T1140/"
 
-[[rule.threat.technique]]
-id = "T1027"
-name = "Obfuscated Files or Information"
-reference = "https://attack.mitre.org/techniques/T1027/"
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
-reference = "https://attack.mitre.org/techniques/T1059/"
 name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1059.001"
-  reference = "https://attack.mitre.org/techniques/T1059/001/"
-  name = "PowerShell"
+
 
 [rule.threat.tactic]
 id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
 name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 
