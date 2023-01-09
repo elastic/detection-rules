@@ -918,8 +918,7 @@ def trim_version_lock(min_version: str, dry_run: bool):
             for outdated in outdated_vers:
                 popped = lock['previous'].pop(str(outdated))
                 if outdated == latest_version:
-                    version_key = ".".join(map(str, min_version[:2]))
-                    lock['previous'][version_key] = popped
+                    lock['previous'][Version.__str__(min_version[:2])] = popped
 
             # remove the whole previous entry if it is now blank
             if not lock['previous']:
