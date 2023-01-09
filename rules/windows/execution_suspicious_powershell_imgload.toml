@@ -21,14 +21,19 @@ note = """## Triage and analysis
 
 ### Investigating Suspicious PowerShell Engine ImageLoad
 
-PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks. This makes it available for use in various environments, and creates an attractive way for attackers to execute code.
+PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks. This
+makes it available for use in various environments, and creates an attractive way for attackers to execute code.
 
-Attackers can use PowerShell without having to execute `PowerShell.exe` directly. This technique, often called "PowerShell without PowerShell," works by using the underlying System.Management.Automation namespace and can bypass application allowlisting and PowerShell security features.
+Attackers can use PowerShell without having to execute `PowerShell.exe` directly. This technique, often called
+"PowerShell without PowerShell," works by using the underlying System.Management.Automation namespace and can bypass
+application allowlisting and PowerShell security features.
 
 #### Possible investigation steps
 
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Investigate abnormal behaviors observed by the subject process, such as network connections, registry or file modifications, and any spawned child processes.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate abnormal behaviors observed by the subject process, such as network connections, registry or file
+modifications, and any spawned child processes.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Inspect the host for suspicious or abnormal behavior in the alert timeframe.
 - Retrieve the implementation (DLL, executable, etc.) and determine if it is malicious:
@@ -43,7 +48,8 @@ Attackers can use PowerShell without having to execute `PowerShell.exe` directly
 
 ### False positive analysis
 
-- This activity can happen legitimately. Some vendors have their own PowerShell implementations that are shipped with some products. These benign true positives (B-TPs) can be added as exceptions if necessary after analysis.
+- This activity can happen legitimately. Some vendors have their own PowerShell implementations that are shipped with
+some products. These benign true positives (B-TPs) can be added as exceptions if necessary after analysis.
 
 ### Response and remediation
 
@@ -53,12 +59,17 @@ Attackers can use PowerShell without having to execute `PowerShell.exe` directly
   - Implement temporary network rules, procedures, and segmentation to contain the malware.
   - Stop suspicious processes.
   - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
+  attackers could use to reinfect the system.
 - Remove and block malicious artifacts identified during triage.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
+systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 
 ## Setup
 
