@@ -1,5 +1,6 @@
 [metadata]
 creation_date = "2020/11/16"
+integration = ["endpoint", "windows"]
 maturity = "production"
 updated_date = "2023/01/03"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
@@ -87,7 +88,9 @@ malware components.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
 mean time to respond (MTTR).
 """
-references = ["https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-scmr/705b624a-13de-43cc-b8a2-99573da3635f"]
+references = [
+    "https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-scmr/705b624a-13de-43cc-b8a2-99573da3635f",
+]
 risk_score = 47
 rule_id = "aa9a274d-6b53-424d-ac5e-cb8ca4251650"
 severity = "medium"
@@ -101,7 +104,7 @@ sequence with maxspan=1s
       source.port >= 49152 and destination.port >= 49152 and source.ip != "127.0.0.1" and source.ip != "::1"
    ] by host.id, process.entity_id
 
-   [process where event.type == "start" and process.parent.name : "services.exe" and 
+   [process where event.type == "start" and process.parent.name : "services.exe" and
        not (process.name : "svchost.exe" and process.args : "tiledatamodelsvc") and
        not (process.name : "msiexec.exe" and process.args : "/V") and
        not process.executable :
