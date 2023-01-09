@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2021/11/08"
+integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/11/28"
+updated_date = "2022/12/21"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +12,7 @@ description = """
 Detects the first occurrence of a modification to Group Policy Object Attributes to add privileges to user accounts or
 use them to add users as local admins.
 """
-index = ["winlogbeat-*", "logs-system.*"]
+index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Group Policy Abuse for Privilege Addition"
@@ -66,7 +67,15 @@ references = [
 risk_score = 73
 rule_id = "b9554892-5e0e-424b-83a0-5aef95aa43bf"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Active Directory", "Investigation Guide"]
+tags = [
+    "Elastic",
+    "Host",
+    "Windows",
+    "Threat Detection",
+    "Privilege Escalation",
+    "Active Directory",
+    "Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -78,18 +87,19 @@ winlog.event_data.AttributeValue:(*827D319E-6EAC-11D2-A4EA-00C04F79F83A* and *80
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
-reference = "https://attack.mitre.org/techniques/T1484/"
 id = "T1484"
 name = "Domain Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+[[rule.threat.technique.subtechnique]]
+id = "T1484.001"
+name = "Group Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/001/"
 
-    [[rule.threat.technique.subtechnique]]
-    reference = "https://attack.mitre.org/techniques/T1484/001/"
-    id = "T1484.001"
-    name = "Group Policy Modification"
+
 
 [rule.threat.tactic]
-reference = "https://attack.mitre.org/tactics/TA0004/"
 id = "TA0004"
 name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
