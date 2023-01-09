@@ -23,14 +23,18 @@ note = """## Triage and analysis
 
 ### Investigating Whitespace Padding in Process Command Line
 
-This rule identifies process execution events where the command line value contains a long sequence of whitespace characters or multiple occurrences of contiguous whitespace. Attackers may attempt to evade signature-based detections by padding their malicious command with unnecessary whitespace characters.
+This rule identifies process execution events where the command line value contains a long sequence of whitespace
+characters or multiple occurrences of contiguous whitespace. Attackers may attempt to evade signature-based detections
+by padding their malicious command with unnecessary whitespace characters.
 
 #### Possible investigation steps
 
 - Analyze the command line of the process in question for evidence of malicious code execution.
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Investigate other alerts associated with the user/host during the past 48 hours.
-- Investigate abnormal behaviors observed by the subject process such as network connections, registry or file modifications, and any spawned child processes.
+- Investigate abnormal behaviors observed by the subject process such as network connections, registry or file
+modifications, and any spawned child processes.
 - Retrieve the process executable and determine if it is malicious:
   - Use a private sandboxed malware analysis system to perform analysis.
     - Observe and collect information about the following activities:
@@ -43,7 +47,8 @@ This rule identifies process execution events where the command line value conta
 
 ### False positive analysis
 
-- Alerts derived from this rule are not inherently malicious. Analysts can dismiss the alert if they don't find enough evidence of further suspicious activity.
+- Alerts derived from this rule are not inherently malicious. Analysts can dismiss the alert if they don't find enough
+evidence of further suspicious activity.
 
 ### Response and remediation
 
@@ -53,13 +58,18 @@ This rule identifies process execution events where the command line value conta
   - Implement temporary network rules, procedures, and segmentation to contain the malware.
   - Stop suspicious processes.
   - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
+  attackers could use to reinfect the system.
 - Remove the malicious certificate from the root certificate store.
 - Remove and block malicious artifacts identified during triage.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
+systems, and web services.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
 
 ## Setup
 
