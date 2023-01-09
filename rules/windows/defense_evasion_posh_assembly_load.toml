@@ -21,21 +21,17 @@ note = """## Triage and analysis
 
 ### Investigating Suspicious .NET Reflection via PowerShell
 
-PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks. This
-makes it available for use in various environments, and creates an attractive way for attackers to execute code.
+PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks. This makes it available for use in various environments, and creates an attractive way for attackers to execute code.
 
-Attackers can use .NET reflection to load PEs and DLLs in memory. These payloads are commonly embedded in the script,
-which can circumvent file-based security protections.
+Attackers can use .NET reflection to load PEs and DLLs in memory. These payloads are commonly embedded in the script, which can circumvent file-based security protections.
 
 > **Note**:
 > This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic stack version 8.5.0. Older Elastic stacks versions will see unrendered markdown in this guide.
 
 #### Possible investigation steps
 
-- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration
-capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics.
-- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for
-prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics.
+- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Examine file or network events from the involved PowerShell process for suspicious behavior.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Evaluate whether the user needs to use PowerShell to complete tasks.
@@ -43,23 +39,20 @@ prevalence, whether they are located in expected locations, and if they are sign
   - Analyze the script using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
-      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by
-      filtering by the process' `process.entity_id`.
+      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
       - Examine the DNS cache for suspicious or anomalous entries.
         - !{osquery{"query":"SELECT * FROM dns_cache", "label":"Osquery - Retrieve DNS Cache"}}
-    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related
-    processes in the process tree.
+    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
     - Examine the host services for suspicious or anomalous entries.
       - !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services","label":"Osquery - Retrieve All Services"}}
-      - !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE NOT (user_account LIKE "%LocalSystem" OR user_account LIKE "%LocalService" OR user_account LIKE "%NetworkService" OR user_account == null)","label":"Osquery - Retrieve Services Running on User Accounts"}}
-      - !{osquery{"query":"SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid, services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path = authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != "trusted"","label":"Osquery - Retrieve Service Unsigned Executables with Virustotal Link"}}
-  - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and
-  reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+      - !{osquery{"query":"SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE NOT (user_account LIKE \"%LocalSystem\" OR user_account LIKE \"%LocalService\" OR user_account LIKE \"%NetworkService\" OR user_account == null)","label":"Osquery - Retrieve Services Running on User Accounts"}}
+      - !{osquery{"query":"SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid, services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path = authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != \"trusted\"","label":"Osquery - Retrieve Service Unsigned Executables with Virustotal Link"}}
+  - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+- Investigate potentially compromised accounts. Analysts can do this by searching for login events (for example, 4624) to the target host after the registry modification.
 
 ### False positive analysis
 
-- This activity is unlikely to happen legitimately outside engineering or IT business units. As long as the analyst did
-not identify malware or suspicious activity related to the user or host, this alert can be dismissed.
+- This activity is unlikely to happen legitimately outside engineering or IT business units. As long as the analyst did not identify malware or suspicious activity related to the user or host, this alert can be dismissed.
 
 ### Related rules
 
@@ -75,18 +68,13 @@ not identify malware or suspicious activity related to the user or host, this al
   - Implement temporary network rules, procedures, and segmentation to contain the malware.
   - Stop suspicious processes.
   - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
-  attackers could use to reinfect the system.
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
 - Remove and block malicious artifacts identified during triage.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
-identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
-systems, and web services.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
 - Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
-malware components.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 ## Setup
 
