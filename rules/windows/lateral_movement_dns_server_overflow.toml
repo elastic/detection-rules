@@ -3,7 +3,7 @@ creation_date = "2020/07/16"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/11/28"
+updated_date = "2022/11/07"
 
 [rule]
 author = ["Elastic"]
@@ -26,20 +26,28 @@ note = """## Triage and analysis
 
 ### Investigating Abnormally Large DNS Response
 
-Detection alerts from this rule indicate possible anomalous activity around large byte DNS responses from a Windows DNS server. This detection rule was created based on activity represented in exploitation of vulnerability (CVE-2020-1350) also known as [SigRed](https://www.elastic.co/blog/detection-rules-for-sigred-vulnerability) during July 2020.
+Detection alerts from this rule indicate possible anomalous activity around large byte DNS responses from a Windows DNS
+server. This detection rule was created based on activity represented in exploitation of vulnerability (CVE-2020-1350)
+also known as [SigRed](https://www.elastic.co/blog/detection-rules-for-sigred-vulnerability) during July 2020.
 
 #### Possible investigation steps
 
-- This specific rule is sourced from network log activity such as DNS or network level data. It's important to validate the source of the incoming traffic and determine if this activity has been observed previously within an environment.
+- This specific rule is sourced from network log activity such as DNS or network level data. It's important to validate
+the source of the incoming traffic and determine if this activity has been observed previously within an environment.
 - Activity can be further investigated and validated by reviewing any associated Intrusion Detection Signatures (IDS) alerts.
-- Further examination can include a review of the `dns.question_type` network fieldset with a protocol analyzer, such as Zeek, Packetbeat, or Suricata, for `SIG` or `RRSIG` data.
-- Validate the patch level and OS of the targeted DNS server to validate the observed activity was not large-scale internet vulnerability scanning.
+- Further examination can include a review of the `dns.question_type` network fieldset with a protocol analyzer, such as
+Zeek, Packetbeat, or Suricata, for `SIG` or `RRSIG` data.
+- Validate the patch level and OS of the targeted DNS server to validate the observed activity was not large-scale
+internet vulnerability scanning.
 - Validate that the source of the network activity was not from an authorized vulnerability scan or compromise assessment.
 
 #### False positive analysis
 
-- Based on this rule, which looks for a threshold of 60k bytes, it is possible for activity to be generated under 65k bytes and related to legitimate behavior. In packet capture files received by the [SANS Internet Storm Center](https://isc.sans.edu/forums/diary/PATCH+NOW+SIGRed+CVE20201350+Microsoft+DNS+Server+Vulnerability/26356/), byte responses were all observed as greater than 65k bytes.
-- This activity can be triggered by compliance/vulnerability scanning or compromise assessment; it's important to determine the source of the activity and potentially allowlist the source host.
+- Based on this rule, which looks for a threshold of 60k bytes, it is possible for activity to be generated under 65k bytes
+and related to legitimate behavior.  In packet capture files received by the [SANS Internet Storm Center](https://isc.sans.edu/forums/diary/PATCH+NOW+SIGRed+CVE20201350+Microsoft+DNS+Server+Vulnerability/26356/), byte responses
+were all observed as greater than 65k bytes.
+- This activity can be triggered by compliance/vulnerability scanning or compromise assessment; it's important to
+determine the source of the activity and potentially allowlist the source host.
 
 ### Related rules
 
@@ -49,7 +57,9 @@ Detection alerts from this rule indicate possible anomalous activity around larg
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
-- Ensure that you have deployed the latest Microsoft [Security Update](https://portal.msrc.microsoft.com/en-US/security-guidance/advisory/CVE-2020-1350) (Monthly Rollup or Security Only) and restarted the patched machines. If unable to patch immediately, Microsoft [released](https://support.microsoft.com/en-us/help/4569509/windows-dns-server-remote-code-execution-vulnerability) a registry-based workaround that doesn’t require a restart. This can be used as a temporary solution before the patch is applied.
+- Ensure that you have deployed the latest Microsoft [Security Update](https://portal.msrc.microsoft.com/en-US/security-guidance/advisory/CVE-2020-1350)
+(Monthly Rollup or Security Only) and restarted the patched machines. If unable to patch immediately, Microsoft [released](https://support.microsoft.com/en-us/help/4569509/windows-dns-server-remote-code-execution-vulnerability)
+a registry-based workaround that doesn’t require a restart. This can be used as a temporary solution before the patch is applied.
 - Maintain backups of your critical systems to aid in quick recovery.
 - Perform routine vulnerability scans of your systems, monitor [CISA advisories](https://us-cert.cisa.gov/ncas/current-activity) and patch identified vulnerabilities.
 - If you observe a true positive, implement a remediation plan and monitor host-based artifacts for additional post-exploitation behavior.
