@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/12/23"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/27"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -20,17 +21,14 @@ note = """## Triage and analysis
 
 ### Investigating Windows Defender Disabled via Registry Modification
 
-Microsoft Windows Defender is an antivirus product built into Microsoft Windows, which makes it popular across multiple
-environments. Disabling it is a common step in threat actor playbooks.
+Microsoft Windows Defender is an antivirus product built into Microsoft Windows, which makes it popular across multiple environments. Disabling it is a common step in threat actor playbooks.
 
 This rule monitors the registry for configurations that disable Windows Defender or the start of its service.
 
 #### Possible investigation steps
 
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
-for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Validate the activity is not related to planned patches, updates, network administrator activity, or legitimate
-software installations.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Validate the activity is not related to planned patches, updates, network administrator activity, or legitimate software installations.
 - Identify the user account that performed the action and whether it should perform this kind of action.
 - Contact the account owner and confirm whether they are aware of this activity.
 - Investigate other alerts associated with the user/host during the past 48 hours.
@@ -38,9 +36,7 @@ software installations.
 
 ### False positive analysis
 
-- This mechanism can be used legitimately. Analysts can dismiss the alert if the administrator is aware of the activity,
-the configuration is justified (for example, it is being used to deploy other security solutions or troubleshooting),
-and no other suspicious activity has been observed.
+- This mechanism can be used legitimately. Analysts can dismiss the alert if the administrator is aware of the activity, the configuration is justified (for example, it is being used to deploy other security solutions or troubleshooting), and no other suspicious activity has been observed.
 
 ### Related rules
 
@@ -51,16 +47,12 @@ and no other suspicious activity has been observed.
 
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved hosts to prevent further post-compromise behavior.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
-identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
-systems, and web services.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
 - Re-enable Windows Defender and restore the service configurations to automatic start.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
-malware components.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Review the privileges assigned to the user to ensure that the least privilege principle is being followed.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 ## Setup
 
@@ -70,7 +62,15 @@ references = ["https://thedfirreport.com/2020/12/13/defender-control/"]
 risk_score = 21
 rule_id = "2ffa1f1e-b6db-47fa-994b-1512743847eb"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Investigation Guide", "Elastic Endgame"]
+tags = [
+    "Elastic",
+    "Host",
+    "Windows",
+    "Threat Detection",
+    "Defense Evasion",
+    "Investigation Guide",
+    "Elastic Endgame",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 

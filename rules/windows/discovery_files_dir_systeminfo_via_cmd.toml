@@ -1,14 +1,16 @@
 [metadata]
 creation_date = "2022/11/01"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/11/01"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the execution of discovery commands to enumerate system info or files and folders using the Windows Command Shell.
+Identifies the execution of discovery commands to enumerate system info or files and folders using the Windows Command
+Shell.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.*", "logs-endpoint.events.*"]
@@ -32,7 +34,6 @@ process where event.type == "start" and
 '''
 
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -50,22 +51,21 @@ reference = "https://attack.mitre.org/techniques/T1083/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.003"
+name = "Windows Command Shell"
+reference = "https://attack.mitre.org/techniques/T1059/003/"
 
-    [[rule.threat.technique.subtechnique]]
-    id = "T1059.003"
-    name = "Windows Command Shell"
-    reference = "https://attack.mitre.org/techniques/T1059/003/"
+
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
