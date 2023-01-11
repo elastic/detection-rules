@@ -4,13 +4,13 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2022/12/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-A suspicious WerFault child process was detected, which may indicate an attempt to run unnoticed. Verify process details
-such as command line, network connections, file writes and parent process details as well.
+A suspicious WerFault child process was detected, which may indicate an attempt to run via the SilentProcessExit 
+registry key manipulation. Verify process details such as command line, network connections and file writes.
 """
 false_positives = ["Custom Windows error reporting debugger or applications restarted by WerFault after a crash."]
 from = "now-9m"
@@ -24,6 +24,7 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 """
 references = [
     "https://www.hexacorn.com/blog/2019/09/19/silentprocessexit-quick-look-under-the-hood/",
+    "https://www.hexacorn.com/blog/2019/09/20/werfault-command-line-switches-v0-1/",
     "https://github.com/sbousseaden/EVTX-ATTACK-SAMPLES/blob/master/Persistence/persistence_SilentProcessExit_ImageHijack_sysmon_13_1.evtx",
     "https://blog.menasec.net/2021/01/",
 ]
@@ -35,21 +36,14 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
-  process.parent.name : "WerFault.exe" and
-  not process.name : ("cofire.exe",
-                      "psr.exe",
-                      "VsJITDebugger.exe",
-                      "TTTracer.exe",
-                      "rundll32.exe",
-                      "LogiOptionsMgr.exe") and
-  not process.args : ("/LOADSAVEDWINDOWS",
-                      "/restore",
-                      "RestartByRestartManager*",
-                      "--restarted",
-                      "createdump",
-                      "dontsend",
-                      "/watson")
+process where event.type == "start" and 
+
+  process.parent.name : "WerFault.exe" and 
+  
+  /* args -s and -t used to execute a process via SilentProcessExit mechanism */
+  (process.parent.args : "-s" and process.parent.args : "-t" and process.parent.args : "-c") and 
+  
+  not process.executable : ("?:\\Windows\\SysWOW64\\Initcrypt.exe", "?:\\Program Files (x86)\\Heimdal\\Heimdal.Guard.exe")
 '''
 
 
