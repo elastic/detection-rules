@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/01/11"
 
 [rule]
 author = ["Elastic"]
@@ -74,7 +74,8 @@ type = "eql"
 
 query = '''
 process where event.type == "start" and
-  process.name: ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and process.args : "New-MailboxExportRequest*"
+  process.name: ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and 
+  process.command_line : ("*MailboxExportRequest*", "*-Mailbox*-ContentFilter*")
 '''
 
 
