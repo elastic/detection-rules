@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/11/15"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/27"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -32,19 +33,22 @@ process where event.type == "start" and length(process.name) > 0 and
  length(process.name) == 5 and host.os.name == "Windows" and length(process.pe.original_file_name) > 5
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
+[[rule.threat.technique.subtechnique]]
+id = "T1036.003"
+name = "Rename System Utilities"
+reference = "https://attack.mitre.org/techniques/T1036/003/"
 
-    [[rule.threat.technique.subtechnique]]
-    id = "T1036.003"
-    name = "Rename System Utilities"
-    reference = "https://attack.mitre.org/techniques/T1036/003/"
+
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

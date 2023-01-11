@@ -1,21 +1,19 @@
 [metadata]
 creation_date = "2021/09/22"
+integration = ["aws"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
-integration = "aws"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Austin Songer"]
-description = """
-Identifies when SAML activity has occurred in AWS. An adversary could manipulate SAML to maintain access to the target.
-"""
+description = "Identifies when SAML activity has occurred in AWS. An adversary could manipulate SAML to maintain access to the target."
 false_positives = [
     """
     SAML Provider could be updated by a system administrator. Verify whether the user identity, user agent, and/or
-    hostname should be making changes in your environment. SAML Provider updates by unfamiliar users should
-    be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    hostname should be making changes in your environment. SAML Provider updates by unfamiliar users should be
+    investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
 from = "now-25m"
@@ -42,6 +40,7 @@ event.dataset:aws.cloudtrail and event.provider:(iam.amazonaws.com or sts.amazon
 UpdateSAMLProvider) and event.outcome:success
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -52,6 +51,7 @@ reference = "https://attack.mitre.org/techniques/T1550/"
 id = "T1550.001"
 name = "Application Access Token"
 reference = "https://attack.mitre.org/techniques/T1550/001/"
+
 
 
 [rule.threat.tactic]
