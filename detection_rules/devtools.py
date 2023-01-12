@@ -353,10 +353,11 @@ def kibana_diff(rule_id, repo, branch, threads):
     return diff
 
 
-def add_git_args(f):
+def add_kibana_git_args(f):
     @click.argument("local-repo", default=get_path("..", "kibana"))
     @click.option("--kibana-directory", "-d", help="Directory to overwrite in Kibana",
-                  default="x-pack/plugins/security_solution/server/lib/detection_engine/rules/prepackaged_rules")
+                  default="x-pack/plugins/security_solution/server/lib/detection_engine/"
+                          "prebuilt_rules/content/prepackaged_rules")
     @click.option("--base-branch", "-b", help="Base branch in Kibana", default="main")
     @click.option("--branch-name", "-n", help="New branch for the rules commit")
     @click.option("--ssh/--http", is_flag=True, help="Method to use for cloning")
@@ -370,7 +371,7 @@ def add_git_args(f):
 
 
 @dev_group.command("kibana-commit")
-@add_git_args
+@add_kibana_git_args
 @click.option("--push", "-p", is_flag=True, help="Push the commit to the remote")
 @click.pass_context
 def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_directory: str, base_branch: str,
@@ -441,7 +442,7 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
 @click.option("--fork-owner", "-f", help="Owner of forked branch (ex: elastic)")
 # Pending an official GitHub API
 # @click.option("--automerge", is_flag=True, help="Enable auto-merge on the PR")
-@add_git_args
+@add_kibana_git_args
 @click.pass_context
 def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...], draft: bool, fork_owner: str,
               token: str, **kwargs):

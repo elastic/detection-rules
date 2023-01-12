@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2022/09/20"
-integration = "kubernetes"
+integration = ["kubernetes"]
 maturity = "production"
 min_stack_comments = "New fields added to Kubernetes Integration"
 min_stack_version = "8.4.0"
-updated_date = "2022/10/03"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -32,19 +32,19 @@ note = """## Triage and analysis
 Linux capabilities were designed to divide root privileges into smaller units. Each capability grants a thread just enough power to perform specific privileged tasks. In Kubernetes, containers are given a set of default capabilities that can be dropped or added to at the time of creation. Added capabilities entitle containers in a pod with additional privileges that can be used to change
 core processes, change network settings of a cluster, or directly access the underlying host. The following have been used in container escape techniques:
 
-BPF - Allow creating BPF maps, loading BPF Type Format (BTF) data, retrieve JITed code of BPF programs, and more. 
-DAC_READ_SEARCH - Bypass file read permission checks and directory read and execute permission checks. 
-NET_ADMIN - Perform various network-related operations. 
-SYS_ADMIN - Perform a range of system administration operations. 
-SYS_BOOT - Use reboot(2) and kexec_load(2), reboot and load a new kernel for later execution. 
-SYS_MODULE - Load and unload kernel modules. 
+BPF - Allow creating BPF maps, loading BPF Type Format (BTF) data, retrieve JITed code of BPF programs, and more.
+DAC_READ_SEARCH - Bypass file read permission checks and directory read and execute permission checks.
+NET_ADMIN - Perform various network-related operations.
+SYS_ADMIN - Perform a range of system administration operations.
+SYS_BOOT - Use reboot(2) and kexec_load(2), reboot and load a new kernel for later execution.
+SYS_MODULE - Load and unload kernel modules.
 SYS_PTRACE - Trace arbitrary processes using ptrace(2).
-SYS_RAWIO - Perform I/O port operations (iopl(2) and ioperm(2)). 
+SYS_RAWIO - Perform I/O port operations (iopl(2) and ioperm(2)).
 SYSLOG - Perform privileged syslog(2) operations.
 
 ### False positive analysis
 
-- While these capabilities are not included by default in containers, some legitimate images may need to add them. This rule leaves space for the exception of trusted container images. To add an exception, add the trusted container image name to the query field, kubernetes.audit.requestObject.spec.containers.image. 
+- While these capabilities are not included by default in containers, some legitimate images may need to add them. This rule leaves space for the exception of trusted container images. To add an exception, add the trusted container image name to the query field, kubernetes.audit.requestObject.spec.containers.image.
 
 ## Setup
 
@@ -63,11 +63,11 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: kubernetes.audit_logs 
+event.dataset: kubernetes.audit_logs
   and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow"
-  and kubernetes.audit.verb: create 
-  and kubernetes.audit.objectRef.resource: pods 
-  and kubernetes.audit.requestObject.spec.containers.securityContext.capabilities.add: ("BPF" or "DAC_READ_SEARCH"  or "NET_ADMIN" or "SYS_ADMIN" or "SYS_BOOT" or "SYS_MODULE" or "SYS_PTRACE" or "SYS_RAWIO"  or "SYSLOG") 
+  and kubernetes.audit.verb: create
+  and kubernetes.audit.objectRef.resource: pods
+  and kubernetes.audit.requestObject.spec.containers.securityContext.capabilities.add: ("BPF" or "DAC_READ_SEARCH"  or "NET_ADMIN" or "SYS_ADMIN" or "SYS_BOOT" or "SYS_MODULE" or "SYS_PTRACE" or "SYS_RAWIO"  or "SYSLOG")
   and not kubernetes.audit.requestObject.spec.containers.image : ("docker.elastic.co/beats/elastic-agent:8.4.0" or "rancher/klipper-lb:v0.3.5" or "")
 '''
 
@@ -84,7 +84,6 @@ reference = "https://attack.mitre.org/techniques/T1611/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -97,3 +96,4 @@ reference = "https://attack.mitre.org/techniques/T1610/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
