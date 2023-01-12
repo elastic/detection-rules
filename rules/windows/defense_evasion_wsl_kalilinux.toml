@@ -26,12 +26,11 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.category : ("process", "file") and 
- process.name : "wsl*.exe" and 
- (
-  (process.args : ("-d", "--distribution") and process.args : "kali*") or 
-  file.path : "?:\\Users\\*\\AppData\\*\\kali*"
-  )
+process where event.type == "start" and 
+(
+ (process.name : "wsl.exe" and process.args : ("-d", "--distribution") and process.args : "kali*") or 
+ (process.parent.name : "svchost.exe" and process.executable : "?:\\Users\\*\\AppData\\Local\\packages\\kalilinux*")
+ )
 '''
 
 
