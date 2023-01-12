@@ -1,0 +1,65 @@
+[metadata]
+creation_date = "2023/01/12"
+maturity = "production"
+updated_date = "2023/01/12"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects changes to the registry to enable or install Windows Subsystem for Linux. Adversaries may 
+enable and use WSL for Linux to avoid detection.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Windows Subsystem for Linux Registry Modification"
+references = ["https://learn.microsoft.com/en-us/windows/wsl/wsl-config"]
+risk_score = 47
+rule_id = "a1699af0-8e1e-4ed0-8ec1-89783538a061"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion",  "Elastic Endgame"]
+timeline_id = "3e47ef71-ebfc-4520-975c-cb27fc090799"
+timeline_title = "Comprehensive Registry Timeline"
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where
+ registry.path : (
+    "HK*\\Microsoft-Windows-Subsystem-Linux\\*", 
+    "HK*\\Microsoft-Windows-Lxss-Optional-Package*", 
+    "HK*\\Microsoft-Windows-Subsystem-Linux*", 
+    "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Lxss\\WslInstalling", 
+    "HKEY_USERS\\S-1-5-21-*\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\WslInstallContinue", 
+    "HKEY_USERS\\S-1-5-21-*\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Lxss\\AppxInstallerCache\\*", 
+    "\\REGISTRY\\*\\Microsoft-Windows-Subsystem-Linux\\Selection*", 
+    "\\REGISTRY\\*\\Microsoft-Windows-Lxss-Optional-Package*", 
+    "\\REGISTRY\\*\\Microsoft-Windows-Subsystem-Linux*", 
+    "\\REGISTRY\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Lxss\\WslInstalling", 
+    "\\REGISTRY\\*\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\WslInstallContinue", 
+    "\\REGISTRY\\*\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Lxss\\AppxInstallerCache\\*"
+      ) and 
+  not process.executable : "?:\\Windows\\WinSxS\\*\\TiWorker.exe"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
+[[rule.threat.technique]]
+id = "T1202"
+name = "Indirect Command Execution"
+reference = "https://attack.mitre.org/techniques/T1202/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
