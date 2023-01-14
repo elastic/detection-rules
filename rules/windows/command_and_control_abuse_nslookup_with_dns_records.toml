@@ -1,6 +1,9 @@
+[metadata]
 id = "12c984a0-3409-11ed-a364-07e93b4dfbe1"
-created_at = "2022-09-14T08:41:49.497Z"
+created_at = "2022-09-14"
 created_by = "prashanth.pulisetti@gmail.com"
+
+[rule]
 name = "Abuse Nslookup with DNS Records"
 tags = [ "Alert", "Windows", ]
 interval = "5m"
@@ -10,30 +13,17 @@ risk_score = 47
 severity = "medium"
 output_index = ""
 author = [ "Sai Prashanth Pulisetti" ]
-false_positives = [ ]
-from = "now-360s"
-rule_id = "e25ff19c-e8e6-4878-a3b3-64a60beb4a77"
-max_signals = 100
-risk_score_mapping = [ ]
-severity_mapping = [ ]
+
 to = "now"
 references = [ "https://twitter.com/Alh4zr3d/status/1566489367232651264" ]
 version = 7
-exceptions_list = [ ]
-immutable = false
-related_integrations = [ ]
-required_fields = [ ]
 setup = ""
 type = "query"
 language = "kuery"
 index = [ "*:winlogbeat-*" ]
-query = 'process.parent.command_line.text : "Powershell.exe" and process.name.text:"nslookup.exe" and process.command_line.text: "\\-q\\=TXT"'
-filters = [ ]
-throttle = "no_actions"
-actions = [ ]
-
-[meta]
-from = "1m"
+query = '''
+process.parent.command_line.text : "Powershell.exe" and process.name.text:"nslookup.exe" and process.command_line.text: "\\-q\\=TXT"
+'''
 
 [[threat]]
 framework = "MITRE ATT&CK"
