@@ -16,8 +16,12 @@ from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Bash Execution via Windows Subsystem for Linux"
-references = ["https://blog.f-secure.com/hunting-for-windows-subsystem-for-linux/"]
+name = "Suspicious Execution via Windows Subsystem for Linux"
+references = [
+    "https://blog.f-secure.com/hunting-for-windows-subsystem-for-linux/",
+    "https://lolbas-project.github.io/lolbas/OtherMSBinaries/Wsl/",
+    "https://blog.qualys.com/vulnerabilities-threat-research/2022/03/22/implications-of-windows-subsystem-for-linux-for-adversaries-defenders-part-1"
+]
 risk_score = 47
 rule_id = "3e0eeb75-16e8-4f2f-9826-62461ca128b7"
 severity = "medium"
@@ -30,7 +34,8 @@ process where event.type : "start" and
  (
   ((process.executable : "?:\\Windows\\System32\\bash.exe" or process.pe.original_file_name == "Bash.exe") and 
   not process.command_line : ("bash", "bash.exe")) or 
-  (process.parent.name : "wsl.exe" and process.parent.command_line : "bash*" and not process.name : "wslhost.exe")
+  (process.parent.name : "wsl.exe" and process.parent.command_line : "bash*" and not process.name : "wslhost.exe") or 
+  (process.name : "wsl.exe" and process.args : ("curl", "/etc/shadow", "--system", "root", "-e", "--exec", "bash", "*/mnt/c/*"))
   )
 '''
 
