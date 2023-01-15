@@ -43,6 +43,8 @@ class KQLValidator(QueryValidator):
                 return
 
             for package in package_integrations:
+                if meta.min_stack_version is None and meta.maturity == "development":
+                    continue
                 package_version_window = find_compatible_version_window(package=package["package"],
                                                                         integration=package["integration"],
                                                                         current_stack_version=meta.min_stack_version,

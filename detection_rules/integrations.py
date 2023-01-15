@@ -95,8 +95,8 @@ def find_compatible_version_window(package: str, integration: str,
                                    current_stack_version: str, packages_manifest: dict) -> Generator[str, None, None]:
     """Finds least compatible version for specified integration based on stack version supplied."""
 
-    if not (package and integration):
-        raise ValueError("Both package and integration must be specified")
+    if not package:
+        raise ValueError("Package must be specified")
 
     package_manifest = packages_manifest.get(package)
     if package_manifest is None:
