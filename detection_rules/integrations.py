@@ -10,6 +10,7 @@ import os
 import re
 from collections import OrderedDict
 from pathlib import Path
+from typing import Generator
 
 import requests
 from marshmallow import EXCLUDE, Schema, fields, post_load
@@ -31,6 +32,7 @@ class IntegrationManifestSchema(Schema):
     version = fields.Str(required=True)
     release = fields.Str(required=True)
     description = fields.Str(required=True)
+    download = fields.Str(required=True)
     conditions = fields.Dict(required=True)
     policy_templates = fields.List(fields.Dict, required=True)
     owner = fields.Dict(required=False)
@@ -87,6 +89,49 @@ def find_least_compatible_version(package: str, integration: str,
                         return f"^{version}"
 
     raise ValueError(f"no compatible version for integration {package}:{integration}")
+
+
+def find_compatible_version_window(package: str, integration: str,
+                                   current_stack_version: str, packages_manifest: dict) -> Generator[str, None, None]:
+    """Finds least compatible version for specified integration based on stack version supplied."""
+
+    if not (package and integration):
+        raise ValueError("Both package and integration must be specified")
+
+    package_manifest = packages_manifest.get(package)
+    if package_manifest is None:
+        raise ValueError(f"Package {package} not found in manifest.")
+
+    integration_manifests = sorted(package_manifest.items(), key=lambda x: Version(str(x[0])))
+
+    # iterates through ascending integration manifests
+    # returns latest major version that is least compatible
+    for version, manifest in integration_manifests:
+        kibana_conditions = manifest.get("conditions", {}).get("kibana", {})
+        version_requirement = kibana_conditions.get("version")
+        if not version_requirement:
+            raise ValueError(f"Manifest for {package}:{integration} version {version} is missing conditions.")
+
+        compatible_versions = re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana"]["version"]).split(" || ")
+
+        if not compatible_versions:
+            raise ValueError(f"Manifest for {package}:{integration} version {version} is missing compatible versions")
+
+        if len(compatible_versions) > 1:
+            highest_compatible_version = max(compatible_versions, key=lambda x: Version(x))
+
+            if Version(highest_compatible_version) > Version(current_stack_version):
+                print(f"Integration {package}-{integration} {version=} has multiple stack version requirements.",
+                      f"Consider updating min_stack version to the latest {compatible_versions}.")
+
+        for kibana_ver in compatible_versions:
+            if Version(kibana_ver) > Version(current_stack_version):
+                print(f"Integration {package}-{integration} version {version} has a higher stack version requirement.",
+                      f"Consider updating min_stack version to {kibana_ver} to support this version.")
+            elif int(kibana_ver[0]) == int(current_stack_version[0]):
+                # check versions have the same major
+                if Version(kibana_ver) <= Version(current_stack_version):
+                    yield f"^{version}"
 
 
 def get_integration_manifests(integration: str) -> list:

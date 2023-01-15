@@ -11,7 +11,9 @@ import eql
 import kql
 
 from . import ecs, endgame
-from .rule import QueryRuleData, QueryValidator, RuleMeta
+from .integrations import (find_compatible_version_window,
+                           load_integrations_manifests)
+from .rule import QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents
 
 
 class KQLValidator(QueryValidator):
@@ -30,6 +32,27 @@ class KQLValidator(QueryValidator):
 
     def validate(self, data: QueryRuleData, meta: RuleMeta) -> None:
         """Validate the query, called from the parent which contains [metadata] information."""
+
+        # validate the query against related integration fields
+        print("validating query against integration fields")
+        packages_manifest = load_integrations_manifests()
+        if isinstance(data, QueryRuleData) and data.language != 'lucene':
+            package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
+
+            if not package_integrations:
+                return
+
+            for package in package_integrations:
+                package_version_window = find_compatible_version_window(package=package["package"],
+                                                                        integration=package["integration"],
+                                                                        current_stack_version=meta.min_stack_version,
+                                                                        packages_manifest=packages_manifest)
+
+                # for each version in the window, validate the query against the integration fields
+                for package_version in package_version_window:
+                    # validate the query against the integration fields with the package version
+                    print(f"validating query against integration fields for {package['integration']} {package_version}")
+
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
             # syntax only, which is done via self.ast
             return

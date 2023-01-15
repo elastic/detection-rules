@@ -847,7 +847,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
             if self.check_restricted_field_version(field_name):
                 if isinstance(self.data, QueryRuleData) and self.data.language != 'lucene':
-                    package_integrations = self._get_packaged_integrations(packages_manifest)
+                    package_integrations = self._get_packaged_integrations(self.data, self.metadata, packages_manifest)
 
                     if not package_integrations:
                         return
@@ -947,11 +947,13 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         max_stack = max_stack or current_version
         return Version(min_stack) <= current_version >= Version(max_stack)
 
-    def _get_packaged_integrations(self, package_manifest: dict) -> Optional[List[dict]]:
+    @classmethod
+    def get_packaged_integrations(cls, data: QueryRuleData, meta: RuleMeta,
+                                  package_manifest: dict) -> Optional[List[dict]]:
         packaged_integrations = []
         datasets = set()
 
-        for node in self.data.get('ast', []):
+        for node in data.get('ast', []):
             if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
                 datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
             elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
@@ -960,7 +962,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if not datasets:
             # windows and endpoint integration do not have event.dataset fields in queries
             # integration is None to remove duplicate references upstream in Kibana
-            rule_integrations = self.metadata.get("integration", [])
+            rule_integrations = meta.get("integration", [])
             if rule_integrations:
                 for integration in rule_integrations:
                     if integration in ["windows", "endpoint", "apm"]:

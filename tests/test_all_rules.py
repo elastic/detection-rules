@@ -468,7 +468,8 @@ class TestRuleMetadata(BaseRuleTest):
                 # checks if event.dataset exists in query object and a tag exists in metadata
                 if isinstance(rule.contents.data, QueryRuleData) and rule.contents.data.language != 'lucene':
                     trc = TOMLRuleContents(rule.contents.metadata, rule.contents.data)
-                    package_integrations = trc._get_packaged_integrations(packages_manifest)
+                    package_integrations = trc.get_packaged_integrations(rule.contents.data,
+                                                                         rule.contents.metadata, packages_manifest)
                     if package_integrations:
                         err_msg = f'{self.rule_str(rule)} integration tag should exist: '
                         failures.append(err_msg)

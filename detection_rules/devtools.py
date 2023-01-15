@@ -1174,10 +1174,15 @@ def integrations_group():
 def build_integration_manifests(overwrite: bool):
     """Builds consolidated integrations manifests file."""
     click.echo("loading rules to determine all integration tags")
+
+    def flatten(tag_list: List[str]) -> List[str]:
+        return list(set([tag for tags in tag_list for tag in (flatten(tags) if isinstance(tags, list) else [tags])]))
+
     rules = RuleCollection.default()
-    integration_tags = list(set([r.contents.metadata.integration for r in rules if r.contents.metadata.integration]))
-    click.echo(f"integration tags identified: {integration_tags}")
-    build_integrations_manifest(overwrite, integration_tags)
+    integration_tags = [r.contents.metadata.integration for r in rules if r.contents.metadata.integration]
+    unique_integration_tags = flatten(integration_tags)
+    click.echo(f"integration tags identified: {unique_integration_tags}")
+    build_integrations_manifest(overwrite, unique_integration_tags)
 
 
 @dev_group.group('schemas')
