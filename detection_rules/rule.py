@@ -412,6 +412,8 @@ class QueryRuleData(BaseRuleData):
     def validate_query(self, meta: RuleMeta) -> None:
         validator = self.validator
         if validator is not None:
+            if meta.integration:
+                return validator.validate_integration(self, meta)
             return validator.validate(self, meta)
 
     @cached_property

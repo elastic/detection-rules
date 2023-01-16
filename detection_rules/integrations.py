@@ -109,14 +109,16 @@ def build_integrations_schemas(overwrite: bool) -> None:
                 for file in zip_ref.namelist():
                     # Check if the file is a match
                     if glob.fnmatch.fnmatch(file, '*/fields/*.yml'):
+                        integration_name = Path(file).parent.parent.name
+                        final_integration_schemas[package][version].setdefault(integration_name, {})
                         file_data = zip_ref.read(file)
                         schema_fields = yaml.load(file_data, Loader=yaml.FullLoader)
 
                         # Parse the schema and add to the integration_manifests
                         data = flatten_ecs_schema(schema_fields)
                         flat_data = {field['name']: field.get('type', 'keyword') for field in data}
-                        integration_name = Path(file).parent.parent.name
-                        final_integration_schemas[package][version].update({integration_name: flat_data})
+
+                        final_integration_schemas[package][version][integration_name].update(flat_data)
 
                         del file_data
 
@@ -155,7 +157,7 @@ def find_least_compatible_version(package: str, integration: str,
 
 
 def find_compatible_version_window(package: str, integration: str,
-                                   current_stack_version: str, packages_manifest: dict) -> Generator[str, None, None]:
+                                   rule_stack_version: str, packages_manifest: dict) -> Generator[str, None, None]:
     """Finds least compatible version for specified integration based on stack version supplied."""
 
     if not package:
@@ -183,18 +185,18 @@ def find_compatible_version_window(package: str, integration: str,
         if len(compatible_versions) > 1:
             highest_compatible_version = max(compatible_versions, key=lambda x: Version(x))
 
-            if Version(highest_compatible_version) > Version(current_stack_version):
+            if Version(highest_compatible_version) > Version(rule_stack_version):
                 print(f"Integration {package}-{integration} {version=} has multiple stack version requirements.",
                       f"Consider updating min_stack version to the latest {compatible_versions}.")
 
         for kibana_ver in compatible_versions:
-            if Version(kibana_ver) > Version(current_stack_version):
+            if Version(kibana_ver) > Version(rule_stack_version):
                 print(f"Integration {package}-{integration} version {version} has a higher stack version requirement.",
                       f"Consider updating min_stack version to {kibana_ver} to support this version.")
-            elif int(kibana_ver[0]) == int(current_stack_version[0]):
+            elif int(kibana_ver[0]) == int(rule_stack_version[0]):
                 # check versions have the same major
-                if Version(kibana_ver) <= Version(current_stack_version):
-                    yield f"^{version}"
+                if Version(kibana_ver) <= Version(rule_stack_version):
+                    yield version
 
 
 def get_integration_manifests(integration: str) -> list:

@@ -32,30 +32,6 @@ class KQLValidator(QueryValidator):
 
     def validate(self, data: QueryRuleData, meta: RuleMeta) -> None:
         """Validate the query, called from the parent which contains [metadata] information."""
-
-        # validate the query against related integration fields
-        print("validating query against integration fields")
-        packages_manifest = load_integrations_manifests()
-        integrations_schemas = load_integrations_schemas()
-        if isinstance(data, QueryRuleData) and data.language != 'lucene':
-            package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
-
-            if not package_integrations:
-                return
-
-            for package in package_integrations:
-                if meta.min_stack_version is None and meta.maturity == "development":
-                    continue
-                package_version_window = find_compatible_version_window(package=package["package"],
-                                                                        integration=package["integration"],
-                                                                        current_stack_version=meta.min_stack_version,
-                                                                        packages_manifest=packages_manifest)
-
-                # for each version in the window, validate the query against the integration fields
-                for package_version in package_version_window:
-                    # validate the query against the integration fields with the package version
-                    print(f"validating query against integration fields for {package['integration']} {package_version}")
-
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
             # syntax only, which is done via self.ast
             return
@@ -80,6 +56,73 @@ class KQLValidator(QueryValidator):
             except Exception:
                 print(err_trailer)
                 raise
+
+    def validate_integration(self, data: QueryRuleData, meta: RuleMeta) -> None:
+        """Validate the query, called from the parent which contains [metadata] information."""
+        if meta.query_schema_validation is False or meta.maturity == "deprecated":
+            # syntax only, which is done via self.ast
+            return
+
+        packages_manifest = load_integrations_manifests()
+        integrations_schemas = load_integrations_schemas()
+
+        # validate the query against related integration fields
+        if isinstance(data, QueryRuleData) and data.language != 'lucene':
+            package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
+
+            if not package_integrations:
+                return
+
+            for stack_version, mapping in meta.get_validation_stack_versions().items():
+                ecs_version = mapping['ecs']
+
+                ecs_schema = ecs.flatten_multi_fields(ecs.get_schema(ecs_version, name='ecs_flat'))
+
+                for pk_int in package_integrations:
+                    package = pk_int["package"]
+                    integration = pk_int["integration"]
+
+                    if meta.min_stack_version is None and meta.maturity == "development":
+                        continue
+
+                    package_version_window = find_compatible_version_window(package=package,
+                                                                            integration=integration,
+                                                                            rule_stack_version=meta.min_stack_version,
+                                                                            packages_manifest=packages_manifest)
+
+                    # for each version in the window, validate the query against the integration fields
+                    for package_version in package_version_window:
+                        # validate the query against the integration fields with the package version
+                        version_data = f"{ecs_version=} {package=} {integration=} {package_version=}"
+                        print(f"Validating query of '{data.name}' against fields for {version_data}")
+
+                        schema = {}
+                        if integration is None:
+                            # Use all fields from each dataset
+                            for dataset in integrations_schemas[package][package_version]:
+                                schema.update(integrations_schemas[package][package_version][dataset])
+                        else:
+                            if integration not in integrations_schemas[package][package_version]:
+                                print(f"Error: Integration {integration} not found in package {package} "
+                                      f"version {package_version}")
+
+                                # raise ValueError(f"Integration {integration} not found in package {package} "
+                                #                  f"version {package_version}")
+                                continue
+                            schema = integrations_schemas[package][package_version][integration]
+
+                        try:
+                            schema.update(ecs_schema)
+                            integration_schema = {k: kql.parser.elasticsearch_type_family(v) for k, v in schema.items()}
+
+                            # kql.parse(self.query, schema=integration_schema)
+                        except kql.KqlParseError as exc:
+                            trailer = (f"\nTry adding event.module or event.dataset to specify integration module\n\n"
+                                       f"{package=}, {integration=}, {package_version=}, "
+                                       f"{stack_version=}, {ecs_version=}"
+                                       )
+                            raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
+                                                    len(exc.caret.lstrip()), trailer=trailer) from None
 
 
 class EQLValidator(QueryValidator):
@@ -146,6 +189,9 @@ class EQLValidator(QueryValidator):
             if endgame_schema:
                 # validate query against the endgame schema
                 self.validate_query_with_schema(schema=endgame_schema, err_trailer=err_trailer)
+
+    def validate_integration(self, data: QueryRuleData, meta: RuleMeta) -> None:
+        pass
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
