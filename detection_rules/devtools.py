@@ -33,7 +33,7 @@ from .docs import IntegrationSecurityDocs
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
-from .integrations import build_integrations_manifest
+from .integrations import build_integrations_manifest, build_integrations_schemas
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
@@ -1183,6 +1183,18 @@ def build_integration_manifests(overwrite: bool):
     unique_integration_tags = flatten(integration_tags)
     click.echo(f"integration tags identified: {unique_integration_tags}")
     build_integrations_manifest(overwrite, unique_integration_tags)
+
+
+@integrations_group.command('build-schemas')
+@click.option('--overwrite', '-o', is_flag=True, help="Overwrite the existing integrations-schema.json.gz file")
+def build_integration_schemas(overwrite: bool):
+    """Builds consolidated integrations schemas file."""
+    click.echo("Building integration schemas...")
+
+    start_time = time.perf_counter()
+    build_integrations_schemas(overwrite)
+    end_time = time.perf_counter()
+    click.echo(f"Time taken to generate schemas: {(end_time - start_time)/60:.2f} seconds")
 
 
 @dev_group.group('schemas')

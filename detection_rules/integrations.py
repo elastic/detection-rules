@@ -4,10 +4,14 @@
 # 2.0.
 
 """Functions to support and interact with Kibana integrations."""
+import glob
 import gzip
+import io
 import json
 import os
 import re
+import yaml
+import zipfile
 from collections import OrderedDict
 from pathlib import Path
 from typing import Generator
@@ -15,10 +19,12 @@ from typing import Generator
 import requests
 from marshmallow import EXCLUDE, Schema, fields, post_load
 
+from .beats import flatten_ecs_schema
 from .semver import Version
 from .utils import cached, get_etc_path, read_gzip
 
 MANIFEST_FILE_PATH = Path(get_etc_path('integration-manifests.json.gz'))
+SCHEMA_FILE_PATH = Path(get_etc_path('integration-schemas.json.gz'))
 
 
 @cached
@@ -62,6 +68,56 @@ def build_integrations_manifest(overwrite: bool, rule_integrations: list) -> Non
     manifest_file_bytes = json.dumps(final_integration_manifests).encode("utf-8")
     manifest_file.write(manifest_file_bytes)
     print(f"final integrations manifests dumped: {MANIFEST_FILE_PATH}")
+
+
+def build_integrations_schemas(overwrite: bool) -> None:
+    """Builds a new local copy of integration-schemas.json.gz from EPR integrations."""
+
+    # Check if the file already exists and handle accordingly
+    if overwrite and os.path.exists(SCHEMA_FILE_PATH):
+        os.remove(SCHEMA_FILE_PATH)
+    elif os.path.exists(SCHEMA_FILE_PATH):
+        print(f"{SCHEMA_FILE_PATH} already exists. Use --overwrite to rebuild")
+        return
+
+    # Load the integration manifests
+    integration_manifests = load_integrations_manifests()
+    final_integration_schemas = {}
+
+    # Loop through the packages and versions
+    for package, versions in integration_manifests.items():
+        print(f"processing {package}")
+        final_integration_schemas.setdefault(package, {})
+        for version, manifest in versions.items():
+            # Download the zip file
+            download_url = f"https://epr.elastic.co{manifest['download']}"
+            response = requests.get(download_url)
+            response.raise_for_status()
+            zip_file = io.BytesIO(response.content)
+
+            # Update the final integration schemas
+            final_integration_schemas[package].update({version: {}})
+
+            # Open the zip file
+            with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+                for file in zip_ref.namelist():
+                    # Check if the file is a match
+                    if glob.fnmatch.fnmatch(file, '*/fields/*.yml'):
+                        file_data = zip_ref.read(file)
+                        schema_fields = yaml.load(file_data, Loader=yaml.FullLoader)
+
+                        # Parse the schema and add to the integration_manifests
+                        data = flatten_ecs_schema(schema_fields)
+                        flat_data = {field['name']: field.get('type', 'keyword') for field in data}
+                        final_integration_schemas[package][version].update(flat_data)
+
+                        del file_data
+
+    # Write the final integration schemas to disk
+    with gzip.open(SCHEMA_FILE_PATH, "w") as schema_file:
+        schema_file_bytes = json.dumps(final_integration_schemas).encode("utf-8")
+        schema_file.write(schema_file_bytes)
+    print(f"final integrations manifests dumped: {SCHEMA_FILE_PATH}")
 
 
 def find_least_compatible_version(package: str, integration: str,
