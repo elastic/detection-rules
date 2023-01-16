@@ -33,6 +33,12 @@ def load_integrations_manifests() -> dict:
     return json.loads(read_gzip(get_etc_path('integration-manifests.json.gz')))
 
 
+@cached
+def load_integrations_schemas() -> dict:
+    """Load the consolidated integrations schemas."""
+    return json.loads(read_gzip(get_etc_path('integration-schemas.json.gz')))
+
+
 class IntegrationManifestSchema(Schema):
     name = fields.Str(required=True)
     version = fields.Str(required=True)
