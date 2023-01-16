@@ -115,7 +115,8 @@ def build_integrations_schemas(overwrite: bool) -> None:
                         # Parse the schema and add to the integration_manifests
                         data = flatten_ecs_schema(schema_fields)
                         flat_data = {field['name']: field.get('type', 'keyword') for field in data}
-                        final_integration_schemas[package][version].update(flat_data)
+                        integration_name = Path(file).parent.parent.name
+                        final_integration_schemas[package][version].update({integration_name: flat_data})
 
                         del file_data
 

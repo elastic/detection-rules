@@ -12,7 +12,7 @@ import kql
 
 from . import ecs, endgame
 from .integrations import (find_compatible_version_window,
-                           load_integrations_manifests)
+                           load_integrations_manifests, load_integrations_schemas)
 from .rule import QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents
 
 
@@ -36,6 +36,7 @@ class KQLValidator(QueryValidator):
         # validate the query against related integration fields
         print("validating query against integration fields")
         packages_manifest = load_integrations_manifests()
+        integrations_schemas = load_integrations_schemas()
         if isinstance(data, QueryRuleData) and data.language != 'lucene':
             package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
 
