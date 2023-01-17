@@ -10,15 +10,18 @@ import io
 import json
 import os
 import re
-import yaml
 import zipfile
 from collections import OrderedDict
 from pathlib import Path
 from typing import Generator
 
 import requests
+import yaml
 from marshmallow import EXCLUDE, Schema, fields, post_load
 
+import kql
+
+from . import ecs
 from .beats import flatten_ecs_schema
 from .semver import Version
 from .utils import cached, get_etc_path, read_gzip
@@ -216,3 +219,64 @@ def get_integration_manifests(integration: str) -> list:
     print(f"loaded {integration} manifests from the following package versions: "
           f"{[manifest['version'] for manifest in manifests]}")
     return manifests
+
+
+def get_integration_schema_data(data, meta) -> Generator[dict, None, None]:
+    """Iterates over specified integrations from package-storage and combines schemas per version."""
+
+    # lazy import to avoid circular import
+    from .rule import (  # pylint: disable=import-outside-toplevel
+        QueryRuleData, RuleMeta, TOMLRuleContents)
+
+    data: QueryRuleData
+    meta: RuleMeta
+
+    packages_manifest = load_integrations_manifests()
+    integrations_schemas = load_integrations_schemas()
+
+    # validate the query against related integration fields
+    if isinstance(data, QueryRuleData) and data.language != 'lucene':
+        package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
+
+        if not package_integrations:
+            return
+
+        for stack_version, mapping in meta.get_validation_stack_versions().items():
+            ecs_version = mapping['ecs']
+
+            ecs_schema = ecs.flatten_multi_fields(ecs.get_schema(ecs_version, name='ecs_flat'))
+
+            for pk_int in package_integrations:
+                package = pk_int["package"]
+                integration = pk_int["integration"]
+
+                if meta.min_stack_version is None and meta.maturity == "development":
+                    continue
+
+                package_version_window = find_compatible_version_window(package=package,
+                                                                        integration=integration,
+                                                                        rule_stack_version=meta.min_stack_version,
+                                                                        packages_manifest=packages_manifest)
+
+                for package_version in package_version_window:
+                    schema = {}
+                    if integration is None:
+                        # Use all fields from each dataset
+                        for dataset in integrations_schemas[package][package_version]:
+                            schema.update(integrations_schemas[package][package_version][dataset])
+                    else:
+                        if integration not in integrations_schemas[package][package_version]:
+                            print(f"Error: Integration {integration} not found in package {package} "
+                                  f"version {package_version}")
+
+                            # TODO: uncomment this once all rules are triaged and remove the print above
+                            # raise ValueError(f"Integration {integration} not found in package {package} "
+                            #                  f"version {package_version}")
+                            continue
+                        schema = integrations_schemas[package][package_version][integration]
+                    schema.update(ecs_schema)
+                    integration_schema = {k: kql.parser.elasticsearch_type_family(v) for k, v in schema.items()}
+                    data = {"schema": integration_schema, "package": package, "integration": integration,
+                            "stack_version": stack_version, "ecs_version": ecs_version,
+                            "package_version": package_version}
+                    yield data
