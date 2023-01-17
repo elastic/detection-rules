@@ -16,7 +16,7 @@ from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Potential Antimalware Scan Interface Bypass via PowerShell"
+name = "Suspicious Antimalware Scan Interface DLL"
 references = ["https://github.com/S3cur3Th1sSh1t/Amsi-Bypass-Powershell"]
 risk_score = 73
 rule_id = "fa488440-04cc-41d7-9279-539387bf2a17"
@@ -27,7 +27,7 @@ type = "eql"
 
 query = '''
 file where event.action != "deletion" and file.path != null and 
- file.name : "amsi.dll" and not file.path : ("?:\\Windows\\system32\\amsi.dll", "?:\\Windows\\Syswow64\\amsi.dll")
+ file.name : ("amsi.dll", "amsi") and not file.path : ("?:\\Windows\\system32\\amsi.dll", "?:\\Windows\\Syswow64\\amsi.dll")
 '''
 
 
