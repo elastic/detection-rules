@@ -1,0 +1,55 @@
+[metadata]
+creation_date = "2023/01/17"
+integration = ["windows"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/01/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the usage of commonly used system time discovery techniques, which attackers may use during the reconnaissance phase after compromising a system. 
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "System Time Discovery"
+note = """
+### Investigating System Time Discovery
+Both regular users and administrators sometimes require more data regarding their current timezone. While in normal circumstances this is often done through graphical user interfaces, attackers often leverage command line utilities to gather this information. This information could be useful for performing other techniques, such as executing a file with a Scheduled Task/Job, or to discover locality information based on time zone to assist in victim targeting (i.e. System Location Discovery). Adversaries may also use knowledge of system time as part of a time bomb, or delaying execution until a specified date/time.
+#### Possible investigation steps
+- Check whether the user running these commands often accesses the host, and should have access to this system.
+- Investigate whether possible malicious behavior is spotted before and after the timestamp correlated with this alert.
+- Contact the user to ensure that the executed command was intentional benign behavior.
+### False positive analysis
+- Regular users should rarely look up their current timezones, and even more rarely do this through command line utilities. Administrators might leverage command line utilities to do so. Investigate whether the user running these commands did this intentionally. In the case of authorized benign true positives (B-TPs), exceptions can be added. 
+"""
+risk_score = 21
+rule_id = "06568a02-af29-4f20-929c-f3af281e41aa"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and
+(
+process.name: ("net.exe", "net1.exe") and process.args: "*time*" or
+process.name: "w32tm.exe" and process.args: "*/tz*" or
+process.name: "tzutil.exe" and process.args: "*/g*"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1124"
+name = "System Time Discovery"
+reference = "https://attack.mitre.org/techniques/T1124/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
