@@ -68,7 +68,7 @@ class KQLValidator(QueryValidator):
             integration = integration_schema_data['integration']
             package = integration_schema_data['package']
             package_version = integration_schema_data['package_version']
-            schema = integration_schema_data['schema']
+            integration_schema = integration_schema_data['schema']
             stack_version = integration_schema_data['stack_version']
 
             try:
