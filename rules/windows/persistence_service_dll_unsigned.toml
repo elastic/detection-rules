@@ -1,0 +1,56 @@
+[metadata]
+creation_date = "2023/01/17"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.4.0"
+updated_date = "2023/01/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an unsigned library that was created last 5 minutes and subsequently loaded by a shared windows service (svchost). 
+Adversaries may use this technique to maintain persistence or run with System privileges.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Unsigned DLL Loaded by Svchost"
+risk_score = 47
+rule_id = "78ef0c95-9dc2-40ac-a8da-5deb6293a14e"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+library where
+ user.id == "S-1-5-18" and
+ process.executable : 
+     ("?:\\Windows\\System32\\svchost.exe", "?:\\Windows\\Syswow64\\svchost.exe") and
+ dll.code_signature.trusted != true and
+ dll.hash.sha256 != null and 
+ 
+ /* DLL created within 5 minutes of the library load event - compatible with Elastic Endpoint 8.4+ */
+ dll.Ext.relative_file_creation_time <= 300
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+[[rule.threat.technique.subtechnique]]
+id = "T1543.003"
+name = "Windows Service"
+reference = "https://attack.mitre.org/techniques/T1543/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
