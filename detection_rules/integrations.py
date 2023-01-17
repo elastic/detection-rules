@@ -8,7 +8,6 @@ import glob
 import gzip
 import io
 import json
-import os
 import re
 import zipfile
 from collections import OrderedDict
@@ -61,8 +60,8 @@ class IntegrationManifestSchema(Schema):
 def build_integrations_manifest(overwrite: bool, rule_integrations: list) -> None:
     """Builds a new local copy of manifest.yaml from integrations Github."""
     if overwrite:
-        if os.path.exists(MANIFEST_FILE_PATH):
-            os.remove(MANIFEST_FILE_PATH)
+        if MANIFEST_FILE_PATH.exists():
+            MANIFEST_FILE_PATH.unlink()
 
     final_integration_manifests = {integration: {} for integration in rule_integrations}
 
@@ -82,22 +81,26 @@ def build_integrations_manifest(overwrite: bool, rule_integrations: list) -> Non
 def build_integrations_schemas(overwrite: bool) -> None:
     """Builds a new local copy of integration-schemas.json.gz from EPR integrations."""
 
+    final_integration_schemas = {}
+    saved_integration_schemas = {}
+
     # Check if the file already exists and handle accordingly
-    if overwrite and os.path.exists(SCHEMA_FILE_PATH):
-        os.remove(SCHEMA_FILE_PATH)
-    elif os.path.exists(SCHEMA_FILE_PATH):
-        print(f"{SCHEMA_FILE_PATH} already exists. Use --overwrite to rebuild")
-        return
+    if overwrite and SCHEMA_FILE_PATH.exists():
+        SCHEMA_FILE_PATH.unlink()
+    elif SCHEMA_FILE_PATH.exists():
+        saved_integration_schemas = load_integrations_schemas()
 
     # Load the integration manifests
     integration_manifests = load_integrations_manifests()
-    final_integration_schemas = {}
 
     # Loop through the packages and versions
     for package, versions in integration_manifests.items():
         print(f"processing {package}")
         final_integration_schemas.setdefault(package, {})
         for version, manifest in versions.items():
+            if package in saved_integration_schemas and version in saved_integration_schemas[package]:
+                continue
+
             # Download the zip file
             download_url = f"https://epr.elastic.co{manifest['download']}"
             response = requests.get(download_url)

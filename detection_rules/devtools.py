@@ -1186,7 +1186,7 @@ def build_integration_manifests(overwrite: bool):
 
 
 @integrations_group.command('build-schemas')
-@click.option('--overwrite', '-o', is_flag=True, help="Overwrite the existing integrations-schema.json.gz file")
+@click.option('--overwrite', '-o', is_flag=True, help="Overwrite the entire integrations-schema.json.gz file")
 def build_integration_schemas(overwrite: bool):
     """Builds consolidated integrations schemas file."""
     click.echo("Building integration schemas...")
