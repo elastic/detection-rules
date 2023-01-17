@@ -36,9 +36,8 @@ type = "eql"
 query = '''
 process where event.type == "start" and
 (
-process.name: ("net.exe", "net1.exe") and process.args: "*time*" or
-process.name: "w32tm.exe" and process.args: "*/tz*" or
-process.name: "tzutil.exe" and process.args: "*/g*"
+ ((process.name: "net.exe" or (process.name : "net1.exe" and not process.parent.name : "net.exe")) and process.args : "time") or process.name: "w32tm.exe" and process.args: "/tz" or 
+ process.name: "tzutil.exe" and process.args: "/g"
 )
 '''
 
