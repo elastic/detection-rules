@@ -6,10 +6,8 @@
 """Functions to support and interact with Kibana integrations."""
 import glob
 import gzip
-import io
 import json
 import re
-import zipfile
 from collections import OrderedDict
 from pathlib import Path
 from typing import Generator
@@ -23,7 +21,7 @@ import kql
 from . import ecs
 from .beats import flatten_ecs_schema
 from .semver import Version
-from .utils import cached, get_etc_path, read_gzip
+from .utils import cached, get_etc_path, read_gzip, unzip
 
 MANIFEST_FILE_PATH = Path(get_etc_path('integration-manifests.json.gz'))
 SCHEMA_FILE_PATH = Path(get_etc_path('integration-schemas.json.gz'))
@@ -105,13 +103,12 @@ def build_integrations_schemas(overwrite: bool) -> None:
             download_url = f"https://epr.elastic.co{manifest['download']}"
             response = requests.get(download_url)
             response.raise_for_status()
-            zip_file = io.BytesIO(response.content)
 
             # Update the final integration schemas
             final_integration_schemas[package].update({version: {}})
 
             # Open the zip file
-            with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+            with unzip(response.content) as zip_ref:
                 for file in zip_ref.namelist():
                     # Check if the file is a match
                     if glob.fnmatch.fnmatch(file, '*/fields/*.yml'):
@@ -122,7 +119,7 @@ def build_integrations_schemas(overwrite: bool) -> None:
 
                         # Parse the schema and add to the integration_manifests
                         data = flatten_ecs_schema(schema_fields)
-                        flat_data = {field['name']: field.get('type', 'keyword') for field in data}
+                        flat_data = {field['name']: field['type'] for field in data}
 
                         final_integration_schemas[package][version][integration_name].update(flat_data)
 
@@ -132,6 +129,7 @@ def build_integrations_schemas(overwrite: bool) -> None:
     with gzip.open(SCHEMA_FILE_PATH, "w") as schema_file:
         schema_file_bytes = json.dumps(final_integration_schemas).encode("utf-8")
         schema_file.write(schema_file_bytes)
+
     print(f"final integrations manifests dumped: {SCHEMA_FILE_PATH}")
 
 
@@ -173,10 +171,11 @@ def find_compatible_version_window(package: str, integration: str,
     if package_manifest is None:
         raise ValueError(f"Package {package} not found in manifest.")
 
+    # Converts the dict keys (version numbers) to Version objects for proper sorting (ascending)
     integration_manifests = sorted(package_manifest.items(), key=lambda x: Version(str(x[0])))
 
     # iterates through ascending integration manifests
-    # returns latest major version that is least compatible
+    # returns all compatible version
     for version, manifest in integration_manifests:
         kibana_conditions = manifest.get("conditions", {}).get("kibana", {})
         version_requirement = kibana_conditions.get("version")
@@ -224,25 +223,22 @@ def get_integration_manifests(integration: str) -> list:
     return manifests
 
 
-def get_integration_schema_data(data, meta) -> Generator[dict, None, None]:
+def get_integration_schema_data(data, meta, package_integrations: dict) -> Generator[dict, None, None]:
     """Iterates over specified integrations from package-storage and combines schemas per version."""
 
     # lazy import to avoid circular import
     from .rule import (  # pylint: disable=import-outside-toplevel
-        QueryRuleData, RuleMeta, TOMLRuleContents)
+        QueryRuleData, RuleMeta
+    )
 
-    data: QueryRuleData
-    meta: RuleMeta
+    data: QueryRuleData = data
+    meta: RuleMeta = meta
 
     packages_manifest = load_integrations_manifests()
     integrations_schemas = load_integrations_schemas()
 
     # validate the query against related integration fields
     if isinstance(data, QueryRuleData) and data.language != 'lucene':
-        package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
-
-        if not package_integrations:
-            return
 
         for stack_version, mapping in meta.get_validation_stack_versions().items():
             ecs_version = mapping['ecs']

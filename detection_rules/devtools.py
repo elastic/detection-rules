@@ -33,7 +33,8 @@ from .docs import IntegrationSecurityDocs
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
-from .integrations import build_integrations_manifest, build_integrations_schemas
+from .integrations import (build_integrations_manifest, build_integrations_schemas, find_compatible_version_window,
+                           load_integrations_manifests)
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
@@ -1195,6 +1196,38 @@ def build_integration_schemas(overwrite: bool):
     build_integrations_schemas(overwrite)
     end_time = time.perf_counter()
     click.echo(f"Time taken to generate schemas: {(end_time - start_time)/60:.2f} seconds")
+
+
+@integrations_group.command('show-compatible-versions')
+@click.option('--package', '-p', help='Name of package')
+@click.option('--rule_stack_version', '-r', required=True, help='Rule stack version')
+def show_compatible_versions(package: str, rule_stack_version: str) -> None:
+    """Prints the integration compatible versions for specified package based on stack version supplied."""
+
+    packages_manifest = None
+    try:
+        packages_manifest = load_integrations_manifests()
+    except Exception as e:
+        click.echo(f"Error loading integrations manifests: {str(e)}")
+        return
+
+    generator = None
+    try:
+        generator = find_compatible_version_window(package, "", rule_stack_version, packages_manifest)
+    except Exception as e:
+        click.echo(f"Error finding compatible version: {str(e)}")
+        return
+
+    if generator is None:
+        click.echo(f"No compatible version found for package {package} with rule stack version {rule_stack_version}")
+        return
+
+    try:
+        for version in generator:
+            click.echo(f"Compatible integration {version=}")
+    except Exception as e:
+        click.echo(f"Error generating compatible version: {str(e)}")
+    return
 
 
 @dev_group.group('schemas')
