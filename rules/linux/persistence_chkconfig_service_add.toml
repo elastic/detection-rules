@@ -3,7 +3,7 @@ creation_date = "2022/07/22"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/15"
+updated_date = "2023/01/19"
 integration = ["endpoint"]
 
 [rule]
@@ -28,8 +28,10 @@ type = "eql"
 
 query = '''
 process where event.type == "start" and
-   (process.executable : "/usr/sbin/chkconfig" and process.args : "--add") or
-   (process.args : "*chkconfig" and process.args : "--add")
+( 
+  (process.executable : "/usr/sbin/chkconfig" and process.args : "--add") or
+  (process.args : "*chkconfig" and process.args : "--add")
+)
 '''
 
 [[rule.threat]]
