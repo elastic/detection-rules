@@ -160,7 +160,7 @@ def find_least_compatible_version(package: str, integration: str,
     raise ValueError(f"no compatible version for integration {package}:{integration}")
 
 
-def find_compatible_version_window(package: str, integration: str,
+def find_latest_compatible_version(package: str, integration: str,
                                    rule_stack_version: str, packages_manifest: dict) -> Union[None, str]:
     """Finds least compatible version for specified integration based on stack version supplied."""
 
@@ -189,7 +189,8 @@ def find_compatible_version_window(package: str, integration: str,
 
         if Version(highest_compatible_version) > Version(rule_stack_version):
             # TODO: Determine if we should raise an error here or not
-            print(f"Integration {package}-{integration} version {version} has a higher stack version requirement.",
+            integration = f" {integration}" if integration else ""
+            print(f"Integration {package}{integration} version {version} has a higher stack version requirement.",
                   f"Consider updating min_stack version from {rule_stack_version} to "
                   f"{highest_compatible_version} to support this version.")
 
@@ -247,7 +248,7 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
                 if meta.min_stack_version is None and meta.maturity == "development":
                     continue
 
-                package_version = find_compatible_version_window(package=package,
+                package_version = find_latest_compatible_version(package=package,
                                                                  integration=integration,
                                                                  rule_stack_version=meta.min_stack_version,
                                                                  packages_manifest=packages_manifest)
