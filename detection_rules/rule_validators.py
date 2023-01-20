@@ -82,18 +82,27 @@ class KQLValidator(QueryValidator):
 
             try:
                 # validate the query against the integration fields with the package version
-                version_data = f"{ecs_version=} {package=} {integration=} {package_version=}"
-                print(f"Validating query of '{data.name}' against fields for {version_data}")
-
-                # TODO: uncomment to finish integration schema validation
-                # kql.parse(self.query, schema=integration_schema)
+                kql.parse(self.query, schema=integration_schema)
             except kql.KqlParseError as exc:
-                trailer = (f"\nTry adding event.module or event.dataset to specify integration module\n\n"
-                           f"{package=}, {integration=}, {package_version=}, "
-                           f"{stack_version=}, {ecs_version=}"
-                           )
-                raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
-                                        len(exc.caret.lstrip()), trailer=trailer) from None
+                # TODO: Uncomment this when integration schema validation is complete
+                # trailer = (f"\nTry adding event.module or event.dataset to specify integration module\n\n"
+                #            f"{package=}, {integration=}, {package_version=}, "
+                #            f"{stack_version=}, {ecs_version=}"
+                #            )
+
+                # raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
+                #                         len(exc.caret.lstrip()), trailer=trailer) from Non
+
+                # TODO: Remove this when integration schema validation is complete
+                errordata = {"rule_name": data.name, "rule_id": data.rule_id,
+                             "minstack_rule_version": meta.min_stack_version,
+                             "package": package, "integration": integration, "integration_version": package_version,
+                             "ecs_version": ecs_version, "stack_version": stack_version, "error": str(exc)}
+
+                print(errordata)
+                # with open("integration_schema_validation_errors.ndson", "a") as f:
+                #     json.dump(errordata, f)
+                #     f.write("\n")
 
 
 class EQLValidator(QueryValidator):
@@ -189,8 +198,23 @@ class EQLValidator(QueryValidator):
                           f'ecs: {ecs_version}, package: {package}, package_version: {package_version}'
 
             # validate query against the endgame schema
-            # TODO: uncomment to finish integration schema validation
-            # self.validate_query_with_schema(schema=eql_schema, err_trailer=err_trailer)
+            try:
+                self.validate_query_with_schema(schema=eql_schema, err_trailer=err_trailer)
+            except Exception as exc:
+
+                # TODO: Uncomment this when integration schema validation is complete
+                # raise exc
+
+                # TODO: Remove this when integration schema validation is complete
+                errordata = {"rule_name": data.name, "rule_id": data.rule_id,
+                             "minstack_rule_version": meta.min_stack_version,
+                             "package": package, "integration": integration, "integration_version": package_version,
+                             "ecs_version": ecs_version, "stack_version": stack_version, "error": str(exc)}
+
+                print(errordata)
+                # with open("integration_schema_validation_errors.ndson", "a") as f:
+                #     json.dump(errordata, f)
+                #     f.write("\n")
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:

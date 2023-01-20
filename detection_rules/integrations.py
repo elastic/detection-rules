@@ -10,7 +10,7 @@ import json
 import re
 from collections import OrderedDict
 from pathlib import Path
-from typing import Generator
+from typing import Generator, Union
 
 import requests
 import yaml
@@ -161,7 +161,7 @@ def find_least_compatible_version(package: str, integration: str,
 
 
 def find_compatible_version_window(package: str, integration: str,
-                                   rule_stack_version: str, packages_manifest: dict) -> Generator[str, None, None]:
+                                   rule_stack_version: str, packages_manifest: dict) -> Union[None, str]:
     """Finds least compatible version for specified integration based on stack version supplied."""
 
     if not package:
@@ -171,37 +171,32 @@ def find_compatible_version_window(package: str, integration: str,
     if package_manifest is None:
         raise ValueError(f"Package {package} not found in manifest.")
 
-    # Converts the dict keys (version numbers) to Version objects for proper sorting (ascending)
-    integration_manifests = sorted(package_manifest.items(), key=lambda x: Version(str(x[0])))
+    # Converts the dict keys (version numbers) to Version objects for proper sorting (descending)
+    integration_manifests = sorted(package_manifest.items(), key=lambda x: Version(str(x[0])), reverse=True)
 
-    # iterates through ascending integration manifests
-    # returns all compatible version
     for version, manifest in integration_manifests:
         kibana_conditions = manifest.get("conditions", {}).get("kibana", {})
         version_requirement = kibana_conditions.get("version")
         if not version_requirement:
             raise ValueError(f"Manifest for {package}:{integration} version {version} is missing conditions.")
 
-        compatible_versions = re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana"]["version"]).split(" || ")
+        compatible_versions = re.sub(r"\>|\<|\=|\^", "", version_requirement).split(" || ")
 
         if not compatible_versions:
             raise ValueError(f"Manifest for {package}:{integration} version {version} is missing compatible versions")
 
-        if len(compatible_versions) > 1:
-            highest_compatible_version = max(compatible_versions, key=lambda x: Version(x))
+        highest_compatible_version = max(compatible_versions, key=lambda x: Version(x))
 
-            if Version(highest_compatible_version) > Version(rule_stack_version):
-                print(f"Integration {package}-{integration} {version=} has multiple stack version requirements.",
-                      f"Consider updating min_stack version to the latest {compatible_versions}.")
+        if Version(highest_compatible_version) > Version(rule_stack_version):
+            # TODO: Determine if we should raise an error here or not
+            print(f"Integration {package}-{integration} version {version} has a higher stack version requirement.",
+                  f"Consider updating min_stack version from {rule_stack_version} to "
+                  f"{highest_compatible_version} to support this version.")
 
-        for kibana_ver in compatible_versions:
-            if Version(kibana_ver) > Version(rule_stack_version):
-                print(f"Integration {package}-{integration} version {version} has a higher stack version requirement.",
-                      f"Consider updating min_stack version to {kibana_ver} to support this version.")
-            elif int(kibana_ver[0]) == int(rule_stack_version[0]):
-                # check versions have the same major
-                if Version(kibana_ver) <= Version(rule_stack_version):
-                    yield version
+        elif int(highest_compatible_version[0]) == int(rule_stack_version[0]):
+            return version
+
+    raise ValueError(f"no compatible version for integration {package}:{integration}")
 
 
 def get_integration_manifests(integration: str) -> list:
@@ -252,30 +247,24 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
                 if meta.min_stack_version is None and meta.maturity == "development":
                     continue
 
-                package_version_window = find_compatible_version_window(package=package,
-                                                                        integration=integration,
-                                                                        rule_stack_version=meta.min_stack_version,
-                                                                        packages_manifest=packages_manifest)
+                package_version = find_compatible_version_window(package=package,
+                                                                 integration=integration,
+                                                                 rule_stack_version=meta.min_stack_version,
+                                                                 packages_manifest=packages_manifest)
 
-                for package_version in package_version_window:
-                    schema = {}
-                    if integration is None:
-                        # Use all fields from each dataset
-                        for dataset in integrations_schemas[package][package_version]:
-                            schema.update(integrations_schemas[package][package_version][dataset])
-                    else:
-                        if integration not in integrations_schemas[package][package_version]:
-                            print(f"Error: Integration {integration} not found in package {package} "
-                                  f"version {package_version}")
-
-                            # TODO: uncomment this once all rules are triaged and remove the print above
-                            # raise ValueError(f"Integration {integration} not found in package {package} "
-                            #                  f"version {package_version}")
-                            continue
-                        schema = integrations_schemas[package][package_version][integration]
-                    schema.update(ecs_schema)
-                    integration_schema = {k: kql.parser.elasticsearch_type_family(v) for k, v in schema.items()}
-                    data = {"schema": integration_schema, "package": package, "integration": integration,
-                            "stack_version": stack_version, "ecs_version": ecs_version,
-                            "package_version": package_version}
-                    yield data
+                schema = {}
+                if integration is None:
+                    # Use all fields from each dataset
+                    for dataset in integrations_schemas[package][package_version]:
+                        schema.update(integrations_schemas[package][package_version][dataset])
+                else:
+                    if integration not in integrations_schemas[package][package_version]:
+                        raise ValueError(f"Integration {integration} not found in package {package} "
+                                         f"version {package_version}")
+                    schema = integrations_schemas[package][package_version][integration]
+                schema.update(ecs_schema)
+                integration_schema = {k: kql.parser.elasticsearch_type_family(v) for k, v in schema.items()}
+                data = {"schema": integration_schema, "package": package, "integration": integration,
+                        "stack_version": stack_version, "ecs_version": ecs_version,
+                        "package_version": package_version}
+                yield data
