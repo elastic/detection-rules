@@ -1198,10 +1198,10 @@ def build_integration_schemas(overwrite: bool):
     click.echo(f"Time taken to generate schemas: {(end_time - start_time)/60:.2f} seconds")
 
 
-@integrations_group.command('show-latest-compatible-version')
+@integrations_group.command('show-latest-compatible')
 @click.option('--package', '-p', help='Name of package')
 @click.option('--stack_version', '-s', required=True, help='Rule stack version')
-def show_latestcompatible_version(package: str, stack_version: str) -> None:
+def show_latest_compatible_version(package: str, stack_version: str) -> None:
     """Prints the latest integration compatible version for specified package based on stack version supplied."""
 
     packages_manifest = None

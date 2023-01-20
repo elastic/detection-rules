@@ -42,6 +42,7 @@ class KQLValidator(QueryValidator):
 
             if package_integrations:
                 # validate the query against related integration fields
+                print(f"Validating {data.name} against {len(package_integrations)} integration(s)")
                 self.validate_integration(data, meta, package_integrations)
             else:
                 for stack_version, mapping in meta.get_validation_stack_versions().items():
@@ -93,7 +94,7 @@ class KQLValidator(QueryValidator):
                 # raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
                 #                         len(exc.caret.lstrip()), trailer=trailer) from Non
 
-                # TODO: Remove this when integration schema validation is complete
+                # TODO: Remove all below when integration schema validation is complete
                 errordata = {"rule_name": data.name, "rule_id": data.rule_id,
                              "minstack_rule_version": meta.min_stack_version,
                              "package": package, "integration": integration, "integration_version": package_version,
@@ -158,6 +159,7 @@ class EQLValidator(QueryValidator):
 
             if package_integrations:
                 # validate the query against related integration fields
+                print(f"Validating {data.name} against {len(package_integrations)} integration(s)")
                 self.validate_integration(data, meta, package_integrations)
             else:
                 for stack_version, mapping in meta.get_validation_stack_versions().items():
@@ -205,7 +207,7 @@ class EQLValidator(QueryValidator):
                 # TODO: Uncomment this when integration schema validation is complete
                 # raise exc
 
-                # TODO: Remove this when integration schema validation is complete
+                # TODO: Remove all below when integration schema validation is complete
                 errordata = {"rule_name": data.name, "rule_id": data.rule_id,
                              "minstack_rule_version": meta.min_stack_version,
                              "package": package, "integration": integration, "integration_version": package_version,
