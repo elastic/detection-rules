@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2022/02/22"
+integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/13"
+updated_date = "2022/12/21"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +22,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*"]
+index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Account Configured with Never-Expiring Password"
@@ -29,11 +30,9 @@ note = """## Triage and analysis
 
 ### Investigating Account Configured with Never-Expiring Password
 
-Active Directory provides a setting that prevents users' passwords from expiring. Enabling this setting is bad practice and can expose
-environments to vulnerabilities that weaken security posture, especially when these accounts are privileged.
+Active Directory provides a setting that prevents users' passwords from expiring. Enabling this setting is bad practice and can expose environments to vulnerabilities that weaken security posture, especially when these accounts are privileged.
 
-The setting is usually configured so a user account can act as a service account. Attackers can abuse these accounts to
-persist in the domain and maintain long-term access using compromised accounts with a never-expiring password set.
+The setting is usually configured so a user account can act as a service account. Attackers can abuse these accounts to persist in the domain and maintain long-term access using compromised accounts with a never-expiring password set.
 
 #### Possible investigation steps
 
@@ -44,12 +43,8 @@ persist in the domain and maintain long-term access using compromised accounts w
 
 ### False positive analysis
 
-- This activity should not happen legitimately. The security team should address any potential benign true positive
-(B-TP), as this configuration can put the user and the domain at risk.
-- Using user accounts as service accounts is a bad security practice and should not be allowed in the domain. The
-security team should map and monitor potential benign true positives (B-TPs), especially if the account is privileged.
-For cases in which user accounts cannot be avoided, Microsoft provides the Group Managed Service Accounts (gMSA) feature,
-which ensures that the account password is robust and changed regularly and automatically.
+- This activity should not happen legitimately. The security team should address any potential benign true positive (B-TP), as this configuration can put the user and the domain at risk.
+- Using user accounts as service accounts is a bad security practice and should not be allowed in the domain. The security team should map and monitor potential benign true positives (B-TPs), especially if the account is privileged. For cases in which user accounts cannot be avoided, Microsoft provides the Group Managed Service Accounts (gMSA) feature, which ensures that the account password is robust and changed regularly and automatically.
 
 ### Response and remediation
 
@@ -59,11 +54,8 @@ which ensures that the account password is robust and changed regularly and auto
 - Search for other occurrences on the domain.
     - Using the [Active Directory PowerShell module](https://docs.microsoft.com/en-us/powershell/module/activedirectory/get-aduser):
         - `get-aduser -filter { passwordNeverExpires -eq $true  -and enabled -eq $true } | ft`
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts, if
-any, are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email,
-business systems, and web services.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
 references = [
     "https://www.cert.ssi.gouv.fr/uploads/guide-ad.html#dont_expire",
@@ -72,7 +64,15 @@ references = [
 risk_score = 47
 rule_id = "62a70f6f-3c37-43df-a556-f64fa475fba2"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Active Directory", "has_guide"]
+tags = [
+    "Elastic",
+    "Host",
+    "Windows",
+    "Threat Detection",
+    "Persistence",
+    "Active Directory",
+    "Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -83,11 +83,11 @@ event.action:"modified-user-account" and event.code:"4738" and message:"'Don't E
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
+
 
 [rule.threat.tactic]
 id = "TA0003"

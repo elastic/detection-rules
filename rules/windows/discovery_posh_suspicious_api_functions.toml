@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2021/10/13"
+integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/13"
+updated_date = "2023/01/05"
 
 [rule]
 author = ["Elastic"]
@@ -22,18 +23,14 @@ note = """## Triage and analysis
 
 ### Investigating PowerShell Suspicious Discovery Related Windows API Functions
 
-PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks. This
-makes it available for use in various environments, and creates an attractive way for attackers to execute code.
+PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks. This makes it available for use in various environments, and creates an attractive way for attackers to execute code.
 
-Attackers can use PowerShell to interact with the Win32 API to bypass command line based detections, using libraries
-like PSReflect or Get-ProcAddress Cmdlet.
+Attackers can use PowerShell to interact with the Win32 API to bypass command line based detections, using libraries like PSReflect or Get-ProcAddress Cmdlet.
 
 #### Possible investigation steps
 
-- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration
-capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics.
-- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for
-prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics.
+- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Examine file or network events from the involved PowerShell process for suspicious behavior.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Evaluate whether the user needs to use PowerShell to complete tasks.
@@ -41,9 +38,7 @@ prevalence, whether they are located in expected locations, and if they are sign
 
 ### False positive analysis
 
-- Discovery activities themselves are not inherently malicious if occurring in isolation, as long as the script does not
-contain other capabilities, and there are no other alerts related to the user or host; such alerts can be dismissed.
-However, analysts should keep in mind that this is not a common way of getting information, making it suspicious.
+- Discovery activities themselves are not inherently malicious if occurring in isolation, as long as the script does not contain other capabilities, and there are no other alerts related to the user or host; such alerts can be dismissed. However, analysts should keep in mind that this is not a common way of getting information, making it suspicious.
 
 ### Related rules
 
@@ -55,10 +50,8 @@ However, analysts should keep in mind that this is not a common way of getting i
 - Isolate the involved hosts to prevent further post-compromise behavior.
 - Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
-malware components.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 ## Setup
 
@@ -80,12 +73,12 @@ reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLo
 """
 references = [
     "https://github.com/BC-SECURITY/Empire/blob/9259e5106986847d2bb770c4289c0c0f1adf2344/data/module_source/situational_awareness/network/powerview.ps1#L21413",
-    "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0109_windows_powershell_script_block_log.md"
+    "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0109_windows_powershell_script_block_log.md",
 ]
 risk_score = 47
 rule_id = "61ac3638-40a3-44b2-855a-985636ca985e"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery", "has_guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery", "Investigation Guide", "PowerShell"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -103,40 +96,38 @@ event.category:process and
     WTSQuerySessionInformation or
     LsaGetLogonSessionData or
     QueryServiceObjectSecurity
-  )
+  ) and not user.id : "S-1-5-18"
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
+[[rule.threat.technique.subtechnique]]
+id = "T1069.001"
+name = "Local Groups"
+reference = "https://attack.mitre.org/techniques/T1069/001/"
+
 
 [[rule.threat.technique]]
 id = "T1135"
 name = "Network Share Discovery"
 reference = "https://attack.mitre.org/techniques/T1135/"
 
-[[rule.threat.technique]]
-id = "T1069"
-name = "Permission Groups Discovery"
-reference = "https://attack.mitre.org/techniques/T1069/"
-
-  [[rule.threat.technique.subtechnique]]
-  id = "T1069.001"
-  name = "Local Groups"
-  reference = "https://attack.mitre.org/techniques/T1069/001/"
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.001"
 name = "PowerShell"
