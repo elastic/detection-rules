@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2022/12/20"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ or escape container security boundaries. Threat actors have utilized this binary
 host and access other resources or escalate privileges.
 """
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*"]
+index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Namespace Manipulation Using Unshare"
@@ -25,12 +25,12 @@ references = [
 risk_score = 47
 rule_id = "d00f33e7-b57d-4023-9952-2db91b1767c4"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Privilege Escalation"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Privilege Escalation", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and event.action == "exec" and
+process where event.type == "start" and event.action : ("exec", "exec_event") and
 process.executable: "/usr/bin/unshare" and
 not process.parent.executable: ("/usr/bin/udevadm", "*/lib/systemd/systemd-udevd", "/usr/bin/unshare") and
 not process.args : "/usr/bin/snap"
