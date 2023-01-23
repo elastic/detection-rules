@@ -28,7 +28,7 @@ from eql.table import Table
 from kibana.connector import Kibana
 
 from . import attack, rule_loader, utils
-from .cli_utils import multi_collection, single_collection
+from .cli_utils import single_collection
 from .docs import IntegrationSecurityDocs
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
@@ -353,10 +353,11 @@ def kibana_diff(rule_id, repo, branch, threads):
     return diff
 
 
-def add_git_args(f):
+def add_kibana_git_args(f):
     @click.argument("local-repo", default=get_path("..", "kibana"))
     @click.option("--kibana-directory", "-d", help="Directory to overwrite in Kibana",
-                  default="x-pack/plugins/security_solution/server/lib/detection_engine/rules/prepackaged_rules")
+                  default="x-pack/plugins/security_solution/server/lib/detection_engine/"
+                          "prebuilt_rules/content/prepackaged_rules")
     @click.option("--base-branch", "-b", help="Base branch in Kibana", default="main")
     @click.option("--branch-name", "-n", help="New branch for the rules commit")
     @click.option("--ssh/--http", is_flag=True, help="Method to use for cloning")
@@ -370,7 +371,7 @@ def add_git_args(f):
 
 
 @dev_group.command("kibana-commit")
-@add_git_args
+@add_kibana_git_args
 @click.option("--push", "-p", is_flag=True, help="Push the commit to the remote")
 @click.pass_context
 def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_directory: str, base_branch: str,
@@ -441,7 +442,7 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
 @click.option("--fork-owner", "-f", help="Owner of forked branch (ex: elastic)")
 # Pending an official GitHub API
 # @click.option("--automerge", is_flag=True, help="Enable auto-merge on the PR")
-@add_git_args
+@add_kibana_git_args
 @click.pass_context
 def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...], draft: bool, fork_owner: str,
               token: str, **kwargs):
@@ -1226,12 +1227,13 @@ def refresh_threat_mappings():
 
 
 @attack_group.command('update-rules')
-@multi_collection
-def update_attack_in_rules(rules: RuleCollection) -> List[Optional[TOMLRule]]:
+def update_attack_in_rules() -> List[Optional[TOMLRule]]:
     """Update threat mappings attack data in all rules."""
     new_rules = []
     redirected_techniques = attack.load_techniques_redirect()
     today = time.strftime('%Y/%m/%d')
+
+    rules = RuleCollection.default()
 
     for rule in rules.rules:
         needs_update = False
@@ -1241,14 +1243,29 @@ def update_attack_in_rules(rules: RuleCollection) -> List[Optional[TOMLRule]]:
 
         for entry in threat:
             tactic = entry.tactic.name
-            techniques = []
+            technique_ids = []
+            technique_names = []
             for technique in entry.technique or []:
-                techniques.append(technique.id)
-                techniques.extend([st.id for st in technique.subtechnique or []])
+                technique_ids.append(technique.id)
+                technique_names.append(technique.name)
+                technique_ids.extend([st.id for st in technique.subtechnique or []])
+                technique_names.extend([st.name for st in technique.subtechnique or []])
 
-            if any([t for t in techniques if t in redirected_techniques]):
+            # check redirected techniques by ID
+            # redirected techniques are technique IDs that have changed but represent the same technique
+            if any([tid for tid in technique_ids if tid in redirected_techniques]):
                 needs_update = True
-                threat_pending_update[tactic] = techniques
+                threat_pending_update[tactic] = technique_ids
+                click.echo(f"'{rule.contents.name}' requires update - technique ID change")
+
+            # check for name change
+            # happens if technique ID is the same but name changes
+            expected_technique_names = [attack.technique_lookup[str(tid)]["name"] for tid in technique_ids]
+            if any([tname for tname in technique_names if tname not in expected_technique_names]):
+                needs_update = True
+                threat_pending_update[tactic] = technique_ids
+                click.echo(f"'{rule.contents.name}' requires update - technique name change")
+
             else:
                 valid_threat.append(entry)
 
@@ -1265,12 +1282,12 @@ def update_attack_in_rules(rules: RuleCollection) -> List[Optional[TOMLRule]]:
             new_meta = dataclasses.replace(rule.contents.metadata, updated_date=today)
             new_data = dataclasses.replace(rule.contents.data, threat=valid_threat)
             new_contents = dataclasses.replace(rule.contents, data=new_data, metadata=new_meta)
-            new_rule = TOMLRule(contents=new_contents)
+            new_rule = TOMLRule(contents=new_contents, path=rule.path)
             new_rule.save_toml()
             new_rules.append(new_rule)
 
     if new_rules:
-        click.echo(f'{len(new_rules)} rules updated')
+        click.echo(f'\nFinished - {len(new_rules)} rules updated!')
     else:
         click.echo('No rule changes needed')
     return new_rules
