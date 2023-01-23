@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2022/06/30"
-integration = "kubernetes"
+integration = ["kubernetes"]
 maturity = "production"
 min_stack_comments = "New fields added to Kubernetes Integration"
 min_stack_version = "8.4.0"
-updated_date = "2022/10/03"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -41,11 +41,11 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset : "kubernetes.audit_logs" 
+event.dataset : "kubernetes.audit_logs"
   and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow"
   and kubernetes.audit.verb:"create"
   and kubernetes.audit.objectRef.resource:("selfsubjectaccessreviews" or "selfsubjectrulesreviews")
-  and (kubernetes.audit.user.username:(system\:serviceaccount\:* or system\:node\:*) 
+  and (kubernetes.audit.user.username:(system\:serviceaccount\:* or system\:node\:*)
   or kubernetes.audit.impersonatedUser.username:(system\:serviceaccount\:* or system\:node\:*))
 '''
 
