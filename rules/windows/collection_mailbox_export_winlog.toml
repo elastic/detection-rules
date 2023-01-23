@@ -1,6 +1,6 @@
 [metadata]
-creation_date = "2020/12/15"
-integration = ["endpoint", "windows"]
+creation_date = "2023/01/11"
+integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
@@ -9,21 +9,19 @@ updated_date = "2023/01/11"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the use of the Exchange PowerShell cmdlet, New-MailBoxExportRequest, to export the contents of a primary
-mailbox or archive to a .pst file. Adversaries may target user email to collect sensitive information.
+Identifies the use of the Exchange PowerShell cmdlet, New-MailBoxExportRequest, to export the contents of a primary mailbox or archive to a .pst file. Adversaries may target user email to collect sensitive information.
 """
 false_positives = ["Legitimate exchange system administration activity."]
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
-language = "eql"
+index = ["winlogbeat-*", "logs-windows.*"]
+language = "kuery"
 license = "Elastic License v2"
-name = "Exporting Exchange Mailbox via PowerShell"
+name = "Exchange Mailbox Export via PowerShell"
 note = """## Triage and analysis
 
-### Investigating Exporting Exchange Mailbox via PowerShell
+### Investigating Exchange Mailbox Export via PowerShell
 
 The `New-MailBoxExportRequest` cmdlet is used to begin the process of exporting contents of a primary mailbox or archive to a .pst file. Note that this is done on a per-mailbox basis and this cmdlet is available only in on-premises Exchange.
-
 Attackers can abuse this functionality in preparation for exfiltrating contents, which is likely to contain sensitive and strategic data.
 
 #### Possible investigation steps
@@ -56,49 +54,43 @@ Attackers can abuse this functionality in preparation for exfiltrating contents,
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = [
     "https://www.volexity.com/blog/2020/12/14/dark-halo-leverages-solarwinds-compromise-to-breach-organizations/",
     "https://docs.microsoft.com/en-us/powershell/module/exchange/new-mailboxexportrequest?view=exchange-ps",
+    "https://www.elastic.co/security-labs/siestagraph-new-implant-uncovered-in-asean-member-foreign-ministry",
 ]
 risk_score = 47
-rule_id = "6aace640-e631-4870-ba8e-5fdda09325db"
+rule_id = "54a81f68-5f2a-421e-8eed-f888278bb712"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Collection", "Investigation Guide", "Elastic Endgame"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Collection", "Investigation Guide", "PowerShell"]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "query"
 
 query = '''
-process where event.type == "start" and
-  process.name: ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and 
-  process.command_line : ("*MailboxExportRequest*", "*-Mailbox*-ContentFilter*")
+event.category:process and powershell.file.script_block_text : "New-MailboxExportRequest"
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1005"
-name = "Data from Local System"
-reference = "https://attack.mitre.org/techniques/T1005/"
-
-[[rule.threat.technique]]
 id = "T1114"
 name = "Email Collection"
 reference = "https://attack.mitre.org/techniques/T1114/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1114.001"
+name = "Local Email Collection"
+reference = "https://attack.mitre.org/techniques/T1114/001/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1114.002"
 name = "Remote Email Collection"
 reference = "https://attack.mitre.org/techniques/T1114/002/"
 
 
-
 [rule.threat.tactic]
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
-
