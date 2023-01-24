@@ -1,0 +1,86 @@
+[metadata]
+creation_date = "2023/01/11"
+integration = ["windows"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/01/11"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects PowerShell scripts that can be used to collect data from mailboxes. Adversaries may target user email to collect
+sensitive information.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "PowerShell Mailbox Collection Script"
+references = [
+    "https://github.com/dafthack/MailSniper/blob/master/MailSniper.ps1",
+    "https://github.com/center-for-threat-informed-defense/adversary_emulation_library/blob/master/apt29/Archive/CALDERA_DIY/evals/payloads/stepSeventeen_email.ps1",
+]
+risk_score = 47
+rule_id = "a2d04374-187c-4fd9-b513-3ad4e7fdd67a"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Collection", "PowerShell"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.category:process and
+  (
+   powershell.file.script_block_text : (
+      "Microsoft.Office.Interop.Outlook" or
+      "Interop.Outlook.olDefaultFolders" or
+      "::olFolderInBox"
+   ) or
+   powershell.file.script_block_text : (
+      "Microsoft.Exchange.WebServices.Data.Folder" or
+      "Microsoft.Exchange.WebServices.Data.FileAttachment"
+   )
+   )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1114"
+name = "Email Collection"
+reference = "https://attack.mitre.org/techniques/T1114/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1114.001"
+name = "Local Email Collection"
+reference = "https://attack.mitre.org/techniques/T1114/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1114.002"
+name = "Remote Email Collection"
+reference = "https://attack.mitre.org/techniques/T1114/002/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
