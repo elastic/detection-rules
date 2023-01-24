@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2021/07/06"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2022/02/14"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -11,8 +14,8 @@ escalation vulnerabilities related to the Printing Service on Windows.
 """
 false_positives = [
     """
-    Install or update of a legitimate printing driver. Verify the printer driver file metadata such as manufacturer and signature
-    information.
+    Install or update of a legitimate printing driver. Verify the printer driver file metadata such as manufacturer and
+    signature information.
     """,
 ]
 from = "now-9m"
@@ -20,10 +23,11 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual Print Spooler Child Process"
-references = [
-    "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34527",
-    "https://github.com/afwu/PrintNightmare",
-]
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
+references = ["https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34527"]
 risk_score = 47
 rule_id = "ee5300a7-7e31-4a72-a258-250abb8b3aa1"
 severity = "medium"
@@ -34,8 +38,8 @@ type = "eql"
 query = '''
 process where event.type == "start" and
  process.parent.name : "spoolsv.exe" and
- (process.Ext.token.integrity_level_name : "System" or
- winlog.event_data.IntegrityLevel : "System") and
+ (?process.Ext.token.integrity_level_name : "System" or
+ ?winlog.event_data.IntegrityLevel : "System") and
 
  /* exclusions for FP control below */
  not process.name : ("splwow64.exe", "PDFCreator.exe", "acrodist.exe", "spoolsv.exe", "msiexec.exe", "route.exe", "WerFault.exe") and
@@ -50,12 +54,13 @@ process where event.type == "start" and
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-reference = "https://attack.mitre.org/techniques/T1068/"
-name = "Exploitation for Privilege Escalation"
 id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
 
 
 [rule.threat.tactic]
-reference = "https://attack.mitre.org/tactics/TA0004/"
-name = "Privilege Escalation"
 id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

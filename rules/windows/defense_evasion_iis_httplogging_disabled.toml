@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2020/04/14"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2021/09/23"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -10,20 +13,24 @@ Identifies when Internet Information Services (IIS) HTTP Logging is disabled on 
 access via a webshell or other mechanism can disable HTTP Logging as an effective anti-forensics measure.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 max_signals = 33
 name = "IIS HTTP Logging Disabled"
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 risk_score = 73
 rule_id = "ebf1adea-ccf2-4943-8b96-7ab11ca173a5"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where event.type == "start" and
   (process.name : "appcmd.exe" or process.pe.original_file_name == "appcmd.exe") and
   process.args : "/dontLog*:*True" and
   not process.parent.name : "iissetup.exe"
@@ -34,17 +41,17 @@ process where event.type in ("start", "process_started") and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1562"
-reference = "https://attack.mitre.org/techniques/T1562/"
 name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.002"
+name = "Disable Windows Event Logging"
+reference = "https://attack.mitre.org/techniques/T1562/002/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1562.002"
-  name = "Disable Windows Event Logging"
-  reference = "https://attack.mitre.org/techniques/T1562/002/"
 
 
 [rule.threat.tactic]
 id = "TA0005"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 

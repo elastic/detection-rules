@@ -4,15 +4,22 @@
 # 2.0.
 
 """Generic mixin classes."""
-from typing import TypeVar, Type, Optional, Any
 
+from pathlib import Path
+from typing import Any, Optional, TypeVar, Type
+
+import json
 import marshmallow_dataclass
 import marshmallow_dataclass.union_field
 import marshmallow_jsonschema
 import marshmallow_union
-from marshmallow import Schema, fields
+from marshmallow import Schema, ValidationError, fields, validates_schema
 
-from .utils import cached
+from .misc import load_current_package_version
+from .schemas import definitions
+from .schemas.stack_compat import get_incompatible_fields
+from .semver import Version
+from .utils import cached, dict_hash
 
 T = TypeVar('T')
 ClassT = TypeVar('ClassT')  # bound=dataclass?
@@ -110,6 +117,81 @@ class MarshmallowDataclassMixin:
             serialized = _strip_none_from_dict(serialized)
 
         return serialized
+
+
+class LockDataclassMixin:
+    """Mixin class for version and deprecated rules lock files."""
+
+    @classmethod
+    @cached
+    def __schema(cls: ClassT) -> Schema:
+        """Get the marshmallow schema for the data class"""
+        return marshmallow_dataclass.class_schema(cls)()
+
+    def get(self, key: str, default: Optional[Any] = None):
+        """Get a key from the query data without raising attribute errors."""
+        return getattr(self, key, default)
+
+    @classmethod
+    def from_dict(cls: Type[ClassT], obj: dict) -> ClassT:
+        """Deserialize and validate a dataclass from a dict using marshmallow."""
+        schema = cls.__schema()
+        try:
+            loaded = schema.load(obj)
+        except ValidationError as e:
+            err_msg = json.dumps(e.messages, indent=2)
+            raise ValidationError(f'Validation error loading: {cls.__name__}\n{err_msg}') from None
+        return loaded
+
+    def to_dict(self, strip_none_values=True) -> dict:
+        """Serialize a dataclass to a dictionary using marshmallow."""
+        schema = self.__schema()
+        serialized: dict = schema.dump(self)
+
+        if strip_none_values:
+            serialized = _strip_none_from_dict(serialized)
+
+        return serialized['data']
+
+    @classmethod
+    def load_from_file(cls: Type[ClassT], lock_file: Optional[Path] = None) -> ClassT:
+        """Load and validate a version lock file."""
+        path: Path = getattr(cls, 'file_path', lock_file)
+        contents = json.loads(path.read_text())
+        loaded = cls.from_dict(dict(data=contents))
+        return loaded
+
+    def sha256(self) -> definitions.Sha256:
+        """Get the sha256 hash of the version lock contents."""
+        contents = self.to_dict()
+        return dict_hash(contents)
+
+    def save_to_file(self, lock_file: Optional[Path] = None):
+        """Save and validate a version lock file."""
+        path: Path = lock_file or getattr(self, 'file_path', None)
+        assert path, 'No path passed or set'
+        contents = self.to_dict()
+        path.write_text(json.dumps(contents, indent=2, sort_keys=True))
+
+
+class StackCompatMixin:
+    """Mixin to restrict schema compatibility to defined stack versions."""
+
+    @validates_schema
+    def validate_field_compatibility(self, data: dict, **kwargs):
+        """Verify stack-specific fields are properly applied to schema."""
+        package_version = Version(load_current_package_version())
+        schema_fields = getattr(self, 'fields', {})
+        incompatible = get_incompatible_fields(list(schema_fields.values()), package_version)
+        if not incompatible:
+            return
+
+        package_version = load_current_package_version()
+        for field, bounds in incompatible.items():
+            min_compat, max_compat = bounds
+            if data.get(field) is not None:
+                raise ValidationError(f'Invalid field: "{field}" for stack version: {package_version}, '
+                                      f'min compatibility: {min_compat}, max compatibility: {max_compat}')
 
 
 class PatchedJSONSchema(marshmallow_jsonschema.JSONSchema):

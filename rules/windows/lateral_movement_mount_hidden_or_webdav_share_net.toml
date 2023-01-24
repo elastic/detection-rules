@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2020/11/02"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2021/03/03"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -14,15 +17,19 @@ index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Mounting Hidden or WebDav Remote Shares"
-risk_score = 21
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
+risk_score = 47
 rule_id = "c4210e1c-64f2-4f48-b67e-b5a8ffe3aa14"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access", "Lateral Movement"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where event.type == "start" and
  ((process.name : "net.exe" or process.pe.original_file_name == "net.exe") or ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and
  not process.parent.name : "net.exe")) and
  process.args : "use" and
@@ -50,4 +57,21 @@ reference = "https://attack.mitre.org/techniques/T1021/002/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.003"
+name = "Local Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
 

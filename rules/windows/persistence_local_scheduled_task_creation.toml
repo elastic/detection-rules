@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2022/02/28"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -15,11 +18,14 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Local Scheduled Task Creation"
+references = [
+    "https://www.elastic.co/security-labs/hunting-for-persistence-using-elastic-security-part-1",
+    "https://www.elastic.co/security-labs/hunting-for-persistence-using-elastic-security-part-2",
+]
 risk_score = 21
 rule_id = "afcce5ad-65de-4ed2-8516-5e093d3ac99a"
 severity = "low"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
-timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
@@ -35,7 +41,7 @@ sequence with maxspan=1m
     (process.name : "schtasks.exe" or process.pe.original_file_name == "schtasks.exe") and
     process.args : ("/create", "-create") and process.args : ("/RU", "/SC", "/TN", "/TR", "/F", "/XML") and
     /* exclude SYSTEM Integrity Level - look for task creations by non-SYSTEM user */
-    not (process.Ext.token.integrity_level_name : "System" or winlog.event_data.IntegrityLevel : "System")
+    not (?process.Ext.token.integrity_level_name : "System" or ?winlog.event_data.IntegrityLevel : "System")
   ] by process.parent.entity_id
 '''
 
@@ -46,7 +52,6 @@ framework = "MITRE ATT&CK"
 id = "T1053"
 name = "Scheduled Task/Job"
 reference = "https://attack.mitre.org/techniques/T1053/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1053.005"
 name = "Scheduled Task"

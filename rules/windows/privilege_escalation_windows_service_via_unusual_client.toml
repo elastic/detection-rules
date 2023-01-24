@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2022/02/07"
+integration = ["windows"]
 maturity = "production"
-updated_date = "2022/02/07"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/21"
 
 [rule]
 author = ["Elastic"]
@@ -11,30 +14,30 @@ privileges but are executed under SYSTEM privileges, so an adversary may also us
 administrator to SYSTEM.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*"]
+index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Windows Service Installed via an Unusual Client"
-note = """## Config
+note = """## Setup
 
 The 'Audit Security System Extension' logging policy must be configured for (Success)
 Steps to implement the logging policy with with Advanced Audit Configuration:
 
 ```
-Computer Configuration > 
-Policies > 
-Windows Settings > 
-Security Settings > 
-Advanced Audit Policies Configuration > 
-Audit Policies > 
-System > 
+Computer Configuration >
+Policies >
+Windows Settings >
+Security Settings >
+Advanced Audit Policies Configuration >
+Audit Policies >
+System >
 Audit Security System Extension (Success)
 ```
 """
 references = [
     "https://www.x86matthew.com/view_post?id=create_svc_rpc",
     "https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4697",
-    "https://github.com/atc-project/atomic-threat-coverage/blob/master/Atomic_Threat_Coverage/Logging_Policies/LP_0100_windows_audit_security_system_extension.md"
+    "https://github.com/atc-project/atomic-threat-coverage/blob/master/Atomic_Threat_Coverage/Logging_Policies/LP_0100_windows_audit_security_system_extension.md",
 ]
 risk_score = 73
 rule_id = "55c2bf58-2a39-4c58-a384-c8b1978153c2"
@@ -51,18 +54,18 @@ event.action:"service-installed"  and (winlog.event_data.ClientProcessId:"0" or 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-reference = "https://attack.mitre.org/techniques/T1543/"
 id = "T1543"
 name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
 [[rule.threat.technique.subtechnique]]
-reference = "https://attack.mitre.org/techniques/T1543/003/"
 id = "T1543.003"
 name = "Windows Service"
+reference = "https://attack.mitre.org/techniques/T1543/003/"
 
 
 
 [rule.threat.tactic]
-reference = "https://attack.mitre.org/tactics/TA0004/"
 id = "TA0004"
 name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
 

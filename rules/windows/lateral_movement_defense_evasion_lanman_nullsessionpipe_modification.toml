@@ -1,13 +1,16 @@
 [metadata]
 creation_date = "2021/03/22"
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2022/02/14"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies NullSessionPipe registry modifications that specify which pipes can be accessed anonymously. This could
-be indicative of adversary lateral movement preparation by making the added pipe available to everyone.
+Identifies NullSessionPipe registry modifications that specify which pipes can be accessed anonymously. This could be
+indicative of adversary lateral movement preparation by making the added pipe available to everyone.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -26,9 +29,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where
+registry where event.type in ("creation", "change") and
 registry.path : "HKLM\\SYSTEM\\*ControlSet*\\services\\LanmanServer\\Parameters\\NullSessionPipes" and
-registry.data.strings != null
+length(registry.data.strings) > 0
 '''
 
 
@@ -49,3 +52,4 @@ reference = "https://attack.mitre.org/techniques/T1021/002/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
+

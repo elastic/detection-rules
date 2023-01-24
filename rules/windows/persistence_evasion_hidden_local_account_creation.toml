@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2020/12/18"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2021/09/23"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +18,37 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Creation of a Hidden Local User Account"
+note = """## Triage and analysis
+
+### Investigating Creation of a Hidden Local User Account
+
+Attackers can create accounts ending with a `$` symbol to make the account hidden to user enumeration utilities and bypass detections that identify computer accounts by this pattern to apply filters.
+
+This rule uses registry events to identify the creation of local hidden accounts.
+
+#### Possible investigation steps
+
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+
+### False positive analysis
+
+- This activity is unlikely to happen legitimately. Benign true positive (B-TPs) can be added as exceptions if necessary.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved hosts to prevent further post-compromise behavior.
+- Delete the hidden account.
+- Review the privileges assigned to the involved users to ensure that the least privilege principle is being followed.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+
+## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = [
     "https://blog.menasec.net/2019/02/threat-hunting-6-hiding-in-plain-sights_8.html",
     "https://github.com/CyberMonitor/APT_CyberCriminal_Campagin_Collections/tree/master/2020/2020.12.15.Lazarus_Campaign",
@@ -22,7 +56,7 @@ references = [
 risk_score = 73
 rule_id = "2edc8076-291e-41e9-81e4-e3fcbc97ae5e"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -37,11 +71,11 @@ framework = "MITRE ATT&CK"
 id = "T1136"
 name = "Create Account"
 reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1136/001/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1136.001"
-  name = "Local Account"
-  reference = "https://attack.mitre.org/techniques/T1136/001/"
 
 
 [rule.threat.tactic]

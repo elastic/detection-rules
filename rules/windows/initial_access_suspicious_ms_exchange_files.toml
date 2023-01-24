@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2021/03/04"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2021/05/10"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -32,6 +35,11 @@ Positive hits can be checked against the established Microsoft [baselines](https
 Microsoft highly recommends that the best course of action is patching, but this may not protect already compromised systems
 from existing intrusions. Other tools for detecting and mitigating can be found within their Exchange support
 [repository](https://github.com/microsoft/CSS-Exchange/tree/main/Security)
+
+
+## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = [
     "https://www.microsoft.com/security/blog/2021/03/02/hafnium-targeting-exchange-servers",

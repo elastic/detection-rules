@@ -1,25 +1,32 @@
 [metadata]
 creation_date = "2020/08/21"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2021/09/23"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
 description = "Identifies suspicious .NET code execution. connections."
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious .NET Code Compilation"
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 risk_score = 47
 rule_id = "201200f1-a99b-43fb-88ed-f65a45c4972c"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where event.type == "start" and
   process.name : ("csc.exe", "vbc.exe") and
   process.parent.name : ("wscript.exe", "mshta.exe", "cscript.exe", "wmic.exe", "svchost.exe", "rundll32.exe", "cmstp.exe", "regsvr32.exe")
 '''
@@ -31,11 +38,11 @@ framework = "MITRE ATT&CK"
 id = "T1027"
 name = "Obfuscated Files or Information"
 reference = "https://attack.mitre.org/techniques/T1027/"
+[[rule.threat.technique.subtechnique]]
+id = "T1027.004"
+name = "Compile After Delivery"
+reference = "https://attack.mitre.org/techniques/T1027/004/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1027.004"
-  name = "Compile After Delivery"
-  reference = "https://attack.mitre.org/techniques/T1027/004/"
 
 
 [rule.threat.tactic]

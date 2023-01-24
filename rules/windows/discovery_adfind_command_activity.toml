@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2020/10/19"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2022/02/28"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +14,7 @@ leveraged by threat actors to perform post-exploitation Active Directory reconna
 observed in Trickbot, Ryuk, Maze, and FIN6 campaigns. For Winlogbeat, this rule requires Sysmon.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "AdFind Command Activity"
@@ -19,37 +22,40 @@ note = """## Triage and analysis
 
 ### Investigating AdFind Command Activity
 
-[AdFind](http://www.joeware.net/freetools/tools/adfind/) is a freely available command-line tool used to retrieve information from
-Active Directory (AD). Network discovery and enumeration tools like `AdFind` are useful to adversaries in the same ways
-they are effective for network administrators. This tool provides quick ability to scope AD person/computer objects and
-understand subnets and domain information. There are many [examples](https://thedfirreport.com/category/adfind/)
-observed where this tool has been adopted by ransomware and criminal groups and used in compromises.
+[AdFind](http://www.joeware.net/freetools/tools/adfind/) is a freely available command-line tool used to retrieve information from Active Directory (AD). Network discovery and enumeration tools like `AdFind` are useful to adversaries in the same ways they are effective for network administrators. This tool provides quick ability to scope AD person/computer objects and understand subnets and domain information. There are many [examples](https://thedfirreport.com/category/adfind/) of this tool being adopted by ransomware and criminal groups and used in compromises.
 
-#### Possible investigation steps:
-- `AdFind` is a legitimate Active Directory enumeration tool used by network administrators, it's important to understand
-the source of the activity.  This could involve identifying the account using `AdFind` and determining based on the command-lines
-what information was retrieved, then further determining if these actions are in scope of that user's traditional responsibilities.
-- In multiple public references, `AdFind` is leveraged after initial access is achieved. Review previous activity on impacted
-machines for suspicious indicators such as previous anti-virus/EDR alerts, phishing emails received, or network traffic
-to suspicious infrastructure.
+#### Possible investigation steps
 
-### False Positive Analysis
-- This rule has a high chance to produce false positives as it is a legitimate tool used by network administrators. One
-option could be allowlisting specific users or groups who use the tool as part of their daily responsibilities. This can
-be done by leveraging the exception workflow in the Kibana Security App or Elasticsearch API to tune this rule to your environment.
-- Malicious behavior with `AdFind` should be investigated as part of a step within an attack chain. It doesn't happen in
-isolation, so reviewing previous logs/activity from impacted machines can be very telling.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Examine the command line to determine what information was retrieved by the tool.
+- Contact the account owner and confirm whether they are aware of this activity.
+- Investigate other alerts associated with the user/host during the past 48 hours.
 
-### Related Rules
-- Windows Network Enumeration
-- Enumeration of Administrator Accounts
-- Enumeration Command Spawned via WMIPrvSE
+### False positive analysis
 
-### Response and Remediation
-- Take immediate action to validate activity, investigate and potentially isolate activity to prevent further
-post-compromise behavior.
-- It's important to understand that `AdFind` is an Active Directory enumeration tool and can be used for malicious or legitimate
-purposes, so understanding the intent behind the activity will help determine the appropropriate response.
+- This rule has a high chance to produce false positives as it is a legitimate tool used by network administrators.
+- If this rule is noisy in your environment due to expected activity, consider adding exceptions — preferably with a combination of user and command line conditions.
+- Malicious behavior with `AdFind` should be investigated as part of a step within an attack chain. It doesn't happen in isolation, so reviewing previous logs/activity from impacted machines can be very telling.
+
+### Related rules
+
+- Windows Network Enumeration - 7b8bfc26-81d2-435e-965c-d722ee397ef1
+- Enumeration of Administrator Accounts - 871ea072-1b71-4def-b016-6278b505138d
+- Enumeration Command Spawned via WMIPrvSE - 770e0c4d-b998-41e5-a62e-c7901fd7f470
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+
+## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = [
     "http://www.joeware.net/freetools/tools/adfind/",
@@ -62,17 +68,17 @@ references = [
 risk_score = 21
 rule_id = "eda499b8-a073-4e35-9733-22ec71f57f3a"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery", "Investigation Guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and 
-  (process.name : "AdFind.exe" or process.pe.original_file_name == "AdFind.exe") and 
-  process.args : ("objectcategory=computer", "(objectcategory=computer)", 
+process where event.type == "start" and
+  (process.name : "AdFind.exe" or process.pe.original_file_name == "AdFind.exe") and
+  process.args : ("objectcategory=computer", "(objectcategory=computer)",
                   "objectcategory=person", "(objectcategory=person)",
                   "objectcategory=subnet", "(objectcategory=subnet)",
-                  "objectcategory=group", "(objectcategory=group)", 
+                  "objectcategory=group", "(objectcategory=group)",
                   "objectcategory=organizationalunit", "(objectcategory=organizationalunit)",
                   "objectcategory=attributeschema", "(objectcategory=attributeschema)",
                   "domainlist", "dcmodes", "adinfo", "dclist", "computers_pwnotreqd", "trustdmp")
@@ -81,6 +87,11 @@ process where event.type in ("start", "process_started") and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1018"
+name = "Remote System Discovery"
+reference = "https://attack.mitre.org/techniques/T1018/"
+
 [[rule.threat.technique]]
 id = "T1069"
 name = "Permission Groups Discovery"
@@ -105,12 +116,6 @@ reference = "https://attack.mitre.org/techniques/T1087/002/"
 id = "T1482"
 name = "Domain Trust Discovery"
 reference = "https://attack.mitre.org/techniques/T1482/"
-
-
-[[rule.threat.technique]]
-id = "T1018"
-name = "Remote System Discovery"
-reference = "https://attack.mitre.org/techniques/T1018/"
 
 
 [rule.threat.tactic]

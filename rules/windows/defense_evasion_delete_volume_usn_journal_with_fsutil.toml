@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2021/04/14"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -10,20 +13,24 @@ Identifies use of the fsutil.exe to delete the volume USNJRNL. This technique is
 of files created during post-exploitation activities.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Delete Volume USN Journal with Fsutil"
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 risk_score = 21
 rule_id = "f675872f-6d85-40a3-b502-c0d2ef101e92"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
-  (process.name : "fsutil.exe" or process.pe.original_file_name == "fsutil.exe") and 
+process where event.type == "start" and
+  (process.name : "fsutil.exe" or process.pe.original_file_name == "fsutil.exe") and
   process.args : "deletejournal" and process.args : "usn"
 '''
 
@@ -32,17 +39,17 @@ process where event.type in ("start", "process_started") and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1070"
+name = "Indicator Removal"
 reference = "https://attack.mitre.org/techniques/T1070/"
-name = "Indicator Removal on Host"
 [[rule.threat.technique.subtechnique]]
 id = "T1070.004"
-reference = "https://attack.mitre.org/techniques/T1070/004/"
 name = "File Deletion"
+reference = "https://attack.mitre.org/techniques/T1070/004/"
 
 
 
 [rule.threat.tactic]
 id = "TA0005"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 

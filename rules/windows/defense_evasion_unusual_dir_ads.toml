@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2020/12/04"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2021/09/23"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -10,14 +13,18 @@ Identifies processes running from an Alternate Data Stream. This is uncommon for
 by adversaries to hide malware.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual Process Execution Path - Alternate Data Stream"
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 risk_score = 47
 rule_id = "4bd1c1af-79d4-4d37-9efa-6e0240640242"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -39,7 +46,9 @@ name = "NTFS File Attributes"
 reference = "https://attack.mitre.org/techniques/T1564/004/"
 
 
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

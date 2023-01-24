@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2020/08/17"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2021/09/23"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -14,6 +17,10 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via TelemetryController Scheduled Task Hijack"
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = [
     "https://www.trustedsec.com/blog/abusing-windows-telemetry-for-persistence/?utm_content=131234033&utm_medium=social&utm_source=twitter&hss_channel=tw-403811306",
 ]
@@ -25,7 +32,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where event.type == "start" and
   process.parent.name : "CompatTelRunner.exe" and process.args : "-cv*" and
   not process.name : ("conhost.exe",
                       "DeviceCensus.exe",
@@ -40,17 +47,17 @@ process where event.type in ("start", "process_started") and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1053"
-reference = "https://attack.mitre.org/techniques/T1053/"
 name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+[[rule.threat.technique.subtechnique]]
+id = "T1053.005"
+name = "Scheduled Task"
+reference = "https://attack.mitre.org/techniques/T1053/005/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1053.005"
-  name = "Scheduled Task"
-  reference = "https://attack.mitre.org/techniques/T1053/005/"
 
 
 [rule.threat.tactic]
 id = "TA0003"
-reference = "https://attack.mitre.org/tactics/TA0003/"
 name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 

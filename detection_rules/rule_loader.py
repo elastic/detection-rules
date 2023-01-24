@@ -8,7 +8,8 @@ import io
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Iterable, Callable, Optional, Union
+from subprocess import CalledProcessError
+from typing import Callable, Dict, Iterable, List, Optional, Union
 
 import click
 import pytoml
@@ -16,9 +17,10 @@ from marshmallow.exceptions import ValidationError
 
 from . import utils
 from .mappings import RtaMappings
-from .rule import DeprecatedRule, DeprecatedRuleContents, TOMLRule, TOMLRuleContents
+from .rule import (DeprecatedRule, DeprecatedRuleContents, TOMLRule,
+                   TOMLRuleContents)
 from .schemas import definitions
-from .utils import get_path, cached
+from .utils import cached, get_path
 
 DEFAULT_RULES_DIR = Path(get_path("rules"))
 DEFAULT_DEPRECATED_DIR = DEFAULT_RULES_DIR / '_deprecated'
@@ -98,8 +100,17 @@ def load_locks_from_tag(remote: str, tag: str) -> (str, dict, dict):
     git(*fetch_tags)
 
     commit_hash = git('rev-list', '-1', tag)
-    version = json.loads(git('show', f'{tag}:etc/version.lock.json'))
-    deprecated = json.loads(git('show', f'{tag}:etc/deprecated_rules.json'))
+    try:
+        version = json.loads(git('show', f'{tag}:detection_rules/etc/version.lock.json'))
+    except CalledProcessError:
+        # Adding resiliency to account for the old directory structure
+        version = json.loads(git('show', f'{tag}:etc/version.lock.json'))
+
+    try:
+        deprecated = json.loads(git('show', f'{tag}:detection_rules/etc/deprecated_rules.json'))
+    except CalledProcessError:
+        # Adding resiliency to account for the old directory structure
+        deprecated = json.loads(git('show', f'{tag}:etc/deprecated_rules.json'))
     return commit_hash, version, deprecated
 
 
@@ -124,6 +135,7 @@ class DeprecatedCollection(BaseCollection):
 
     id_map: Dict[str, DeprecatedRule] = field(default_factory=dict)
     file_map: Dict[Path, DeprecatedRule] = field(default_factory=dict)
+    name_map: Dict[str, DeprecatedRule] = field(default_factory=dict)
     rules: List[DeprecatedRule] = field(default_factory=list)
 
     def __contains__(self, rule: DeprecatedRule):
@@ -150,6 +162,7 @@ class RuleCollection(BaseCollection):
 
         self.id_map: Dict[definitions.UUIDString, TOMLRule] = {}
         self.file_map: Dict[Path, TOMLRule] = {}
+        self.name_map: Dict[definitions.RuleName, TOMLRule] = {}
         self.rules: List[TOMLRule] = []
         self.deprecated: DeprecatedCollection = DeprecatedCollection()
         self.errors: Dict[Path, Exception] = {}
@@ -197,13 +210,17 @@ class RuleCollection(BaseCollection):
         if is_deprecated:
             id_map = self.deprecated.id_map
             file_map = self.deprecated.file_map
+            name_map = self.deprecated.name_map
         else:
             id_map = self.id_map
             file_map = self.file_map
+            name_map = self.name_map
 
         assert not self.frozen, f"Unable to add rule {rule.name} {rule.id} to a frozen collection"
         assert rule.id not in id_map, \
             f"Rule ID {rule.id} for {rule.name} collides with rule {id_map.get(rule.id).name}"
+        assert rule.name not in name_map, \
+            f"Rule Name {rule.name} for {rule.id} collides with rule ID {name_map.get(rule.name).id}"
 
         if rule.path is not None:
             rule_path = rule.path.resolve()
@@ -213,11 +230,13 @@ class RuleCollection(BaseCollection):
     def add_rule(self, rule: TOMLRule):
         self._assert_new(rule)
         self.id_map[rule.id] = rule
+        self.name_map[rule.name] = rule
         self.rules.append(rule)
 
     def add_deprecated_rule(self, rule: DeprecatedRule):
         self._assert_new(rule, is_deprecated=True)
         self.deprecated.id_map[rule.id] = rule
+        self.deprecated.name_map[rule.name] = rule
         self.deprecated.rules.append(rule)
 
     def load_dict(self, obj: dict, path: Optional[Path] = None) -> Union[TOMLRule, DeprecatedRule]:
@@ -259,20 +278,14 @@ class RuleCollection(BaseCollection):
 
     def load_git_tag(self, branch: str, remote: Optional[str] = None, skip_query_validation=False):
         """Load rules from a Git branch."""
-        from .version_lock import VersionLock
-
-        commit_hash, v_lock, d_lock = load_locks_from_tag(remote, branch)
-
-        v_lock_name_prefix = f'{remote}/' if remote else ''
-        v_lock_name = f'{v_lock_name_prefix}{branch}-{commit_hash}'
-
-        version_lock = VersionLock(version_lock=v_lock, deprecated_lock=d_lock, name=v_lock_name)
-        self._version_lock = version_lock
+        from .version_lock import VersionLock, add_rule_types_to_lock
 
         git = utils.make_git()
         rules_dir = DEFAULT_RULES_DIR.relative_to(get_path("."))
         paths = git("ls-tree", "-r", "--name-only", branch, rules_dir).splitlines()
 
+        rule_contents = []
+        rule_map = {}
         for path in paths:
             path = Path(path)
             if path.suffix != ".toml":
@@ -284,6 +297,23 @@ class RuleCollection(BaseCollection):
             if skip_query_validation:
                 toml_dict['metadata']['query_schema_validation'] = False
 
+            rule_contents.append((toml_dict, path))
+            rule_map[toml_dict['rule']['rule_id']] = toml_dict
+
+        commit_hash, v_lock, d_lock = load_locks_from_tag(remote, branch)
+
+        v_lock_name_prefix = f'{remote}/' if remote else ''
+        v_lock_name = f'{v_lock_name_prefix}{branch}-{commit_hash}'
+
+        # For backwards compatibility with tagged branches that existed before the types were added and validation
+        # enforced, we will need to manually add the rule types to the version lock allow them to pass validation.
+        v_lock = add_rule_types_to_lock(v_lock, rule_map)
+
+        version_lock = VersionLock(version_lock=v_lock, deprecated_lock=d_lock, name=v_lock_name)
+        self._version_lock = version_lock
+
+        for rule_content in rule_contents:
+            toml_dict, path = rule_content
             try:
                 self.load_dict(toml_dict, path)
             except ValidationError as e:
@@ -334,10 +364,10 @@ class RuleCollection(BaseCollection):
         new_rules = {}
         newly_deprecated = {}
 
-        pre_versions_hash = utils.dict_hash(self._version_lock.version_lock)
-        post_versions_hash = utils.dict_hash(other._version_lock.version_lock)
-        pre_deprecated_hash = utils.dict_hash(self._version_lock.deprecated_lock)
-        post_deprecated_hash = utils.dict_hash(other._version_lock.deprecated_lock)
+        pre_versions_hash = utils.dict_hash(self._version_lock.version_lock.to_dict())
+        post_versions_hash = utils.dict_hash(other._version_lock.version_lock.to_dict())
+        pre_deprecated_hash = utils.dict_hash(self._version_lock.deprecated_lock.to_dict())
+        post_deprecated_hash = utils.dict_hash(other._version_lock.deprecated_lock.to_dict())
 
         if pre_versions_hash == post_versions_hash and pre_deprecated_hash == post_deprecated_hash:
             return changed_rules, new_rules, newly_deprecated
@@ -364,10 +394,12 @@ class RuleCollection(BaseCollection):
 def load_github_pr_rules(labels: list = None, repo: str = 'elastic/detection-rules', token=None, threads=50,
                          verbose=True) -> (Dict[str, TOMLRule], Dict[str, TOMLRule], Dict[str, list]):
     """Load all rules active as a GitHub PR."""
-    import requests
-    import pytoml
     from multiprocessing.pool import ThreadPool
     from pathlib import Path
+
+    import pytoml
+    import requests
+
     from .ghwrap import GithubClient
 
     github = GithubClient(token=token)

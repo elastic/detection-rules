@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2020/12/23"
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2021/08/25"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +18,10 @@ index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Privacy Control Bypass via TCCDB Modification"
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = [
     "https://applehelpwriter.com/2016/08/29/discovering-how-dropbox-hacks-your-mac/",
     "https://github.com/bp88/JSS-Scripts/blob/master/TCC.db%20Modifier.sh",
@@ -28,8 +35,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and process.name : "sqlite*" and 
- process.args : "/*/Application Support/com.apple.TCC/TCC.db"
+process where event.type in ("start", "process_started") and process.name : "sqlite*" and
+ process.args : "/*/Application Support/com.apple.TCC/TCC.db" and
+ not process.parent.executable : "/Library/Bitdefender/AVP/product/bin/*"
 '''
 
 

@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2022/02/14"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/21"
 
 [rule]
 author = ["Elastic"]
@@ -10,10 +13,14 @@ Identifies Service Control (sc.exe) spawning from script interpreter processes t
 This could be indicative of adversary lateral movement but will be noisy if commonly done by admins.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "logs-system.*", "winlogbeat-*"]
+index = ["logs-endpoint.events.*", "logs-system.*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Service Control Spawned via Script Interpreter"
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 risk_score = 21
 rule_id = "e8571d5f-bea1-46c2-9f56-998de2d3ed95"
 severity = "low"
@@ -46,3 +53,4 @@ reference = "https://attack.mitre.org/techniques/T1021/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
+

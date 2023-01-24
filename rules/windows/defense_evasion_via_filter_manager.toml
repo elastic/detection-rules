@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2021/09/23"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -10,19 +13,23 @@ The Filter Manager Control Program (fltMC.exe) binary may be abused by adversari
 defenses.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Evasion via Filter Manager"
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 risk_score = 47
 rule_id = "06dceabf-adca-48af-ac79-ffdf4c3b1e9a"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and 
+process where event.type == "start" and
  process.name : "fltMC.exe" and process.args : "unload"
 '''
 
@@ -39,8 +46,9 @@ name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
 
+
 [rule.threat.tactic]
 id = "TA0005"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 

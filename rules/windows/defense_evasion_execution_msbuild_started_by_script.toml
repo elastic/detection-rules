@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2020/03/25"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2021/10/17"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -11,14 +14,18 @@ behavior is unusual and is sometimes used by malicious payloads.
 """
 false_positives = ["The Build Engine is commonly used by Windows developers but use by non-engineers is unusual."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Microsoft Build Engine Started by a Script Process"
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 risk_score = 21
 rule_id = "9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae2"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -33,24 +40,24 @@ process where event.type == "start" and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1127"
-reference = "https://attack.mitre.org/techniques/T1127/"
 name = "Trusted Developer Utilities Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1127/"
+[[rule.threat.technique.subtechnique]]
+id = "T1127.001"
+name = "MSBuild"
+reference = "https://attack.mitre.org/techniques/T1127/001/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1127.001"
-  name = "MSBuild"
-  reference = "https://attack.mitre.org/techniques/T1127/001/"
 
 
 [rule.threat.tactic]
 id = "TA0005"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
 [rule.threat.tactic]
 id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
 name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 

@@ -29,3 +29,21 @@ class Version(tuple):
                 recovered_str += "." + str(additional)
 
         return recovered_str
+
+    def bump(self, major: bool = False, minor: bool = False, patch: bool = False) -> 'Version':
+        """Increment the version."""
+        versions = list(self)
+        if major:
+            versions[0] += 1
+        if minor:
+            versions[1] += 1
+        if patch and len(versions) > 2:
+            versions[-1] += 1
+        elif patch and len(versions) == 2:
+            versions.append(1)
+        return Version(versions)
+
+
+def max_versions(*versions: str) -> str:
+    """Return the max versioned string."""
+    return str(max([Version(v) for v in versions]))

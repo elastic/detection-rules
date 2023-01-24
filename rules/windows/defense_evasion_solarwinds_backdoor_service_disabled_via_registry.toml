@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2020/12/14"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2022/02/14"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -10,30 +13,37 @@ Identifies a SolarWinds binary modifying the start type of a service to be disab
 technique to manipulate relevant security services.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "SolarWinds Process Disabling Services via Registry"
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = [
     "https://www.fireeye.com/blog/threat-research/2020/12/evasive-attacker-leverages-solarwinds-supply-chain-compromises-with-sunburst-backdoor.html",
 ]
 risk_score = 47
 rule_id = "b9960fef-82c6-4816-befa-44745030e917"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where registry.path : "HKLM\\SYSTEM\\*ControlSet*\\Services\\*\\Start" and
+registry where registry.path : (
+    "HKLM\\SYSTEM\\*ControlSet*\\Services\\*\\Start",
+    "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Services\\*\\Start"
+  ) and
   registry.data.strings : ("4", "0x00000004") and
   process.name : (
-      "SolarWinds.BusinessLayerHost*.exe", 
-      "ConfigurationWizard*.exe", 
-      "NetflowDatabaseMaintenance*.exe", 
-      "NetFlowService*.exe", 
-      "SolarWinds.Administration*.exe", 
-      "SolarWinds.Collector.Service*.exe" , 
+      "SolarWinds.BusinessLayerHost*.exe",
+      "ConfigurationWizard*.exe",
+      "NetflowDatabaseMaintenance*.exe",
+      "NetFlowService*.exe",
+      "SolarWinds.Administration*.exe",
+      "SolarWinds.Collector.Service*.exe",
       "SolarwindsDiagnostics*.exe")
 '''
 

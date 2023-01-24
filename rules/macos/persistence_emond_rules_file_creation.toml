@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2021/01/11"
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2021/03/03"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +17,14 @@ index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Emond Rules Creation or Modification"
-references = ["https://www.xorrior.com/emond-persistence/"]
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
+references = [
+    "https://www.xorrior.com/emond-persistence/",
+    "https://www.sentinelone.com/blog/how-malware-persists-on-macos/",
+]
 risk_score = 47
 rule_id = "a6bf4dd4-743e-4da8-8c03-3ebd753a6c90"
 severity = "medium"
@@ -24,7 +34,7 @@ type = "eql"
 
 query = '''
 file where event.type != "deletion" and
- file.path : ("/private/etc/emond.d/rules/*.plist", "/etc/emon.d/rules/*.plist")
+ file.path : ("/private/etc/emond.d/rules/*.plist", "/etc/emon.d/rules/*.plist", "/private/var/db/emondClients/*")
 '''
 
 

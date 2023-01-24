@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2020/09/22"
+integration = ["gcp"]
 maturity = "production"
-updated_date = "2021/07/20"
-integration = "gcp"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +24,7 @@ index = ["filebeat-*", "logs-gcp*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "GCP Logging Sink Modification"
-note = """## Config
+note = """## Setup
 
 The GCP Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = ["https://cloud.google.com/logging/docs/export#how_sinks_work"]
@@ -34,7 +36,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:(googlecloud.audit or gcp.audit) and event.action:google.logging.v*.ConfigServiceV*.UpdateSink and event.outcome:success
+event.dataset:gcp.audit and event.action:google.logging.v*.ConfigServiceV*.UpdateSink and event.outcome:success
 '''
 
 

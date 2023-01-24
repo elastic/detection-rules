@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2021/10/05"
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2021/10/05"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +22,12 @@ note = """## Triage and analysis
 
 - Analyze the plist file modification event to identify whether the change was expected or not
 - Investigate the process that modified the plist file for malicious code or other suspicious behavior
-- Identify if any suspicious or known malicious screensaver (.saver) files were recently written to or modified on the host"""
+- Identify if any suspicious or known malicious screensaver (.saver) files were recently written to or modified on the host
+
+## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = [
     "https://posts.specterops.io/saving-your-access-d562bf5bf90b",
     "https://github.com/D00MFist/PersistentJXA",
@@ -34,11 +42,27 @@ type = "eql"
 query = '''
 file where event.type != "deletion" and
   file.name: "com.apple.screensaver.*.plist" and
-  file.path : (
-    "/Users/*/Library/Preferences/ByHost/*",
-    "/Library/Managed Preferences/*",
-    "/System/Library/Preferences/*"
-    ) and
+   file.path : (
+      "/Users/*/Library/Preferences/ByHost/*",
+      "/Library/Managed Preferences/*",
+      "/System/Library/Preferences/*"
+      ) and
+  (
+    process.code_signature.trusted == false or
+    process.code_signature.exists == false or
+
+    /* common script interpreters and abused native macOS bins */
+    process.name : (
+      "curl",
+      "mktemp",
+      "tail",
+      "funzip",
+      "python*",
+      "osascript",
+      "perl"
+      )
+   ) and
+
   /* Filter OS processes modifying screensaver plist files */
   not process.executable : (
     "/usr/sbin/cfprefsd",
@@ -52,9 +76,9 @@ file where event.type != "deletion" and
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-reference = "https://attack.mitre.org/techniques/T1546/"
-name = "Event Triggered Execution"
 id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
 
 
 [rule.threat.tactic]

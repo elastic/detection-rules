@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2020/11/25"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2022/02/14"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -10,22 +13,79 @@ Identifies the creation of a new port forwarding rule. An adversary may abuse th
 segmentation restrictions.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Port Forwarding Rule Addition"
+note = """## Triage and analysis
+
+### Investigating Port Forwarding Rule Addition
+
+Network port forwarding is a mechanism to redirect incoming TCP connections (IPv4 or IPv6) from the local TCP port to any other port number, or even to a port on a remote computer.
+
+Attackers may configure port forwarding rules to bypass network segmentation restrictions, using the host as a jump box to access previously unreachable systems.
+
+This rule monitors the modifications to the `HKLM\\SYSTEM\\*ControlSet*\\Services\\PortProxy\\v4tov4\\` subkeys.
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Contact the account and system owners and confirm whether they are aware of this activity.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
+- Identify the target host IP address, check the connections originating from the host where the modification occurred, and inspect the credentials used.
+  - Investigate suspicious login activity, such as unauthorized access and logins from outside working hours and unusual locations.
+
+### False positive analysis
+
+- This mechanism can be used legitimately. Analysts can dismiss the alert if the Administrator is aware of the activity and there are justifications for this configuration.
+- If this rule is noisy in your environment due to expected activity, consider adding exceptions — preferably with a combination of user and command line conditions.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Delete the port forwarding rule.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+
+
+## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = [
     "https://www.fireeye.com/blog/threat-research/2019/01/bypassing-network-restrictions-through-rdp-tunneling.html",
 ]
 risk_score = 47
 rule_id = "3535c8bb-3bd5-40f4-ae32-b7cd589d5372"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control"]
+tags = [
+    "Elastic",
+    "Host",
+    "Windows",
+    "Threat Detection",
+    "Command and Control",
+    "Investigation Guide",
+    "Elastic Endgame",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where registry.path : "HKLM\\SYSTEM\\*ControlSet*\\Services\\PortProxy\\v4tov4\\*"
+registry where registry.path : (
+  "HKLM\\SYSTEM\\*ControlSet*\\Services\\PortProxy\\v4tov4\\*",
+  "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Services\\PortProxy\\v4tov4\\*"
+)
 '''
 
 

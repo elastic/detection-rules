@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2020/11/03"
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2021/03/03"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -14,6 +17,10 @@ index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "System Log File Deletion"
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = [
     "https://www.fireeye.com/blog/threat-research/2020/11/live-off-the-land-an-overview-of-unc1945.html",
 ]
@@ -25,19 +32,22 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.type == "deletion" and 
-  file.path : 
+file where event.type == "deletion" and
+  file.path :
     (
-    "/var/run/utmp", 
-    "/var/log/wtmp", 
-    "/var/log/btmp", 
-    "/var/log/lastlog", 
+    "/var/run/utmp",
+    "/var/log/wtmp",
+    "/var/log/btmp",
+    "/var/log/lastlog",
     "/var/log/faillog",
-    "/var/log/syslog", 
-    "/var/log/messages", 
-    "/var/log/secure", 
-    "/var/log/auth.log"
-    )
+    "/var/log/syslog",
+    "/var/log/messages",
+    "/var/log/secure",
+    "/var/log/auth.log",
+    "/var/log/boot.log",
+    "/var/log/kern.log"
+    ) and
+    not process.name : ("gzip")
 '''
 
 
@@ -45,8 +55,13 @@ file where event.type == "deletion" and
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1070"
-name = "Indicator Removal on Host"
+name = "Indicator Removal"
 reference = "https://attack.mitre.org/techniques/T1070/"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.002"
+name = "Clear Linux or Mac System Logs"
+reference = "https://attack.mitre.org/techniques/T1070/002/"
+
 
 
 [rule.threat.tactic]

@@ -1,28 +1,30 @@
 [metadata]
 creation_date = "2021/06/29"
+integration = ["aws"]
 maturity = "production"
-updated_date = "2021/10/15"
-integration = "aws"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Austin Songer"]
 description = """
-Identifies when an attempt was made to restore an RDS Snapshot. Snapshots are sometimes shared by threat actors in order to
-exfiltrate bulk data. If the permissions were modified, verify if the snapshot was shared with an
-unauthorized or unexpected AWS account.
+Identifies when an attempt was made to restore an RDS Snapshot. Snapshots are sometimes shared by threat actors in order
+to exfiltrate bulk data or evade detection after performing malicious activities. If the permissions were modified,
+verify if the snapshot was shared with an unauthorized or unexpected AWS account.
 """
 false_positives = [
     """
     Restoring snapshots may be done by a system or network administrator. Verify whether the user identity, user agent,
-    and/or hostname should be making changes in your environment. Snapshot restoration by unfamiliar users or hosts should
-    be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    and/or hostname should be making changes in your environment. Snapshot restoration by unfamiliar users or hosts
+    should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
 index = ["filebeat-*", "logs-aws*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS RDS Snapshot Restored"
-note = """## Config
+note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -32,7 +34,7 @@ references = [
 risk_score = 47
 rule_id = "bf1073bf-ce26-4607-b405-ba1ed8e9e204"
 severity = "medium"
-tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Asset Visibility"]
+tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Asset Visibility", "Defense Evasion"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -44,9 +46,19 @@ event.outcome:success
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
+[[rule.threat.technique.subtechnique]]
+id = "T1578.004"
+name = "Revert Cloud Instance"
+reference = "https://attack.mitre.org/techniques/T1578/004/"
+
+
 
 [rule.threat.tactic]
-id = "TA0010"
-name = "Exfiltration"
-reference = "https://attack.mitre.org/tactics/TA0010/"
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 

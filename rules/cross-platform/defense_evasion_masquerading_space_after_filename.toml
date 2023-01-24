@@ -1,0 +1,62 @@
+[metadata]
+creation_date = "2022/10/18"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rules identifies a process created from an executable with a space appended to the end of the filename. This may
+indicate an attempt to masquerade a malicious file as benign to gain user execution. When a space is added to the end of
+certain files, the OS will execute the file according to it's true filetype instead of it's extension. Adversaries can
+hide a program's true filetype by changing the extension of the file. They can then add a space to the end of the name
+so that the OS automatically executes the file when it's double-clicked.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Masquerading Space After Filename"
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
+references = [
+    "https://www.picussecurity.com/resource/blog/picus-10-critical-mitre-attck-techniques-t1036-masquerading",
+]
+risk_score = 47
+rule_id = "f5fb4598-4f10-11ed-bdc3-0242ac120002"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "macOS", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type:("linux","macos") and
+  event.type == "start" and
+  (process.executable regex~ """/[a-z0-9\s_\-\\./]+\s""") and not
+  process.name in ("ls", "find", "grep", "xkbcomp")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+[[rule.threat.technique.subtechnique]]
+id = "T1036.006"
+name = "Space after Filename"
+reference = "https://attack.mitre.org/techniques/T1036/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

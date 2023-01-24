@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2022/02/14"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -32,7 +35,7 @@ sequence by process.entity_id
   [process where event.type == "start" and
    process.name : ("regsvr32.exe", "RegAsm.exe", "RegSvcs.exe") and
    not (
-         (process.Ext.token.integrity_level_name : "System" or winlog.event_data.IntegrityLevel : "System") and
+         (?process.Ext.token.integrity_level_name : "System" or ?winlog.event_data.IntegrityLevel : "System") and
          (process.parent.name : "msiexec.exe" or process.parent.executable : ("C:\\Program Files (x86)\\*.exe", "C:\\Program Files\\*.exe"))
        )
    ]
@@ -56,7 +59,7 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1218"
-name = "Signed Binary Proxy Execution"
+name = "System Binary Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1218/"
 [[rule.threat.technique.subtechnique]]
 id = "T1218.010"
@@ -69,3 +72,4 @@ reference = "https://attack.mitre.org/techniques/T1218/010/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

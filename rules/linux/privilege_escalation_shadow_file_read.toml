@@ -1,0 +1,86 @@
+[metadata]
+creation_date = "2022/09/01"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies access to the /etc/shadow file via the commandline using standard system utilities. After elevating
+privileges to root, threat actors may attempt to read or dump this file in order to gain valid credentials. They may
+utilize these to move laterally undetected and access additional resources.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Shadow File Read via Command Line Utilities"
+references = ["https://www.cyberciti.biz/faq/unix-linux-password-cracking-john-the-ripper/"]
+risk_score = 47
+rule_id = "9a3a3689-8ed1-4cdb-83fb-9506db54c61f"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Privilege Escalation", "Credential Access"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and event.action == "exec" and user.name == "root"
+  and (process.args : "/etc/shadow" or (process.working_directory: "/etc" and process.args: "shadow"))
+  and not process.executable:
+    ("/usr/bin/tar",
+    "/bin/tar",
+    "/usr/bin/gzip",
+    "/bin/gzip",
+    "/usr/bin/zip",
+    "/bin/zip",
+    "/usr/bin/stat",
+    "/bin/stat",
+    "/usr/bin/cmp",
+    "/bin/cmp",
+    "/usr/bin/sudo",
+    "/bin/sudo",
+    "/usr/bin/find",
+    "/bin/find",
+    "/usr/bin/ls",
+    "/bin/ls",
+    "/usr/bin/uniq",
+    "/bin/uniq",
+    "/usr/bin/unzip",
+    "/bin/unzip")
+  and not process.parent.executable: "/bin/dracut"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1003"
+name = "OS Credential Dumping"
+reference = "https://attack.mitre.org/techniques/T1003/"
+[[rule.threat.technique.subtechnique]]
+id = "T1003.008"
+name = "/etc/passwd and /etc/shadow"
+reference = "https://attack.mitre.org/techniques/T1003/008/"
+
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+

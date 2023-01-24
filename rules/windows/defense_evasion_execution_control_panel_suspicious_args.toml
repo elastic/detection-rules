@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2021/09/08"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2021/09/08"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -10,20 +13,24 @@ Identifies unusual instances of Control Panel with suspicious keywords or paths 
 Adversaries may abuse control.exe to proxy execution of malicious code.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Control Panel Process with Unusual Arguments"
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 references = ["https://www.joesandbox.com/analysis/476188/1/html"]
 risk_score = 73
 rule_id = "416697ae-e468-4093-a93d-59661fa619ec"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where event.type == "start" and
  process.executable : ("?:\\Windows\\SysWOW64\\control.exe", "?:\\Windows\\System32\\control.exe") and
  process.command_line :
           ("*.jpg*",
@@ -33,7 +40,6 @@ process where event.type in ("start", "process_started") and
            "*.jpeg*",
            "*.TIFF*",
            "*.inf*",
-           "*.dat*",
            "*.cpl:*/*",
            "*../../..*",
            "*/AppData/Local/*",
@@ -45,18 +51,18 @@ process where event.type in ("start", "process_started") and
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-reference = "https://attack.mitre.org/techniques/T1218/"
-name = "Signed Binary Proxy Execution"
 id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
 [[rule.threat.technique.subtechnique]]
-reference = "https://attack.mitre.org/techniques/T1218/002/"
-name = "Control Panel"
 id = "T1218.002"
+name = "Control Panel"
+reference = "https://attack.mitre.org/techniques/T1218/002/"
 
 
 
 [rule.threat.tactic]
-reference = "https://attack.mitre.org/tactics/TA0005/"
-name = "Defense Evasion"
 id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 

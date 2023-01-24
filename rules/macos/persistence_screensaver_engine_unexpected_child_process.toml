@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2021/10/05"
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2021/10/05"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -22,6 +25,11 @@ note = """## Triage and analysis
 as a download of a payload from a server.
 - Review the installed and activated screensaver on the host. Triage the screensaver (.saver) file that was triggered to
 identify whether the file is malicious or not.
+
+
+## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = [
     "https://posts.specterops.io/saving-your-access-d562bf5bf90b",
@@ -42,9 +50,14 @@ process where event.type == "start" and process.parent.name == "ScreenSaverEngin
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-reference = "https://attack.mitre.org/techniques/T1546/"
-name = "Event Triggered Execution"
 id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+[[rule.threat.technique.subtechnique]]
+id = "T1546.002"
+name = "Screensaver"
+reference = "https://attack.mitre.org/techniques/T1546/002/"
+
 
 
 [rule.threat.tactic]

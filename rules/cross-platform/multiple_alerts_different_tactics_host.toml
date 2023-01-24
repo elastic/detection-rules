@@ -1,0 +1,43 @@
+[metadata]
+creation_date = "2022/11/16"
+maturity = "production"
+updated_date = "2023/01/11"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule uses alert data to determine when multiple alerts in different phases of an attack involving the same host are
+triggered. Analysts can use this to prioritize triage and response, as these hosts are more likely to be compromised.
+"""
+false_positives = [
+    """
+    False positives can occur because the rules may be mapped to a few MITRE ATT&CK tactics. Use the attached Timeline
+    to determine which detections were triggered on the host.
+    """,
+]
+from = "now-24h"
+interval = "1h"
+index = [".alerts-security.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Multiple Alerts in Different ATT&CK Tactics on a Single Host"
+risk_score = 73
+rule_id = "b946c2f7-df06-4c00-a5aa-1f6fbc7bb72c"
+severity = "high"
+tags = ["Elastic", "Threat Detection", "Higher-Order Rules"]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+signal.rule.name:* and kibana.alert.rule.threat.tactic.id:*
+'''
+
+[rule.threshold]
+field = ["host.id"]
+value = 1
+
+[[rule.threshold.cardinality]]
+field = "kibana.alert.rule.threat.tactic.id"
+value = 3

@@ -1,13 +1,16 @@
 [metadata]
 creation_date = "2020/11/18"
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2022/02/28"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects changes to registry persistence keys that are not commonly used or modified by legitimate programs. This could be
-an indication of an adversary's attempt to persist in a stealthy manner.
+Detects changes to registry persistence keys that are not commonly used or modified by legitimate programs. This could
+be an indication of an adversary's attempt to persist in a stealthy manner.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -19,6 +22,8 @@ risk_score = 47
 rule_id = "54902e45-3467-49a4-8abc-529f2c8cfb80"
 severity = "medium"
 tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+timeline_id = "3e47ef71-ebfc-4520-975c-cb27fc090799"
+timeline_title = "Comprehensive Registry Timeline"
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -73,7 +78,7 @@ registry where
       "HKLM\\SYSTEM\\ControlSet*\\Control\\BootVerificationProgram\\ImagePath",
       "HKLM\\SYSTEM\\Setup\\CmdLine",
       "HKEY_USERS\\*\\Environment\\UserInitMprLogonScript") and
-      
+
  not registry.data.strings : ("C:\\Windows\\system32\\userinit.exe", "cmd.exe", "C:\\Program Files (x86)\\*.exe",
                               "C:\\Program Files\\*.exe") and
  not (process.name : "rundll32.exe" and registry.path : "*\\Software\\Microsoft\\Internet Explorer\\Extensions\\*\\Script") and
@@ -87,16 +92,15 @@ registry where
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
+[[rule.threat.technique.subtechnique]]
+id = "T1547.001"
+name = "Registry Run Keys / Startup Folder"
+reference = "https://attack.mitre.org/techniques/T1547/001/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1547.001"
-  name = "Registry Run Keys / Startup Folder"
-  reference = "https://attack.mitre.org/techniques/T1547/001/"
 
 
 [rule.threat.tactic]

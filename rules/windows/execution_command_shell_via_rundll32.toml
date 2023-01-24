@@ -1,21 +1,28 @@
 [metadata]
 creation_date = "2020/10/19"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2021/03/08"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
 description = "Identifies command shell activity started via RunDLL32, which is commonly abused by attackers to host malicious code."
 false_positives = ["Microsoft Windows installers leveraging RunDLL32 for installation."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Command Shell Activity Started via RunDLL32"
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
 risk_score = 21
 rule_id = "9ccf3ce0-0057-440a-91f5-870c6ad39093"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -46,3 +53,4 @@ reference = "https://attack.mitre.org/techniques/T1059/001/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
