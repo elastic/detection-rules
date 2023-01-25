@@ -249,7 +249,7 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
                 package = pk_int["package"]
                 integration = pk_int["integration"]
 
-                if meta.min_stack_version is None and meta.maturity == "development":
+                if meta.maturity != "production":
                     continue
 
                 package_version_window = find_compatible_version_window(package=package,
