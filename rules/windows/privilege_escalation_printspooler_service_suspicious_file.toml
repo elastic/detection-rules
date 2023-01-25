@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/08/14"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/15"
+updated_date = "2022/12/21"
 
 [rule]
 author = ["Elastic"]
@@ -33,13 +34,13 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.type == "creation" and 
+file where event.type == "creation" and
   process.name : "spoolsv.exe" and file.extension : "dll" and
-  file.path : ("?:\\Windows\\System32\\*", "?:\\Windows\\SysWOW64\\*") and 
-  not file.path :  
-          ("?:\\WINDOWS\\SysWOW64\\PrintConfig.dll", 
-           "?:\\WINDOWS\\system32\\x5lrs.dll", 
-           "?:\\WINDOWS\\sysWOW64\\x5lrs.dll", 
+  file.path : ("?:\\Windows\\System32\\*", "?:\\Windows\\SysWOW64\\*") and
+  not file.path :
+          ("?:\\WINDOWS\\SysWOW64\\PrintConfig.dll",
+           "?:\\WINDOWS\\system32\\x5lrs.dll",
+           "?:\\WINDOWS\\sysWOW64\\x5lrs.dll",
            "?:\\WINDOWS\\system32\\PrintConfig.dll")
 '''
 
