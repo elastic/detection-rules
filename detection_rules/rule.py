@@ -23,7 +23,7 @@ from marko.ext.gfm import gfm
 from marshmallow import ValidationError, validates_schema
 
 from . import beats, ecs, endgame, utils
-from .integrations import (find_least_compatible_version,
+from .integrations import (find_latest_compatible_version,
                            load_integrations_manifests)
 from .misc import load_current_package_version
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
@@ -843,7 +843,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         if not package_integrations and self.metadata.integration:
             packages_manifest = load_integrations_manifests()
-            current_stack_version = load_current_package_version()
 
             if self.check_restricted_field_version(field_name):
                 if isinstance(self.data, QueryRuleData) and self.data.language != 'lucene':
@@ -853,10 +852,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                         return
 
                     for package in package_integrations:
-                        package["version"] = find_least_compatible_version(
+                        package["version"] = find_latest_compatible_version(
                             package=package["package"],
                             integration=package["integration"],
-                            current_stack_version=current_stack_version,
+                            rule_stack_version=self.meta.min_stack_version,
                             packages_manifest=packages_manifest)
 
                         # if integration is not a policy template remove

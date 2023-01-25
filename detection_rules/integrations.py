@@ -8,7 +8,6 @@ import gzip
 import json
 import os
 import re
-from collections import OrderedDict
 from pathlib import Path
 from typing import Union
 
@@ -63,33 +62,6 @@ def build_integrations_manifest(overwrite: bool, rule_integrations: list) -> Non
     print(f"final integrations manifests dumped: {MANIFEST_FILE_PATH}")
 
 
-def find_least_compatible_version(package: str, integration: str,
-                                  current_stack_version: str, packages_manifest: dict) -> str:
-    """Finds least compatible version for specified integration based on stack version supplied."""
-    integration_manifests = {k: v for k, v in sorted(packages_manifest[package].items(),
-                             key=lambda x: Version(str(x[0])))}
-
-    # filter integration_manifests to only the latest major entries
-    major_versions = sorted(list(set([Version(manifest_version)[0] for manifest_version in integration_manifests])),
-                            reverse=True)
-    for max_major in major_versions:
-        major_integration_manifests = \
-            {k: v for k, v in integration_manifests.items() if Version(k)[0] == max_major}
-
-        # iterates through ascending integration manifests
-        # returns latest major version that is least compatible
-        for version, manifest in OrderedDict(sorted(major_integration_manifests.items(),
-                                                    key=lambda x: Version(str(x[0])))).items():
-            compatible_versions = re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana"]["version"]).split(" || ")
-            for kibana_ver in compatible_versions:
-                # check versions have the same major
-                if int(kibana_ver[0]) == int(current_stack_version[0]):
-                    if Version(kibana_ver) <= Version(current_stack_version + ".0"):
-                        return f"^{version}"
-
-    raise ValueError(f"no compatible version for integration {package}:{integration}")
-
-
 def find_latest_compatible_version(package: str, integration: str,
                                    rule_stack_version: str, packages_manifest: dict) -> Union[None, str]:
     """Finds least compatible version for specified integration based on stack version supplied."""
@@ -125,6 +97,7 @@ def find_latest_compatible_version(package: str, integration: str,
                   f"{highest_compatible_version} to support this version.")
 
         elif int(highest_compatible_version[0]) == int(rule_stack_version[0]):
+            # TODO: Should we add a ^ for kibana
             return version
 
     raise ValueError(f"no compatible version for integration {package}:{integration}")
