@@ -888,44 +888,44 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
 
 
 @dev_group.command('trim-version-lock')
-@click.argument('min_version')
+@click.argument('stack_version')
 @click.option('--dry-run', is_flag=True, help='Print the changes rather than saving the file')
-def trim_version_lock(min_version: str, dry_run: bool):
+def trim_version_lock(stack_version: str, dry_run: bool):
     """Trim all previous entries within the version lock file which are lower than the min_version."""
     stack_versions = get_stack_versions()
-    assert min_version in stack_versions, f'Unknown min_version ({min_version}), expected: {", ".join(stack_versions)}'
+    assert stack_version in stack_versions, \
+        f'Unknown min_version ({stack_version}), expected: {", ".join(stack_versions)}'
 
-    min_version = Version(min_version)
+    stack_version = Version(stack_version)[:2]
     version_lock_dict = default_version_lock.version_lock.to_dict()
     removed = {}
 
     for rule_id, lock in version_lock_dict.items():
         if 'previous' in lock:
             prev_vers = [Version(v) for v in list(lock['previous'])]
-            outdated_vers = [v for v in prev_vers if v <= min_version]
+            outdated_vers = [v for v in prev_vers if v <= stack_version]
 
             if not outdated_vers:
                 continue
 
-            # we want to remove all "old" versions, but save the latest that is <= the min version as the new
-            # min_version. Essentially collapsing the entries and bumping it to a new "true" min
-            latest_version = max(outdated_vers)
+            # we want to remove all "old" versions, but save the latest that is >= the min version supplied as the new
+            # stack_version.
 
             if dry_run:
-                outdated_minus_current = [str(v) for v in outdated_vers if v != min_version]
+                outdated_minus_current = [str(v) for v in outdated_vers if v < stack_version]
                 if outdated_minus_current:
                     removed[rule_id] = outdated_minus_current
             for outdated in outdated_vers:
                 popped = lock['previous'].pop(str(outdated))
-                if outdated == latest_version:
-                    lock['previous'][str(Version(min_version[:2]))] = popped
+                if outdated >= stack_version:
+                    lock['previous'][str(Version(stack_version[:2]))] = popped
 
             # remove the whole previous entry if it is now blank
             if not lock['previous']:
                 lock.pop('previous')
 
     if dry_run:
-        click.echo(f'The following versions would be collapsed to {min_version}:' if removed else 'No changes')
+        click.echo(f'The following versions would be collapsed to {stack_version}:' if removed else 'No changes')
         click.echo('\n'.join(f'{k}: {", ".join(v)}' for k, v in removed.items()))
     else:
         new_lock = VersionLockFile.from_dict(dict(data=version_lock_dict))
