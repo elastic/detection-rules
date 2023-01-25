@@ -10,6 +10,7 @@ import os
 import re
 from collections import OrderedDict
 from pathlib import Path
+from typing import Union
 
 import requests
 from marshmallow import EXCLUDE, Schema, fields, post_load
@@ -85,6 +86,46 @@ def find_least_compatible_version(package: str, integration: str,
                 if int(kibana_ver[0]) == int(current_stack_version[0]):
                     if Version(kibana_ver) <= Version(current_stack_version + ".0"):
                         return f"^{version}"
+
+    raise ValueError(f"no compatible version for integration {package}:{integration}")
+
+
+def find_latest_compatible_version(package: str, integration: str,
+                                   rule_stack_version: str, packages_manifest: dict) -> Union[None, str]:
+    """Finds least compatible version for specified integration based on stack version supplied."""
+
+    if not package:
+        raise ValueError("Package must be specified")
+
+    package_manifest = packages_manifest.get(package)
+    if package_manifest is None:
+        raise ValueError(f"Package {package} not found in manifest.")
+
+    # Converts the dict keys (version numbers) to Version objects for proper sorting (descending)
+    integration_manifests = sorted(package_manifest.items(), key=lambda x: Version(str(x[0])), reverse=True)
+
+    for version, manifest in integration_manifests:
+        kibana_conditions = manifest.get("conditions", {}).get("kibana", {})
+        version_requirement = kibana_conditions.get("version")
+        if not version_requirement:
+            raise ValueError(f"Manifest for {package}:{integration} version {version} is missing conditions.")
+
+        compatible_versions = re.sub(r"\>|\<|\=|\^", "", version_requirement).split(" || ")
+
+        if not compatible_versions:
+            raise ValueError(f"Manifest for {package}:{integration} version {version} is missing compatible versions")
+
+        highest_compatible_version = max(compatible_versions, key=lambda x: Version(x))
+
+        if Version(highest_compatible_version) > Version(rule_stack_version):
+            # TODO: Determine if we should raise an error here or not
+            integration = f" {integration}" if integration else ""
+            print(f"Integration {package}{integration} version {version} has a higher stack version requirement.",
+                  f"Consider updating min_stack version from {rule_stack_version} to "
+                  f"{highest_compatible_version} to support this version.")
+
+        elif int(highest_compatible_version[0]) == int(rule_stack_version[0]):
+            return version
 
     raise ValueError(f"no compatible version for integration {package}:{integration}")
 
