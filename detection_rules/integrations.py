@@ -205,7 +205,7 @@ def get_integration_manifests(integration: str) -> list:
     epr_search_url = "https://epr.elastic.co/search"
 
     # link for search parameters - https://github.com/elastic/package-registry
-    epr_search_parameters = {"package": f"{integration}", "prerelease": "true",
+    epr_search_parameters = {"package": f"{integration}", "prerelease": "false",
                              "all": "true", "include_policy_templates": "true"}
     epr_search_response = requests.get(epr_search_url, params=epr_search_parameters)
     epr_search_response.raise_for_status()
