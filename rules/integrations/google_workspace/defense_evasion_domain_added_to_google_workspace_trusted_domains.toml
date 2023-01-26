@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/11/17"
+integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2022/08/24"
-integration = "google_workspace"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
+min_stack_version = "8.4.0"
+updated_date = "2023/01/13"
 
 [rule]
 author = ["Elastic"]
@@ -40,8 +40,15 @@ references = ["https://support.google.com/a/answer/6160020?hl=en"]
 risk_score = 73
 rule_id = "cf549724-c577-4fd6-8f9b-d1b8ec519ec0"
 severity = "high"
-tags = ["Elastic", "Cloud", "Google Workspace", "Continuous Monitoring", "SecOps",
-"Configuration Audit", "Defense Evasion"]
+tags = [
+    "Elastic",
+    "Cloud",
+    "Google Workspace",
+    "Continuous Monitoring",
+    "SecOps",
+    "Configuration Audit",
+    "Defense Evasion",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -49,20 +56,22 @@ query = '''
 event.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:ADD_TRUSTED_DOMAINS
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.007"
+name = "Disable or Modify Cloud Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/007/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1562.007"
-  name = "Disable or Modify Cloud Firewall"
-  reference = "https://attack.mitre.org/techniques/T1562/007/"
 
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
