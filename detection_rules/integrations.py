@@ -234,7 +234,7 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
     integrations_schemas = load_integrations_schemas()
 
     # validate the query against related integration fields
-    if isinstance(data, QueryRuleData) and data.language != 'lucene':
+    if isinstance(data, QueryRuleData) and data.language != 'lucene' and meta.maturity == "production":
 
         for stack_version, mapping in meta.get_validation_stack_versions().items():
             ecs_version = mapping['ecs']
@@ -244,9 +244,6 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
             for pk_int in package_integrations:
                 package = pk_int["package"]
                 integration = pk_int["integration"]
-
-                if meta.maturity != "production":
-                    continue
 
                 package_version = find_latest_compatible_version(package=package,
                                                                  integration=integration,
