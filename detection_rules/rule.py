@@ -841,7 +841,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         field_name = "related_integrations"
         package_integrations = obj.get(field_name, [])
 
-        if not package_integrations and self.metadata.integration:
+        if not package_integrations and self.metadata.integration and self.metadata.maturity == "production":
             packages_manifest = load_integrations_manifests()
 
             if self.check_restricted_field_version(field_name):
