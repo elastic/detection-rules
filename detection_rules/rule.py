@@ -855,7 +855,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                         package["version"] = find_latest_compatible_version(
                             package=package["package"],
                             integration=package["integration"],
-                            rule_stack_version=self.meta.min_stack_version,
+                            rule_stack_version=self.metadata.min_stack_version,
                             packages_manifest=packages_manifest)
 
                         # if integration is not a policy template remove
