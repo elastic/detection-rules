@@ -98,7 +98,7 @@ def find_latest_compatible_version(package: str, integration: str,
 
         elif int(highest_compatible_version[0]) == int(rule_stack_version[0]):
             # TODO: Should we add a ^ for kibana
-            return version
+            return f"^{version}"
 
     raise ValueError(f"no compatible version for integration {package}:{integration}")
 
