@@ -1,0 +1,88 @@
+[metadata]
+creation_date = "2023/01/17"
+integration = ["windows"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/01/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of PowerShell script with keywords related to different Antimalware Scan Interface (AMSI) bypasses. 
+An adversary may attempt first to disable AMSI before executing further malicious powershell scripts to evade detection.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential Antimalware Scan Interface Bypass via PowerShell"
+references = ["https://github.com/S3cur3Th1sSh1t/Amsi-Bypass-Powershell"]
+risk_score = 73
+rule_id = "1f0a69c0-3392-4adf-b7d5-6012fd292da8"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "PowerShell"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.category :"process" and 
+ (
+  powershell.file.script_block_text : 
+        (System.Management.Automation.AmsiUtils or 
+				 amsiInitFailed or 
+				 Invoke-AmsiBypass or 
+				 Bypass.AMSI or 
+				 amsi.dll or 
+				 AntimalwareProvider  or 
+				 amsiSession or 
+				 amsiContext or 
+				 System.Management.Automation.ScriptBlock or 
+				 AmsiInitialize or 
+				 unloadobfuscated or 
+				 unloadsilent or 
+				 AmsiX64 or 
+				 AmsiX32 or 
+				 FindAmsiFun) or 
+	
+  powershell.file.script_block_text : ("[System.Runtime.InteropServices.Marshal]::Copy" and "VirtualProtect") or 
+
+  powershell.file.script_block_text : ("[Ref].Assembly.GetType(('System.Management.Automation" and ".SetValue(") 
+ )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
