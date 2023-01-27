@@ -95,7 +95,7 @@ class KQLValidator(QueryValidator):
                            )
 
                 # TODO: Remove print
-                print(f"\n\nError on {data.name}:\n\t{str(exc)}")
+                print(f"\n\nError on {data.name}:\n\t{str(exc)} {trailer}")
                 # raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
                 #                         len(exc.caret.lstrip()), trailer=trailer) from None
 
@@ -215,8 +215,7 @@ class EQLValidator(QueryValidator):
             try:
                 self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer)
             except eql.EqlParseError as exc:
-                # raise exc
-                pass
+                raise exc
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
