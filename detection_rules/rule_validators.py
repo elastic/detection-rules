@@ -160,15 +160,6 @@ class EQLValidator(QueryValidator):
                 print(f"Validating {data.name} against {len(package_integrations)} integration(s)")
                 self.validate_integration(data, meta, package_integrations)
 
-                # Still need to check endgame if it's in the index
-                for stack_version, mapping in meta.get_validation_stack_versions().items():
-                    endgame_version = mapping['endgame']
-                    endgame_schema = self.get_endgame_schema(data.index, endgame_version)
-                    if endgame_schema:
-                        # validate query against the endgame schema
-                        err_trailer = f'stack: {stack_version}, endgame: {endgame_version}'
-                        self.validate_query_with_schema(data=data, schema=endgame_schema, err_trailer=err_trailer)
-
             else:
                 for stack_version, mapping in meta.get_validation_stack_versions().items():
                     beats_version = mapping['beats']
@@ -203,6 +194,7 @@ class EQLValidator(QueryValidator):
             package_version = integration_schema_data['package_version']
             integration_schema = integration_schema_data['schema']
             stack_version = integration_schema_data['stack_version']
+            endgame_version = integration_schema_data['endgame_version']
 
             # add non-ecs-schema fields for edge cases not added to the integration
             for index_name in data.index:
@@ -216,6 +208,13 @@ class EQLValidator(QueryValidator):
                 self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer)
             except eql.EqlParseError as exc:
                 raise exc
+
+            # Still need to check endgame if it's in the index
+            endgame_schema = self.get_endgame_schema(data.index, endgame_version)
+            if endgame_schema:
+                # validate query against the endgame schema
+                err_trailer = f'stack: {stack_version}, endgame: {endgame_version}'
+                self.validate_query_with_schema(data=data, schema=endgame_schema, err_trailer=err_trailer)
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
