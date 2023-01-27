@@ -174,6 +174,9 @@ def find_latest_compatible_version(package: str, integration: str,
     # Converts the dict keys (version numbers) to Version objects for proper sorting (descending)
     integration_manifests = sorted(package_manifest.items(), key=lambda x: Version(str(x[0])), reverse=True)
 
+    # flag to only warn once per integration for available upgrades
+    warn_update_available = True
+
     for version, manifest in integration_manifests:
         kibana_conditions = manifest.get("conditions", {}).get("kibana", {})
         version_requirement = kibana_conditions.get("version")
@@ -187,9 +190,11 @@ def find_latest_compatible_version(package: str, integration: str,
 
         highest_compatible_version = max(compatible_versions, key=lambda x: Version(x))
 
-        if Version(highest_compatible_version) > Version(rule_stack_version):
-            # TODO: Determine if we should raise an error here or not
+        if Version(highest_compatible_version) > Version(rule_stack_version) and warn_update_available:
+            # Warn for now, as to not lock rule stacks to integrations
+            warn_update_available = False
             integration = f" {integration}" if integration else ""
+
             print(f"Integration {package}{integration} version {version} has a higher stack version requirement.",
                   f"Consider updating min_stack version from {rule_stack_version} to "
                   f"{highest_compatible_version} to support this version.")
