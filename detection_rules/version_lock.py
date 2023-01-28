@@ -13,7 +13,7 @@ import click
 from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
 from .rule_loader import RuleCollection
 from .schemas import definitions
-from .semver import Version
+import semver
 from .utils import cached, get_etc_path
 
 ETC_VERSION_LOCK_FILE = "version.lock.json"

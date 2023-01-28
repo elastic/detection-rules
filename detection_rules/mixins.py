@@ -18,7 +18,7 @@ from marshmallow import Schema, ValidationError, fields, validates_schema
 from .misc import load_current_package_version
 from .schemas import definitions
 from .schemas.stack_compat import get_incompatible_fields
-from .semver import Version
+import semver
 from .utils import cached, dict_hash
 
 T = TypeVar('T')

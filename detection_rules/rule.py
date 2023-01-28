@@ -31,16 +31,16 @@ from .rule_formatter import nested_normalize, toml_write
 from .schemas import (SCHEMA_DIR, definitions, downgrade,
                       get_min_supported_stack_version, get_stack_schemas)
 from .schemas.stack_compat import get_restricted_fields
-from .semver import Version
+import semver
 from .utils import cached
 
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
 
 BUILD_FIELD_VERSIONS = {
-    "related_integrations": (Version('8.3'), None),
-    "required_fields": (Version('8.3'), None),
-    "setup": (Version("8.3"), None)
+    "related_integrations": (semver.VersionInfo.parse('8.3.0'), None),
+    "required_fields": (semver.VersionInfo.parse('8.3.0'), None),
+    "setup": (semver.VersionInfo.parse('8.3.0'), None)
 }
 
 
@@ -727,7 +727,7 @@ class BaseRuleContents(ABC):
         return version + 1 if self.is_dirty else version
 
     @classmethod
-    def convert_supported_version(cls, stack_version: Optional[str]) -> Version:
+    def convert_supported_version(cls, stack_version: Optional[str]) -> semver.VersionInfo:
         """Convert an optional stack version to the minimum for the lock in the form major.minor."""
         min_version = get_min_supported_stack_version(drop_patch=True)
         if stack_version is None:
@@ -941,7 +941,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         return self.compare_field_versions(min_stack, max_stack)
 
     @staticmethod
-    def compare_field_versions(min_stack: Version, max_stack: Version) -> bool:
+    def compare_field_versions(min_stack: semver.VersionInfo, max_stack: semver.VersionInfo) -> bool:
         """Check current rule version is within min and max stack versions."""
         current_version = Version(load_current_package_version())
         max_stack = max_stack or current_version

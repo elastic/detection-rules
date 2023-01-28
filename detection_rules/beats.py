@@ -14,7 +14,7 @@ import json
 import requests
 import yaml
 
-from .semver import Version
+import semver
 from .utils import DateTimeEncoder, unzip, get_etc_path, gzip_compress, read_gzip, cached
 
 
@@ -181,7 +181,7 @@ def get_beats_sub_schema(schema: dict, beat: str, module: str, *datasets: str):
 
 
 @cached
-def get_versions() -> List[Version]:
+def get_versions() -> List[semver.VersionInfo]:
     versions = []
     for filename in os.listdir(get_etc_path("beats_schemas")):
         version_match = re.match(r'v(.+)\.json\.gz', filename)

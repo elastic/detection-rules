@@ -7,11 +7,11 @@ from dataclasses import Field
 from typing import Dict, List, Optional, Tuple
 
 from ..misc import cached
-from ..semver import Version
+import semver
 
 
 @cached
-def get_restricted_field(schema_field: Field) -> Tuple[Optional[Version], Optional[Version]]:
+def get_restricted_field(schema_field: Field) -> Tuple[Optional[semver.VersionInfo], Optional[semver.VersionInfo]]:
     """Get an optional min and max compatible versions of a field (from a schema or dataclass)."""
     # nested get is to support schema fields being passed directly from dataclass or fields in schema class, since
     # marshmallow_dataclass passes the embedded metadata directly
@@ -23,7 +23,7 @@ def get_restricted_field(schema_field: Field) -> Tuple[Optional[Version], Option
 
 
 @cached
-def get_restricted_fields(schema_fields: List[Field]) -> Dict[str, Tuple[Optional[Version], Optional[Version]]]:
+def get_restricted_fields(schema_fields: List[Field]) -> Dict[str, Tuple[Optional[semver.VersionInfo], Optional[semver.VersionInfo]]]:
     """Get a list of optional min and max compatible versions of fields (from a schema or dataclass)."""
     restricted = {}
     for _field in schema_fields:
@@ -35,7 +35,7 @@ def get_restricted_fields(schema_fields: List[Field]) -> Dict[str, Tuple[Optiona
 
 
 @cached
-def get_incompatible_fields(schema_fields: List[Field], package_version: Version) -> Optional[Dict[str, tuple]]:
+def get_incompatible_fields(schema_fields: List[Field], package_version: semver.VersionInfo) -> Optional[Dict[str, tuple]]:
     """Get a list of fields that are incompatible with the package version."""
     if not schema_fields:
         return

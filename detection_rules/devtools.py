@@ -42,7 +42,7 @@ from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
                    ThreatMapping, TOMLRule)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
-from .semver import Version
+import semver
 from .utils import (dict_hash, get_etc_path, get_path, load_dump, save_etc_dump,
                     load_etc_dump)
 from .version_lock import VersionLockFile, default_version_lock

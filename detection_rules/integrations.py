@@ -14,7 +14,7 @@ from pathlib import Path
 import requests
 from marshmallow import EXCLUDE, Schema, fields, post_load
 
-from .semver import Version
+import semver
 from .utils import cached, get_etc_path, read_gzip
 
 MANIFEST_FILE_PATH = Path(get_etc_path('integration-manifests.json.gz'))

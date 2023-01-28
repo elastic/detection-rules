@@ -20,7 +20,7 @@ from .attack import attack_tm, matrix, tactics, technique_lookup
 from .packaging import Package
 from .rule_loader import DeprecatedCollection, RuleCollection
 from .rule import ThreatMapping, TOMLRule
-from .semver import Version
+import semver
 
 
 class PackageDocument(xlsxwriter.Workbook):

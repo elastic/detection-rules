@@ -16,7 +16,7 @@ import eql
 import eql.types
 import yaml
 
-from .semver import Version
+import semver
 from .utils import DateTimeEncoder, cached, load_etc_dump, get_etc_path, gzip_compress, read_gzip, unzip
 
 ETC_NAME = "ecs_schemas"
