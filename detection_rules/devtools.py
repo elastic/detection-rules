@@ -46,6 +46,7 @@ import semver
 from .utils import (dict_hash, get_etc_path, get_path, load_dump, save_etc_dump,
                     load_etc_dump)
 from .version_lock import VersionLockFile, default_version_lock
+from .beats import download_beats_schema, download_latest_beats_schema
 
 RULES_DIR = get_path('rules')
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
