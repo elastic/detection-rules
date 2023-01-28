@@ -33,7 +33,7 @@ from .docs import IntegrationSecurityDocs
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
-from .integrations import build_integrations_manifest
+from .integrations import build_integrations_manifest, find_latest_integration_version
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
@@ -152,44 +152,44 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
     return docs
 
 
-@dev_group.command("bump-versions")
-@click.option("--major", is_flag=True, help="bump the major version")
-@click.option("--minor", is_flag=True, help="bump the minor version")
-@click.option("--patch", is_flag=True, help="bump the patch version")
-@click.option("--package", is_flag=True, help="Update the package version in the packages.yml file")
-@click.option("--kibana", is_flag=True, help="Update the kibana version in the packages.yml file")
-@click.option("--registry", is_flag=True, help="Update the registry version in the packages.yml file")
-def bump_versions(major, minor, patch, package, kibana, registry):
+@dev_group.command("bump-pkg-versions")
+@click.option("--major-release", is_flag=True, help="bump the major version")
+@click.option("--minor-release", is_flag=True, help="bump the minor version")
+@click.option("--patch-release", is_flag=True, help="bump the patch version")
+@click.option("--maturity", type=click.Choice(['beta', 'ga'], case_sensitive=False),
+              required=True, help="beta or production versions")
+def bump_versions(major_release, minor_release, patch_release, maturity):
     """Bump the versions"""
 
-    package_data = load_etc_dump('packages.yml')['package']
-    ver = package_data["name"]
-    new_version = Version(ver).bump(major, minor, patch)
-
-    kibana_version = f"^{new_version}.0" if not patch else f"^{new_version}"
-    registry_version = f"{new_version}.0-dev.0" if not patch else f"{new_version}-dev.0"
+    pkg_data = load_etc_dump('packages.yml')['package']
+    kibana_ver = semver.VersionInfo(*pkg_data["name"].split("."))
+    pkg_ver = semver.VersionInfo.parse(pkg_data["registry_data"]["version"])
+    pkg_kibana_ver = semver.VersionInfo.parse(pkg_data["registry_data"]["conditions"]["kibana.version"].lstrip("^"))
+    if major_release:
+        pkg_data["name"] = str(kibana_ver.bump_major()).rstrip(".0")
+        pkg_data["registry_data"]["conditions"]["kibana.version"] = f"^{pkg_kibana_ver.bump_major()}"
+        pkg_data["registry_data"]["version"] = pkg_ver.bump_major().bump_prerelease("beta")
+    if minor_release:
+        pkg_data["name"] = str(kibana_ver.bump_minor()).rstrip(".0")
+        pkg_data["registry_data"]["conditions"]["kibana.version"] = f"^{pkg_kibana_ver.bump_minor()}"
+        pkg_data["registry_data"]["version"] = pkg_ver.bump_minor().bump_prerelease("beta")
+        pkg_data["registry_data"]["release"] = maturity
+    if patch_release:
+        latest_patch_release_ver = find_latest_integration_version("security_detection_engine", maturity, pkg_data["name"])
+        if maturity == "ga":
+            pkg_data["registry_data"]["version"] = latest_patch_release_ver.bump_patch()
+        else:
+            pkg_data["registry_data"]["version"] = latest_patch_release_ver.bump_prerelease("beta")
 
     # print the new versions
-    click.echo(f"New package version: {new_version}")
-    click.echo(f"New registry data version: {registry_version}")
-    click.echo(f"New Kibana version: {kibana_version}")
+    if major_release or minor_release:
+        click.echo(f"New Kibana version: {pkg_data['name']}")
+        click.echo(f"New package Kibana version: {pkg_data['registry_data']['conditions']['kibana.version']}")
+    click.echo(f"New package version: {pkg_data['registry_data']['version']}")
 
-    if package:
-        # update package version
-        package_data["name"] = str(new_version)
-
-    if kibana:
-        # update kibana version
-        package_data["registry_data"]["conditions"]["kibana.version"] = kibana_version
-
-    if registry:
-        # update registry version
-        package_data["registry_data"]["version"] = registry_version
-        # update packages.yml
-
-    if package or kibana or registry:
-        save_etc_dump({"package": package_data}, "packages.yml")
-
+    # we only save major and minor version bumps
+    # patch version bumps are OOB packages and thus we keep the base versioning
+    return pkg_data if patch_release else save_etc_dump({"package": package_data}, "packages.yml")
 
 @dataclasses.dataclass
 class GitChangeEntry:
