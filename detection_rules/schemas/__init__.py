@@ -290,5 +290,5 @@ def get_stack_versions(drop_patch=False) -> List[str]:
 def get_min_supported_stack_version(drop_patch=False) -> semver.VersionInfo:
     """Get the minimum defined and supported stack version."""
     stack_map = load_stack_schema_map()
-    min_version = min(Version(v) for v in list(stack_map))
-    return Version(min_version[:2]) if drop_patch else min_version
+    min_version = semver.VersionInfo.parse(min(semver.VersionInfo.parse(v) for v in list(stack_map)))
+    return min_version

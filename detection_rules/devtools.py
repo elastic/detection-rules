@@ -249,7 +249,7 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
     }
     exceptions.update(exception_list.split(","))
 
-    target_stack_version = Version(target_stack_version)[:2]
+    target_stack_version = semver.VersionInfo.parse(target_stack_version)
 
     # load a structured summary of the diff from git
     git_output = subprocess.check_output(["git", "diff", "--name-status", "HEAD"])
@@ -270,7 +270,7 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
             dict_contents = RuleCollection.deserialize_toml_string(change.read())
             min_stack_version: Optional[str] = dict_contents.get("metadata", {}).get("min_stack_version")
 
-            if min_stack_version is not None and target_stack_version < Version(min_stack_version)[:2]:
+            if min_stack_version is not None and target_stack_version < semver.VersionInfo.parse(min_stack_version):
                 # rule is incompatible, add to the list of reversions to make later
                 reversions.append(change)
 
