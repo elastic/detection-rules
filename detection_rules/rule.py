@@ -729,11 +729,10 @@ class BaseRuleContents(ABC):
     @classmethod
     def convert_supported_version(cls, stack_version: Optional[str]) -> semver.VersionInfo:
         """Convert an optional stack version to the minimum for the lock in the form major.minor."""
-        min_version = get_min_supported_stack_version(drop_patch=True)
+        min_version = get_min_supported_stack_version()
         if stack_version is None:
             return min_version
-        short_stack_version = Version(Version(stack_version)[:2])
-        return max(short_stack_version, min_version)
+        return max(stack_version, min_version)
 
     def get_supported_version(self) -> str:
         """Get the lowest stack version for the rule that is currently supported in the form major.minor."""
