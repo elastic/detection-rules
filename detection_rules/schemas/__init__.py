@@ -231,15 +231,15 @@ def downgrade(api_contents: dict, target_version: str, current_version: Optional
     if current_version is None:
         current_version = current_stack_version()
 
-    current_major, current_minor = Version(current_version)[:2]
-    target_major, target_minor = Version(target_version)[:2]
+    current_major, current_minor = semver.VersionInfo(*current_version.split("."))[:2]
+    target_major, target_minor = semver.VersionInfo(*target_version.split("."))[:2]
 
     # get all the versions between current_semver and target_semver
     if target_major != current_major:
         raise ValueError(f"Cannot backport to major version {target_major}")
 
     for minor in reversed(range(target_minor, current_minor)):
-        version = Version([target_major, minor])
+        version = semver.VersionInfo(*[target_major, minor])
         if version not in migrations:
             raise ValueError(f"Missing migration for {target_version}")
 
@@ -256,15 +256,12 @@ def load_stack_schema_map() -> dict:
 @cached
 def get_stack_schemas(stack_version: Optional[str] = '0.0.0') -> OrderedDictType[str, dict]:
     """Return all ECS + beats to stack versions for every stack version >= specified stack version and <= package."""
-    stack_version = Version(stack_version or '0.0.0')
-    current_package = Version(load_current_package_version())
-
-    if len(current_package) == 2:
-        current_package = Version(current_package + (0,))
+    stack_version = semver.VersionInfo.parse(stack_version or '0.0.0')
+    current_package = semver.VersionInfo(*load_current_package_version().split("."))
 
     stack_map = load_stack_schema_map()
     versions = {k: v for k, v in stack_map.items()
-                if (mapped_version := Version(k)) >= stack_version and mapped_version <= current_package and v}
+                if (mapped_version := semver.VersionInfo.parse(k)) >= stack_version and mapped_version <= current_package and v}
 
     if stack_version > current_package:
         versions[stack_version] = {'beats': 'main', 'ecs': 'master'}
