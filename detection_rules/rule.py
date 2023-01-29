@@ -348,7 +348,7 @@ class QueryValidator:
     @cached
     def get_required_fields(self, index: str) -> List[dict]:
         """Retrieves fields needed for the query along with type information from the schema."""
-        current_version = Version(Version(load_current_package_version()) + (0,))
+        current_version = semver.VersionInfo(*load_current_package_version().split("."))
         ecs_version = get_stack_schemas()[str(current_version)]['ecs']
         beats_version = get_stack_schemas()[str(current_version)]['beats']
         endgame_version = get_stack_schemas()[str(current_version)]['endgame']
@@ -483,8 +483,8 @@ class NewTermsRuleData(QueryRuleData):
 
         kql_validator = KQLValidator(self.query)
         kql_validator.validate(self, meta)
-        feature_min_stack = Version('8.4.0')
-        feature_min_stack_extended_fields = Version('8.6.0')
+        feature_min_stack = semver.VersionInfo.parse('8.4.0')
+        feature_min_stack_extended_fields = semver.VersionInfo.parse('8.6.0')
 
         # validate history window start field exists and is correct
         assert self.new_terms.history_window_start, \
@@ -499,9 +499,9 @@ class NewTermsRuleData(QueryRuleData):
         # ecs validation
         min_stack_version = meta.get("min_stack_version")
         if min_stack_version is None:
-            min_stack_version = Version(Version(load_current_package_version()) + (0,))
+            min_stack_version = semver.VersionInfo(*load_current_package_version().split("."))
         else:
-            min_stack_version = Version(min_stack_version)
+            min_stack_version = semver.VersionInfo.parse(min_stack_version)
 
         assert min_stack_version >= feature_min_stack, \
             f"New Terms rule types only compatible with {feature_min_stack}+"
@@ -698,8 +698,8 @@ class BaseRuleContents(ABC):
         """Determine if the rule is in a forked version."""
         if not self.has_forked:
             return False
-        locked_min_stack = Version(self.lock_entry['min_stack_version'])
-        current_package_ver = Version(load_current_package_version())
+        locked_min_stack = semver.VersionInfo(*self.lock_entry['min_stack_version'].split("."))
+        current_package_ver = semver.VersionInfo(*load_current_package_version().split("."))
         return current_package_ver < locked_min_stack
 
     def get_version_space(self) -> Optional[int]:
@@ -942,9 +942,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     @staticmethod
     def compare_field_versions(min_stack: semver.VersionInfo, max_stack: semver.VersionInfo) -> bool:
         """Check current rule version is within min and max stack versions."""
-        current_version = Version(load_current_package_version())
+        current_version = semver.VersionInfo(*load_current_package_version().split("."))
         max_stack = max_stack or current_version
-        return Version(min_stack) <= current_version >= Version(max_stack)
+        return min_stack <= current_version >= max_stack
 
     def _get_packaged_integrations(self, package_manifest: dict) -> Optional[List[dict]]:
         packaged_integrations = []
@@ -1013,9 +1013,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     def check_restricted_fields_compatibility(self) -> Dict[str, dict]:
         """Check for compatibility between restricted fields and the min_stack_version of the rule."""
-        default_min_stack = get_min_supported_stack_version(drop_patch=True)
+        default_min_stack = get_min_supported_stack_version()
         if self.metadata.min_stack_version is not None:
-            min_stack = Version(self.metadata.min_stack_version)
+            min_stack = semver.VersionInfo.parse(self.metadata.min_stack_version)
         else:
             min_stack = default_min_stack
         restricted = self.data.get_restricted_fields
