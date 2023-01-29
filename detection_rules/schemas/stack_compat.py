@@ -17,8 +17,8 @@ def get_restricted_field(schema_field: Field) -> Tuple[Optional[semver.VersionIn
     # marshmallow_dataclass passes the embedded metadata directly
     min_compat = schema_field.metadata.get('metadata', schema_field.metadata).get('min_compat')
     max_compat = schema_field.metadata.get('metadata', schema_field.metadata).get('max_compat')
-    min_compat = Version(min_compat) if min_compat else None
-    max_compat = Version(max_compat) if max_compat else None
+    min_compat = semver.VersionInfo(*min_compat.split(".")) if min_compat else None
+    max_compat = semver.VersionInfo(*max_compat.split(".")) if max_compat else None
     return min_compat, max_compat
 
 
