@@ -896,13 +896,13 @@ def trim_version_lock(min_version: str, dry_run: bool):
     stack_versions = get_stack_versions()
     assert min_version in stack_versions, f'Unknown min_version ({min_version}), expected: {", ".join(stack_versions)}'
 
-    min_version = Version(min_version)
+    min_version = semver.VersionInfo.parse(min_version)
     version_lock_dict = default_version_lock.version_lock.to_dict()
     removed = {}
 
     for rule_id, lock in version_lock_dict.items():
         if 'previous' in lock:
-            prev_vers = [Version(v) for v in list(lock['previous'])]
+            prev_vers = [semver.VersionInfo(*v.split(".")) for v in list(lock['previous'])]
             outdated_vers = [v for v in prev_vers if v <= min_version]
 
             if not outdated_vers:
