@@ -7,8 +7,9 @@
 
 import unittest
 
+import semver
+
 from detection_rules.schemas import get_min_supported_stack_version
-from detection_rules.semver import Version
 from detection_rules.version_lock import default_version_lock
 
 
