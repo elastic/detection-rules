@@ -304,7 +304,7 @@ class IntegrationSecurityDocs:
 
     @staticmethod
     def parse_registry(registry_version: str) -> (str, str, str):
-        registry_version = Version(registry_version)
+        registry_version = semver.VersionInfo.parse(registry_version)
         short_registry_version = [str(n) for n in registry_version[:3]]
         registry_version_str = '.'.join(short_registry_version)
         base_name = "-".join(short_registry_version)
