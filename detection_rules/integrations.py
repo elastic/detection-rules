@@ -66,24 +66,26 @@ def find_least_compatible_version(package: str, integration: str,
                                   current_stack_version: str, packages_manifest: dict) -> str:
     """Finds least compatible version for specified integration based on stack version supplied."""
     integration_manifests = {k: v for k, v in sorted(packages_manifest[package].items(),
-                             key=lambda x: Version(str(x[0])))}
+                             key=lambda x: semver.VersionInfo.parse(x).major)}
+    current_stack_version = semver.VersionInfo(*current_stack_version.split("."))
 
     # filter integration_manifests to only the latest major entries
-    major_versions = sorted(list(set([Version(manifest_version)[0] for manifest_version in integration_manifests])),
+    major_versions = sorted(list(set([semver.VersionInfo.parse(manifest_version).major for manifest_version in integration_manifests])),
                             reverse=True)
     for max_major in major_versions:
         major_integration_manifests = \
-            {k: v for k, v in integration_manifests.items() if Version(k)[0] == max_major}
+            {k: v for k, v in integration_manifests.items() if semver.VersionInfo.parse(k).major == max_major}
 
         # iterates through ascending integration manifests
         # returns latest major version that is least compatible
         for version, manifest in OrderedDict(sorted(major_integration_manifests.items(),
-                                                    key=lambda x: Version(str(x[0])))).items():
+                                                    key=lambda x: semver.VersionInfo.parse(x).major)).items():
             compatible_versions = re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana"]["version"]).split(" || ")
             for kibana_ver in compatible_versions:
+                kibana_ver = semver.VersionInfo.parse(kibana_ver)
                 # check versions have the same major
-                if int(kibana_ver[0]) == int(current_stack_version[0]):
-                    if Version(kibana_ver) <= Version(current_stack_version + ".0"):
+                if kibana_ver.major == current_stack_version.major:
+                    if kibana_ver <= current_stack_version:
                         return f"^{version}"
 
     raise ValueError(f"no compatible version for integration {package}:{integration}")
