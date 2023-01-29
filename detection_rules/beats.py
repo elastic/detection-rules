@@ -4,18 +4,20 @@
 # 2.0.
 
 """ECS Schemas management."""
+import json
 import os
 import re
 from typing import List, Optional
 
-import kql
 import eql
-import json
 import requests
+import semver
 import yaml
 
-import semver
-from .utils import DateTimeEncoder, unzip, get_etc_path, gzip_compress, read_gzip, cached
+import kql
+
+from .utils import (DateTimeEncoder, cached, get_etc_path, gzip_compress,
+                    read_gzip, unzip)
 
 
 def _decompress_and_save_schema(url, release_name):

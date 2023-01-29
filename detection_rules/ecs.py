@@ -6,18 +6,19 @@
 """ECS Schemas management."""
 import copy
 import glob
+import json
 import os
 import shutil
-import json
 from pathlib import Path
 
-import requests
 import eql
 import eql.types
+import requests
+import semver
 import yaml
 
-import semver
-from .utils import DateTimeEncoder, cached, load_etc_dump, get_etc_path, gzip_compress, read_gzip, unzip
+from .utils import (DateTimeEncoder, cached, get_etc_path, gzip_compress,
+                    load_etc_dump, read_gzip, unzip)
 
 ETC_NAME = "ecs_schemas"
 ECS_SCHEMAS_DIR = get_etc_path(ETC_NAME)

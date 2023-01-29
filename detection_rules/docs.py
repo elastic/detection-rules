@@ -5,6 +5,7 @@
 
 """Create summary documents for a rule package."""
 import itertools
+import json
 import re
 import shutil
 import textwrap
@@ -13,14 +14,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, Optional, Union
 
-import json
+import semver
 import xlsxwriter
 
 from .attack import attack_tm, matrix, tactics, technique_lookup
 from .packaging import Package
-from .rule_loader import DeprecatedCollection, RuleCollection
 from .rule import ThreatMapping, TOMLRule
-import semver
+from .rule_loader import DeprecatedCollection, RuleCollection
 
 
 class PackageDocument(xlsxwriter.Workbook):

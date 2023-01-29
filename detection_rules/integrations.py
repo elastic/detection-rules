@@ -12,9 +12,9 @@ from collections import OrderedDict
 from pathlib import Path
 
 import requests
+import semver
 from marshmallow import EXCLUDE, Schema, fields, post_load
 
-import semver
 from .utils import cached, get_etc_path, read_gzip
 
 MANIFEST_FILE_PATH = Path(get_etc_path('integration-manifests.json.gz'))

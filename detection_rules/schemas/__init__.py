@@ -5,16 +5,16 @@
 import json
 from collections import OrderedDict
 from pathlib import Path
-from typing import List, Optional, OrderedDict as OrderedDictType
+from typing import List, Optional
+from typing import OrderedDict as OrderedDictType
 
 import jsonschema
+import semver
 
+from ..misc import load_current_package_version
+from ..utils import cached, get_etc_path, load_etc_dump
 from . import definitions
 from .rta_schema import validate_rta_mapping
-from ..misc import load_current_package_version
-import semver
-from ..utils import cached, get_etc_path, load_etc_dump
-
 
 __all__ = (
     "SCHEMA_DIR",

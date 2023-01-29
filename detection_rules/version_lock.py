@@ -9,11 +9,11 @@ from pathlib import Path
 from typing import ClassVar, Dict, List, Optional, Union
 
 import click
+import semver
 
 from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
 from .rule_loader import RuleCollection
 from .schemas import definitions
-import semver
 from .utils import cached, get_etc_path
 
 ETC_VERSION_LOCK_FILE = "version.lock.json"

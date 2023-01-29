@@ -6,8 +6,9 @@
 from dataclasses import Field
 from typing import Dict, List, Optional, Tuple
 
-from ..misc import cached
 import semver
+
+from ..misc import cached
 
 
 @cached
