@@ -22,7 +22,7 @@ class TestVersionLock(unittest.TestCase):
         for rule_id, lock in default_version_lock.version_lock.to_dict().items():
             if 'previous' in lock:
                 prev_vers = [semver.VersionInfo(*v.split(".")) for v in list(lock['previous'])]
-                outdated = [str(v) for v in prev_vers if v < min_version]
+                outdated = [str(v).lstrip(".0") for v in prev_vers if v < min_version]
                 if outdated:
                     errors[rule_id] = outdated
 
