@@ -66,12 +66,12 @@ def find_least_compatible_version(package: str, integration: str,
                                   current_stack_version: str, packages_manifest: dict) -> str:
     """Finds least compatible version for specified integration based on stack version supplied."""
     integration_manifests = {k: v for k, v in sorted(packages_manifest[package].items(),
-                             key=lambda x: semver.VersionInfo.parse(x).major)}
+                             key=lambda x: semver.VersionInfo.parse(x[0]).major)}
     current_stack_version = semver.VersionInfo(*current_stack_version.split("."))
 
     # filter integration_manifests to only the latest major entries
-    major_versions = sorted(list(set([semver.VersionInfo.parse(manifest_version).major for manifest_version in integration_manifests])),
-                            reverse=True)
+    major_versions = sorted(list(set([semver.VersionInfo.parse(manifest_version).major
+                            for manifest_version in integration_manifests])), reverse=True)
     for max_major in major_versions:
         major_integration_manifests = \
             {k: v for k, v in integration_manifests.items() if semver.VersionInfo.parse(k).major == max_major}
@@ -79,7 +79,7 @@ def find_least_compatible_version(package: str, integration: str,
         # iterates through ascending integration manifests
         # returns latest major version that is least compatible
         for version, manifest in OrderedDict(sorted(major_integration_manifests.items(),
-                                                    key=lambda x: semver.VersionInfo.parse(x).major)).items():
+                                                    key=lambda x: semver.VersionInfo.parse(x[0]).major)).items():
             compatible_versions = re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana"]["version"]).split(" || ")
             for kibana_ver in compatible_versions:
                 kibana_ver = semver.VersionInfo.parse(kibana_ver)
@@ -94,12 +94,14 @@ def find_least_compatible_version(package: str, integration: str,
 def get_integration_manifests(integration: str, prerelease: str, kibana_version: str) -> list:
     """Iterates over specified integrations from package-storage and combines manifests per version."""
     epr_search_url = "https://epr.elastic.co/search"
-    if not prerelease: prerelease = "false"
+    if not prerelease:
+        prerelease = "false"
 
     # link for search parameters - https://github.com/elastic/package-registry
     epr_search_parameters = {"package": f"{integration}", "prerelease": prerelease,
                              "all": "true", "include_policy_templates": "true"}
-    if kibana_version: epr_search_parameters["kibana.version"] = kibana_version
+    if kibana_version:
+        epr_search_parameters["kibana.version"] = kibana_version
     epr_search_response = requests.get(epr_search_url, params=epr_search_parameters)
     epr_search_response.raise_for_status()
     manifests = epr_search_response.json()
@@ -109,8 +111,9 @@ def get_integration_manifests(integration: str, prerelease: str, kibana_version:
 
     sorted_manifests = sorted(manifests, key=lambda p: semver.VersionInfo.parse(p["version"]), reverse=True)
     print(f"loaded {integration} manifests from the following package versions: "
-          f"{[manifest['version'] for manifest in manifests]}")
+          f"{[manifest['version'] for manifest in sorted_manifests]}")
     return manifests
+
 
 def find_latest_integration_version(integration: str, maturity: str, stack_version: str):
     """Finds the latest integration version based on maturity and stack version"""

@@ -611,7 +611,7 @@ class TestRuleTiming(BaseRuleTest):
             indexes = rule.contents.data.get('index', [])
             beats_indexes = parse_beats_from_index(indexes)
             min_stack_is_less_than_82 = semver.VersionInfo.parse(rule.contents.metadata.min_stack_version or '7.13.0') \
-                                        < semver.VersionInfo.parse("8.2.0")
+                < semver.VersionInfo.parse("8.2.0")
             config = rule.contents.data.get('note') or ''
             rule_str = self.rule_str(rule, trailer=None)
 

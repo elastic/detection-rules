@@ -674,7 +674,7 @@ class BaseRuleContents(ABC):
     @property
     def is_dirty(self) -> Optional[bool]:
         """Determine if the rule has changed since its version was locked."""
-        min_stack = self.get_supported_version()
+        min_stack = semver.VersionInfo.parse(self.get_supported_version())
         existing_sha256 = self.version_lock.get_locked_hash(self.id, min_stack)
 
         if existing_sha256 is not None:
@@ -733,7 +733,7 @@ class BaseRuleContents(ABC):
         min_version = get_min_supported_stack_version()
         if stack_version is None:
             return min_version
-        return max(stack_version, min_version)
+        return max(semver.VersionInfo(*stack_version.split(".")), min_version)
 
     def get_supported_version(self) -> str:
         """Get the lowest stack version for the rule that is currently supported in the form major.minor."""

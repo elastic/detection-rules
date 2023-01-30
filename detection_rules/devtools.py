@@ -21,6 +21,7 @@ from typing import Dict, List, Optional, Tuple
 
 import click
 import requests.exceptions
+import semver
 import yaml
 from elasticsearch import Elasticsearch
 from eql.table import Table
@@ -33,7 +34,8 @@ from .docs import IntegrationSecurityDocs
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
-from .integrations import build_integrations_manifest, find_latest_integration_version
+from .integrations import (build_integrations_manifest,
+                           find_latest_integration_version)
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
@@ -42,11 +44,9 @@ from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
                    ThreatMapping, TOMLRule)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
-import semver
-from .utils import (dict_hash, get_etc_path, get_path, load_dump, save_etc_dump,
-                    load_etc_dump)
+from .utils import (dict_hash, get_etc_path, get_path, load_dump,
+                    load_etc_dump, save_etc_dump)
 from .version_lock import VersionLockFile, default_version_lock
-from .beats import download_beats_schema, download_latest_beats_schema
 
 RULES_DIR = get_path('rules')
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
@@ -175,7 +175,8 @@ def bump_versions(major_release, minor_release, patch_release, maturity):
         pkg_data["registry_data"]["version"] = pkg_ver.bump_minor().bump_prerelease("beta")
         pkg_data["registry_data"]["release"] = maturity
     if patch_release:
-        latest_patch_release_ver = find_latest_integration_version("security_detection_engine", maturity, pkg_data["name"])
+        latest_patch_release_ver = find_latest_integration_version("security_detection_engine",
+                                                                   maturity, pkg_data["name"])
         if maturity == "ga":
             pkg_data["registry_data"]["version"] = latest_patch_release_ver.bump_patch()
         else:
@@ -189,7 +190,8 @@ def bump_versions(major_release, minor_release, patch_release, maturity):
 
     # we only save major and minor version bumps
     # patch version bumps are OOB packages and thus we keep the base versioning
-    return pkg_data if patch_release else save_etc_dump({"package": package_data}, "packages.yml")
+    return pkg_data if patch_release else save_etc_dump({"package": pkg_data}, "packages.yml")
+
 
 @dataclasses.dataclass
 class GitChangeEntry:

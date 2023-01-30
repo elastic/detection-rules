@@ -256,12 +256,15 @@ def load_stack_schema_map() -> dict:
 @cached
 def get_stack_schemas(stack_version: Optional[str] = '0.0.0') -> OrderedDictType[str, dict]:
     """Return all ECS + beats to stack versions for every stack version >= specified stack version and <= package."""
+    if stack_version and stack_version != "0.0.0" and len(stack_version.split(".")) == 2:
+        stack_version = f"{stack_version}.0"
     stack_version = semver.VersionInfo.parse(stack_version or '0.0.0')
     current_package = semver.VersionInfo(*load_current_package_version().split("."))
 
     stack_map = load_stack_schema_map()
-    versions = {k: v for k, v in stack_map.items()
-                if (mapped_version := semver.VersionInfo.parse(k)) >= stack_version and mapped_version <= current_package and v}
+    versions = {k: v for k, v in stack_map.items() if
+                (((mapped_version := semver.VersionInfo.parse(k)) >= stack_version)
+                and (mapped_version <= current_package) and v)}  # noqa: W503
 
     if stack_version > current_package:
         versions[stack_version] = {'beats': 'main', 'ecs': 'master'}
@@ -287,5 +290,5 @@ def get_stack_versions(drop_patch=False) -> List[str]:
 def get_min_supported_stack_version() -> semver.VersionInfo:
     """Get the minimum defined and supported stack version."""
     stack_map = load_stack_schema_map()
-    min_version = semver.VersionInfo.parse(min(semver.VersionInfo.parse(v) for v in list(stack_map)))
+    min_version = min([semver.VersionInfo.parse(v) for v in list(stack_map)])
     return min_version

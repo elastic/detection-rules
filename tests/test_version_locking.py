@@ -19,7 +19,7 @@ class TestVersionLock(unittest.TestCase):
     def test_previous_entries_gte_current_min_stack(self):
         """Test that all previous entries for all locks in the version lock are >= the current min_stack."""
         errors = {}
-        min_version = get_min_supported_stack_version(drop_patch=True)
+        min_version = get_min_supported_stack_version()
         for rule_id, lock in default_version_lock.version_lock.to_dict().items():
             if 'previous' in lock:
                 prev_vers = [semver.VersionInfo(*v.split(".")) for v in list(lock['previous'])]
