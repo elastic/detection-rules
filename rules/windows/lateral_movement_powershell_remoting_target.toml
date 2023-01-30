@@ -35,8 +35,7 @@ type = "eql"
 query = '''
 sequence by host.id with maxspan = 30s
    [network where network.direction : ("incoming", "ingress") and destination.port in (5985, 5986) and
-    network.protocol == "http" and source.ip != "127.0.0.1" and source.ip != "::1"
-   ]
+    network.protocol == "http" and source.ip != "127.0.0.1" and source.ip != "::1"]
    [process where event.type == "start" and process.parent.name : "wsmprovhost.exe" and not process.name : "conhost.exe"]
 '''
 
@@ -47,7 +46,10 @@ framework = "MITRE ATT&CK"
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
-
+[[rule.threat.technique.subtechnique]]
+id = "T1021.006"
+name = "Windows Remote Management"
+reference = "https://attack.mitre.org/techniques/T1021/006/"
 
 [rule.threat.tactic]
 id = "TA0008"
