@@ -243,6 +243,7 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
 
         for stack_version, mapping in meta.get_validation_stack_versions().items():
             ecs_version = mapping['ecs']
+            endgame_version = mapping['endgame']
 
             ecs_schema = ecs.flatten_multi_fields(ecs.get_schema(ecs_version, name='ecs_flat'))
 
@@ -269,5 +270,5 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
                 integration_schema = {k: kql.parser.elasticsearch_type_family(v) for k, v in schema.items()}
                 data = {"schema": integration_schema, "package": package, "integration": integration,
                         "stack_version": stack_version, "ecs_version": ecs_version,
-                        "package_version": package_version}
+                        "package_version": package_version, "endgame_version": endgame_version}
                 yield data
