@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/01/30"
 
 [rule]
 author = ["Elastic"]
@@ -36,7 +36,8 @@ query = '''
 sequence by host.id with maxspan = 30s
    [network where network.direction : ("incoming", "ingress") and destination.port in (5985, 5986) and
     network.protocol == "http" and source.ip != "127.0.0.1" and source.ip != "::1"]
-   [process where event.type == "start" and process.parent.name : "wsmprovhost.exe" and not process.name : "conhost.exe"]
+   [process where event.type == "start" and process.parent.name : "wsmprovhost.exe" and 
+    not process.executable : "?:\\Windows\\System32\\conhost.exe"]
 '''
 
 
