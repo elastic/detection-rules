@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/28"
+updated_date = "2023/01/30"
 
 [rule]
 author = ["Elastic"]
@@ -100,8 +100,9 @@ any where
   (file.name : ("wlbsctrl.dll", "wbemcomn.dll", "WptsExtensions.dll", "Tsmsisrv.dll", "TSVIPSrv.dll", "Msfte.dll",
                "wow64log.dll", "WindowsCoreDeviceInfo.dll", "Ualapi.dll", "wlanhlp.dll", "phoneinfo.dll", "EdgeGdi.dll",
                "cdpsgshims.dll", "windowsperformancerecordercontrol.dll", "diagtrack_win.dll", "oci.dll", "TPPCOIPW32.dll", 
-               "tpgenlic.dll", "thinmon.dll", "fxsst.dll", "msTracer.dll")
-   and not file.code_signature.status == "Valid")
+               "tpgenlic.dll", "thinmon.dll", "fxsst.dll", "msTracer.dll") and 
+   not file.path : ("?:\\Windows\\System32\\wbemcomn.dll", "?:\\Windows\\SysWOW64\\wbemcomn.dll") and 
+   not file.code_signature.status == "Valid")
   )
 '''
 
