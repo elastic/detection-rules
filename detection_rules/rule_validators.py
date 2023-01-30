@@ -94,10 +94,8 @@ class KQLValidator(QueryValidator):
                            f"{stack_version=}, {ecs_version=}"
                            )
 
-                # TODO: Remove print
-                print(f"\n\nError on {data.name}:\n\t{str(exc)} {trailer}")
-                # raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
-                #                         len(exc.caret.lstrip()), trailer=trailer) from None
+                raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
+                                        len(exc.caret.lstrip()), trailer=trailer) from None
 
 
 class EQLValidator(QueryValidator):
@@ -136,10 +134,8 @@ class EQLValidator(QueryValidator):
                     fields_str = ', '.join(text_fields)
                     trailer = f"\neql does not support text fields: {fields_str}\n\n{trailer}"
 
-            # TODO: Remove print
-            print(f"\n\nError on {data.name}:\n\t{str(exc)}")
-            # raise exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
-            #                     len(exc.caret.lstrip()), trailer=trailer) from None
+            raise exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
+                                len(exc.caret.lstrip()), trailer=trailer) from None
 
         except Exception:
             print(err_trailer)
