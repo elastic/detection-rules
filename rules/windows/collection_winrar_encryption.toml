@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/12/04"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/27"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -20,42 +21,33 @@ note = """## Triage and analysis
 
 ### Investigating Encrypting Files with WinRar or 7z
 
-Attackers may compress and/or encrypt data collected before exfiltration. Compressing the data can help obfuscate the
-collected data and minimize the amount of data sent over the network. Encryption can be used to hide information that is
-being exfiltrated from detection or make exfiltration less apparent upon inspection by a defender.
+Attackers may compress and/or encrypt data collected before exfiltration. Compressing the data can help obfuscate the collected data and minimize the amount of data sent over the network. Encryption can be used to hide information that is being exfiltrated from detection or make exfiltration less apparent upon inspection by a defender.
 
 These steps are usually done in preparation for exfiltration, meaning the attack may be in its final stages.
 
 #### Possible investigation steps
 
-- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for
-prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Retrieve the encrypted file.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Check if the password used in the encryption was included in the command line.
 - Decrypt the `.rar`/`.zip` and check if the information is sensitive.
-- If the password is not available, and the format is `.zip` or the option used in WinRAR is not the `-hp`, list the
-file names included in the encrypted file.
+- If the password is not available, and the format is `.zip` or the option used in WinRAR is not the `-hp`, list the file names included in the encrypted file.
 - Investigate if the file was transferred to an attacker-controlled server.
 
 ### False positive analysis
 
-- Backup software can use these utilities. Check the `process.parent.executable` and
-`process.parent.command_line` fields to determine what triggered the encryption.
+- Backup software can use these utilities. Check the `process.parent.executable` and `process.parent.command_line` fields to determine what triggered the encryption.
 
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
 - Prioritize cases that involve personally identifiable information (PII) or other classified data.
 - Isolate the involved hosts to prevent further post-compromise behavior.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
-identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
-systems, and web services.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
-malware components.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 
 ## Setup
@@ -66,7 +58,7 @@ references = ["https://www.welivesecurity.com/2020/12/02/turla-crutch-keeping-ba
 risk_score = 47
 rule_id = "45d273fb-1dca-457d-9855-bcb302180c21"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Collection", "has_guide", "Elastic Endgame"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Collection", "Investigation Guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -95,6 +87,7 @@ reference = "https://attack.mitre.org/techniques/T1560/"
 id = "T1560.001"
 name = "Archive via Utility"
 reference = "https://attack.mitre.org/techniques/T1560/001/"
+
 
 
 [rule.threat.tactic]

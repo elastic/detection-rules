@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/11/17"
+integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2022/09/13"
-integration = "google_workspace"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
+min_stack_version = "8.4.0"
+updated_date = "2023/01/13"
 
 [rule]
 author = ["Elastic"]
@@ -28,17 +28,13 @@ note = """## Triage and analysis
 
 ### Investigating Google Workspace MFA Enforcement Disabled
 
-Multi-factor authentication is a process in which users are prompted during the sign-in process for an additional form
-of identification, such as a code on their cellphone or a fingerprint scan.
+Multi-factor authentication is a process in which users are prompted during the sign-in process for an additional form of identification, such as a code on their cellphone or a fingerprint scan.
 
-If you only use a password to authenticate a user, it leaves an insecure vector for attack. If the password is weak or
-has been exposed elsewhere, an attacker could be using it to gain access. When you require a second form of authentication,
-security is increased because this additional factor isn't something that's easy for an attacker to obtain or duplicate.
+If you only use a password to authenticate a user, it leaves an insecure vector for attack. If the password is weak or has been exposed elsewhere, an attacker could be using it to gain access. When you require a second form of authentication, security is increased because this additional factor isn't something that's easy for an attacker to obtain or duplicate.
 
 For more information about using MFA in Google Workspace, access the [official documentation](https://support.google.com/a/answer/175197).
 
-This rule identifies the disabling of MFA enforcement in Google Workspace. This modification weakens the security of
-the accounts and can lead to the compromise of accounts and other assets.
+This rule identifies the disabling of MFA enforcement in Google Workspace. This modification weakens the security of the accounts and can lead to the compromise of accounts and other assets.
 
 #### Possible investigation steps
 
@@ -46,13 +42,11 @@ the accounts and can lead to the compromise of accounts and other assets.
 - Investigate other alerts associated with the user account during the past 48 hours.
 - Contact the account and resource owners and confirm whether they are aware of this activity.
 - Check if this operation was approved and performed according to the organization's change management policy.
-- If you suspect the account has been compromised, scope potentially compromised assets by tracking servers, services,
-and data accessed by the account in the last 24 hours.
+- If you suspect the account has been compromised, scope potentially compromised assets by tracking servers, services, and data accessed by the account in the last 24 hours.
 
 ### False positive analysis
 
-- While this activity can be done by administrators, all users must use MFA. The security team should address any
-potential benign true positive (B-TP), as this configuration can risk the user and domain.
+- While this activity can be done by administrators, all users must use MFA. The security team should address any potential benign true positive (B-TP), as this configuration can risk the user and domain.
 
 ### Response and remediation
 
@@ -64,21 +58,19 @@ potential benign true positive (B-TP), as this configuration can risk the user a
     - Work with your IT team to identify and minimize the impact on users.
     - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
     - Identify any regulatory or legal ramifications related to this activity.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
-identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with
-your IT teams to minimize the impact on business operations during these actions.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
 - Reactivate the multi-factor authentication enforcement.
 - Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
 - Implement security best practices [outlined](https://support.google.com/a/answer/7587183) by Google.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 ## Setup
 
 The Google Workspace Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 
 ### Important Information Regarding Google Workspace Event Lag Times
+
 - As per Google's documentation, Google Workspace administrators may observe lag times ranging from minutes up to 3 days between the time of an event's occurrence and the event being visible in the Google Workspace admin/audit logs.
 - This rule is configured to run every 10 minutes with a lookback time of 130 minutes.
 - To reduce the risk of false negatives, consider reducing the interval that the Google Workspace (formerly G Suite) Filebeat module polls Google's reporting API for new events.
@@ -90,8 +82,16 @@ references = ["https://support.google.com/a/answer/9176657?hl=en#"]
 risk_score = 47
 rule_id = "cad4500a-abd7-4ef3-b5d3-95524de7cfe1"
 severity = "medium"
-tags = ["Elastic", "Cloud", "Google Workspace", "Continuous Monitoring", "SecOps",
-"Configuration Audit", "Impact", "has_guide"]
+tags = [
+    "Elastic",
+    "Cloud",
+    "Google Workspace",
+    "Continuous Monitoring",
+    "SecOps",
+    "Configuration Audit",
+    "Impact",
+    "Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -100,6 +100,7 @@ event.dataset:google_workspace.admin and event.provider:admin
   and event.category:iam and event.action:ENFORCE_STRONG_AUTHENTICATION
   and google_workspace.admin.new_value:false
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -113,3 +114,4 @@ reference = "https://attack.mitre.org/techniques/T1531/"
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+

@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2021/06/01"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/27"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -20,20 +21,16 @@ note = """## Triage and analysis
 
 ### Investigating Modification of AmsiEnable Registry Key
 
-The Windows Antimalware Scan Interface (AMSI) is a versatile interface standard that allows your applications and
-services to integrate with any antimalware product that's present on a machine. AMSI provides integration with multiple
-Windows components, ranging from User Account Control (UAC) to VBA Macros.
+The Windows Antimalware Scan Interface (AMSI) is a versatile interface standard that allows your applications and services to integrate with any antimalware product that's present on a machine. AMSI provides integration with multiple Windows components, ranging from User Account Control (UAC) to VBA Macros.
 
-Since AMSI is widely used across security products for increased visibility, attackers can disable it to evade
-detections that rely on it.
+Since AMSI is widely used across security products for increased visibility, attackers can disable it to evade detections that rely on it.
 
 This rule monitors the modifications to the Software\\Microsoft\\Windows Script\\Settings\\AmsiEnable registry key.
 
 #### Possible investigation steps
 
 - Identify the user account that performed the action and whether it should perform this kind of action.
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
-for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Investigate the execution of scripts and macros after the registry modification.
 - Retrieve scripts or Microsoft Office files and determine if they are malicious:
@@ -49,8 +46,7 @@ for prevalence, whether they are located in expected locations, and if they are 
 
 ### False positive analysis
 
-- This modification should not happen legitimately. Any potential benign true positive (B-TP) should be mapped and
-monitored by the security team, as these modifications expose the host to malware infections.
+- This modification should not happen legitimately. Any potential benign true positive (B-TP) should be mapped and monitored by the security team, as these modifications expose the host to malware infections.
 
 ### Related rules
 
@@ -64,15 +60,12 @@ monitored by the security team, as these modifications expose the host to malwar
   - Implement temporary network rules, procedures, and segmentation to contain the malware.
   - Stop suspicious processes.
   - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
-  attackers could use to reinfect the system.
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
 - Remove and block malicious artifacts identified during triage.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
-malware components.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Delete or set the key to its default value.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 ## Setup
 
@@ -85,7 +78,15 @@ references = [
 risk_score = 73
 rule_id = "f874315d-5188-4b4a-8521-d1c73093a7e4"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "has_guide", "Elastic Endgame"]
+tags = [
+    "Elastic",
+    "Host",
+    "Windows",
+    "Threat Detection",
+    "Defense Evasion",
+    "Investigation Guide",
+    "Elastic Endgame",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 

@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/07/07"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2022/10/11"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -22,46 +23,32 @@ note = """## Triage and analysis
 
 ### Investigating Hosts File Modified
 
-Operating systems use the hosts file to map a connection between an IP address and domain names before going to domain
-name servers. Attackers can abuse this mechanism to route traffic to malicious infrastructure or disrupt security that
-depends on server communications. For example, Russian threat actors modified this file on a domain controller to
-redirect Duo MFA calls to localhost instead of the Duo server, which prevented the MFA service from contacting its
-server to validate MFA login. This effectively disabled MFA for active domain accounts because the default policy of Duo
-for Windows is to "Fail open" if the MFA server is unreachable. This can happen in any MFA implementation and is not
-exclusive to Duo. Find more details in this [CISA Alert](https://www.cisa.gov/uscert/ncas/alerts/aa22-074a).
+Operating systems use the hosts file to map a connection between an IP address and domain names before going to domain name servers. Attackers can abuse this mechanism to route traffic to malicious infrastructure or disrupt security that depends on server communications. For example, Russian threat actors modified this file on a domain controller to redirect Duo MFA calls to localhost instead of the Duo server, which prevented the MFA service from contacting its server to validate MFA login. This effectively disabled MFA for active domain accounts because the default policy of Duo for Windows is to "Fail open" if the MFA server is unreachable. This can happen in any MFA implementation and is not exclusive to Duo. Find more details in this [CISA Alert](https://www.cisa.gov/uscert/ncas/alerts/aa22-074a).
 
-This rule identifies modifications in the hosts file across multiple operating systems using process creation events for
-Linux and file events in Windows and macOS.
+This rule identifies modifications in the hosts file across multiple operating systems using process creation events for Linux and file events in Windows and macOS.
 
 #### Possible investigation steps
 
 - Identify the specifics of the involved assets, such as role, criticality, and associated users.
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
-for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Identify the user account that performed the action and whether it should perform this kind of action.
 - Contact the account owner and confirm whether they are aware of this activity.
 - Investigate other alerts associated with the user/host during the past 48 hours.
-- Examine the changes to the hosts file by comparing it against file backups, volume shadow copies, and other restoration
-mechanisms.
+- Examine the changes to the hosts file by comparing it against file backups, volume shadow copies, and other restoration mechanisms.
 
 ### False positive analysis
 
-- This mechanism can be used legitimately. Analysts can dismiss the alert if the administrator is aware of the activity
-and the configuration was justified.
+- This mechanism can be used legitimately. Analysts can dismiss the alert if the administrator is aware of the activity and the configuration was justified.
 
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
 - Consider isolating the involved host to prevent further post-compromise behavior.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
-identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
-systems, and web services.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
 - Review the privileges of the administrator account that performed the action.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
-malware components.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 ## Setup
 
@@ -73,7 +60,7 @@ references = ["https://www.elastic.co/guide/en/beats/auditbeat/current/auditbeat
 risk_score = 47
 rule_id = "9c260313-c811-4ec8-ab89-8f6530e0246c"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Windows", "macOS", "Threat Detection", "Impact", "has_guide"]
+tags = ["Elastic", "Host", "Linux", "Windows", "macOS", "Threat Detection", "Impact", "Investigation Guide"]
 timeline_id = "4d4c0b59-ea83-483f-b8c1-8c360ee53c5c"
 timeline_title = "Comprehensive File Timeline"
 timestamp_override = "event.ingested"
@@ -103,16 +90,17 @@ any where
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1565"
-reference = "https://attack.mitre.org/techniques/T1565/"
 name = "Data Manipulation"
+reference = "https://attack.mitre.org/techniques/T1565/"
 [[rule.threat.technique.subtechnique]]
 id = "T1565.001"
-reference = "https://attack.mitre.org/techniques/T1565/001/"
 name = "Stored Data Manipulation"
+reference = "https://attack.mitre.org/techniques/T1565/001/"
 
 
 
 [rule.threat.tactic]
 id = "TA0040"
-reference = "https://attack.mitre.org/tactics/TA0040/"
 name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+

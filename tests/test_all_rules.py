@@ -7,6 +7,7 @@
 import os
 import re
 import warnings
+import unittest
 from collections import defaultdict
 from pathlib import Path
 
@@ -24,6 +25,8 @@ from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
 from .base import BaseRuleTest
+
+PACKAGE_STACK_VERSION = Version(current_stack_version()) + (0,)
 
 
 class TestValidRules(BaseRuleTest):
@@ -187,23 +190,21 @@ class TestRuleTags(BaseRuleTest):
 
     def test_casing_and_spacing(self):
         """Ensure consistent and expected casing for controlled tags."""
-        def normalize(s):
-            return ''.join(s.lower().split())
 
         expected_tags = [
             'APM', 'AWS', 'Asset Visibility', 'Azure', 'Configuration Audit', 'Continuous Monitoring',
-            'Data Protection', 'Elastic', 'Elastic Endgame', 'Endpoint Security', 'GCP', 'Identity and Access', 'Linux',
-            'Logging', 'ML', 'macOS', 'Monitoring', 'Network', 'Okta', 'Packetbeat', 'Post-Execution', 'SecOps',
-            'Windows'
+            'Data Protection', 'Elastic', 'Elastic Endgame', 'Endpoint Security', 'GCP', 'Identity and Access',
+            'Investigation Guide', 'Linux', 'Logging', 'ML', 'macOS', 'Monitoring', 'Network', 'Okta', 'Packetbeat',
+            'Post-Execution', 'SecOps', 'Windows'
         ]
-        expected_case = {normalize(t): t for t in expected_tags}
+        expected_case = {t.casefold(): t for t in expected_tags}
 
         for rule in self.all_rules:
             rule_tags = rule.contents.data.tags
 
             if rule_tags:
-                invalid_tags = {t: expected_case[normalize(t)] for t in rule_tags
-                                if normalize(t) in list(expected_case) and t != expected_case[normalize(t)]}
+                invalid_tags = {t: expected_case[t.casefold()] for t in rule_tags
+                                if t.casefold() in list(expected_case) and t != expected_case[t.casefold()]}
 
                 if invalid_tags:
                     error_msg = f'{self.rule_str(rule)} Invalid casing for expected tags\n'
@@ -437,33 +438,56 @@ class TestRuleMetadata(BaseRuleTest):
             rule_str = f'{rule_id} - {entry["rule_name"]} ->'
             self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
 
-    def test_integration(self):
-        """Test that rules in integrations folders have matching integration defined."""
+    @unittest.skipIf(PACKAGE_STACK_VERSION < Version("8.3.0"),
+                     "Test only applicable to 8.3+ stacks regarding related integrations build time field.")
+    def test_integration_tag(self):
+        """Test integration rules defined by metadata tag."""
         failures = []
+        non_dataset_packages = ["apm", "endpoint", "windows", "winlog"]
 
         packages_manifest = load_integrations_manifests()
+        valid_integration_folders = [p.name for p in list(Path(INTEGRATION_RULE_DIR).glob("*")) if p.name != 'endpoint']
 
         for rule in self.production_rules:
-            rule_integration = rule.contents.metadata.get('integration')
+            rule_integrations = rule.contents.metadata.get('integration')
+            if rule_integrations:
+                rule_integrations = [rule_integrations] if isinstance(rule_integrations, str) else rule_integrations
+                for rule_integration in rule_integrations:
+                    # checks if metadata tag matches from a list of integrations in EPR
+                    if rule_integration not in packages_manifest.keys():
+                        err_msg = f"{self.rule_str(rule)} integration '{rule_integration}' unknown"
+                        failures.append(err_msg)
 
-            # checks if metadata tag matches from a list of integrations in EPR
-            if rule_integration and rule_integration not in packages_manifest.keys():
-                err_msg = f"{self.rule_str(rule)} integration '{rule_integration}' unknown"
-                failures.append(err_msg)
+                    # checks if the rule path matches the intended integration
+                    if rule_integration in valid_integration_folders:
+                        if rule_integration != rule.path.parent.name:
+                            err_msg = f'{self.rule_str(rule)} {rule_integration} tag, path is {rule.path.parent.name}'
+                            failures.append(err_msg)
 
-            # checks if the rule path matches the intended integration
-            valid_integration_folders = [p.name for p in list(Path(INTEGRATION_RULE_DIR).glob("*"))]
-            if rule_integration and rule_integration in valid_integration_folders:
-                if rule_integration != rule.path.parent.name:
-                    err_msg = f'{self.rule_str(rule)} {rule_integration} tag, but path is {rule.path.parent.name}'
-                    failures.append(err_msg)
+            else:
+                # checks if event.dataset exists in query object and a tag exists in metadata
+                if isinstance(rule.contents.data, QueryRuleData) and rule.contents.data.language != 'lucene':
+                    trc = TOMLRuleContents(rule.contents.metadata, rule.contents.data)
+                    package_integrations = trc._get_packaged_integrations(packages_manifest)
+                    if package_integrations:
+                        err_msg = f'{self.rule_str(rule)} integration tag should exist: '
+                        failures.append(err_msg)
 
-            # checks if event.dataset exists in query object and a tag exists in metadata
-            if isinstance(rule.contents.data, QueryRuleData) and rule.contents.data.language != 'lucene':
-                trc = TOMLRuleContents(rule.contents.metadata, rule.contents.data)
-                package_integrations = trc._get_packaged_integrations(packages_manifest)
-                if package_integrations and not rule_integration:
-                    err_msg = f'{self.rule_str(rule)} integration tag should exist: '
+                    # checks if rule has index pattern integration and the integration tag exists
+                    # ignore the External Alerts rule, Threat Indicator Matching Rules, Guided onboarding
+                    ignore_ids = [
+                        "eb079c62-4481-4d6e-9643-3ca499df7aaa",
+                        "699e9fdb-b77c-4c01-995c-1c15019b9c43",
+                        "0c9a14d9-d65d-486f-9b5b-91e4e6b22bd0",
+                        "a198fbbd-9413-45ec-a269-47ae4ccf59ce"
+                    ]
+                    if any([re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
+                            for i in rule.contents.data.index]):
+                        if not rule.contents.metadata.integration and rule.id not in ignore_ids:
+                            err_msg = f'substrings {non_dataset_packages} found in '\
+                                      f'{self.rule_str(rule)} rule index patterns are {rule.contents.data.index},' \
+                                      f'but no integration tag found'
+                            failures.append(err_msg)
 
         if failures:
             err_msg = """
@@ -472,6 +496,39 @@ class TestRuleMetadata(BaseRuleTest):
                     - `python -m detection_rules dev integrations build-manifests`\n
                 """
             self.fail(err_msg + '\n'.join(failures))
+
+
+class TestIntegrationRules(BaseRuleTest):
+    """Test integration rules."""
+
+    @unittest.skip("8.3+ Stacks Have Related Integrations Feature")
+    def test_integration_guide(self):
+        """Test that rules which require a config note are using standard verbiage."""
+        config = '## Setup\n\n'
+        beats_integration_pattern = config + 'The {} Fleet integration, Filebeat module, or similarly ' \
+                                             'structured data is required to be compatible with this rule.'
+        render = beats_integration_pattern.format
+        integration_notes = {
+            'aws': render('AWS'),
+            'azure': render('Azure'),
+            'cyberarkpas': render('CyberArk Privileged Access Security (PAS)'),
+            'gcp': render('GCP'),
+            'google_workspace': render('Google Workspace'),
+            'o365': render('Office 365 Logs'),
+            'okta': render('Okta'),
+        }
+
+        for rule in self.all_rules:
+            integration = rule.contents.metadata.integration
+            note_str = integration_notes.get(integration)
+
+            if note_str:
+                self.assert_(rule.contents.data.note, f'{self.rule_str(rule)} note required for config information')
+
+                if note_str not in rule.contents.data.note:
+                    self.fail(f'{self.rule_str(rule)} expected {integration} config missing\n\n'
+                              f'Expected: {note_str}\n\n'
+                              f'Actual: {rule.contents.data.note}')
 
     def test_rule_demotions(self):
         """Test to ensure a locked rule is not dropped to development, only deprecated"""
@@ -662,38 +719,6 @@ class TestLicense(BaseRuleTest):
             if 'elastic license' in rule_license.lower():
                 err_msg = f'{self.rule_str(rule)} If Elastic License is used, only v2 should be used'
                 self.assertEqual(rule_license, 'Elastic License v2', err_msg)
-
-
-class TestIntegrationRules(BaseRuleTest):
-    """Test the note field of a rule."""
-
-    def test_integration_guide(self):
-        """Test that rules which require a config note are using standard verbiage."""
-        config = '## Setup\n\n'
-        beats_integration_pattern = config + 'The {} Fleet integration, Filebeat module, or similarly ' \
-                                             'structured data is required to be compatible with this rule.'
-        render = beats_integration_pattern.format
-        integration_notes = {
-            'aws': render('AWS'),
-            'azure': render('Azure'),
-            'cyberarkpas': render('CyberArk Privileged Access Security (PAS)'),
-            'gcp': render('GCP'),
-            'google_workspace': render('Google Workspace'),
-            'o365': render('Office 365 Logs'),
-            'okta': render('Okta'),
-        }
-
-        for rule in self.all_rules:
-            integration = rule.contents.metadata.integration
-            note_str = integration_notes.get(integration)
-
-            if note_str:
-                self.assert_(rule.contents.data.note, f'{self.rule_str(rule)} note required for config information')
-
-                if note_str not in rule.contents.data.note:
-                    self.fail(f'{self.rule_str(rule)} expected {integration} config missing\n\n'
-                              f'Expected: {note_str}\n\n'
-                              f'Actual: {rule.contents.data.note}')
 
 
 class TestIncompatibleFields(BaseRuleTest):

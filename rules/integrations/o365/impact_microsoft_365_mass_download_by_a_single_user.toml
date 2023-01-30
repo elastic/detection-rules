@@ -1,14 +1,12 @@
 [metadata]
 creation_date = "2021/07/15"
+integration = ["o365"]
 maturity = "development"
-updated_date = "2022/08/24"
-integration = "o365"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Austin Songer"]
-description = """
-Identifies when Microsoft Cloud App Security reports that a single user performs more than 50 downloads within 1 minute.
-"""
+description = "Identifies when Microsoft Cloud App Security reports that a single user performs more than 50 downloads within 1 minute."
 false_positives = ["Unknown"]
 from = "now-30m"
 index = ["filebeat-*", "logs-o365*"]
@@ -34,10 +32,12 @@ query = '''
 event.dataset:o365.audit and event.provider:SecurityComplianceCenter and event.category:web and event.action:"Mass download by a single user" and event.outcome:success
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
 [rule.threat.tactic]
+id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
-id = "TA0010"
+
