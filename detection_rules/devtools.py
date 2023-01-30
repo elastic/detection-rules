@@ -1195,7 +1195,7 @@ def build_integration_schemas(overwrite: bool):
     start_time = time.perf_counter()
     build_integrations_schemas(overwrite)
     end_time = time.perf_counter()
-    click.echo(f"Time taken to generate schemas: {(end_time - start_time)/60:.2f} seconds")
+    click.echo(f"Time taken to generate schemas: {(end_time - start_time)/60:.2f} minutes")
 
 
 @integrations_group.command('show-latest-compatible')
