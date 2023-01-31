@@ -763,8 +763,8 @@ class BaseRuleContents(ABC):
         hashable_contents = self.to_api_format(include_version=include_version)
         # removes build time fields from SHA256 hash generation
         # build-time fields are dependant on other Elastic integrations factors we cannot control
-        _hashable_contents = dict([(k, v) for k,v in hashable_contents.items() if k
-                                    not in BUILD_FIELD_VERSIONS.keys()])
+        _hashable_contents = dict([(k, v) for k, v in hashable_contents.items() if k
+                                  not in BUILD_FIELD_VERSIONS.keys()])
         return utils.dict_hash(_hashable_contents)
 
 
