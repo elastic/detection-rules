@@ -233,7 +233,7 @@ class VersionLock:
 
                     # add the min_stack_version to the lock if it's explicitly set
                     if rule.contents.metadata.min_stack_version is not None:
-                        lock_from_file["min_stack_version"] = str(min_stack)
+                        lock_from_file["min_stack_version"] = str(min_stack).rstrip(".0")
                         log_msg = f'min_stack_version added: {min_stack}'
                         log_changes(rule, route, new_version, log_msg)
 
@@ -259,7 +259,7 @@ class VersionLock:
                     lock_from_file["previous"][str(latest_locked_stack_version)] = previous_lock_info
 
                     # overwrite the "latest" part of the lock at the top level
-                    lock_from_file.update(lock_from_rule, min_stack_version=str(min_stack))
+                    lock_from_file.update(lock_from_rule, min_stack_version=str(min_stack).rstrip(".0"))
                     new_version = lock_from_rule['version']
                     log_changes(
                         rule, route, new_version,
@@ -270,7 +270,7 @@ class VersionLock:
                 elif min_stack < latest_locked_stack_version:
                     route = 'C'
                     # 4) on an old stack, after a breaking change has been made (updated fork)
-                    assert str(min_stack) in lock_from_file.get("previous", {}), \
+                    assert str(min_stack).rstrip(".0") in lock_from_file.get("previous", {}), \
                         f"Expected {rule.id} @ v{min_stack} in the rule lock"
 
                     # TODO: Figure out whether we support locking old versions and if we want to
@@ -278,7 +278,7 @@ class VersionLock:
                     #       We can still inspect the version lock manually after locks are made,
                     #       since it's a good summary of everything that happens
 
-                    previous_entry = lock_from_file["previous"][str(min_stack)]
+                    previous_entry = lock_from_file["previous"][str(min_stack).rstrip(".0")]
                     max_allowable_version = previous_entry['max_allowable_version']
 
                     # if version bump collides with future bump: fail
@@ -291,7 +291,7 @@ class VersionLock:
                                          f'exceed the max allowable version of {max_allowable_version}')
 
                     if info_from_rule != info_from_file:
-                        lock_from_file["previous"][str(min_stack)].update(lock_from_rule)
+                        lock_from_file["previous"][str(min_stack).rstrip(".0")].update(lock_from_rule)
                         new_version = lock_from_rule["version"]
                         log_changes(rule, route, 'unchanged',
                                     f'previous version {min_stack} updated version to {new_version}')

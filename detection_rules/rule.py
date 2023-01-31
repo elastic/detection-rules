@@ -675,7 +675,7 @@ class BaseRuleContents(ABC):
     def is_dirty(self) -> Optional[bool]:
         """Determine if the rule has changed since its version was locked."""
         min_stack = semver.VersionInfo.parse(self.get_supported_version())
-        existing_sha256 = self.version_lock.get_locked_hash(self.id, min_stack)
+        existing_sha256 = self.version_lock.get_locked_hash(self.id, str(min_stack).rstrip(".0"))
 
         if existing_sha256 is not None:
             return existing_sha256 != self.sha256()
@@ -721,6 +721,7 @@ class BaseRuleContents(ABC):
     @property
     def autobumped_version(self) -> Optional[int]:
         """Retrieve the current version of the rule, accounting for automatic increments."""
+        print(f"Dirty: {self.is_dirty}")
         version = self.latest_version
         if version is None:
             return 1
