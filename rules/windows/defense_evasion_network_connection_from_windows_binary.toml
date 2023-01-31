@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/01/31"
 
 [rule]
 author = ["Elastic"]
@@ -63,7 +63,13 @@ sequence by process.entity_id with maxspan=5m
       process.name : "MSBuild.exe" or
       process.name : "msdt.exe" or
       process.name : "mshta.exe" or
-      process.name : "msiexec.exe" or
+      (
+         process.name : "msiexec.exe" and not
+         dns.question.name : (
+            "ocsp.digicert.com", "ocsp.verisign.com", "ocsp.comodoca.com", "ocsp.entrust.net", "ocsp.usertrust.com",
+            "ocsp.godaddy.com", "ocsp.camerfirma.com", "ocsp.globalsign.com", "ocsp.sectigo.com"
+         )
+      ) or
       process.name : "msxsl.exe" or
       process.name : "odbcconf.exe" or
       process.name : "rcsi.exe" or
