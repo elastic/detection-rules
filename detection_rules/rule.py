@@ -761,7 +761,11 @@ class BaseRuleContents(ABC):
     def sha256(self, include_version=False) -> str:
         # get the hash of the API dict without the version by default, otherwise it'll always be dirty.
         hashable_contents = self.to_api_format(include_version=include_version)
-        return utils.dict_hash(hashable_contents)
+        # removes build time fields from SHA256 hash generation
+        # build-time fields are dependant on other Elastic integrations factors we cannot control
+        _hashable_contents = dict([(k, v) for k,v in hashable_contents.items() if k
+                                    not in BUILD_FIELD_VERSIONS.keys()])
+        return utils.dict_hash(_hashable_contents)
 
 
 @dataclass(frozen=True)
