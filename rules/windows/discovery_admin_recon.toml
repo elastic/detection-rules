@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/01/18"
+updated_date = "2023/01/19"
 
 [rule]
 author = ["Elastic"]
@@ -62,6 +62,7 @@ type = "eql"
 
 query = '''
 process where event.type == "start" and
+(
   (((process.name : "net.exe" or process.pe.original_file_name == "net.exe") or
     ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and
         not process.parent.name : "net.exe")) and
@@ -73,6 +74,7 @@ process where event.type == "start" and
 
   ((process.name : "wmic.exe" or process.pe.original_file_name == "wmic.exe") and
      process.args : ("group", "useraccount"))
+)
 '''
 
 
