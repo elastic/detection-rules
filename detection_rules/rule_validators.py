@@ -42,7 +42,6 @@ class KQLValidator(QueryValidator):
 
             if package_integrations:
                 # validate the query against related integration fields
-                print(f"Validating {data.name} against {len(package_integrations)} integration(s)")
                 self.validate_integration(data, meta, package_integrations)
             else:
                 for stack_version, mapping in meta.get_validation_stack_versions().items():
@@ -100,12 +99,13 @@ class KQLValidator(QueryValidator):
             except kql.KqlParseError as exc:
                 if exc.error_msg == "Unknown field":
                     field = extract_error_field(exc)
-                    trailer = (f"\nTry adding event.module or event.dataset to specify integration module\n\n"
+                    trailer = (f"\n\tTry adding event.module or event.dataset to specify integration module\n\t"
+                               f"Will check against integrations {meta.integration} combined.\n\t"
                                f"{package=}, {integration=}, {package_version=}, "
                                f"{stack_version=}, {ecs_version=}"
                                )
                     error_fields[field] = {"error": exc, "trailer": trailer}
-                    print(f"Warning: `{field}`not found in schema. {trailer}")
+                    print(f"\nWarning: `{field}` in `{data.name}` not found in schema. {trailer}")
                 else:
                     raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
                                             len(exc.caret.lstrip()), trailer=trailer) from None
@@ -156,7 +156,6 @@ class EQLValidator(QueryValidator):
 
             if package_integrations:
                 # validate the query against related integration fields
-                print(f"Validating {data.name} against {len(package_integrations)} integration(s)")
                 self.validate_integration(data, meta, package_integrations)
 
             else:
@@ -218,12 +217,13 @@ class EQLValidator(QueryValidator):
                 message = exc.error_msg
                 if message == "Unknown field" or "Field not recognized" in message:
                     field = extract_error_field(exc)
-                    trailer = (f"\nTry adding event.module or event.dataset to specify integration module\n\n"
+                    trailer = (f"\n\tTry adding event.module or event.dataset to specify integration module\n\t"
+                               f"Will check against integrations {meta.integration} combined.\n\t"
                                f"{package=}, {integration=}, {package_version=}, "
                                f"{stack_version=}, {ecs_version=}"
                                )
                     error_fields[field] = {"error": exc, "trailer": trailer}
-                    print(f"Warning: `{field}`not found in schema. {trailer}")
+                    print(f"\nWarning: `{field}` in `{data.name}` not found in schema. {trailer}")
                 else:
                     raise exc
 

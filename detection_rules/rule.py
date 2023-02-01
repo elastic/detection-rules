@@ -965,7 +965,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             rule_integrations = meta.get("integration", [])
             if rule_integrations:
                 for integration in rule_integrations:
-                    if integration in ["windows", "endpoint", "apm"]:
+                    if integration in definitions.NON_DATASET_PACKAGES:
                         packaged_integrations.append({"package": integration, "integration": None})
 
         for value in sorted(datasets):

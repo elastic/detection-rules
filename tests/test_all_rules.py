@@ -443,7 +443,7 @@ class TestRuleMetadata(BaseRuleTest):
     def test_integration_tag(self):
         """Test integration rules defined by metadata tag."""
         failures = []
-        non_dataset_packages = ["apm", "endpoint", "windows", "winlog"]
+        non_dataset_packages = definitions.NON_DATASET_PACKAGES + ["winlog"]
 
         packages_manifest = load_integrations_manifests()
         valid_integration_folders = [p.name for p in list(Path(INTEGRATION_RULE_DIR).glob("*")) if p.name != 'endpoint']
@@ -456,12 +456,23 @@ class TestRuleMetadata(BaseRuleTest):
                 meta = rule.contents.metadata
                 package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
                 package_integrations_list = list(set([integration["package"] for integration in package_integrations]))
+                indices = data.get('index')
                 for rule_integration in rule_integrations:
+
                     # checks if the rule path matches the intended integration
                     if rule_integration in valid_integration_folders:
                         if rule.path.parent.name not in rule_integrations:
                             err_msg = f'{self.rule_str(rule)} {rule_integration} tag, path is {rule.path.parent.name}'
                             failures.append(err_msg)
+
+                    # checks if an index pattern exists if the package integration tag exists
+                    integration_string = "|".join(indices)
+                    if not re.search(rule_integration, integration_string):
+                        if rule_integration == "windows" and re.search("winlog", integration_string):
+                            continue
+                        err_msg = f'{self.rule_str(rule)} {rule_integration} tag, index pattern missing.'
+                        failures.append(err_msg)
+
                 # checks if event.dataset exists in query object and a tag exists in metadata
                 # checks if metadata tag matches from a list of integrations in EPR
                 if package_integrations and sorted(rule_integrations) != sorted(package_integrations_list):
