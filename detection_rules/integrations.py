@@ -115,7 +115,7 @@ def build_integrations_schemas(overwrite: bool) -> None:
                         integration_name = Path(file).parent.parent.name
                         final_integration_schemas[package][version].setdefault(integration_name, {})
                         file_data = zip_ref.read(file)
-                        schema_fields = yaml.load(file_data, Loader=yaml.FullLoader)
+                        schema_fields = yaml.safe_load(file_data)
 
                         # Parse the schema and add to the integration_manifests
                         data = flatten_ecs_schema(schema_fields)
@@ -268,6 +268,7 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
                     schema = integrations_schemas[package][package_version][integration]
                 schema.update(ecs_schema)
                 integration_schema = {k: kql.parser.elasticsearch_type_family(v) for k, v in schema.items()}
+
                 data = {"schema": integration_schema, "package": package, "integration": integration,
                         "stack_version": stack_version, "ecs_version": ecs_version,
                         "package_version": package_version, "endgame_version": endgame_version}
