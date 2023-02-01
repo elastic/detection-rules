@@ -4,7 +4,11 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
+<<<<<<< tune_remote_system_discovery_commands_windows
 updated_date = "2023/02/01"
+=======
+updated_date = "2023/01/19"
+>>>>>>> main
 
 [rule]
 author = ["Elastic"]
@@ -55,7 +59,9 @@ type = "eql"
 
 query = '''
 process where event.type == "start" and
+(
   ((process.name : "nbtstat.exe" and process.args : ("-n", "-s")) or
+<<<<<<< tune_remote_system_discovery_commands_windows
   (process.name : "arp.exe" and process.args : "-a") or
   (process.name : "nltest.exe" and process.args : ("/dclist", "/dsgetdc")) or
   (process.name: ("dsquery.exe", "dsget.exe") and process.args: "subnet") or
@@ -63,6 +69,10 @@ process where event.type == "start" and
     ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and not 
        process.parent.name : "net.exe")) and 
        process.args : "group" and process.args : "/domain" and not process.args : "/add")))
+=======
+  (process.name : "arp.exe" and process.args : "-a"))
+)
+>>>>>>> main
 '''
 
 
