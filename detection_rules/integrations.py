@@ -10,7 +10,7 @@ import json
 import re
 from collections import OrderedDict
 from pathlib import Path
-from typing import Generator, Union
+from typing import Generator, Tuple, Union
 
 import requests
 import yaml
@@ -161,7 +161,7 @@ def find_least_compatible_version(package: str, integration: str,
 
 
 def find_latest_compatible_version(package: str, integration: str,
-                                   rule_stack_version: str, packages_manifest: dict) -> Union[None, str]:
+                                   rule_stack_version: str, packages_manifest: dict) -> Union[None, Tuple[str, str]]:
     """Finds least compatible version for specified integration based on stack version supplied."""
 
     if not package:
@@ -173,9 +173,7 @@ def find_latest_compatible_version(package: str, integration: str,
 
     # Converts the dict keys (version numbers) to Version objects for proper sorting (descending)
     integration_manifests = sorted(package_manifest.items(), key=lambda x: Version(str(x[0])), reverse=True)
-
-    # flag to only warn once per integration for available upgrades
-    warn_update_available = True
+    notice = ""
 
     for version, manifest in integration_manifests:
         kibana_conditions = manifest.get("conditions", {}).get("kibana", {})
@@ -190,17 +188,16 @@ def find_latest_compatible_version(package: str, integration: str,
 
         highest_compatible_version = max(compatible_versions, key=lambda x: Version(x))
 
-        if Version(highest_compatible_version) > Version(rule_stack_version) and warn_update_available:
-            # Warn for now, as to not lock rule stacks to integrations
-            warn_update_available = False
-            integration = f" {integration}" if integration else ""
+        if Version(highest_compatible_version) > Version(rule_stack_version):
+            # generate notice message that a later integration version is available
+            integration = f" {integration.strip()}" if integration else ""
 
-            print(f"Integration {package}{integration} version {version} has a higher stack version requirement.",
-                  f"Consider updating min_stack version from {rule_stack_version} to "
-                  f"{highest_compatible_version} to support this version.")
+            notice = (f"There is a later integration {package}{integration} version {version} available!",
+                      f"Update min_stack version from {rule_stack_version} to "
+                      f"{highest_compatible_version} if using features in this version.")
 
         elif int(highest_compatible_version[0]) == int(rule_stack_version[0]):
-            return version
+            return version, notice
 
     raise ValueError(f"no compatible version for integration {package}:{integration}")
 
@@ -241,6 +238,9 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
     # validate the query against related integration fields
     if isinstance(data, QueryRuleData) and data.language != 'lucene' and meta.maturity == "production":
 
+        # flag to only warn once per integration for available upgrades
+        notify_update_available = True
+
         for stack_version, mapping in meta.get_validation_stack_versions().items():
             ecs_version = mapping['ecs']
             endgame_version = mapping['endgame']
@@ -251,10 +251,16 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
                 package = pk_int["package"]
                 integration = pk_int["integration"]
 
-                package_version = find_latest_compatible_version(package=package,
-                                                                 integration=integration,
-                                                                 rule_stack_version=meta.min_stack_version,
-                                                                 packages_manifest=packages_manifest)
+                package_version, notice = find_latest_compatible_version(package=package,
+                                                                         integration=integration,
+                                                                         rule_stack_version=meta.min_stack_version,
+                                                                         packages_manifest=packages_manifest)
+
+                if notify_update_available and notice:
+                    # Notify for now, as to not lock rule stacks to integrations
+                    notify_update_available = False
+                    print(f"\n{data.get('name')}")
+                    print(*notice)
 
                 schema = {}
                 if integration is None:
