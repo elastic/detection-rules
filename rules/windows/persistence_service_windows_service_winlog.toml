@@ -57,11 +57,18 @@ type = "eql"
 query = '''
 any where
   (event.code : "4697" and
-   (winlog.event_data.ServiceFileName : ("*COMSPEC*", "*\\172.0.0.1*", "*Admin$*", "*powershell*", "*rundll32*", "*cmd.exe*", "*PSEXESVC*", "*echo*", "*RemComSvc*") or
+   (winlog.event_data.ServiceFileName : 
+           ("*COMSPEC*", "*\\172.0.0.1*", "*Admin$*", "*powershell*", "*rundll32*", "*cmd.exe*", "*PSEXESVC*", 
+            "*echo*", "*RemComSvc*", "*.bat*", "*.cmd*", "*certutil*", "*vssadmin*", "*certmgr*", "*bitsadmin*", 
+            "*\\Users\\*", "*\\ProgramData\\*", "*\\Windows\\Temp\\*", "*\\Windows\\Tasks\\*", "*\\PerfLogs\\*", 
+            "*\\Intel\\*", "*\\Windows\\Debug\\*", "*:\\HP\\*", "*.sys*", "*regsvr32*", "*msbuild*", "*svchost*") or
    winlog.event_data.ServiceFileName regex~ """%systemroot%\\[a-z0-9]+\.exe""")) or
 
   (event.code : "7045" and
-   winlog.event_data.ImagePath : ("*COMSPEC*", "*\\172.0.0.1*", "*Admin$*", "*powershell*", "*rundll32*", "*cmd.exe*", "*PSEXESVC*", "*echo*", "*RemComSvc*"))
+   winlog.event_data.ImagePath : ("*COMSPEC*", "*\\172.0.0.1*", "*Admin$*", "*powershell*", "*rundll32*", "*cmd.exe*", "*svchost*", 
+                                  "*PSEXESVC*", "*echo*", "*RemComSvc*", "*.bat*", "*.cmd*", "*certutil*", "*vssadmin*", "*certmgr*", 
+                                  "*bitsadmin*", "*\\Users\\*", "*\\ProgramData\\*", "*\\Windows\\Temp\\*", "*\\Windows\\Tasks\\*", 
+                                  "*\\PerfLogs\\*", "*\\Intel\\*", "*\\Windows\\Debug\\*", "*:\\HP\\*", "*.sys*", "*regsvr32*", "*msbuild*"))
 '''
 
 
