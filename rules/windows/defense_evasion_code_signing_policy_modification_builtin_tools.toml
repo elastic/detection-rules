@@ -37,9 +37,8 @@ query = '''
 process where event.type == "start" and 
 (
   /* Windows */
-  (process.name: "bcdedit.exe" or process.pe.original_file_name == "bcdedit.exe") and
-  ((process.args: "-set" and process.args: "TESTSIGNING" or process.args: "nointegritychecks") or
-  (process.args: "-set" and process.args: "loadoptions" or process.args: "DISABLE_INTEGRITY_CHECKS")) or
+  (process.name: "bcdedit.exe" or process.pe.original_file_name == "bcdedit.exe") and process.args: ("-set", "/set") 
+  and process.args: ("TESTSIGNING", "nointegritychecks", "loadoptions", "DISABLE_INTEGRITY_CHECKS") or
   
   /* MacOS */
   (process.executable: "/usr/bin/csrutil" and process.args: "disable")
