@@ -192,9 +192,9 @@ def find_latest_compatible_version(package: str, integration: str,
             # generate notice message that a later integration version is available
             integration = f" {integration.strip()}" if integration else ""
 
-            notice = (f"There is a later integration {package}{integration} version {version} available!",
-                      f"Update min_stack version from {rule_stack_version} to "
-                      f"{highest_compatible_version} if using features in this version.")
+            notice = (f"There is a new integration {package}{integration} version {version} available!",
+                      f"Update the rule min_stack version from {rule_stack_version} to "
+                      f"{highest_compatible_version} if using new features in this latest version.")
 
         elif int(highest_compatible_version[0]) == int(rule_stack_version[0]):
             return version, notice
