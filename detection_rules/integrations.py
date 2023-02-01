@@ -66,7 +66,7 @@ def find_least_compatible_version(package: str, integration: str,
                                   current_stack_version: str, packages_manifest: dict) -> str:
     """Finds least compatible version for specified integration based on stack version supplied."""
     integration_manifests = {k: v for k, v in sorted(packages_manifest[package].items(),
-                             key=lambda x: semver.VersionInfo.parse(x[0]).major)}
+                             key=lambda x: semver.VersionInfo.parse(x[0]))}
     current_stack_version = semver.VersionInfo(*current_stack_version.split("."))
 
     # filter integration_manifests to only the latest major entries
@@ -79,7 +79,7 @@ def find_least_compatible_version(package: str, integration: str,
         # iterates through ascending integration manifests
         # returns latest major version that is least compatible
         for version, manifest in OrderedDict(sorted(major_integration_manifests.items(),
-                                                    key=lambda x: semver.VersionInfo.parse(x[0]).major)).items():
+                                                    key=lambda x: semver.VersionInfo.parse(x[0]))).items():
             compatible_versions = re.sub(r"\>|\<|\=|\^", "", manifest["conditions"]["kibana"]["version"]).split(" || ")
             for kibana_ver in compatible_versions:
                 kibana_ver = semver.VersionInfo.parse(kibana_ver)

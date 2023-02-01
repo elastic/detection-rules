@@ -721,7 +721,6 @@ class BaseRuleContents(ABC):
     @property
     def autobumped_version(self) -> Optional[int]:
         """Retrieve the current version of the rule, accounting for automatic increments."""
-        print(f"Dirty: {self.is_dirty}")
         version = self.latest_version
         if version is None:
             return 1
