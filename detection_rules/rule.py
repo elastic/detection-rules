@@ -241,6 +241,10 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         return DataValidator(is_elastic_rule=self.is_elastic_rule, **self.to_dict())
 
     @cached_property
+    def notify(self) -> bool:
+        return os.environ.get('DR_NOTIFY_INTEGRATION_UPDATE_AVAILABLE') is not None
+
+    @cached_property
     def parsed_note(self) -> Optional[MarkoDocument]:
         dv = self.data_validator
         if dv:
