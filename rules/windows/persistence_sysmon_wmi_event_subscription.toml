@@ -1,7 +1,7 @@
 [metadata]
-creation_date = "2022/03/21"
+creation_date = "2023/02/02"
 maturity = "production"
-updated_date = "2022/03/21"
+updated_date = "2023/02/02"
 
 [rule]
 author = ["Elastic"]
@@ -14,44 +14,6 @@ index = ["winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious WMI Event Subscription Created"
-note = """## Triage and analysis.
-
-### Investigating Suspicious WMI Event Subscription
-
-WMI (Windows Management Instrumentation) is one of the main Windows components for administration. Because of its
-capability and variety of operations that can be executed, it is an attractive vector for attackers, which can abuse the
-Event Subscription functionality to establish persistence, and in some cases, to escalate privileges to SYSTEM.
-
-To enable the usage of this mechanism, three components are needed: An Event Filter, an Event Consumer, and a binding to connect the first two components.
-
-This rule will monitor for the creation of the binding, as it needs to be created to abuse the Event Subscription.
-
-#### Possible investigation steps:
-
-- Identify the account that performed the action.
-- Confirm whether the account owner is aware of the operation.
-- Investigate other alerts related to the user in the last 48 hours.
-- Identify the filter (`winlog.event_data.Filter`) and the consumer (`winlog.event_data.Consumer`).
-- Investigate the created Event filter:
-    - Search for Sysmon event 19 in the host and filter by the filter's name.
-    - Run the `Get-WMIObject -Namespace root/Subscription -Class __EventFilter` command.
-- Investigate the created Event Consumer:
-    - Search for Sysmon event 20 in the host and filter by the consumer's name.
-    - Run the `Get-WMIObject -Namespace root/Subscription -Class __EventConsumer` command.
-
-### False Positive Analysis
-
-- The mechanism can be used legitimately by Microsoft and third party programs, analyze the command line for suspicious
-patterns and potentially malicious activities.
-
-### Response and Remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior.
-- If the triage identified malware, search the environment for additional compromised hosts.
-- Remove the components related to the malicious event subscription.
-    - Guidance on removing these components can be found in this [blog post](https://medium.com/threatpunter/detecting-removing-wmi-persistence-60ccbb7dff96).
-"""
 references = [
   "https://www.blackhat.com/docs/us-15/materials/us-15-Graeber-Abusing-Windows-Management-Instrumentation-WMI-To-Build-A-Persistent%20Asynchronous-And-Fileless-Backdoor-wp.pdf",
   "https://medium.com/threatpunter/detecting-removing-wmi-persistence-60ccbb7dff96",
@@ -64,11 +26,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.dataset == "windows.sysmon_operational" and event.code == "21" and winlog.event_data.Operation : "Created"
-
-// to limit to consumer types, add a similar line and replace CommandLineEventConsumer
-// and winlog.event_data.Consumer : "*subscription:CommandLineEventConsumer*"
-// or using between()
+any where event.dataset == "windows.sysmon_operational" and event.code == "21" and
+    winlog.event_data.Operation : "Created" and winlog.event_data.Consumer : ("*subscription:CommandLineEventConsumer*", "*subscription:ActiveScriptEventConsumer*")
 '''
 
 [[rule.threat]]
