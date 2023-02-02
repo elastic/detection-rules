@@ -197,8 +197,14 @@ def find_latest_compatible_version(package: str, integration: str,
                       f"Update the rule min_stack version from {rule_stack_version} to "
                       f"{highest_compatible_version} if using new features in this latest version.")
 
-        elif int(highest_compatible_version[0]) == int(rule_stack_version[0]):
+        if int(highest_compatible_version[0]) == int(rule_stack_version[0]):
             return version, notice
+
+        else:
+            # Check for rules that cross majors
+            for compatible_version in compatible_versions:
+                if Version(compatible_version) <= Version(rule_stack_version):
+                    return version, notice
 
     raise ValueError(f"no compatible version for integration {package}:{integration}")
 
