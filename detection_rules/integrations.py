@@ -256,7 +256,7 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
                                                                          rule_stack_version=meta.min_stack_version,
                                                                          packages_manifest=packages_manifest)
 
-                if notify_update_available and notice and data.notify:
+                if notify_update_available and notice and data.get("notify", False):
                     # Notify for now, as to not lock rule stacks to integrations
                     notify_update_available = False
                     print(f"\n{data.get('name')}")
