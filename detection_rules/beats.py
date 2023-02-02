@@ -117,6 +117,14 @@ def _flatten_schema(schema: list, prefix="") -> list:
             # it's probably not perfect, but we can fix other bugs as we run into them later
             if len(schema) == 1 and nested_prefix.startswith(prefix + prefix):
                 nested_prefix = s["name"] + "."
+            if "field" in s:
+                # integrations sometimes have a group with a single field
+                flattened.extend(_flatten_schema(s["field"], prefix=nested_prefix))
+                continue
+            elif "fields" not in s:
+                # integrations sometimes have a group with no fields
+                continue
+
             flattened.extend(_flatten_schema(s["fields"], prefix=nested_prefix))
         elif "fields" in s:
             flattened.extend(_flatten_schema(s["fields"], prefix=prefix))
@@ -129,6 +137,10 @@ def _flatten_schema(schema: list, prefix="") -> list:
             flattened.append(s)
 
     return flattened
+
+
+def flatten_ecs_schema(schema: dict) -> dict:
+    return _flatten_schema(schema)
 
 
 def get_field_schema(base_directory, prefix="", include_common=False):
