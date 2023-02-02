@@ -20,6 +20,7 @@ import kql
 
 from . import ecs
 from .beats import flatten_ecs_schema
+from .misc import load_current_package_version
 from .semver import Version
 from .utils import cached, get_etc_path, read_gzip, unzip
 
@@ -251,9 +252,16 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
                 package = pk_int["package"]
                 integration = pk_int["integration"]
 
+                # Use the minimum stack version from the package not the rule
+                min_stack = meta.min_stack_version or load_current_package_version()
+
+                # Prior to 8.3, some rules had a min_stack_version with only major.minor
+                if Version(min_stack) != 3:
+                    min_stack = Version(Version(load_current_package_version()) + (0,))
+
                 package_version, notice = find_latest_compatible_version(package=package,
                                                                          integration=integration,
-                                                                         rule_stack_version=meta.min_stack_version,
+                                                                         rule_stack_version=min_stack,
                                                                          packages_manifest=packages_manifest)
 
                 if notify_update_available and notice and data.get("notify", False):
