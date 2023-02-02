@@ -253,8 +253,11 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
                 integration = pk_int["integration"]
 
                 # Use the minimum stack version from the package not the rule
+                min_stack = meta.min_stack_version or load_current_package_version()
+
                 # Prior to 8.3, some rules had a min_stack_version with only major.minor
-                min_stack = meta.min_stack_version or Version(Version(load_current_package_version()) + (0,))
+                if Version(min_stack) != 3:
+                    min_stack = Version(Version(load_current_package_version()) + (0,))
 
                 package_version, notice = find_latest_compatible_version(package=package,
                                                                          integration=integration,
