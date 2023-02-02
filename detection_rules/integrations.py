@@ -125,4 +125,4 @@ def find_latest_integration_version(integration: str, maturity: str, stack_versi
     if maturity == "beta":
         existing_pkgs = [pkg for pkg in existing_pkgs if
                          semver.VersionInfo.parse(pkg["version"]).prerelease]
-    return semver.VersionInfo.parse(semver.max_ver(*[pkg["version"] for pkg in existing_pkgs]))
+    return max([semver.VersionInfo.parse(pkg["version"]) for pkg in existing_pkgs])

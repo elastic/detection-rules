@@ -168,19 +168,21 @@ def bump_versions(major_release, minor_release, patch_release, maturity):
     if major_release:
         pkg_data["name"] = str(kibana_ver.bump_major()).rstrip(".0")
         pkg_data["registry_data"]["conditions"]["kibana.version"] = f"^{pkg_kibana_ver.bump_major()}"
-        pkg_data["registry_data"]["version"] = pkg_ver.bump_major().bump_prerelease("beta")
+        pkg_data["registry_data"]["version"] = str(pkg_ver.bump_major().bump_prerelease("beta"))
     if minor_release:
         pkg_data["name"] = str(kibana_ver.bump_minor()).rstrip(".0")
         pkg_data["registry_data"]["conditions"]["kibana.version"] = f"^{pkg_kibana_ver.bump_minor()}"
-        pkg_data["registry_data"]["version"] = pkg_ver.bump_minor().bump_prerelease("beta")
+        pkg_data["registry_data"]["version"] = str(pkg_ver.bump_minor().bump_prerelease("beta"))
         pkg_data["registry_data"]["release"] = maturity
     if patch_release:
         latest_patch_release_ver = find_latest_integration_version("security_detection_engine",
                                                                    maturity, pkg_data["name"])
         if maturity == "ga":
-            pkg_data["registry_data"]["version"] = latest_patch_release_ver.bump_patch()
+            pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_patch())
+            pkg_data["registry_data"]["release"] = maturity
         else:
-            pkg_data["registry_data"]["version"] = latest_patch_release_ver.bump_prerelease("beta")
+            pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_prerelease("beta"))
+            pkg_data["registry_data"]["release"] = maturity
 
     # print the new versions
     if major_release or minor_release:
