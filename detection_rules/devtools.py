@@ -161,7 +161,7 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
 @click.option("--patch-release", is_flag=True, help="bump the patch version")
 @click.option("--maturity", type=click.Choice(['beta', 'ga'], case_sensitive=False),
               required=True, help="beta or production versions")
-def bump_versions(major_release, minor_release, patch_release, maturity):
+def bump_versions(major_release: bool, minor_release: bool, patch_release: bool, maturity: str):
     """Bump the versions"""
 
     pkg_data = load_etc_dump('packages.yml')['package']
@@ -187,15 +187,13 @@ def bump_versions(major_release, minor_release, patch_release, maturity):
             pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_prerelease("beta"))
             pkg_data["registry_data"]["release"] = maturity
 
-    # print the new versions
-    if major_release or minor_release:
-        click.echo(f"New Kibana version: {pkg_data['name']}")
-        click.echo(f"New package Kibana version: {pkg_data['registry_data']['conditions']['kibana.version']}")
-    click.echo(f"New package version: {pkg_data['registry_data']['version']}")
+    click.echo(f"Kibana version: {pkg_data['name']}")
+    click.echo(f"Package Kibana version: {pkg_data['registry_data']['conditions']['kibana.version']}")
+    click.echo(f"Package version: {pkg_data['registry_data']['version']}")
 
     # we only save major and minor version bumps
     # patch version bumps are OOB packages and thus we keep the base versioning
-    return pkg_data if patch_release else save_etc_dump({"package": pkg_data}, "packages.yml")
+    save_etc_dump({"package": pkg_data}, "packages.yml")
 
 
 @dataclasses.dataclass
