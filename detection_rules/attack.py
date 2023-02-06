@@ -13,7 +13,7 @@ import json
 import requests
 from collections import OrderedDict
 
-from semver import VersionInfo
+from semver import Version
 from .utils import cached, clear_caches, get_etc_path, get_etc_glob_path, read_gzip, gzip_compress
 
 PLATFORMS = ['Windows', 'macOS', 'Linux']
@@ -105,14 +105,14 @@ def refresh_attack_data(save=True) -> (Optional[dict], Optional[bytes]):
         _, version = name.lower().split(pattern, 1)
         return version
 
-    current_version = VersionInfo(*get_version_from_tag(filename, 'attack-v').split("."))
+    current_version = Version(*get_version_from_tag(filename, 'attack-v').split("."))
 
     r = requests.get('https://api.github.com/repos/mitre/cti/tags')
     r.raise_for_status()
     releases = [t for t in r.json() if t['name'].startswith('ATT&CK-v')]
     latest_release = max(releases, key=lambda release: get_version_from_tag(release['name']))
     release_name = latest_release['name']
-    latest_version = VersionInfo(*get_version_from_tag(release_name).split("."))
+    latest_version = Version(*get_version_from_tag(release_name).split("."))
 
     if current_version >= latest_version:
         print(f'No versions newer than the current detected: {current_version}')

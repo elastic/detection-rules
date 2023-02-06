@@ -14,7 +14,7 @@ from pathlib import Path
 import eql
 import eql.types
 import requests
-from semver import VersionInfo
+from semver import Version
 import yaml
 
 from .utils import (DateTimeEncoder, cached, get_etc_path, gzip_compress,
@@ -88,7 +88,7 @@ def get_max_version(include_master=False):
     if include_master and any([v.startswith('master') for v in versions]):
         return list(Path(ECS_SCHEMAS_DIR).glob('master*'))[0].name
 
-    return str(max([VersionInfo.parse(v) for v in versions if not v.startswith('master')]))
+    return str(max([Version.parse(v) for v in versions if not v.startswith('master')]))
 
 
 @cached
@@ -206,12 +206,12 @@ def get_kql_schema(version=None, indexes=None, beat_schema=None) -> dict:
 
 def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
     """Download additional schemas from ecs releases."""
-    existing = [VersionInfo.parse(v) for v in get_schema_map()] if not refresh_all else []
+    existing = [Version.parse(v) for v in get_schema_map()] if not refresh_all else []
     url = 'https://api.github.com/repos/elastic/ecs/releases'
     releases = requests.get(url)
 
     for release in releases.json():
-        version = VersionInfo.parse(release.get('tag_name', '').lstrip('v'))
+        version = Version.parse(release.get('tag_name', '').lstrip('v'))
 
         # we don't ever want beta
         if not version or version < (1, 0, 1) or version in existing:
@@ -248,7 +248,7 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
     # handle working master separately
     if refresh_master:
         master_ver = requests.get('https://raw.githubusercontent.com/elastic/ecs/master/version')
-        master_ver = VersionInfo.parse(master_ver.text.strip())
+        master_ver = Version.parse(master_ver.text.strip())
         master_schema = requests.get('https://raw.githubusercontent.com/elastic/ecs/master/generated/ecs/ecs_flat.yml')
         master_schema = yaml.safe_load(master_schema.text)
 

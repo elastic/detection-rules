@@ -6,26 +6,26 @@
 from dataclasses import Field
 from typing import Dict, List, Optional, Tuple
 
-from semver import VersionInfo
+from semver import Version
 
 from ..misc import cached
 
 
 @cached
-def get_restricted_field(schema_field: Field) -> Tuple[Optional[VersionInfo], Optional[VersionInfo]]:
+def get_restricted_field(schema_field: Field) -> Tuple[Optional[Version], Optional[Version]]:
     """Get an optional min and max compatible versions of a field (from a schema or dataclass)."""
     # nested get is to support schema fields being passed directly from dataclass or fields in schema class, since
     # marshmallow_dataclass passes the embedded metadata directly
     min_compat = schema_field.metadata.get('metadata', schema_field.metadata).get('min_compat')
     max_compat = schema_field.metadata.get('metadata', schema_field.metadata).get('max_compat')
-    min_compat = VersionInfo(*min_compat.split(".")) if min_compat else None
-    max_compat = VersionInfo(*max_compat.split(".")) if max_compat else None
+    min_compat = Version(*min_compat.split(".")) if min_compat else None
+    max_compat = Version(*max_compat.split(".")) if max_compat else None
     return min_compat, max_compat
 
 
 @cached
-def get_restricted_fields(schema_fields: List[Field]) -> Dict[str, Tuple[Optional[VersionInfo],
-                                                              Optional[VersionInfo]]]:
+def get_restricted_fields(schema_fields: List[Field]) -> Dict[str, Tuple[Optional[Version],
+                                                              Optional[Version]]]:
     """Get a list of optional min and max compatible versions of fields (from a schema or dataclass)."""
     restricted = {}
     for _field in schema_fields:
@@ -37,7 +37,7 @@ def get_restricted_fields(schema_fields: List[Field]) -> Dict[str, Tuple[Optiona
 
 
 @cached
-def get_incompatible_fields(schema_fields: List[Field], package_version: VersionInfo) -> \
+def get_incompatible_fields(schema_fields: List[Field], package_version: Version) -> \
         Optional[Dict[str, tuple]]:
     """Get a list of fields that are incompatible with the package version."""
     if not schema_fields:

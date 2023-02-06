@@ -11,7 +11,7 @@ import warnings
 from collections import defaultdict
 from pathlib import Path
 
-from semver import VersionInfo
+from semver import Version
 
 import kql
 from detection_rules import attack
@@ -27,7 +27,7 @@ from rta import get_available_tests
 
 from .base import BaseRuleTest
 
-PACKAGE_STACK_VERSION = VersionInfo(*current_stack_version().split("."))
+PACKAGE_STACK_VERSION = Version(*current_stack_version().split("."))
 
 
 class TestValidRules(BaseRuleTest):
@@ -432,13 +432,13 @@ class TestRuleMetadata(BaseRuleTest):
             # will exist in the deprecated_rules.json file and not be in the _deprecated folder - this is expected.
             # However, that should not occur except by exception - the proper way to handle this situation is to
             # "fork" the existing rule by adding a new min_stack_version.
-            if PACKAGE_STACK_VERSION < VersionInfo(*entry['stack_version'].split(".")):
+            if PACKAGE_STACK_VERSION < Version(*entry['stack_version'].split(".")):
                 continue
 
             rule_str = f'{rule_id} - {entry["rule_name"]} ->'
             self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
 
-    @unittest.skipIf(PACKAGE_STACK_VERSION < VersionInfo.parse("8.3.0"),
+    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
                      "Test only applicable to 8.3+ stacks regarding related integrations build time field.")
     def test_integration_tag(self):
         """Test integration rules defined by metadata tag."""
@@ -617,8 +617,8 @@ class TestRuleTiming(BaseRuleTest):
             has_event_ingested = rule.contents.data.timestamp_override == 'event.ingested'
             indexes = rule.contents.data.get('index', [])
             beats_indexes = parse_beats_from_index(indexes)
-            min_stack_is_less_than_82 = VersionInfo.parse(rule.contents.metadata.min_stack_version or '7.13.0') \
-                < VersionInfo.parse("8.2.0")
+            min_stack_is_less_than_82 = Version.parse(rule.contents.metadata.min_stack_version or '7.13.0') \
+                < Version.parse("8.2.0")
             config = rule.contents.data.get('note') or ''
             rule_str = self.rule_str(rule, trailer=None)
 
@@ -764,7 +764,7 @@ class TestBuildTimeFields(BaseRuleTest):
             for build_field, field_versions in build_fields.items():
                 start_ver, end_ver = field_versions
                 if start_ver is not None and current_stack_ver >= start_ver:
-                    if min_stack is None or not VersionInfo.parse(min_stack) >= start_ver:
+                    if min_stack is None or not Version.parse(min_stack) >= start_ver:
                         errors.append(f'{build_field} >= {start_ver}')
 
             if errors:

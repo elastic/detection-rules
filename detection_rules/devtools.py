@@ -21,7 +21,7 @@ from typing import Dict, List, Optional, Tuple
 
 import click
 import requests.exceptions
-from semver import VersionInfo
+from semver import Version
 import yaml
 from elasticsearch import Elasticsearch
 from eql.table import Table
@@ -165,9 +165,9 @@ def bump_versions(major_release, minor_release, patch_release, maturity):
     """Bump the versions"""
 
     pkg_data = load_etc_dump('packages.yml')['package']
-    kibana_ver = VersionInfo(*pkg_data["name"].split("."))
-    pkg_ver = VersionInfo.parse(pkg_data["registry_data"]["version"])
-    pkg_kibana_ver = VersionInfo.parse(pkg_data["registry_data"]["conditions"]["kibana.version"].lstrip("^"))
+    kibana_ver = Version(*pkg_data["name"].split("."))
+    pkg_ver = Version.parse(pkg_data["registry_data"]["version"])
+    pkg_kibana_ver = Version.parse(pkg_data["registry_data"]["conditions"]["kibana.version"].lstrip("^"))
     if major_release:
         pkg_data["name"] = str(kibana_ver.bump_major()).rstrip(".0")
         pkg_data["registry_data"]["conditions"]["kibana.version"] = f"^{pkg_kibana_ver.bump_major()}"
@@ -256,7 +256,7 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
     }
     exceptions.update(exception_list.split(","))
 
-    target_stack_version = VersionInfo(*target_stack_version.split("."))
+    target_stack_version = Version(*target_stack_version.split("."))
 
     # load a structured summary of the diff from git
     git_output = subprocess.check_output(["git", "diff", "--name-status", "HEAD"])
@@ -277,7 +277,7 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
             dict_contents = RuleCollection.deserialize_toml_string(change.read())
             min_stack_version: Optional[str] = dict_contents.get("metadata", {}).get("min_stack_version")
 
-            if min_stack_version is not None and target_stack_version < VersionInfo.parse(min_stack_version):
+            if min_stack_version is not None and target_stack_version < Version.parse(min_stack_version):
                 # rule is incompatible, add to the list of reversions to make later
                 reversions.append(change)
 
@@ -903,13 +903,13 @@ def trim_version_lock(min_version: str, dry_run: bool):
     stack_versions = get_stack_versions()
     assert min_version in stack_versions, f'Unknown min_version ({min_version}), expected: {", ".join(stack_versions)}'
 
-    min_version = VersionInfo.parse(min_version)
+    min_version = Version.parse(min_version)
     version_lock_dict = default_version_lock.version_lock.to_dict()
     removed = {}
 
     for rule_id, lock in version_lock_dict.items():
         if 'previous' in lock:
-            prev_vers = [VersionInfo(*v.split(".")) for v in list(lock['previous'])]
+            prev_vers = [Version(*v.split(".")) for v in list(lock['previous'])]
             outdated_vers = [v for v in prev_vers if v <= min_version]
 
             if not outdated_vers:
@@ -1219,7 +1219,7 @@ def show_latest_compatible_version(package: str, stack_version: str) -> None:
         return
 
     try:
-        stack_version = VersionInfo.parse(stack_version)
+        stack_version = Version.parse(stack_version)
     except Exception as e:
         click.echo(f"Error parsing stack version: {str(e)}")
         return

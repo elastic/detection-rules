@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, Optional, Union
 
-from semver import VersionInfo
+from semver import Version
 import xlsxwriter
 
 from .attack import attack_tm, matrix, tactics, technique_lookup
@@ -304,7 +304,7 @@ class IntegrationSecurityDocs:
 
     @staticmethod
     def parse_registry(registry_version: str) -> (str, str, str):
-        registry_version = VersionInfo.parse(registry_version)
+        registry_version = Version.parse(registry_version)
         short_registry_version = [str(n) for n in registry_version[:3]]
         registry_version_str = '.'.join(short_registry_version)
         base_name = "-".join(short_registry_version)

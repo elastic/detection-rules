@@ -9,7 +9,7 @@ from typing import List, Optional
 from typing import OrderedDict as OrderedDictType
 
 import jsonschema
-from semver import VersionInfo
+from semver import Version
 
 from ..misc import load_current_package_version
 from ..utils import cached, get_etc_path, load_etc_dump
@@ -38,7 +38,7 @@ def all_versions() -> List[str]:
 
 def migrate(version: str):
     """Decorator to set a migration."""
-    version = VersionInfo.parse(f"{version}.0")
+    version = Version.parse(f"{version}.0")
 
     def wrapper(f):
         assert version not in migrations
@@ -49,7 +49,7 @@ def migrate(version: str):
 
 
 @cached
-def get_schema_file(version: VersionInfo, rule_type: str) -> dict:
+def get_schema_file(version: Version, rule_type: str) -> dict:
     path = Path(SCHEMA_DIR) / str(version) / f"{version}.{rule_type}.json"
 
     if not path.exists():
@@ -58,7 +58,7 @@ def get_schema_file(version: VersionInfo, rule_type: str) -> dict:
     return json.loads(path.read_text(encoding="utf8"))
 
 
-def strip_additional_properties(version: VersionInfo, api_contents: dict) -> dict:
+def strip_additional_properties(version: Version, api_contents: dict) -> dict:
     """Remove all fields that the target schema doesn't recognize."""
     stripped = {}
     target_schema = get_schema_file(version, api_contents["type"])
@@ -73,19 +73,19 @@ def strip_additional_properties(version: VersionInfo, api_contents: dict) -> dic
 
 
 @migrate("7.8")
-def migrate_to_7_8(version: VersionInfo, api_contents: dict) -> dict:
+def migrate_to_7_8(version: Version, api_contents: dict) -> dict:
     """Default migration for 7.8."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("7.9")
-def migrate_to_7_9(version: VersionInfo, api_contents: dict) -> dict:
+def migrate_to_7_9(version: Version, api_contents: dict) -> dict:
     """Default migration for 7.9."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("7.10")
-def downgrade_threat_to_7_10(version: VersionInfo, api_contents: dict) -> dict:
+def downgrade_threat_to_7_10(version: Version, api_contents: dict) -> dict:
     """Downgrade the threat mapping changes from 7.11 to 7.10."""
     if "threat" in api_contents:
         v711_threats = api_contents.get("threat", [])
@@ -117,7 +117,7 @@ def downgrade_threat_to_7_10(version: VersionInfo, api_contents: dict) -> dict:
 
 
 @migrate("7.11")
-def downgrade_threshold_to_7_11(version: VersionInfo, api_contents: dict) -> dict:
+def downgrade_threshold_to_7_11(version: Version, api_contents: dict) -> dict:
     """Remove 7.12 threshold changes that don't impact the rule."""
     if "threshold" in api_contents:
         threshold = api_contents['threshold']
@@ -142,13 +142,13 @@ def downgrade_threshold_to_7_11(version: VersionInfo, api_contents: dict) -> dic
 
 
 @migrate("7.12")
-def migrate_to_7_12(version: VersionInfo, api_contents: dict) -> dict:
+def migrate_to_7_12(version: Version, api_contents: dict) -> dict:
     """Default migration for 7.12."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("7.13")
-def downgrade_ml_multijob_713(version: VersionInfo, api_contents: dict) -> dict:
+def downgrade_ml_multijob_713(version: Version, api_contents: dict) -> dict:
     """Convert `machine_learning_job_id` as an array to a string for < 7.13."""
     if "machine_learning_job_id" in api_contents:
         job_id = api_contents["machine_learning_job_id"]
@@ -165,61 +165,61 @@ def downgrade_ml_multijob_713(version: VersionInfo, api_contents: dict) -> dict:
 
 
 @migrate("7.14")
-def migrate_to_7_14(version: VersionInfo, api_contents: dict) -> dict:
+def migrate_to_7_14(version: Version, api_contents: dict) -> dict:
     """Default migration for 7.14."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("7.15")
-def migrate_to_7_15(version: VersionInfo, api_contents: dict) -> dict:
+def migrate_to_7_15(version: Version, api_contents: dict) -> dict:
     """Default migration for 7.15."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("7.16")
-def migrate_to_7_16(version: VersionInfo, api_contents: dict) -> dict:
+def migrate_to_7_16(version: Version, api_contents: dict) -> dict:
     """Default migration for 7.16."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.0")
-def migrate_to_8_0(version: VersionInfo, api_contents: dict) -> dict:
+def migrate_to_8_0(version: Version, api_contents: dict) -> dict:
     """Default migration for 8.0."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.1")
-def migrate_to_8_1(version: VersionInfo, api_contents: dict) -> dict:
+def migrate_to_8_1(version: Version, api_contents: dict) -> dict:
     """Default migration for 8.1."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.2")
-def migrate_to_8_2(version: VersionInfo, api_contents: dict) -> dict:
+def migrate_to_8_2(version: Version, api_contents: dict) -> dict:
     """Default migration for 8.2."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.3")
-def migrate_to_8_3(version: VersionInfo, api_contents: dict) -> dict:
+def migrate_to_8_3(version: Version, api_contents: dict) -> dict:
     """Default migration for 8.3."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.4")
-def migrate_to_8_4(version: VersionInfo, api_contents: dict) -> dict:
+def migrate_to_8_4(version: Version, api_contents: dict) -> dict:
     """Default migration for 8.4."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.5")
-def migrate_to_8_5(version: VersionInfo, api_contents: dict) -> dict:
+def migrate_to_8_5(version: Version, api_contents: dict) -> dict:
     """Default migration for 8.5."""
     return strip_additional_properties(version, api_contents)
 
 
 @migrate("8.6")
-def migrate_to_8_6(version: VersionInfo, api_contents: dict) -> dict:
+def migrate_to_8_6(version: Version, api_contents: dict) -> dict:
     """Default migration for 8.6."""
     return strip_additional_properties(version, api_contents)
 
@@ -231,15 +231,15 @@ def downgrade(api_contents: dict, target_version: str, current_version: Optional
     if current_version is None:
         current_version = current_stack_version()
 
-    current_major, current_minor = VersionInfo(*current_version.split("."))[:2]
-    target_major, target_minor = VersionInfo(*target_version.split("."))[:2]
+    current_major, current_minor = Version(*current_version.split("."))[:2]
+    target_major, target_minor = Version(*target_version.split("."))[:2]
 
     # get all the versions between current_semver and target_semver
     if target_major != current_major:
         raise ValueError(f"Cannot backport to major version {target_major}")
 
     for minor in reversed(range(target_minor, current_minor)):
-        version = VersionInfo(*[target_major, minor])
+        version = Version(*[target_major, minor])
         if version not in migrations:
             raise ValueError(f"Missing migration for {target_version}")
 
@@ -258,12 +258,12 @@ def get_stack_schemas(stack_version: Optional[str] = '0.0.0') -> OrderedDictType
     """Return all ECS + beats to stack versions for every stack version >= specified stack version and <= package."""
     if stack_version and stack_version != "0.0.0" and len(stack_version.split(".")) == 2:
         stack_version = f"{stack_version}.0"
-    stack_version = VersionInfo.parse(stack_version or '0.0.0')
-    current_package = VersionInfo(*load_current_package_version().split("."))
+    stack_version = Version.parse(stack_version or '0.0.0')
+    current_package = Version(*load_current_package_version().split("."))
 
     stack_map = load_stack_schema_map()
     versions = {k: v for k, v in stack_map.items() if
-                (((mapped_version := VersionInfo.parse(k)) >= stack_version)
+                (((mapped_version := Version.parse(k)) >= stack_version)
                 and (mapped_version <= current_package) and v)}  # noqa: W503
 
     if stack_version > current_package:
@@ -287,8 +287,8 @@ def get_stack_versions(drop_patch=False) -> List[str]:
 
 
 @cached
-def get_min_supported_stack_version() -> VersionInfo:
+def get_min_supported_stack_version() -> Version:
     """Get the minimum defined and supported stack version."""
     stack_map = load_stack_schema_map()
-    min_version = min([VersionInfo.parse(v) for v in list(stack_map)])
+    min_version = min([Version.parse(v) for v in list(stack_map)])
     return min_version

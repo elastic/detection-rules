@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from uuid import uuid4
 
 import eql
-from semver import VersionInfo
+from semver import Version
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
 from marshmallow import ValidationError, validates_schema
@@ -39,9 +39,9 @@ _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
 
 BUILD_FIELD_VERSIONS = {
-    "related_integrations": (VersionInfo.parse('8.3.0'), None),
-    "required_fields": (VersionInfo.parse('8.3.0'), None),
-    "setup": (VersionInfo.parse('8.3.0'), None)
+    "related_integrations": (Version.parse('8.3.0'), None),
+    "required_fields": (Version.parse('8.3.0'), None),
+    "setup": (Version.parse('8.3.0'), None)
 }
 
 
@@ -353,7 +353,7 @@ class QueryValidator:
     @cached
     def get_required_fields(self, index: str) -> List[dict]:
         """Retrieves fields needed for the query along with type information from the schema."""
-        current_version = VersionInfo(*load_current_package_version().split("."))
+        current_version = Version(*load_current_package_version().split("."))
         ecs_version = get_stack_schemas()[str(current_version)]['ecs']
         beats_version = get_stack_schemas()[str(current_version)]['beats']
         endgame_version = get_stack_schemas()[str(current_version)]['endgame']
@@ -488,8 +488,8 @@ class NewTermsRuleData(QueryRuleData):
 
         kql_validator = KQLValidator(self.query)
         kql_validator.validate(self, meta)
-        feature_min_stack = VersionInfo.parse('8.4.0')
-        feature_min_stack_extended_fields = VersionInfo.parse('8.6.0')
+        feature_min_stack = Version.parse('8.4.0')
+        feature_min_stack_extended_fields = Version.parse('8.6.0')
 
         # validate history window start field exists and is correct
         assert self.new_terms.history_window_start, \
@@ -504,9 +504,9 @@ class NewTermsRuleData(QueryRuleData):
         # ecs validation
         min_stack_version = meta.get("min_stack_version")
         if min_stack_version is None:
-            min_stack_version = VersionInfo(*load_current_package_version().split("."))
+            min_stack_version = Version(*load_current_package_version().split("."))
         else:
-            min_stack_version = VersionInfo.parse(min_stack_version)
+            min_stack_version = Version.parse(min_stack_version)
 
         assert min_stack_version >= feature_min_stack, \
             f"New Terms rule types only compatible with {feature_min_stack}+"
@@ -678,7 +678,7 @@ class BaseRuleContents(ABC):
     @property
     def is_dirty(self) -> Optional[bool]:
         """Determine if the rule has changed since its version was locked."""
-        min_stack = VersionInfo.parse(self.get_supported_version())
+        min_stack = Version.parse(self.get_supported_version())
         existing_sha256 = self.version_lock.get_locked_hash(self.id, str(min_stack).rstrip(".0"))
 
         if existing_sha256 is not None:
@@ -703,8 +703,8 @@ class BaseRuleContents(ABC):
         """Determine if the rule is in a forked version."""
         if not self.has_forked:
             return False
-        locked_min_stack = VersionInfo(*self.lock_entry['min_stack_version'].split("."))
-        current_package_ver = VersionInfo(*load_current_package_version().split("."))
+        locked_min_stack = Version(*self.lock_entry['min_stack_version'].split("."))
+        current_package_ver = Version(*load_current_package_version().split("."))
         return current_package_ver < locked_min_stack
 
     def get_version_space(self) -> Optional[int]:
@@ -732,12 +732,12 @@ class BaseRuleContents(ABC):
         return version + 1 if self.is_dirty else version
 
     @classmethod
-    def convert_supported_version(cls, stack_version: Optional[str]) -> VersionInfo:
+    def convert_supported_version(cls, stack_version: Optional[str]) -> Version:
         """Convert an optional stack version to the minimum for the lock in the form major.minor."""
         min_version = get_min_supported_stack_version()
         if stack_version is None:
             return min_version
-        return max(VersionInfo(*stack_version.split(".")), min_version)
+        return max(Version(*stack_version.split(".")), min_version)
 
     def get_supported_version(self) -> str:
         """Get the lowest stack version for the rule that is currently supported in the form major.minor."""
@@ -945,9 +945,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         return self.compare_field_versions(min_stack, max_stack)
 
     @staticmethod
-    def compare_field_versions(min_stack: VersionInfo, max_stack: VersionInfo) -> bool:
+    def compare_field_versions(min_stack: Version, max_stack: Version) -> bool:
         """Check current rule version is within min and max stack versions."""
-        current_version = VersionInfo(*load_current_package_version().split("."))
+        current_version = Version(*load_current_package_version().split("."))
         max_stack = max_stack or current_version
         return min_stack <= current_version >= max_stack
 
@@ -1022,7 +1022,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         """Check for compatibility between restricted fields and the min_stack_version of the rule."""
         default_min_stack = get_min_supported_stack_version()
         if self.metadata.min_stack_version is not None:
-            min_stack = VersionInfo.parse(self.metadata.min_stack_version)
+            min_stack = Version.parse(self.metadata.min_stack_version)
         else:
             min_stack = default_min_stack
         restricted = self.data.get_restricted_fields
