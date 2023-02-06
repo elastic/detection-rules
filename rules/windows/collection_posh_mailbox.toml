@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/01/11"
+updated_date = "2023/02/06"
 
 [rule]
 author = ["Elastic"]
@@ -17,6 +17,45 @@ index = ["winlogbeat-*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "PowerShell Mailbox Collection Script"
+note = """## Triage and analysis
+
+### Investigating PowerShell Mailbox Collection Script
+
+PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks. This makes it available for use in various environments, and creates an attractive way for attackers to execute code.
+
+Email mailboxes and their information can be valuable assets for attackers. Company mailboxes often contain sensitive information such as login credentials, intellectual property, financial data, and personal information, making them high-value targets for malicious actors.
+
+This rule identifies scripts that contains methods and classes that can be abused to collect emails from mailboxes in both local and remote mailboxes.
+
+#### Possible investigation steps
+
+- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics.
+- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Examine if the script was executed and capture information like arguments that could be used to understand the intent or as Indicators of compromise.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Evaluate whether the user needs to use PowerShell to complete tasks.
+- Investigate if the script stores the captured data locally.
+- Investigate if the script contains exfiltration capabilities and the destination of this exfiltration.
+  - Assess network data to determine if the host communicated with the exfiltration server.
+
+### False positive analysis
+
+- This mechanism can be used legitimately. Analysts can dismiss the alert if the administrator is aware of the activity and it is done with proper approval.
+
+### Related rules
+
+- Exporting Exchange Mailbox via PowerShell - 6aace640-e631-4870-ba8e-5fdda09325db
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- If the involved host is not the Exchange server, isolate the host to prevent further post-compromise behavior.
+- Prioritize cases that involve personally identifiable information (PII) or other classified data.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
 references = [
     "https://github.com/dafthack/MailSniper/blob/master/MailSniper.ps1",
     "https://github.com/center-for-threat-informed-defense/adversary_emulation_library/blob/master/apt29/Archive/CALDERA_DIY/evals/payloads/stepSeventeen_email.ps1",
