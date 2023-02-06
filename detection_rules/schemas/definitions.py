@@ -27,6 +27,7 @@ VERSION_PATTERN = f'^{_version}$'
 MINOR_SEMVER = r'^\d+\.\d+$'
 BRANCH_PATTERN = f'{VERSION_PATTERN}|^master$'
 
+NON_DATASET_PACKAGES = ['apm', 'endpoint', 'system', 'windows']
 INTERVAL_PATTERN = r'^\d+[mshd]$'
 TACTIC_URL = r'^https://attack.mitre.org/tactics/TA[0-9]+/$'
 TECHNIQUE_URL = r'^https://attack.mitre.org/techniques/T[0-9]+/$'
