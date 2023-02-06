@@ -256,7 +256,7 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
     }
     exceptions.update(exception_list.split(","))
 
-    target_stack_version = semver.VersionInfo.parse(target_stack_version)
+    target_stack_version = semver.VersionInfo(*target_stack_version.split("."))
 
     # load a structured summary of the diff from git
     git_output = subprocess.check_output(["git", "diff", "--name-status", "HEAD"])
