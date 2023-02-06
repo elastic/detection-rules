@@ -180,7 +180,7 @@ class StackCompatMixin:
     @validates_schema
     def validate_field_compatibility(self, data: dict, **kwargs):
         """Verify stack-specific fields are properly applied to schema."""
-        package_version = Version(*load_current_package_version().split("."))
+        package_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         schema_fields = getattr(self, 'fields', {})
         incompatible = get_incompatible_fields(list(schema_fields.values()), package_version)
         if not incompatible:

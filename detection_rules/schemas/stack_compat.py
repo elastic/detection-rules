@@ -18,8 +18,8 @@ def get_restricted_field(schema_field: Field) -> Tuple[Optional[Version], Option
     # marshmallow_dataclass passes the embedded metadata directly
     min_compat = schema_field.metadata.get('metadata', schema_field.metadata).get('min_compat')
     max_compat = schema_field.metadata.get('metadata', schema_field.metadata).get('max_compat')
-    min_compat = Version(*min_compat.split(".")) if min_compat else None
-    max_compat = Version(*max_compat.split(".")) if max_compat else None
+    min_compat = Version.parse(min_compat, optional_minor_and_patch=True) if min_compat else None
+    max_compat = Version.parse(max_compat, optional_minor_and_patch=True) if max_compat else None
     return min_compat, max_compat
 
 

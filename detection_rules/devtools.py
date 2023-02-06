@@ -165,7 +165,7 @@ def bump_versions(major_release, minor_release, patch_release, maturity):
     """Bump the versions"""
 
     pkg_data = load_etc_dump('packages.yml')['package']
-    kibana_ver = Version(*pkg_data["name"].split("."))
+    kibana_ver = Version.parse(pkg_data["name"], optional_minor_and_patch=True)
     pkg_ver = Version.parse(pkg_data["registry_data"]["version"])
     pkg_kibana_ver = Version.parse(pkg_data["registry_data"]["conditions"]["kibana.version"].lstrip("^"))
     if major_release:
@@ -256,7 +256,7 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
     }
     exceptions.update(exception_list.split(","))
 
-    target_stack_version = Version(*target_stack_version.split("."))
+    target_stack_version = Version.parse(target_stack_version.split("."), optional_minor_and_patch=True)
 
     # load a structured summary of the diff from git
     git_output = subprocess.check_output(["git", "diff", "--name-status", "HEAD"])
@@ -909,7 +909,7 @@ def trim_version_lock(min_version: str, dry_run: bool):
 
     for rule_id, lock in version_lock_dict.items():
         if 'previous' in lock:
-            prev_vers = [Version(*v.split(".")) for v in list(lock['previous'])]
+            prev_vers = [Version.parse(v, optional_minor_and_patch=True) for v in list(lock['previous'])]
             outdated_vers = [v for v in prev_vers if v <= min_version]
 
             if not outdated_vers:

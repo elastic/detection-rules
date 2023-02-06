@@ -139,7 +139,7 @@ def find_least_compatible_version(package: str, integration: str,
     """Finds least compatible version for specified integration based on stack version supplied."""
     integration_manifests = {k: v for k, v in sorted(packages_manifest[package].items(),
                              key=lambda x: Version.parse(x[0]))}
-    current_stack_version = Version(*current_stack_version.split("."))
+    current_stack_version = Version.parse(current_stack_version, optional_minor_and_patch=True)
 
     # filter integration_manifests to only the latest major entries
     major_versions = sorted(list(set([Version.parse(manifest_version).major
@@ -281,12 +281,7 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
 
                 # Use the minimum stack version from the package not the rule
                 min_stack = meta.min_stack_version or load_current_package_version()
-
-                # Prior to 8.3, some rules had a min_stack_version with only major.minor
-                if len(min_stack.split(".")) < 3:
-                    min_stack = Version(*min_stack.split("."))
-                else:
-                    min_stack = Version.parse(min_stack)
+                min_stack = Version.parse(min_stack, optional_minor_and_patch=True)
 
                 package_version, notice = find_latest_compatible_version(package=package,
                                                                          integration=integration,

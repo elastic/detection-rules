@@ -38,7 +38,7 @@ def all_versions() -> List[str]:
 
 def migrate(version: str):
     """Decorator to set a migration."""
-    version = Version.parse(f"{version}.0")
+    version = Version.parse(version, optional_minor_and_patch=True)
 
     def wrapper(f):
         assert version not in migrations
@@ -231,19 +231,19 @@ def downgrade(api_contents: dict, target_version: str, current_version: Optional
     if current_version is None:
         current_version = current_stack_version()
 
-    current_major, current_minor = Version(*current_version.split("."))[:2]
-    target_major, target_minor = Version(*target_version.split("."))[:2]
+    current_major, current_minor = Version.parse(current_version, optional_minor_and_patch=True)[:2]
+    target_major, target_minor = Version.parse(target_version, optional_minor_and_patch=True)[:2]
 
     # get all the versions between current_semver and target_semver
     if target_major != current_major:
         raise ValueError(f"Cannot backport to major version {target_major}")
 
     for minor in reversed(range(target_minor, current_minor)):
-        version = Version(*[target_major, minor])
+        version = f"{target_major}.{minor}"
         if version not in migrations:
             raise ValueError(f"Missing migration for {target_version}")
 
-        api_contents = migrations[version](version, api_contents)
+        api_contents = migrations[str(version)](version, api_contents)
 
     return api_contents
 
@@ -259,7 +259,7 @@ def get_stack_schemas(stack_version: Optional[str] = '0.0.0') -> OrderedDictType
     if stack_version and stack_version != "0.0.0" and len(stack_version.split(".")) == 2:
         stack_version = f"{stack_version}.0"
     stack_version = Version.parse(stack_version or '0.0.0')
-    current_package = Version(*load_current_package_version().split("."))
+    current_package = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
 
     stack_map = load_stack_schema_map()
     versions = {k: v for k, v in stack_map.items() if

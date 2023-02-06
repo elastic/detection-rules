@@ -353,7 +353,7 @@ class QueryValidator:
     @cached
     def get_required_fields(self, index: str) -> List[dict]:
         """Retrieves fields needed for the query along with type information from the schema."""
-        current_version = Version(*load_current_package_version().split("."))
+        current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         ecs_version = get_stack_schemas()[str(current_version)]['ecs']
         beats_version = get_stack_schemas()[str(current_version)]['beats']
         endgame_version = get_stack_schemas()[str(current_version)]['endgame']
@@ -504,7 +504,7 @@ class NewTermsRuleData(QueryRuleData):
         # ecs validation
         min_stack_version = meta.get("min_stack_version")
         if min_stack_version is None:
-            min_stack_version = Version(*load_current_package_version().split("."))
+            min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         else:
             min_stack_version = Version.parse(min_stack_version)
 
@@ -703,8 +703,8 @@ class BaseRuleContents(ABC):
         """Determine if the rule is in a forked version."""
         if not self.has_forked:
             return False
-        locked_min_stack = Version(*self.lock_entry['min_stack_version'].split("."))
-        current_package_ver = Version(*load_current_package_version().split("."))
+        locked_min_stack = Version.parse(self.lock_entry['min_stack_version'], optional_minor_and_patch=True)
+        current_package_ver = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         return current_package_ver < locked_min_stack
 
     def get_version_space(self) -> Optional[int]:
@@ -737,7 +737,7 @@ class BaseRuleContents(ABC):
         min_version = get_min_supported_stack_version()
         if stack_version is None:
             return min_version
-        return max(Version(*stack_version.split(".")), min_version)
+        return max(Version.parse(stack_version, optional_minor_and_patch=True), min_version)
 
     def get_supported_version(self) -> str:
         """Get the lowest stack version for the rule that is currently supported in the form major.minor."""
@@ -947,7 +947,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     @staticmethod
     def compare_field_versions(min_stack: Version, max_stack: Version) -> bool:
         """Check current rule version is within min and max stack versions."""
-        current_version = Version(*load_current_package_version().split("."))
+        current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         max_stack = max_stack or current_version
         return min_stack <= current_version >= max_stack
 

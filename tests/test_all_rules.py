@@ -27,7 +27,7 @@ from rta import get_available_tests
 
 from .base import BaseRuleTest
 
-PACKAGE_STACK_VERSION = Version(*current_stack_version().split("."))
+PACKAGE_STACK_VERSION = Version.parse(current_stack_version(), optional_minor_and_patch=True)
 
 
 class TestValidRules(BaseRuleTest):
@@ -432,7 +432,7 @@ class TestRuleMetadata(BaseRuleTest):
             # will exist in the deprecated_rules.json file and not be in the _deprecated folder - this is expected.
             # However, that should not occur except by exception - the proper way to handle this situation is to
             # "fork" the existing rule by adding a new min_stack_version.
-            if PACKAGE_STACK_VERSION < Version(*entry['stack_version'].split(".")):
+            if PACKAGE_STACK_VERSION < Version.parse(entry['stack_version'], optional_minor_and_patch=True):
                 continue
 
             rule_str = f'{rule_id} - {entry["rule_name"]} ->'
