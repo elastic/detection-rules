@@ -231,15 +231,15 @@ def downgrade(api_contents: dict, target_version: str, current_version: Optional
     if current_version is None:
         current_version = current_stack_version()
 
-    current_major, current_minor = Version.parse(current_version, optional_minor_and_patch=True)[:2]
-    target_major, target_minor = Version.parse(target_version, optional_minor_and_patch=True)[:2]
+    current = Version.parse(current_version, optional_minor_and_patch=True)
+    target = Version.parse(target_version, optional_minor_and_patch=True)
 
     # get all the versions between current_semver and target_semver
-    if target_major != current_major:
+    if target.major != current.major:
         raise ValueError(f"Cannot backport to major version {target_major}")
 
-    for minor in reversed(range(target_minor, current_minor)):
-        version = f"{target_major}.{minor}"
+    for minor in reversed(range(target.minor, current.minor)):
+        version = f"{target.major}.{minor}"
         if version not in migrations:
             raise ValueError(f"Missing migration for {target_version}")
 
@@ -256,9 +256,7 @@ def load_stack_schema_map() -> dict:
 @cached
 def get_stack_schemas(stack_version: Optional[str] = '0.0.0') -> OrderedDictType[str, dict]:
     """Return all ECS + beats to stack versions for every stack version >= specified stack version and <= package."""
-    if stack_version and stack_version != "0.0.0" and len(stack_version.split(".")) == 2:
-        stack_version = f"{stack_version}.0"
-    stack_version = Version.parse(stack_version or '0.0.0')
+    stack_version = Version.parse(stack_version or '0.0.0', optional_minor_and_patch=True)
     current_package = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
 
     stack_map = load_stack_schema_map()

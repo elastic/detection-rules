@@ -224,7 +224,7 @@ def get_integration_manifests(integration: str, prerelease: str, kibana_version:
                              "all": "true", "include_policy_templates": "true"}
     if kibana_version:
         epr_search_parameters["kibana.version"] = kibana_version
-    epr_search_response = requests.get(epr_search_url, params=epr_search_parameters)
+    epr_search_response = requests.get(epr_search_url, params=epr_search_parameters, timeout=10)
     epr_search_response.raise_for_status()
     manifests = epr_search_response.json()
 
