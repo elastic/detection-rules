@@ -236,7 +236,7 @@ def downgrade(api_contents: dict, target_version: str, current_version: Optional
 
     # get all the versions between current_semver and target_semver
     if target.major != current.major:
-        raise ValueError(f"Cannot backport to major version {target_major}")
+        raise ValueError(f"Cannot backport to major version {target.major}")
 
     for minor in reversed(range(target.minor, current.minor)):
         version = f"{target.major}.{minor}"
