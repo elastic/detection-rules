@@ -11,7 +11,7 @@ from typing import List, Optional
 
 import eql
 import requests
-import semver
+from semver import VersionInfo
 import yaml
 
 import kql
@@ -93,7 +93,7 @@ def download_latest_beats_schema():
     url = 'https://api.github.com/repos/elastic/beats/releases'
     releases = requests.get(url)
 
-    latest_release = max(releases.json(), key=lambda release: semver.VersionInfo.parse(release["tag_name"].lstrip("v")))
+    latest_release = max(releases.json(), key=lambda release: VersionInfo.parse(release["tag_name"].lstrip("v")))
     download_beats_schema(latest_release["tag_name"])
 
 
@@ -195,12 +195,12 @@ def get_beats_sub_schema(schema: dict, beat: str, module: str, *datasets: str):
 
 
 @cached
-def get_versions() -> List[semver.VersionInfo]:
+def get_versions() -> List[VersionInfo]:
     versions = []
     for filename in os.listdir(get_etc_path("beats_schemas")):
         version_match = re.match(r'v(.+)\.json\.gz', filename)
         if version_match:
-            versions.append(semver.VersionInfo.parse(version_match.groups()[0]))
+            versions.append(VersionInfo.parse(version_match.groups()[0]))
 
     return versions
 
@@ -215,7 +215,7 @@ def read_beats_schema(version: str = None):
     if version and version.lower() == 'main':
         return json.loads(read_gzip(get_etc_path('beats_schemas', 'main.json.gz')))
 
-    version = semver.VersionInfo.parse(version) if version else None
+    version = VersionInfo.parse(version) if version else None
     beats_schemas = get_versions()
 
     if version and version not in beats_schemas:

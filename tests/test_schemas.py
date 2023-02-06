@@ -7,7 +7,7 @@
 import copy
 import unittest
 import uuid
-import semver
+from semver import VersionInfo
 
 import eql
 from detection_rules import utils
@@ -99,7 +99,7 @@ class TestSchemas(unittest.TestCase):
 
     def test_query_downgrade_7_x(self):
         """Downgrade a standard KQL rule."""
-        if semver.VersionInfo(*self.current_version.split(".")).major > 7:
+        if VersionInfo(*self.current_version.split(".")).major > 7:
             return
 
         self.assertDictEqual(downgrade(self.v711_kql, "7.11"), self.v711_kql)
@@ -120,7 +120,7 @@ class TestSchemas(unittest.TestCase):
 
     def test_versioned_downgrade_7_x(self):
         """Downgrade a KQL rule with version information"""
-        if semver.VersionInfo(*self.current_version.split(".")).major > 7:
+        if VersionInfo(*self.current_version.split(".")).major > 7:
             return
 
         api_contents = self.v79_kql
@@ -138,7 +138,7 @@ class TestSchemas(unittest.TestCase):
 
     def test_threshold_downgrade_7_x(self):
         """Downgrade a threshold rule that was first introduced in 7.9."""
-        if semver.VersionInfo(*self.current_version.split(".")).major > 7:
+        if VersionInfo(*self.current_version.split(".")).major > 7:
             return
 
         api_contents = self.v712_threshold_rule
@@ -167,17 +167,17 @@ class TestSchemas(unittest.TestCase):
 
     def test_query_downgrade_8_x(self):
         """Downgrade a standard KQL rule."""
-        if semver.VersionInfo(*self.current_version.split(".")).major > 8:
+        if VersionInfo(*self.current_version.split(".")).major > 8:
             return
 
     def test_versioned_downgrade_8_x(self):
         """Downgrade a KQL rule with version information"""
-        if semver.VersionInfo(*self.current_version.split(".")).major > 8:
+        if VersionInfo(*self.current_version.split(".")).major > 8:
             return
 
     def test_threshold_downgrade_8_x(self):
         """Downgrade a threshold rule that was first introduced in 7.9."""
-        if semver.VersionInfo(*self.current_version.split(".")).major > 7:
+        if VersionInfo(*self.current_version.split(".")).major > 7:
             return
 
     def test_eql_validation(self):
@@ -285,7 +285,7 @@ class TestVersions(unittest.TestCase):
 
     def test_stack_schema_map(self):
         """Test to ensure that an entry exists in the stack-schema-map for the current package version."""
-        package_version = semver.VersionInfo(*load_current_package_version().split("."))
+        package_version = VersionInfo(*load_current_package_version().split("."))
         stack_map = utils.load_etc_dump('stack-schema-map.yaml')
         err_msg = f'There is no entry defined for the current package ({package_version}) in the stack-schema-map'
-        self.assertIn(package_version, [semver.VersionInfo.parse(v) for v in stack_map], err_msg)
+        self.assertIn(package_version, [VersionInfo.parse(v) for v in stack_map], err_msg)

@@ -18,7 +18,7 @@ from marshmallow import Schema, ValidationError, fields, validates_schema
 from .misc import load_current_package_version
 from .schemas import definitions
 from .schemas.stack_compat import get_incompatible_fields
-import semver
+from semver import VersionInfo
 from .utils import cached, dict_hash
 
 T = TypeVar('T')
@@ -180,7 +180,7 @@ class StackCompatMixin:
     @validates_schema
     def validate_field_compatibility(self, data: dict, **kwargs):
         """Verify stack-specific fields are properly applied to schema."""
-        package_version = semver.VersionInfo(*load_current_package_version().split("."))
+        package_version = VersionInfo(*load_current_package_version().split("."))
         schema_fields = getattr(self, 'fields', {})
         incompatible = get_incompatible_fields(list(schema_fields.values()), package_version)
         if not incompatible:
