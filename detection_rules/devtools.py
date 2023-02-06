@@ -35,7 +35,10 @@ from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
 from .integrations import (build_integrations_manifest,
-                           find_latest_integration_version)
+                           build_integrations_schemas,
+                           find_latest_compatible_version,
+                           find_latest_integration_version,
+                           load_integrations_manifests)
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
@@ -1179,10 +1182,54 @@ def integrations_group():
 def build_integration_manifests(overwrite: bool):
     """Builds consolidated integrations manifests file."""
     click.echo("loading rules to determine all integration tags")
+
+    def flatten(tag_list: List[str]) -> List[str]:
+        return list(set([tag for tags in tag_list for tag in (flatten(tags) if isinstance(tags, list) else [tags])]))
+
     rules = RuleCollection.default()
-    integration_tags = list(set([r.contents.metadata.integration for r in rules if r.contents.metadata.integration]))
-    click.echo(f"integration tags identified: {integration_tags}")
-    build_integrations_manifest(overwrite, integration_tags)
+    integration_tags = [r.contents.metadata.integration for r in rules if r.contents.metadata.integration]
+    unique_integration_tags = flatten(integration_tags)
+    click.echo(f"integration tags identified: {unique_integration_tags}")
+    build_integrations_manifest(overwrite, unique_integration_tags)
+
+
+@integrations_group.command('build-schemas')
+@click.option('--overwrite', '-o', is_flag=True, help="Overwrite the entire integrations-schema.json.gz file")
+def build_integration_schemas(overwrite: bool):
+    """Builds consolidated integrations schemas file."""
+    click.echo("Building integration schemas...")
+
+    start_time = time.perf_counter()
+    build_integrations_schemas(overwrite)
+    end_time = time.perf_counter()
+    click.echo(f"Time taken to generate schemas: {(end_time - start_time)/60:.2f} minutes")
+
+
+@integrations_group.command('show-latest-compatible')
+@click.option('--package', '-p', help='Name of package')
+@click.option('--stack_version', '-s', required=True, help='Rule stack version')
+def show_latest_compatible_version(package: str, stack_version: str) -> None:
+    """Prints the latest integration compatible version for specified package based on stack version supplied."""
+
+    packages_manifest = None
+    try:
+        packages_manifest = load_integrations_manifests()
+    except Exception as e:
+        click.echo(f"Error loading integrations manifests: {str(e)}")
+        return
+
+    try:
+        stack_version = semver.VersionInfo.parse(stack_version)
+    except Exception as e:
+        click.echo(f"Error parsing stack version: {str(e)}")
+        return
+
+    try:
+        version = find_latest_compatible_version(package, "", stack_version, packages_manifest)
+        click.echo(f"Compatible integration {version=}")
+    except Exception as e:
+        click.echo(f"Error finding compatible version: {str(e)}")
+        return
 
 
 @dev_group.group('schemas')

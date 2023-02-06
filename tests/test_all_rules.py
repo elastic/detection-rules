@@ -443,36 +443,43 @@ class TestRuleMetadata(BaseRuleTest):
     def test_integration_tag(self):
         """Test integration rules defined by metadata tag."""
         failures = []
-        non_dataset_packages = ["apm", "endpoint", "windows", "winlog"]
+        non_dataset_packages = definitions.NON_DATASET_PACKAGES + ["winlog"]
 
         packages_manifest = load_integrations_manifests()
         valid_integration_folders = [p.name for p in list(Path(INTEGRATION_RULE_DIR).glob("*")) if p.name != 'endpoint']
 
         for rule in self.production_rules:
-            rule_integrations = rule.contents.metadata.get('integration')
-            if rule_integrations:
+            if isinstance(rule.contents.data, QueryRuleData) and rule.contents.data.language != 'lucene':
+                rule_integrations = rule.contents.metadata.get('integration') or []
                 rule_integrations = [rule_integrations] if isinstance(rule_integrations, str) else rule_integrations
+                data = rule.contents.data
+                meta = rule.contents.metadata
+                package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
+                package_integrations_list = list(set([integration["package"] for integration in package_integrations]))
+                indices = data.get('index')
                 for rule_integration in rule_integrations:
-                    # checks if metadata tag matches from a list of integrations in EPR
-                    if rule_integration not in packages_manifest.keys():
-                        err_msg = f"{self.rule_str(rule)} integration '{rule_integration}' unknown"
-                        failures.append(err_msg)
 
                     # checks if the rule path matches the intended integration
                     if rule_integration in valid_integration_folders:
-                        if rule_integration != rule.path.parent.name:
+                        if rule.path.parent.name not in rule_integrations:
                             err_msg = f'{self.rule_str(rule)} {rule_integration} tag, path is {rule.path.parent.name}'
                             failures.append(err_msg)
 
-            else:
-                # checks if event.dataset exists in query object and a tag exists in metadata
-                if isinstance(rule.contents.data, QueryRuleData) and rule.contents.data.language != 'lucene':
-                    trc = TOMLRuleContents(rule.contents.metadata, rule.contents.data)
-                    package_integrations = trc._get_packaged_integrations(packages_manifest)
-                    if package_integrations:
-                        err_msg = f'{self.rule_str(rule)} integration tag should exist: '
+                    # checks if an index pattern exists if the package integration tag exists
+                    integration_string = "|".join(indices)
+                    if not re.search(rule_integration, integration_string):
+                        if rule_integration == "windows" and re.search("winlog", integration_string):
+                            continue
+                        err_msg = f'{self.rule_str(rule)} {rule_integration} tag, index pattern missing.'
                         failures.append(err_msg)
 
+                # checks if event.dataset exists in query object and a tag exists in metadata
+                # checks if metadata tag matches from a list of integrations in EPR
+                if package_integrations and sorted(rule_integrations) != sorted(package_integrations_list):
+                    err_msg = f'{self.rule_str(rule)} integration tags: {rule_integrations} != ' \
+                              f'package integrations: {package_integrations_list}'
+                    failures.append(err_msg)
+                else:
                     # checks if rule has index pattern integration and the integration tag exists
                     # ignore the External Alerts rule, Threat Indicator Matching Rules, Guided onboarding
                     ignore_ids = [
