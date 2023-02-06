@@ -254,7 +254,7 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
     }
     exceptions.update(exception_list.split(","))
 
-    target_stack_version = Version.parse(target_stack_version.split("."), optional_minor_and_patch=True)
+    target_stack_version = Version.parse(target_stack_version, optional_minor_and_patch=True)
 
     # load a structured summary of the diff from git
     git_output = subprocess.check_output(["git", "diff", "--name-status", "HEAD"])
@@ -1217,13 +1217,9 @@ def show_latest_compatible_version(package: str, stack_version: str) -> None:
         return
 
     try:
-        stack_version = Version.parse(stack_version)
-    except Exception as e:
-        click.echo(f"Error parsing stack version: {str(e)}")
-        return
-
-    try:
-        version = find_latest_compatible_version(package, "", stack_version, packages_manifest)
+        version = find_latest_compatible_version(package, "",
+                                                 Version.parse(stack_version, optional_minor_and_patch=True),
+                                                 packages_manifest)
         click.echo(f"Compatible integration {version=}")
     except Exception as e:
         click.echo(f"Error finding compatible version: {str(e)}")
