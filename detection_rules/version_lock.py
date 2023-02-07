@@ -224,6 +224,7 @@ class VersionLock:
                 latest_locked_stack_version = rule.contents.convert_supported_version(
                     lock_from_file.get("min_stack_version"))
 
+                # strip version down to only major.minor to compare against lock file versioning
                 stripped_version = f"{min_stack.major}.{min_stack.minor}"
 
                 if not lock_from_file or min_stack == latest_locked_stack_version:
