@@ -38,7 +38,6 @@ def all_versions() -> List[str]:
 
 def migrate(version: str):
     """Decorator to set a migration."""
-    version = Version.parse(version, optional_minor_and_patch=True)
 
     def wrapper(f):
         assert version not in migrations
