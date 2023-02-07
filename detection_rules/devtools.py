@@ -275,7 +275,8 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
             dict_contents = RuleCollection.deserialize_toml_string(change.read())
             min_stack_version: Optional[str] = dict_contents.get("metadata", {}).get("min_stack_version")
 
-            if min_stack_version is not None and target_stack_version < Version.parse(min_stack_version):
+            if min_stack_version is not None and \
+                    (target_stack_version < Version.parse(min_stack_version, optional_minor_and_patch=True)):
                 # rule is incompatible, add to the list of reversions to make later
                 reversions.append(change)
 
