@@ -7,11 +7,25 @@
 
 import sys
 
+
 assert (3, 8) <= sys.version_info < (4, 0), "Only Python 3.8+ supported"
 
-from . import (devtools, docs, eswrap, ghwrap, kbwrap, main,  # noqa: E402
-               mappings, misc, ml, navigator, rule_formatter, rule_loader,
-               schemas, utils)
+from . import (  # noqa: E402
+    devtools,
+    docs,
+    eswrap,
+    ghwrap,
+    kbwrap,
+    main,
+    mappings,
+    ml,
+    misc,
+    navigator,
+    rule_formatter,
+    rule_loader,
+    schemas,
+    utils
+)
 
 __all__ = (
     'devtools',
