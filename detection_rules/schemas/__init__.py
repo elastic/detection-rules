@@ -38,6 +38,9 @@ def all_versions() -> List[str]:
 
 def migrate(version: str):
     """Decorator to set a migration."""
+    # checks that the migrate decorator name is semi-semantic versioned
+    # raises validation error from semver if not
+    Version.parse(version, optional_minor_and_patch=True)
 
     def wrapper(f):
         assert version not in migrations
