@@ -110,7 +110,8 @@ def refresh_attack_data(save=True) -> (Optional[dict], Optional[bytes]):
     r = requests.get('https://api.github.com/repos/mitre/cti/tags')
     r.raise_for_status()
     releases = [t for t in r.json() if t['name'].startswith('ATT&CK-v')]
-    latest_release = max(releases, key=lambda release: get_version_from_tag(release['name']))
+    latest_release = max(releases, key=lambda release: Version.parse(get_version_from_tag(release['name']),
+                         optional_minor_and_patch=True))
     release_name = latest_release['name']
     latest_version = Version.parse(get_version_from_tag(release_name), optional_minor_and_patch=True)
 
