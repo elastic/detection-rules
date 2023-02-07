@@ -237,7 +237,7 @@ def get_integration_manifests(integration: str, prerelease: str, kibana_version:
     return manifests
 
 
-def find_latest_integration_version(integration: str, maturity: str, stack_version: Version):
+def find_latest_integration_version(integration: str, maturity: str, stack_version: Version) -> Version:
     """Finds the latest integration version based on maturity and stack version"""
     prerelease = "false" if maturity == "ga" else "true"
     existing_pkgs = get_integration_manifests(integration, prerelease, str(stack_version))
