@@ -11,7 +11,7 @@ import eql
 
 import kql
 
-from . import beats, ecs, endgame
+from . import ecs, endgame
 from .integrations import get_integration_schema_data, load_integrations_manifests
 from .rule import QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents
 
@@ -205,7 +205,6 @@ class EQLValidator(QueryValidator):
             package_version = integration_schema_data['package_version']
             integration_schema = integration_schema_data['schema']
             stack_version = integration_schema_data['stack_version']
-            endgame_version = integration_schema_data['endgame_version']
 
             if stack_version != current_stack_version:
                 # reset the combined schema for each stack version
