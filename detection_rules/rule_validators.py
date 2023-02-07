@@ -45,6 +45,7 @@ class KQLValidator(QueryValidator):
                 self.validate_integration(data, meta, package_integrations)
 
             if beats.parse_beats_from_index(data.index or []):
+                # validate the query against fields within beats
                 self.validate_beats(data, meta)
 
     def validate_beats(self, data: QueryRuleData, meta: RuleMeta) -> None:
@@ -164,6 +165,7 @@ class EQLValidator(QueryValidator):
                 self.validate_integration(data, meta, package_integrations)
 
             if beats.parse_beats_from_index(data.index or []):
+                # validate the query against fields within beats
                 self.validate_beats(data, meta)
 
     def validate_beats(self, data: QueryRuleData, meta: RuleMeta) -> None:
