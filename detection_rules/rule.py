@@ -678,7 +678,7 @@ class BaseRuleContents(ABC):
     @property
     def is_dirty(self) -> Optional[bool]:
         """Determine if the rule has changed since its version was locked."""
-        min_stack = Version.parse(self.get_supported_version())
+        min_stack = Version.parse(self.get_supported_version(), optional_minor_and_patch=True)
         existing_sha256 = self.version_lock.get_locked_hash(self.id, str(min_stack).rstrip(".0"))
 
         if existing_sha256 is not None:
@@ -743,7 +743,7 @@ class BaseRuleContents(ABC):
         """Get the lowest stack version for the rule that is currently supported in the form major.minor."""
         rule_min_stack = self.metadata.get('min_stack_version')
         min_stack = self.convert_supported_version(rule_min_stack)
-        return str(min_stack)
+        return f"{min_stack.major}.{min_stack.minor}"
 
     def _post_dict_transform(self, obj: dict) -> dict:
         """Transform the converted API in place before sending to Kibana."""
