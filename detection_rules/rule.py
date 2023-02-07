@@ -1022,7 +1022,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         """Check for compatibility between restricted fields and the min_stack_version of the rule."""
         default_min_stack = get_min_supported_stack_version()
         if self.metadata.min_stack_version is not None:
-            min_stack = Version.parse(self.metadata.min_stack_version)
+            min_stack = Version.parse(self.metadata.min_stack_version, optional_minor_and_patch=True)
         else:
             min_stack = default_min_stack
         restricted = self.data.get_restricted_fields
