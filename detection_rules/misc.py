@@ -8,8 +8,9 @@ import os
 import re
 import time
 import uuid
-from functools import wraps
 from pathlib import Path
+
+from functools import wraps
 from typing import NoReturn
 
 import click
@@ -18,9 +19,9 @@ import requests
 # this is primarily for type hinting - all use of the github client should come from GithubClient class
 try:
     from github import Github
+    from github.Repository import Repository
     from github.GitRelease import GitRelease
     from github.GitReleaseAsset import GitReleaseAsset
-    from github.Repository import Repository
 except ImportError:
     # for type hinting
     Github = None  # noqa: N806
@@ -321,7 +322,6 @@ def get_kibana_client(cloud_id, kibana_url, kibana_user, kibana_password, kibana
                       provider_type, provider_name, **kwargs):
     """Get an authenticated Kibana client."""
     from requests import HTTPError
-
     from kibana import Kibana
 
     if not (cloud_id or kibana_url):
@@ -384,7 +384,6 @@ def add_client(*client_type, add_to_ctx=True, add_func_arg=True):
     """Wrapper to add authed client."""
     from elasticsearch import Elasticsearch
     from elasticsearch.exceptions import AuthenticationException
-
     from kibana import Kibana
 
     def _wrapper(func):
