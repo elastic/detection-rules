@@ -40,13 +40,12 @@ class KQLValidator(QueryValidator):
             packages_manifest = load_integrations_manifests()
             package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
 
+            # validate the query against fields within beats
+            self.validate_beats(data, meta)
+
             if package_integrations:
                 # validate the query against related integration fields
                 self.validate_integration(data, meta, package_integrations)
-
-            if beats.parse_beats_from_index(data.index or []):
-                # validate the query against fields within beats
-                self.validate_beats(data, meta)
 
     def validate_beats(self, data: QueryRuleData, meta: RuleMeta) -> None:
         """Validate the query against the beats schema."""
@@ -161,13 +160,12 @@ class EQLValidator(QueryValidator):
             packages_manifest = load_integrations_manifests()
             package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
 
+            # validate the query against fields within beats
+            self.validate_beats(data, meta)
+
             if package_integrations:
                 # validate the query against related integration fields
                 self.validate_integration(data, meta, package_integrations)
-
-            if beats.parse_beats_from_index(data.index or []):
-                # validate the query against fields within beats
-                self.validate_beats(data, meta)
 
     def validate_beats(self, data: QueryRuleData, meta: RuleMeta) -> None:
         """Validate the query against the beats schema."""
@@ -239,13 +237,6 @@ class EQLValidator(QueryValidator):
                         print(f"\nWarning: `{field}` in `{data.name}` not found in schema. {trailer}")
                 else:
                     raise exc
-
-            # Still need to check endgame if it's in the index
-            endgame_schema = self.get_endgame_schema(data.index, endgame_version)
-            if endgame_schema:
-                # validate query against the endgame schema
-                err_trailer = f'stack: {stack_version}, endgame: {endgame_version}'
-                self.validate_query_with_schema(data=data, schema=endgame_schema, err_trailer=err_trailer)
 
         # don't error on fields that are in another integration schema
         for field in list(error_fields.keys()):
