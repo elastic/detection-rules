@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2023/01/11"
-integration = ["windows"]
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.4.0"
-updated_date = "2023/01/11"
+updated_date = "2023/02/01"
 
 [rule]
 author = ["Elastic"]
@@ -28,8 +28,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.action == "start" and process.name : "OUTLOOK.EXE"  and 
- process.Ext.effective_parent.name != null and 
+process where event.action == "start" and process.name : "OUTLOOK.EXE"  and
+ process.Ext.effective_parent.name != null and
  not process.Ext.effective_parent.executable : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*")
 '''
 
@@ -56,14 +56,14 @@ reference = "https://attack.mitre.org/tactics/TA0009/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-[[rule.threat.technique]] 
-id = "T1559" 
-name = "Inter-Process Communication" 
+[[rule.threat.technique]]
+id = "T1559"
+name = "Inter-Process Communication"
 reference = "https://attack.mitre.org/techniques/T1559/"
 
-[[rule.threat.technique.subtechnique]] 
+[[rule.threat.technique.subtechnique]]
 id = "T1559.001"
-name = "Component Object Model" 
+name = "Component Object Model"
 reference = "https://attack.mitre.org/techniques/T1559/001/"
 
 
