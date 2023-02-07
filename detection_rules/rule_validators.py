@@ -41,14 +41,14 @@ class KQLValidator(QueryValidator):
             package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
 
             # validate the query against fields within beats
-            self.validate_beats(data, meta)
+            self.validate_stack_combos(data, meta)
 
             if package_integrations:
                 # validate the query against related integration fields
                 self.validate_integration(data, meta, package_integrations)
 
-    def validate_beats(self, data: QueryRuleData, meta: RuleMeta) -> None:
-        """Validate the query against the beats schema."""
+    def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> None:
+        """Validate the query against ECS and beats schemas across stack combinations."""
         for stack_version, mapping in meta.get_validation_stack_versions().items():
             beats_version = mapping['beats']
             ecs_version = mapping['ecs']
@@ -161,14 +161,14 @@ class EQLValidator(QueryValidator):
             package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
 
             # validate the query against fields within beats
-            self.validate_beats(data, meta)
+            self.validate_stack_combos(data, meta)
 
             if package_integrations:
                 # validate the query against related integration fields
                 self.validate_integration(data, meta, package_integrations)
 
-    def validate_beats(self, data: QueryRuleData, meta: RuleMeta) -> None:
-        """Validate the query against the beats schema."""
+    def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> None:
+        """Validate the query against ECS and beats schemas across stack combinations."""
         for stack_version, mapping in meta.get_validation_stack_versions().items():
             beats_version = mapping['beats']
             ecs_version = mapping['ecs']
