@@ -11,7 +11,7 @@ import eql
 
 import kql
 
-from . import ecs, endgame
+from . import beats, ecs, endgame
 from .integrations import get_integration_schema_data, load_integrations_manifests
 from .rule import QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents
 
@@ -43,28 +43,33 @@ class KQLValidator(QueryValidator):
             if package_integrations:
                 # validate the query against related integration fields
                 self.validate_integration(data, meta, package_integrations)
-            else:
-                for stack_version, mapping in meta.get_validation_stack_versions().items():
-                    beats_version = mapping['beats']
-                    ecs_version = mapping['ecs']
-                    err_trailer = f'stack: {stack_version}, beats: {beats_version}, ecs: {ecs_version}'
 
-                    beat_types, beat_schema, schema = self.get_beats_schema(data.index or [],
-                                                                            beats_version, ecs_version)
+            if beats.parse_beats_from_index(data.index or []):
+                self.validate_beats(data, meta)
 
-                    try:
-                        kql.parse(self.query, schema=schema)
-                    except kql.KqlParseError as exc:
-                        message = exc.error_msg
-                        trailer = err_trailer
-                        if "Unknown field" in message and beat_types:
-                            trailer = f"\nTry adding event.module or event.dataset to specify beats module\n\n{trailer}"
+    def validate_beats(self, data: QueryRuleData, meta: RuleMeta) -> None:
+        """Validate the query against the beats schema."""
+        for stack_version, mapping in meta.get_validation_stack_versions().items():
+            beats_version = mapping['beats']
+            ecs_version = mapping['ecs']
+            err_trailer = f'stack: {stack_version}, beats: {beats_version}, ecs: {ecs_version}'
 
-                        raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
-                                                len(exc.caret.lstrip()), trailer=trailer) from None
-                    except Exception:
-                        print(err_trailer)
-                        raise
+            beat_types, beat_schema, schema = self.get_beats_schema(data.index or [],
+                                                                    beats_version, ecs_version)
+
+            try:
+                kql.parse(self.query, schema=schema)
+            except kql.KqlParseError as exc:
+                message = exc.error_msg
+                trailer = err_trailer
+                if "Unknown field" in message and beat_types:
+                    trailer = f"\nTry adding event.module or event.dataset to specify beats module\n\n{trailer}"
+
+                raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
+                                        len(exc.caret.lstrip()), trailer=trailer) from None
+            except Exception:
+                print(err_trailer)
+                raise
 
     def validate_integration(self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]) -> None:
         """Validate the query, called from the parent which contains [metadata] information."""
@@ -158,26 +163,30 @@ class EQLValidator(QueryValidator):
                 # validate the query against related integration fields
                 self.validate_integration(data, meta, package_integrations)
 
-            else:
-                for stack_version, mapping in meta.get_validation_stack_versions().items():
-                    beats_version = mapping['beats']
-                    ecs_version = mapping['ecs']
-                    endgame_version = mapping['endgame']
-                    err_trailer = f'stack: {stack_version}, beats: {beats_version},' \
-                                  f'ecs: {ecs_version}, endgame: {endgame_version}'
+            if beats.parse_beats_from_index(data.index or []):
+                self.validate_beats(data, meta)
 
-                    beat_types, beat_schema, schema = self.get_beats_schema(data.index or [],
-                                                                            beats_version, ecs_version)
-                    endgame_schema = self.get_endgame_schema(data.index, endgame_version)
-                    eql_schema = ecs.KqlSchema2Eql(schema)
+    def validate_beats(self, data: QueryRuleData, meta: RuleMeta) -> None:
+        """Validate the query against the beats schema."""
+        for stack_version, mapping in meta.get_validation_stack_versions().items():
+            beats_version = mapping['beats']
+            ecs_version = mapping['ecs']
+            endgame_version = mapping['endgame']
+            err_trailer = f'stack: {stack_version}, beats: {beats_version},' \
+                          f'ecs: {ecs_version}, endgame: {endgame_version}'
 
-                    # validate query against the beats and eql schema
-                    self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer,
-                                                    beat_types=beat_types)
+            beat_types, beat_schema, schema = self.get_beats_schema(data.index or [],
+                                                                    beats_version, ecs_version)
+            endgame_schema = self.get_endgame_schema(data.index, endgame_version)
+            eql_schema = ecs.KqlSchema2Eql(schema)
 
-                    if endgame_schema:
-                        # validate query against the endgame schema
-                        self.validate_query_with_schema(data=data, schema=endgame_schema, err_trailer=err_trailer)
+            # validate query against the beats and eql schema
+            self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer,
+                                            beat_types=beat_types)
+
+            if endgame_schema:
+                # validate query against the endgame schema
+                self.validate_query_with_schema(data=data, schema=endgame_schema, err_trailer=err_trailer)
 
     def validate_integration(self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]) -> None:
         """Validate an EQL query while checking TOMLRule against integration schemas."""
