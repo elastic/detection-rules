@@ -111,7 +111,8 @@ class KQLValidator(QueryValidator):
                                f"{stack_version=}, {ecs_version=}"
                                )
                     error_fields[field] = {"error": exc, "trailer": trailer}
-                    print(f"\nWarning: `{field}` in `{data.name}` not found in schema. {trailer}")
+                    if data.get("notify", False):
+                        print(f"\nWarning: `{field}` in `{data.name}` not found in schema. {trailer}")
                 else:
                     raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
                                             len(exc.caret.lstrip()), trailer=trailer) from None
@@ -234,7 +235,8 @@ class EQLValidator(QueryValidator):
                                f"{stack_version=}, {ecs_version=}"
                                )
                     error_fields[field] = {"error": exc, "trailer": trailer}
-                    print(f"\nWarning: `{field}` in `{data.name}` not found in schema. {trailer}")
+                    if data.get("notify", False):
+                        print(f"\nWarning: `{field}` in `{data.name}` not found in schema. {trailer}")
                 else:
                     raise exc
 
