@@ -617,8 +617,8 @@ class TestRuleTiming(BaseRuleTest):
             has_event_ingested = rule.contents.data.timestamp_override == 'event.ingested'
             indexes = rule.contents.data.get('index', [])
             beats_indexes = parse_beats_from_index(indexes)
-            min_stack_is_less_than_82 = Version.parse(rule.contents.metadata.min_stack_version or '7.13.0') \
-                < Version.parse("8.2.0")
+            min_stack_is_less_than_82 = Version.parse(rule.contents.metadata.min_stack_version or '7.13.0',
+                                                      optional_minor_and_patch=True) < Version.parse("8.2.0")
             config = rule.contents.data.get('note') or ''
             rule_str = self.rule_str(rule, trailer=None)
 

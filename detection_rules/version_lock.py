@@ -202,7 +202,8 @@ class VersionLock:
         for rule in rules:
             if rule.contents.metadata.maturity == "production" or rule.id in newly_deprecated:
                 # assume that older stacks are always locked first
-                min_stack = Version.parse(rule.contents.get_supported_version())
+                min_stack = Version.parse(rule.contents.get_supported_version(),
+                                          optional_minor_and_patch=True)
 
                 lock_from_rule = rule.contents.lock_info(bump=not exclude_version_update)
                 lock_from_file: dict = lock_file_contents.setdefault(rule.id, {})
