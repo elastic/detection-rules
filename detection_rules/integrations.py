@@ -10,7 +10,7 @@ import json
 import re
 from collections import OrderedDict
 from pathlib import Path
-from typing import Generator, Tuple, Union
+from typing import Generator, Tuple, Union, Optional
 
 import requests
 from semver import Version
@@ -213,11 +213,14 @@ def find_latest_compatible_version(package: str, integration: str,
     raise ValueError(f"no compatible version for integration {package}:{integration}")
 
 
-def get_integration_manifests(integration: str, prerelease: str, kibana_version: str) -> list:
+def get_integration_manifests(integration: str, prerelease: Optional[bool] = False,
+                              kibana_version: Optional[str] = "") -> list:
     """Iterates over specified integrations from package-storage and combines manifests per version."""
     epr_search_url = "https://epr.elastic.co/search"
     if not prerelease:
         prerelease = "false"
+    else:
+        prerelease = "true"
 
     # link for search parameters - https://github.com/elastic/package-registry
     epr_search_parameters = {"package": f"{integration}", "prerelease": prerelease,
@@ -239,7 +242,7 @@ def get_integration_manifests(integration: str, prerelease: str, kibana_version:
 
 def find_latest_integration_version(integration: str, maturity: str, stack_version: Version) -> Version:
     """Finds the latest integration version based on maturity and stack version"""
-    prerelease = "false" if maturity == "ga" else "true"
+    prerelease = False if maturity == "ga" else True
     existing_pkgs = get_integration_manifests(integration, prerelease, str(stack_version))
     if maturity == "ga":
         existing_pkgs = [pkg for pkg in existing_pkgs if not
