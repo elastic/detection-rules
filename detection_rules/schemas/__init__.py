@@ -225,6 +225,7 @@ def migrate_to_8_6(version: Version, api_contents: dict) -> dict:
     """Default migration for 8.6."""
     return strip_additional_properties(version, api_contents)
 
+
 @migrate("8.7")
 def migrate_to_8_7(version: Version, api_contents: dict) -> dict:
     """Default migration for 8.7."""
