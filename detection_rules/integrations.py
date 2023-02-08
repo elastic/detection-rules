@@ -242,7 +242,7 @@ def get_integration_manifests(integration: str, prerelease: Optional[bool] = Fal
 
 def find_latest_integration_version(integration: str, maturity: str, stack_version: Version) -> Version:
     """Finds the latest integration version based on maturity and stack version"""
-    prerelease = "false" if maturity == "ga" else "true"
+    prerelease = False if maturity == "ga" else True
     existing_pkgs = get_integration_manifests(integration, prerelease, str(stack_version))
     if maturity == "ga":
         existing_pkgs = [pkg for pkg in existing_pkgs if not
