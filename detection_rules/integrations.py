@@ -213,12 +213,14 @@ def find_latest_compatible_version(package: str, integration: str,
     raise ValueError(f"no compatible version for integration {package}:{integration}")
 
 
-def get_integration_manifests(integration: str, prerelease: Optional[str] = "false",
+def get_integration_manifests(integration: str, prerelease: Optional[bool] = False,
                               kibana_version: Optional[str] = "") -> list:
     """Iterates over specified integrations from package-storage and combines manifests per version."""
     epr_search_url = "https://epr.elastic.co/search"
     if not prerelease:
         prerelease = "false"
+    else:
+        prerelease = "true"
 
     # link for search parameters - https://github.com/elastic/package-registry
     epr_search_parameters = {"package": f"{integration}", "prerelease": prerelease,
