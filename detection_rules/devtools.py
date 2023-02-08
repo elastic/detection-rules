@@ -17,31 +17,39 @@ import typing
 import urllib.parse
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, List, Optional, Tuple
 
 import click
 import requests.exceptions
+from semver import Version
 import yaml
 from elasticsearch import Elasticsearch
 from eql.table import Table
 
 from kibana.connector import Kibana
+
 from . import attack, rule_loader, utils
-from .cli_utils import single_collection, multi_collection
+from .cli_utils import single_collection
 from .docs import IntegrationSecurityDocs
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
+from .integrations import (build_integrations_manifest,
+                           build_integrations_schemas,
+                           find_latest_compatible_version,
+                           find_latest_integration_version,
+                           load_integrations_manifests)
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
-from .packaging import PACKAGE_FILE, RELEASE_DIR, CURRENT_RELEASE_PATH, Package, current_stack_version
-from .version_lock import VersionLockFile, default_version_lock
-from .rule import AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData, ThreatMapping, TOMLRule
+from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
+                        Package, current_stack_version)
+from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
+                   ThreatMapping, TOMLRule)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
-from .semver import Version
-from .utils import dict_hash, get_path, get_etc_path, load_dump
-from .integrations import build_integrations_manifest
+from .utils import (dict_hash, get_etc_path, get_path, load_dump,
+                    load_etc_dump, save_etc_dump)
+from .version_lock import VersionLockFile, default_version_lock
 
 RULES_DIR = get_path('rules')
 GH_CONFIG = Path.home() / ".config" / "gh" / "hosts.yml"
@@ -147,6 +155,47 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
     return docs
 
 
+@dev_group.command("bump-pkg-versions")
+@click.option("--major-release", is_flag=True, help="bump the major version")
+@click.option("--minor-release", is_flag=True, help="bump the minor version")
+@click.option("--patch-release", is_flag=True, help="bump the patch version")
+@click.option("--maturity", type=click.Choice(['beta', 'ga'], case_sensitive=False),
+              required=True, help="beta or production versions")
+def bump_versions(major_release: bool, minor_release: bool, patch_release: bool, maturity: str):
+    """Bump the versions"""
+
+    pkg_data = load_etc_dump('packages.yml')['package']
+    kibana_ver = Version.parse(pkg_data["name"], optional_minor_and_patch=True)
+    pkg_ver = Version.parse(pkg_data["registry_data"]["version"])
+    pkg_kibana_ver = Version.parse(pkg_data["registry_data"]["conditions"]["kibana.version"].lstrip("^"))
+    if major_release:
+        pkg_data["name"] = str(kibana_ver.bump_major()).rstrip(".0")
+        pkg_data["registry_data"]["conditions"]["kibana.version"] = f"^{pkg_kibana_ver.bump_major()}"
+        pkg_data["registry_data"]["version"] = str(pkg_ver.bump_major().bump_prerelease("beta"))
+    if minor_release:
+        pkg_data["name"] = str(kibana_ver.bump_minor()).rstrip(".0")
+        pkg_data["registry_data"]["conditions"]["kibana.version"] = f"^{pkg_kibana_ver.bump_minor()}"
+        pkg_data["registry_data"]["version"] = str(pkg_ver.bump_minor().bump_prerelease("beta"))
+        pkg_data["registry_data"]["release"] = maturity
+    if patch_release:
+        latest_patch_release_ver = find_latest_integration_version("security_detection_engine",
+                                                                   maturity, pkg_data["name"])
+        if maturity == "ga":
+            pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_patch())
+            pkg_data["registry_data"]["release"] = maturity
+        else:
+            pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_prerelease("beta"))
+            pkg_data["registry_data"]["release"] = maturity
+
+    click.echo(f"Kibana version: {pkg_data['name']}")
+    click.echo(f"Package Kibana version: {pkg_data['registry_data']['conditions']['kibana.version']}")
+    click.echo(f"Package version: {pkg_data['registry_data']['version']}")
+
+    # we only save major and minor version bumps
+    # patch version bumps are OOB packages and thus we keep the base versioning
+    save_etc_dump({"package": pkg_data}, "packages.yml")
+
+
 @dataclasses.dataclass
 class GitChangeEntry:
     status: str
@@ -205,7 +254,7 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
     }
     exceptions.update(exception_list.split(","))
 
-    target_stack_version = Version(target_stack_version)[:2]
+    target_stack_version = Version.parse(target_stack_version, optional_minor_and_patch=True)
 
     # load a structured summary of the diff from git
     git_output = subprocess.check_output(["git", "diff", "--name-status", "HEAD"])
@@ -226,7 +275,8 @@ def prune_staging_area(target_stack_version: str, dry_run: bool, exception_list:
             dict_contents = RuleCollection.deserialize_toml_string(change.read())
             min_stack_version: Optional[str] = dict_contents.get("metadata", {}).get("min_stack_version")
 
-            if min_stack_version is not None and target_stack_version < Version(min_stack_version)[:2]:
+            if min_stack_version is not None and \
+                    (target_stack_version < Version.parse(min_stack_version, optional_minor_and_patch=True)):
                 # rule is incompatible, add to the list of reversions to make later
                 reversions.append(change)
 
@@ -310,10 +360,11 @@ def kibana_diff(rule_id, repo, branch, threads):
     return diff
 
 
-def add_git_args(f):
+def add_kibana_git_args(f):
     @click.argument("local-repo", default=get_path("..", "kibana"))
     @click.option("--kibana-directory", "-d", help="Directory to overwrite in Kibana",
-                  default="x-pack/plugins/security_solution/server/lib/detection_engine/rules/prepackaged_rules")
+                  default="x-pack/plugins/security_solution/server/lib/detection_engine/"
+                          "prebuilt_rules/content/prepackaged_rules")
     @click.option("--base-branch", "-b", help="Base branch in Kibana", default="main")
     @click.option("--branch-name", "-n", help="New branch for the rules commit")
     @click.option("--ssh/--http", is_flag=True, help="Method to use for cloning")
@@ -327,7 +378,7 @@ def add_git_args(f):
 
 
 @dev_group.command("kibana-commit")
-@add_git_args
+@add_kibana_git_args
 @click.option("--push", "-p", is_flag=True, help="Push the commit to the remote")
 @click.pass_context
 def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_directory: str, base_branch: str,
@@ -398,7 +449,7 @@ def kibana_commit(ctx, local_repo: str, github_repo: str, ssh: bool, kibana_dire
 @click.option("--fork-owner", "-f", help="Owner of forked branch (ex: elastic)")
 # Pending an official GitHub API
 # @click.option("--automerge", is_flag=True, help="Enable auto-merge on the PR")
-@add_git_args
+@add_kibana_git_args
 @click.pass_context
 def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...], draft: bool, fork_owner: str,
               token: str, **kwargs):
@@ -696,6 +747,7 @@ def package_stats(ctx, token, threads):
 def search_rule_prs(ctx, no_loop, query, columns, language, token, threads):
     """Use KQL or EQL to find matching rules from active GitHub PRs."""
     from uuid import uuid4
+
     from .main import search_rules
 
     all_rules: Dict[Path, TOMLRule] = {}
@@ -850,13 +902,13 @@ def trim_version_lock(min_version: str, dry_run: bool):
     stack_versions = get_stack_versions()
     assert min_version in stack_versions, f'Unknown min_version ({min_version}), expected: {", ".join(stack_versions)}'
 
-    min_version = Version(min_version)
+    min_version = Version.parse(min_version)
     version_lock_dict = default_version_lock.version_lock.to_dict()
     removed = {}
 
     for rule_id, lock in version_lock_dict.items():
         if 'previous' in lock:
-            prev_vers = [Version(v) for v in list(lock['previous'])]
+            prev_vers = [Version.parse(v, optional_minor_and_patch=True) for v in list(lock['previous'])]
             outdated_vers = [v for v in prev_vers if v <= min_version]
 
             if not outdated_vers:
@@ -1044,7 +1096,9 @@ def rule_survey(ctx: click.Context, query, date_range, dump_file, hide_zero_coun
                 elasticsearch_client: Elasticsearch = None, kibana_client: Kibana = None):
     """Survey rule counts."""
     from kibana.resources import Signal
+
     from .main import search_rules
+
     # from .eswrap import parse_unique_field_results
 
     survey_results = []
@@ -1127,10 +1181,50 @@ def integrations_group():
 def build_integration_manifests(overwrite: bool):
     """Builds consolidated integrations manifests file."""
     click.echo("loading rules to determine all integration tags")
+
+    def flatten(tag_list: List[str]) -> List[str]:
+        return list(set([tag for tags in tag_list for tag in (flatten(tags) if isinstance(tags, list) else [tags])]))
+
     rules = RuleCollection.default()
-    integration_tags = list(set([r.contents.metadata.integration for r in rules if r.contents.metadata.integration]))
-    click.echo(f"integration tags identified: {integration_tags}")
-    build_integrations_manifest(overwrite, integration_tags)
+    integration_tags = [r.contents.metadata.integration for r in rules if r.contents.metadata.integration]
+    unique_integration_tags = flatten(integration_tags)
+    click.echo(f"integration tags identified: {unique_integration_tags}")
+    build_integrations_manifest(overwrite, unique_integration_tags)
+
+
+@integrations_group.command('build-schemas')
+@click.option('--overwrite', '-o', is_flag=True, help="Overwrite the entire integrations-schema.json.gz file")
+def build_integration_schemas(overwrite: bool):
+    """Builds consolidated integrations schemas file."""
+    click.echo("Building integration schemas...")
+
+    start_time = time.perf_counter()
+    build_integrations_schemas(overwrite)
+    end_time = time.perf_counter()
+    click.echo(f"Time taken to generate schemas: {(end_time - start_time)/60:.2f} minutes")
+
+
+@integrations_group.command('show-latest-compatible')
+@click.option('--package', '-p', help='Name of package')
+@click.option('--stack_version', '-s', required=True, help='Rule stack version')
+def show_latest_compatible_version(package: str, stack_version: str) -> None:
+    """Prints the latest integration compatible version for specified package based on stack version supplied."""
+
+    packages_manifest = None
+    try:
+        packages_manifest = load_integrations_manifests()
+    except Exception as e:
+        click.echo(f"Error loading integrations manifests: {str(e)}")
+        return
+
+    try:
+        version = find_latest_compatible_version(package, "",
+                                                 Version.parse(stack_version, optional_minor_and_patch=True),
+                                                 packages_manifest)
+        click.echo(f"Compatible integration {version=}")
+    except Exception as e:
+        click.echo(f"Error finding compatible version: {str(e)}")
+        return
 
 
 @dev_group.group('schemas')
@@ -1180,12 +1274,13 @@ def refresh_threat_mappings():
 
 
 @attack_group.command('update-rules')
-@multi_collection
-def update_attack_in_rules(rules: RuleCollection) -> List[Optional[TOMLRule]]:
+def update_attack_in_rules() -> List[Optional[TOMLRule]]:
     """Update threat mappings attack data in all rules."""
     new_rules = []
     redirected_techniques = attack.load_techniques_redirect()
     today = time.strftime('%Y/%m/%d')
+
+    rules = RuleCollection.default()
 
     for rule in rules.rules:
         needs_update = False
@@ -1195,14 +1290,29 @@ def update_attack_in_rules(rules: RuleCollection) -> List[Optional[TOMLRule]]:
 
         for entry in threat:
             tactic = entry.tactic.name
-            techniques = []
+            technique_ids = []
+            technique_names = []
             for technique in entry.technique or []:
-                techniques.append(technique.id)
-                techniques.extend([st.id for st in technique.subtechnique or []])
+                technique_ids.append(technique.id)
+                technique_names.append(technique.name)
+                technique_ids.extend([st.id for st in technique.subtechnique or []])
+                technique_names.extend([st.name for st in technique.subtechnique or []])
 
-            if any([t for t in techniques if t in redirected_techniques]):
+            # check redirected techniques by ID
+            # redirected techniques are technique IDs that have changed but represent the same technique
+            if any([tid for tid in technique_ids if tid in redirected_techniques]):
                 needs_update = True
-                threat_pending_update[tactic] = techniques
+                threat_pending_update[tactic] = technique_ids
+                click.echo(f"'{rule.contents.name}' requires update - technique ID change")
+
+            # check for name change
+            # happens if technique ID is the same but name changes
+            expected_technique_names = [attack.technique_lookup[str(tid)]["name"] for tid in technique_ids]
+            if any([tname for tname in technique_names if tname not in expected_technique_names]):
+                needs_update = True
+                threat_pending_update[tactic] = technique_ids
+                click.echo(f"'{rule.contents.name}' requires update - technique name change")
+
             else:
                 valid_threat.append(entry)
 
@@ -1219,12 +1329,12 @@ def update_attack_in_rules(rules: RuleCollection) -> List[Optional[TOMLRule]]:
             new_meta = dataclasses.replace(rule.contents.metadata, updated_date=today)
             new_data = dataclasses.replace(rule.contents.data, threat=valid_threat)
             new_contents = dataclasses.replace(rule.contents, data=new_data, metadata=new_meta)
-            new_rule = TOMLRule(contents=new_contents)
+            new_rule = TOMLRule(contents=new_contents, path=rule.path)
             new_rule.save_toml()
             new_rules.append(new_rule)
 
     if new_rules:
-        click.echo(f'{len(new_rules)} rules updated')
+        click.echo(f'\nFinished - {len(new_rules)} rules updated!')
     else:
         click.echo('No rule changes needed')
     return new_rules

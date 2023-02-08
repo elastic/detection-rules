@@ -1,20 +1,21 @@
 [metadata]
 creation_date = "2022/11/09"
+integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/11/09"
+updated_date = "2023/02/01"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identify the modification of the msPKIAccountCredentials attribute in an Active Directory User Object. Attackers can abuse
-the credentials roaming feature to overwrite an arbitrary file for privilege escalation. ms-PKI-AccountCredentials
+Identify the modification of the msPKIAccountCredentials attribute in an Active Directory User Object. Attackers can
+abuse the credentials roaming feature to overwrite an arbitrary file for privilege escalation. ms-PKI-AccountCredentials
 contains binary large objects (BLOBs) of encrypted credential objects from the credential manager store, private keys,
 certificates, and certificate requests.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*"]
+index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Modification of the msPKIAccountCredentials"
@@ -42,9 +43,9 @@ Set-AuditRule -AdObjectPath 'AD:\\CN=Users,DC=Domain,DC=com' -WellKnownSidType W
 ```
 """
 references = [
-"https://www.mandiant.com/resources/blog/apt29-windows-credential-roaming",
-"https://social.technet.microsoft.com/wiki/contents/articles/11483.windows-credential-roaming.aspx",
-"https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/event-5136"
+    "https://www.mandiant.com/resources/blog/apt29-windows-credential-roaming",
+    "https://social.technet.microsoft.com/wiki/contents/articles/11483.windows-credential-roaming.aspx",
+    "https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/event-5136",
 ]
 risk_score = 47
 rule_id = "670b3b5a-35e5-42db-bd36-6c5b9b4b7313"
@@ -72,3 +73,4 @@ reference = "https://attack.mitre.org/techniques/T1068/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

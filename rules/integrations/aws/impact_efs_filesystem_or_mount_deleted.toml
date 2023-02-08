@@ -1,17 +1,17 @@
 [metadata]
 creation_date = "2021/08/27"
+integration = ["aws"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/11/30"
-integration = "aws"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Austin Songer"]
 description = """
-Detects when an EFS File System or Mount is deleted. An adversary could break any file system using the mount target that
-is being deleted, which might disrupt instances or applications using those mounts. The mount must be deleted prior to
-deleting the File System, or the adversary will be unable to delete the File System.
+Detects when an EFS File System or Mount is deleted. An adversary could break any file system using the mount target
+that is being deleted, which might disrupt instances or applications using those mounts. The mount must be deleted prior
+to deleting the File System, or the adversary will be unable to delete the File System.
 """
 false_positives = [
     """
@@ -44,6 +44,7 @@ query = '''
 event.dataset:aws.cloudtrail and event.provider:elasticfilesystem.amazonaws.com and
 event.action:(DeleteMountTarget or DeleteFileSystem) and event.outcome:success
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
