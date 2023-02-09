@@ -7,13 +7,13 @@
 import copy
 import unittest
 import uuid
+from semver import Version
 
 import eql
 from detection_rules import utils
 from detection_rules.misc import load_current_package_version
 from detection_rules.rule import TOMLRuleContents
 from detection_rules.schemas import downgrade
-from detection_rules.semver import Version
 from detection_rules.version_lock import VersionLockFile
 from marshmallow import ValidationError
 
@@ -99,7 +99,7 @@ class TestSchemas(unittest.TestCase):
 
     def test_query_downgrade_7_x(self):
         """Downgrade a standard KQL rule."""
-        if Version(self.current_version) > (7,):
+        if Version.parse(self.current_version, optional_minor_and_patch=True).major > 7:
             return
 
         self.assertDictEqual(downgrade(self.v711_kql, "7.11"), self.v711_kql)
@@ -120,7 +120,7 @@ class TestSchemas(unittest.TestCase):
 
     def test_versioned_downgrade_7_x(self):
         """Downgrade a KQL rule with version information"""
-        if Version(self.current_version) > (7,):
+        if Version.parse(self.current_version, optional_minor_and_patch=True).major > 7:
             return
 
         api_contents = self.v79_kql
@@ -138,7 +138,7 @@ class TestSchemas(unittest.TestCase):
 
     def test_threshold_downgrade_7_x(self):
         """Downgrade a threshold rule that was first introduced in 7.9."""
-        if Version(self.current_version) > (7,):
+        if Version.parse(self.current_version, optional_minor_and_patch=True).major > 7:
             return
 
         api_contents = self.v712_threshold_rule
@@ -167,17 +167,17 @@ class TestSchemas(unittest.TestCase):
 
     def test_query_downgrade_8_x(self):
         """Downgrade a standard KQL rule."""
-        if Version(self.current_version) > (8,):
+        if Version.parse(self.current_version, optional_minor_and_patch=True).major > 8:
             return
 
     def test_versioned_downgrade_8_x(self):
         """Downgrade a KQL rule with version information"""
-        if Version(self.current_version) > (8,):
+        if Version.parse(self.current_version, optional_minor_and_patch=True).major > 8:
             return
 
     def test_threshold_downgrade_8_x(self):
         """Downgrade a threshold rule that was first introduced in 7.9."""
-        if Version(self.current_version) > (8,):
+        if Version.parse(self.current_version, optional_minor_and_patch=True).major > 7:
             return
 
     def test_eql_validation(self):
@@ -285,7 +285,7 @@ class TestVersions(unittest.TestCase):
 
     def test_stack_schema_map(self):
         """Test to ensure that an entry exists in the stack-schema-map for the current package version."""
-        package_version = Version(load_current_package_version())
+        package_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         stack_map = utils.load_etc_dump('stack-schema-map.yaml')
         err_msg = f'There is no entry defined for the current package ({package_version}) in the stack-schema-map'
-        self.assertIn(package_version, [Version(v)[:2] for v in stack_map], err_msg)
+        self.assertIn(package_version, [Version.parse(v) for v in stack_map], err_msg)
