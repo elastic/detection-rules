@@ -169,11 +169,13 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
     pkg_ver = Version.parse(pkg_data["registry_data"]["version"])
     pkg_kibana_ver = Version.parse(pkg_data["registry_data"]["conditions"]["kibana.version"].lstrip("^"))
     if major_release:
-        pkg_data["name"] = str(kibana_ver.bump_major()).rstrip(".0")
+        major_bump = kibana_ver.bump_major()
+        pkg_data["name"] = f"{major_bump.major}.{major_bump.minor}"
         pkg_data["registry_data"]["conditions"]["kibana.version"] = f"^{pkg_kibana_ver.bump_major()}"
         pkg_data["registry_data"]["version"] = str(pkg_ver.bump_major().bump_prerelease("beta"))
     if minor_release:
-        pkg_data["name"] = str(kibana_ver.bump_minor()).rstrip(".0")
+        minor_bump = kibana_ver.bump_minor()
+        pkg_data["name"] = f"{minor_bump.major}.{minor_bump.minor}"
         pkg_data["registry_data"]["conditions"]["kibana.version"] = f"^{pkg_kibana_ver.bump_minor()}"
         pkg_data["registry_data"]["version"] = str(pkg_ver.bump_minor().bump_prerelease("beta"))
         pkg_data["registry_data"]["release"] = maturity
