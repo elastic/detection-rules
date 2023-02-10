@@ -23,7 +23,7 @@ class TestVersionLock(unittest.TestCase):
         for rule_id, lock in default_version_lock.version_lock.to_dict().items():
             if 'previous' in lock:
                 prev_vers = [Version.parse(v, optional_minor_and_patch=True) for v in list(lock['previous'])]
-                outdated = [str(v).lstrip(".0") for v in prev_vers if v < min_version]
+                outdated = [f"{v.major}.{v.minor}" for v in prev_vers if v < min_version]
                 if outdated:
                     errors[rule_id] = outdated
 
