@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/01/19"
 
 [rule]
 author = ["Elastic"]
@@ -14,10 +14,10 @@ shell. The linux utility(s) activity of spawning shell is not a standard use of 
 administrator. It may indicates an attempt to improve the capabilities or stability of an adversary access.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Linux Restricted Shell Breakout via  Linux Binary(s)"
+name = "Linux Restricted Shell Breakout via Linux Binary(s)"
 note = """## Triage and analysis
 
 ### Investigating Shell Evasion via Linux Utilities
@@ -97,13 +97,13 @@ references = [
 risk_score = 47
 rule_id = "52376a86-ee86-4967-97ae-1a05f55816f0"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution", "GTFOBins"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution", "GTFOBins", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where event.type == "start" and
-
+  (
     /* launch shells from unusual process */
     (process.name == "capsh" and process.args == "--") or
 
@@ -137,6 +137,7 @@ process where event.type == "start" and
     (process.parent.name == "mysql" and process.parent.args == "-e" and process.parent.args in ("\\!*sh", "\\!*bash", "\\!*dash", "\\!*/bin/sh", "\\!*/bin/bash", "\\!*/bin/dash")) or
     (process.parent.name == "ssh" and process.parent.args == "-o" and process.parent.args in ("ProxyCommand=;sh 0<&2 1>&2", "ProxyCommand=;bash 0<&2 1>&2", "ProxyCommand=;dash 0<&2 1>&2", "ProxyCommand=;/bin/sh 0<&2 1>&2", "ProxyCommand=;/bin/bash 0<&2 1>&2", "ProxyCommand=;/bin/dash 0<&2 1>&2")) or
     (process.parent.name in ("nawk", "mawk", "awk", "gawk") and process.parent.args : "BEGIN {system(*)}")
+  )
 '''
 
 
