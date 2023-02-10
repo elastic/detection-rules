@@ -679,7 +679,7 @@ class BaseRuleContents(ABC):
     def is_dirty(self) -> Optional[bool]:
         """Determine if the rule has changed since its version was locked."""
         min_stack = Version.parse(self.get_supported_version(), optional_minor_and_patch=True)
-        existing_sha256 = self.version_lock.get_locked_hash(self.id, str(min_stack).rstrip(".0"))
+        existing_sha256 = self.version_lock.get_locked_hash(self.id, f"{min_stack.major}.{min_stack.minor}")
 
         if existing_sha256 is not None:
             return existing_sha256 != self.sha256()
