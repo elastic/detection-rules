@@ -9,11 +9,11 @@ from pathlib import Path
 from typing import ClassVar, Dict, List, Optional, Union
 
 import click
+from semver import Version
 
 from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
 from .rule_loader import RuleCollection
 from .schemas import definitions
-from .semver import Version
 from .utils import cached, get_etc_path
 
 ETC_VERSION_LOCK_FILE = "version.lock.json"
@@ -170,7 +170,7 @@ class VersionLock:
 
     def manage_versions(self, rules: RuleCollection,
                         exclude_version_update=False, save_changes=False,
-                        verbose=True) -> (List[str], List[str], List[str]):
+                        verbose=True, buffer_int: int = 100) -> (List[str], List[str], List[str]):
         """Update the contents of the version.lock file and optionally save changes."""
         from .packaging import current_stack_version
 
@@ -202,7 +202,8 @@ class VersionLock:
         for rule in rules:
             if rule.contents.metadata.maturity == "production" or rule.id in newly_deprecated:
                 # assume that older stacks are always locked first
-                min_stack = Version(rule.contents.get_supported_version())
+                min_stack = Version.parse(rule.contents.get_supported_version(),
+                                          optional_minor_and_patch=True)
 
                 lock_from_rule = rule.contents.lock_info(bump=not exclude_version_update)
                 lock_from_file: dict = lock_file_contents.setdefault(rule.id, {})
@@ -224,6 +225,9 @@ class VersionLock:
                 latest_locked_stack_version = rule.contents.convert_supported_version(
                     lock_from_file.get("min_stack_version"))
 
+                # strip version down to only major.minor to compare against lock file versioning
+                stripped_version = f"{min_stack.major}.{min_stack.minor}"
+
                 if not lock_from_file or min_stack == latest_locked_stack_version:
                     route = 'A'
                     # 1) no breaking changes ever made or the first time a rule is created
@@ -233,13 +237,19 @@ class VersionLock:
 
                     # add the min_stack_version to the lock if it's explicitly set
                     if rule.contents.metadata.min_stack_version is not None:
-                        lock_from_file["min_stack_version"] = str(min_stack)
+                        lock_from_file["min_stack_version"] = stripped_version
                         log_msg = f'min_stack_version added: {min_stack}'
                         log_changes(rule, route, new_version, log_msg)
 
                 elif min_stack > latest_locked_stack_version:
                     route = 'B'
                     # 3) on the latest stack, locking in a breaking change
+
+                    # preserve buffer space to support forked version spacing
+                    if exclude_version_update:
+                        buffer_int -= 1
+                    lock_from_rule["version"] = lock_from_file["version"] + buffer_int
+
                     previous_lock_info = {
                         "max_allowable_version": lock_from_rule['version'] - 1,
                         "rule_name": lock_from_file["rule_name"],
@@ -253,27 +263,26 @@ class VersionLock:
                     lock_from_file["previous"][str(latest_locked_stack_version)] = previous_lock_info
 
                     # overwrite the "latest" part of the lock at the top level
-                    # TODO: would need to preserve space here as well if supporting forked version spacing
-                    lock_from_file.update(lock_from_rule, min_stack_version=str(min_stack))
+                    lock_from_file.update(lock_from_rule, min_stack_version=stripped_version)
                     new_version = lock_from_rule['version']
                     log_changes(
                         rule, route, new_version,
                         f'previous {latest_locked_stack_version} saved as version: {previous_lock_info["version"]}',
-                        f'current min_stack updated to {min_stack}'
+                        f'current min_stack updated to {stripped_version}'
                     )
 
                 elif min_stack < latest_locked_stack_version:
                     route = 'C'
                     # 4) on an old stack, after a breaking change has been made (updated fork)
-                    assert str(min_stack) in lock_from_file.get("previous", {}), \
-                        f"Expected {rule.id} @ v{min_stack} in the rule lock"
+                    assert stripped_version in lock_from_file.get("previous", {}), \
+                        f"Expected {rule.id} @ v{stripped_version} in the rule lock"
 
                     # TODO: Figure out whether we support locking old versions and if we want to
                     #       "leave room" by skipping versions when breaking changes are made.
                     #       We can still inspect the version lock manually after locks are made,
                     #       since it's a good summary of everything that happens
 
-                    previous_entry = lock_from_file["previous"][str(min_stack)]
+                    previous_entry = lock_from_file["previous"][stripped_version]
                     max_allowable_version = previous_entry['max_allowable_version']
 
                     # if version bump collides with future bump: fail
@@ -286,10 +295,10 @@ class VersionLock:
                                          f'exceed the max allowable version of {max_allowable_version}')
 
                     if info_from_rule != info_from_file:
-                        lock_from_file["previous"][str(min_stack)].update(lock_from_rule)
+                        lock_from_file["previous"][stripped_version].update(lock_from_rule)
                         new_version = lock_from_rule["version"]
                         log_changes(rule, route, 'unchanged',
-                                    f'previous version {min_stack} updated version to {new_version}')
+                                    f'previous version {stripped_version} updated version to {new_version}')
                     continue
                 else:
                     raise RuntimeError("Unreachable code")

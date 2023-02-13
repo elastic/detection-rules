@@ -113,7 +113,7 @@ def load_etc_dump(*path):
 
 
 def save_etc_dump(contents, *path, **kwargs):
-    """Load a json/yml/toml file from the detection_rules/etc/ folder."""
+    """Save a json/yml/toml file from the detection_rules/etc/ folder."""
     path = get_etc_path(*path)
     _, ext = os.path.splitext(path)
     sort_keys = kwargs.pop('sort_keys', True)
@@ -126,7 +126,7 @@ def save_etc_dump(contents, *path, **kwargs):
         return eql.utils.save_dump(contents, path)
 
 
-def gzip_compress(contents):
+def gzip_compress(contents) -> bytes:
     gz_file = io.BytesIO()
 
     with gzip.GzipFile(mode="w", fileobj=gz_file) as f:

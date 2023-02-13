@@ -1,0 +1,60 @@
+[metadata]
+creation_date = "2022/09/22"
+maturity = "production"
+min_stack_comments = "Guided Onboarding will be available in Elastic 8.6+"
+min_stack_version = "8.7.0"
+updated_date = "2023/01/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule helps you test and practice using alerts with Elastic Security as you get set up. It’s not a sign of threat
+activity.
+"""
+enabled = false
+false_positives = [
+    "This rule is not looking for threat activity. Disable the rule if you're already familiar with alerts.",
+]
+from = "now-24h"
+index = [
+    "apm-*-transaction*",
+    "auditbeat-*",
+    "endgame-*",
+    "filebeat-*",
+    "logs-*",
+    "packetbeat-*",
+    "traces-apm*",
+    "winlogbeat-*",
+    "-*elastic-cloud-logs-*",
+]
+interval = "24h"
+language = "kuery"
+license = "Elastic License v2"
+max_signals = 1
+name = "My First Rule"
+note = """This is a test alert.
+
+This alert does not show threat activity. Elastic created this alert to help you understand how alerts work.
+
+For normal rules, the Investigation Guide will help analysts investigate alerts.
+
+This alert will show once every 24 hours for each host. It is safe to disable this rule.
+"""
+references = ["https://www.elastic.co/guide/en/security/current/prebuilt-rules.html"]
+risk_score = 21
+rule_id = "a198fbbd-9413-45ec-a269-47ae4ccf59ce"
+severity = "low"
+tags = ["Elastic", "Example", "Guided Onboarding", "Network", "APM", "Windows", "Elastic Endgame"]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+event.kind:"event"
+'''
+
+
+
+[rule.threshold]
+field = ["host.name"]
+value = 1
+

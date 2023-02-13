@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2022/07/11"
-integration = "kubernetes"
+integration = ["kubernetes"]
 maturity = "production"
 min_stack_comments = "New fields added to Kubernetes Integration"
 min_stack_version = "8.4.0"
-updated_date = "2022/10/03"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -43,25 +43,25 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset : "kubernetes.audit_logs" 
-  and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" 
+event.dataset : "kubernetes.audit_logs"
+  and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow"
   and kubernetes.audit.objectRef.resource:"pods"
   and kubernetes.audit.verb:("create" or "update" or "patch")
   and kubernetes.audit.requestObject.spec.volumes.hostPath.path:
-  ("/" or 
-  "/proc" or 
-  "/root" or 
-  "/var" or 
-  "/var/run" or 
-  "/var/run/docker.sock" or 
-  "/var/run/crio/crio.sock" or 
-  "/var/run/cri-dockerd.sock" or 
-  "/var/lib/kubelet" or 
-  "/var/lib/kubelet/pki" or 
-  "/var/lib/docker/overlay2" or 
-  "/etc" or 
-  "/etc/kubernetes" or 
-  "/etc/kubernetes/manifests" or 
+  ("/" or
+  "/proc" or
+  "/root" or
+  "/var" or
+  "/var/run" or
+  "/var/run/docker.sock" or
+  "/var/run/crio/crio.sock" or
+  "/var/run/cri-dockerd.sock" or
+  "/var/lib/kubelet" or
+  "/var/lib/kubelet/pki" or
+  "/var/lib/docker/overlay2" or
+  "/etc" or
+  "/etc/kubernetes" or
+  "/etc/kubernetes/manifests" or
   "/etc/kubernetes/pki" or
   "/home/admin")
   and not kubernetes.audit.requestObject.spec.containers.image: ("docker.elastic.co/beats/elastic-agent:8.4.0")
@@ -80,4 +80,16 @@ reference = "https://attack.mitre.org/techniques/T1611/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 

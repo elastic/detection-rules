@@ -5,6 +5,7 @@
 
 """Create summary documents for a rule package."""
 import itertools
+import json
 import re
 import shutil
 import textwrap
@@ -13,14 +14,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, Optional, Union
 
-import json
+from semver import Version
 import xlsxwriter
 
 from .attack import attack_tm, matrix, tactics, technique_lookup
 from .packaging import Package
-from .rule_loader import DeprecatedCollection, RuleCollection
 from .rule import ThreatMapping, TOMLRule
-from .semver import Version
+from .rule_loader import DeprecatedCollection, RuleCollection
 
 
 class PackageDocument(xlsxwriter.Workbook):
@@ -304,7 +304,7 @@ class IntegrationSecurityDocs:
 
     @staticmethod
     def parse_registry(registry_version: str) -> (str, str, str):
-        registry_version = Version(registry_version)
+        registry_version = Version.parse(registry_version)
         short_registry_version = [str(n) for n in registry_version[:3]]
         registry_version_str = '.'.join(short_registry_version)
         base_name = "-".join(short_registry_version)

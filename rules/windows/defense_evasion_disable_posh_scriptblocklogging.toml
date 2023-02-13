@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2022/01/31"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/13"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +13,7 @@ Identifies attempts to disable PowerShell Script Block Logging via registry modi
 logging to conceal their activities in the host and evade detection.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "PowerShell Script Block Logging Disabled"
@@ -20,17 +21,14 @@ note = """## Triage and analysis
 
 ### Investigating PowerShell Script Block Logging Disabled
 
-PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks, making
-it available in various environments and creating an attractive way for attackers to execute code.
+PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks, making it available in various environments and creating an attractive way for attackers to execute code.
 
-PowerShell Script Block Logging is a feature of PowerShell that records the content of all script blocks that it
-processes, giving defenders visibility of PowerShell scripts and sequences of executed commands.
+PowerShell Script Block Logging is a feature of PowerShell that records the content of all script blocks that it processes, giving defenders visibility of PowerShell scripts and sequences of executed commands.
 
 #### Possible investigation steps
 
 - Identify the user account that performed the action and whether it should perform this kind of action.
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
-for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Check whether it makes sense for the user to use PowerShell to complete tasks.
 - Investigate if PowerShell scripts were run after logging was disabled.
@@ -55,11 +53,9 @@ for prevalence, whether they are located in expected locations, and if they are 
 - Isolate the involved hosts to prevent further post-compromise behavior.
 - Review the privileges assigned to the involved users to ensure that the least privilege principle is being followed.
 - Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
-malware components.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 ## Setup
 
@@ -88,15 +84,24 @@ references = [
 risk_score = 47
 rule_id = "818e23e6-2094-4f0e-8c01-22d30f3506c6"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "has_guide"]
+tags = [
+    "Elastic",
+    "Host",
+    "Windows",
+    "Threat Detection",
+    "Defense Evasion",
+    "Investigation Guide",
+    "Elastic Endgame",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 registry where event.type == "change" and
-    registry.path :
-        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging\\EnableScriptBlockLogging"
-    and registry.data.strings : ("0", "0x00000000")
+    registry.path : (
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging\\EnableScriptBlockLogging",
+        "\\REGISTRY\\MACHINE\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging\\EnableScriptBlockLogging"
+    ) and registry.data.strings : ("0", "0x00000000")
 '''
 
 

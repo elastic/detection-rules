@@ -5,6 +5,7 @@
 
 """Shared resources for tests."""
 
+import os
 import unittest
 from typing import Union
 
@@ -17,6 +18,7 @@ class BaseRuleTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        os.environ["DR_NOTIFY_INTEGRATION_UPDATE_AVAILABLE"] = "1"
         rc = RuleCollection.default()
         cls.all_rules = rc.rules
         cls.rule_lookup = rc.id_map

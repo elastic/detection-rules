@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2021/01/19"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/10/11"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -20,39 +21,30 @@ note = """## Triage and analysis
 
 ### Investigating Suspicious Java Child Process
 
-This rule identifies a suspicious child process of the Java interpreter process. It may indicate an attempt to execute
-a malicious JAR file or an exploitation attempt via a Java specific vulnerability.
+This rule identifies a suspicious child process of the Java interpreter process. It may indicate an attempt to execute a malicious JAR file or an exploitation attempt via a Java specific vulnerability.
 
 #### Possible investigation steps
 
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
-for prevalence and whether they are located in expected locations.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence and whether they are located in expected locations.
 - Investigate other alerts associated with the user/host during the past 48 hours.
-- Investigate any abnormal account behavior, such as command executions, file creations or modifications, and network
-connections.
-- Investigate any abnormal behavior by the subject process such as network connections, file modifications, and any
-spawned child processes.
+- Investigate any abnormal account behavior, such as command executions, file creations or modifications, and network connections.
+- Investigate any abnormal behavior by the subject process such as network connections, file modifications, and any spawned child processes.
 - Examine the command line to determine if the command executed is potentially harmful or malicious.
 - Inspect the host for suspicious or abnormal behavior in the alert timeframe.
 
 ### False positive analysis
 
-- If this activity is expected and noisy in your environment, consider adding exceptions — preferably with a combination
-of process and command line conditions.
+- If this activity is expected and noisy in your environment, consider adding exceptions — preferably with a combination of process and command line conditions.
 
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved hosts to prevent further post-compromise behavior.
 - Remove and block malicious artifacts identified during triage.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
-identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
-systems, and web services.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
-malware components.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 ## Setup
 
@@ -62,11 +54,13 @@ references = [
     "https://www.lunasec.io/docs/blog/log4j-zero-day/",
     "https://github.com/christophetd/log4shell-vulnerable-app",
     "https://www.blackhat.com/docs/us-16/materials/us-16-Munoz-A-Journey-From-JNDI-LDAP-Manipulation-To-RCE.pdf",
+    "https://www.elastic.co/security-labs/detecting-log4j2-with-elastic-security",
+    "https://www.elastic.co/security-labs/analysis-of-log4shell-cve-2021-45046",
 ]
 risk_score = 47
 rule_id = "8acb7614-1d92-4359-bfcf-478b6d9de150"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "macOS", "Threat Detection", "Execution", "has_guide"]
+tags = ["Elastic", "Host", "Linux", "macOS", "Threat Detection", "Execution", "Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 

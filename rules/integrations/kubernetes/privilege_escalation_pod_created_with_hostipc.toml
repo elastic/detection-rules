@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2022/07/05"
-integration = "kubernetes"
+integration = ["kubernetes"]
 maturity = "production"
 min_stack_comments = "New fields added to Kubernetes Integration"
 min_stack_version = "8.4.0"
-updated_date = "2022/10/03"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -44,10 +44,10 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset : "kubernetes.audit_logs" 
-  and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" 
-  and kubernetes.audit.objectRef.resource:"pods" 
-  and kubernetes.audit.verb:("create" or "update" or "patch") 
+event.dataset : "kubernetes.audit_logs"
+  and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow"
+  and kubernetes.audit.objectRef.resource:"pods"
+  and kubernetes.audit.verb:("create" or "update" or "patch")
   and kubernetes.audit.requestObject.spec.hostIPC:true
   and not kubernetes.audit.requestObject.spec.containers.image: ("docker.elastic.co/beats/elastic-agent:8.4.0")
 '''
@@ -65,4 +65,16 @@ reference = "https://attack.mitre.org/techniques/T1611/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 

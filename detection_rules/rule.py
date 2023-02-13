@@ -16,13 +16,15 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from uuid import uuid4
 
 import eql
-import kql
-from kql.ast import FieldComparison
+from semver import Version
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
 from marshmallow import ValidationError, validates_schema
 
-from . import beats, ecs, utils
+import kql
+from kql.ast import FieldComparison
+
+from . import beats, ecs, endgame, utils
 from .integrations import (find_least_compatible_version,
                            load_integrations_manifests)
 from .misc import load_current_package_version
@@ -31,16 +33,15 @@ from .rule_formatter import nested_normalize, toml_write
 from .schemas import (SCHEMA_DIR, definitions, downgrade,
                       get_min_supported_stack_version, get_stack_schemas)
 from .schemas.stack_compat import get_restricted_fields
-from .semver import Version
 from .utils import cached
 
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
 
 BUILD_FIELD_VERSIONS = {
-    "related_integrations": (Version('8.3'), None),
-    "required_fields": (Version('8.3'), None),
-    "setup": (Version("8.3"), None)
+    "related_integrations": (Version.parse('8.3.0'), None),
+    "required_fields": (Version.parse('8.3.0'), None),
+    "setup": (Version.parse('8.3.0'), None)
 }
 
 
@@ -53,7 +54,7 @@ class RuleMeta(MarshmallowDataclassMixin):
 
     # Optional fields
     comments: Optional[str]
-    integration: Optional[str]
+    integration: Optional[Union[str, List[str]]]
     maturity: Optional[definitions.Maturity]
     min_stack_version: Optional[definitions.SemVer]
     min_stack_comments: Optional[str]
@@ -186,7 +187,6 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     filters: Optional[List[dict]]
     # trailing `_` required since `from` is a reserved word in python
     from_: Optional[str] = field(metadata=dict(data_key="from"))
-
     interval: Optional[definitions.Interval]
     max_signals: Optional[definitions.MaxSignals]
     meta: Optional[Dict[str, Any]]
@@ -242,6 +242,10 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         return DataValidator(is_elastic_rule=self.is_elastic_rule, **self.to_dict())
 
     @cached_property
+    def notify(self) -> bool:
+        return os.environ.get('DR_NOTIFY_INTEGRATION_UPDATE_AVAILABLE') is not None
+
+    @cached_property
     def parsed_note(self) -> Optional[MarkoDocument]:
         dv = self.data_validator
         if dv:
@@ -277,7 +281,6 @@ class DataValidator:
         self.is_elastic_rule = is_elastic_rule
         self.note = note
         self.setup = setup
-
         self._setup_in_note = False
 
     @cached_property
@@ -350,12 +353,14 @@ class QueryValidator:
     @cached
     def get_required_fields(self, index: str) -> List[dict]:
         """Retrieves fields needed for the query along with type information from the schema."""
-        current_version = Version(Version(load_current_package_version()) + (0,))
+        current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         ecs_version = get_stack_schemas()[str(current_version)]['ecs']
         beats_version = get_stack_schemas()[str(current_version)]['beats']
+        endgame_version = get_stack_schemas()[str(current_version)]['endgame']
         ecs_schema = ecs.get_schema(ecs_version)
 
         beat_types, beat_schema, schema = self.get_beats_schema(index or [], beats_version, ecs_version)
+        endgame_schema = self.get_endgame_schema(index or [], endgame_version)
 
         required = []
         unique_fields = self.unique_fields or []
@@ -364,8 +369,11 @@ class QueryValidator:
             field_type = ecs_schema.get(fld, {}).get('type')
             is_ecs = field_type is not None
 
-            if beat_schema and not is_ecs:
-                field_type = beat_schema.get(fld, {}).get('type')
+            if not is_ecs:
+                if beat_schema:
+                    field_type = beat_schema.get(fld, {}).get('type')
+                elif endgame_schema:
+                    field_type = endgame_schema.endgame_schema.get(fld, None)
 
             required.append(dict(name=fld, type=field_type or 'unknown', ecs=is_ecs))
 
@@ -378,6 +386,16 @@ class QueryValidator:
         beat_schema = beats.get_schema_from_kql(self.ast, beat_types, version=beats_version) if beat_types else None
         schema = ecs.get_kql_schema(version=ecs_version, indexes=index, beat_schema=beat_schema)
         return beat_types, beat_schema, schema
+
+    @cached
+    def get_endgame_schema(self, index: list, endgame_version: str) -> Optional[endgame.EndgameSchema]:
+        """Get an assembled flat endgame schema."""
+
+        if "endgame-*" not in index:
+            return None
+
+        endgame_schema = endgame.read_endgame_schema(endgame_version=endgame_version)
+        return endgame.EndgameSchema(endgame_schema)
 
 
 @dataclass(frozen=True)
@@ -445,6 +463,80 @@ class ThresholdQueryRuleData(QueryRuleData):
 
     type: Literal["threshold"]
     threshold: ThresholdMapping
+
+
+@dataclass(frozen=True)
+class NewTermsRuleData(QueryRuleData):
+    """Specific fields for new terms field rule."""
+
+    @dataclass(frozen=True)
+    class NewTermsMapping(MarshmallowDataclassMixin):
+        @dataclass(frozen=True)
+        class HistoryWindowStart:
+            field: definitions.NonEmptyStr
+            value: definitions.NonEmptyStr
+
+        field: definitions.NonEmptyStr
+        value: definitions.NewTermsFields
+        history_window_start: List[HistoryWindowStart]
+
+    type: Literal["new_terms"]
+    new_terms: NewTermsMapping
+
+    def validate(self, meta: RuleMeta) -> None:
+        """Validates terms in new_terms_fields are valid ECS schema."""
+
+        kql_validator = KQLValidator(self.query)
+        kql_validator.validate(self, meta)
+        feature_min_stack = Version.parse('8.4.0')
+        feature_min_stack_extended_fields = Version.parse('8.6.0')
+
+        # validate history window start field exists and is correct
+        assert self.new_terms.history_window_start, \
+            "new terms field found with no history_window_start field defined"
+        assert self.new_terms.history_window_start[0].field == "history_window_start", \
+            f"{self.new_terms.history_window_start} should be 'history_window_start'"
+
+        # validate new terms and history window start fields is correct
+        assert self.new_terms.field == "new_terms_fields", \
+            f"{self.new_terms.field} should be 'new_terms_fields' for new_terms rule type"
+
+        # ecs validation
+        min_stack_version = meta.get("min_stack_version")
+        if min_stack_version is None:
+            min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+        else:
+            min_stack_version = Version.parse(min_stack_version)
+
+        assert min_stack_version >= feature_min_stack, \
+            f"New Terms rule types only compatible with {feature_min_stack}+"
+        ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
+        beats_version = get_stack_schemas()[str(min_stack_version)]['beats']
+
+        # checks if new terms field(s) are in ecs, beats or non-ecs schemas
+        _, _, schema = kql_validator.get_beats_schema(self.index or [], beats_version, ecs_version)
+
+        for new_terms_field in self.new_terms.value:
+            assert new_terms_field in schema.keys(), \
+                f"{new_terms_field} not found in ECS, Beats, or non-ecs schemas"
+
+        # validates length of new_terms to stack version - https://github.com/elastic/kibana/issues/142862
+        if min_stack_version >= feature_min_stack and \
+                min_stack_version < feature_min_stack_extended_fields:
+            assert len(self.new_terms.value) == 1, \
+                f"new terms have a max limit of 1 for stack versions below {feature_min_stack_extended_fields}"
+
+        # validate fields are unique
+        assert len(set(self.new_terms.value)) == len(self.new_terms.value), \
+            f"new terms fields values are not unique - {self.new_terms.value}"
+
+    def transform(self, obj: dict) -> dict:
+        """Transforms new terms data to API format for Kibana."""
+
+        obj[obj["new_terms"].get("field")] = obj["new_terms"].get("value")
+        obj["history_window_start"] = obj["new_terms"]["history_window_start"][0].get("value")
+        del obj["new_terms"]
+        return obj
 
 
 @dataclass(frozen=True)
@@ -550,7 +642,8 @@ class ThreatMatchRuleData(QueryRuleData):
 
 # All of the possible rule types
 # Sort inverse of any inheritance - see comment in TOMLRuleContents.to_dict
-AnyRuleData = Union[EQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData, MachineLearningRuleData, QueryRuleData]
+AnyRuleData = Union[EQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData,
+                    MachineLearningRuleData, QueryRuleData, NewTermsRuleData]
 
 
 class BaseRuleContents(ABC):
@@ -585,8 +678,8 @@ class BaseRuleContents(ABC):
     @property
     def is_dirty(self) -> Optional[bool]:
         """Determine if the rule has changed since its version was locked."""
-        min_stack = self.get_supported_version()
-        existing_sha256 = self.version_lock.get_locked_hash(self.id, min_stack)
+        min_stack = Version.parse(self.get_supported_version(), optional_minor_and_patch=True)
+        existing_sha256 = self.version_lock.get_locked_hash(self.id, f"{min_stack.major}.{min_stack.minor}")
 
         if existing_sha256 is not None:
             return existing_sha256 != self.sha256()
@@ -610,8 +703,8 @@ class BaseRuleContents(ABC):
         """Determine if the rule is in a forked version."""
         if not self.has_forked:
             return False
-        locked_min_stack = Version(self.lock_entry['min_stack_version'])
-        current_package_ver = Version(load_current_package_version())
+        locked_min_stack = Version.parse(self.lock_entry['min_stack_version'], optional_minor_and_patch=True)
+        current_package_ver = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         return current_package_ver < locked_min_stack
 
     def get_version_space(self) -> Optional[int]:
@@ -641,17 +734,16 @@ class BaseRuleContents(ABC):
     @classmethod
     def convert_supported_version(cls, stack_version: Optional[str]) -> Version:
         """Convert an optional stack version to the minimum for the lock in the form major.minor."""
-        min_version = get_min_supported_stack_version(drop_patch=True)
+        min_version = get_min_supported_stack_version()
         if stack_version is None:
             return min_version
-        short_stack_version = Version(Version(stack_version)[:2])
-        return max(short_stack_version, min_version)
+        return max(Version.parse(stack_version, optional_minor_and_patch=True), min_version)
 
     def get_supported_version(self) -> str:
         """Get the lowest stack version for the rule that is currently supported in the form major.minor."""
         rule_min_stack = self.metadata.get('min_stack_version')
         min_stack = self.convert_supported_version(rule_min_stack)
-        return str(min_stack)
+        return f"{min_stack.major}.{min_stack.minor}"
 
     def _post_dict_transform(self, obj: dict) -> dict:
         """Transform the converted API in place before sending to Kibana."""
@@ -733,6 +825,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         """Transform the converted API in place before sending to Kibana."""
         super()._post_dict_transform(obj)
 
+        # build time fields
         self._add_related_integrations(obj)
         self._add_required_fields(obj)
         self._add_setup(obj)
@@ -741,6 +834,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         rule_type = obj['type']
         subclass = self.get_data_subclass(rule_type)
         subclass.from_dict(obj)
+
+        # rule type transforms
+        self.data.transform(obj) if hasattr(self.data, 'transform') else False
+
         return obj
 
     def _add_related_integrations(self, obj: dict) -> None:
@@ -754,7 +851,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
             if self.check_restricted_field_version(field_name):
                 if isinstance(self.data, QueryRuleData) and self.data.language != 'lucene':
-                    package_integrations = self._get_packaged_integrations(packages_manifest)
+                    package_integrations = self.get_packaged_integrations(self.data, self.metadata, packages_manifest)
 
                     if not package_integrations:
                         return
@@ -850,22 +947,30 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     @staticmethod
     def compare_field_versions(min_stack: Version, max_stack: Version) -> bool:
         """Check current rule version is within min and max stack versions."""
-        current_version = Version(load_current_package_version())
+        current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         max_stack = max_stack or current_version
-        return Version(min_stack) <= current_version >= Version(max_stack)
+        return min_stack <= current_version >= max_stack
 
-    def _get_packaged_integrations(self, package_manifest: dict) -> Optional[List[dict]]:
+    @classmethod
+    def get_packaged_integrations(cls, data: QueryRuleData, meta: RuleMeta,
+                                  package_manifest: dict) -> Optional[List[dict]]:
         packaged_integrations = []
         datasets = set()
 
-        for node in self.data.get('ast', []):
+        for node in data.get('ast', []):
             if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
                 datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
             elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
                 datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
 
         if not datasets:
-            return
+            # windows and endpoint integration do not have event.dataset fields in queries
+            # integration is None to remove duplicate references upstream in Kibana
+            rule_integrations = meta.get("integration", [])
+            if rule_integrations:
+                for integration in rule_integrations:
+                    if integration in definitions.NON_DATASET_PACKAGES:
+                        packaged_integrations.append({"package": integration, "integration": None})
 
         for value in sorted(datasets):
             integration = 'Unknown'
@@ -887,6 +992,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         data.validate_query(metadata)
         data.data_validator.validate_note()
+        data.validate(metadata) if hasattr(data, 'validate') else False
 
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
@@ -914,9 +1020,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     def check_restricted_fields_compatibility(self) -> Dict[str, dict]:
         """Check for compatibility between restricted fields and the min_stack_version of the rule."""
-        default_min_stack = get_min_supported_stack_version(drop_patch=True)
+        default_min_stack = get_min_supported_stack_version()
         if self.metadata.min_stack_version is not None:
-            min_stack = Version(self.metadata.min_stack_version)
+            min_stack = Version.parse(self.metadata.min_stack_version, optional_minor_and_patch=True)
         else:
             min_stack = default_min_stack
         restricted = self.data.get_restricted_fields

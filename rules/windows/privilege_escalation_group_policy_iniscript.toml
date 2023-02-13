@@ -1,17 +1,16 @@
 [metadata]
 creation_date = "2021/11/08"
+integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/13"
+updated_date = "2023/02/01"
 
 [rule]
 author = ["Elastic"]
-description = """
-Detects the modification of Group Policy Objects (GPO) to add a startup/logon script to users or computer objects.
-"""
+description = "Detects the modification of Group Policy Objects (GPO) to add a startup/logon script to users or computer objects."
 false_positives = ["Legitimate Administrative Activity"]
-index = ["winlogbeat-*", "logs-system.*"]
+index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Startup/Logon Script added to Group Policy Object"
@@ -19,17 +18,14 @@ note = """## Triage and analysis
 
 ### Investigating Scheduled Task Execution at Scale via GPO
 
-Group Policy Objects (GPOs) can be used by attackers to instruct arbitrarily large groups of
-clients to execute specified commands at startup, logon, shutdown, and logoff. This is done by creating or modifying the
-`scripts.ini` or `psscripts.ini` files. The scripts are stored in the following path: `<GPOPath>\\Machine\\Scripts\\`,
-`<GPOPath>\\User\\Scripts\\`
+Group Policy Objects (GPOs) can be used by attackers to instruct arbitrarily large groups of clients to execute specified commands at startup, logon, shutdown, and logoff. This is done by creating or modifying the `scripts.ini` or `psscripts.ini` files. The scripts are stored in the following paths:
+  - `<GPOPath>\\Machine\\Scripts\\`
+  - `<GPOPath>\\User\\Scripts\\`
 
 #### Possible investigation steps
 
-- This attack abuses a legitimate mechanism of Active Directory, so it is important to determine whether the activity
-is legitimate and the administrator is authorized to perform this operation.
-- Retrieve the contents of the `ScheduledTasks.xml` file, and check the `<Command>` and `<Arguments>` XML tags for any
-potentially malicious commands or binaries.
+- This attack abuses a legitimate mechanism of Active Directory, so it is important to determine whether the activity is legitimate and the administrator is authorized to perform this operation.
+- Retrieve the contents of the `ScheduledTasks.xml` file, and check the `<Command>` and `<Arguments>` XML tags for any potentially malicious commands or binaries.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Scope which objects may be compromised by retrieving information about which objects are controlled by the GPO.
 
@@ -49,8 +45,7 @@ potentially malicious commands or binaries.
 - Remove the script from the GPO.
 - Check if other GPOs have suspicious scripts attached.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 ## Setup
 
@@ -85,12 +80,20 @@ Audit Directory Service Changes (Success,Failure)
 references = [
     "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0025_windows_audit_directory_service_changes.md",
     "https://github.com/atc-project/atc-data/blob/f2bbb51ecf68e2c9f488e3c70dcdd3df51d2a46b/docs/Logging_Policies/LP_0029_windows_audit_detailed_file_share.md",
-    "https://labs.f-secure.com/tools/sharpgpoabuse"
+    "https://labs.f-secure.com/tools/sharpgpoabuse",
 ]
 risk_score = 47
 rule_id = "16fac1a1-21ee-4ca6-b720-458e3855d046"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Active Directory", "has_guide"]
+tags = [
+    "Elastic",
+    "Host",
+    "Windows",
+    "Threat Detection",
+    "Privilege Escalation",
+    "Active Directory",
+    "Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -111,23 +114,24 @@ or
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
-reference = "https://attack.mitre.org/techniques/T1547/"
-id = "T1547"
-name = "Boot or Logon Autostart Execution"
-
-[[rule.threat.technique]]
-reference = "https://attack.mitre.org/techniques/T1484/"
 id = "T1484"
 name = "Domain Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+[[rule.threat.technique.subtechnique]]
+id = "T1484.001"
+name = "Group Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/001/"
 
-    [[rule.threat.technique.subtechnique]]
-    reference = "https://attack.mitre.org/techniques/T1484/001/"
-    id = "T1484.001"
-    name = "Group Policy Modification"
+
+[[rule.threat.technique]]
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+
 
 [rule.threat.tactic]
-reference = "https://attack.mitre.org/tactics/TA0004/"
 id = "TA0004"
 name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

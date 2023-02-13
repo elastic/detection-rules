@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2021/10/19"
+integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/13"
+updated_date = "2023/01/05"
 
 [rule]
 author = ["Elastic"]
@@ -20,18 +21,14 @@ note = """## Triage and analysis
 
 ### Investigating PowerShell Suspicious Script with Screenshot Capabilities
 
-PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks, which makes
-it available for use in various environments and creates an attractive way for attackers to execute code.
+PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks, which makes it available for use in various environments and creates an attractive way for attackers to execute code.
 
-Attackers can abuse PowerShell capabilities and take screen captures of desktops to gather information over the course
-of an operation.
+Attackers can abuse PowerShell capabilities and take screen captures of desktops to gather information over the course of an operation.
 
 #### Possible investigation steps
 
-- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration
-capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics.
-- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for
-prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics.
+- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Examine file or network events from the involved PowerShell process for suspicious behavior.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Evaluate whether the user needs to use PowerShell to complete tasks.
@@ -41,8 +38,7 @@ prevalence, whether they are located in expected locations, and if they are sign
 
 ### False positive analysis
 
-- Regular users do not have a business justification for using scripting utilities to take screenshots, which makes false
-positives unlikely. In the case of authorized benign true positives (B-TPs), exceptions can be added.
+- Regular users do not have a business justification for using scripting utilities to take screenshots, which makes false positives unlikely. In the case of authorized benign true positives (B-TPs), exceptions can be added.
 
 ### Related rules
 
@@ -53,14 +49,10 @@ positives unlikely. In the case of authorized benign true positives (B-TPs), exc
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved hosts to prevent further post-compromise behavior.
 - Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
-identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
-systems, and web services.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
-malware components.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 ## Setup
 
@@ -84,7 +76,7 @@ references = ["https://docs.microsoft.com/en-us/dotnet/api/system.drawing.graphi
 risk_score = 47
 rule_id = "959a7353-1129-4aa7-9084-30746b256a70"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Collection", "has_guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Collection", "Investigation Guide", "PowerShell"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -93,39 +85,37 @@ event.category:process and
   powershell.file.script_block_text : (
     CopyFromScreen and
     ("System.Drawing.Bitmap" or "Drawing.Bitmap")
-  )
+  ) and not user.id : "S-1-5-18"
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1113"
 name = "Screen Capture"
 reference = "https://attack.mitre.org/techniques/T1113/"
 
+
 [rule.threat.tactic]
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
-reference = "https://attack.mitre.org/techniques/T1059/"
 name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1059.001"
-  reference = "https://attack.mitre.org/techniques/T1059/001/"
-  name = "PowerShell"
+
 
 [rule.threat.tactic]
 id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
 name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 

@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/11/06"
+integration = ["okta"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
-integration = "okta"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -30,12 +30,12 @@ references = [
     "https://help.okta.com/en/prod/Content/Topics/Security/network/network-zones.htm",
     "https://developer.okta.com/docs/reference/api/system-log/",
     "https://developer.okta.com/docs/reference/api/event-types/",
+    "https://www.elastic.co/security-labs/testing-okta-visibility-and-detection-dorothy",
 ]
 risk_score = 47
 rule_id = "c749e367-a069-4a73-b1f2-43a3798153ad"
 severity = "medium"
-tags = ["Elastic", "Identity", "Okta", "Continuous Monitoring", "SecOps",
-    "Network Security", "Defense Evasion"]
+tags = ["Elastic", "Identity", "Okta", "Continuous Monitoring", "SecOps", "Network Security", "Defense Evasion"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -43,17 +43,18 @@ query = '''
 event.dataset:okta.system and event.action:zone.delete
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.007"
+name = "Disable or Modify Cloud Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/007/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1562.007"
-  name = "Disable or Modify Cloud Firewall"
-  reference = "https://attack.mitre.org/techniques/T1562/007/"
 
 
 [rule.threat.tactic]
