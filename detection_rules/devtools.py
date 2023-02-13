@@ -526,7 +526,7 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
         with changelog_path.open("wt") as f:
             # add a note for other maintainers of elastic/integrations to be careful with versions
             f.write("# newer versions go on top\n")
-            f.write("# NOTE: please use pre-release versions (e.g. -dev.0) until a package is ready for production\n")
+            f.write("# NOTE: please use pre-release versions (e.g. -beta.0) until a package is ready for production\n")
             yaml.dump(changelog_entries, f, allow_unicode=True, default_flow_style=False, indent=2, sort_keys=False)
 
     save_changelog()
