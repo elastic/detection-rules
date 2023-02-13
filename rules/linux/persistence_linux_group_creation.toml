@@ -1,0 +1,80 @@
+[metadata]
+creation_date = "2023/02/13"
+integration = ["system"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/02/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies attempts to create a new group. Attackers may create new groups to escalate privileges 
+or establish persistence on a system or domain.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-system.auth-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux Group Creation"
+note = """## Triage and analysis
+
+### Investigating Group Creation
+
+Attackers may create new groups to maintain access to victim systems or escalate privileges by assigning a compromised account to a privileged group.
+
+This rule identifies the usages of `groupadd` and `addgroup` to create new groups.
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Identify if a user account was added to this group after creation.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+
+### False positive analysis
+
+- Group creation is a common administrative task, so there is a high chance of the activity being legitimate. Before investigating further, verify that this activity is not benign.
+- When creating a new user in Linux, the user is added to a group similar to its username. If this is the case, investigate whether the user should have been created instead of analyzing the newly created group.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- Delete the created group and, in case an account was added to this group, delete the account.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+risk_score = 21
+rule_id = "a1c2589e-0c8c-4ca8-9eb6-f83c4bbdbe8f"
+severity = "low"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+iam where event.type == "creation" and
+process.name : ("groupadd", "addgroup") and
+group.name != null
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1136/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

@@ -1,0 +1,92 @@
+[metadata]
+creation_date = "2023/02/13"
+integration = ["system"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/02/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies attempts to add a user to a privileged group. Attackers may 
+add users to a privileged group in order to escalate privileges or 
+establish persistence on a system or domain.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-system.auth-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux User Added to Privileged Group"
+note = """## Triage and analysis
+
+### Investigating User Account Creation
+
+Attackers may add users to a privileged group in order to escalate privileges or establish persistence on a system or domain.
+
+This rule identifies the usages of `usermod`, `adduser` and `gpasswd` to assign user accounts to a group.
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+
+### False positive analysis
+
+- Adding accounts to a group is a common administrative task, so there is a high chance of the activity being legitimate. Before investigating further, verify that this activity is not benign.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- Delete the account that seems to be involved in malicious activity.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+risk_score = 21
+rule_id = "43d6ec12-2b1c-47b5-8f35-e9de65551d3b"
+severity = "low"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and
+((
+/* Through usermod */
+process.name : ("usermod", "adduser") and 
+process.parent.name == "sudo" and
+process.args : ("root", "admin", "wheel", "staff", "sudo",
+                "disk", "video", "shadow", "lxc", "lxd")
+) or
+/* Through gpasswd */
+(
+process.name == "gpasswd" and 
+process.parent.name == "sudo" and
+process.args : ("-a", "--add", "-M", "--members") and 
+process.args : ("root", "admin", "wheel", "staff", "sudo",
+                "disk", "video", "shadow", "lxc", "lxd")
+))
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1136/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
