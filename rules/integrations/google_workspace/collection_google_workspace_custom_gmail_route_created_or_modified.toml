@@ -31,19 +31,22 @@ note = """## Triage and analysis
 
 ### Investigating Google Workspace Custom Gmail Route Created or Modified
 
-{Technology Description}
+Gmail is a popular cloud-based email service developed and managed by Google. Gmail is one of many services available for users with Google Workspace accounts.
 
-{Threat/Abuse Description}
+Threat actors often send phishing emails to corporate Gmail accounts containing malicious URL links or attachments. Google Workspace identity relies on the corporate user Gmail account and thus if stolen, allows threat actors to further intrusion efforts from valid user accounts.
 
-{What this rule identifies}
+This rule identifies the creation of a custom global Gmail route by an administrator from the Google Workspace admin console. Custom email routes could indicate an attempt to silently forward sensitive emails to unintentional recipients.
 
 #### Possible investigation steps
 
-- {False Positive Identification}
+- Identify which user account created the custom email route and determine if they are expected to have such administrative privileges
+- Review the added recipients from the custom email route and confidentiality of potential email contents
+- With the user account identified, review `event.action` values within the last 48 hours for related activity
+- If the Google Workpace license is Enterprise Plus or Education Plus, search for emails matching the route filters by visiting Reporting > Audit and investigation > Gmail log events
 
 ### False positive analysis
 
-- {False Positive Identification}
+- This rule searches for domain-wide custom email routes created in the admin console of Google Workspace. Administrators may create custom email routes as a result of organizational requirements
 
 ### Response and remediation
 
