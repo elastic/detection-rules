@@ -28,19 +28,25 @@ note = """## Triage and analysis
 
 ### Investigating Domain Added to Google Workspace Trusted Domains
 
-{Technology Description}
+Trusted domains in Google Workspace allow organizations to share access to resources outside of the organization.
 
-{Threat/Abuse Description}
+A threat actor with administrative privileges may be able to add a malicious domain to the trusted domain list. Based on the configuration, potentially sensitive resources may be exposed or accessible by an unintended third party.
 
-{What this rule identifies}
+This rule detects when a third party domain is added to the list of trusted domains in Google Workspace.
 
 #### Possible investigation steps
 
-- {False Positive Identification}
+- Identify user account(s) associated by reviewing `user.name` or `user.email` in the alert
+- With the user identified, verify administrative privileges to add external domains is expected for this user
+- Identify the added domain from the `google_workspace.admin.domain.name` field
+- Use reputational services such as VirusTotal for the trusted domain's third party intelligence reputation
+- Filter data in Discover where `event.dataset` is `google_workspace.drive` and compare `google_workspace.drive.file.owner.email` to `user.email`
+    - If mismatches are identified, this could indicate access from an external Google Workspace domain
 
 ### False positive analysis
 
-- {False Positive Identification}
+- Review is the user account is expected to have administrative privileges to edit allowed trusted domains in Google Workspace
+- Review with user the intentions of third party domain and if that has unwanted confidentiality risks
 
 ### Response and remediation
 
