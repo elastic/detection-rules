@@ -30,19 +30,29 @@ note = """## Triage and analysis
 
 ### Investigating Application Removed from Blocklist in Google Workspace
 
-{Technology Description}
+Google Workspace Marketplace is an online store for free and paid web applications that work with Google Workspace services and with third party software. Listed applications are based on Google APIs or on Google Apps Script and created by both Google and third party developers.
 
-{Threat/Abuse Description}
+Marketplace applications require access to specific Google Workspace resources. Applications can be installed by individual users, if permissions grant availability or can be installed for an entire Google Workspace domain by administrators. Consent screens typically display what permissions and privileges the application requires during install. As a result, malicious Marketplace applications may require more permissions than necessary or have malicious intent.
 
-{What this rule identifies}
+Google clearly states that they are not responsible for any product on the Marketplace that originates from a source other than Google.
+
+This rule identifies a previously blocked application being manually removed from the Marketplace blocklist by a Google Workspace account with administrative privileges.
 
 #### Possible investigation steps
 
-- {False Positive Identification}
+- Identify user account(s) associated by reviewing `user.name` or `user.email` in the alert
+- This rule relies on data from `google_workspace.admin` thus indicating the associated user has administrative privileges to the Marketplace
+- With access to Google Workspace admin console, visit Security > Investigation tool with filters for the user email and event is `Assign Role` or `Update Role` to determine if new cloud roles were recently updated
+- With the user account, review other potentially related events within the last 48 hours
+- Re-assess the permissions and reviews of the Marketplace applications to determine if they violate organizational policies or introduce unexpected risks
+- With access to Google Workspace admin console, determine if the application was installed domain-wide or individually by visiting Apps > Google Workspace Marketplace Apps
+
 
 ### False positive analysis
 
-- {False Positive Identification}
+- Google Workspace administrators may intentionally remove an application from the blocklist due to re-assessment or a domain-wide required need for the application
+- Identify the user account associated with this action and assess their administrative privileges with Google Workspace Marketplace
+- Contact the user and re-assure the removal of the application from the blocklist was intentional and reasoning for doing so
 
 ### Response and remediation
 
