@@ -30,19 +30,23 @@ note = """## Triage and analysis
 
 ### Investigating Google Workspace Bitlocker Setting Disabled
 
-{Technology Description}
+BitLocker Drive Encryption is a data protection feature that integrates with the Windows operating system and addresses the threats of data theft or exposure from lost, stolen, or inappropriately decommissioned computers. BitLocker helps mitigate unauthorized data access by enhancing file and system protections such as data encryption and rendering data inaccessible. Google Workspace has the capability to sync with Windows endpoints registered in inventory where configurations, such as BitLocker, can be enabled and disabled.
 
-{Threat/Abuse Description}
+With BitLocker disabled, sensitive endpoint data risk exposure increases due to being accessible and descrypted at rest.
 
-{What this rule identifies}
+This rule identifies a user with administrative privileges and access to the admin console, disabling BitLocker for Windows endpoints.
 
 #### Possible investigation steps
 
-- {False Positive Identification}
+- Identify user account(s) associated by reviewing `user.name` or `user.email` in the alert
+- With the user identified, verify administrative privileges to disabled BitLocker for Windows endpoints
+- With access to the Google Workspace admin console, review Reporting > Audit and investigation > Device logs, filting on the user email identified from the alert
+    - If a Google Workspace user logged into their account via a potentially compromised account, a `Device sync event` event will have occurred
 
 ### False positive analysis
 
-- {False Positive Identification}
+- BitLocker may have been intentionally disabled by an administrator regarding routine maintenance or endpoint updates
+    Verify with the user that these actions were intentional
 
 ### Response and remediation
 
