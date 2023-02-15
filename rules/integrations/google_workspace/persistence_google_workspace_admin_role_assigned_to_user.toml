@@ -30,19 +30,30 @@ note = """## Triage and analysis
 
 ### Investigating Google Workspace Admin Role Assigned to a User
 
-{Technology Description}
+Google Workspace roles allow administrators to assign specific permissions to users or groups where the principle of least privilege (PoLP) is recommended. Admin roles in Google Workspace grants users access to the Google Admin console, where further domain-wide settings are accessible. Google Workspace contains pre-built administrator roles for performing business functions related to users, groups and services. Custom administrator roles can be created where pre-built roles are not preferred.
 
-{Threat/Abuse Description}
+Administrator roles assigned to users will grant them additional permissions and privileges within the Google Workspace domain. Administrative roles also give users access to the admin console where domain-wide settings can be adjusted. Threat actors may rely on these new privileges to thus further their intrusion efforts and laterally move throughout the organization. User's with unexpected administrative privileges may also cause operational disfunction is unfamiliar settings are adjusted without warning.
 
-{What this rule identifies}
+This rule identifies when a Google Workspace administrative role is assigned to a user.
 
 #### Possible investigation steps
 
-- {False Positive Identification}
+- Identify user account(s) associated by reviewing `user.name` or `user.email` in the alert
+  - The `user.target.email` field contains the user whom received the admin role
+- Identify the role given to the user by reviewing `google_workspace.admin.role.name` in the alert
+- With the user identified, verify administrative privileges to are scoped properly
+- To identify other users with this role, search for `event.action: ASSIGN_ROLE`
+  - Add `google_workspace.admin.role.name` with the role added as an additional filter
+  - Adjust the relative time accordingly to identify all users that were assigned this admin role
+- Identify if the user account was recently created by searching for `event.action: CREATE_USER`
+  - Add `user.email` with the target user account that recently received this new admin role
+- Filter on `user.name` or `user.target.email` of the user whom took this action and review the last 48 hours of activity for that may indicate a compromise
 
 ### False positive analysis
 
-- {False Positive Identification}
+- With the user account whom added the admin role, verify this action was intentional
+- Verify that the target user whom received the admin role is expected to have administrative privileges in Google Workspace
+- Review organizational units or groups the target user may have been added to and ensure the admin role permissions align
 
 ### Response and remediation
 
