@@ -28,23 +28,29 @@ note = """## Triage and analysis
 
 ### Investigating Google Workspace Admin Role Deletion
 
-{Technology Description}
+Google Workspace roles allow administrators to assign specific permissions to users or groups where the principle of least privilege (PoLP) is recommended. Admin roles in Google Workspace grants users access to the Google Admin console, where further domain-wide settings are accessible. Google Workspace contains pre-built administrator roles for performing business functions related to users, groups and services. Custom administrator roles can be created where pre-built roles are not preferred.
 
-{Threat/Abuse Description}
+Deleted administrator roles may render some user accounts innaccessible or cause operational failure where these roles are relies upon to perform daily administrative tasks. Deletion of roles may also hinder the response and remediation actions of administrators regarding security related alerts and events. Without specific roles assigned, users will inherit the permissions and privileges of the root organizational unit.
 
-{What this rule identifies}
+This rule identifies when a Google Workspace administrative rule is deleted within the Admin Console.
 
 #### Possible investigation steps
 
-- {False Positive Identification}
+- Identify user account(s) associated by reviewing `user.name` or `user.email` in the alert
+- Identify the role deleted by reviewing `google_workspace.admin.role.name` in the alert
+- With the user identified, verify administrative privileges to disabled delete administrative roles
+- To identify other users affected by this role removed, search for `event.action: ASSIGN_ROLE`
+    - Add `google_workspace.admin.role.name` with the role deleted as an additional filter
+    - Adjust the relative time accordingly to identify all users that were assigned this admin role
 
 ### False positive analysis
 
-- {False Positive Identification}
+- With the user account identified whom disabled the admin role, verify this action was intentional
 
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
+- Discuss with the user the affected users as a result of this action to mitigate operational discrepencies.
 - Disable or limit the account during the investigation and response.
 - Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
     - Identify the account role in the cloud environment.
