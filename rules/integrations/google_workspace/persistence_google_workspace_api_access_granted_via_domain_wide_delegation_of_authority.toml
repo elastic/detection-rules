@@ -29,23 +29,31 @@ note = """## Triage and analysis
 
 ### Investigating API Access Granted via Domain-Wide Delegation of Authority
 
-{Technology Description}
+Domain-wide delegation is a feature that allows apps to access users' data across an organization's Google Workspace environment. Only super admins can manage domain-wide delegation, and they must specify each API scope that the application can access. Google Workspace services all have APIs that can be interacted with after domain-wide delegation is established with an OAuth2 client ID of the application. Typically, GCP service accounts and applications are created where the Google Workspace APIs are enabled, thus allowing the application to access resources and services in Google Workspace.
 
-{Threat/Abuse Description}
+Applications authorized to interact with Google Workspace resources and services through APIs have a wide-range of capability dependent on the scopes applied. If the principle of least privilege (PoLP) is not practiced when setting API scopes, threat actors could abuse additional privileges if the application is compromised. New applications created and given API access could indicate an attempt by a threat actor to register their malicious application with the Google Workspace domain in an attempt to establish a command and control foothold.
 
-{What this rule identifies}
+This rule identifies when an application is authorized API client access.
 
 #### Possible investigation steps
 
-- {False Positive Identification}
+- Identify user account(s) associated by reviewing `user.name` or `user.email` in the alert
+  - Only users with super admin privileges can authorize API client access
+- Identify the API client name by reviewing `google_workspace.admin.api.client.name` in the alert
+  - If GCP audit logs are ingested pivot to reviewing the last 48 hours of activity related to the service account ID
+  - Search for the `google_workspace.admin.api.client.name` value with wildcards in the `gcp.audit.resource_name` field
+  - Search for API client name and aggregated results on `event.action` to determine what the service account is being used for in GWS
+- With the user identified, verify super administrative privileges to access domain-wide delegation settings
 
 ### False positive analysis
 
-- {False Positive Identification}
+- Changes to domain-wide delegation require super admin privileges, thus follow up with the user to ensure these changes were expected
+- Review scheduled maintenance notes related to expected API access changes
 
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
+- Review the scope of the authorized API client access in Google Workspace
 - Disable or limit the account during the investigation and response.
 - Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
     - Identify the account role in the cloud environment.
