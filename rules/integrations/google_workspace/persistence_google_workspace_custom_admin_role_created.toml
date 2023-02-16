@@ -28,19 +28,30 @@ note = """## Triage and analysis
 
 ### Investigating Google Workspace Custom Admin Role Created
 
-{Technology Description}
+Google Workspace roles allow administrators to assign specific permissions to users or groups where the principle of least privilege (PoLP) is recommended. Admin roles in Google Workspace grants users access to the Google Admin console, where further domain-wide settings are accessible. Google Workspace contains pre-built administrator roles for performing business functions related to users, groups and services. Custom administrator roles can be created where pre-built roles are not preferred.
 
-{Threat/Abuse Description}
+Roles assigned to users will grant them additional permissions and privileges within the Google Workspace domain. Threat actors may create new admin roles with privileges to further their intrusion efforts and laterally move throughout the organization if existing roles or users do not have privileges aligned with their modus operandi. User's with unexpected privileges from new admin roles may also cause operational disfunction is unfamiliar settings are adjusted without warning. Administrators may create new roles, rather than modify existing to accomplish a short-term goal but unintentionally introduce additional risk exposure.
 
-{What this rule identifies}
+This rule identifies when a Google Workspace administrative role is added within the Admin Console.
 
 #### Possible investigation steps
 
-- {False Positive Identification}
+- Identify user account(s) associated by reviewing `user.name` or `user.email` in the alert
+- Identify the role added by reviewing `google_workspace.admin.role.name` in the alert
+- With the user identified, verify administrative privileges to add administrative roles is expected
+- To identify if users have been assigned this role, search for `event.action: ASSIGN_ROLE`
+    - Add `google_workspace.admin.role.name` with the role added as an additional filter
+    - Adjust the relative time accordingly to identify all users that were possibly assigned this admin role
+- Since a new role was added, monitor users assigned this role for the next 24 hours in an attempt to identify using related privileges
+  - The `event.provider` field will help filter for specific services in Google Workspace such as Drive or Admin
+  - The `event.action` field will help trace what actions are being taken by users
 
 ### False positive analysis
 
-- {False Positive Identification}
+- With the user account whom created the role, verify this action was intentional
+- Verify that the user whom created the role is expected to have administrative privileges in Google Workspace to create custom roles
+- Review organizational units or groups the role may have been added to and ensure the new privileges align properly
+- Use the `user.name` to filter for `event.action` where `CREATE_ROLE` has been seen before to check if these actions are new or historical
 
 ### Response and remediation
 
