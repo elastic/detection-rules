@@ -32,19 +32,30 @@ note = """## Triage and analysis
 
 ### Investigating Google Workspace Restrictions for Google Marketplace Modified to Allow Any App
 
-{Technology Description}
+Google Workspace Marketplace is an online store for free and paid web applications that work with Google Workspace services and with third party software. Listed applications are based on Google APIs or on Google Apps Script and created by both Google and third party developers.
 
-{Threat/Abuse Description}
+Marketplace applications require access to specific Google Workspace resources. Applications can be installed by individual users, if permissions grant availability or can be installed for an entire Google Workspace domain by administrators. Consent screens typically display what permissions and privileges the application requires during install. As a result, malicious Marketplace applications may require more permissions than necessary or have malicious intent.
 
-{What this rule identifies}
+Google clearly states that they are not responsible for any product on the Marketplace that originates from a source other than Google.
+
+This rule identifies when the global allow all setting is enabled for Google Workspace Marketplace applications.
 
 #### Possible investigation steps
 
-- {False Positive Identification}
+- Identify user account(s) associated by reviewing `user.name` or `user.email` in the alert
+- This rule relies on data from `google_workspace.admin` thus indicating the associated user has administrative privileges to the Marketplace
+- Search for `event.action` is `ADD_APPLICATION` to identify applications installed after these changes were made
+    - The `google_workspace.admin.application.name` field will help identify what applications were added
+- With the user account, review other potentially related events within the last 48 hours
+- Re-assess the permissions and reviews of the Marketplace applications to determine if they violate organizational policies or introduce unexpected risks
+- With access to Google Workspace admin console, determine if the application was installed domain-wide or individually by visiting Apps > Google Workspace Marketplace Apps
 
 ### False positive analysis
 
-- {False Positive Identification}
+- Identify the user account associated with this action and assess their administrative privileges with Google Workspace Marketplace
+- Google Workspace administrators may intentionally add an application from the marketplace based on organizational needs
+    - Follow up with the user whom added the application to ensure this was intended
+- Verify the application identified has been assessed thoroughly by an administrator
 
 ### Response and remediation
 
