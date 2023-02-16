@@ -1,0 +1,58 @@
+[metadata]
+creation_date = "2023/02/16"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/02/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of a suspicious file with the ICO extension. Attackers may masquerade documents, sensitive
+information, and compressed files as files that can be served on webservers or uploaded to web services for exfiltration
+without raising suspicions.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential ICO File Masquerading"
+risk_score = 47
+rule_id = ""
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Collection"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where event.action != "deletion" and
+/*
+  Magic numbers / File Signatures
+  000001 -> ICO / 89504E -> PNG
+  FFD8FF -> JFIF, JPE, JPEG, JPG
+  474946 -> GIF / 424D38 -> BMP
+  424D36 -> DIB
+*/
+  file.extension == "ico" and file.size > 700 and not
+  file.Ext.header_bytes : ("000001*", "89504E*", "ffd8ff*", "474946*", "424d38*", "424d36*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1005"
+name = "Data from Local System"
+reference = "https://attack.mitre.org/techniques/T1005/"
+
+[[rule.threat.technique]]
+id = "T1074"
+name = "Data Staged"
+reference = "https://attack.mitre.org/techniques/T1074/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
