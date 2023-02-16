@@ -28,19 +28,32 @@ note = """## Triage and analysis
 
 ### Investigating Google Workspace Role Modified
 
-{Technology Description}
+Google Workspace roles allow administrators to assign specific permissions to users or groups where the principle of least privilege (PoLP) is recommended. Admin roles in Google Workspace grants users access to the Google Admin console, where further domain-wide settings are accessible. Google Workspace contains pre-built admin roles for performing business functions related to users, groups and services. Custom administrator roles can be created where pre-built roles are not preferred. Each Google Workspace service has a set of custodial privileges that can be added to custom roles.
 
-{Threat/Abuse Description}
+Roles assigned to users will grant them additional permissions and privileges within the Google Workspace domain. Threat actors may modify existing roles with new privileges to thus further their intrusion efforts and laterally move throughout the organization. User's with unexpected privileges may also cause operational disfunction is unfamiliar settings are adjusted without warning.
 
-{What this rule identifies}
+This rule identifies when a Google Workspace role is modified.
 
 #### Possible investigation steps
 
-- {False Positive Identification}
+- Identify user account(s) associated by reviewing `user.name` or `user.email` in the alert
+- Identify the role modified by reviewing `google_workspace.admin.role.name` in the alert
+- Identify the privilege added or removed by reviewing `google_workspace.admin.privilege.name` in the alert
+- With the user identified, verify administrative privileges are scoped properly
+- To identify other users with this role, search for `event.action: ASSIGN_ROLE`
+  - Add `google_workspace.admin.role.name` with the role added as an additional filter
+  - Adjust the relative time accordingly to identify all users that were assigned this role
+- Identify if the user account was recently created by searching for `event.action: CREATE_USER`
+- If a privilege was added, monitor users assigned this role for the next 24 hours in an attempt to identify using the new privilege
+  - The `event.provider` field will help filter for specific services in Google Workspace such as Drive or Admin
+  - The `event.action` field will help trace what actions are being taken by users
 
 ### False positive analysis
 
-- {False Positive Identification}
+- With the user account whom modified the role, verify this action was intentional
+- Verify that the user whom changed the role is expected to have administrative privileges in Google Workspace to modify roles
+- Review organizational units or groups the role may have been added to and ensure the new privileges align properly
+- Use the `user.name` to filter for `event.action` where `ADD_PRIVILEGE` or `UPDATE_ROLE` has been seen before to check if these actions are historical
 
 ### Response and remediation
 
