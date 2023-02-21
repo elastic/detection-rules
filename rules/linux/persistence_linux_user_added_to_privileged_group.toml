@@ -53,22 +53,14 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
-((
-/* Through usermod */
-process.name : ("usermod", "adduser") and 
-process.parent.name == "sudo" and
-process.args : ("root", "admin", "wheel", "staff", "sudo",
-                "disk", "video", "shadow", "lxc", "lxd")
-) or
-/* Through gpasswd */
+process where event.type == "start" and process.parent.name == "sudo" and
+process.args in ("root", "admin", "wheel", "staff", "sudo",
+                             "disk", "video", "shadow", "lxc", "lxd") and
 (
-process.name == "gpasswd" and 
-process.parent.name == "sudo" and
-process.args : ("-a", "--add", "-M", "--members") and 
-process.args : ("root", "admin", "wheel", "staff", "sudo",
-                "disk", "video", "shadow", "lxc", "lxd")
-))
+  process.name in ("usermod", "adduser") or
+  process.name == "gpasswd" and 
+  process.args in ("-a", "--add", "-M", "--members") 
+)
 '''
 
 
