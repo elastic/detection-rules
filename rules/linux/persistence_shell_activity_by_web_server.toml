@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/20"
+updated_date = "2023/02/21"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Potential Shell via Web Server"
 note = """## Triage and analysis
@@ -67,16 +67,19 @@ references = [
     "https://www.elastic.co/security-labs/elastic-response-to-the-the-spring4shell-vulnerability-cve-2022-22965",
 ]
 risk_score = 47
-rule_id = "231876e7-4d1f-4d63-a47c-47dd1acdc1cb"
+rule_id = "0bb0296f-0e9f-44e5-b709-bd61e0577fd5"
 severity = "medium"
 tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Investigation Guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
-process.name:(bash or dash or ash or zsh or "python*" or "perl*" or "php*") and
-process.parent.name:("apache" or "nginx" or "www" or "apache2" or "httpd" or "www-data")
+process where event.type == "start" and
+process.args:("whoami*", "id", "uname*", "cat*", "hostname*", "ip*", "curl*", "wget*", "pwd") and
+process.name : ("bash", "sh", "ash", "dash", "zsh", "rbash", "csh", "ksh", "tmux", "python*", "perl*", "php*") and
+process.parent.name : ("apache", "apache2", "nginx", "httpd", "php*", "www", "www-data", "lighttpd", "caddy") and
+not process.executable : "/var/lib/docker/*" and
+not process.args : ("/var/www/MISP/*", "/data/www/hg/hgweb.cgi", "/usr/lib/mailman/scripts/driver")
 '''
 
 
