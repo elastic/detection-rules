@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "development"
-updated_date = "2022/12/14"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -25,8 +25,8 @@ query = '''
 /* duplicate of Network Connection via MsXsl - b86afe07-0d98-4738-b15d-8d7465f95ff5 */
 
 sequence by process.entity_id
-  [process where event.type == "start" and process.name : "msxsl.exe"]
-  [network where process.name : "msxsl.exe" and network.direction : ("outgoing", "egress")]
+  [process where host.os.name == "windows" and event.type == "start" and process.name : "msxsl.exe"]
+  [network where host.os.name == "windows" and process.name : "msxsl.exe" and network.direction : ("outgoing", "egress")]
 '''
 
 

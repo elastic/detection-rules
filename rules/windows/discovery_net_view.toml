@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -54,7 +54,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.name == "windows" and event.type == "start" and
   ((process.name : "net.exe" or process.pe.original_file_name == "net.exe") or
    ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and
        not process.parent.name : "net.exe")) and
@@ -62,7 +62,7 @@ process where event.type == "start" and
 
 
   /* expand when ancestry is available
-  and not descendant of [process where event.type == "start" and process.name : "cmd.exe" and
+  and not descendant of [process where host.os.name == "windows" and event.type == "start" and process.name : "cmd.exe" and
                            ((process.parent.name : "userinit.exe") or
                             (process.parent.name : "gpscript.exe") or
                             (process.parent.name : "explorer.exe" and

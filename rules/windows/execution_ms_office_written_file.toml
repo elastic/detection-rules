@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -73,7 +73,7 @@ type = "eql"
 
 query = '''
 sequence with maxspan=2h
-  [file where event.type != "deletion" and file.extension : "exe" and
+  [file where host.os.name == "windows" and event.type != "deletion" and file.extension : "exe" and
      (process.name : "WINWORD.EXE" or
       process.name : "EXCEL.EXE" or
       process.name : "OUTLOOK.EXE" or
@@ -83,7 +83,7 @@ sequence with maxspan=2h
       process.name : "MSPUB.EXE" or
       process.name : "MSACCESS.EXE")
   ] by host.id, file.path
-  [process where event.type == "start"] by host.id, process.executable
+  [process where host.os.name == "windows" and event.type == "start"] by host.id, process.executable
 '''
 
 

@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -63,7 +63,7 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id
-  [process where process.name : "PsExec.exe" and event.type == "start" and
+  [process where host.os.name == "windows" and process.name : "PsExec.exe" and event.type == "start" and
 
    /* This flag suppresses the display of the license dialog and may
       indicate that psexec executed for the first time in the machine */
@@ -74,7 +74,7 @@ sequence by process.entity_id
                              "?:\\Program Files\\Docusnap X\\Bin\\psexec.exe",
                              "?:\\Program Files\\Docusnap X\\Tools\\dsDNS.exe") and
    not process.parent.executable : "?:\\Program Files (x86)\\Cynet\\Cynet Scanner\\CynetScanner.exe"]
-  [network where process.name : "PsExec.exe"]
+  [network where host.os.name == "windows" and process.name : "PsExec.exe"]
 '''
 
 

@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/07"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -25,9 +25,9 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan = 5s
-    [any where (event.category == "library" or (event.category == "process" and event.action : "Image loaded*")) and
+    [any where host.os.name == "windows" and (event.category == "library" or (event.category == "process" and event.action : "Image loaded*")) and
      (dll.name : "wmiutils.dll" or file.name : "wmiutils.dll") and process.name : ("wscript.exe", "cscript.exe")]
-    [process where event.type == "start" and
+    [process where host.os.name == "windows" and event.type == "start" and
      process.parent.name : "wmiprvse.exe" and
      user.domain != "NT AUTHORITY" and
      (process.pe.original_file_name :

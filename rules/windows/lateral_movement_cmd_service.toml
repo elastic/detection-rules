@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -25,11 +25,11 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan = 1m
-  [process where event.type == "start" and
+  [process where host.os.name == "windows" and event.type == "start" and
      (process.name : "sc.exe" or process.pe.original_file_name : "sc.exe") and
       process.args : "\\\\*" and process.args : ("binPath=*", "binpath=*") and
       process.args : ("create", "config", "failure", "start")]
-  [network where process.name : "sc.exe" and destination.ip != "127.0.0.1"]
+  [network where host.os.name == "windows" and process.name : "sc.exe" and destination.ip != "127.0.0.1"]
 '''
 
 

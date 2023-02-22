@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -33,7 +33,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.type : "change" and process.name : "dllhost.exe" and
+file where host.os.name == "windows" and event.type : "change" and process.name : "dllhost.exe" and
   /* Known modules names side loaded into process running with high or system integrity level for UAC Bypass, update here for new modules */
   file.name : ("wow64log.dll", "comctl32.dll", "DismCore.dll", "OskSupport.dll", "duser.dll", "Accessibility.ni.dll") and
   /* has no impact on rule logic just to avoid OS install related FPs */

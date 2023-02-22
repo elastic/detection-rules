@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,7 @@ note = """## Triage and analysis
 
 ### Investigating Windows Defender Exclusions Added via PowerShell
 
-Microsoft Windows Defender is an antivirus product built into Microsoft Windows. Since this software product is used to prevent and stop malware, it's important to monitor what specific exclusions are made to the product's configuration settings. These can often be signs of an adversary or malware trying to bypass Windows Defender's capabilities. One of the more notable [examples](https://www.cyberbit.com/blog/endpoint-security/latest-trickbot-variant-has-new-tricks-up-its-sleeve/) was observed in 2018 where Trickbot incorporated mechanisms to disable Windows Defender to avoid detection.
+Microsoft Windows Defender is an antivirus product built into Microsoft Windows. Since this software product is used to prevent and stop malware, it's important to monitor what specific exclusions are made to the product's configuration settings. These can often be signs of an adversary or malware trying to bypass Windows Defender's capabilities. One of the more notable [examples](https://www.cyberbit.com/blog/endpoint-security/latest-trickbot-variant-has-new-tricks-up-its-sleeve/) was observed in 2018 where host.os.name == "windows" and Trickbot incorporated mechanisms to disable Windows Defender to avoid detection.
 
 #### Possible investigation steps
 
@@ -87,7 +87,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.name == "windows" and event.type == "start" and
  (process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") or process.pe.original_file_name in ("powershell.exe", "pwsh.dll", "powershell_ise.exe")) and
   process.args : ("*Add-MpPreference*", "*Set-MpPreference*") and
   process.args : ("*-Exclusion*")

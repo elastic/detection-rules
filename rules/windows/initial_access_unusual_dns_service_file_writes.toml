@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/01/30"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -41,7 +41,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where process.name : "dns.exe" and event.type in ("creation", "deletion", "change") and
+file where host.os.name == "windows" and process.name : "dns.exe" and event.type in ("creation", "deletion", "change") and
   not file.name : "dns.log" and not
   (file.extension : ("old", "temp", "bak", "dns", "arpa") and file.path : "C:\\Windows\\System32\\dns\\*")
 '''

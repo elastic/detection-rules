@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -25,8 +25,8 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id
-  [process where process.name : "MSBuild.exe" and event.type == "start"]
-  [network where process.name : "MSBuild.exe" and
+  [process where host.os.name == "windows" and process.name : "MSBuild.exe" and event.type == "start"]
+  [network where host.os.name == "windows" and process.name : "MSBuild.exe" and
      not cidrmatch(destination.ip, "127.0.0.1", "::1")]
 '''
 

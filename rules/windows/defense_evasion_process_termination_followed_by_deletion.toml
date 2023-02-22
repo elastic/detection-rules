@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -27,11 +27,11 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan=5s
-   [process where event.type == "end" and
+   [process where host.os.name == "windows" and event.type == "end" and
     process.code_signature.trusted != true and
     not process.executable : ("C:\\Windows\\SoftwareDistribution\\*.exe", "C:\\Windows\\WinSxS\\*.exe")
    ] by process.executable
-   [file where event.type == "deletion" and file.extension : ("exe", "scr", "com") and
+   [file where host.os.name == "windows" and event.type == "deletion" and file.extension : ("exe", "scr", "com") and
     not process.executable :
              ("?:\\Program Files\\*.exe",
               "?:\\Program Files (x86)\\*.exe",

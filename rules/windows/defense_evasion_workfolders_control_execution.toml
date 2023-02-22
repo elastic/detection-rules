@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -37,7 +37,7 @@ disk from a separate binary.
 
 ### False positive analysis
 
-- Windows Work Folders are used legitimately by end users and administrators for file sharing and syncing but not in the instance where a suspicious control.exe is passed as an argument.
+- Windows Work Folders are used legitimately by end users and administrators for file sharing and syncing but not in the instance where host.os.name == "windows" and a suspicious control.exe is passed as an argument.
 
 ### Response and remediation
 
@@ -73,7 +73,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start"
+process where host.os.name == "windows" and event.type == "start"
     and process.name : "control.exe" and process.parent.name : "WorkFolders.exe"
     and not process.executable : ("?:\\Windows\\System32\\control.exe", "?:\\Windows\\SysWOW64\\control.exe")
 '''

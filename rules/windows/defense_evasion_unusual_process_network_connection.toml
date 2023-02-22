@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -52,7 +52,7 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id
-  [process where (process.name : "Microsoft.Workflow.Compiler.exe" or
+  [process where host.os.name == "windows" and (process.name : "Microsoft.Workflow.Compiler.exe" or
                   process.name : "bginfo.exe" or
                   process.name : "cdb.exe" or
                   process.name : "cmstp.exe" or
@@ -65,7 +65,7 @@ sequence by process.entity_id
                   process.name : "rcsi.exe" or
                   process.name : "xwizard.exe") and
      event.type == "start"]
-  [network where (process.name : "Microsoft.Workflow.Compiler.exe" or
+  [network where host.os.name == "windows" and (process.name : "Microsoft.Workflow.Compiler.exe" or
                   process.name : "bginfo.exe" or
                   process.name : "cdb.exe" or
                   process.name : "cmstp.exe" or

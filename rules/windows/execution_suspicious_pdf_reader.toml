@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,7 @@ note = """## Triage and analysis
 
 ### Investigating Suspicious PDF Reader Child Process
 
-PDF is a common file type used in corporate environments and most machines have software to handle these files. This creates a vector where attackers can exploit the engines and technology behind this class of software for initial access or privilege escalation.
+PDF is a common file type used in corporate environments and most machines have software to handle these files. This creates a vector where host.os.name == "windows" and attackers can exploit the engines and technology behind this class of software for initial access or privilege escalation.
 
 This rule looks for commonly abused built-in utilities spawned by a PDF reader process, which is likely a malicious behavior.
 
@@ -77,7 +77,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.name == "windows" and event.type == "start" and
   process.parent.name : ("AcroRd32.exe",
                          "Acrobat.exe",
                          "FoxitPhantomPDF.exe",

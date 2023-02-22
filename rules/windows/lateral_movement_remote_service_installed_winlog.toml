@@ -4,7 +4,7 @@ integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/01"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -25,9 +25,9 @@ type = "eql"
 
 query = '''
 sequence by winlog.logon.id, winlog.computer_name with maxspan=1m
-[authentication where event.action == "logged-in" and winlog.logon.type : "Network" and
+[authentication where host.os.name == "windows" and event.action == "logged-in" and winlog.logon.type : "Network" and
 event.outcome=="success" and source.ip != null and source.ip != "127.0.0.1" and source.ip != "::1"]
-[iam where event.action == "service-installed" and
+[iam where host.os.name == "windows" and event.action == "service-installed" and
  not winlog.event_data.SubjectLogonId : "0x3e7" and
  not winlog.event_data.ServiceFileName :
                ("?:\\Windows\\ADCR_Agent\\adcrsvc.exe",

@@ -4,7 +4,7 @@ integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/01"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -35,7 +35,7 @@ Administrators can use the dSHeuristics attribute to exclude privilege groups fr
 
 The usage of this exclusion can leave the accounts unprotected and facilitate the misconfiguration of privileges for the excluded groups, enabling attackers to add accounts to these groups to maintain long-term persistence with high privileges.
 
-This rule matches changes of the dsHeuristics object where the 16th bit is set to a value other than zero.
+This rule matches changes of the dsHeuristics object where host.os.name == "windows" and the 16th bit is set to a value other than zero.
 
 #### Possible investigation steps
 
@@ -96,7 +96,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.action == "Directory Service Changes" and
+any where host.os.name == "windows" and event.action == "Directory Service Changes" and
   event.code == "5136" and
   winlog.event_data.AttributeLDAPDisplayName : "dSHeuristics" and
   length(winlog.event_data.AttributeValue) > 15 and
