@@ -11,6 +11,7 @@ import warnings
 from collections import defaultdict
 from pathlib import Path
 
+import eql.ast
 from semver import Version
 
 import kql
@@ -814,3 +815,26 @@ class TestOsqueryPluginNote(BaseRuleTest):
                 if osquery_note_pattern not in rule.contents.data.note:
                     self.fail(f'{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain '
                               f'the following note:\n{osquery_note_pattern}')
+
+
+class TestEndpointQuery(BaseRuleTest):
+    """Test endpoint-specific rules."""
+
+    def test_os_and_platform_in_query(self):
+        """Test that all endpoint rules have an os defined and linux includes platform."""
+        for rule in self.production_rules:
+            if not rule.contents.data.get('language') in ('eql', 'kuery'):
+                continue
+            if rule.path.parent.name not in ('windows', 'macos', 'linux'):
+                # skip cross-platform for now
+                continue
+
+            ast = rule.contents.data.ast
+            fields = [str(f) for f in ast if isinstance(f, (kql.ast.Field, eql.ast.Field))]
+
+            err_msg = f'{self.rule_str(rule)} missing required field for endpoint rule'
+            self.assertIn('host.os.name', fields, err_msg)
+
+            if rule.path.parent.name == 'linux':
+                err_msg = f'{self.rule_str(rule)} missing required field for linux endpoint rule'
+                self.assertIn('host.os.platform', fields, err_msg)
