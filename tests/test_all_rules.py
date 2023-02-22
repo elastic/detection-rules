@@ -807,7 +807,7 @@ class TestOsqueryPluginNote(BaseRuleTest):
         osquery_note = '> **Note**:\n'
         osquery_note_pattern = osquery_note + '> This investigation guide uses the [Osquery Markdown Plugin]' \
             '(https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic ' \
-            'stack version 8.5.0. Older Elastic stacks versions will see unrendered markdown in this guide.'
+            'Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.'
 
         for rule in self.all_rules:
             if rule.contents.data.note and "!{osquery" in rule.contents.data.note:
