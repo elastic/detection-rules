@@ -277,6 +277,11 @@ class Osquery:
     @classmethod
     def from_string(cls, entry: str) -> 'Osquery':
         match = re.match(r'!{osquery({.*})}', entry)
+
+        if not entry.startswith('!{osquery{') and not match:
+            # found a non-osquery entry, return None
+            return
+
         if not match:
             raise ValidationError("Osquery entry should start with '!{osquery{'")
 
@@ -303,6 +308,11 @@ class Insight:
     @classmethod
     def from_string(cls, entry: str) -> 'Insight':
         match = re.match(r'!{insight({.*})}', entry)
+
+        if not entry.startswith('!{insight{') and not match:
+            # found a non-insight entry, return None
+            return
+
         if not match:
             raise ValidationError("Insight entry should start with '!{insight{'")
         try:
