@@ -24,20 +24,20 @@ tags = ["Elastic", "Host", "Linux", "Threat Detection", "Defense Evasion"]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where event.action == "exec" and
+process where event.type == "start" and event.action == "exec" and
  (
    /* disable FW */
    (
-     (process.name == "ufw" and process.args : "disable") or
-     (process.name == "iptables" and process.args : "-F" and process.args_count <= 2)
+     (process.name == "ufw" and process.args == "disable") or
+     (process.name == "iptables" and process.args == "-F" and process.args_count == 2)
    ) or
 
    /* stop FW service */
    (
      ((process.name == "service" and process.args == "stop") or
        (process.name == "chkconfig" and process.args == "off") or
-       (process.name=="systemctl" and process.args in ("disable","stop","kill"))) and
-    process.args in ("firewalld","ip6tables","iptables")
+       (process.name == "systemctl" and process.args in ("disable", "stop", "kill"))) and
+    process.args in ("firewalld", "ip6tables", "iptables")
     )
   )
 '''
