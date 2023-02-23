@@ -7,6 +7,7 @@ import copy
 import dataclasses
 import json
 import os
+import re
 import typing
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -18,6 +19,7 @@ from uuid import uuid4
 import eql
 from semver import Version
 from marko.block import Document as MarkoDocument
+from marko.inline import RawText
 from marko.ext.gfm import gfm
 from marshmallow import ValidationError, validates_schema
 
@@ -267,6 +269,54 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         return build_fields
 
 
+@dataclass(frozen=True)
+class Osquery:
+    query: str
+    label: str
+
+    @classmethod
+    def from_string(cls, entry: str) -> 'Osquery':
+        match = re.match(r'!{osquery({.*})}', entry)
+        if not match:
+            raise ValidationError("Osquery entry should start with '!{osquery{'")
+
+        try:
+            data = json.loads(match.group(1))
+            return cls(data['query'], data['label'])
+        except (json.JSONDecodeError, KeyError, TypeError):
+            raise ValidationError(f"Invalid entry format: {entry}. Expected singleline format is: "
+                                  "'!{{osquery{{\"query\":\"query_string\", \"label\":\"label_string\"}}}}'.")
+
+
+@dataclass
+class Insight:
+
+    @dataclass
+    class Provider:
+        field: str
+        value: str
+        type: str
+
+    label: str
+    providers: List[List[Provider]]
+
+    @classmethod
+    def from_string(cls, entry: str) -> 'Insight':
+        match = re.match(r'!{insight({.*})}', entry)
+        if not match:
+            raise ValidationError("Insight entry should start with '!{insight{'")
+        try:
+            data = json.loads(match.group(1))
+            label = data['label']
+            providers = [[Insight.Provider(**p) for p in provider_group] for provider_group in data['providers']]
+        except (json.JSONDecodeError, KeyError, TypeError):
+            raise ValidationError(f"Invalid entry format: {entry}. Expected singleline format is: "
+                                  "'!{{insight{{\"label\":\"label_string\", \"providers\":[[{{\"field\":"
+                                  "\"field_string\", \"value\":\"value_string\", \"type\":\"type_string\"}}]]}}}}'.")
+
+        return cls(label, providers)
+
+
 class DataValidator:
     """Additional validation beyond base marshmallow schema validation."""
 
@@ -300,10 +350,25 @@ class DataValidator:
     def skip_validate_note(self) -> bool:
         return os.environ.get('DR_BYPASS_NOTE_VALIDATION_AND_PARSE') is not None
 
+    def _validate_entries(self, node: MarkoDocument):
+        """Recursively search a MarkoDocument validating insights and osquery entries."""
+        if isinstance(node, RawText):
+            if "osquery" in node.children:
+                Osquery.from_string(node.children)
+            elif "insight" in node.children:
+                Insight.from_string(node.children)
+        elif hasattr(node, "children"):
+            for child in node.children:
+                self._validate_entries(child)
+
+        return False
+
     def validate_note(self):
+        """Validate the note field."""
         if self.skip_validate_note or not self.note:
             return
 
+        self._validate_entries(self.parsed_note)
         try:
             for child in self.parsed_note.children:
                 if child.get_type() == "Heading":
