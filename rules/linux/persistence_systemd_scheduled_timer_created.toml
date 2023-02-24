@@ -1,0 +1,90 @@
+[metadata]
+creation_date = "2023/02/24"
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/02/24"
+integration = ["endpoint"]
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the creation of a systemd timer within any of the default systemd timer directories. Systemd timers
+can be used by an attacker to gain persistence, by scheduling the execution of a command or script. Similarly
+to cron/at, systemd timers can be set up to execute on boot time, or on a specific point in time, which allows
+attackers to regain access in case the connection to the infected asset was lost. 
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "New Systemd Timer Created"
+note = """## Triage and analysis
+
+### Investigating New Systemd Timer Created
+
+Detection alerts from this rule indicate the creation of a new scheduled task through a systemd timer. There are many services that use systemd timers in a benign manner, so investigation to see whether the timer is malicious is vital. The currently set-up systemd timers running as root can be found in the following directories:
+-  /etc/systemd/system/
+-  /usr/local/lib/systemd/system/
+-  /lib/systemd/system/
+-  /usr/lib/systemd/system/
+
+Low privileged users can also set up systemd timers, these can be found in:
+- /home/user/.config/systemd/user/
+
+To list systemd timers, the `systemctl list-timers` command can be leveraged. 
+
+Each systemd timer requires a corresponding systemd service file, with a similar name as the timer. In case the timer was named foo.timer, a foo.service file should be present in the file system. This service file contains the command/script that will be executed by the timer. Investigate the .service file in order to figure out whether the timer is malicious or benign.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Delete the service/timer or restore it to the original configuration.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = [
+    "https://opensource.com/article/20/7/systemd-timers",
+    "https://pberba.github.io/security/2022/01/30/linux-threat-hunting-for-persistence-systemd-timers-cron/"
+]
+risk_score = 47
+rule_id = "7fb500fa-8e24-4bd1-9480-2a819352602c"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Elastic Endgame", "Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where event.type == "creation" and
+file.path : (
+  "/etc/systemd/system/*",
+  "/usr/local/lib/systemd/system/*",
+  "/lib/systemd/system/*",
+  "/usr/lib/systemd/system/*",
+  "/home/*/.config/systemd/user/*"
+) and
+endsWith(file.name, "timer")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+[[rule.threat.technique.subtechnique]]
+id = "T1053.006"
+name = "Systemd Timers"
+reference = "https://attack.mitre.org/techniques/T1053/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+
