@@ -6,7 +6,7 @@
 """Generic mixin classes."""
 
 from pathlib import Path
-from typing import Any, Optional, TypeVar, Type
+from typing import Any, Dict, List, Literal, Optional, TypeVar, Type
 
 import json
 import marshmallow_dataclass
@@ -192,6 +192,21 @@ class StackCompatMixin:
             if data.get(field) is not None:
                 raise ValidationError(f'Invalid field: "{field}" for stack version: {package_version}, '
                                       f'min compatibility: {min_compat}, max compatibility: {max_compat}')
+
+
+class GuideMarkdownMixin:
+    """Mixin for rule investigation guide Markdown plugins."""
+
+    def render_insight_osquery_to_string(self) -> Dict[Literal['osquery', 'insight'], List[str]]:
+        self: ('GuideMarkdownMixin', MarshmallowDataclassMixin)
+        obj = self.to_dict()
+
+        rendered: Dict[Literal['osquery', 'insight'], List[str]] = {'osquery': [], 'insight': []}
+        for plugin, entries in obj.items():
+            for entry in entries:
+                rendered[plugin].append('!{' + f'{plugin}{json.dumps(entry, sort_keys=True, separators=(",", ":"))}}}')
+
+        return rendered
 
 
 class PatchedJSONSchema(marshmallow_jsonschema.JSONSchema):

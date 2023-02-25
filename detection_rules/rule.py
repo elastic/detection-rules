@@ -28,12 +28,12 @@ from . import beats, ecs, endgame, utils
 from .integrations import (find_least_compatible_version,
                            load_integrations_manifests)
 from .misc import load_current_package_version
-from .mixins import MarshmallowDataclassMixin, StackCompatMixin
+from .mixins import GuideMarkdownMixin, MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
 from .schemas import (SCHEMA_DIR, definitions, downgrade,
                       get_min_supported_stack_version, get_stack_schemas)
 from .schemas.stack_compat import get_restricted_fields
-from .utils import cached
+from .utils import cached, PatchedTemplate
 
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
@@ -69,6 +69,39 @@ class RuleMeta(MarshmallowDataclassMixin):
         """Get a dict of beats and ecs versions per stack release."""
         stack_versions = get_stack_schemas(self.min_stack_version)
         return stack_versions
+
+
+@dataclass(frozen=True)
+class RuleTransform(MarshmallowDataclassMixin, GuideMarkdownMixin):
+    """Data stored in a rule's [transform] section of TOML."""
+
+    # note (investigation guides) Markdown plugins
+    # /elastic/kibana/tree/main/x-pack/plugins/security_solution/public/common/components/markdown_editor/plugins
+    ##############################################
+
+    @dataclass(frozen=True)
+    class OsQuery:
+        label: str
+        query: str
+        ecs_mapping: Optional[Dict[str, Dict[Literal['field', 'value'], str]]]
+
+    @dataclass(frozen=True)
+    class Insight:
+        @dataclass(frozen=True)
+        class Provider:
+            field: str
+            value: str
+            type: str
+
+        label: str
+        providers: List[List[Provider]]
+
+    # these must be lists in order to have more than one. Their index in the list is how they will be referenced in the
+    # note string templates
+    osquery: Optional[List[OsQuery]]
+    insight: Optional[List[Insight]]
+
+    ##############################################
 
 
 @dataclass(frozen=True)
@@ -265,6 +298,31 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
                 build_fields[fld] = BUILD_FIELD_VERSIONS[fld]
 
         return build_fields
+
+    @classmethod
+    def process_transforms(cls, transform: RuleTransform, obj: dict) -> dict:
+        """Process transforms from toml [transform] called in TOMLRuleContents.to_dict."""
+        # only create functions that CAREFULLY mutate the obj dict
+
+        def process_note_plugins():
+            """Format the note field with osquery and insight plugin strings."""
+            note = obj.get('note')
+            if not note:
+                return
+
+            rendered = transform.render_insight_osquery_to_string()
+            rendered_patterns = {}
+            for plugin, entries in rendered.items():
+                rendered_patterns.update(**{f'{plugin}_{i}': e for i, e in enumerate(entries)})
+
+            note_template = PatchedTemplate(note)
+            rendered_note = note_template.substitute(**rendered_patterns)
+            obj['note'] = rendered_note
+
+        # call transform functions
+        process_note_plugins()
+
+        return obj
 
 
 class DataValidator:
@@ -745,7 +803,7 @@ class BaseRuleContents(ABC):
         min_stack = self.convert_supported_version(rule_min_stack)
         return f"{min_stack.major}.{min_stack.minor}"
 
-    def _post_dict_transform(self, obj: dict) -> dict:
+    def _post_dict_conversion(self, obj: dict) -> dict:
         """Transform the converted API in place before sending to Kibana."""
 
         # cleanup the whitespace in the rule
@@ -772,6 +830,7 @@ class BaseRuleContents(ABC):
 class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     """Rule object which maps directly to the TOML layout."""
     metadata: RuleMeta
+    transform: Optional[RuleTransform]
     data: AnyRuleData = field(metadata=dict(data_key="rule"))
 
     @cached_property
@@ -821,14 +880,14 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def type(self) -> str:
         return self.data.type
 
-    def _post_dict_transform(self, obj: dict) -> dict:
+    def _post_dict_conversion(self, obj: dict) -> dict:
         """Transform the converted API in place before sending to Kibana."""
-        super()._post_dict_transform(obj)
+        super()._post_dict_conversion(obj)
 
         # build time fields
-        self._add_related_integrations(obj)
-        self._add_required_fields(obj)
-        self._add_setup(obj)
+        self._convert_add_related_integrations(obj)
+        self._convert_add_required_fields(obj)
+        self._convert_add_setup(obj)
 
         # validate new fields against the schema
         rule_type = obj['type']
@@ -840,7 +899,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         return obj
 
-    def _add_related_integrations(self, obj: dict) -> None:
+    def _convert_add_related_integrations(self, obj: dict) -> None:
         """Add restricted field related_integrations to the obj."""
         field_name = "related_integrations"
         package_integrations = obj.get(field_name, [])
@@ -872,7 +931,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
                 obj.setdefault("related_integrations", package_integrations)
 
-    def _add_required_fields(self, obj: dict) -> None:
+    def _convert_add_required_fields(self, obj: dict) -> None:
         """Add restricted field required_fields to the obj, derived from the query AST."""
         if isinstance(self.data, QueryRuleData) and self.data.language != 'lucene':
             index = obj.get('index') or []
@@ -884,7 +943,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if required_fields and self.check_restricted_field_version(field_name=field_name):
             obj.setdefault(field_name, required_fields)
 
-    def _add_setup(self, obj: dict) -> None:
+    def _convert_add_setup(self, obj: dict) -> None:
         """Add restricted field setup to the obj."""
         rule_note = obj.get("note", "")
         field_name = "setup"
@@ -901,7 +960,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             # parse note tree
             for i, child in enumerate(parsed_note.children):
                 if child.get_type() == "Heading" and "Setup" in gfm.render(child):
-                    field_value = self._get_setup_content(parsed_note.children[i + 1:])
+                    field_value = self._convert_get_setup_content(parsed_note.children[i + 1:])
 
                     # clean up old note field
                     investigation_guide = rule_note.replace("## Setup\n\n", "")
@@ -911,7 +970,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                     break
 
     @cached
-    def _get_setup_content(self, note_tree: list) -> str:
+    def _convert_get_setup_content(self, note_tree: list) -> str:
         """Get note paragraph starting from the setup header."""
         setup = []
         for child in note_tree:
@@ -920,17 +979,17 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             elif child.get_type() == "CodeSpan":
                 setup.append(f"`{gfm.renderer.render_raw_text(child)}`")
             elif child.get_type() == "Paragraph":
-                setup.append(self._get_setup_content(child.children))
+                setup.append(self._convert_get_setup_content(child.children))
                 setup.append("\n")
             elif child.get_type() == "FencedCode":
-                setup.append(f"```\n{self._get_setup_content(child.children)}\n```")
+                setup.append(f"```\n{self._convert_get_setup_content(child.children)}\n```")
                 setup.append("\n")
             elif child.get_type() == "RawText":
                 setup.append(child.children)
             elif child.get_type() == "Heading" and child.level >= 2:
                 break
             else:
-                setup.append(self._get_setup_content(child.children))
+                setup.append(self._convert_get_setup_content(child.children))
 
         return "".join(setup).strip()
 
@@ -985,7 +1044,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         return packaged_integrations
 
     @validates_schema
-    def post_validation(self, value: dict, **kwargs):
+    def post_conversion_validation(self, value: dict, **kwargs):
         """Additional validations beyond base marshmallow schemas."""
         data: AnyRuleData = value["data"]
         metadata: RuleMeta = value["metadata"]
@@ -999,6 +1058,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         # result from union fields which contain classes and related subclasses (AnyRuleData). See issue #1141
         metadata = self.metadata.to_dict(strip_none_values=strip_none_values)
         data = self.data.to_dict(strip_none_values=strip_none_values)
+        self.data.process_transforms(self.transform, data)
         dict_obj = dict(metadata=metadata, rule=data)
         return nested_normalize(dict_obj)
 
@@ -1011,7 +1071,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def to_api_format(self, include_version=True) -> dict:
         """Convert the TOML rule to the API format."""
         converted = self.data.to_dict()
-        converted = self._post_dict_transform(converted)
+        converted = self._post_dict_conversion(converted)
 
         if include_version:
             converted["version"] = self.autobumped_version
@@ -1057,7 +1117,9 @@ class TOMLRule:
 
     def save_toml(self):
         assert self.path is not None, f"Can't save rule {self.name} (self.id) without a path"
-        converted = self.contents.to_dict()
+        converted = dict(metadata=self.contents.metadata.to_dict(), rule=self.contents.data.to_dict())
+        if self.contents.transform:
+            converted['transform'] = self.contents.transform.to_dict()
         toml_write(converted, str(self.path.absolute()))
 
     def save_json(self, path: Path, include_version: bool = True):
@@ -1071,6 +1133,7 @@ class TOMLRule:
 class DeprecatedRuleContents(BaseRuleContents):
     metadata: dict
     data: dict
+    transform: Optional[dict]
 
     @cached_property
     def version_lock(self):
@@ -1102,15 +1165,22 @@ class DeprecatedRuleContents(BaseRuleContents):
 
     @classmethod
     def from_dict(cls, obj: dict):
-        return cls(metadata=obj['metadata'], data=obj['rule'])
+        kwargs = dict(metadata=obj['metadata'], data=obj['rule'])
+        kwargs['transform'] = obj['transform'] if 'transform' in obj else None
+        return cls(**kwargs)
 
     def to_api_format(self, include_version=True) -> dict:
         """Convert the TOML rule to the API format."""
-        converted = copy.deepcopy(self.data)
+        data = copy.deepcopy(self.data)
+        if self.transform:
+            transform = RuleTransform.from_dict(self.transform)
+            BaseRuleData.process_transforms(transform, data)
+
+        converted = data
         if include_version:
             converted["version"] = self.autobumped_version
 
-        converted = self._post_dict_transform(converted)
+        converted = self._post_dict_conversion(converted)
         return converted
 
 
