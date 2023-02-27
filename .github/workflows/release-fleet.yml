@@ -27,18 +27,18 @@ jobs:
               core.setFailed('Forbidden branch')
             }
 
-      - name: Checkout elastic/integrations
-        uses: actions/checkout@v2
-        with:
-          token: ${{ secrets.PROTECTIONS_MACHINE_TOKEN }}
-          ref: ${{github.event.inputs.target_branch}}
-          repository: ${{github.event.inputs.target_repo}}
-          path: integrations
-
       - name: Checkout detection-rules
         uses: actions/checkout@v2
         with:
           path: detection-rules
+
+      - name: Checkout elastic/integrations
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.READ_WRITE_ORG_TOKEN }}
+          ref: ${{github.event.inputs.target_branch}}
+          repository: ${{github.event.inputs.target_repo}}
+          path: integrations
 
       - name: Set up Python 3.8
         uses: actions/setup-python@v2
@@ -76,7 +76,7 @@ jobs:
           TARGET_REPO: "${{github.event.inputs.target_repo}}"
           TARGET_BRANCH: "${{github.event.inputs.target_branch}}"
           LOCAL_REPO: "../integrations"
-          GITHUB_TOKEN: "${{ secrets.PROTECTIONS_MACHINE_TOKEN }}"
+          GITHUB_TOKEN: "${{ secrets.READ_WRITE_ORG_TOKEN }}"
         run: |
           cd detection-rules
           python -m detection_rules dev integrations-pr \
