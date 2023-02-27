@@ -35,7 +35,7 @@ jobs:
       - name: Checkout elastic/integrations
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.READ_WRITE_ORG_TOKEN }}
+          token: ${{ secrets.READ_WRITE_RELEASE_FLEET }}
           repository: ${{github.event.inputs.target_repo}}
           path: integrations
 
@@ -63,7 +63,7 @@ jobs:
       - name: Setup go
         uses: actions/setup-go@v3
         with:
-          go-version: '^1.16.0'
+          go-version: '^1.20.1'
           check-latest: true
 
       - name: Build elastic-package
@@ -76,7 +76,7 @@ jobs:
           TARGET_REPO: "${{github.event.inputs.target_repo}}"
           TARGET_BRANCH: "${{github.event.inputs.target_branch}}"
           LOCAL_REPO: "../integrations"
-          GITHUB_TOKEN: "${{ secrets.READ_WRITE_ORG_TOKEN }}"
+          GITHUB_TOKEN: "${{ secrets.READ_WRITE_RELEASE_FLEET }}"
         run: |
           cd detection-rules
           python -m detection_rules dev integrations-pr \
