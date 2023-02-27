@@ -37,7 +37,10 @@ jobs:
         with:
           token: ${{ secrets.READ_ORG_TOKEN }}
           repository: ${{github.event.inputs.target_repo}}
-          path: ../integrations
+          path: integrations
+
+      - name: Fetch integrations
+        run: cd integrations & git fetch & cd ..
 
       - name: Set up Python 3.8
         uses: actions/setup-python@v2
@@ -74,7 +77,7 @@ jobs:
           DRAFT_ARGS: "${{startsWith(github.event.inputs.draft,'y') && '--draft' || ' '}}"
           TARGET_REPO: "${{github.event.inputs.target_repo}}"
           TARGET_BRANCH: "${{github.event.inputs.target_branch}}"
-          LOCAL_REPO: "../integrations"
+          LOCAL_REPO: "integrations"
           GITHUB_TOKEN: "${{ secrets.READ_ORG_TOKEN }}"
         run: |
           cd detection-rules
