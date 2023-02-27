@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/10/15"
-integration = ["windows"]
+integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2023/01/03"
+updated_date = "2023/02/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -26,7 +26,7 @@ After successfully compromising an environment, attackers may try to gain situat
 This rule looks for the enumeration of privileged local groups' membership by suspicious processes, and excludes known legitimate utilities and programs installed. Attackers can use this information to decide the next steps of the attack, such as mapping targets for credential compromise and other post-exploitation activities.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic stack version 8.5.0. Older Elastic stacks versions will see unrendered markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -135,7 +135,7 @@ iam where event.action == "user-member-enumerated" and
                 "?:\\Windows\\System32\\SystemPropertiesComputerName.exe") and
 
   /* privileged local groups */
-  (group.name:("admin*","RemoteDesktopUsers") or
+  (group.name:("*admin*","RemoteDesktopUsers") or
    winlog.event_data.TargetSid:("S-1-5-32-544","S-1-5-32-555"))
 '''
 
