@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/02/23"
 
 [rule]
 author = ["Elastic"]
@@ -49,8 +49,12 @@ process where event.type == "start" and event.action == "exec" and user.name == 
     "/usr/bin/uniq",
     "/bin/uniq",
     "/usr/bin/unzip",
-    "/bin/unzip")
-  and not process.parent.executable: "/bin/dracut"
+    "/bin/unzip",
+    "/usr/sbin/restorecon",
+    "/sbin/restorecon")
+  and not process.parent.executable: "/bin/dracut" and
+  not (process.executable : ("/bin/chown", "/usr/bin/chown") and process.args : "root:shadow") and
+  not (process.executable : ("/bin/chmod", "/usr/bin/chmod") and process.args : "640")
 '''
 
 
