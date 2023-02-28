@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/01/19"
 
 [rule]
 author = ["Elastic"]
@@ -64,6 +64,7 @@ type = "eql"
 
 query = '''
 process where event.type == "start" and
+(
   ((process.name:"rar.exe" or process.code_signature.subject_name == "win.rar GmbH" or
       process.pe.original_file_name == "Command line RAR") and
     process.args == "a" and process.args : ("-hp*", "-p*", "-dw", "-tb", "-ta", "/hp*", "/p*", "/dw", "/tb", "/ta"))
@@ -74,6 +75,7 @@ process where event.type == "start" and
 
   /* uncomment if noisy for backup software related FPs */
   /* not process.parent.executable : ("C:\\Program Files\\*.exe", "C:\\Program Files (x86)\\*.exe") */
+)
 '''
 
 

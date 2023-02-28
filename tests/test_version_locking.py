@@ -7,8 +7,9 @@
 
 import unittest
 
+from semver import Version
+
 from detection_rules.schemas import get_min_supported_stack_version
-from detection_rules.semver import Version
 from detection_rules.version_lock import default_version_lock
 
 
@@ -18,11 +19,11 @@ class TestVersionLock(unittest.TestCase):
     def test_previous_entries_gte_current_min_stack(self):
         """Test that all previous entries for all locks in the version lock are >= the current min_stack."""
         errors = {}
-        min_version = get_min_supported_stack_version(drop_patch=True)
+        min_version = get_min_supported_stack_version()
         for rule_id, lock in default_version_lock.version_lock.to_dict().items():
             if 'previous' in lock:
-                prev_vers = [Version(v) for v in list(lock['previous'])]
-                outdated = [str(v) for v in prev_vers if v < min_version]
+                prev_vers = [Version.parse(v, optional_minor_and_patch=True) for v in list(lock['previous'])]
+                outdated = [f"{v.major}.{v.minor}" for v in prev_vers if v < min_version]
                 if outdated:
                     errors[rule_id] = outdated
 
