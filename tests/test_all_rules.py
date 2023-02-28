@@ -836,8 +836,16 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
 
             note_counts = defaultdict(int)
             for identifier in note_template.get_identifiers():
+                # "$" is used for other things, so this verifies the pattern of a trailing "_" followed by ints
+                if '_' not in identifier:
+                    continue
+                dash_index = identifier.rindex('_')
+                if dash_index == len(identifier) or not identifier[dash_index + 1:].isdigit():
+                    continue
+
                 plugin, _ = identifier.split('_')
-                note_counts[plugin] += 1
+                if plugin in transform_counts:
+                    note_counts[plugin] += 1
 
             err_msg = f'{self.rule_str(rule)} plugin entry count mismatch between transform and note'
             self.assertDictEqual(transform_counts, note_counts, err_msg)
