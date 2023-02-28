@@ -28,7 +28,7 @@ from . import beats, ecs, endgame, utils
 from .integrations import (find_least_compatible_version,
                            load_integrations_manifests)
 from .misc import load_current_package_version
-from .mixins import GuideMarkdownMixin, MarshmallowDataclassMixin, StackCompatMixin
+from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
 from .schemas import (SCHEMA_DIR, definitions, downgrade,
                       get_min_supported_stack_version, get_stack_schemas)
@@ -72,7 +72,7 @@ class RuleMeta(MarshmallowDataclassMixin):
 
 
 @dataclass(frozen=True)
-class RuleTransform(MarshmallowDataclassMixin, GuideMarkdownMixin):
+class RuleTransform(MarshmallowDataclassMixin):
     """Data stored in a rule's [transform] section of TOML."""
 
     # note (investigation guides) Markdown plugins
@@ -100,6 +100,16 @@ class RuleTransform(MarshmallowDataclassMixin, GuideMarkdownMixin):
     # note string templates
     osquery: Optional[List[OsQuery]]
     insight: Optional[List[Insight]]
+
+    def render_insight_osquery_to_string(self) -> Dict[Literal['osquery', 'insight'], List[str]]:
+        obj = self.to_dict()
+
+        rendered: Dict[Literal['osquery', 'insight'], List[str]] = {'osquery': [], 'insight': []}
+        for plugin, entries in obj.items():
+            for entry in entries:
+                rendered[plugin].append('!{' + f'{plugin}{json.dumps(entry, sort_keys=True, separators=(",", ":"))}}}')
+
+        return rendered
 
     ##############################################
 
