@@ -182,6 +182,8 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
     if patch_release:
         latest_patch_release_ver = find_latest_integration_version("security_detection_engine",
                                                                    maturity, pkg_data["name"])
+        if latest_patch_release_ver.minor != pkg_kibana_ver.minor:
+            latest_patch_release_ver = latest_patch_release_ver.bump_minor()
         if maturity == "ga":
             pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_patch())
             pkg_data["registry_data"]["release"] = maturity
