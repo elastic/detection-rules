@@ -195,8 +195,6 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
     click.echo(f"Package Kibana version: {pkg_data['registry_data']['conditions']['kibana.version']}")
     click.echo(f"Package version: {pkg_data['registry_data']['version']}")
 
-    # we only save major and minor version bumps
-    # patch version bumps are OOB packages and thus we keep the base versioning
     save_etc_dump({"package": pkg_data}, "packages.yml")
 
 
