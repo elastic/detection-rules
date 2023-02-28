@@ -21,7 +21,7 @@ from detection_rules.rule import (QueryRuleData, TOMLRuleContents,
                                   load_integrations_manifests)
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.schemas import definitions
-from detection_rules.utils import INTEGRATION_RULE_DIR, get_path, load_etc_dump
+from detection_rules.utils import INTEGRATION_RULE_DIR, get_path, load_etc_dump, PatchedTemplate
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
@@ -800,17 +800,55 @@ class TestRiskScoreMismatch(BaseRuleTest):
             self.fail(err_msg)
 
 
-class TestOsqueryPluginNote(BaseRuleTest):
+class TestNoteMarkdownPlugins(BaseRuleTest):
     """Test if a guide containing Osquery Plugin syntax contains the version note."""
 
-    def test_note_guide(self):
+    def test_note_has_osquery_warning(self):
         osquery_note = '> **Note**:\n'
         osquery_note_pattern = osquery_note + '> This investigation guide uses the [Osquery Markdown Plugin]' \
             '(https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic ' \
             'Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.'
 
-        for rule in self.all_rules:
-            if rule.contents.data.note and "!{osquery" in rule.contents.data.note:
-                if osquery_note_pattern not in rule.contents.data.note:
-                    self.fail(f'{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain '
-                              f'the following note:\n{osquery_note_pattern}')
+        for rule in self.production_rules.rules:
+            if not rule.contents.get('transform'):
+                continue
+            osquery = rule.contents.transform.get('osquery')
+            if osquery and osquery_note_pattern not in rule.contents.data.note:
+                self.fail(f'{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain '
+                          f'the following note:\n{osquery_note_pattern}')
+
+    def test_plugin_placeholders_match_entries(self):
+        """Test that the number of plugin entries match their respective placeholders in note."""
+        for rule in self.production_rules.rules:
+            has_transform = rule.contents.get('transform') is not None
+            has_note = rule.contents.data.get('note') is not None
+
+            if has_transform and not has_note:
+                self.fail(f'{self.rule_str(rule)} transformed defined with no note')
+            elif not has_transform:
+                continue
+
+            transform = rule.contents.transform
+            transform_counts = {plugin: len(entries) for plugin, entries in transform.to_dict().items()}
+            note = rule.contents.data.note
+            self.assertIsNotNone(note)
+            note_template = PatchedTemplate(note)
+
+            note_counts = defaultdict(int)
+            for identifier in note_template.get_identifiers():
+                plugin, _ = identifier.split('_')
+                note_counts[plugin] += 1
+
+            err_msg = f'{self.rule_str(rule)} plugin entry count mismatch between transform and note'
+            self.assertDictEqual(transform_counts, note_counts, err_msg)
+
+        return
+
+    def test_if_plugins_explicitly_defined(self):
+        """Check if plugins are explicitly defined with the pattern in note vs using transform."""
+        for rule in self.production_rules.rules:
+            note = rule.contents.data.get('note')
+            if note is not None:
+                results = re.search(r'(!{osquery|!{insight)', note, re.I | re.M)
+                err_msg = f'{self.rule_str(rule)} investigation guide plugin pattern detected! Use Transform'
+                self.assertIsNone(results, err_msg)
