@@ -1,0 +1,88 @@
+[metadata]
+creation_date = "2023/02/28"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/02/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Files that are placed in the /etc/init.d/ directory in Unix can be used to start custom applications,
+services, scripts or commands during start-up. Init.d has been mostly replaced in favor of Systemd, however, 
+through the "systemd-sysv-generator" init.d files can be converted to service unit files that run at boot.
+Adversaries may add or alter files located in the /etc/init.d/ directory to execute malicious code on boot
+time in order to gain persistence onto the system. 
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "auditbeat-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Init.d File and Service Creation"
+note = """## Triage and analysis
+### Investigating RC script creation
+Detection alerts from this rule indicate the creation of a new file in the "/etc/init.d/" directory and a new service in the "/run/systemd/generator.late/" directory. Init.d has been deprecated in favor of the use of Systemd, and more recent Unix distributions no longer leverage this method of on-boot script execution. There might still be users that use init.d in a benign matter, so investigation to see whether the file is malicious is vital. The first file to check can be found here:
+- /etc/init.d/
+
+This file may contain a path to an executable, script or a command. Additionally, the `systemd-sysv-generator` located at `/usr/lib/systemd/system-generators/systemd-sysv-generator` is used to convert executable files located in /etc/init.d/ into service files. The service files can be found in the following directory:
+- /run/systemd/generator.late/
+
+### Investigating RC script execution
+Systemd will generate syslogs in case of the execution of the created service. In instances where the LSB header of the script has a description, this description can be found within the syslog log files. The following command might be used to check for the execution of this service:
+
+`sudo cat /var/log/syslog | grep "LSB"`
+
+If logging is found, analyze it, and chances are that the contents of the file created in the /etc/init.d/ directory have been executed. In case several syslog log files are available, use a wildcard to search through all of the available logs.
+
+### Response and remediation
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Delete the service/init.d files or restore it to the original configuration.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = [
+    "https://www.intezer.com/blog/malware-analysis/hiddenwasp-malware-targeting-linux-systems/",
+    "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#8-boot-or-logon-initialization-scripts-rc-scripts",
+    "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/"
+
+]
+risk_score = 47
+rule_id = "46385322-2871-46c4-af21-66d150ed12bb"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Investigation Guide"]
+type = "eql"
+
+query = '''
+sequence by user.id, host.id
+[file where event.action == "creation" and
+file.path : "/etc/init.d/*"]
+
+[process where event.type == "start" and
+event.action == "exec" and
+process.name == "chmod" and
+process.args : "+x"]
+
+[file where event.action == "creation" and
+process.name : "systemd-sysv-generator" and
+file.path : "/run/systemd/generator.late/*" and 
+endsWith(file.name, "service")]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
