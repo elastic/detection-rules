@@ -101,7 +101,6 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
     """Prompt loop to build a rule."""
     from .misc import schema_prompt
 
-    # TODO: how does transform impact this
     additional_required = additional_required or []
     creation_date = datetime.date.today().strftime("%Y/%m/%d")
     if verbose and path:
