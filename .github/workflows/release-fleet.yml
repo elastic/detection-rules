@@ -53,6 +53,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install .[dev]
 
+      - name: Bump prebuilt rules package version
+        env:
+          PACKAGE_MATURITY: "${{github.event.inputs.package_maturity}}"
+        run: |
+          cd detection-rules
+          python -m detection_rules dev bump-pkg-versions \
+            --patch-release                               \
+            --maturity $PACKAGE_MATURITY
+
       - name: Build release package
         run: |
           cd detection-rules
@@ -72,15 +81,6 @@ jobs:
       - name: Build elastic-package
         run: |
           go install github.com/elastic/elastic-package@latest
-
-      - name: Bump prebuilt rules package version
-        env:
-          PACKAGE_MATURITY: "${{github.event.inputs.package_maturity}}"
-        run: |
-          cd detection-rules
-          python -m detection_rules dev bump-pkg-versions \
-            --patch-release                               \
-            --maturity $PACKAGE_MATURITY
 
       - name: Create the PR to Integrations
         env:
