@@ -19,9 +19,6 @@ on:
       commit_hash:
         description: 'Commit hash'
         required: true
-      release_tag:
-        description: 'Release tag (integration-vx.x.x)'
-        required: false
 
 jobs:
   fleet-pr:
@@ -68,13 +65,6 @@ jobs:
           cd detection-rules
           git checkout $COMMIT_HASH
 
-      - name: Create release tag
-        if: github.event.inputs.release_tag != ''
-        run: |
-          cd detection-rules
-          git tag "${{github.event.inputs.release_tag}}"
-          git push origin "${{github.event.inputs.release_tag}}"
-
       - name: Bump prebuilt rules package version
         env:
           PACKAGE_MATURITY: "${{github.event.inputs.package_maturity}}"
@@ -83,6 +73,22 @@ jobs:
           python -m detection_rules dev bump-pkg-versions \
             --patch-release                               \
             --maturity $PACKAGE_MATURITY
+
+      - name: Store release tag
+        if: ${{github.event.inputs.package_maturity}} == "ga"
+        run: |
+          cd detection-rules
+          echo ::set-env name=RELEASE_VERSION::$(cat detection_rules/etc/packages.yaml | grep -oP '(?<=version: )\S+')
+
+      - name: Create release tag
+        if: ${{github.event.inputs.package_maturity}} == "ga"
+        env:
+          RELEASE_TAG: "integration-v${{ env.RELEASE_VERSION }}"
+        run: |
+          cd detection-rules
+          cat detection_rules/etc/packages.yaml | grep -oP '(?<=version: )\S+'
+          git tag $RELEASE_TAG
+          git push origin $RELEASE_TAG
 
       - name: Build release package
         run: |
