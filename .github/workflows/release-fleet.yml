@@ -18,7 +18,7 @@ on:
         required: true
       commit_hash:
         description: 'Commit hash'
-        required: false
+        required: true
 
 jobs:
   fleet-pr:
@@ -37,6 +37,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           path: detection-rules
+          fetch-depth: 0
 
       - name: Checkout elastic/integrations
         uses: actions/checkout@v3
@@ -56,24 +57,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install .[dev]
 
-      - name: Retrieve locked versions commit
-        run: |
-          cd detection-rules
-          echo "LOCKED_VERSIONS_COMMIT=$(git log --grep='Lock versions' -1 --format=format:"%H")" >> $GITHUB_OUTPUT
-          echo "default locked versions commit found: $GITHUB_OUTPUT"
-        id: retrieve_locked_versions_commit
-
       - name: Checkout commit hash
         env:
-          MANUAL_COMMIT_HASH: "${{github.event.inputs.commit_hash}}"
-          DEFAULT_COMMIT_HASH: "${{ steps.retrieve_locked_versions_commit.outputs.LOCKED_VERSIONS_COMMIT }}"
+          COMMIT_HASH: ${{github.event.inputs.commit_hash}}
         run: |
           cd detection-rules
-          if [[ $MANUAL_COMMIT_HASH == '' ]]; then
-              echo "$DEFAULT_COMMIT_HASH" >> "$COMMIT_HASH"
-          else
-              echo "$MANUAL_COMMIT_HASH" >> "$COMMIT_HASH"
-          fi
           git checkout $COMMIT_HASH
 
       - name: Bump prebuilt rules package version
