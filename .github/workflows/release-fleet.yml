@@ -16,6 +16,9 @@ on:
       package_maturity:
         description: 'Package Maturity (ga/beta)'
         required: true
+      commit_hash:
+        description: 'Commit hash'
+        required: false
 
 jobs:
   fleet-pr:
@@ -52,6 +55,13 @@ jobs:
           cd detection-rules
           python -m pip install --upgrade pip
           pip install .[dev]
+
+      - name: Checkout commit hash
+        if: ${{ github.event.inputs.commit_hash != "" }}
+        env:
+          COMMIT_HASH: "${{github.event.inputs.commit_hash}}"
+        run: |
+          git checkout $COMMIT_HASH
 
       - name: Bump prebuilt rules package version
         env:
