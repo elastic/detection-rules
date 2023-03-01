@@ -37,7 +37,7 @@ disk from a separate binary.
 
 ### False positive analysis
 
-- Windows Work Folders are used legitimately by end users and administrators for file sharing and syncing but not in the instance where host.os.name == "windows" and a suspicious control.exe is passed as an argument.
+- Windows Work Folders are used legitimately by end users and administrators for file sharing and syncing but not in the instance where host.os.type == "windows" and a suspicious control.exe is passed as an argument.
 
 ### Response and remediation
 
@@ -73,7 +73,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.name == "windows" and event.type == "start"
+process where host.os.type == "windows" and event.type == "start"
     and process.name : "control.exe" and process.parent.name : "WorkFolders.exe"
     and not process.executable : ("?:\\Windows\\System32\\control.exe", "?:\\Windows\\SysWOW64\\control.exe")
 '''

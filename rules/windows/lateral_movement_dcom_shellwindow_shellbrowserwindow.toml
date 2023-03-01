@@ -27,11 +27,11 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan=5s
- [network where host.os.name == "windows" and event.type == "start" and process.name : "explorer.exe" and
+ [network where host.os.type == "windows" and event.type == "start" and process.name : "explorer.exe" and
   network.direction : ("incoming", "ingress") and network.transport == "tcp" and
   source.port > 49151 and destination.port > 49151 and source.ip != "127.0.0.1" and source.ip != "::1"
  ] by process.entity_id
- [process where host.os.name == "windows" and event.type == "start" and
+ [process where host.os.type == "windows" and event.type == "start" and
   process.parent.name : "explorer.exe"
  ] by process.parent.entity_id
 '''

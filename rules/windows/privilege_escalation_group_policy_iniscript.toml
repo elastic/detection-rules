@@ -41,7 +41,7 @@ Group Policy Objects (GPOs) can be used by attackers to instruct arbitrarily lar
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
-- The investigation and containment must be performed in every computer controlled by the GPO, where host.os.name == "windows" and necessary.
+- The investigation and containment must be performed in every computer controlled by the GPO, where host.os.type == "windows" and necessary.
 - Remove the script from the GPO.
 - Check if other GPOs have suspicious scripts attached.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
@@ -98,6 +98,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
+host.os.type:windows and
 (
  event.code:5136 and winlog.event_data.AttributeLDAPDisplayName:(gPCMachineExtensionNames or gPCUserExtensionNames) and
    winlog.event_data.AttributeValue:(*42B5FAAE-6536-11D2-AE5A-0000F87571E3* and

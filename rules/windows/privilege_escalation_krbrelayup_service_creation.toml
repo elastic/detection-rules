@@ -9,7 +9,7 @@ updated_date = "2023/02/22"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a suspicious local successful logon event where host.os.name == "windows" and the Logon Package is Kerberos, the remote address is set to
+Identifies a suspicious local successful logon event where host.os.type == "windows" and the Logon Package is Kerberos, the remote address is set to
 localhost, followed by a sevice creation from the same LogonId. This may indicate an attempt to leverage a Kerberos
 relay attack variant that can be used to elevate privilege locally from a domain joined user to local System privileges.
 """
@@ -32,7 +32,7 @@ type = "eql"
 
 query = '''
 sequence by winlog.computer_name with maxspan=5m
- [authentication where
+ [authentication where host.os.type == "windows" and
 
   /* event 4624 need to be logged */
   event.action == "logged-in" and event.outcome == "success" and
@@ -41,7 +41,7 @@ sequence by winlog.computer_name with maxspan=5m
   winlog.event_data.AuthenticationPackageName :"Kerberos" and winlog.logon.type == "Network" and
   cidrmatch(source.ip, "127.0.0.0/8", "::1") and source.port > 0] by winlog.event_data.TargetLogonId
 
-  [any where
+  [any where host.os.type == "windows" and
    /* event 4697 need to be logged */
    event.action : "service-installed"] by winlog.event_data.SubjectLogonId
 '''

@@ -47,7 +47,7 @@ This rule detects the creation of a Windows Firewall inbound rule that would all
 - Initiate the incident response process based on the outcome of the triage.
 - If RDP is needed, make sure to secure it:
   - Allowlist RDP traffic to specific trusted hosts.
-  - Restrict RDP logins to authorized non-administrator accounts, where host.os.name == "windows" and possible.
+  - Restrict RDP logins to authorized non-administrator accounts, where host.os.type == "windows" and possible.
 - Isolate the involved hosts to prevent further post-compromise behavior.
 - Review the privileges assigned to the involved users to ensure that the least privilege principle is being followed.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
@@ -73,7 +73,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.name == "windows" and event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
  (process.name : "netsh.exe" or process.pe.original_file_name == "netsh.exe") and
  process.args : ("localport=3389", "RemoteDesktop", "group=\"remote desktop\"") and
  process.args : ("action=allow", "enable=Yes", "enable")

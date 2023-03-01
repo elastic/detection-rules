@@ -10,7 +10,7 @@ updated_date = "2023/02/22"
 author = ["Elastic"]
 description = """
 Identifies a suspicious image load (wmiutils.dll) from Microsoft Office processes. This behavior may indicate
-adversarial activity where host.os.name == "windows" and child processes are spawned via Windows Management Instrumentation (WMI). This technique can
+adversarial activity where host.os.type == "windows" and child processes are spawned via Windows Management Instrumentation (WMI). This technique can
 be used to execute code and evade traditional parent/child processes spawned from Microsoft Office products.
 """
 from = "now-9m"
@@ -33,7 +33,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where
+any where host.os.type == "windows" and
  (event.category : ("library", "driver") or (event.category == "process" and event.action : "Image loaded*")) and
   process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSPUB.EXE", "MSACCESS.EXE") and
   (dll.name : "wmiutils.dll" or file.name : "wmiutils.dll")

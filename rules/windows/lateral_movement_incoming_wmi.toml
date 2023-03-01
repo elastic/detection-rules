@@ -28,13 +28,13 @@ sequence by host.id with maxspan = 2s
 
  /* Accepted Incoming RPC connection by Winmgmt service */
 
-  [network where host.os.name == "windows" and process.name : "svchost.exe" and network.direction : ("incoming", "ingress") and
+  [network where host.os.type == "windows" and process.name : "svchost.exe" and network.direction : ("incoming", "ingress") and
    source.ip != "127.0.0.1" and source.ip != "::1" and source.port >= 49152 and destination.port >= 49152
   ]
 
   /* Excluding Common FPs Nessus and SCCM */
 
-  [process where host.os.name == "windows" and event.type == "start" and process.parent.name : "WmiPrvSE.exe" and
+  [process where host.os.type == "windows" and event.type == "start" and process.parent.name : "WmiPrvSE.exe" and
    not process.args : ("C:\\windows\\temp\\nessus_*.txt",
                        "C:\\windows\\TEMP\\nessus_*.TMP",
                        "C:\\Windows\\CCM\\SystemTemp\\*",

@@ -25,9 +25,9 @@ type = "eql"
 
 query = '''
 sequence by winlog.logon.id, winlog.computer_name with maxspan=1m
-[authentication where host.os.name == "windows" and event.action == "logged-in" and winlog.logon.type : "Network" and
+[authentication where host.os.type == "windows" and event.action == "logged-in" and winlog.logon.type : "Network" and
 event.outcome=="success" and source.ip != null and source.ip != "127.0.0.1" and source.ip != "::1"]
-[iam where host.os.name == "windows" and event.action == "service-installed" and
+[iam where host.os.type == "windows" and event.action == "service-installed" and
  not winlog.event_data.SubjectLogonId : "0x3e7" and
  not winlog.event_data.ServiceFileName :
                ("?:\\Windows\\ADCR_Agent\\adcrsvc.exe",

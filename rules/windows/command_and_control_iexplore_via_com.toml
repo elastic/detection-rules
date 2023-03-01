@@ -27,10 +27,10 @@ type = "eql"
 
 query = '''
 sequence by host.id, user.name with maxspan = 5s
-  [library where host.os.name == "windows" and dll.name : "IEProxy.dll" and process.name : ("rundll32.exe", "regsvr32.exe")]
-  [process where host.os.name == "windows" and event.type == "start" and process.parent.name : "iexplore.exe" and process.parent.args : "-Embedding"]
+  [library where host.os.type == "windows" and dll.name : "IEProxy.dll" and process.name : ("rundll32.exe", "regsvr32.exe")]
+  [process where host.os.type == "windows" and event.type == "start" and process.parent.name : "iexplore.exe" and process.parent.args : "-Embedding"]
   /* IE started via COM in normal conditions makes few connections, mainly to Microsoft and OCSP related domains, add FPs here */
-  [network where host.os.name == "windows" and network.protocol == "dns" and process.name : "iexplore.exe" and
+  [network where host.os.type == "windows" and network.protocol == "dns" and process.name : "iexplore.exe" and
    not dns.question.name :
    (
     "*.microsoft.com",

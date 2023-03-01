@@ -833,7 +833,7 @@ class TestEndpointQuery(BaseRuleTest):
             fields = [str(f) for f in ast if isinstance(f, (kql.ast.Field, eql.ast.Field))]
 
             err_msg = f'{self.rule_str(rule)} missing required field for endpoint rule'
-            self.assertIn('host.os.name', fields, err_msg)
+            self.assertIn('host.os.type', fields, err_msg)
 
             # going to bypass this for now
             # if rule.path.parent.name == 'linux':

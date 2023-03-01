@@ -9,7 +9,7 @@ updated_date = "2023/02/22"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies child processes of unusual instances of RunDLL32 where host.os.name == "windows" and the command line parameters were suspicious. Misuse of
+Identifies child processes of unusual instances of RunDLL32 where host.os.type == "windows" and the command line parameters were suspicious. Misuse of
 RunDLL32 could indicate malicious activity.
 """
 from = "now-60m"
@@ -26,11 +26,11 @@ type = "eql"
 
 query = '''
 sequence with maxspan=1h
-  [process where host.os.name == "windows" and event.type == "start" and
+  [process where host.os.type == "windows" and event.type == "start" and
      (process.name : "rundll32.exe" or process.pe.original_file_name == "RUNDLL32.EXE") and
       process.args_count == 1
   ] by process.entity_id
-  [process where host.os.name == "windows" and event.type == "start" and process.parent.name : "rundll32.exe"
+  [process where host.os.type == "windows" and event.type == "start" and process.parent.name : "rundll32.exe"
   ] by process.parent.entity_id
 '''
 

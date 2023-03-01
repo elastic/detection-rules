@@ -27,10 +27,10 @@ type = "eql"
 
 query = '''
 sequence with maxspan=1m
-  [process where host.os.name == "windows" and event.type == "start" and
+  [process where host.os.type == "windows" and event.type == "start" and
      process.name : "mshta.exe" and process.args : "-Embedding"
   ] by host.id, process.entity_id
-  [network where host.os.name == "windows" and event.type == "start" and process.name : "mshta.exe" and
+  [network where host.os.type == "windows" and event.type == "start" and process.name : "mshta.exe" and
      network.direction : ("incoming", "ingress") and network.transport == "tcp" and
      source.port > 49151 and destination.port > 49151 and source.ip != "127.0.0.1" and source.ip != "::1"
   ] by host.id, process.entity_id

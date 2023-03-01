@@ -29,7 +29,7 @@ type = "eql"
 
 query = '''
 sequence by user.id with maxspan=5m
- [file where host.os.name == "windows" and event.action in ("creation", "rename") and
+ [file where host.os.type == "windows" and event.action in ("creation", "rename") and
   file.extension : ("htm", "html") and
    file.path : ("?:\\Users\\*\\Downloads\\*",
                 "?:\\Users\\*\\Content.Outlook\\*",
@@ -37,7 +37,7 @@ sequence by user.id with maxspan=5m
                 "?:\\Users\\*\\AppData\\Local\\Temp\\7z*",
                 "?:\\Users\\*\\AppData\\Local\\Temp\\Rar$*") and
    ((file.Ext.entropy >= 5 and file.size >= 150000) or file.size >= 1000000)]
- [process where host.os.name == "windows" and event.action == "start" and
+ [process where host.os.type == "windows" and event.action == "start" and
   (
    (process.name in ("chrome.exe", "msedge.exe", "brave.exe", "whale.exe", "browser.exe", "dragon.exe", "vivaldi.exe", "opera.exe")
     and process.args == "--single-argument") or

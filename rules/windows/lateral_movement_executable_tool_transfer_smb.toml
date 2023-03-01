@@ -66,12 +66,12 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan=30s
-  [network where host.os.name == "windows" and event.type == "start" and process.pid == 4 and destination.port == 445 and
+  [network where host.os.type == "windows" and event.type == "start" and process.pid == 4 and destination.port == 445 and
    network.direction : ("incoming", "ingress") and
    network.transport == "tcp" and source.ip != "127.0.0.1" and source.ip != "::1"
   ] by process.entity_id
   /* add more executable extensions here if they are not noisy in your environment */
-  [file where host.os.name == "windows" and event.type in ("creation", "change") and process.pid == 4 and file.extension : ("exe", "dll", "bat", "cmd")] by process.entity_id
+  [file where host.os.type == "windows" and event.type in ("creation", "change") and process.pid == 4 and file.extension : ("exe", "dll", "bat", "cmd")] by process.entity_id
 '''
 
 

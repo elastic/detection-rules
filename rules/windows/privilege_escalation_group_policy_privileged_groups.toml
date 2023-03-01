@@ -40,7 +40,7 @@ Group Policy Objects (GPOs) can be used to add rights and/or modify Group Member
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
-- The investigation and containment must be performed in every computer controlled by the GPO, where host.os.name == "windows" and necessary.
+- The investigation and containment must be performed in every computer controlled by the GPO, where host.os.type == "windows" and necessary.
 - Remove the script from the GPO.
 - Check if other GPOs have suspicious scripts attached.
 
@@ -80,8 +80,9 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.code: "5136" and winlog.event_data.AttributeLDAPDisplayName:"gPCMachineExtensionNames" and
-winlog.event_data.AttributeValue:(*827D319E-6EAC-11D2-A4EA-00C04F79F83A* and *803E14A0-B4FB-11D0-A0D0-00A0C90F574B*)
+host.os.type:windows and event.code: "5136" and
+  winlog.event_data.AttributeLDAPDisplayName:"gPCMachineExtensionNames" and
+  winlog.event_data.AttributeValue:(*827D319E-6EAC-11D2-A4EA-00C04F79F83A* and *803E14A0-B4FB-11D0-A0D0-00A0C90F574B*)
 '''
 
 

@@ -79,7 +79,7 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id
-  [process where host.os.name == "linux" and event.type == "start" and
+  [process where host.os.type == "linux" and event.type == "start" and
       process.name:("nc","ncat","netcat","netcat.openbsd","netcat.traditional") and (
           /* bind shell to echo for command execution */
           (process.args:("-l","-p") and process.args:("-c","echo","$*"))
@@ -92,7 +92,7 @@ sequence by process.entity_id
           /* file transfer via pipe */
           or (process.args:("|") and process.args:("nc","ncat"))
       )]
-  [network where host.os.name == "linux" and (process.name == "nc" or process.name == "ncat" or process.name == "netcat" or
+  [network where host.os.type == "linux" and (process.name == "nc" or process.name == "ncat" or process.name == "netcat" or
                   process.name == "netcat.openbsd" or process.name == "netcat.traditional")]
 '''
 

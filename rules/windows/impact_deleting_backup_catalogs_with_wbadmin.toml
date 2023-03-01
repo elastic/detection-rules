@@ -21,7 +21,7 @@ note = """## Triage and analysis
 
 ### Investigating Deleting Backup Catalogs with Wbadmin
 
-Windows Server Backup stores the details about your backups (what volumes are backed up and where host.os.name == "windows" and the backups are located) in a file called a backup catalog, which ransomware victims can use to recover corrupted backup files. Deleting these files is a common step in threat actor playbooks.
+Windows Server Backup stores the details about your backups (what volumes are backed up and where host.os.type == "windows" and the backups are located) in a file called a backup catalog, which ransomware victims can use to recover corrupted backup files. Deleting these files is a common step in threat actor playbooks.
 
 This rule identifies the deletion of the backup catalog using the `wbadmin.exe` utility.
 
@@ -68,7 +68,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.name == "windows" and event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
   (process.name : "wbadmin.exe" or process.pe.original_file_name == "WBADMIN.EXE") and
   process.args : "catalog" and process.args : "delete"
 '''
