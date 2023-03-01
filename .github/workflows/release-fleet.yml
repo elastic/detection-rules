@@ -76,17 +76,18 @@ jobs:
 
       - name: Store release tag
         if: ${{github.event.inputs.package_maturity}} == "ga"
+        id: packages-version
         run: |
           cd detection-rules
-          echo ::set-env name=RELEASE_VERSION::$(cat detection_rules/etc/packages.yaml | grep -oP '(?<=version: )\S+')
+          output=$(cat detection_rules/etc/packages.yaml | grep -oP '(?<=version: )\S+')
+          echo "::set-output name=pkg_version::$output"
 
       - name: Create release tag
         if: ${{github.event.inputs.package_maturity}} == "ga"
         env:
-          RELEASE_TAG: "integration-v${{ env.RELEASE_VERSION }}"
+          RELEASE_TAG: "integration-v${{ steps.packages-version.outputs.pkg_version }}"
         run: |
           cd detection-rules
-          cat detection_rules/etc/packages.yaml | grep -oP '(?<=version: )\S+'
           git tag $RELEASE_TAG
           git push origin $RELEASE_TAG
 
