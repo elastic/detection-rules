@@ -27,7 +27,7 @@ Attackers who add those DLLs to the registry locations can execute code with ele
 This rule identifies modifications on the AppInit registry keys.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will see unrendered Markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -37,7 +37,7 @@ This rule identifies modifications on the AppInit registry keys.
 - Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
 - Retrieve all DLLs under the AppInit registry keys:
   - !{osquery{"query":"SELECT * FROM registry r where (r.key == 'HKEY_LOCAL_MACHINE\\\\SOFTWARE\\\\Microsoft\\\\Windows NT\\\\CurrentVersion\\\\Windows' or r.key == 'HKEY_LOCAL_MACHINE\\\\SOFTWARE\\\\Wow6432Node\\\\Microsoft\\\\Windows NT\\\\CurrentVersion\\\\Windows') and r.name == 'AppInit_DLLs'","label":"Osquery - Retrieve AppInit Registry Value"}}
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the process executable and the DLLs using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
