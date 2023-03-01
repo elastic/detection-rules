@@ -182,8 +182,15 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
     if patch_release:
         latest_patch_release_ver = find_latest_integration_version("security_detection_engine",
                                                                    maturity, pkg_data["name"])
+
+        # if an existing minor or major does not have a package, bump from the last
+        # example is 8.10.0-beta.1 is last, but on 9.0.0 major
+        # example is 8.10.0-beta.1 is last, but on 8.11.0 minor
         if latest_patch_release_ver.minor != pkg_kibana_ver.minor:
             latest_patch_release_ver = latest_patch_release_ver.bump_minor()
+        if latest_patch_release_ver.major != pkg_kibana_ver.major:
+            latest_patch_release_ver = latest_patch_release_ver.bump_major()
+
         if maturity == "ga":
             pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_patch())
             pkg_data["registry_data"]["release"] = maturity
