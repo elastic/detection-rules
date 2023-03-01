@@ -19,6 +19,9 @@ on:
       commit_hash:
         description: 'Commit hash'
         required: true
+      release_tag:
+        description: 'Release tag (integration-vx.x.x)'
+        required: false
 
 jobs:
   fleet-pr:
@@ -37,6 +40,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           path: detection-rules
+          ref: ${{github.event.inputs.commit_hash}}
           fetch-depth: 0
 
       - name: Checkout elastic/integrations
@@ -63,6 +67,13 @@ jobs:
         run: |
           cd detection-rules
           git checkout $COMMIT_HASH
+
+      - name: Create release tag
+        if: github.event.inputs.release_tag != ''
+        run: |
+          cd detection-rules
+          git tag "${{github.event.inputs.release_tag}}"
+          git push origin "${{github.event.inputs.release_tag}}"
 
       - name: Bump prebuilt rules package version
         env:
