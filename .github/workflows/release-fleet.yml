@@ -56,11 +56,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install .[dev]
 
-      - name: Checkout commit hash
-        if: github.event.inputs.commit_hash != ''
-        env:
-          COMMIT_HASH: "${{github.event.inputs.commit_hash}}"
+      - name: Retrieve locked versions commit
         run: |
+          echo "LOCKED_VERSIONS_COMMIT=$(git log --grep='Lock versions' -1 --format=format:"%H")" >> $GITHUB_OUTPUT
+        id: retrieve_locked_versions_commit
+
+      - name: Checkout commit hash
+        env:
+          MANUAL_COMMIT_HASH: "${{github.event.inputs.commit_hash}}"
+          DEFAULT_COMMIT_HASH: "${{ steps.retrieve_locked_versions_commit.outputs.LOCKED_VERSIONS_COMMIT }}"
+        run: |
+          cd detection-rules
+          if [[ $MANUAL_COMMIT_HASH == '' ]]; then
+              echo "$DEFAULT_COMMIT_HASH" >> "$COMMIT_HASH"
+          else
+              echo "$MANUAL_COMMIT_HASH" >> "$COMMIT_HASH"
+          fi
           git checkout $COMMIT_HASH
 
       - name: Bump prebuilt rules package version
