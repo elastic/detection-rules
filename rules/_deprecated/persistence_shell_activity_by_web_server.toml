@@ -1,7 +1,8 @@
 [metadata]
-creation_date = "2023/03/04"
+creation_date = "2020/02/18"
+deprecation_date = "2023/03/04"
 integration = ["endpoint"]
-maturity = "production"
+maturity = "deprecated"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 updated_date = "2023/03/04"
@@ -17,9 +18,9 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
-name = "Potential Remote Code Execution via Web Server"
+name = "Potential Shell via Web Server"
 note = """## Triage and analysis
 
 ### Investigating Potential Shell via Web Server
@@ -67,27 +68,16 @@ references = [
     "https://www.elastic.co/security-labs/elastic-response-to-the-the-spring4shell-vulnerability-cve-2022-22965",
 ]
 risk_score = 47
-rule_id = "c895e1f6-376c-466c-b86a-9846da002919"
+rule_id = "231876e7-4d1f-4d63-a47c-47dd1acdc1cb"
 severity = "medium"
 tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Investigation Guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "query"
 
 query = '''
-process where event.type == "start" and
-process.parent.executable : (
-  "/usr/sbin/nginx", "/usr/local/sbin/nginx",
-  "/usr/sbin/apache", "/usr/local/sbin/apache",
-  "/usr/sbin/apache2", "/usr/local/sbin/apache2",
-  "/usr/sbin/php*", "/usr/local/sbin/php*",
-  "/usr/sbin/lighttpd", "/usr/local/sbin/lighttpd",
-  "/usr/sbin/hiawatha", "/usr/local/sbin/hiawatha",
-  "/usr/local/bin/caddy", 
-  "/usr/local/lsws/bin/lswsctrl",
-  "*/bin/catalina.sh"
-) and 
-process.name : ("*sh", "python*", "perl", "php*", "tmux") and
-process.args:("whoami*", "id", "uname*", "cat*", "hostname*", "ip*", "curl*", "wget*", "pwd") 
+event.category:process and event.type:(start or process_started) and
+process.name:(bash or dash or ash or zsh or "python*" or "perl*" or "php*") and
+process.parent.name:("apache" or "nginx" or "www" or "apache2" or "httpd" or "www-data")
 '''
 
 
