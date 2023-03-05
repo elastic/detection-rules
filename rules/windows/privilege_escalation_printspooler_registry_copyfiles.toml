@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -31,10 +31,10 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan=30s
-[registry where
+[registry where host.os.type == "windows" and
  registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\SpoolDirectory" and
  registry.data.strings : "C:\\Windows\\System32\\spool\\drivers\\x64\\4"]
-[registry where
+[registry where host.os.type == "windows" and
  registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\CopyFiles\\Payload\\Module" and
  registry.data.strings : "C:\\Windows\\System32\\spool\\drivers\\x64\\4\\*"]
 '''

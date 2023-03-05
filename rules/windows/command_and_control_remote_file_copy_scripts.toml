@@ -2,7 +2,7 @@
 creation_date = "2020/11/29"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/01/31"
+updated_date = "2023/02/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -75,10 +75,10 @@ type = "eql"
 
 query = '''
 sequence by host.id, process.entity_id
-  [network where process.name : ("wscript.exe", "cscript.exe") and network.protocol != "dns" and
+  [network where host.os.type == "windows" and process.name : ("wscript.exe", "cscript.exe") and network.protocol != "dns" and
    network.direction : ("outgoing", "egress") and network.type == "ipv4" and destination.ip != "127.0.0.1"
   ]
-  [file where event.type == "creation" and file.extension : ("exe", "dll")]
+  [file where host.os.type == "windows" and event.type == "creation" and file.extension : ("exe", "dll")]
 '''
 
 
