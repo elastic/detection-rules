@@ -820,6 +820,8 @@ class TestOsqueryPluginNote(BaseRuleTest):
 class TestEndpointQuery(BaseRuleTest):
     """Test endpoint-specific rules."""
 
+    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
+                     "Test only applicable to 8.3+ stacks since query updates are min_stacked at 8.3.0")
     def test_os_and_platform_in_query(self):
         """Test that all endpoint rules have an os defined and linux includes platform."""
         for rule in self.production_rules:
