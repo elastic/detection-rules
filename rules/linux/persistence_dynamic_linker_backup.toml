@@ -3,7 +3,7 @@ creation_date = "2022/07/12"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/15"
+updated_date = "2023/02/22"
 integration = ["endpoint"]
 
 [rule]
@@ -27,8 +27,9 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=1m
-[process where event.type == "start" and process.name : ("cp", "rsync") and process.args : ("/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/etc/ld.so.preload")]
-[file where event.action == "creation" and file.extension == "so"]
+[process where host.os.type == "linux" and event.type == "start" and process.name : ("cp", "rsync") and
+   process.args : ("/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/etc/ld.so.preload")]
+[file where host.os.type == "linux" and event.action == "creation" and file.extension == "so"]
 '''
 
 [[rule.threat]]

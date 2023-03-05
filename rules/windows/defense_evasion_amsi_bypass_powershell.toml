@@ -77,9 +77,8 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category :"process" and 
- (
-  powershell.file.script_block_text : 
+event.category:"process" and host.os.type:windows and
+ (powershell.file.script_block_text : 
         ("System.Management.Automation.AmsiUtils" or 
 				 amsiInitFailed or 
 				 Invoke-AmsiBypass or 
@@ -94,11 +93,9 @@ event.category :"process" and
 				 unloadsilent or 
 				 AmsiX64 or 
 				 AmsiX32 or 
-				 FindAmsiFun) or 
-	
-  powershell.file.script_block_text : ("[System.Runtime.InteropServices.Marshal]::Copy" and "VirtualProtect") or 
-
-  powershell.file.script_block_text : ("[Ref].Assembly.GetType(('System.Management.Automation" and ".SetValue(") 
+				 FindAmsiFun) or 	
+  powershell.file.script_block_text:("[System.Runtime.InteropServices.Marshal]::Copy" and "VirtualProtect") or
+  powershell.file.script_block_text:("[Ref].Assembly.GetType(('System.Management.Automation" and ".SetValue(")
  )
 '''
 
