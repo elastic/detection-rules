@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/22"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ sometimes done by attackers to increase access to a system and avoid appearing i
 the net users command.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Creation of a Hidden Local User Account"
@@ -56,12 +56,15 @@ references = [
 risk_score = 73
 rule_id = "2edc8076-291e-41e9-81e4-e3fcbc97ae5e"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Investigation Guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Investigation Guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and registry.path : "HKLM\\SAM\\SAM\\Domains\\Account\\Users\\Names\\*$\\"
+registry where host.os.type == "windows" and registry.path : (
+    "HKLM\\SAM\\SAM\\Domains\\Account\\Users\\Names\\*$\\",
+    "\\REGISTRY\\MACHINE\\SAM\\SAM\\Domains\\Account\\Users\\Names\\*$\\"
+)
 '''
 
 
