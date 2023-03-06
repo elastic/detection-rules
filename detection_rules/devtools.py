@@ -169,17 +169,28 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
     pkg_ver = Version.parse(pkg_data["registry_data"]["version"])
     pkg_kibana_ver = Version.parse(pkg_data["registry_data"]["conditions"]["kibana.version"].lstrip("^"))
     if major_release:
-        pkg_data["name"] = str(kibana_ver.bump_major()).rstrip(".0")
+        major_bump = kibana_ver.bump_major()
+        pkg_data["name"] = f"{major_bump.major}.{major_bump.minor}"
         pkg_data["registry_data"]["conditions"]["kibana.version"] = f"^{pkg_kibana_ver.bump_major()}"
         pkg_data["registry_data"]["version"] = str(pkg_ver.bump_major().bump_prerelease("beta"))
     if minor_release:
-        pkg_data["name"] = str(kibana_ver.bump_minor()).rstrip(".0")
+        minor_bump = kibana_ver.bump_minor()
+        pkg_data["name"] = f"{minor_bump.major}.{minor_bump.minor}"
         pkg_data["registry_data"]["conditions"]["kibana.version"] = f"^{pkg_kibana_ver.bump_minor()}"
         pkg_data["registry_data"]["version"] = str(pkg_ver.bump_minor().bump_prerelease("beta"))
         pkg_data["registry_data"]["release"] = maturity
     if patch_release:
         latest_patch_release_ver = find_latest_integration_version("security_detection_engine",
                                                                    maturity, pkg_data["name"])
+
+        # if an existing minor or major does not have a package, bump from the last
+        # example is 8.10.0-beta.1 is last, but on 9.0.0 major
+        # example is 8.10.0-beta.1 is last, but on 8.11.0 minor
+        if latest_patch_release_ver.minor != pkg_kibana_ver.minor:
+            latest_patch_release_ver = latest_patch_release_ver.bump_minor()
+        if latest_patch_release_ver.major != pkg_kibana_ver.major:
+            latest_patch_release_ver = latest_patch_release_ver.bump_major()
+
         if maturity == "ga":
             pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_patch())
             pkg_data["registry_data"]["release"] = maturity
@@ -191,8 +202,6 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
     click.echo(f"Package Kibana version: {pkg_data['registry_data']['conditions']['kibana.version']}")
     click.echo(f"Package version: {pkg_data['registry_data']['version']}")
 
-    # we only save major and minor version bumps
-    # patch version bumps are OOB packages and thus we keep the base versioning
     save_etc_dump({"package": pkg_data}, "packages.yml")
 
 
@@ -578,9 +587,8 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
         with changelog_path.open("wt") as f:
             # add a note for other maintainers of elastic/integrations to be careful with versions
             f.write("# newer versions go on top\n")
-            f.write("# NOTE: please use pre-release versions (e.g. -dev.0) until a package is ready for production\n")
-
-            yaml.dump(changelog_entries, f, allow_unicode=True, default_flow_style=False, indent=2)
+            f.write("# NOTE: please use pre-release versions (e.g. -beta.0) until a package is ready for production\n")
+            yaml.dump(changelog_entries, f, allow_unicode=True, default_flow_style=False, indent=2, sort_keys=False)
 
     save_changelog()
 

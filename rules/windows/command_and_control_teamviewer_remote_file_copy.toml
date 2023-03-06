@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/01/03"
+updated_date = "2023/02/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -23,7 +23,7 @@ Attackers commonly transfer tooling or malware from external systems into a comp
 TeamViewer is a remote access and remote control tool used by helpdesks and system administrators to perform various support activities. It is also frequently used by attackers and scammers to deploy malware interactively and other malicious activities. This rule looks for the TeamViewer process creating files with suspicious extensions.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic stack version 8.5.0. Older Elastic stacks versions will see unrendered markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -31,7 +31,7 @@ TeamViewer is a remote access and remote control tool used by helpdesks and syst
 - Contact the user to gather information about who and why was conducting the remote access.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Check whether the company uses TeamViewer for the support activities and if there is a support ticket related to this access.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the file using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -86,7 +86,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.type == "creation" and process.name : "TeamViewer.exe" and
+file where host.os.type == "windows" and event.type == "creation" and process.name : "TeamViewer.exe" and
   file.extension : ("exe", "dll", "scr", "com", "bat", "ps1", "vbs", "vbe", "js", "wsh", "hta")
 '''
 

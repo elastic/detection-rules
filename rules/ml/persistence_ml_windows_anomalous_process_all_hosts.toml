@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/03/25"
 maturity = "production"
-updated_date = "2023/01/30"
+updated_date = "2023/02/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -33,7 +33,7 @@ Searching for abnormal Windows processes is a good methodology to find potential
 This rule uses a machine learning job to detect a Windows process that is rare and unusual for all of the monitored Windows hosts in your environment.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic stack version 8.5.0. Older Elastic stacks versions will see unrendered markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -45,7 +45,7 @@ This rule uses a machine learning job to detect a Windows process that is rare a
 - Validate the activity is not related to planned patches, updates, network administrator activity, or legitimate software installations.
 - Validate if the activity has a consistent cadence (for example, if it runs monthly or quarterly), as it could be part of a monthly or quarterly business process.
 - Examine the arguments and working directory of the process. These may provide indications as to the source of the program or the nature of the tasks it is performing.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the process executable using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -89,7 +89,7 @@ references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs
 risk_score = 21
 rule_id = "6e40d56f-5c0e-4ac6-aece-bee96645b172"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "ML", "Persistence"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "ML", "Persistence", "Execution"]
 type = "machine_learning"
 
 [[rule.threat]]
@@ -104,4 +104,22 @@ reference = "https://attack.mitre.org/techniques/T1543/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+
+
+    [[rule.threat.technique.subtechnique]]
+    id = "T1204.002"
+    name = "Malicious File"
+    reference = "https://attack.mitre.org/techniques/T1204/002/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 
