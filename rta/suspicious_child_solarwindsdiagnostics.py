@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': 'd72e33fc-6e91-42ff-ac8b-e573268c5a87', 'rule_name': 'Command Execution via SolarWinds Process'}],
-    techniques=[""],
+    techniques=['T1059', 'T1195', 'T1195.002'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

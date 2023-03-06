@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': 'e94262f2-c1e9-4d3f-a907-aeab16712e1a',
         'rule_name': 'Unusual Executable File Creation by a System Critical Process'
     }],
-    techniques=[""],
+    techniques=['T1211'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '05b358de-aa6d-4f6c-89e6-78f74018b43b',
         'rule_name': 'Conhost Spawned By Suspicious Parent Process'
     }],
-    techniques=[""],
+    techniques=['T1059'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

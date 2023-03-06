@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': 'a22a09c2-2162-4df0-a356-9aacbeb56a04', 'rule_name': 'DNS-over-HTTPS Enabled via Registry'}],
-    techniques=[""],
+    techniques=['T1562'],
 )
 
 

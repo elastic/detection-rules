@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': 'ad0d2742-9a49-11ec-8d6b-acde48001122',
         'rule_name': 'Signed Proxy Execution via MS Work Folders'
     }],
-    techniques=[""],
+    techniques=['T1218'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

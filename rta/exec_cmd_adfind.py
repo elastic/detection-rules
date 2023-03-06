@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': 'eda499b8-a073-4e35-9733-22ec71f57f3a', 'rule_name': 'AdFind Command Activity'}],
-    techniques=[""],
+    techniques=['T1018', 'T1069', 'T1069.002', 'T1087', 'T1087.002', 'T1482'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

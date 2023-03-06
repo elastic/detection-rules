@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '3535c8bb-3bd5-40f4-ae32-b7cd589d5372', 'rule_name': 'Port Forwarding Rule Addition'}],
-    techniques=[""],
+    techniques=['T1572'],
 )
 
 

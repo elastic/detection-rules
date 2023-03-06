@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '4630d948-40d4-4cef-ac69-4002e29bc3db', 'rule_name': 'Adding Hidden File Attribute via Attrib'}],
-    techniques=[""],
+    techniques=['T1564', 'T1564.001'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

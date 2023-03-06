@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '4ed493fc-d637-4a36-80ff-ac84937e5461',
         'rule_name': 'Execution via MSSQL xp_cmdshell Stored Procedure'
     }],
-    techniques=[""],
+    techniques=['T1059'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

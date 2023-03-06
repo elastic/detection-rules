@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': 'b83a7e96-2eb3-4edf-8346-427b6858d3bd',
         'rule_name': 'Creation or Modification of Domain Backup DPAPI private key'
     }],
-    techniques=[""],
+    techniques=['T1552', 'T1552.004', 'T1555'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

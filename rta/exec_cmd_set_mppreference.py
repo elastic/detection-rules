@@ -21,7 +21,7 @@ metadata = RtaMetadata(
             'rule_name': 'Windows Defender Exclusions Added via PowerShell'
         }
     ],
-    techniques=[""],
+    techniques=['T1562', 'T1562.001', 'T1562.006', 'T1059', 'T1059.001'],
 )
 
 

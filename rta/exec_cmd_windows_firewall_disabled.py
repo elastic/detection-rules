@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': 'f63c8e3c-d396-404f-b2ea-0379d3942d73', 'rule_name': 'Windows Firewall Disabled via PowerShell'}],
-    techniques=[""],
+    techniques=['T1562', 'T1562.004'],
 )
 
 

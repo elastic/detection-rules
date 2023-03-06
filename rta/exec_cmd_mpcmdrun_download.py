@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': 'c6453e73-90eb-4fe7-a98c-cde7bbfc504a', 'rule_name': 'Remote File Download via MpCmdRun'}],
-    techniques=[""],
+    techniques=['T1105'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

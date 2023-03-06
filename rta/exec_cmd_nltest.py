@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '84da2554-e12a-11ec-b896-f661ea17fbcd', 'rule_name': 'Enumerating Domain Trusts via NLTEST.EXE'}],
-    techniques=[""],
+    techniques=['T1482'],
 )
 
 

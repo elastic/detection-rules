@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '1d72d014-e2ab-4707-b056-9b96abe7b511',
         'rule_name': 'External IP Lookup from Non-Browser Process'
     }],
-    techniques=[""],
+    techniques=['T1016', 'T1016.001', 'T1614'],
 )
 
 

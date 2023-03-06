@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '6aace640-e631-4870-ba8e-5fdda09325db',
         'rule_name': 'Exporting Exchange Mailbox via PowerShell'
     }],
-    techniques=[""],
+    techniques=['T1005', 'T1114', 'T1114.002'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

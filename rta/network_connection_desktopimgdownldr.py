@@ -14,7 +14,7 @@ metadata = RtaMetadata(
         'rule_id': '15c0b7a7-9c34-4869-b25b-fa6518414899',
         'rule_name': 'Remote File Download via Desktopimgdownldr Utility'
     }],
-    techniques=[""],
+    techniques=['T1105'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': 'c25e9c87-95e1-4368-bfab-9fd34cf867ec',
         'rule_name': 'Microsoft IIS Connection Strings Decryption'
     }],
-    techniques=[""],
+    techniques=['T1003'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

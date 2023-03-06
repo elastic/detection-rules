@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '818e23e6-2094-4f0e-8c01-22d30f3506c6', 'rule_name': 'PowerShell Script Block Logging Disabled'}],
-    techniques=[""],
+    techniques=['T1562', 'T1562.002'],
 )
 
 

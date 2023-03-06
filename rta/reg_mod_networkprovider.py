@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '54c3d186-0461-4dc3-9b33-2dc5c7473936',
         'rule_name': 'Network Logon Provider Registry Modification'
     }],
-    techniques=[""],
+    techniques=['T1556', 'T1543'],
 )
 
 

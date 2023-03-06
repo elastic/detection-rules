@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': 'f2f46686-6f3c-4724-bd7d-24e31c70f98f', 'rule_name': 'LSASS Memory Dump Creation'}],
-    techniques=[""],
+    techniques=['T1003', 'T1003.001'],
 )
 
 

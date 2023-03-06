@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '9ccf3ce0-0057-440a-91f5-870c6ad39093',
         'rule_name': 'Command Shell Activity Started via RunDLL32'
     }],
-    techniques=[""],
+    techniques=['T1059', 'T1059.001'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

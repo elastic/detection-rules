@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '0c7ca5c2-728d-4ad9-b1c5-bbba83ecb1f4',
         'rule_name': 'Peripheral Device Discovery'
     }],
-    techniques=[""],
+    techniques=['T1120'],
 )
 
 

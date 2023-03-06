@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '76fd43b7-3480-4dd9-8ad7-8bd36bfad92f',
         'rule_name': 'Potential Remote Desktop Tunneling Detected'
     }],
-    techniques=[""],
+    techniques=['T1572'],
 )
 
 

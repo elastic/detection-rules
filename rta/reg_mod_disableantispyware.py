@@ -21,7 +21,7 @@ metadata = RtaMetadata(
             'rule_name': 'Windows Defender Disabled via Registry Modification'
         }
     ],
-    techniques=[""],
+    techniques=['T1562', 'T1562.001', 'T1562.006'],
 )
 
 

@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '897dc6b5-b39f-432a-8d75-d3730d50c782', 'rule_name': 'Kerberos Traffic from Unusual Process'}],
-    techniques=[""],
+    techniques=['T1558'],
 )
 
 

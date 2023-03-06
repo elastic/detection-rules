@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '53a26770-9cbd-40c5-8b57-61d01a325e14', 'rule_name': 'Suspicious PDF Reader Child Process'}],
-    techniques=[""],
+    techniques=['T1204'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': 'b25a7df2-120a-4db2-bd3f-3e4b86b24bee', 'rule_name': 'Remote File Copy via TeamViewer'}],
-    techniques=[""],
+    techniques=['T1105', 'T1219'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

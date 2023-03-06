@@ -14,7 +14,7 @@ metadata = RtaMetadata(
         'rule_id': 'e3cf38fa-d5b8-46cc-87f9-4a7513e4281d',
         'rule_name': 'Connection to Commonly Abused Free SSL Certificate Providers'
     }],
-    techniques=[""],
+    techniques=['T1573'],
 )
 
 

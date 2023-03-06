@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '3b47900d-e793-49e8-968f-c90dc3526aa1', 'rule_name': 'Unusual Parent Process for cmd.exe'}],
-    techniques=[""],
+    techniques=['T1059'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

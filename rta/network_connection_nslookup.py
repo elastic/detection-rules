@@ -11,7 +11,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '3a59fc81-99d3-47ea-8cd6-d48d561fca20', 'rule_name': 'Potential DNS Tunneling via NsLookup'}],
-    techniques=[""],
+    techniques=['T1071', 'T1071.004'],
 )
 
 

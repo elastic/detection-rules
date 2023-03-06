@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '0635c542-1b96-4335-9b47-126582d2c19a', 'rule_name': 'Remote System Discovery Commands'}],
-    techniques=[""],
+    techniques=['T1016', 'T1018'],
 )
 
 

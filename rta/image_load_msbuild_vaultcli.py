@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae5',
         'rule_name': 'Potential Credential Access via Trusted Developer Utility'
     }],
-    techniques=[""],
+    techniques=['T1003'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")

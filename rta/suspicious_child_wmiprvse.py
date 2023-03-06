@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '770e0c4d-b998-41e5-a62e-c7901fd7f470', 'rule_name': 'Enumeration Command Spawned via WMIPrvSE'}],
-    techniques=[""],
+    techniques=['T1047', 'T1018', 'T1087', 'T1518'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

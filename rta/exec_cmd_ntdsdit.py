@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '3bc6deaa-fbd4-433a-ae21-3e892f95624f', 'rule_name': 'NTDS or SAM Database File Copied'}],
-    techniques=[""],
+    techniques=['T1003', 'T1003.002'],
 )
 
 

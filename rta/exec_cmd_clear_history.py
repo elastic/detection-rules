@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': 'b5877334-677f-4fb9-86d5-a9721274223b', 'rule_name': 'Clearing Windows Console History'}],
-    techniques=[""],
+    techniques=['T1070', 'T1070.003'],
 )
 
 

@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '17c7f6a5-5bc9-4e1f-92bf-13632d24384d',
         'rule_name': 'Suspicious Execution - Short Program Name'
     }],
-    techniques=[""],
+    techniques=['T1036', 'T1036.003'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")

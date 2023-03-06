@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '06dceabf-adca-48af-ac79-ffdf4c3b1e9a', 'rule_name': 'Potential Evasion via Filter Manager'}],
-    techniques=[""],
+    techniques=['T1562', 'T1562.001'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

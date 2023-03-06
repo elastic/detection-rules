@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '1d276579-3380-4095-ad38-e596a01bc64f',
         'rule_name': 'Remote File Download via Script Interpreter'
     }],
-    techniques=[""],
+    techniques=['T1105'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

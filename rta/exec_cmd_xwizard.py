@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '1a6075b0-7479-450e-8fe7-b8b8438ac570',
         'rule_name': 'Execution of COM object via Xwizard'
     }],
-    techniques=[""],
+    techniques=['T1559', 'T1559.001'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")

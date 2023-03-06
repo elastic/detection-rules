@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': 'd117cbb4-7d56-41b4-b999-bdf8c25648a0', 'rule_name': 'Symbolic Link to Shadow Copy Created'}],
-    techniques=[""],
+    techniques=['T1003'],
 )
 
 

@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': 'f874315d-5188-4b4a-8521-d1c73093a7e4', 'rule_name': 'Modification of AmsiEnable Registry Key'}],
-    techniques=[""],
+    techniques=['T1562', 'T1562.001'],
 )
 
 

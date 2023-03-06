@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '0564fb9d-90b9-4234-a411-82a546dc1343',
         'rule_name': 'Microsoft IIS Service Account Password Dumped'
     }],
-    techniques=[""],
+    techniques=['T1003'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

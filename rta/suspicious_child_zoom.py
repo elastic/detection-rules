@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '97aba1ef-6034-4bd3-8c1a-1e0996b27afa', 'rule_name': 'Suspicious Zoom Child Process'}],
-    techniques=[""],
+    techniques=['T1036', 'T1055'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '203ab79b-239b-4aa5-8e54-fc50623ee8e4',
         'rule_name': 'Creation or Modification of Root Certificate'
     }],
-    techniques=[""],
+    techniques=['T1553', 'T1553.004'],
 )
 
 

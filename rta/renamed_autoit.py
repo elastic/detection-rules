@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[{"rule_name": "Renamed AutoIt Scripts Interpreter", "rule_id": "99f2327e-871f-4b8a-ae75-d1c4697aefe4"}],
     siem=[{'rule_id': '2e1e835d-01e5-48ca-b9fc-7a61f7f11902', 'rule_name': 'Renamed AutoIt Scripts Interpreter'}],
-    techniques=["T1036"],
+    techniques=['T1036', 'T1036.003'],
 )
 
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")

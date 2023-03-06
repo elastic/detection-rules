@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '074464f9-f30d-4029-8c03-0ed237fffec7',
         'rule_name': 'Remote Desktop Enabled in Windows Firewall by Netsh'
     }],
-    techniques=[""],
+    techniques=['T1562', 'T1562.004'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

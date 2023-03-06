@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '33f306e8-417c-411b-965c-c2812d6d3f4d', 'rule_name': 'Remote File Download via PowerShell'}],
-    techniques=[""],
+    techniques=['T1105', 'T1059', 'T1059.001'],
 )
 
 

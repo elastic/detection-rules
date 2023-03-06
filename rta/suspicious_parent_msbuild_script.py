@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae2',
         'rule_name': 'Microsoft Build Engine Started by a Script Process'
     }],
-    techniques=[""],
+    techniques=['T1127', 'T1127.001'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

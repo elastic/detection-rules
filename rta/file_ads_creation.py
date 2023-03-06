@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '71bccb61-e19b-452f-b104-79a60e546a95',
         'rule_name': 'Unusual File Creation - Alternate Data Stream'
     }],
-    techniques=[""],
+    techniques=['T1564', 'T1564.004'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

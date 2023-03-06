@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '1defdd62-cd8d-426e-a246-81a37751bb2b',
         'rule_name': 'Execution of File Written or Modified by PDF Reader'
     }],
-    techniques=[""],
+    techniques=['T1566', 'T1566.001', 'T1566.002'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

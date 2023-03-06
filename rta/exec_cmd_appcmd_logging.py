@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': 'ebf1adea-ccf2-4943-8b96-7ab11ca173a5', 'rule_name': 'IIS HTTP Logging Disabled'}],
-    techniques=[""],
+    techniques=['T1562', 'T1562.002'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

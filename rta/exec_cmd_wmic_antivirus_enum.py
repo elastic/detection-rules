@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '6ea55c81-e2ba-42f2-a134-bccf857ba922', 'rule_name': 'Security Software Discovery using WMIC'}],
-    techniques=[""],
+    techniques=['T1518', 'T1518.001'],
 )
 
 

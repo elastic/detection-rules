@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '4682fd2c-cfae-47ed-a543-9bed37657aa6', 'rule_name': 'Potential Local NTLM Relay via HTTP'}],
-    techniques=[""],
+    techniques=['T1212'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

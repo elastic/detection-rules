@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '1160dcdb-0a0a-4a79-91d8-9b84616edebd',
         'rule_name': 'Potential DLL SideLoading via Trusted Microsoft Programs'
     }],
-    techniques=[""],
+    techniques=['T1036'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")

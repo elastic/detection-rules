@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '201200f1-a99b-43fb-88ed-f65a45c4972c', 'rule_name': 'Suspicious .NET Code Compilation'}],
-    techniques=[""],
+    techniques=['T1027', 'T1027.004'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

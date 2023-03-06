@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '8b4f0816-6a65-4630-86a6-c21c179c0d09', 'rule_name': 'Enable Host Network Discovery via Netsh'}],
-    techniques=[""],
+    techniques=['T1562', 'T1562.004'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

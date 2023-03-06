@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '12f07955-1674-44f7-86b5-c35da0a6f41a', 'rule_name': 'Suspicious Cmd Execution via WMI'}],
-    techniques=[""],
+    techniques=['T1047'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

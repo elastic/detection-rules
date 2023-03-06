@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': 'ebb200e8-adf0-43f8-a0bb-4ee5b5d852c6',
         'rule_name': 'Mimikatz Memssp Log File Detected'
     }],
-    techniques=[""],
+    techniques=['T1003'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 

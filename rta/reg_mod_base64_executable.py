@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '93c1ce76-494c-4f01-8167-35edfb52f7b1',
         'rule_name': 'Encoded Executable Stored in the Registry'
     }],
-    techniques=[""],
+    techniques=['T1112', 'T1140'],
 )
 
 

@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '2c3c29a4-f170-42f8-a3d8-2ceebc18eb6a',
         'rule_name': 'Suspicious Microsoft Diagnostics Wizard Execution'
     }],
-    techniques=[""],
+    techniques=['T1218'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")

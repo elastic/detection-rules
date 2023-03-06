@@ -16,7 +16,7 @@ metadata = RtaMetadata(
         'rule_id': '11ea6bec-ebde-4d71-a8e9-784948f8e3e9',
         'rule_name': 'Third-party Backup Files Deleted via Unexpected Process'
     }],
-    techniques=[""],
+    techniques=['T1490'],
 )
 
 

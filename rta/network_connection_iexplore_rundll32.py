@@ -14,7 +14,7 @@ metadata = RtaMetadata(
         'rule_id': 'acd611f3-2b93-47b3-a0a3-7723bcc46f6d',
         'rule_name': 'Potential Command and Control via Internet Explorer'
     }],
-    techniques=[""],
+    techniques=['T1071', 'T1559', 'T1559.001'],
 )
 
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")

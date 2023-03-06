@@ -15,7 +15,7 @@ metadata = RtaMetadata(
         'rule_id': '4de76544-f0e5-486a-8f84-eae0b6063cdc',
         'rule_name': 'Disable Windows Event and Security Logs Using Built-in Tools'
     }],
-    techniques=[""],
+    techniques=['T1070', 'T1070.001', 'T1562', 'T1562.006'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
