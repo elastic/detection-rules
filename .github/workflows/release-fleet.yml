@@ -39,7 +39,7 @@ jobs:
         run: |
           cd detection-rules
           lock_version_string="Lock versions"
-          echo ::set-env name=COMMIT_CHECK::$(git show -s --format=%B $COMMIT_HASH | grep -E 'Lock versions')
+          echo ::set-output name=COMMIT_CHECK::$(git show -s --format=%B $COMMIT_HASH | grep -E 'Lock versions')
           if [[ "$COMMIT_CHECK" == *"$lock_version_string"*  ]]; then
             echo "::set-output name=check_commit::true"
           else
@@ -83,13 +83,6 @@ jobs:
           cd detection-rules
           python -m pip install --upgrade pip
           pip install .[dev]
-
-      - name: Check commit hash
-        env:
-          COMMIT_HASH: ${{github.event.inputs.commit_hash}}
-        run: |
-          cd detection-rules
-          echo ::set-env name=COMMIT_CHECK::$(git show -s --format=%B $COMMIT_HASH | grep -E 'Lock versions')
 
       - name: Checkout commit hash
         env:
