@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/23"
+updated_date = "2023/03/01"
 
 [rule]
 author = ["Elastic"]
@@ -27,7 +27,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and event.action == "exec" and user.name == "root"
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and user.name == "root"
   and (process.args : "/etc/shadow" or (process.working_directory: "/etc" and process.args: "shadow"))
   and not process.executable:
     ("/usr/bin/tar",
