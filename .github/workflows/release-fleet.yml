@@ -21,9 +21,36 @@ on:
         required: true
 
 jobs:
-  fleet-pr:
+  check-commit:
+    name: Check Commit Hash
     runs-on: ubuntu-latest
+    outputs:
+      run_rest_jobs: ${{ steps.check_commit.outputs.run_jobs }}
+    steps:
+      - name: Checkout detection-rules
+        uses: actions/checkout@v3
+        with:
+          path: detection-rules
+          fetch-depth: 0
+      - name: Check commit hash
+        id: check_commit
+        env:
+          COMMIT_HASH: ${{github.event.inputs.commit_hash}}
+        run: |
+          cd detection-rules
+          lock_version_string="Lock versions"
+          echo ::set-env name=COMMIT_CHECK::$(git show -s --format=%B $COMMIT_HASH | grep -E 'Lock versions')
+          if [[ "$COMMIT_CHECK" == *"$lock_version_string"*  ]]; then
+            echo "::set-output name=check_commit::true"
+          else
+            echo "::set-output name=check_commit::false"
+          fi
 
+  fleet-pr:
+    name: Fleet PR
+    needs: [check-commit]
+    if: needs.check-commit.outputs.run_rest_jobs == 'true'
+    runs-on: ubuntu-latest
     steps:
       - name: Validate the source branch
         uses: actions/github-script@v3
@@ -37,7 +64,6 @@ jobs:
         uses: actions/checkout@v3
         with:
           path: detection-rules
-          ref: ${{github.event.inputs.commit_hash}}
           fetch-depth: 0
 
       - name: Checkout elastic/integrations
@@ -57,6 +83,13 @@ jobs:
           cd detection-rules
           python -m pip install --upgrade pip
           pip install .[dev]
+
+      - name: Check commit hash
+        env:
+          COMMIT_HASH: ${{github.event.inputs.commit_hash}}
+        run: |
+          cd detection-rules
+          echo ::set-env name=COMMIT_CHECK::$(git show -s --format=%B $COMMIT_HASH | grep -E 'Lock versions')
 
       - name: Checkout commit hash
         env:
