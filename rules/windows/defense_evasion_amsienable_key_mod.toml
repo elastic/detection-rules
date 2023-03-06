@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,7 @@ note = """## Triage and analysis
 
 ### Investigating Modification of AmsiEnable Registry Key
 
-The Windows Antimalware Scan Interface (AMSI) is a versatile interface standard that allows your applications and services to integrate with any antimalware product that's present on a machine. AMSI provides integration with multiple Windows components, ranging from User Account Control (UAC) to VBA Macros.
+The Windows Antimalware Scan Interface (AMSI) is a versatile interface standard that allows your applications and services to integrate with any antimalware product on a machine. AMSI integrates with multiple Windows components, ranging from User Account Control (UAC) to VBA macros and PowerShell.
 
 Since AMSI is widely used across security products for increased visibility, attackers can disable it to evade detections that rely on it.
 
@@ -46,7 +46,7 @@ This rule monitors the modifications to the Software\\Microsoft\\Windows Script\
 
 ### False positive analysis
 
-- This modification should not happen legitimately. Any potential benign true positive (B-TP) should be mapped and monitored by the security team, as these modifications expose the host to malware infections.
+- This modification should not happen legitimately. Any potential benign true positive (B-TP) should be mapped and monitored by the security team as these modifications expose the host to malware infections.
 
 ### Related rules
 
@@ -91,7 +91,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where event.type in ("creation", "change") and
+registry where host.os.type == "windows" and event.type in ("creation", "change") and
   registry.path : (
     "HKEY_USERS\\*\\Software\\Microsoft\\Windows Script\\Settings\\AmsiEnable",
     "HKU\\*\\Software\\Microsoft\\Windows Script\\Settings\\AmsiEnable",
