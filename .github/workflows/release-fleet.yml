@@ -25,7 +25,7 @@ jobs:
     name: Check Commit Hash
     runs-on: ubuntu-latest
     outputs:
-      run_rest_jobs: ${{ steps.check_commit.outputs.check_commit }}
+      is_locked_commit: ${{ steps.check_commit.outputs.check_commit }}
     steps:
       - name: Checkout detection-rules
         uses: actions/checkout@v3
@@ -47,8 +47,8 @@ jobs:
 
   fleet-pr:
     name: Fleet PR
-    needs: [check-commit]
-    if: check-commit.outputs.run_rest_jobs == 'true'
+    needs: check-commit
+    if: needs.check-commit.outputs.is_locked_commit == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Validate the source branch
