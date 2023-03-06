@@ -38,9 +38,8 @@ jobs:
           COMMIT_HASH: ${{github.event.inputs.commit_hash}}
         run: |
           cd detection-rules
-          lock_version_string="Lock versions"
-          echo ::set-output name=COMMIT_CHECK::$(git show -s --format=%B $COMMIT_HASH | grep -E 'Lock versions')
-          if [[ "$COMMIT_CHECK" == *"$lock_version_string"*  ]]; then
+          echo ::set-output name=COMMIT_CHECK::$(git show -s --format=%B $COMMIT_HASH | grep 'Lock versions')
+          if [[ "$COMMIT_CHECK" == *"Lock versions"*  ]]; then
             echo "::set-output name=check_commit::true"
           else
             echo "::set-output name=check_commit::false"
