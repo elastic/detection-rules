@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/16"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -30,7 +30,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where (event.category : ("library", "driver") or (event.category == "process" and event.action : "Image loaded*")) and
+any where host.os.type == "windows" and
+ (event.category : ("library", "driver") or (event.category == "process" and event.action : "Image loaded*")) and
  (dll.name : "mstscax.dll" or file.name : "mstscax.dll") and
    /* depending on noise in your env add here extra paths  */
   process.executable :

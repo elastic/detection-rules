@@ -1,0 +1,49 @@
+[metadata]
+creation_date = "2023/01/12"
+integration = ["endpoint", "windows"]
+maturity = "production"
+updated_date = "2023/02/22"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects files creation and modification on the host system from the the Windows Subsystem for Linux. 
+Adversaries may enable and use WSL for Linux to avoid detection.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Host Files System Changes via Windows Subsystem for Linux"
+references = ["https://github.com/microsoft/WSL"]
+risk_score = 47
+rule_id = "e88d1fe9-b2f4-48d4-bace-a026dc745d4b"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by process.entity_id with maxspan=5m
+ [process where host.os.type == "windows" and event.type == "start" and
+  process.name : "dllhost.exe" and 
+   /* Plan9FileSystem CLSID - WSL Host File System Worker */
+  process.command_line : "*{DFB65C4C-B34F-435D-AFE9-A86218684AA8}*"]
+ [file where host.os.type == "windows" and process.name : "dllhost.exe" and not file.path : "?:\\Users\\*\\Downloads\\*"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1202"
+name = "Indirect Command Execution"
+reference = "https://attack.mitre.org/techniques/T1202/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

@@ -1,0 +1,71 @@
+[metadata]
+creation_date = "2023/01/17"
+integration = ["windows"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/02/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies modification of a file creation time. Adversaries may modify file time attributes to blend
+malicious content with existing files. Timestomping is a technique that modifies the timestamps of 
+a file often to mimic files that are in trusted directories.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "File Creation Time Changed"
+risk_score = 47
+rule_id = "166727ab-6768-4e26-b80c-948b228ffc06"
+severity = "medium"
+tags = [
+    "Elastic",
+    "Host",
+    "Windows",
+    "Threat Detection",
+    "Defense Evasion"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type == "windows" and event.code : "2" and
+
+ /* Requires Sysmon EventID 2 - File creation time change */
+ event.action : "File creation time changed*" and 
+ 
+ not process.executable : 
+          ("?:\\Program Files\\*", 
+           "?:\\Program Files (x86)\\*", 
+           "?:\\Windows\\system32\\msiexec.exe", 
+           "?:\\Windows\\syswow64\\msiexec.exe", 
+           "?:\\Windows\\system32\\svchost.exe", 
+           "?:\\WINDOWS\\system32\\backgroundTaskHost.exe",
+           "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe", 
+           "?:\\Users\\*\\AppData\\Local\\slack\\app-*\\slack.exe", 
+           "?:\\Users\\*\\AppData\\Local\\GitHubDesktop\\app-*\\GitHubDesktop.exe",
+           "?:\\Users\\*\\AppData\\Local\\Microsoft\\Teams\\current\\Teams.exe", 
+           "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe") and 
+ not file.extension : ("tmp", "~tmp", "xml") and not user.name : ("SYSTEM", "Local Service", "Network Service")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.006"
+name = "Timestomp"
+reference = "https://attack.mitre.org/techniques/T1070/006/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

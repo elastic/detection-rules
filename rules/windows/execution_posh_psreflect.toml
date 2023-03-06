@@ -2,7 +2,7 @@
 creation_date = "2021/10/15"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2023/01/05"
+updated_date = "2023/02/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -31,7 +31,7 @@ Although this is an interesting project for every developer and admin out there,
 Detecting the core implementation of PSReflect means detecting most of the tooling that uses Windows API through PowerShell, enabling defenders to discover tools being dropped in the environment.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic stack version 8.5.0. Older Elastic stacks versions will see unrendered markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -40,7 +40,7 @@ Detecting the core implementation of PSReflect means detecting most of the tooli
 - Check for additional PowerShell and command-line logs that indicate that imported functions were run.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Evaluate whether the user needs to use PowerShell to complete tasks.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the script using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -115,7 +115,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and
+event.category:process and host.os.type:windows and
   powershell.file.script_block_text:(
     "New-InMemoryModule" or
     "Add-Win32Type" or

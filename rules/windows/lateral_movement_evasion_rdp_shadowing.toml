@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/16"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -37,16 +37,19 @@ query = '''
 /* Identifies the modification of RDP Shadow registry or
   the execution of processes indicative of active shadow RDP session */
 
-any where
+any where host.os.type == "windows" and
+(
   (event.category == "registry" and
      registry.path : (
       "HKLM\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow",
       "\\REGISTRY\\MACHINE\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow"
-    )) or
-  (event.category == "process" and
+    )
+  ) or
+  (event.category == "process" and event.type == "start" and
      (process.name : ("RdpSaUacHelper.exe", "RdpSaProxy.exe") and process.parent.name : "svchost.exe") or
      (process.pe.original_file_name : "mstsc.exe" and process.args : "/shadow:*")
   )
+)
 '''
 
 

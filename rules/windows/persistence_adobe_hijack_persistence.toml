@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/01/03"
+updated_date = "2023/02/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -21,7 +21,7 @@ note = """## Triage and analysis
 Attackers can replace the `RdrCEF.exe` executable with their own to maintain their access, which will be launched whenever Adobe Acrobat Reader is executed.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic stack version 8.5.0. Older Elastic stacks versions will see unrendered markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -29,7 +29,7 @@ Attackers can replace the `RdrCEF.exe` executable with their own to maintain the
 - Identify the user account that performed the action and whether it should perform this kind of action.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the file using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -77,7 +77,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.type == "creation" and
+file where host.os.type == "windows" and event.type == "creation" and
   file.path : ("?:\\Program Files (x86)\\Adobe\\Acrobat Reader DC\\Reader\\AcroCEF\\RdrCEF.exe",
                "?:\\Program Files\\Adobe\\Acrobat Reader DC\\Reader\\AcroCEF\\RdrCEF.exe") and
   not process.name : "msiexec.exe"

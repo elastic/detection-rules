@@ -2,7 +2,7 @@
 creation_date = "2021/10/15"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2023/01/05"
+updated_date = "2023/02/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -26,7 +26,7 @@ PowerShell is one of the main tools system administrators use for automation, re
 Attackers can abuse PowerShell in-memory capabilities to inject executables into memory without touching the disk, bypassing file-based security protections. These executables are generally base64 encoded.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic stack version 8.5.0. Older Elastic stacks versions will see unrendered markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -34,7 +34,7 @@ Attackers can abuse PowerShell in-memory capabilities to inject executables into
 - Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Evaluate whether the user needs to use PowerShell to complete tasks.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the script using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -104,7 +104,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and
+event.category:process and host.os.type:windows and
   powershell.file.script_block_text : (
     TVqQAAMAAAAEAAAA
   ) and not user.id : "S-1-5-18"

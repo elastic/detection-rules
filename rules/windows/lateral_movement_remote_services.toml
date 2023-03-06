@@ -2,7 +2,7 @@
 creation_date = "2020/11/16"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/01/03"
+updated_date = "2023/02/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -26,7 +26,7 @@ The Service Control Manager Remote Protocol is a client/server protocol used for
 This rule detects the remote creation or start of a service by correlating a `services.exe` network connection and the spawn of a child process.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic stack version 8.5.0. Older Elastic stacks versions will see unrendered markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -36,7 +36,7 @@ This rule detects the remote creation or start of a service by correlating a `se
 - Investigate any abnormal behavior by the subject process such as network connections, registry or file modifications, and any spawned child processes.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Validate if the activity is not related to planned patches, updates, network administrator activity, or legitimate software installations.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the process executable using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -82,12 +82,12 @@ type = "eql"
 
 query = '''
 sequence with maxspan=1s
-   [network where process.name : "services.exe" and
+   [network where host.os.type == "windows" and process.name : "services.exe" and
       network.direction : ("incoming", "ingress") and network.transport == "tcp" and
       source.port >= 49152 and destination.port >= 49152 and source.ip != "127.0.0.1" and source.ip != "::1"
    ] by host.id, process.entity_id
 
-   [process where event.type == "start" and process.parent.name : "services.exe" and
+   [process where host.os.type == "windows" and event.type == "start" and process.parent.name : "services.exe" and
        not (process.name : "svchost.exe" and process.args : "tiledatamodelsvc") and
        not (process.name : "msiexec.exe" and process.args : "/V") and
        not process.executable :

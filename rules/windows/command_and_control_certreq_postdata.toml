@@ -1,0 +1,58 @@
+[metadata]
+creation_date = "2023/01/13"
+integration = ["endpoint", "windows"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/02/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Certreq making an HTTP Post request. Adversaries could abuse Certreq to exfiltrate data to a remote URL.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Exfiltration via Certreq"
+references = ["https://lolbas-project.github.io/lolbas/Binaries/Certreq/"]
+risk_score = 47
+rule_id = "79f0a1f7-ed6b-471c-8eb1-23abd6470b1c"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Command and Control", "Elastic Endgame"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+ (process.name : "CertReq.exe" or process.pe.original_file_name == "CertReq.exe") and process.args : "-Post"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

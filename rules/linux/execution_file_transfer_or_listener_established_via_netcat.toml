@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -79,7 +79,8 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id
-  [process where process.name:("nc","ncat","netcat","netcat.openbsd","netcat.traditional") and (
+  [process where host.os.type == "linux" and event.type == "start" and
+      process.name:("nc","ncat","netcat","netcat.openbsd","netcat.traditional") and (
           /* bind shell to echo for command execution */
           (process.args:("-l","-p") and process.args:("-c","echo","$*"))
           /* bind shell to specific port */
@@ -91,7 +92,7 @@ sequence by process.entity_id
           /* file transfer via pipe */
           or (process.args:("|") and process.args:("nc","ncat"))
       )]
-  [network where (process.name == "nc" or process.name == "ncat" or process.name == "netcat" or
+  [network where host.os.type == "linux" and (process.name == "nc" or process.name == "ncat" or process.name == "netcat" or
                   process.name == "netcat.openbsd" or process.name == "netcat.traditional")]
 '''
 

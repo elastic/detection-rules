@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2021/01/09"
-integration = ["windows"]
+integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/21"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic", "Skoetting"]
@@ -62,7 +62,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-iam where event.action == "added-member-to-group" and
+iam where host.os.type == "windows" and event.action == "added-member-to-group" and
   group.name : ("Admin*",
                 "Local Administrators",
                 "Domain Admins",

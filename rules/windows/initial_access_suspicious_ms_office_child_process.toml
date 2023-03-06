@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/16"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -73,12 +73,12 @@ references = ["https://www.elastic.co/blog/vulnerability-summary-follina"]
 risk_score = 47
 rule_id = "a624863f-a70d-417f-a7d2-7a404638d47f"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access", "Investigation Guide", "Elastic Endgame"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access", "Investigation Guide", "Execution", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
   process.parent.name : ("eqnedt32.exe", "excel.exe", "fltldr.exe", "msaccess.exe", "mspub.exe", "powerpnt.exe", "winword.exe", "outlook.exe") and
   process.name : ("Microsoft.Workflow.Compiler.exe", "arp.exe", "atbroker.exe", "bginfo.exe", "bitsadmin.exe", "cdb.exe", "certutil.exe",
                 "cmd.exe", "cmstp.exe", "control.exe", "cscript.exe", "csi.exe", "dnx.exe", "dsget.exe", "dsquery.exe", "forfiles.exe",
@@ -107,4 +107,21 @@ reference = "https://attack.mitre.org/techniques/T1566/001/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.003"
+name = "Windows Command Shell"
+reference = "https://attack.mitre.org/techniques/T1059/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 

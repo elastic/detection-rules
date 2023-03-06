@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/16"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -87,7 +87,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start"
+process where host.os.type == "windows" and event.type == "start"
   and (process.name : "vssadmin.exe" or process.pe.original_file_name == "VSSADMIN.EXE") and
   process.args in ("delete", "resize") and process.args : "shadows*"
 '''
@@ -105,4 +105,5 @@ reference = "https://attack.mitre.org/techniques/T1490/"
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
-
+[[rule.threat]]
+framework = "MITRE ATT&CK"

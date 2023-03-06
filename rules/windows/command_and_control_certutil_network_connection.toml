@@ -2,7 +2,7 @@
 creation_date = "2020/03/19"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/01/03"
+updated_date = "2023/02/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -26,7 +26,7 @@ Attackers can abuse `certutil.exe` to download malware, offensive security tools
 This rule looks for network events where `certutil.exe` contacts IP ranges other than the ones specified in [IANA IPv4 Special-Purpose Address Registry](https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml)
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic stack version 8.5.0. Older Elastic stacks versions will see unrendered markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -34,7 +34,7 @@ This rule looks for network events where `certutil.exe` contacts IP ranges other
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Investigate if the downloaded file was executed.
 - Determine the context in which `certutil.exe` and the file were run.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the downloaded file using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -80,8 +80,8 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id
-  [process where process.name : "certutil.exe" and event.type == "start"]
-  [network where process.name : "certutil.exe" and
+  [process where host.os.type == "windows" and process.name : "certutil.exe" and event.type == "start"]
+  [network where host.os.type == "windows" and process.name : "certutil.exe" and
     not cidrmatch(destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24",
                                   "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32",
                                   "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24",

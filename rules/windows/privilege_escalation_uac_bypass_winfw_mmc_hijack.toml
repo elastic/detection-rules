@@ -2,7 +2,7 @@
 creation_date = "2020/10/14"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/01/03"
+updated_date = "2023/02/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -28,7 +28,7 @@ For more information about the UAC and how it works, check the [official Microso
 This rule identifies attempts to bypass User Account Control (UAC) by hijacking the Microsoft Management Console (MMC) Windows Firewall snap-in. Attackers bypass UAC to stealthily execute code with elevated permissions.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic stack version 8.5.0. Older Elastic stacks versions will see unrendered markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -36,7 +36,7 @@ This rule identifies attempts to bypass User Account Control (UAC) by hijacking 
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Inspect the host for suspicious or abnormal behavior in the alert timeframe.
 - Investigate any abnormal behavior by the subject process such as network connections, registry or file modifications, and any spawned child processes.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze any suspicious spawned processes using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -83,7 +83,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
  process.parent.name == "mmc.exe" and
  /* process.Ext.token.integrity_level_name == "high" can be added in future for tuning */
  /* args of the Windows Firewall SnapIn */

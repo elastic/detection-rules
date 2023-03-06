@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2022/11/09"
-integration = ["windows"]
+integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/21"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -55,9 +55,9 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.action:"Directory Service Changes" and event.code:"5136" and
- winlog.event_data.AttributeLDAPDisplayName:"msPKIAccountCredentials" and winlog.event_data.OperationType:"%%14674" and
- not winlog.event_data.SubjectUserSid : "S-1-5-18"
+event.action:"Directory Service Changes" and host.os.type:windows and event.code:"5136" and
+  winlog.event_data.AttributeLDAPDisplayName:"msPKIAccountCredentials" and winlog.event_data.OperationType:"%%14674" and
+  not winlog.event_data.SubjectUserSid : "S-1-5-18"
 '''
 
 

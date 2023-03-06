@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2022/01/31"
-integration = ["windows"]
+integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/21"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -32,7 +32,8 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.action:"Directory Service Changes" and event.code:5136 and winlog.event_data.ObjectDN:CN=AdminSDHolder,CN=System*
+event.action:"Directory Service Changes" and host.os.type:windows and event.code:5136 and
+  winlog.event_data.ObjectDN:CN=AdminSDHolder,CN=System*
 '''
 
 

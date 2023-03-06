@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic", "Ivan Ninichuck", "Austin Songer"]
@@ -72,8 +72,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
-
+process where host.os.type == "windows" and event.type == "start" and
+(
   ((process.name:"logman.exe" or process.pe.original_file_name == "Logman.exe") and
       process.args : "EventLog-*" and process.args : ("stop", "delete")) or
 
@@ -82,6 +82,7 @@ process where event.type == "start" and
 	process.args : "Set-Service" and process.args: "EventLog" and process.args : "Disabled")  or
 
   ((process.name:"auditpol.exe" or process.pe.original_file_name == "AUDITPOL.EXE") and process.args : "/success:disable")
+)
 '''
 
 

@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2022/04/27"
-integration = ["windows"]
+integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/21"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -32,7 +32,7 @@ type = "eql"
 
 query = '''
 sequence by winlog.computer_name with maxspan=5m
- [authentication where
+ [authentication where host.os.type == "windows" and
 
   /* event 4624 need to be logged */
   event.action == "logged-in" and event.outcome == "success" and
@@ -41,7 +41,7 @@ sequence by winlog.computer_name with maxspan=5m
   winlog.event_data.AuthenticationPackageName :"Kerberos" and winlog.logon.type == "Network" and
   cidrmatch(source.ip, "127.0.0.0/8", "::1") and source.port > 0] by winlog.event_data.TargetLogonId
 
-  [any where
+  [any where host.os.type == "windows" and
    /* event 4697 need to be logged */
    event.action : "service-installed"] by winlog.event_data.SubjectLogonId
 '''
