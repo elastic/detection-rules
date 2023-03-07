@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup, process.Ext.effective_parent.executable"
 min_stack_version = "8.4.0"
-updated_date = "2023/02/22"
+updated_date = "2023/03/07"
 
 [rule]
 author = ["Elastic"]
@@ -52,6 +52,20 @@ process where host.os.type == "windows" and event.action == "start" and
                            "?:\\Windows\\SysWOW64\\WerFaultSecure.exe",
                            "?:\\windows\\system32\\WerMgr.exe",
                            "?:\\Windows\\SoftwareDistribution\\Download\\Install\\securityhealthsetup.exe")  and
+
+ /* Ignores windows updates from TiWorker.exe that runs with elevated privileges */
+ not (process.parent.executable : "?:\\Windows\\WinSxS\\*\\TiWorker.exe" and
+         process.executable :
+             ("?:\\Windows\\Microsoft.NET\\Framework*.exe",
+              "?:\\Windows\\WinSxS\\*.exe",
+              "?:\\Windows\\System32\\inetsrv\\iissetup.exe",
+              "?:\\Windows\\SysWOW64\\inetsrv\\iissetup.exe"
+              "?:\\Windows\\System32\\inetsrv\\aspnetca.exe"
+              "?:\\Windows\\SysWOW64\\inetsrv\\aspnetca.exe",
+              "?:\\Windows\\System32\\lodctr.exe",
+			  "?:\\Windows\\SysWOW64\\lodctr.exe",
+			  "?:\\Windows\\System32\\netcfg.exe")) and
+
 
  not process.parent.executable : ("?:\\Windows\\System32\\AtBroker.exe", "?:\\Windows\\system32\\svchost.exe", "?:\\Program Files (x86)\\*.exe", "?:\\Program Files\\*.exe", "?:\\Windows\\System32\\msiexec.exe",
  "C:\\Windows\\System32\\DriverStore\\*") and
