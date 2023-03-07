@@ -46,6 +46,9 @@ process where host.os.type == "windows" and event.action == "start" and
  not (process.Ext.effective_parent.executable : "?:\\Windows\\System32\\Utilman.exe" and
       process.parent.executable : "?:\\Windows\\System32\\Utilman.exe" and process.parent.args : "/debug") and
 
+not (parent.process.executable: "?\\Windows\\System32\\spoolsv.exe" and
+     process.executable: "?:\\Program Files (x86)\\Access\\Intelligent Form\\Win32Bin\\LaunchCreate.exe")
+
  not process.executable : ("?:\\Windows\\System32\\WerFault.exe",
                            "?:\\Windows\\SysWOW64\\WerFault.exe",
                            "?:\\Windows\\System32\\WerFaultSecure.exe",
@@ -55,16 +58,15 @@ process where host.os.type == "windows" and event.action == "start" and
 
  /* Ignores windows updates from TiWorker.exe that runs with elevated privileges */
  not (process.parent.executable : "?:\\Windows\\WinSxS\\*\\TiWorker.exe" and
-         process.executable :
-             ("?:\\Windows\\Microsoft.NET\\Framework*.exe",
-              "?:\\Windows\\WinSxS\\*.exe",
-              "?:\\Windows\\System32\\inetsrv\\iissetup.exe",
-              "?:\\Windows\\SysWOW64\\inetsrv\\iissetup.exe"
-              "?:\\Windows\\System32\\inetsrv\\aspnetca.exe"
-              "?:\\Windows\\SysWOW64\\inetsrv\\aspnetca.exe",
-              "?:\\Windows\\System32\\lodctr.exe",
-			  "?:\\Windows\\SysWOW64\\lodctr.exe",
-			  "?:\\Windows\\System32\\netcfg.exe")) and
+      process.executable : ("?:\\Windows\\Microsoft.NET\\Framework*.exe",
+                            "?:\\Windows\\WinSxS\\*.exe",
+                            "?:\\Windows\\System32\\inetsrv\\iissetup.exe",
+                            "?:\\Windows\\SysWOW64\\inetsrv\\iissetup.exe",
+                            "?:\\Windows\\System32\\inetsrv\\aspnetca.exe",
+                            "?:\\Windows\\SysWOW64\\inetsrv\\aspnetca.exe",
+                            "?:\\Windows\\System32\\lodctr.exe",
+                            "?:\\Windows\\SysWOW64\\lodctr.exe",
+                            "?:\\Windows\\System32\\netcfg.exe")) and
 
 
  not process.parent.executable : ("?:\\Windows\\System32\\AtBroker.exe", "?:\\Windows\\system32\\svchost.exe", "?:\\Program Files (x86)\\*.exe", "?:\\Program Files\\*.exe", "?:\\Windows\\System32\\msiexec.exe",
