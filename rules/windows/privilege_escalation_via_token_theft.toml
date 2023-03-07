@@ -48,7 +48,7 @@ process where host.os.type == "windows" and event.action == "start" and
       process.parent.executable : "?:\\Windows\\System32\\Utilman.exe" and process.parent.args : "/debug") and
 
 /* Ignores Windows print spooler service with correlation to Access Intelligent Form */
-not (parent.process.executable: "?\\Windows\\System32\\spoolsv.exe" and
+not (process.parent.executable : "?\\Windows\\System32\\spoolsv.exe" and
      process.executable: "?:\\Program Files*\\Access\\Intelligent Form\\*\\LaunchCreate.exe") and 
 
 /* Ignores Windows error reporting executables */
@@ -75,12 +75,24 @@ not (parent.process.executable: "?\\Windows\\System32\\spoolsv.exe" and
 
 
 /* Ignores additional parent executables that run with elevated privileges */
- not process.parent.executable : ("?:\\Windows\\System32\\AtBroker.exe", "?:\\Windows\\system32\\svchost.exe", "?:\\Program Files (x86)\\*.exe", "?:\\Program Files\\*.exe", "?:\\Windows\\System32\\msiexec.exe",
- "C:\\Windows\\System32\\DriverStore\\*") and
+ not process.parent.executable : 
+               ("?:\\Windows\\System32\\AtBroker.exe", 
+                "?:\\Windows\\system32\\svchost.exe", 
+                "?:\\Program Files (x86)\\*.exe", 
+                "?:\\Program Files\\*.exe", 
+                "?:\\Windows\\System32\\msiexec.exe",
+                "?:\\Windows\\System32\\DriverStore\\*") and
 
 /* Ignores Windows binaries with a trusted signature and specific signature name */
  not (process.code_signature.trusted == true and
-      process.code_signature.subject_name in ("philandro Software GmbH", "Freedom Scientific Inc.", "TeamViewer Germany GmbH", "Projector.is, Inc.", "TeamViewer GmbH", "Cisco WebEx LLC", "Dell Inc"))
+      process.code_signature.subject_name : 
+                ("philandro Software GmbH", 
+                 "Freedom Scientific Inc.", 
+                 "TeamViewer Germany GmbH", 
+                 "Projector.is, Inc.", 
+                 "TeamViewer GmbH", 
+                 "Cisco WebEx LLC", 
+                 "Dell Inc"))
 '''
 
 
