@@ -1,0 +1,76 @@
+[metadata]
+creation_date = "2023/03/07"
+integration = ["system"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/03/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the attempt to create a new backdoor user by setting the user's UID to 0. Attackers 
+may alter a user's UID to 0 to escalate privileges or establish persistence on a system or domain.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-system.auth-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Linux Backdoor User Account Creation"
+note = """## Triage and analysis
+
+### Investigating Potential Linux Backdoor User Account Creation
+
+Attackers may create new accounts with a UID of 0 to maintain root access to victim systems without leveraging the root user account.
+
+This rule identifies the usage of the "usermod -u 0" command to set a user's UID to 0, indicating that the user becomes a root account. 
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Identify if the account was added to privileged groups or assigned special privileges after creation.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- Delete the created account.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+risk_score = 47
+rule_id = "494ebba4-ecb7-4be4-8c6f-654c686549ad"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Investigation Guide"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and
+event.action == "exec" and
+process.name == "usermod" and
+process.args : "-u" and process.args : "0" and process.args : "-o"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1136/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
