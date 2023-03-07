@@ -3,7 +3,7 @@ creation_date = "2023/02/24"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/24"
+updated_date = "2023/03/07"
 integration = ["endpoint"]
 
 [rule]
@@ -15,7 +15,7 @@ to cron/at, systemd timers can be set up to execute on boot time, or on a specif
 attackers to regain access in case the connection to the infected asset was lost. 
 """
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
+index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "New Systemd Timer Created"
@@ -66,7 +66,8 @@ file.path : (
   "/lib/systemd/system/*",
   "/usr/lib/systemd/system/*",
   "/home/*/.config/systemd/user/*"
-)
+) and
+process.name : ("*sh", "vi*", "nano", "touch", "cp")
 '''
 
 [[rule.threat]]
