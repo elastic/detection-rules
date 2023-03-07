@@ -2,7 +2,7 @@
 creation_date = "2021/11/25"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/01/03"
+updated_date = "2023/02/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -26,7 +26,7 @@ InstallerFileTakeOver is a weaponized escalation of privilege proof of concept (
 This rule detects the default execution of the PoC, which overwrites the `elevation_service.exe` DACL and copies itself to the location to escalate privileges. An attacker is able to still take over any file that is not in use (locked), which is outside the scope of this rule.
 
 > **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic stack version 8.5.0. Older Elastic stacks versions will see unrendered markdown in this guide.
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -34,7 +34,7 @@ This rule detects the default execution of the PoC, which overwrites the `elevat
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Look for additional processes spawned by the process, command lines, and network communications.
 - Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the file using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -87,7 +87,7 @@ type = "eql"
 query = '''
 /* This rule is compatible with both Sysmon and Elastic Endpoint */
 
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
     (?process.Ext.token.integrity_level_name : "System" or
     ?winlog.event_data.IntegrityLevel : "System") and
     (
