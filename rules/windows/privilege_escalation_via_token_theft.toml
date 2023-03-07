@@ -43,12 +43,15 @@ process where host.os.type == "windows" and event.action == "start" and
                  "?:\\Program Files (x86)\\*.exe",
                  "?:\\ProgramData\\*") and
 
+/* Ignores Utility Manager in Windows running in debug mode */
  not (process.Ext.effective_parent.executable : "?:\\Windows\\System32\\Utilman.exe" and
       process.parent.executable : "?:\\Windows\\System32\\Utilman.exe" and process.parent.args : "/debug") and
 
+/* Ignores Windows print spooler service with correlation to Access Intelligent Form */
 not (parent.process.executable: "?\\Windows\\System32\\spoolsv.exe" and
-     process.executable: "?:\\Program Files (x86)\\Access\\Intelligent Form\\Win32Bin\\LaunchCreate.exe")
+     process.executable: "?:\\Program Files*\\Access\\Intelligent Form\\*\\LaunchCreate.exe")
 
+/* Ignores Windows error reporting executables */
  not process.executable : ("?:\\Windows\\System32\\WerFault.exe",
                            "?:\\Windows\\SysWOW64\\WerFault.exe",
                            "?:\\Windows\\System32\\WerFaultSecure.exe",
@@ -56,7 +59,7 @@ not (parent.process.executable: "?\\Windows\\System32\\spoolsv.exe" and
                            "?:\\windows\\system32\\WerMgr.exe",
                            "?:\\Windows\\SoftwareDistribution\\Download\\Install\\securityhealthsetup.exe")  and
 
- /* Ignores windows updates from TiWorker.exe that runs with elevated privileges */
+ /* Ignores Windows updates from TiWorker.exe that runs with elevated privileges */
  not (process.parent.executable : "?:\\Windows\\WinSxS\\*\\TiWorker.exe" and
       process.executable : ("?:\\Windows\\Microsoft.NET\\Framework*.exe",
                             "?:\\Windows\\WinSxS\\*.exe",
@@ -66,13 +69,16 @@ not (parent.process.executable: "?\\Windows\\System32\\spoolsv.exe" and
                             "?:\\Windows\\SysWOW64\\inetsrv\\aspnetca.exe",
                             "?:\\Windows\\System32\\lodctr.exe",
                             "?:\\Windows\\SysWOW64\\lodctr.exe",
-                            "?:\\Windows\\System32\\netcfg.exe")) and
+                            "?:\\Windows\\System32\\netcfg.exe",
+                            "?:\\Windows\\Microsoft.NET\\Framework*\\*\\ngen.exe",
+                            "?:\\Windows\\Microsoft.NET\\Framework*\\*\\aspnet_regiis.exe")) and
 
 
+/* Ignores additional parent executables that run with elevated privileges */
  not process.parent.executable : ("?:\\Windows\\System32\\AtBroker.exe", "?:\\Windows\\system32\\svchost.exe", "?:\\Program Files (x86)\\*.exe", "?:\\Program Files\\*.exe", "?:\\Windows\\System32\\msiexec.exe",
  "C:\\Windows\\System32\\DriverStore\\*") and
 
-
+/* Ignores Windows binaries with a trusted signature and specific signature name */
  not (process.code_signature.trusted == true and
       process.code_signature.subject_name in ("philandro Software GmbH", "Freedom Scientific Inc.", "TeamViewer Germany GmbH", "Projector.is, Inc.", "TeamViewer GmbH", "Cisco WebEx LLC", "Dell Inc"))
 '''
