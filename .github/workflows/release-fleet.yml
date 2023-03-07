@@ -34,12 +34,13 @@ jobs:
           fetch-depth: 0
       - name: Check commit hash
         id: check_commit
+
         env:
           COMMIT_HASH: ${{github.event.inputs.commit_hash}}
         run: |
           cd detection-rules
-          commit_message=$(git show -s --format=%B $COMMIT_HASH | grep 'Lock versions for releases')
-          if [[ -z "$commit_message" ]]; then
+          commit_message=$(git show -s --format=%B $COMMIT_HASH | grep "Lock versions for releases")
+          if [ -z "$commit_message" ]; then
             echo "::set-output name=check_commit::false"
           else
             echo "::set-output name=check_commit::true"
