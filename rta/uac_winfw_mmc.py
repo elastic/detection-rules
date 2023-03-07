@@ -18,7 +18,12 @@ metadata = RtaMetadata(
             "rule_id": "65f52068-4d08-41af-9fd7-0c1a4f732494",
         },
     ],
-    siem=[],
+    siem=[
+        {
+            'rule_id': '1178ae09-5aff-460a-9f2f-455cd0ac4d8e',
+            'rule_name': 'UAC Bypass via Windows Firewall Snap-In Hijack'
+        }
+    ],
     techniques=["T1574", "T1055", "T1548", "T1036"],
 )
 

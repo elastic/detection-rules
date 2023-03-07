@@ -13,7 +13,13 @@ from . import common
 from . import RtaMetadata
 
 
-metadata = RtaMetadata(uuid="bb523eb1-db67-4ae6-9369-af1a93322817", platforms=["macos"], endpoint=[], siem=[], techniques=[])
+metadata = RtaMetadata(
+    uuid="bb523eb1-db67-4ae6-9369-af1a93322817",
+    platforms=["macos"],
+    endpoint=[],
+    siem=[],
+    techniques=[]
+)
 
 
 @common.requires_os(metadata.platforms)

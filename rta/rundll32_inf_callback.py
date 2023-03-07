@@ -16,7 +16,13 @@ from . import common
 from . import RtaMetadata
 
 
-metadata = RtaMetadata(uuid="a2edc784-e969-45f4-b8d2-fe4556b42cd6", platforms=["windows"], endpoint=[], siem=[], techniques=[])
+metadata = RtaMetadata(
+    uuid="a2edc784-e969-45f4-b8d2-fe4556b42cd6",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[],
+    techniques=[]
+)
 
 
 INF_FILE = common.get_path("bin", "script_launch.inf")
