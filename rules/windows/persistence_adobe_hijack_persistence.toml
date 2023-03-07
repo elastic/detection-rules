@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/01/31"
+updated_date = "2023/03/06"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -10,7 +10,7 @@ min_stack_version = "8.3.0"
 author = ["Elastic"]
 description = "Detects writing executable files that will be automatically launched by Adobe on launch."
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Adobe Hijack Persistence"
@@ -29,7 +29,7 @@ Attackers can replace the `RdrCEF.exe` executable with their own to maintain the
 - Identify the user account that performed the action and whether it should perform this kind of action.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the file using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -72,12 +72,12 @@ references = ["https://twitter.com/pabraeken/status/997997818362155008"]
 risk_score = 21
 rule_id = "2bf78aa2-9c56-48de-b139-f169bf99cf86"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Investigation Guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Investigation Guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.type == "creation" and
+file where host.os.type == "windows" and event.type == "creation" and
   file.path : ("?:\\Program Files (x86)\\Adobe\\Acrobat Reader DC\\Reader\\AcroCEF\\RdrCEF.exe",
                "?:\\Program Files\\Adobe\\Acrobat Reader DC\\Reader\\AcroCEF\\RdrCEF.exe") and
   not process.name : "msiexec.exe"
