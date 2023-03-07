@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2023/02/24"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 updated_date = "2023/03/07"
-integration = ["endpoint"]
 
 [rule]
 author = ["Elastic"]
@@ -59,6 +59,7 @@ type = "eql"
 
 query = '''
 file where event.type == "creation" and
+host.os.type == "linux" and
 endsWith(file.name, "timer") and
 file.path : (
   "/etc/systemd/system/*",
