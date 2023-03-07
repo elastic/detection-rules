@@ -4,7 +4,7 @@ integration = ["system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/13"
+updated_date = "2023/03/07"
 
 [rule]
 author = ["Elastic"]
@@ -53,7 +53,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and process.parent.name == "sudo" and
+process where event.type == "start" and host.os.type == "linux" and
+process.parent.name == "sudo" and
 process.args in ("root", "admin", "wheel", "staff", "sudo",
                              "disk", "video", "shadow", "lxc", "lxd") and
 (
