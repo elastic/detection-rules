@@ -8,6 +8,7 @@ import io
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
+from multiprocessing import Pool
 from subprocess import CalledProcessError
 from typing import Callable, Dict, Iterable, List, Optional, Union
 
@@ -322,8 +323,29 @@ class RuleCollection(BaseCollection):
 
     def load_files(self, paths: Iterable[Path]):
         """Load multiple files into the collection."""
+        #'''Multiprocess 
+        with Pool() as mp_pool:
+            results = mp_pool.map(self.load_file, paths)
+            for result in results:
+                if isinstance(result,DeprecatedRule):
+                #if result.__class__ == DeprecatedRule:
+                    self.add_deprecated_rule(result)
+                elif result.__class__ == TOMLRule:
+                    self.add_rule(result)
+        #'''
+
+        '''Multithread
+        import concurrent.futures
+        import threading
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            executor.map(self.load_file, paths)
+        '''
+
+
+        '''Single Thread
         for path in paths:
             self.load_file(path)
+        '''
 
     def load_directory(self, directory: Path, recursive=True, toml_filter: Optional[Callable[[dict], bool]] = None):
         paths = self._get_paths(directory, recursive=recursive)
