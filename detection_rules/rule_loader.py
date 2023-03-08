@@ -327,10 +327,9 @@ class RuleCollection(BaseCollection):
         with Pool() as mp_pool:
             results = mp_pool.map(self.load_file, paths)
             for result in results:
-                if isinstance(result,DeprecatedRule):
-                #if result.__class__ == DeprecatedRule:
+                if isinstance(result, DeprecatedRule):
                     self.add_deprecated_rule(result)
-                elif result.__class__ == TOMLRule:
+                elif isinstance(result, TOMLRule):
                     self.add_rule(result)
         #'''
 
