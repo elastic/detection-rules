@@ -1390,7 +1390,7 @@ def guide_plugin_to_rule(ctx: click.Context, rule_path: Path, save: bool = True)
 
     transforms = defaultdict(list)
     existing_transform = rule.contents.transform
-    transforms.update(existing_transform.to_dict() or {})
+    transforms.update(existing_transform.to_dict() if existing_transform is not None else {})
 
     click.secho('(blank line to continue)', fg='yellow')
     while True:
