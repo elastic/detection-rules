@@ -35,9 +35,11 @@ jobs:
 
       - name: Check commit message
         id: check_commit
+        env:
+          COMMIT_HASH: "${{github.event.inputs.commit_hash}}"
         run: |
           cd detection-rules
-          COMMIT_MESSAGE=$(git show -s --format=%B ${{ github.sha }} | grep "Lock versions for releases" || true)
+          COMMIT_MESSAGE=$(git show -s --format=%B $COMMIT_HASH | grep "Lock versions for releases" || true)
           if [ -z "$COMMIT_MESSAGE" ]; then
             echo "::set-output name=check_message::false"
           else
