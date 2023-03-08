@@ -2,9 +2,9 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
+updated_date = "2023/02/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/27"
 
 [transform]
 [[transform.osquery]]
@@ -40,7 +40,7 @@ adversary can modify the way these programs are launched to get a command prompt
 system.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Modification of Accessibility Binaries"
@@ -64,7 +64,7 @@ This rule looks for the execution of supposed accessibility binaries that don't 
 - Contact the account and system owners and confirm whether they are aware of this activity.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the file using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -107,12 +107,12 @@ references = ["https://www.elastic.co/blog/practical-security-engineering-statef
 risk_score = 73
 rule_id = "7405ddf1-6c8e-41ce-818f-48bea6bcaed8"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Investigation Guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Investigation Guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
  process.parent.name : ("Utilman.exe", "winlogon.exe") and user.name == "SYSTEM" and
  process.args :
     (

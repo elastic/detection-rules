@@ -2,9 +2,9 @@
 creation_date = "2020/11/29"
 integration = ["endpoint", "windows"]
 maturity = "production"
+updated_date = "2023/02/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/27"
 
 [transform]
 [[transform.osquery]]
@@ -59,7 +59,7 @@ This rule looks for DLLs and executables downloaded using `cscript.exe` or `wscr
 #### Possible investigation steps
 
 - Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze both the script and the executable involved using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -101,10 +101,10 @@ type = "eql"
 
 query = '''
 sequence by host.id, process.entity_id
-  [network where process.name : ("wscript.exe", "cscript.exe") and network.protocol != "dns" and
+  [network where host.os.type == "windows" and process.name : ("wscript.exe", "cscript.exe") and network.protocol != "dns" and
    network.direction : ("outgoing", "egress") and network.type == "ipv4" and destination.ip != "127.0.0.1"
   ]
-  [file where event.type == "creation" and file.extension : ("exe", "dll")]
+  [file where host.os.type == "windows" and event.type == "creation" and file.extension : ("exe", "dll")]
 '''
 
 

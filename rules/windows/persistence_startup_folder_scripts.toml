@@ -2,9 +2,9 @@
 creation_date = "2020/11/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
+updated_date = "2023/03/06"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/27"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +39,7 @@ Identifies script engines creating files in the Startup folder, or the creation 
 Adversaries may abuse this technique to maintain persistence in an environment.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistent Scripts in the Startup Directory"
@@ -60,7 +60,7 @@ This rule looks for shortcuts created by wscript.exe or cscript.exe, or js/vbs s
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Validate if the activity is not related to planned patches, updates, network administrator activity, or legitimate software installations.
 - Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the file using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -106,12 +106,12 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 47
 rule_id = "f7c4dc5a-a58d-491d-9f14-9b66507121c0"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Investigation Guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Investigation Guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.type != "deletion" and user.domain != "NT AUTHORITY" and
+file where host.os.type == "windows" and event.type != "deletion" and user.domain != "NT AUTHORITY" and
 
   /* detect shortcuts created by wscript.exe or cscript.exe */
   (file.path : "C:\\*\\Programs\\Startup\\*.lnk" and

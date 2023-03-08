@@ -2,9 +2,9 @@
 creation_date = "2020/09/03"
 integration = ["endpoint", "windows"]
 maturity = "production"
+updated_date = "2023/02/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/27"
 
 [transform]
 [[transform.osquery]]
@@ -62,7 +62,7 @@ The `Desktopimgdownldr.exe` utility is used to to configure lockscreen/desktop i
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
 - Check the reputation of the domain or IP address used to host the downloaded file or if the user downloaded the file from an internal system.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the file using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -119,7 +119,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
   (process.name : "desktopimgdownldr.exe" or process.pe.original_file_name == "desktopimgdownldr.exe") and
   process.args : "/lockscreenurl:http*"
 '''

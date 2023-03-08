@@ -59,7 +59,7 @@ This rule identifies suspicious network connections that attempt to blend in wit
 #### Possible investigation steps
 
 - Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the executable involved using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -104,7 +104,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-network where event.type == "protocol" and network.protocol == "http" and
+network where host.os.type == "windows" and event.type == "protocol" and network.protocol == "http" and
   process.name : ("ConfigurationWizard.exe",
                   "NetFlowService.exe",
                   "NetflowDatabaseMaintenance.exe",

@@ -2,9 +2,9 @@
 creation_date = "2020/11/29"
 integration = ["endpoint"]
 maturity = "production"
+updated_date = "2023/02/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/27"
 
 [transform]
 [[transform.osquery]]
@@ -60,7 +60,7 @@ This rule looks for unsigned processes writing to the Startup folder locations.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Validate if the activity is not related to planned patches, updates, network administrator activity, or legitimate software installations.
 - Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the file using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -107,7 +107,7 @@ type = "eql"
 
 query = '''
 sequence by host.id, process.entity_id with maxspan=5s
-  [process where event.type == "start" and process.code_signature.trusted == false and
+  [process where host.os.type == "windows" and event.type == "start" and process.code_signature.trusted == false and
   /* suspicious paths can be added here  */
    process.executable : ("C:\\Users\\*.exe",
                          "C:\\ProgramData\\*.exe",
@@ -116,7 +116,7 @@ sequence by host.id, process.entity_id with maxspan=5s
                          "C:\\Intel\\*.exe",
                          "C:\\PerfLogs\\*.exe")
    ]
-   [file where event.type != "deletion" and user.domain != "NT AUTHORITY" and
+   [file where host.os.type == "windows" and event.type != "deletion" and user.domain != "NT AUTHORITY" and
     file.path : ("C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\*",
                  "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\StartUp\\*")
    ]

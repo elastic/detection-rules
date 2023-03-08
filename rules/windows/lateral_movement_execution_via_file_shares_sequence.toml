@@ -2,9 +2,9 @@
 creation_date = "2020/11/03"
 integration = ["endpoint", "windows"]
 maturity = "production"
+updated_date = "2023/03/06"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/27"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +39,7 @@ Identifies the execution of a file that was created by the virtual system proces
 via network file shares.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Remote Execution via File Shares"
@@ -57,7 +57,7 @@ Adversaries can use network shares to host tooling to support the compromise of 
 - Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Review adjacent login events (e.g., 4624) in the alert timeframe to identify the account used to perform this action.
 - Investigate other alerts associated with the user/host during the past 48 hours.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the process executable using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -95,13 +95,13 @@ references = ["https://blog.menasec.net/2020/08/new-trick-to-detect-lateral-move
 risk_score = 47
 rule_id = "ab75c24b-2502-43a0-bf7c-e60e662c811e"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement", "Investigation Guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement", "Investigation Guide", "Elastic Endgame"]
 type = "eql"
 
 query = '''
 sequence with maxspan=1m
-  [file where event.type in ("creation", "change") and process.pid == 4 and file.extension : "exe"] by host.id, file.path
-  [process where event.type == "start"] by host.id, process.executable
+  [file where host.os.type == "windows" and event.type in ("creation", "change") and process.pid == 4 and file.extension : "exe"] by host.id, file.path
+  [process where host.os.type == "windows" and event.type == "start"] by host.id, process.executable
 '''
 
 

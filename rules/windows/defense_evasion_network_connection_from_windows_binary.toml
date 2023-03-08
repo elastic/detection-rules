@@ -31,6 +31,7 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -59,7 +60,7 @@ This rule identifies network connections established by trusted developer utilit
 - Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Investigate abnormal behaviors observed by the subject process, such as registry or file modifications, and any spawned child processes.
 - Investigate other alerts associated with the user/host during the past 48 hours.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the process executable using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -105,7 +106,7 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=5m
-  [process where event.type == "start" and
+  [process where host.os.type == "windows" and event.type == "start" and
 
      /* known applocker bypasses */
      (process.name : "bginfo.exe" or
