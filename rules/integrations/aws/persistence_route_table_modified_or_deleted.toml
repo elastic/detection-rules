@@ -1,20 +1,20 @@
 [metadata]
 creation_date = "2021/06/05"
+integration = ["aws"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
-integration = "aws"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
 description = "Identifies when an AWS Route Table has been modified or deleted."
 false_positives = [
     """
-    Route Table could be modified or deleted by a system administrator. Verify whether the user identity,
-    user agent, and/or hostname should be making changes in your environment. Route Table being modified
-    from unfamiliar users should be investigated. If known behavior is causing false positives, it can be
-    exempted from the rule. Also automated processes that use Terraform may lead to false positives.
+    Route Table could be modified or deleted by a system administrator. Verify whether the user identity, user agent,
+    and/or hostname should be making changes in your environment. Route Table being modified from unfamiliar users
+    should be investigated. If known behavior is causing false positives, it can be exempted from the rule. Also
+    automated processes that use Terraform may lead to false positives.
     """,
 ]
 from = "now-60m"
@@ -38,7 +38,7 @@ references = [
 risk_score = 21
 rule_id = "e7cd5982-17c8-4959-874c-633acde7d426"
 severity = "low"
-tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Network Security", "Persistence"]
+tags = ["Elastic", "Cloud", "AWS", "Amazon Web Services", "Continuous Monitoring", "SecOps", "Network Security", "Persistence"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -47,10 +47,12 @@ event.dataset:aws.cloudtrail and event.provider:cloudtrail.amazonaws.com and eve
 DeleteRouteTable or DeleteRoute or DisassociateRouteTable) and event.outcome:success
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
 [rule.threat.tactic]
-reference = "https://attack.mitre.org/tactics/TA0003/"
-name = "Persistence"
 id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

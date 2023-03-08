@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2021/07/06"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -26,9 +27,7 @@ note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
-references = [
-    "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34527",
-]
+references = ["https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34527"]
 risk_score = 47
 rule_id = "ee5300a7-7e31-4a72-a258-250abb8b3aa1"
 severity = "medium"
@@ -37,7 +36,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
  process.parent.name : "spoolsv.exe" and
  (?process.Ext.token.integrity_level_name : "System" or
  ?winlog.event_data.IntegrityLevel : "System") and

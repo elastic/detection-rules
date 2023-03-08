@@ -1,19 +1,20 @@
 [metadata]
 creation_date = "2021/07/19"
+integration = ["aws"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
-integration = "aws"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Austin Songer"]
 description = "Identifies when an ElastiCache security group has been created."
 false_positives = [
     """
-    A ElastiCache security group may be created by a system or network administrator. Verify whether the user identity, user
-    agent, and/or hostname should be making changes in your environment. Security group creations by unfamiliar users
-    or hosts should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    A ElastiCache security group may be created by a system or network administrator. Verify whether the user identity,
+    user agent, and/or hostname should be making changes in your environment. Security group creations by unfamiliar
+    users or hosts should be investigated. If known behavior is causing false positives, it can be exempted from the
+    rule.
     """,
 ]
 from = "now-60m"
@@ -25,11 +26,13 @@ name = "AWS ElastiCache Security Group Created"
 note = """## Setup
 
 The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
-references = ["https://docs.aws.amazon.com/AmazonElastiCache/latest/APIReference/API_CreateCacheSecurityGroup.html"]
+references = [
+    "https://docs.aws.amazon.com/AmazonElastiCache/latest/APIReference/API_CreateCacheSecurityGroup.html",
+]
 risk_score = 21
 rule_id = "7b3da11a-60a2-412e-8aa7-011e1eb9ed47"
 severity = "low"
-tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Monitoring"]
+tags = ["Elastic", "Cloud", "AWS", "Amazon Web Services", "Continuous Monitoring", "SecOps", "Monitoring"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -38,19 +41,22 @@ event.dataset:aws.cloudtrail and event.provider:elasticache.amazonaws.com and ev
 event.outcome:success
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.007"
+name = "Disable or Modify Cloud Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/007/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1562.007"
-  name = "Disable or Modify Cloud Firewall"
-  reference = "https://attack.mitre.org/techniques/T1562/007/"
+
 
 [rule.threat.tactic]
-name = "Defense Evasion"
 id = "TA0005"
+name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

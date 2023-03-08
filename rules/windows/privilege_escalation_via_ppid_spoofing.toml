@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2022/10/20"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/10/20"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -32,7 +33,7 @@ type = "eql"
 query = '''
 /* This rule is compatible with Elastic Endpoint only */
 
-process where event.action == "start" and
+process where host.os.type == "windows" and event.action == "start" and
 
  /* process creation via seclogon */
  process.parent.Ext.real.pid > 0 and
@@ -79,3 +80,4 @@ reference = "https://attack.mitre.org/techniques/T1134/004/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

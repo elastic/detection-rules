@@ -1,18 +1,20 @@
 [metadata]
 creation_date = "2022/07/20"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the creation of a hidden shared object (.so) file. Users can mark specific files as hidden simply by putting a "." as the first character in the file or folder name.
-Adversaries can use this to their advantage to hide files and folders on the system for persistence and defense evasion.
+Identifies the creation of a hidden shared object (.so) file. Users can mark specific files as hidden simply by putting
+a "." as the first character in the file or folder name. Adversaries can use this to their advantage to hide files and
+folders on the system for persistence and defense evasion.
 """
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*"]
+index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 max_signals = 33
@@ -24,12 +26,12 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 47
 rule_id = "766d3f91-3f12-448c-b65f-20123e9e9e8c"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.action : "creation" and file.extension == "so" and file.name : ".*.so"
+file where host.os.type == "linux" and event.type == "creation" and file.extension == "so" and file.name : ".*.so"
 '''
 
 
@@ -50,5 +52,4 @@ reference = "https://attack.mitre.org/techniques/T1564/001/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 

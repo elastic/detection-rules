@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2022/05/31"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/27"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -39,7 +40,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
     process.name : "nltest.exe" and process.args : (
         "/DCLIST:*", "/DCNAME:*", "/DSGET*",
         "/LSAQUERYFTI:*", "/PARENTDOMAIN",
@@ -53,7 +54,10 @@ framework = "MITRE ATT&CK"
 id = "T1482"
 name = "Domain Trust Discovery"
 reference = "https://attack.mitre.org/techniques/T1482/"
-
+[[rule.threat.technique]]
+id = "T1018"
+name = "Remote System Discovery"
+reference = "https://attack.mitre.org/techniques/T1018/"
 
 [rule.threat.tactic]
 id = "TA0007"

@@ -1,16 +1,17 @@
 [metadata]
 creation_date = "2021/01/13"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the creation or modification of a DirectoryService PlugIns (dsplug) file. The DirectoryService daemon launches
-on each system boot and automatically reloads after crash. It scans and executes bundles that are located in the
-DirectoryServices PlugIns folder and can be abused by adversaries to maintain persistence.
+Identifies the creation or modification of a DirectoryService PlugIns (dsplug) file. The DirectoryService daemon
+launches on each system boot and automatically reloads after crash. It scans and executes bundles that are located in
+the DirectoryServices PlugIns folder and can be abused by adversaries to maintain persistence.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
@@ -26,7 +27,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:file and not event.type:deletion and
+event.category:file and host.os.type:macos and not event.type:deletion and
   file.path:/Library/DirectoryServices/PlugIns/*.dsplug
 '''
 

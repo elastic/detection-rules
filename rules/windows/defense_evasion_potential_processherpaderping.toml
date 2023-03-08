@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/10/27"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/10/05"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -25,14 +26,14 @@ type = "eql"
 
 query = '''
 sequence with maxspan=5s
-   [process where event.type == "start" and not process.parent.executable :
+   [process where host.os.type == "windows" and event.type == "start" and not process.parent.executable :
       (
          "?:\\Windows\\SoftwareDistribution\\*.exe",
          "?:\\Program Files\\Elastic\\Agent\\data\\*.exe",
          "?:\\Program Files (x86)\\Trend Micro\\*.exe"
       )
    ] by host.id, process.executable, process.parent.entity_id
-   [file where event.type == "change" and event.action == "overwrite" and file.extension == "exe"] by host.id, file.path, process.entity_id
+   [file where host.os.type == "windows" and event.type == "change" and event.action == "overwrite" and file.extension == "exe"] by host.id, file.path, process.entity_id
 '''
 
 

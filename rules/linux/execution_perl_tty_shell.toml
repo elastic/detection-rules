@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/04/16"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -12,19 +13,19 @@ Identifies when a terminal (tty) is spawned via Perl. Attackers may upgrade a si
 interactive tty after obtaining initial access to a host.
 """
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*"]
+index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Interactive Terminal Spawned via Perl"
 risk_score = 73
 rule_id = "05e5a668-7b51-4a67-93ab-e9af405c9ef3"
 severity = "high"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and event.type:(start or process_started) and process.name:perl and
+event.category:process and host.os.type:linux and event.type:(start or process_started) and process.name:perl and
   process.args:("exec \"/bin/sh\";" or "exec \"/bin/dash\";" or "exec \"/bin/bash\";")
 '''
 
@@ -41,3 +42,4 @@ reference = "https://attack.mitre.org/techniques/T1059/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+

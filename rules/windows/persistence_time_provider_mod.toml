@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2021/01/19"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +15,7 @@ network devices or clients in the network. Time providers are implemented in the
 System32 folder. The service W32Time initiates during the startup of Windows and loads w32time.dll.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Persistence via Time Provider Modification"
@@ -22,13 +23,16 @@ references = ["https://pentestlab.blog/2019/10/22/persistence-time-providers/"]
 risk_score = 47
 rule_id = "14ed1aa9-ebfd-4cf9-a463-0ac59ec55204"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where event.type:"change" and
-  registry.path:"HKLM\\SYSTEM\\*ControlSet*\\Services\\W32Time\\TimeProviders\\*" and
+registry where host.os.type == "windows" and event.type:"change" and
+  registry.path: (
+    "HKLM\\SYSTEM\\*ControlSet*\\Services\\W32Time\\TimeProviders\\*",
+    "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Services\\W32Time\\TimeProviders\\*"
+  ) and
   registry.data.strings:"*.dll"
 '''
 

@@ -1,15 +1,16 @@
 [metadata]
 creation_date = "2021/01/12"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the execution of macOS built-in commands related to account or group enumeration. Adversaries may use
-account and group information to orient themselves before deciding how to act.
+Identifies the execution of macOS built-in commands related to account or group enumeration. Adversaries may use account
+and group information to orient themselves before deciding how to act.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
@@ -28,7 +29,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where host.os.type == "macos" and event.type in ("start", "process_started") and
   (
     process.name : ("ldapsearch", "dsmemberutil") or
     (process.name : "dscl" and
@@ -56,12 +57,19 @@ framework = "MITRE ATT&CK"
 id = "T1069"
 name = "Permission Groups Discovery"
 reference = "https://attack.mitre.org/techniques/T1069/"
+[[rule.threat.technique.subtechnique]]
+id = "T1069.001"
+name = "Local Groups"
+reference = "https://attack.mitre.org/techniques/T1069/001/"
 
 [[rule.threat.technique]]
 id = "T1087"
 name = "Account Discovery"
 reference = "https://attack.mitre.org/techniques/T1087/"
-
+[[rule.threat.technique.subtechnique]]
+id = "T1087.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1087/001/"
 
 [rule.threat.tactic]
 id = "TA0007"

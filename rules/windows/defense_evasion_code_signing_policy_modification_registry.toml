@@ -1,0 +1,60 @@
+[metadata]
+creation_date = "2023/01/31"
+integration = ["endpoint", "windows"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/02/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies attempts to disable/modify the code signing policy through the registry. Code signing provides 
+authenticity on a program, and grants the user with the ability to check whether the program has been tampered with. 
+By allowing the execution of unsigned or self-signed code, threat actors can craft and execute malicious code. 
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Code Signing Policy Modification Through Registry"
+risk_score = 47
+rule_id = "da7733b1-fe08-487e-b536-0a04c6d8b0cd"
+severity = "medium"
+tags = [
+    "Elastic",
+    "Host",
+    "Windows",
+    "Threat Detection",
+    "Defense Evasion",
+    "Elastic Endgame",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type : ("creation", "change") and
+(
+  registry.path : "HKEY_USERS\\*\\Software\\Policies\\Microsoft\\Windows NT\\Driver Signing\\BehaviorOnFailedVerify" and
+  registry.value: "BehaviorOnFailedVerify" and
+  registry.data.strings : ("0", "0x00000000", "1", "0x00000001")
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1553"
+name = "Subvert Trust Controls"
+reference = "https://attack.mitre.org/techniques/T1553/"
+[[rule.threat.technique.subtechnique]]
+id = "T1553.006"
+name = "Code Signing Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1553/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

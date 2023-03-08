@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2022/01/12"
+integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/10/26"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -21,30 +22,20 @@ note = """## Triage and analysis
 
 ### Investigating MS Office Macro Security Registry Modifications
 
-Macros are small programs that are used to automate repetitive tasks in Microsoft Office applications.
-Historically, macros have been used for a variety of reasons -- from automating part of a job, to
-building entire processes and data flows. Macros are written in Visual Basic for Applications (VBA) and are saved as
-part of Microsoft Office files.
+Macros are small programs that are used to automate repetitive tasks in Microsoft Office applications. Historically, macros have been used for a variety of reasons -- from automating part of a job, to building entire processes and data flows. Macros are written in Visual Basic for Applications (VBA) and are saved as part of Microsoft Office files.
 
-Macros are often created for legitimate reasons, but they can also be written by attackers to gain access, harm a
-system, or bypass other security controls such as application allow listing. In fact, exploitation from malicious macros
-is one of the top ways that organizations are compromised today. These attacks are often conducted through phishing or
-spear phishing campaigns.
+Macros are often created for legitimate reasons, but they can also be written by attackers to gain access, harm a system, or bypass other security controls such as application allow listing. In fact, exploitation from malicious macros is one of the top ways that organizations are compromised today. These attacks are often conducted through phishing or spear phishing campaigns.
 
-Attackers can convince victims to modify Microsoft Office security settings, so their macros are trusted by default and
-no warnings are displayed when they are executed. These settings include:
+Attackers can convince victims to modify Microsoft Office security settings, so their macros are trusted by default and no warnings are displayed when they are executed. These settings include:
 
-* *Trust access to the VBA project object model* - When enabled, Microsoft Office will trust all macros and run any code
-without showing a security warning or requiring user permission.
-* *VbaWarnings* - When set to 1, Microsoft Office will trust all macros and run any code without showing a security
-warning or requiring user permission.
+- *Trust access to the VBA project object model* - When enabled, Microsoft Office will trust all macros and run any code without showing a security warning or requiring user permission.
+- *VbaWarnings* - When set to 1, Microsoft Office will trust all macros and run any code without showing a security warning or requiring user permission.
 
 This rule looks for registry changes affecting the conditions above.
 
 #### Possible investigation steps
 
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
-for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Identify the user account that performed the action and whether it should perform this kind of action.
 - Contact the user and check if the change was done manually.
 - Verify whether malicious macros were executed after the registry change.
@@ -61,23 +52,18 @@ for prevalence, whether they are located in expected locations, and if they are 
 
 ### False positive analysis
 
-- This activity should not happen legitimately. The security team should address any potential benign true
-positives (B-TPs), as this configuration can put the user and the domain at risk.
+- This activity should not happen legitimately. The security team should address any potential benign true positive (B-TP), as this configuration can put the user and the domain at risk.
 
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
 - Reset the registry key value.
 - Isolate the involved host to prevent further post-compromise behavior.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
-identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
-systems, and web services.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
 - Explore using GPOs to manage security settings for Microsoft Office macros.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
-malware components.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 
 ## Setup
@@ -87,12 +73,20 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 47
 rule_id = "feeed87c-5e95-4339-aef1-47fd79bcfbe3"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Investigation Guide", "Elastic Endgame"]
+tags = [
+    "Elastic",
+    "Host",
+    "Windows",
+    "Threat Detection",
+    "Defense Evasion",
+    "Investigation Guide",
+    "Elastic Endgame",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where event.type == "change" and
+registry where host.os.type == "windows" and event.type == "change" and
     registry.path : (
         "HKU\\S-1-5-21-*\\SOFTWARE\\Microsoft\\Office\\*\\Security\\AccessVBOM",
         "HKU\\S-1-5-21-*\\SOFTWARE\\Microsoft\\Office\\*\\Security\\VbaWarnings",

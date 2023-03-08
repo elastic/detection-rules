@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2022/05/16"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -44,9 +45,9 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=1m
-[network where event.type == "start" and event.action == "connection_attempted" and user.id == "0" and
+[network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and user.id == "0" and
     not process.executable : ("/bin/ssh", "/sbin/ssh", "/usr/lib/systemd/systemd", "/usr/sbin/sshd")]
-[process where event.action == "session_id_change" and user.id == "0" and
+[process where host.os.type == "linux" and event.action == "session_id_change" and user.id == "0" and
     not process.executable : ("/bin/ssh", "/sbin/ssh", "/usr/lib/systemd/systemd", "/usr/sbin/sshd")]
 '''
 

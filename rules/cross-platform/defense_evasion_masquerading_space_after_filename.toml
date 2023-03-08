@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2022/10/18"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/11/01"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -11,8 +12,8 @@ description = """
 This rules identifies a process created from an executable with a space appended to the end of the filename. This may
 indicate an attempt to masquerade a malicious file as benign to gain user execution. When a space is added to the end of
 certain files, the OS will execute the file according to it's true filetype instead of it's extension. Adversaries can
-hide a program's true filetype by changing the extension of the file. They can then add a space to the end of the name so
-that the OS automatically executes the file when it's double-clicked.
+hide a program's true filetype by changing the extension of the file. They can then add a space to the end of the name
+so that the OS automatically executes the file when it's double-clicked.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
@@ -35,7 +36,7 @@ type = "eql"
 
 query = '''
 process where host.os.type:("linux","macos") and
-  event.type == "start" and 
+  event.type == "start" and
   (process.executable regex~ """/[a-z0-9\s_\-\\./]+\s""") and not
   process.name in ("ls", "find", "grep", "xkbcomp")
 '''

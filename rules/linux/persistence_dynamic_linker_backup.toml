@@ -3,7 +3,8 @@ creation_date = "2022/07/12"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
+integration = ["endpoint"]
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +12,7 @@ description = """
 Detects the copying of the Linux dynamic loader binary and subsequent file creation for the purpose of creating a backup copy. This technique was seen recently being utilized by Linux malware prior to patching the dynamic loader in order to inject and preload a malicious shared object file. This activity should never occur and if it does then it should be considered highly suspicious or malicious.
 """
 from = "now-9m"
-index = ["logs-*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Dynamic Linker Copy"
@@ -26,8 +27,9 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=1m
-[process where event.type == "start" and process.name : ("cp", "rsync") and process.args : ("/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/etc/ld.so.preload")]
-[file where event.action == "creation" and file.extension == "so"]
+[process where host.os.type == "linux" and event.type == "start" and process.name : ("cp", "rsync") and
+   process.args : ("/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "/etc/ld.so.preload")]
+[file where host.os.type == "linux" and event.action == "creation" and file.extension == "so"]
 '''
 
 [[rule.threat]]

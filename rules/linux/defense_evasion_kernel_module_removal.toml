@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/04/24"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +20,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*"]
+index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Kernel Module Removal"
@@ -27,12 +28,12 @@ references = ["http://man7.org/linux/man-pages/man8/modprobe.8.html"]
 risk_score = 73
 rule_id = "cd66a5af-e34b-4bb0-8931-57d0a043f2ef"
 severity = "high"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
+event.category:process and host.os.type:linux and event.type:(start or process_started) and
   process.args:((rmmod and sudo) or (modprobe and sudo and ("--remove" or "-r")))
 '''
 

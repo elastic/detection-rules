@@ -1,15 +1,16 @@
 [metadata]
 creation_date = "2020/11/18"
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2022/08/24"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects changes to registry persistence keys that are not commonly used or modified by legitimate programs. This could be
-an indication of an adversary's attempt to persist in a stealthy manner.
+Detects changes to registry persistence keys that are not commonly used or modified by legitimate programs. This could
+be an indication of an adversary's attempt to persist in a stealthy manner.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
@@ -27,7 +28,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where
+registry where host.os.type == "windows" and
   /* uncomment once stable length(registry.data.strings) > 0 and */
  registry.path : (
       "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\*",
@@ -91,16 +92,15 @@ registry where
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
+[[rule.threat.technique.subtechnique]]
+id = "T1547.001"
+name = "Registry Run Keys / Startup Folder"
+reference = "https://attack.mitre.org/techniques/T1547/001/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1547.001"
-  name = "Registry Run Keys / Startup Folder"
-  reference = "https://attack.mitre.org/techniques/T1547/001/"
 
 
 [rule.threat.tactic]

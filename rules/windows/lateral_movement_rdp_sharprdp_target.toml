@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/11/11"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/15"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -30,17 +31,17 @@ query = '''
 /* Incoming RDP followed by a new RunMRU string value set to cmd, powershell, taskmgr or tsclient, followed by process execution within 1m */
 
 sequence by host.id with maxspan=1m
-  [network where event.type == "start" and process.name : "svchost.exe" and destination.port == 3389 and
+  [network where host.os.type == "windows" and event.type == "start" and process.name : "svchost.exe" and destination.port == 3389 and
    network.direction : ("incoming", "ingress") and network.transport == "tcp" and
    source.ip != "127.0.0.1" and source.ip != "::1"
   ]
 
-  [registry where process.name : "explorer.exe" and
+  [registry where host.os.type == "windows" and process.name : "explorer.exe" and
    registry.path : ("HKEY_USERS\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU\\*") and
    registry.data.strings : ("cmd.exe*", "powershell.exe*", "taskmgr*", "\\\\tsclient\\*.exe\\*")
   ]
 
-  [process where event.type == "start" and
+  [process where host.os.type == "windows" and event.type == "start" and
    (process.parent.name : ("cmd.exe", "powershell.exe", "taskmgr.exe") or process.args : ("\\\\tsclient\\*.exe")) and
    not process.name : "conhost.exe"
    ]
@@ -53,11 +54,11 @@ framework = "MITRE ATT&CK"
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
+[[rule.threat.technique.subtechnique]]
+id = "T1021.001"
+name = "Remote Desktop Protocol"
+reference = "https://attack.mitre.org/techniques/T1021/001/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1021.001"
-  name = "Remote Desktop Protocol"
-  reference = "https://attack.mitre.org/techniques/T1021/001/"
 
 
 [rule.threat.tactic]

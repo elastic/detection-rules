@@ -1,0 +1,138 @@
+[metadata]
+creation_date = "2023/01/17"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: dll.Ext.relative_file_creation_time is populated in Elastic Endpoint 8.4 and above."
+min_stack_version = "8.4.0"
+updated_date = "2023/02/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an unsigned library created in the last 5 minutes and subsequently loaded by a shared windows service
+(svchost). Adversaries may use this technique to maintain persistence or run with System privileges.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Unsigned DLL Loaded by Svchost"
+risk_score = 47
+rule_id = "78ef0c95-9dc2-40ac-a8da-5deb6293a14e"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+library where host.os.type == "windows" and
+
+ process.executable : 
+     ("?:\\Windows\\System32\\svchost.exe", "?:\\Windows\\Syswow64\\svchost.exe") and 
+     
+ dll.code_signature.trusted != true and 
+ 
+ not dll.code_signature.status : ("trusted", "errorExpired", "errorCode_endpoint*") and 
+ 
+ dll.hash.sha256 != null and 
+ 
+ (
+       /* DLL created within 5 minutes of the library load event - compatible with Elastic Endpoint 8.4+ */
+       dll.Ext.relative_file_creation_time <= 300 or 
+   
+       /* unusual paths */
+       dll.path :("?:\\ProgramData\\*",
+                  "?:\\Users\\*",
+                  "?:\\PerfLogs\\*",
+                  "?:\\Windows\\Tasks\\*",
+                  "?:\\Intel\\*",
+                  "?:\\AMD\\Temp\\*",
+                  "?:\\Windows\\AppReadiness\\*",
+                  "?:\\Windows\\ServiceState\\*",
+                  "?:\\Windows\\security\\*",
+                  "?:\\Windows\\IdentityCRL\\*",
+                  "?:\\Windows\\Branding\\*",
+                  "?:\\Windows\\csc\\*",
+                  "?:\\Windows\\DigitalLocker\\*",
+                  "?:\\Windows\\en-US\\*",
+                  "?:\\Windows\\wlansvc\\*",
+                  "?:\\Windows\\Prefetch\\*",
+                  "?:\\Windows\\Fonts\\*",
+                  "?:\\Windows\\diagnostics\\*",
+                  "?:\\Windows\\TAPI\\*",
+                  "?:\\Windows\\INF\\*",
+                  "?:\\Windows\\System32\\Speech\\*",
+                  "?:\\windows\\tracing\\*",
+                  "?:\\windows\\IME\\*",
+                  "?:\\Windows\\Performance\\*",
+                  "?:\\windows\\intel\\*",
+                  "?:\\windows\\ms\\*",
+                  "?:\\Windows\\dot3svc\\*",
+                  "?:\\Windows\\panther\\*",
+                  "?:\\Windows\\RemotePackages\\*",
+                  "?:\\Windows\\OCR\\*",
+                  "?:\\Windows\\appcompat\\*",
+                  "?:\\Windows\\apppatch\\*",
+                  "?:\\Windows\\addins\\*",
+                  "?:\\Windows\\Setup\\*",
+                  "?:\\Windows\\Help\\*",
+                  "?:\\Windows\\SKB\\*",
+                  "?:\\Windows\\Vss\\*",
+                  "?:\\Windows\\servicing\\*",
+                  "?:\\Windows\\CbsTemp\\*",
+                  "?:\\Windows\\Logs\\*",
+                  "?:\\Windows\\WaaS\\*",
+                  "?:\\Windows\\twain_32\\*",
+                  "?:\\Windows\\ShellExperiences\\*",
+                  "?:\\Windows\\ShellComponents\\*",
+                  "?:\\Windows\\PLA\\*",
+                  "?:\\Windows\\Migration\\*",
+                  "?:\\Windows\\debug\\*",
+                  "?:\\Windows\\Cursors\\*",
+                  "?:\\Windows\\Containers\\*",
+                  "?:\\Windows\\Boot\\*",
+                  "?:\\Windows\\bcastdvr\\*",
+                  "?:\\Windows\\TextInput\\*",
+                  "?:\\Windows\\security\\*",
+                  "?:\\Windows\\schemas\\*",
+                  "?:\\Windows\\SchCache\\*",
+                  "?:\\Windows\\Resources\\*",
+                  "?:\\Windows\\rescache\\*",
+                  "?:\\Windows\\Provisioning\\*",
+                  "?:\\Windows\\PrintDialog\\*",
+                  "?:\\Windows\\PolicyDefinitions\\*",
+                  "?:\\Windows\\media\\*",
+                  "?:\\Windows\\Globalization\\*",
+                  "?:\\Windows\\L2Schemas\\*",
+                  "?:\\Windows\\LiveKernelReports\\*",
+                  "?:\\Windows\\ModemLogs\\*",
+                  "?:\\Windows\\ImmersiveControlPanel\\*",
+                  "?:\\$Recycle.Bin\\*")
+  ) and 
+  
+  not dll.hash.sha256 : 
+            ("3ed33e71641645367442e65dca6dab0d326b22b48ef9a4c2a2488e67383aa9a6", 
+             "b4db053f6032964df1b254ac44cb995ffaeb4f3ade09597670aba4f172cf65e4", 
+             "214c75f678bc596bbe667a3b520aaaf09a0e50c364a28ac738a02f867a085eba", 
+             "23aa95b637a1bf6188b386c21c4e87967ede80242327c55447a5bb70d9439244", 
+             "5050b025909e81ae5481db37beb807a80c52fc6dd30c8aa47c9f7841e2a31be7")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+[[rule.threat.technique.subtechnique]]
+id = "T1543.003"
+name = "Windows Service"
+reference = "https://attack.mitre.org/techniques/T1543/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

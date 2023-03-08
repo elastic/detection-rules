@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/11/28"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -26,10 +27,10 @@ type = "eql"
 
 query = '''
 sequence by host.id, user.name with maxspan = 5s
-  [library where dll.name : "IEProxy.dll" and process.name : ("rundll32.exe", "regsvr32.exe")]
-  [process where event.type == "start" and process.parent.name : "iexplore.exe" and process.parent.args : "-Embedding"]
+  [library where host.os.type == "windows" and dll.name : "IEProxy.dll" and process.name : ("rundll32.exe", "regsvr32.exe")]
+  [process where host.os.type == "windows" and event.type == "start" and process.parent.name : "iexplore.exe" and process.parent.args : "-Embedding"]
   /* IE started via COM in normal conditions makes few connections, mainly to Microsoft and OCSP related domains, add FPs here */
-  [network where network.protocol == "dns" and process.name : "iexplore.exe" and
+  [network where host.os.type == "windows" and network.protocol == "dns" and process.name : "iexplore.exe" and
    not dns.question.name :
    (
     "*.microsoft.com",
@@ -58,18 +59,18 @@ reference = "https://attack.mitre.org/techniques/T1071/"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1559"
 name = "Inter-Process Communication"
 reference = "https://attack.mitre.org/techniques/T1559/"
+[[rule.threat.technique.subtechnique]]
+id = "T1559.001"
+name = "Component Object Model"
+reference = "https://attack.mitre.org/techniques/T1559/001/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1559.001"
-  name = "Component Object Model"
-  reference = "https://attack.mitre.org/techniques/T1559/001/"
+
 
 [rule.threat.tactic]
 id = "TA0002"

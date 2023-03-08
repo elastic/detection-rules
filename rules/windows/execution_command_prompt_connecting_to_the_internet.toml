@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -31,8 +32,8 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id
-  [process where process.name : "cmd.exe" and event.type == "start"]
-  [network where process.name : "cmd.exe" and
+  [process where host.os.type == "windows" and process.name : "cmd.exe" and event.type == "start"]
+  [network where host.os.type == "windows" and process.name : "cmd.exe" and
      not cidrmatch(destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24",
                                   "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32",
                                   "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24",

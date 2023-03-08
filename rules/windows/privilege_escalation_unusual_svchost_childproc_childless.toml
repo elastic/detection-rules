@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/10/13"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/15"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +14,7 @@ This may indicate a code injection or an equivalent form of exploitation.
 """
 false_positives = ["Changes to Windows services or a rarely executed child process."]
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual Service Host Child Process - Childless Service"
@@ -24,12 +25,12 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 47
 rule_id = "6a8ab9cc-4023-4d17-b5df-1a3e16882ce7"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Privilege Escalation"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Privilege Escalation", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
      process.parent.name : "svchost.exe" and
 
      /* based on svchost service arguments -s svcname where the service is known to be childless */

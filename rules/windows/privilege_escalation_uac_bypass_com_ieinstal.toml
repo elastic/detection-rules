@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/11/03"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/15"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +13,7 @@ Identifies User Account Control (UAC) bypass attempts by abusing an elevated COM
 program. Attackers may attempt to bypass UAC to stealthily execute code with elevated permissions.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "UAC Bypass Attempt via Elevated COM Internet Explorer Add-On Installer"
@@ -24,12 +25,12 @@ references = ["https://swapcontext.blogspot.com/2020/11/uac-bypasses-from-comaut
 risk_score = 47
 rule_id = "fc7c0fa4-8f03-4b3e-8336-c5feab0be022"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
  process.executable : "C:\\*\\AppData\\*\\Temp\\IDC*.tmp\\*.exe" and
  process.parent.name : "ieinstal.exe" and process.parent.args : "-Embedding"
 

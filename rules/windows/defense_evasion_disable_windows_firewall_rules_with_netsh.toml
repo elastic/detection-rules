@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/27"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -20,8 +21,7 @@ note = """## Triage and analysis
 
 ### Investigating Disable Windows Firewall Rules via Netsh
 
-The Windows Defender Firewall is a native component which provides host-based, two-way network traffic filtering for a
-device, and blocks unauthorized network traffic flowing into or out of the local device.
+The Windows Defender Firewall is a native component which provides host-based, two-way network traffic filtering for a device, and blocks unauthorized network traffic flowing into or out of the local device.
 
 Attackers can disable the Windows firewall or its rules to enable lateral movement and command and control activity.
 
@@ -31,14 +31,12 @@ This rule identifies patterns related to disabling the Windows firewall or its r
 
 - Identify the user account that performed the action and whether it should perform this kind of action.
 - Contact the user to check if they are aware of the operation.
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
-for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 
 ### False positive analysis
 
-- This mechanism can be used legitimately. Check whether the user is an administrator and is legitimately performing
-troubleshooting.
+- This mechanism can be used legitimately. Check whether the user is an administrator and is legitimately performing troubleshooting.
 - In case of an allowed benign true positive (B-TP), assess adding rules to allow needed traffic and re-enable the firewall.
 
 ### Response and remediation
@@ -47,8 +45,7 @@ troubleshooting.
 - Isolate the involved hosts to prevent further post-compromise behavior.
 - Review the privileges assigned to the involved users to ensure that the least privilege principle is being followed.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 ## Setup
 
@@ -57,12 +54,20 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 47
 rule_id = "4b438734-3793-4fda-bd42-ceeada0be8f9"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Investigation Guide", "Elastic Endgame"]
+tags = [
+    "Elastic",
+    "Host",
+    "Windows",
+    "Threat Detection",
+    "Defense Evasion",
+    "Investigation Guide",
+    "Elastic Endgame",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
   process.name : "netsh.exe" and
   (
     (process.args : "disable" and process.args : "firewall" and process.args : "set") or

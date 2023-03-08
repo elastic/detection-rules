@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/11/19"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +27,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
     /* Schedule service cmdline on Win10+ */
     process.parent.name : "svchost.exe" and process.parent.args : "Schedule" and
     /* add suspicious programs here */

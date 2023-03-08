@@ -3,7 +3,8 @@ creation_date = "2022/07/22"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
+integration = ["endpoint"]
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +12,7 @@ description = """
 Detects the use of the chkconfig binary to manually add a service for management by chkconfig. Threat actors may utilize this technique to maintain persistence on a system. When a new service is added, chkconfig ensures that the service has either a start or a kill entry in every runlevel and when the system is rebooted the service file added will run providing long-term persistence.
 """
 from = "now-9m"
-index = ["logs-*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Chkconfig Service Add"
@@ -21,14 +22,16 @@ references = [
 risk_score = 47
 rule_id = "b910f25a-2d44-47f2-a873-aabdc0d355e6"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Lightning Framework"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Lightning Framework", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
-   (process.executable : "/usr/sbin/chkconfig" and process.args : "--add") or
-   (process.args : "*chkconfig" and process.args : "--add")
+process where host.os.type == "linux" and event.type == "start" and
+( 
+  (process.executable : "/usr/sbin/chkconfig" and process.args : "--add") or
+  (process.args : "*chkconfig" and process.args : "--add")
+)
 '''
 
 [[rule.threat]]

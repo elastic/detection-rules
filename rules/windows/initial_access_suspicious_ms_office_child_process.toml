@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/11/07"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +14,7 @@ These child processes are often launched during exploitation of Office applicati
 macros.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious MS Office Child Process"
@@ -21,21 +22,15 @@ note = """## Triage and analysis
 
 ### Investigating Suspicious MS Office Child Process
 
-Microsoft Office (MS Office) is a suite of applications designed to help with productivity and completing common tasks on a computer.
-You can create and edit documents containing text and images, work with data in spreadsheets and databases, and create
-presentations and posters. As it is some of the most-used software across companies, MS Office is frequently targeted
-for initial access. It also has a wide variety of capabilities that attackers can take advantage of.
+Microsoft Office (MS Office) is a suite of applications designed to help with productivity and completing common tasks on a computer. You can create and edit documents containing text and images, work with data in spreadsheets and databases, and create presentations and posters. As it is some of the most-used software across companies, MS Office is frequently targeted for initial access. It also has a wide variety of capabilities that attackers can take advantage of.
 
-This rule looks for suspicious processes spawned by MS Office programs. This is generally the result of the execution of
-malicious documents.
+This rule looks for suspicious processes spawned by MS Office programs. This is generally the result of the execution of malicious documents.
 
 #### Possible investigation steps
 
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
-for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Investigate other alerts associated with the user/host during the past 48 hours.
-- Retrieve MS Office documents received and opened by the user that could cause this behavior. Common locations include,
-but are not limited to, the Downloads and Document folders and the folder configured at the email client.
+- Retrieve MS Office documents received and opened by the user that could cause this behavior. Common locations include, but are not limited to, the Downloads and Document folders and the folder configured at the email client.
 - Determine if the collected files are malicious:
   - Use a private sandboxed malware analysis system to perform analysis.
     - Observe and collect information about the following activities:
@@ -54,43 +49,36 @@ but are not limited to, the Downloads and Document folders and the folder config
 
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved host to prevent further post-compromise behavior.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
-identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
-systems, and web services.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
 - If the triage identified malware, search the environment for additional compromised hosts.
   - Implement temporary network rules, procedures, and segmentation to contain the malware.
   - Stop suspicious processes.
   - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
-  attackers could use to reinfect the system.
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
 - Remove and block malicious artifacts identified during triage.
-- Run a full scan using the antimalware tool in place. This scan can reveal additional artifacts left in the system,
-persistence mechanisms, and malware components.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
   - If the malicious file was delivered via phishing:
     - Block the email sender from sending future emails.
     - Block the malicious web pages.
     - Remove emails from the sender from mailboxes.
     - Consider improvements to the security awareness program.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 ## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
-references = [
-    "https://www.elastic.co/blog/vulnerability-summary-follina"
-]
+references = ["https://www.elastic.co/blog/vulnerability-summary-follina"]
 risk_score = 47
 rule_id = "a624863f-a70d-417f-a7d2-7a404638d47f"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access", "Investigation Guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access", "Investigation Guide", "Execution", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
   process.parent.name : ("eqnedt32.exe", "excel.exe", "fltldr.exe", "msaccess.exe", "mspub.exe", "powerpnt.exe", "winword.exe", "outlook.exe") and
   process.name : ("Microsoft.Workflow.Compiler.exe", "arp.exe", "atbroker.exe", "bginfo.exe", "bitsadmin.exe", "cdb.exe", "certutil.exe",
                 "cmd.exe", "cmstp.exe", "control.exe", "cscript.exe", "csi.exe", "dnx.exe", "dsget.exe", "dsquery.exe", "forfiles.exe",
@@ -119,4 +107,21 @@ reference = "https://attack.mitre.org/techniques/T1566/001/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.003"
+name = "Windows Command Shell"
+reference = "https://attack.mitre.org/techniques/T1059/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 

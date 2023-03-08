@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -26,10 +27,10 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id
-  [process where (process.name : "expand.exe" or process.name : "extrac32.exe" or
+  [process where host.os.type == "windows" and (process.name : "expand.exe" or process.name : "extrac32.exe" or
                  process.name : "ieexec.exe" or process.name : "makecab.exe") and
                  event.type == "start"]
-  [network where (process.name : "expand.exe" or process.name : "extrac32.exe" or
+  [network where host.os.type == "windows" and (process.name : "expand.exe" or process.name : "extrac32.exe" or
                  process.name : "ieexec.exe" or process.name : "makecab.exe") and
     not cidrmatch(destination.ip,
       "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32",

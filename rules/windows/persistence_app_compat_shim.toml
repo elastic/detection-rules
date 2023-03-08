@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/09/02"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/15"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -24,9 +25,9 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan = 5m
-  [process where event.type == "start" and
+  [process where host.os.type == "windows" and event.type == "start" and
     not (process.name : "sdbinst.exe" and process.parent.name : "msiexec.exe")]
-  [registry where event.type in ("creation", "change") and
+  [registry where host.os.type == "windows" and event.type in ("creation", "change") and
     registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb"]
 '''
 

@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/09/02"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/15"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -24,12 +25,12 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=10m
-  [process where event.type == "start" and process.name : "mshta.exe" and
+  [process where host.os.type == "windows" and event.type == "start" and process.name : "mshta.exe" and
      not process.parent.name : "Microsoft.ConfigurationManagement.exe" and
      not (process.parent.executable : "C:\\Amazon\\Amazon Assistant\\amazonAssistantService.exe" or
           process.parent.executable : "C:\\TeamViewer\\TeamViewer.exe") and
      not process.args : "ADSelfService_Enroll.hta"]
-  [network where process.name : "mshta.exe"]
+  [network where host.os.type == "windows" and process.name : "mshta.exe"]
 '''
 
 
@@ -50,3 +51,4 @@ reference = "https://attack.mitre.org/techniques/T1218/005/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

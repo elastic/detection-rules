@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2021/10/05"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -39,13 +40,29 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.type != "deletion" and
+file where host.os.type == "macos" and event.type != "deletion" and
   file.name: "com.apple.screensaver.*.plist" and
-  file.path : (
-    "/Users/*/Library/Preferences/ByHost/*",
-    "/Library/Managed Preferences/*",
-    "/System/Library/Preferences/*"
-    ) and
+   file.path : (
+      "/Users/*/Library/Preferences/ByHost/*",
+      "/Library/Managed Preferences/*",
+      "/System/Library/Preferences/*"
+      ) and
+  (
+    process.code_signature.trusted == false or
+    process.code_signature.exists == false or
+
+    /* common script interpreters and abused native macOS bins */
+    process.name : (
+      "curl",
+      "mktemp",
+      "tail",
+      "funzip",
+      "python*",
+      "osascript",
+      "perl"
+      )
+   ) and
+
   /* Filter OS processes modifying screensaver plist files */
   not process.executable : (
     "/usr/sbin/cfprefsd",

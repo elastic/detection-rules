@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2021/12/12"
+integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +14,7 @@ elevate privileges from a standard domain user to a user with domain admin privi
 vulnerability that allows potential attackers to impersonate a domain controller via samAccountName attribute spoofing.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*"]
+index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Privileged Escalation via SamAccountName Spoofing"
@@ -31,12 +32,12 @@ references = [
 risk_score = 73
 rule_id = "bdcf646b-08d4-492c-870a-6c04e3700034"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Privilege Escalation"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Privilege Escalation", "Active Directory"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-iam where event.action == "renamed-user-account" and
+iam where host.os.type == "windows" and event.action == "renamed-user-account" and
   /* machine account name renamed to user like account name */
   winlog.event_data.OldTargetUserName : "*$" and not winlog.event_data.NewTargetUserName : "*$"
 '''

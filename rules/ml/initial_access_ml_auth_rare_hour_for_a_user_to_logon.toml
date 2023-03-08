@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/06/10"
 maturity = "production"
-updated_date = "2022/08/24"
+updated_date = "2023/03/06"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -19,11 +19,34 @@ interval = "15m"
 license = "Elastic License v2"
 machine_learning_job_id = "auth_rare_hour_for_a_user"
 name = "Unusual Hour for a User to Logon"
+note = """## Triage and analysis
+
+### Investigating Unusual Hour for a User to Logon
+
+This rule uses a machine learning job to detect a user logging in at a time of day that is unusual for the user. This can be due to credentialed access via a compromised account when the user and the threat actor are in different time zones. It can also indicate unauthorized user activity, as it often occurs during non-business hours.
+
+#### Possible investigation steps
+
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Contact the account owner and confirm whether they are aware of this activity.
+- Investigate any abnormal account behavior, such as command executions, file creations or modifications, network connections, data access, and logon events.
+- Investigate other alerts associated with the involved users during the past 48 hours.
+
+### False positive analysis
+
+- Users may need to log in during non-business hours to perform work-related tasks. Examine whether the company policies authorize this or if the activity is done under change management.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
 references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
 risk_score = 21
 rule_id = "745b0119-0560-43ba-860a-7235dd8cee8d"
 severity = "low"
-tags = ["Elastic", "Authentication", "Threat Detection", "ML", "Initial Access"]
+tags = ["Elastic", "Authentication", "Threat Detection", "ML", "Machine Learning", "Initial Access"]
 type = "machine_learning"
 
 [[rule.threat]]

@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/03/16"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/15"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +13,7 @@ Identifies use of bcdedit.exe to delete boot configuration data. This tactic is 
 attacker as a destructive technique.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Modification of Boot Configuration"
@@ -20,9 +21,7 @@ note = """## Triage and analysis
 
 ### Investigating Modification of Boot Configuration
 
-Boot entry parameters, or boot parameters, are optional, system-specific settings that represent configuration options.
-These are stored in a boot configuration data (BCD) store, and administrators can use utilities like `bcdedit.exe` to
-configure these.
+Boot entry parameters, or boot parameters, are optional, system-specific settings that represent configuration options. These are stored in a boot configuration data (BCD) store, and administrators can use utilities like `bcdedit.exe` to configure these.
 
 This rule identifies the usage of `bcdedit.exe` to:
 
@@ -33,8 +32,7 @@ These are common steps in destructive attacks by adversaries leveraging ransomwa
 
 #### Possible investigation steps
 
-- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for
-prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Identify the user account that performed the action and whether it should perform this kind of action.
 - Contact the account owner and confirm whether they are aware of this activity.
 - Investigate other alerts associated with the user/host during the past 48 hours.
@@ -43,8 +41,7 @@ prevalence, whether they are located in expected locations, and if they are sign
 
 ### False positive analysis
 
-- The usage of these options is not inherently malicious. Administrators can modify these configurations to force a
-machine to boot for troubleshooting or data recovery purposes.
+- The usage of these options is not inherently malicious. Administrators can modify these configurations to force a machine to boot for troubleshooting or data recovery purposes.
 
 ### Related rules
 
@@ -54,14 +51,10 @@ machine to boot for troubleshooting or data recovery purposes.
 
 - Initiate the incident response process based on the outcome of the triage.
 - Consider isolating the involved host to prevent destructive behavior, which is commonly associated with this activity.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
-identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
-systems, and web services.
-- If any other destructive action was identified on the host, it is recommended to prioritize the investigation and look
-for ransomware preparation and execution activities.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- If any other destructive action was identified on the host, it is recommended to prioritize the investigation and look for ransomware preparation and execution activities.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 ## Setup
 
@@ -70,12 +63,12 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 21
 rule_id = "69c251fb-a5d6-4035-b5ec-40438bd829ff"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Impact", "Investigation Guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Impact", "Investigation Guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
   (process.name : "bcdedit.exe" or process.pe.original_file_name == "bcdedit.exe") and
     (
       (process.args : "/set" and process.args : "bootstatuspolicy" and process.args : "ignoreallfailures") or

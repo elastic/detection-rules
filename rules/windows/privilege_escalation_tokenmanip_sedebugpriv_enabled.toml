@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2022/10/20"
+integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/10/20"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -45,7 +46,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.provider: "Microsoft-Windows-Security-Auditing" and
+any where host.os.type == "windows" and event.provider: "Microsoft-Windows-Security-Auditing" and
  event.action : "Token Right Adjusted Events" and
 
  winlog.event_data.EnabledPrivilegeList : "SeDebugPrivilege" and
@@ -83,3 +84,4 @@ reference = "https://attack.mitre.org/techniques/T1134/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

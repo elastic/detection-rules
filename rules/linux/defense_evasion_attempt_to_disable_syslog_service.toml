@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/04/27"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -12,19 +13,19 @@ Adversaries may attempt to disable the syslog service in an attempt to an attemp
 detection by security controls.
 """
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*"]
+index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Attempt to Disable Syslog Service"
 risk_score = 47
 rule_id = "2f8a1226-5720-437d-9c20-e0029deb6194"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
+event.category:process and host.os.type:linux and event.type:(start or process_started) and
   ((process.name:service and process.args:stop) or
      (process.name:chkconfig and process.args:off) or
      (process.name:systemctl and process.args:(disable or stop or kill)))

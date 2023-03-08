@@ -3,8 +3,8 @@ creation_date = "2020/07/13"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/09/13"
-integration = "aws"
+updated_date = "2023/03/06"
+integration = ["aws"]
 
 [rule]
 anomaly_threshold = 75
@@ -29,43 +29,31 @@ note = """## Triage and analysis
 
 ### Investigating Unusual AWS Command for a User
 
-CloudTrail logging provides visibility on actions taken within an AWS environment. By monitoring these events and
-understanding what is considered normal behavior within an organization, you can spot suspicious or malicious activity
-when deviations occur.
+CloudTrail logging provides visibility on actions taken within an AWS environment. By monitoring these events and understanding what is considered normal behavior within an organization, you can spot suspicious or malicious activity when deviations occur.
 
-This rule uses a machine learning job to detect an AWS API command that while not inherently suspicious or abnormal, is
-being made by a user context that does not normally use the command. This can be the result of compromised credentials or
-keys as someone uses a valid account to persist, move laterally, or exfiltrate data.
+This rule uses a machine learning job to detect an AWS API command that while not inherently suspicious or abnormal, is being made by a user context that does not normally use the command. This can be the result of compromised credentials or keys as someone uses a valid account to persist, move laterally, or exfiltrate data.
 
-Detection alerts from this rule indicate an AWS API command or method call that is rare and unusual for the calling IAM
-user.
+Detection alerts from this rule indicate an AWS API command or method call that is rare and unusual for the calling IAM user.
 
 #### Possible investigation steps
 
 - Identify the user account involved and the action performed. Verify whether it should perform this kind of action.
-    - Examine the user identity in the `aws.cloudtrail.user_identity.arn` field and the access key ID in the
-    `aws.cloudtrail.user_identity.access_key_id` field, which can help identify the precise user context.
+    - Examine the user identity in the `aws.cloudtrail.user_identity.arn` field and the access key ID in the `aws.cloudtrail.user_identity.access_key_id` field, which can help identify the precise user context.
     - The user agent details in the `user_agent.original` field may also indicate what kind of a client made the request.
 - Investigate other alerts associated with the user account during the past 48 hours.
 - Validate the activity is not related to planned patches, updates, or network administrator activity.
 - Examine the request parameters. These might indicate the source of the program or the nature of its tasks.
 - Considering the source IP address and geolocation of the user who issued the command:
     - Do they look normal for the calling user?
-    - If the source is an EC2 IP address, is it associated with an EC2 instance in one of your accounts or is the source
-    IP from an EC2 instance that's not under your control?
-    - If it is an authorized EC2 instance, is the activity associated with normal behavior for the instance role or roles?
-    Are there any other alerts or signs of suspicious activity involving this instance?
-- Consider the time of day. If the user is a human (not a program or script), did the activity take place during a normal
-time of day?
+    - If the source is an EC2 IP address, is it associated with an EC2 instance in one of your accounts or is the source IP from an EC2 instance that's not under your control?
+    - If it is an authorized EC2 instance, is the activity associated with normal behavior for the instance role or roles? Are there any other alerts or signs of suspicious activity involving this instance?
+- Consider the time of day. If the user is a human (not a program or script), did the activity take place during a normal time of day?
 - Contact the account owner and confirm whether they are aware of this activity if suspicious.
-- If you suspect the account has been compromised, scope potentially compromised assets by tracking servers, services,
-and data accessed by the account in the last 24 hours.
+- If you suspect the account has been compromised, scope potentially compromised assets by tracking servers, services, and data accessed by the account in the last 24 hours.
 
 ### False positive analysis
 
-- Examine the history of the command. If the command only manifested recently, it might be part of a new automation
-module or script. If it has a consistent cadence (for example, it appears in small numbers on a weekly or monthly cadence),
-it might be part of a housekeeping or maintenance process. You can find the command in the `event.action field` field.
+- Examine the history of the command. If the command only manifested recently, it might be part of a new automation module or script. If it has a consistent cadence (for example, it appears in small numbers on a weekly or monthly cadence), it might be part of a housekeeping or maintenance process. You can find the command in the `event.action field` field.
 
 ### Related Rules
 
@@ -84,17 +72,14 @@ it might be part of a housekeeping or maintenance process. You can find the comm
     - Work with your IT team to identify and minimize the impact on users.
     - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
     - Identify any regulatory or legal ramifications related to this activity.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
-identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with
-your IT teams to minimize the impact on business operations during these actions.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
 - Check if unauthorized new users were created, remove unauthorized new accounts, and request password resets for other IAM users.
 - Consider enabling multi-factor authentication for users.
 - Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
 - Implement security best practices [outlined](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/) by AWS.
 - Take the actions needed to return affected systems, data, or services to their normal operational levels.
 - Identify the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 ## Setup
 
@@ -104,6 +89,6 @@ references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs
 risk_score = 21
 rule_id = "ac706eae-d5ec-4b14-b4fd-e8ba8086f0e1"
 severity = "low"
-tags = ["Elastic", "Cloud", "AWS", "ML", "Investigation Guide"]
+tags = ["Elastic", "Cloud", "AWS", "Amazon Web Services", "ML", "Machine Learning", "Investigation Guide"]
 type = "machine_learning"
 

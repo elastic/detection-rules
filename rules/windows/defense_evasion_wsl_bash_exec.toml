@@ -1,0 +1,72 @@
+[metadata]
+creation_date = "2023/01/13"
+integration = ["endpoint", "windows"]
+maturity = "production"
+updated_date = "2023/02/22"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects Linux Bash commands from the the Windows Subsystem for Linux. Adversaries may enable 
+and use WSL for Linux to avoid detection.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Execution via Windows Subsystem for Linux"
+references = [
+    "https://blog.f-secure.com/hunting-for-windows-subsystem-for-linux/",
+    "https://lolbas-project.github.io/lolbas/OtherMSBinaries/Wsl/",
+    "https://blog.qualys.com/vulnerabilities-threat-research/2022/03/22/implications-of-windows-subsystem-for-linux-for-adversaries-defenders-part-1"
+]
+risk_score = 47
+rule_id = "3e0eeb75-16e8-4f2f-9826-62461ca128b7"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution", "Defense Evasion", "Elastic Endgame"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type : "start" and
+ (
+  ((process.executable : "?:\\Windows\\System32\\bash.exe" or process.pe.original_file_name == "Bash.exe") and 
+  not process.command_line : ("bash", "bash.exe")) or 
+  process.executable : "?:\\Users\\*\\AppData\\Local\\Packages\\*\\rootfs\\usr\\bin\\bash" or 
+  (process.parent.name : "wsl.exe" and process.parent.command_line : "bash*" and not process.name : "wslhost.exe") or 
+  (process.name : "wsl.exe" and process.args : ("curl", "/etc/shadow", "/etc/passwd", "cat","--system", "root", "-e", "--exec", "bash", "/mnt/c/*"))
+  ) and 
+  not process.parent.executable : ("?:\\Program Files\\Docker\\*.exe", "?:\\Program Files (x86)\\Docker\\*.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1202"
+name = "Indirect Command Execution"
+reference = "https://attack.mitre.org/techniques/T1202/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+    [[rule.threat.technique.subtechnique]]
+    id = "T1059.004"
+    name = "Unix Shell"
+    reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

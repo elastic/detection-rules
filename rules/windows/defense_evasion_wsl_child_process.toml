@@ -1,0 +1,57 @@
+[metadata]
+creation_date = "2023/01/12"
+integration = ["endpoint", "windows"]
+maturity = "production"
+updated_date = "2023/02/22"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects attempts to execute a program on the host from the Windows Subsystem for Linux. 
+Adversaries may enable and use WSL for Linux to avoid detection.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Execution via Windows Subsystem for Linux"
+references = ["https://learn.microsoft.com/en-us/windows/wsl/wsl-config"]
+risk_score = 47
+rule_id = "db7dbad5-08d2-4d25-b9b1-d3a1e4a15efd"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion",  "Elastic Endgame"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type : "start" and
+ process.parent.executable : 
+    ("?:\\Windows\\System32\\wsl.exe", 
+     "?:\\Program Files*\\WindowsApps\\MicrosoftCorporationII.WindowsSubsystemForLinux_*\\wsl.exe", 
+     "?:\\Windows\\System32\\wslhost.exe", 
+     "?:\\Program Files*\\WindowsApps\\MicrosoftCorporationII.WindowsSubsystemForLinux_*\\wslhost.exe") and 
+  not process.executable : 
+           ("?:\\Windows\\System32\\conhost.exe", 
+            "?:\\Windows\\System32\\lxss\\wslhost.exe", 
+            "?:\\Windows\\Sys*\\wslconfig.exe", 
+            "?:\\Program Files*\\WindowsApps\\MicrosoftCorporationII.WindowsSubsystemForLinux_*\\wsl*.exe", 
+            "?:\\Windows\\System32\\WerFault.exe", 
+            "?:\\Program Files\\*", 
+            "?:\\Program Files (x86)\\*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1202"
+name = "Indirect Command Execution"
+reference = "https://attack.mitre.org/techniques/T1202/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

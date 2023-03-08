@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/09/02"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +25,7 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=2m
-  [process where event.type == "start"
+  [process where host.os.type == "windows" and event.type == "start"
    and (process.code_signature.subject_name in ("Microsoft Corporation", "Microsoft Windows") and
    process.code_signature.trusted == true) and
      not process.executable : (
@@ -45,7 +46,7 @@ sequence by process.entity_id with maxspan=2m
        "?:\\Windows\\SysWOW64\\mobsync.exe",
        "?:\\Windows\\System32\\cmd.exe",
        "?:\\Windows\\SysWOW64\\cmd.exe")]
-  [library where event.type == "start" and dll.name : "scrobj.dll"]
+  [library where host.os.type == "windows" and event.type == "start" and dll.name : "scrobj.dll"]
 '''
 
 
@@ -56,7 +57,9 @@ id = "T1218"
 name = "System Binary Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1218/"
 
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

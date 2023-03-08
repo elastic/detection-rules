@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/12/07"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -32,8 +33,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
- process.name == "defaults" and process.args == "write" and process.args in ("LoginHook", "LogoutHook") and
+process where host.os.type == "macos" and event.type == "start" and
+ process.name == "defaults" and process.args == "write" and process.args : ("LoginHook", "LogoutHook") and
  not process.args :
        (
          "Support/JAMF/ManagementFrameworkScripts/logouthook.sh",

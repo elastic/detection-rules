@@ -1,0 +1,56 @@
+[metadata]
+creation_date = "2022/12/19"
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup, New Term"
+min_stack_version = "8.6.0"
+integration = ["endpoint"]
+updated_date = "2023/02/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the load of a driver with an original file name and signature values that were observed
+for the first time during the last 30 days. This rule type can help baseline drivers installation
+within your environment.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "First Time Seen Driver Loaded"
+references = ["https://www.elastic.co/kr/security-labs/stopping-vulnerable-driver-attacks"]
+risk_score = 47
+rule_id = "df0fd41e-5590-4965-ad5e-cd079ec22fa9"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.category:"driver" and host.os.type:windows and event.action:"load"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+[[rule.threat.technique.subtechnique]]
+id = "T1543.003"
+name = "Windows Service"
+reference = "https://attack.mitre.org/techniques/T1543/003/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["dll.pe.original_file_name", "dll.code_signature.subject_name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-30d"

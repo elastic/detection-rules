@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2021/03/08"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +13,7 @@ Identifies suspicious processes being spawned by the Microsoft Exchange Server w
 indicate exploitation activity or access to an existing web shell backdoor.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Microsoft Exchange Worker Spawning Suspicious Processes"
@@ -28,12 +29,12 @@ references = [
 risk_score = 73
 rule_id = "f81ee52c-297e-46d9-9205-07e66931df26"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
   process.parent.name : "w3wp.exe" and process.parent.args : "MSExchange*AppPool" and
   (process.name : ("cmd.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe") or
   process.pe.original_file_name in ("cmd.exe", "powershell.exe", "pwsh.dll", "powershell_ise.exe"))

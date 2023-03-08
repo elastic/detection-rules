@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2021/05/05"
+integration = ["aws"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
-integration = "aws"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -15,9 +15,9 @@ pivot in an AWS environment.
 """
 false_positives = [
     """
-    A security group may be created by a system or network administrator. Verify whether the user identity, user
-    agent, and/or hostname should be making changes in your environment. Security group creations by unfamiliar users
-    or hosts should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    A security group may be created by a system or network administrator. Verify whether the user identity, user agent,
+    and/or hostname should be making changes in your environment. Security group creations by unfamiliar users or hosts
+    should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
 from = "now-30m"
@@ -33,7 +33,7 @@ references = ["https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ec2-securi
 risk_score = 21
 rule_id = "29052c19-ff3e-42fd-8363-7be14d7c5469"
 severity = "low"
-tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Network Security"]
+tags = ["Elastic", "Cloud", "AWS", "Amazon Web Services", "Continuous Monitoring", "SecOps", "Network Security"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -48,24 +48,24 @@ RevokeSecurityGroupIngress) and event.outcome:success
 framework = "MITRE ATT&CK"
 
 [rule.threat.tactic]
-name = "Persistence"
 id = "TA0003"
+name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.007"
+name = "Disable or Modify Cloud Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/007/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1562.007"
-  name = "Disable or Modify Cloud Firewall"
-  reference = "https://attack.mitre.org/techniques/T1562/007/"
+
 
 [rule.threat.tactic]
-name = "Defense Evasion"
 id = "TA0005"
+name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+

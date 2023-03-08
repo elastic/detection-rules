@@ -1,0 +1,73 @@
+[metadata]
+creation_date = "2023/01/11"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.4.0"
+updated_date = "2023/02/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects Inter-Process Communication with Outlook via Component Object Model from an unusual process. Adversaries may target user email to collect
+sensitive information or send email on their behalf via API.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Inter-Process Communication via Outlook"
+references = [
+    "https://github.com/center-for-threat-informed-defense/adversary_emulation_library/blob/master/apt29/Archive/CALDERA_DIY/evals/payloads/stepSeventeen_email.ps1",
+]
+risk_score = 47
+rule_id = "1dee0500-4aeb-44ca-b24b-4a285d7b6ba1"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Collection"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.action == "start" and process.name : "OUTLOOK.EXE"  and
+ process.Ext.effective_parent.name != null and
+ not process.Ext.effective_parent.executable : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1114"
+name = "Email Collection"
+reference = "https://attack.mitre.org/techniques/T1114/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1114.001"
+name = "Local Email Collection"
+reference = "https://attack.mitre.org/techniques/T1114/001/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1559"
+name = "Inter-Process Communication"
+reference = "https://attack.mitre.org/techniques/T1559/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1559.001"
+name = "Component Object Model"
+reference = "https://attack.mitre.org/techniques/T1559/001/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

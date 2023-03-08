@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2021/03/04"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -23,7 +24,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Microsoft Exchange Server UM Writing Suspicious Files"
@@ -47,12 +48,12 @@ references = [
 risk_score = 47
 rule_id = "6cd1779c-560f-4b68-a8f1-11009b27fe63"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.type == "creation" and
+file where host.os.type == "windows" and event.type == "creation" and
   process.name : ("UMWorkerProcess.exe", "umservice.exe") and
   file.extension : ("php", "jsp", "js", "aspx", "asmx", "asax", "cfm", "shtml") and
   (
