@@ -32,17 +32,18 @@ jobs:
         with:
           path: detection-rules
           fetch-depth: 0
-      - name: Check commit hash
-        id: check_commit
-        env:
-          COMMIT_HASH: ${{github.event.inputs.commit_hash}}
+      - name: Get commit message
         run: |
           cd detection-rules
-          echo "COMMIT_MESSAGE=$(git show -s --format=%B $COMMIT_HASH | grep 'Lock versions for releases')" >> $GITHUB_ENV
-          echo "::set-output name=check_message::true"
-          if [ "${{ env.COMMIT_MESSAGE }}" == "" ]; then
-            echo "::set-output name=check_message::false"
-          fi
+          COMMIT_MESSAGE=$(git show -s --format=%B $COMMIT_HASH | grep "Lock versions for releases" || true)
+          echo "COMMIT_MESSAGE=$COMMIT_MESSAGE" >> $GITHUB_ENV
+        shell: bash
+      - name: Set check_message output
+        id: check_commit
+        run: echo "::set-output name=check_message::true"
+      - name: Check if commit message is empty
+        if: ${{ env.COMMIT_MESSAGE == '' || env.COMMIT_MESSAGE == null }}
+        run: echo "::set-output name=check_message::false"
 
   fleet-pr:
     name: Fleet PR
