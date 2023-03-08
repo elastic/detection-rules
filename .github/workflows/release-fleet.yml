@@ -25,7 +25,7 @@ jobs:
     name: Check Commit Hash
     runs-on: ubuntu-latest
     outputs:
-      is_locked_commit: ${{ steps.check_commit.outputs.check_commit }}
+      is_locked_commit: ${{ steps.check_commit.outputs.check_message }}
     steps:
       - name: Checkout detection-rules
         uses: actions/checkout@v3
@@ -41,10 +41,10 @@ jobs:
           cd detection-rules
           commit_message=$(git show -s --format=%B $COMMIT_HASH | grep "Lock versions for releases")
           if [ -z "$commit_message" ]; then
-            echo "::set-output name=check_commit::false"
+            echo "::set-output name=check_message::false"
             echo "locked versions PR not confirmed"
           else
-            echo "::set-output name=check_commit::true"
+            echo "::set-output name=check_message::true"
             echo "locked versions PR confirmed"
           fi
 
