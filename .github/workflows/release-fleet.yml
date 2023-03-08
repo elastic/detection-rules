@@ -38,8 +38,9 @@ jobs:
           COMMIT_HASH: ${{github.event.inputs.commit_hash}}
         run: |
           cd detection-rules
+          echo "COMMIT_MESSAGE=$(git show -s --format=%B $COMMIT_HASH | grep "Lock versions for releases")" >> $GITHUB_ENV
           echo "::set-output name=check_message::true"
-          if [ -z "$commit_message" ]; then
+          if [ -z "$env.COMMIT_MESSAGE" ]; then
             echo "::set-output name=check_message::false"
           fi
 
