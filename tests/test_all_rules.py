@@ -831,10 +831,11 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
     """Test if a guide containing Osquery Plugin syntax contains the version note."""
 
     def test_note_has_osquery_warning(self):
-        osquery_note = '> **Note**:\n'
-        osquery_note_pattern = osquery_note + '> This investigation guide uses the [Osquery Markdown Plugin]' \
-                                              '(https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic ' \
-                                              'Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.'
+        """Test that all rules with osquery entries have the default notification of stack compatibility."""
+        osquery_note_pattern = ('> **Note**:\n> This investigation guide uses the [Osquery Markdown Plugin]'
+                                '(https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) '
+                                'introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display '
+                                'unrendered Markdown in this guide.')
 
         for rule in self.production_rules.rules:
             if not rule.contents.get('transform'):
@@ -844,7 +845,7 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
                 self.fail(f'{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain '
                           f'the following note:\n{osquery_note_pattern}')
 
-def test_plugin_placeholders_match_entries(self):
+    def test_plugin_placeholders_match_entries(self):
         """Test that the number of plugin entries match their respective placeholders in note."""
         for rule in self.production_rules.rules:
             has_transform = rule.contents.get('transform') is not None
@@ -876,8 +877,6 @@ def test_plugin_placeholders_match_entries(self):
 
             err_msg = f'{self.rule_str(rule)} plugin entry count mismatch between transform and note'
             self.assertDictEqual(transform_counts, note_counts, err_msg)
-
-        return
 
     def test_if_plugins_explicitly_defined(self):
         """Check if plugins are explicitly defined with the pattern in note vs using transform."""

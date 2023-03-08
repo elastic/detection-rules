@@ -79,6 +79,8 @@ class RuleTransform(MarshmallowDataclassMixin):
     # /elastic/kibana/tree/main/x-pack/plugins/security_solution/public/common/components/markdown_editor/plugins
     ##############################################
 
+    # timelines out of scope at the moment
+
     @dataclass(frozen=True)
     class OsQuery:
         label: str
@@ -107,7 +109,7 @@ class RuleTransform(MarshmallowDataclassMixin):
         rendered: Dict[Literal['osquery', 'insight'], List[str]] = {'osquery': [], 'insight': []}
         for plugin, entries in obj.items():
             for entry in entries:
-                rendered[plugin].append('!{' + f'{plugin}{json.dumps(entry, sort_keys=True, separators=(",", ":"))}}}')
+                rendered[plugin].append(f'!{{{plugin}{json.dumps(entry, sort_keys=True, separators=(",", ":"))}}}')
 
         return rendered
 
