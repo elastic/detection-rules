@@ -30,7 +30,7 @@ def main():
     powershell = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
 
     # Execute command
-    common.execute([powershell, "/c", "Set-MpPreference", "-ExclusionPath", "{powershell}"], timeout=10)
+    common.execute([powershell, "/c", "Set-MpPreference", "-ExclusionPath", f"{powershell}"], timeout=10)
     common.execute([powershell, "/c", f"Remove-MpPreference -ExclusionPath {powershell}"], timeout=10)
 
 
