@@ -1363,8 +1363,11 @@ def guide_plugin_convert_(contents: Optional[str] = None, default: Optional[str]
         return
 
     parsed = re.match(r'!{(?P<plugin>\w+)(?P<data>{.+})}', contents.strip())
-    plugin = parsed.group('plugin')
-    data = parsed.group('data')
+    try:
+        plugin = parsed.group('plugin')
+        data = parsed.group('data')
+    except AttributeError as e:
+        raise client_error('Unrecognized pattern', exc=e)
     loaded = {'transform': {plugin: [json.loads(data)]}}
     click.echo(pytoml.dumps(loaded))
     return loaded
@@ -1373,19 +1376,22 @@ def guide_plugin_convert_(contents: Optional[str] = None, default: Optional[str]
 @transforms_group.command('guide-plugin-convert')
 def guide_plugin_convert(contents: Optional[str] = None, default: Optional[str] = ''
                          ) -> Optional[Dict[str, Dict[str, list]]]:
-    """Convert investigation guide plugin format to toml"""
+    """Convert investigation guide plugin format to toml."""
     return guide_plugin_convert_(contents=contents, default=default)
 
 
 @transforms_group.command('guide-plugin-to-rule')
 @click.argument('rule-path', type=Path)
 @click.pass_context
-def guide_plugin_to_rule(ctx: click.Context, rule_path: Path, save: bool = True):
-    """Convert investigation guide plugin format to toml"""
+def guide_plugin_to_rule(ctx: click.Context, rule_path: Path, save: bool = True) -> TOMLRule:
+    """Convert investigation guide plugin format to toml and save to rule."""
     rc = RuleCollection()
     rule = rc.load_file(rule_path)
 
     transforms = defaultdict(list)
+    existing_transform = rule.contents.transform
+    transforms.update(existing_transform.to_dict() or {})
+
     click.secho('(blank line to continue)', fg='yellow')
     while True:
         loaded = ctx.invoke(guide_plugin_convert)

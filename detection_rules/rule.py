@@ -103,6 +103,15 @@ class RuleTransform(MarshmallowDataclassMixin):
     osquery: Optional[List[OsQuery]]
     insight: Optional[List[Insight]]
 
+    @validates_schema
+    def validate_transforms(self, value: dict, **kwargs):
+        """Validate transform fields."""
+        # temporarily invalidate insights until schema stabilizes
+        insight = value.get('insight')
+        if insight is not None:
+            raise NotImplementedError('Insights are not stable yet.')
+        return
+
     def render_insight_osquery_to_string(self) -> Dict[Literal['osquery', 'insight'], List[str]]:
         obj = self.to_dict()
 
@@ -828,7 +837,7 @@ class BaseRuleContents(ABC):
         return obj
 
     @abstractmethod
-    def to_api_format(self, include_version=True) -> dict:
+    def to_api_format(self, include_version: bool = True) -> dict:
         """Convert the rule to the API format."""
 
     @cached
