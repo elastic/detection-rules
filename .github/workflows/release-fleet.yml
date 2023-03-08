@@ -34,13 +34,14 @@ jobs:
           fetch-depth: 0
       - name: Check commit hash
         id: check_commit
-
         env:
           COMMIT_HASH: ${{github.event.inputs.commit_hash}}
         run: |
           cd detection-rules
-          commit_message=$(git show -s --format=%B $COMMIT_HASH | grep "Lock versions for releases")
           echo "::set-output name=check_message::true"
+          if [ -z "$commit_message" ]; then
+            echo "::set-output name=check_message::false"
+          fi
 
   fleet-pr:
     name: Fleet PR
