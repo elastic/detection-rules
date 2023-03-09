@@ -54,7 +54,8 @@ jobs:
         env:
           UNSTAGED_LIST_FILE: "../unstaged-rules.txt"
         run: |
-          python -m detection_rules dev unstage-incompatible-rules --target-stack-version "${{github.event.inputs.target_branch}}" --exception-list "${{github.event.inputs.exceptions}}"
+          VERSION=$(cat detection_rules/etc/packages.yml | grep -oP "(?<=name:\s')[\d\.]+[-\w\.]*(?=')")
+          python -m detection_rules dev unstage-incompatible-rules --target-stack-version "$VERSION" --exception-list "${{github.event.inputs.exceptions}}"
 
           # Track which rules were unstaged
           git diff --name-only > $UNSTAGED_LIST_FILE
