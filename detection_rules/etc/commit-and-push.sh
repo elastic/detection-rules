@@ -7,20 +7,8 @@ TARGET_BRANCH=$1
 COMMIT_SHA=$2
 echo "Backporting from commit ${COMMIT_SHA} on branch ${TARGET_BRANCH}"
 
-echo "Stashing changes"
-git stash
-
 echo "Checking out target branch"
 git checkout ${TARGET_BRANCH}
-
-echo "Applying new changes"
-(git stash apply --quiet) || true
-
-echo "Selecting incoming changes to be committed"
-git checkout --theirs . --quiet
-
-echo "Track new changes"
-git add -A
 
 NEEDS_BACKPORT=$(git diff HEAD --quiet --exit-code && echo n || echo y)
 
