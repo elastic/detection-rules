@@ -24,12 +24,13 @@ EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 @common.requires_os(metadata.platforms)
 def main():
-    conhost = "C:\\Windows\\System32\\conhost.exe"
-    posh = "C:\\Windows\\System32\\posh.exe"
+    conhost = "C:\\Users\\Public\\conhost.exe"
+    posh = "C:\\Users\\Public\\posh.exe"
+    common.copy_file(EXE_FILE, conhost)
     common.copy_file(EXE_FILE, posh)
 
-    common.execute([conhost, "/c", posh], timeout=5, kill=True)
-    common.remove_files(posh)
+    common.execute([conhost, posh], timeout=10, kill=True)
+    common.remove_files(conhost, posh)
 
 
 if __name__ == "__main__":
