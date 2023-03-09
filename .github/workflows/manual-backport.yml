@@ -19,10 +19,10 @@ jobs:
     steps:
 
       - name: Checkout detection-rules
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           token: ${{ secrets.PROTECTIONS_MACHINE_TOKEN }}
-          ref: main
+          fetch-depth: 0
 
       - name: Set github config
         run: |
@@ -33,6 +33,7 @@ jobs:
         run: |
           git fetch origin main --depth 100
           git fetch origin "${{github.event.inputs.target_branch}}" --depth 1
+          git fetch origin "${{github.event.inputs.commit_sha}}" 
           git status
           git log -1 --format='%H'
 
