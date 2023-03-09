@@ -15,9 +15,16 @@ metadata = RtaMetadata(
         {
             'rule_id': '68218637-3940-42cb-b2b7-0610fc1dde56',
             'rule_name': 'DLL Side Loading of a file dropped by Microsoft Office'
-        }],
+        },
+        {
+            'rule_id': '37c54ca7-e96d-4fd5-92d3-08cab38516b7',
+            'rule_name': 'Suspicious Executable File Creation'
+        }
+    ],
     siem=[],
-    techniques=['T1574', 'T1574.001', 'T1574.002', 'T1566', 'T1566.001'],
+    techniques=[
+        'T1574', 'T1574.001', 'T1574.002', 'T1566', 'T1566.001', 'T1105', 'T1059', 'T1059.005', 'T1059.007'
+    ],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
