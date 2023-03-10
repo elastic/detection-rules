@@ -4,7 +4,7 @@ integration = ["google_workspace"]
 maturity = "production"
 min_stack_comments = "Breaking changes introduced to Google Workspace integration"
 min_stack_version = "8.4.0"
-updated_date = "2023/02/16"
+updated_date = "2023/03/10"
 
 [rule]
 author = ["Elastic"]
@@ -84,12 +84,21 @@ references = ["https://support.google.com/a/answer/33329"]
 risk_score = 47
 rule_id = "38f384e0-aef8-11ed-9a38-f661ea17fbcc"
 severity = "medium"
-tags = ["Elastic", "Cloud", "Google Workspace", "Continuous Monitoring", "SecOps", "Identity and Access", "Initial Access"]
+tags = [
+    "Elastic",
+    "Cloud",
+    "Google Workspace",
+    "Continuous Monitoring",
+    "SecOps",
+    "Identity and Access",
+    "Initial Access",
+    "Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-iam where event.dataset == "google_workspace.admin" and event.action == "ADD_GROUP_MEMBER" and 
+iam where event.dataset == "google_workspace.admin" and event.action == "ADD_GROUP_MEMBER" and
   not endsWith(user.target.email, user.target.group.domain)
 '''
 
