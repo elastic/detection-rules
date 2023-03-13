@@ -10,10 +10,16 @@ from . import RtaMetadata
 metadata = RtaMetadata(
     uuid="32faebaa-b581-464c-bca9-6936fe0948dc",
     platforms=["windows"],
-    endpoint=[{
-        'rule_id': '8076640d-ec66-4d24-a252-ee2f054e00a1',
-        'rule_name': 'Windows Shortcut File Embedded Object Execution'
-    }],
+    endpoint=[
+        {
+            'rule_id': '8076640d-ec66-4d24-a252-ee2f054e00a1',
+            'rule_name': 'Windows Shortcut File Embedded Object Execution'
+        },
+        {
+            'rule_id': '9fdd772b-b483-404f-bc02-7ec87e332bec',
+            'rule_name': 'Embedded Executable via Windows Shortcut File'
+        }
+    ],
     siem=[],
     techniques=['T1059', 'T1059.003', 'T1204', 'T1204.001', 'T1204.002', 'T1566', 'T1566.001', 'T1566.002'],
 )

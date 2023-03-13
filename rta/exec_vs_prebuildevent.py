@@ -10,10 +10,14 @@ from . import RtaMetadata
 metadata = RtaMetadata(
     uuid="c4445d28-fe0f-4822-b0b0-92e188a9ca0e",
     platforms=["windows"],
-    endpoint=[{
-        'rule_id': '74be6307-2d15-4c71-8072-fc606f337a51',
-        'rule_name': 'Execution via MS VisualStudio Pre/Post Build Events'
-    }],
+    endpoint=[
+        {
+            'rule_id': '74be6307-2d15-4c71-8072-fc606f337a51',
+            'rule_name': 'Execution via MS VisualStudio Pre/Post Build Events'
+        },
+        {'rule_id': '16c84e67-e5e7-44ff-aefa-4d771bcafc0c', 'rule_name': 'Execution from Unusual Directory'},
+        {'rule_id': '35dedf0c-8db6-4d70-b2dc-a133b808211f', 'rule_name': 'Binary Masquerading via Untrusted Path'}
+    ],
     siem=[],
     techniques=['T1127', 'T1127.001'],
 )

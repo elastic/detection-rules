@@ -10,10 +10,12 @@ from . import RtaMetadata
 metadata = RtaMetadata(
     uuid="ad0986cb-b5ef-41ad-9b40-8d708dc28844",
     platforms=["windows"],
-    endpoint=[{
+    endpoint=[
+        {
         'rule_id': 'a5416b1f-fc3f-4162-936d-34086689c3b0',
         'rule_name': 'DLL Execution via Visual Studio Live Share'
-    }],
+        }
+    ],
     siem=[],
     techniques=['T1218'],
 )

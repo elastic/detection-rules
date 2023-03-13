@@ -10,10 +10,16 @@ import os
 metadata = RtaMetadata(
     uuid="b8dcb997-e099-472e-8f2f-15a80c8dfe1a",
     platforms=["windows"],
-    endpoint=[{
-        'rule_id': 'dec8781c-ef73-4037-9684-ef28c0322fa4',
-        'rule_name': 'Script File Written to Startup Folder'
-    }],
+    endpoint=[
+        {
+            'rule_id': 'dec8781c-ef73-4037-9684-ef28c0322fa4',
+            'rule_name': 'Script File Written to Startup Folder'
+        },
+        {
+            "rule_name": "Unusual File Written or Modified in Startup Folder",
+            "rule_id": "30a90136-7831-41c3-a2aa-1a303c1186ac",
+        }
+    ],
     siem=[],
     techniques=['T1547', 'T1547.001'],
 )
