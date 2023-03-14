@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ PowerShell starts to customize the user environment, which can be abused by atta
 PowerShell is common.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via PowerShell profile"
@@ -25,12 +25,12 @@ references = [
 risk_score = 47
 rule_id = "5cf6397e-eb91-4f31-8951-9f0eaa755a31"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.type != "deletion" and
+file where host.os.type == "windows" and event.type != "deletion" and
   file.path : ("?:\\Users\\*\\Documents\\WindowsPowerShell\\*",
                "?:\\Users\\*\\Documents\\PowerShell\\*",
                "?:\\Windows\\System32\\WindowsPowerShell\\*") and

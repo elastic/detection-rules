@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/01/31"
+updated_date = "2023/03/06"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -13,7 +13,7 @@ Identifies Windows programs run from unexpected parent processes. This could ind
 activity on a system.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual Parent-Child Relationship"
@@ -33,7 +33,7 @@ This rule uses this information to spot suspicious parent and child processes.
 - Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Investigate any abnormal behavior by the subject process such as network connections, registry or file modifications, and any spawned child processes.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the process executable using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -78,12 +78,12 @@ references = [
 risk_score = 47
 rule_id = "35df0dd8-092d-4a83-88c1-5151a804f31b"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Investigation Guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Investigation Guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
 process.parent.name != null and
  (
    /* suspicious parent processes */
