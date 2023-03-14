@@ -52,16 +52,18 @@ type = "eql"
 
 query = '''
 sequence by user.id, host.id with maxspan = 15s
-[file where event.type == "creation" and
-file.path : (
-  "/etc/update-motd.d/*",
-  "/usr/lib/update-notifier/*"
+[file where host.os.type == "linux" and 
+  event.type == "creation" and
+  file.path : (
+    "/etc/update-motd.d/*",
+    "/usr/lib/update-notifier/*"
 )]
 
-[process where event.type == "start" and 
-event.action == "exec" and
-process.name == "chmod" and
-process.args : "+x"]
+[process where host.os.type == "linux" and 
+  event.type == "start" and 
+  event.action == "exec" and
+  process.name == "chmod" and
+  process.args : "+x"]
 '''
 
 
