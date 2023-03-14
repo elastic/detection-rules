@@ -60,9 +60,11 @@ type = "eql"
 
 query = '''
 sequence by user.id, host.id with maxspan=15s
-[file where event.type == "creation" and
+[file where host.os.type == "linux" and 
+   event.type == "creation" and
    file.path == "/etc/rc.local"]
-[process where event.type == "start" and
+[process where host.os.type == "linux" and 
+   event.type == "start" and
    process.name == "chmod" and
    process.args == "+x" and process.args == "/etc/rc.local"]
 '''
