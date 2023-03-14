@@ -2,7 +2,7 @@
 creation_date = "2020/10/26"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/01/31"
+updated_date = "2023/03/06"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -13,7 +13,7 @@ Identifies an attempt to bypass User Account Control (UAC) by masquerading as a 
 Attackers may bypass UAC to stealthily execute code with elevated permissions.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "UAC Bypass Attempt via Windows Directory Masquerading"
@@ -36,7 +36,7 @@ This rule identifies an attempt to bypass User Account Control (UAC) by masquera
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Inspect the host for suspicious or abnormal behavior in the alert timeframe.
 - Investigate any abnormal behavior by the subject process such as network connections, registry or file modifications, and any spawned child processes.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze any suspicious spawned processes using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -78,12 +78,12 @@ references = ["https://medium.com/tenable-techblog/uac-bypass-by-mocking-trusted
 risk_score = 73
 rule_id = "290aca65-e94d-403b-ba0f-62f320e63f51"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Investigation Guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Investigation Guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
   process.args : ("C:\\Windows \\system32\\*.exe", "C:\\Windows \\SysWOW64\\*.exe")
 '''
 
