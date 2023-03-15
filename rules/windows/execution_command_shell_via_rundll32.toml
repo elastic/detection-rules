@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/07"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -27,7 +27,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
  process.name : ("cmd.exe", "powershell.exe") and
   process.parent.name : "rundll32.exe" and process.parent.command_line != null and
   /* common FPs can be added here */
