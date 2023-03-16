@@ -2,8 +2,8 @@
 creation_date = "2023/03/16"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup, New Term"
-min_stack_version = "8.6.0"
+min_stack_comments = "The New Term rule type used in this rule was added in Elastic 8.4"
+min_stack_version = "8.4.0"
 updated_date = "2023/03/16"
 
 [rule]
@@ -18,9 +18,13 @@ language = "kuery"
 license = "Elastic License v2"
 name = "First Time Seen Removable Device"
 risk_score = 21
-rule_id = "ef1ea13c-9b47-4290-8870-030b35a411a8"
+rule_id = "0859355c-0f08-4b43-8ff5-7d2a4789fc08"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access", "Elastic Endgame"]
+references = [
+"https://winreg-kb.readthedocs.io/en/latest/sources/system-keys/USB-storage.html", 
+"https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/usb-device-specific-registry-settings"
+]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access", "Exfiltration", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -40,6 +44,25 @@ reference = "https://attack.mitre.org/techniques/T1091/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1052"
+name = "Exfiltration Over Physical Medium"
+reference = "https://attack.mitre.org/techniques/T1052/"
+
+  [[rule.threat.technique.subtechnique]]
+  id = "T1052.001"
+  name = "Exfiltration over USB"
+  reference = "https://attack.mitre.org/techniques/T1052/001/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
 
 
 [rule.new_terms]
