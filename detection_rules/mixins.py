@@ -136,9 +136,6 @@ class LockDataclassMixin:
     def from_dict(cls: Type[ClassT], obj: dict) -> ClassT:
         """Deserialize and validate a dataclass from a dict using marshmallow."""
         schema = cls.__schema()
-        print(type(schema))
-        print(type(obj))
-        print(obj)
         try:
             loaded = schema.load(obj)
         except ValidationError as e:
