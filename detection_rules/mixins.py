@@ -141,7 +141,7 @@ class LockDataclassMixin:
         except ValidationError as e:
             print(e)
         #   err_msg = json.dumps(e.messages, indent=2)
-        #   raise ValidationError(f'Validation error loading: {cls.__name__}\n{err_msg}') from None
+            raise ValidationError(f'Validation error loading:') from None
         return loaded
 
     def to_dict(self, strip_none_values=True) -> dict:
