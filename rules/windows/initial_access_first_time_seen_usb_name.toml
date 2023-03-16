@@ -1,0 +1,52 @@
+[metadata]
+creation_date = "2023/03/16"
+integration = ["endpoint", "windows"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup, New Term"
+min_stack_version = "8.6.0"
+updated_date = "2023/03/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies newly seen removable devices by device friendly name using registry modification events.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "First Time Seen Removable Device"
+note = """## Setup
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
+risk_score = 21
+rule_id = "ef1ea13c-9b47-4290-8870-030b35a411a8"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access", "Elastic Endgame"]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.category :"registry" and registry.value : FriendlyName and registry.path:*USBSTOR*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1091"
+name = "Replication Through Removable Media"
+reference = "https://attack.mitre.org/techniques/T1091/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["registry.path"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
