@@ -62,8 +62,7 @@ class VersionLockFile(LockDataclassMixin):
     def __getitem__(self, item) -> VersionLockFileEntry:
         """Return entries by rule id."""
         if item not in self.data:
-            if item != 'data':
-                raise KeyError(item)
+            raise KeyError(item)
         return self.data[item]
 
 
