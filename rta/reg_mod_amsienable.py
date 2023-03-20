@@ -8,21 +8,21 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="878ffa93-dea6-48f8-9441-e199bc23ec6b",
+    uuid="78715019-6eff-45b1-a942-47db87d55b01",
     platforms=["windows"],
     endpoint=[],
-    siem=[{'rule_id': 'd703a5af-d5b0-43bd-8ddb-7a5d500b7da5', 'rule_name': 'Modification of WDigest Security Provider'}],
-    techniques=["T1003"],
+    siem=[{'rule_id': 'f874315d-5188-4b4a-8521-d1c73093a7e4', 'rule_name': 'Modification of AmsiEnable Registry Key'}],
+    techniques=['T1562', 'T1562.001'],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    key = "System\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
-    value = "UseLogonCredential"
-    data = 1
+    key = "Software\\Microsoft\\Windows Script\\Settings"
+    value = "AmsiEnable"
+    data = 0
 
-    with common.temporary_reg(common.HKLM, key, value, data, data_type="dword"):
+    with common.temporary_reg(common.HKCU, key, value, data, data_type="dword"):
         pass
 
 
