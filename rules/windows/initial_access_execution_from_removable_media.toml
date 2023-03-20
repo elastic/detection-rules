@@ -27,7 +27,9 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=3m
- [process where event.action == "start" and 
+ [process where 
+ 
+  host.os.type == "windows" and event.action == "start" and 
  
   (process.code_signature.trusted == false or process.code_signature.exists == false) and 
   
@@ -48,7 +50,7 @@ sequence by process.entity_id with maxspan=3m
                    "5586cf5160360f51ae3b4e0ac4ff5e582fd55277f619eaf5aca139f48e4a3f14", 
                    "85af24188a2040f61f008c50620835b9ddcea0f4c1707447ec11002d55ed134e", 
                    "1b5d9cec668335295c8e575bcedf4afcedbc445d8ccf8374c9380188965e78e3")]
- [network where true]
+ [network where host.os.type == "windows"]
 '''
 
 
