@@ -32,9 +32,13 @@ type = "eql"
 
 query = '''
 process where 
-    host.os.type == "windows" and event.type == "start" and 
-    process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSACCESS.EXE", "VSTOInstaller.exe") and
-    process.args regex~ """.+\.(wll|xll|ppa|ppam|xla|xlam|vsto)""" and
+    
+    host.os.type == "windows" and event.type == "start" and  
+    
+    process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSACCESS.EXE", "VSTOInstaller.exe") and 
+    
+    process.args regex~ """.+\.(wll|xll|ppa|ppam|xla|xlam|vsto)""" and 
+    
     /* Office Add-In from suspicious paths */
     (process.args :
              ("?:\\Users\\*\\Temp\\7z*",
@@ -48,9 +52,11 @@ process where
               "?:\\Windows\\Temp\\*",
               "\\Device\\*",
               "http*") or
-      (process.working_directory : "?:\\" and process.parent.name : ("explorer.exe", "OpenWith.exe")) or
-      /* Office Add-In from suspicious parent */
-      process.parent.name : ("cmd.exe", "powershell.exe")) and
+	      
+    process.parent.name : ("explorer.exe", "OpenWith.exe") or 
+    
+    /* Office Add-In from suspicious parent */
+    process.parent.name : ("cmd.exe", "powershell.exe")) and
 	  
     /* False Positives */
     not (process.args : "*.vsto" and
