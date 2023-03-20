@@ -5,25 +5,27 @@
 
 from . import common
 from . import RtaMetadata
+import os
 
 
 metadata = RtaMetadata(
-    uuid="878ffa93-dea6-48f8-9441-e199bc23ec6b",
+    uuid="a6c80b08-ca72-4c3e-93c7-ac3421e4235e",
     platforms=["windows"],
     endpoint=[],
-    siem=[{'rule_id': 'd703a5af-d5b0-43bd-8ddb-7a5d500b7da5', 'rule_name': 'Modification of WDigest Security Provider'}],
-    techniques=["T1003"],
+    siem=[{
+        'rule_id': '11ea6bec-ebde-4d71-a8e9-784948f8e3e9',
+        'rule_name': 'Third-party Backup Files Deleted via Unexpected Process'
+    }],
+    techniques=['T1490'],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    key = "System\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
-    value = "UseLogonCredential"
-    data = 1
-
-    with common.temporary_reg(common.HKLM, key, value, data, data_type="dword"):
+    fakebkp = os.path.abspath("fake.vbk")
+    with open(fakebkp, 'w'):
         pass
+    common.remove_file(fakebkp)
 
 
 if __name__ == "__main__":

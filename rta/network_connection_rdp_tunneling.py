@@ -8,22 +8,23 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="878ffa93-dea6-48f8-9441-e199bc23ec6b",
+    uuid="7143aab0-c4f3-43da-a11e-aca589887860",
     platforms=["windows"],
     endpoint=[],
-    siem=[{'rule_id': 'd703a5af-d5b0-43bd-8ddb-7a5d500b7da5', 'rule_name': 'Modification of WDigest Security Provider'}],
-    techniques=["T1003"],
+    siem=[{
+        'rule_id': '76fd43b7-3480-4dd9-8ad7-8bd36bfad92f',
+        'rule_name': 'Potential Remote Desktop Tunneling Detected'
+    }],
+    techniques=['T1572'],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    key = "System\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
-    value = "UseLogonCredential"
-    data = 1
+    powershell = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
 
-    with common.temporary_reg(common.HKLM, key, value, data, data_type="dword"):
-        pass
+    # Execute command
+    common.execute([powershell, "/c", "echo", "127.0.0.1:3389", "-ssh"], timeout=10)
 
 
 if __name__ == "__main__":
