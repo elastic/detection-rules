@@ -8,22 +8,23 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="878ffa93-dea6-48f8-9441-e199bc23ec6b",
+    uuid="84a9bc41-8b2e-434e-b6ae-237e9202c745",
     platforms=["windows"],
     endpoint=[],
-    siem=[{'rule_id': 'd703a5af-d5b0-43bd-8ddb-7a5d500b7da5', 'rule_name': 'Modification of WDigest Security Provider'}],
-    techniques=["T1003"],
+    siem=[{'rule_id': 'ebf1adea-ccf2-4943-8b96-7ab11ca173a5', 'rule_name': 'IIS HTTP Logging Disabled'}],
+    techniques=['T1562', 'T1562.002'],
 )
+EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    key = "System\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
-    value = "UseLogonCredential"
-    data = 1
+    appcmd = "C:\\Users\\Public\\appcmd.exe"
+    common.copy_file(EXE_FILE, appcmd)
 
-    with common.temporary_reg(common.HKLM, key, value, data, data_type="dword"):
-        pass
+    # Execute command
+    common.execute([appcmd, "/c", "echo", "/dontLog:True"], timeout=10)
+    common.remove_file(appcmd)
 
 
 if __name__ == "__main__":

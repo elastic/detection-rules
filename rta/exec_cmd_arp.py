@@ -8,22 +8,20 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="878ffa93-dea6-48f8-9441-e199bc23ec6b",
+    uuid="2a391051-b103-450b-be50-fd133b6d05c3",
     platforms=["windows"],
     endpoint=[],
-    siem=[{'rule_id': 'd703a5af-d5b0-43bd-8ddb-7a5d500b7da5', 'rule_name': 'Modification of WDigest Security Provider'}],
-    techniques=["T1003"],
+    siem=[{'rule_id': '0635c542-1b96-4335-9b47-126582d2c19a', 'rule_name': 'Remote System Discovery Commands'}],
+    techniques=['T1016', 'T1018'],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    key = "System\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
-    value = "UseLogonCredential"
-    data = 1
+    arp = "C:\\Windows\\System32\\arp.exe"
 
-    with common.temporary_reg(common.HKLM, key, value, data, data_type="dword"):
-        pass
+    # Execute command
+    common.execute([arp, "-a"], timeout=10)
 
 
 if __name__ == "__main__":
