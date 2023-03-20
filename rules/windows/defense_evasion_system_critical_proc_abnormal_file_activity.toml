@@ -2,7 +2,7 @@
 creation_date = "2020/08/19"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/01/31"
+updated_date = "2023/02/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -33,7 +33,7 @@ This rule looks for the creation of executable files done by system-critical pro
 - Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Investigate any abnormal behavior by the subject process such as network connections, registry or file modifications, and any spawned child processes.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the process executable using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -87,7 +87,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.type != "deletion" and
+file where host.os.type == "windows" and event.type != "deletion" and
   file.extension : ("exe", "dll") and
   process.name : ("smss.exe",
                   "autochk.exe",

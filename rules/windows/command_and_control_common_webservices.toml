@@ -2,7 +2,7 @@
 creation_date = "2020/11/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2023/01/31"
+updated_date = "2023/02/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -36,7 +36,7 @@ This rule looks for processes outside known legitimate program locations communi
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Verify whether the digital signature exists in the executable.
 - Identify the operation type (upload, download, tunneling, etc.).
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the process executable using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -77,7 +77,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-network where network.protocol == "dns" and
+network where host.os.type == "windows" and network.protocol == "dns" and
     process.name != null and user.id not in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
     /* Add new WebSvc domains here */
     dns.question.name :
