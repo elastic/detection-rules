@@ -6,24 +6,24 @@
 from . import common
 from . import RtaMetadata
 
-
 metadata = RtaMetadata(
-    uuid="878ffa93-dea6-48f8-9441-e199bc23ec6b",
+    uuid="9261a9ca-53ed-483c-967a-3f7a8f93e0ea",
     platforms=["windows"],
     endpoint=[],
-    siem=[{'rule_id': 'd703a5af-d5b0-43bd-8ddb-7a5d500b7da5', 'rule_name': 'Modification of WDigest Security Provider'}],
-    techniques=["T1003"],
+    siem=[{
+        'rule_id': 'e3cf38fa-d5b8-46cc-87f9-4a7513e4281d',
+        'rule_name': 'Connection to Commonly Abused Free SSL Certificate Providers'
+    }],
+    techniques=['T1573'],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    key = "System\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
-    value = "UseLogonCredential"
-    data = 1
+    powershell = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
 
-    with common.temporary_reg(common.HKLM, key, value, data, data_type="dword"):
-        pass
+    # Execute command
+    common.execute([powershell, "/c", "Test-NetConnection -ComputerName www.letsencrypt.org -Port 443"], timeout=10)
 
 
 if __name__ == "__main__":
