@@ -8,22 +8,23 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="878ffa93-dea6-48f8-9441-e199bc23ec6b",
+    uuid="1d452f81-8f5a-44a3-ae95-e95fe4bf2762",
     platforms=["windows"],
     endpoint=[],
-    siem=[{'rule_id': 'd703a5af-d5b0-43bd-8ddb-7a5d500b7da5', 'rule_name': 'Modification of WDigest Security Provider'}],
-    techniques=["T1003"],
+    siem=[{'rule_id': '4630d948-40d4-4cef-ac69-4002e29bc3db', 'rule_name': 'Adding Hidden File Attribute via Attrib'}],
+    techniques=['T1564', 'T1564.001'],
 )
+EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    key = "System\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
-    value = "UseLogonCredential"
-    data = 1
+    attrib = "C:\\Users\\Public\\attrib.exe"
+    common.copy_file(EXE_FILE, attrib)
 
-    with common.temporary_reg(common.HKLM, key, value, data, data_type="dword"):
-        pass
+    # Execute command
+    common.execute([attrib, "/c", "echo", "+h"], timeout=10)
+    common.remove_file(attrib)
 
 
 if __name__ == "__main__":
