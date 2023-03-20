@@ -8,21 +8,24 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="878ffa93-dea6-48f8-9441-e199bc23ec6b",
+    uuid="ada7805f-e0e1-4633-952e-41f5bb392fdb",
     platforms=["windows"],
     endpoint=[],
-    siem=[{'rule_id': 'd703a5af-d5b0-43bd-8ddb-7a5d500b7da5', 'rule_name': 'Modification of WDigest Security Provider'}],
-    techniques=["T1003"],
+    siem=[{
+        'rule_id': '93c1ce76-494c-4f01-8167-35edfb52f7b1',
+        'rule_name': 'Encoded Executable Stored in the Registry'
+    }],
+    techniques=['T1112', 'T1140'],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    key = "System\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
-    value = "UseLogonCredential"
-    data = 1
+    key = "SOFTWARE\\Policies\\Test"
+    value = "Base64"
+    data = "TVqQAAMAAAAEAAAA"
 
-    with common.temporary_reg(common.HKLM, key, value, data, data_type="dword"):
+    with common.temporary_reg(common.HKLM, key, value, data):
         pass
 
 
