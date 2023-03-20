@@ -8,22 +8,23 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="878ffa93-dea6-48f8-9441-e199bc23ec6b",
+    uuid="904cae88-f6bf-4585-b779-2451ce4b6b1b",
     platforms=["windows"],
     endpoint=[],
-    siem=[{'rule_id': 'd703a5af-d5b0-43bd-8ddb-7a5d500b7da5', 'rule_name': 'Modification of WDigest Security Provider'}],
-    techniques=["T1003"],
+    siem=[{
+        'rule_id': '0c7ca5c2-728d-4ad9-b1c5-bbba83ecb1f4',
+        'rule_name': 'Peripheral Device Discovery'
+    }],
+    techniques=['T1120'],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    key = "System\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
-    value = "UseLogonCredential"
-    data = 1
+    fsutil = "C:\\Windows\\System32\\fsutil.exe"
 
-    with common.temporary_reg(common.HKLM, key, value, data, data_type="dword"):
-        pass
+    # Execute command
+    common.execute([fsutil, "fsinfo", "drives"], timeout=10)
 
 
 if __name__ == "__main__":
