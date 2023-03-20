@@ -8,34 +8,32 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="43636c0c-162b-4445-bcd0-348cbd203fa3",
+    uuid="f62ebacb-5d53-4f74-ae72-b64b8b6c899f",
     platforms=["windows"],
-    endpoint=[{"rule_name": "Renamed AutoIt Scripts Interpreter", "rule_id": "99f2327e-871f-4b8a-ae75-d1c4697aefe4"}],
-    siem=[{'rule_id': '2e1e835d-01e5-48ca-b9fc-7a61f7f11902', 'rule_name': 'Renamed AutoIt Scripts Interpreter'}],
+    endpoint=[],
+    siem=[{
+        'rule_id': '17c7f6a5-5bc9-4e1f-92bf-13632d24384d',
+        'rule_name': 'Suspicious Execution - Short Program Name'
+    }],
     techniques=['T1036', 'T1036.003'],
 )
-
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    autoit = "C:\\Users\\Public\\rta.exe"
+    rta = "C:\\Users\\Public\\a.exe"
     rcedit = "C:\\Users\\Public\\rcedit.exe"
-
     common.copy_file(RENAMER, rcedit)
-    common.copy_file(EXE_FILE, autoit)
+    common.copy_file(EXE_FILE, rta)
 
-    # Execute command
     common.log("Modifying the OriginalFileName attribute")
-    common.execute(
-        [rcedit, autoit, "--set-version-string", "OriginalFileName", "autoitrta.exe"],
-        timeout=10,
-    )
-    common.execute([autoit], timeout=5, kill=True)
+    common.execute([rcedit, rta, "--set-version-string", "OriginalFilename", "rta.exe"])
 
-    common.remove_files(autoit, rcedit)
+    common.execute([rta], timeout=2, kill=True)
+
+    common.remove_files(rcedit, rta)
 
 
 if __name__ == "__main__":

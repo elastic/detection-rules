@@ -8,18 +8,18 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="878ffa93-dea6-48f8-9441-e199bc23ec6b",
+    uuid="712509fa-5326-4ebc-bb1e-82ddf28e8baa",
     platforms=["windows"],
     endpoint=[],
-    siem=[{'rule_id': 'd703a5af-d5b0-43bd-8ddb-7a5d500b7da5', 'rule_name': 'Modification of WDigest Security Provider'}],
-    techniques=["T1003"],
+    siem=[{'rule_id': '9aa0e1f6-52ce-42e1-abb3-09657cee2698', 'rule_name': 'Scheduled Tasks AT Command Enabled'}],
+    techniques=['T1562', 'T1562.001'],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    key = "System\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
-    value = "UseLogonCredential"
+    key = "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\Configuration"
+    value = "EnableAt"
     data = 1
 
     with common.temporary_reg(common.HKLM, key, value, data, data_type="dword"):
