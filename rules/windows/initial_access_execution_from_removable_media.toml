@@ -1,0 +1,65 @@
+[metadata]
+creation_date = "2023/03/20"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "Events Device metadata was added in Elastic Defend version 8.4 and above."
+min_stack_version = "8.4.0"
+updated_date = "2023/03/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies process execution from a removable media and by an unusual process. Adversaries may move onto systems, 
+possibly those on disconnected or air-gapped networks, by copying malware to removable media and taking advantage 
+of Autorun features when the media is inserted into a system and executes.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Execution from a Removable Media with Network Connection"
+risk_score = 47
+rule_id = "5dde2134-cf00-4716-9f82-f2203dd992e6"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by process.entity_id with maxspan=3m
+ [process where event.action == "start" and 
+ 
+  (process.code_signature.trusted == false or process.code_signature.exists == false) and 
+  
+  not process.code_signature.status : ("errorExpired", "errorCode_endpoint*") and 
+   
+   /* Exec from USB */
+  (process.Ext.device.bus_type : "usb" or process.Ext.device.product_id : "USB *") and
+  
+  not process.parent.executable : 
+               ("?:\\Program Files (x86)\\Infinity Launcher\\Infinity Launcher.exe", 
+                "?:\\Program Files (x86)\\Steam\\steam.exe") and 
+  
+  not process.hash.sha256 : 
+                  ("48efbc2dfa7dc4cacd7408ed9086339742a03c1754b2c56c0db23e657f5cd661",
+                   "402e0bfb612865b66cda05c80236c6b242b2e97d4d0990c0a78883a6d013a509", 
+                   "b5e39aea1d994d345fee28a75e3efe48088f422974400bfdf059fb520936bab6", 
+                   "3dca23ca415c897a4905613da37eacde7fc7c29fea38c0a3b232e02f23f6c4f6",
+                   "5586cf5160360f51ae3b4e0ac4ff5e582fd55277f619eaf5aca139f48e4a3f14", 
+                   "85af24188a2040f61f008c50620835b9ddcea0f4c1707447ec11002d55ed134e", 
+                   "1b5d9cec668335295c8e575bcedf4afcedbc445d8ccf8374c9380188965e78e3")]
+ [network where true]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1091"
+name = "Replication Through Removable Media"
+reference = "https://attack.mitre.org/techniques/T1091/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
