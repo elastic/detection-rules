@@ -2,7 +2,7 @@
 creation_date = "2020/08/14"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/01/31"
+updated_date = "2023/03/06"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -13,7 +13,7 @@ Detects attempts to exploit privilege escalation vulnerabilities related to the 
 CVE-2020-1048 and CVE-2020-1337.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Print Spooler SPL File Created"
@@ -78,12 +78,12 @@ references = ["https://safebreach.com/Post/How-we-bypassed-CVE-2020-1048-Patch-a
 risk_score = 73
 rule_id = "a7ccae7b-9d2c-44b2-a061-98e5946971fa"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Investigation Guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Investigation Guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.type != "deletion" and
+file where host.os.type == "windows" and event.type != "deletion" and
   file.extension : "spl" and
   file.path : "?:\\Windows\\System32\\spool\\PRINTERS\\*" and
   not process.name : ("spoolsv.exe",

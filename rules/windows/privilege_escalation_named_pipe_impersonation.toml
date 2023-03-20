@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/09"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Identifies a privilege escalation attempt via named pipe impersonation. An adver
 utilizing a framework such Metasploit's meterpreter getsystem command.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Privilege Escalation via Named Pipe Impersonation"
@@ -79,12 +79,12 @@ references = [
 risk_score = 73
 rule_id = "3ecbdc9e-e4f2-43fa-8cca-63802125e582"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Investigation Guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Investigation Guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
  process.pe.original_file_name in ("Cmd.Exe", "PowerShell.EXE") and
  process.args : "echo" and process.args : ">" and process.args : "\\\\.\\pipe\\*"
 '''
