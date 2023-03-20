@@ -8,22 +8,23 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="878ffa93-dea6-48f8-9441-e199bc23ec6b",
+    uuid="fc1e40b8-ae2d-4479-a854-77b346982894",
     platforms=["windows"],
     endpoint=[],
-    siem=[{'rule_id': 'd703a5af-d5b0-43bd-8ddb-7a5d500b7da5', 'rule_name': 'Modification of WDigest Security Provider'}],
-    techniques=["T1003"],
+    siem=[{'rule_id': '06dceabf-adca-48af-ac79-ffdf4c3b1e9a', 'rule_name': 'Potential Evasion via Filter Manager'}],
+    techniques=['T1562', 'T1562.001'],
 )
+EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    key = "System\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
-    value = "UseLogonCredential"
-    data = 1
+    fltmc = "C:\\Users\\Public\\fltmc.exe"
+    common.copy_file(EXE_FILE, fltmc)
 
-    with common.temporary_reg(common.HKLM, key, value, data, data_type="dword"):
-        pass
+    # Execute command
+    common.execute([fltmc, "/c", "echo", "unload"], timeout=10)
+    common.remove_file(fltmc)
 
 
 if __name__ == "__main__":

@@ -8,18 +8,18 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="878ffa93-dea6-48f8-9441-e199bc23ec6b",
+    uuid="2edd7889-578b-4870-befd-6b3d0f5a10fd",
     platforms=["windows"],
     endpoint=[],
-    siem=[{'rule_id': 'd703a5af-d5b0-43bd-8ddb-7a5d500b7da5', 'rule_name': 'Modification of WDigest Security Provider'}],
-    techniques=["T1003"],
+    siem=[{'rule_id': 'a22a09c2-2162-4df0-a356-9aacbeb56a04', 'rule_name': 'DNS-over-HTTPS Enabled via Registry'}],
+    techniques=['T1562'],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    key = "System\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
-    value = "UseLogonCredential"
+    key = "SOFTWARE\\Policies\\Microsoft\\Edge"
+    value = "BuiltInDnsClientEnabled"
     data = 1
 
     with common.temporary_reg(common.HKLM, key, value, data, data_type="dword"):
