@@ -8,22 +8,20 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="878ffa93-dea6-48f8-9441-e199bc23ec6b",
+    uuid="c5b8e9c5-59c6-4316-8e73-cd4f5a9a2761",
     platforms=["windows"],
     endpoint=[],
-    siem=[{'rule_id': 'd703a5af-d5b0-43bd-8ddb-7a5d500b7da5', 'rule_name': 'Modification of WDigest Security Provider'}],
-    techniques=["T1003"],
+    siem=[{'rule_id': '84da2554-e12a-11ec-b896-f661ea17fbcd', 'rule_name': 'Enumerating Domain Trusts via NLTEST.EXE'}],
+    techniques=['T1482'],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    key = "System\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
-    value = "UseLogonCredential"
-    data = 1
+    powershell = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
 
-    with common.temporary_reg(common.HKLM, key, value, data, data_type="dword"):
-        pass
+    # Execute command
+    common.execute([powershell, "/c", "nltest.exe /DCLIST:$env:USERDNSDOMAIN"], timeout=10)
 
 
 if __name__ == "__main__":

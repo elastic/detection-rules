@@ -8,22 +8,20 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="878ffa93-dea6-48f8-9441-e199bc23ec6b",
+    uuid="1286c142-8acc-4b58-a7c1-572870c81bc1",
     platforms=["windows"],
     endpoint=[],
-    siem=[{'rule_id': 'd703a5af-d5b0-43bd-8ddb-7a5d500b7da5', 'rule_name': 'Modification of WDigest Security Provider'}],
-    techniques=["T1003"],
+    siem=[{'rule_id': 'f63c8e3c-d396-404f-b2ea-0379d3942d73', 'rule_name': 'Windows Firewall Disabled via PowerShell'}],
+    techniques=['T1562', 'T1562.004'],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
-    key = "System\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
-    value = "UseLogonCredential"
-    data = 1
+    powershell = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
 
-    with common.temporary_reg(common.HKLM, key, value, data, data_type="dword"):
-        pass
+    # Execute command
+    common.execute([powershell, "/c", "echo", "Set-NetFirewallProfile", "-Enabled", "False", "-All"], timeout=2)
 
 
 if __name__ == "__main__":
