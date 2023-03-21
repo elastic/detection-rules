@@ -1,10 +1,10 @@
 [metadata]
-creation_date = "2023/02/28"
+creation_date = "2023/03/21"
 integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/28"
+updated_date = "2023/03/21"
 
 [rule]
 author = ["Elastic"]
@@ -16,26 +16,34 @@ Adversaries may add or alter files located in the /etc/init.d/ directory to exec
 time in order to gain persistence onto the system. 
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "auditbeat-*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Potential Persistence Through init.d Detected"
+name = "Suspicious File Creation in init.d for Persistence Detected"
 note = """## Triage and analysis
-### Investigating RC script creation
+
+### Investigating Suspicious File Creation in init.d for Persistence Detected
+
 Detection alerts from this rule indicate the creation of a new file in the "/etc/init.d/" directory and a new service in the "/run/systemd/generator.late/" directory. Init.d has been deprecated in favor of the use of Systemd, and more recent Unix distributions no longer leverage this method of on-boot script execution. There might still be users that use init.d in a benign matter, so investigation to see whether the file is malicious is vital. The first file to check can be found here:
 - /etc/init.d/
 
 This file may contain a path to an executable, script or a command. Additionally, the `systemd-sysv-generator` located at `/usr/lib/systemd/system-generators/systemd-sysv-generator` is used to convert executable files located in /etc/init.d/ into service files. The service files can be found in the following directory:
 - /run/systemd/generator.late/
 
-### Investigating RC script execution
 Systemd will generate syslogs in case of the execution of the created service. In instances where the LSB header of the script has a description, this description can be found within the syslog log files. The following command might be used to check for the execution of this service:
 
 `sudo cat /var/log/syslog | grep "LSB"`
 
 If logging is found, analyze it, and chances are that the contents of the file created in the /etc/init.d/ directory have been executed. In case several syslog log files are available, use a wildcard to search through all of the available logs.
 
+### False Positive Analysis
+
+- If this activity is related to new benign software installation activity, consider adding exceptions — preferably with a combination of user and command line conditions.
+- If this activity is related to a system administrator who uses init.d for administrative purposes, consider adding exceptions for this specific administrator user account. 
+- Try to understand the context of the execution by thinking about the user, machine, or business purpose. A small number of endpoints, such as servers with unique software, might appear unusual but satisfy a specific business need.
+
 ### Response and remediation
+
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved host to prevent further post-compromise behavior.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
@@ -51,25 +59,16 @@ references = [
 
 ]
 risk_score = 47
-rule_id = "46385322-2871-46c4-af21-66d150ed12bb"
+rule_id = "474fd20e-14cc-49c5-8160-d9ab4ba16c8b"
 severity = "medium"
 tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Investigation Guide"]
+timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by user.id, host.id
-[file where event.action == "creation" and
-file.path : "/etc/init.d/*"]
-
-[process where event.type == "start" and
-event.action == "exec" and
-process.name == "chmod" and
-process.args : "+x"]
-
-[file where event.action == "creation" and
-process.name : "systemd-sysv-generator" and
-file.path : "/run/systemd/generator.late/*" and 
-endsWith(file.name, "service")]
+file where host.os.type == "linux" and event.action : ("creation", "rename") and 
+process.name : ("*sh", "nano", "vi*", "mv", "cp") and file.path : "/etc/init.d/*" and not 
+endsWith(file.name, "swp") and user.id == "0"
 '''
 
 
