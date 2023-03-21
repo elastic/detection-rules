@@ -16,7 +16,7 @@ Adversaries may add or alter files located in the /etc/init.d/ directory to exec
 time in order to gain persistence onto the system. 
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious File Creation in init.d for Persistence Detected"
@@ -61,12 +61,13 @@ references = [
 risk_score = 47
 rule_id = "474fd20e-14cc-49c5-8160-d9ab4ba16c8b"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Investigation Guide"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Elastic Endgame", "Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where host.os.type == "linux" and event.action : ("creation", "rename") and 
+file where host.os.type == "linux" and 
+event.action in ("creation", "file_create_event", "rename", "file_rename_event") and 
 process.name : ("*sh", "nano", "vi*", "mv", "cp") and file.path : "/etc/init.d/*" and not 
 endsWith(file.name, "swp") and user.id == "0"
 '''
