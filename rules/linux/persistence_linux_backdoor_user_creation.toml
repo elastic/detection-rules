@@ -4,16 +4,37 @@ integration = ["system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/03/07"
+updated_date = "2023/03/22"
+
+[transform]
+[[transform.osquery]]
+label = "Osquery - Retrieve User Accounts with a UID of 0"
+query = "SELECT description, gid, gid_signed, shell, uid, uid_signed, username FROM users WHERE username != 'root' AND uid LIKE '0'"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Running Processes by User"
+query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.uid ORDER BY username"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Information for a Specific User"
+query = "SELECT * FROM users WHERE username = 'attacker'"
+
+[[transform.osquery]]
+label = "Osquery - Investigate the Account Authentication Status"
+query = "SELECT * FROM logged_in_users WHERE user = 'attacker'"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Information for a Specific Group"
+query = "SELECT * FROM groups WHERE groupname = 'attacker'"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the attempt to create a new backdoor user by setting the user's UID to 0. Attackers 
-may alter a user's UID to 0 to escalate privileges or establish persistence on a system or domain.
+Identifies the attempt to create a new backdoor user by setting the user's UID to 0. Attackers may alter a user's UID to 
+0 to escalate privileges or establish persistence on a system or domain.
 """
 from = "now-9m"
-index = ["auditbeat-*", "logs-system.auth-*"]
+index = ["logs-system.auth-*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Linux Backdoor User Account Creation"
@@ -25,31 +46,44 @@ Attackers may create new accounts with a UID of 0 to maintain root access to vic
 
 This rule identifies the usage of the "usermod -u 0" command to set a user's UID to 0, indicating that the user becomes a root account. 
 
-#### Possible investigation steps
+> **Note**:
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
+#### Possible investigation steps
+- Investigate the user account that got a uid of 0 assigned to it, and analyze its corresponding attributes.
+  - $osquery_0
 - Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence and whether they are located in expected locations.
-- Identify the user account that performed the action and whether it should perform this kind of action.
+  - $osquery_1
+- Identify the user account that performed the action, analyze it and check whether it should perform this kind of action.
+  - $osquery_2
+- Investigate whether the user is currently logged in and active.
+  - $osquery_3
 - Identify if the account was added to privileged groups or assigned special privileges after creation.
+  - $osquery_4
 - Investigate other alerts associated with the user/host during the past 48 hours.
 
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved host to prevent further post-compromise behavior.
+- Review the privileges assigned to the involved users to ensure that the least privilege principle is being followed.
 - Delete the created account.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+
+## Setup
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 risk_score = 47
 rule_id = "494ebba4-ecb7-4be4-8c6f-654c686549ad"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Investigation Guide"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Elastic Endgame", "Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start" and
+process where event.type == "start" and host.os.type == "linux" and
 event.action == "exec" and process.name == "usermod" and
 process.args : "-u" and process.args : "0" and process.args : "-o"
 '''
