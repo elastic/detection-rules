@@ -4,7 +4,43 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/03/21"
+updated_date = "2023/03/22"
+
+[transform]
+[[transform.osquery]]
+label = "Osquery - Retrieve File Information"
+query = "SELECT * FROM file WHERE path = 'file_path'"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve File Listing Information"
+query = "SELECT * FROM file WHERE (path LIKE '/etc/init.d/%' OR path LIKE '/run/systemd/generator.late/%')"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Additional File Listing Information"
+query = """
+SELECT
+  f.path,
+  u.username AS file_owner,
+  g.groupname AS group_owner,
+  datetime(f.atime, 'unixepoch') AS file_last_access_time,
+  datetime(f.mtime, 'unixepoch') AS file_last_modified_time,
+  datetime(f.ctime, 'unixepoch') AS file_last_status_change_time,
+  datetime(f.btime, 'unixepoch') AS file_created_time,
+  f.size AS size_bytes
+FROM
+  file f
+  LEFT JOIN users u ON f.uid = u.uid
+  LEFT JOIN groups g ON f.gid = g.gid
+WHERE (path LIKE '/etc/init.d/%' OR path LIKE '/run/systemd/generator.late/%')
+"""
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Running Processes by User"
+query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.uid ORDER BY username"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Crontab Information"
+query = "SELECT * FROM crontab"
 
 [rule]
 author = ["Elastic"]
@@ -24,23 +60,44 @@ note = """## Triage and analysis
 
 ### Investigating Suspicious File Creation in init.d for Persistence Detected
 
-Detection alerts from this rule indicate the creation of a new file in the "/etc/init.d/" directory and a new service in the "/run/systemd/generator.late/" directory. Init.d has been deprecated in favor of the use of Systemd, and more recent Unix distributions no longer leverage this method of on-boot script execution. There might still be users that use init.d in a benign matter, so investigation to see whether the file is malicious is vital. The first file to check can be found here:
-- /etc/init.d/
+Attackers can abuse files within the "/etc/init.d/" directory to run scripts, commands or malicious software every time a system is rebooted by converting an executable file into a service file through the "systemd-sysv-generator". After conversion, a unit file is created within the "/run/systemd/generator.late/" directory.
 
-This file may contain a path to an executable, script or a command. Additionally, the `systemd-sysv-generator` located at `/usr/lib/systemd/system-generators/systemd-sysv-generator` is used to convert executable files located in /etc/init.d/ into service files. The service files can be found in the following directory:
-- /run/systemd/generator.late/
+This rule looks for the creation of new files within the "/etc/init.d/" directory. Files in these directories will automatically run at boot with root privileges when they are made executable.
 
-Systemd will generate syslogs in case of the execution of the created service. In instances where the LSB header of the script has a description, this description can be found within the syslog log files. The following command might be used to check for the execution of this service:
+> **Note**:
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
-`sudo cat /var/log/syslog | grep "LSB"`
+#### Possible Investigation Steps
 
-If logging is found, analyze it, and chances are that the contents of the file created in the /etc/init.d/ directory have been executed. In case several syslog log files are available, use a wildcard to search through all of the available logs.
+- Investigate the file that was created or modified.
+  - $osquery_0
+- Investigate whether any other files in the "/etc/init.d/" or "/run/systemd/generator.late/" directories have been altered.
+  - $osquery_1
+  - $osquery_2
+- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+  - $osquery_3
+- Investigate syslog through the "sudo cat /var/log/syslog | grep 'LSB'" command to find traces of the LSB header of the script (if present).  
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Investigate whether the altered scripts call other malicious scripts elsewhere on the file system. 
+  - If scripts or executables were dropped, retrieve the files and determine if they are malicious:
+    - Use a private sandboxed malware analysis system to perform analysis.
+      - Observe and collect information about the following activities:
+        - Attempts to contact external domains and addresses.
+          - Check if the domain is newly registered or unexpected.
+          - Check the reputation of the domain or IP address.
+        - File access, modification, and creation activities.
+        - Cron jobs, services and other persistence mechanisms.
+            - $osquery_4
 
 ### False Positive Analysis
 
 - If this activity is related to new benign software installation activity, consider adding exceptions — preferably with a combination of user and command line conditions.
 - If this activity is related to a system administrator who uses init.d for administrative purposes, consider adding exceptions for this specific administrator user account. 
 - Try to understand the context of the execution by thinking about the user, machine, or business purpose. A small number of endpoints, such as servers with unique software, might appear unusual but satisfy a specific business need.
+
+### Related Rules
+
+- Suspicious File Creation in /etc for Persistence - 1c84dd64-7e6c-4bad-ac73-a5014ee37042
 
 ### Response and remediation
 
