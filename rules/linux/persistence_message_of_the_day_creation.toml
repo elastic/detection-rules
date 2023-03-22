@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/28"
+updated_date = "2023/03/22"
 
 [rule]
 author = ["Elastic"]
@@ -14,16 +14,18 @@ a Linux server via SSH or a serial connection. Linux systems contain several def
 located in the "/etc/update-motd.d/" and "/usr/lib/update-notifier/" directories. These scripts run 
 as the root user every time a user connects over SSH or a serial connection. Adversaries may create
 malicious MOTD files that grant them persistence onto the target every time a user connects to the 
-system by executing a backdoor script or command. This rule detects the execution of potentially 
-malicious processes through the MOTD utility. 
+system by executing a backdoor script or command. This rule detects the creation of potentially 
+malicious files within the default MOTD file directories.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "auditbeat-*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Persistence Through MOTD File Creation Detected"
 note = """## Triage and analysis
-### Investigating Potential Persistence Through MOTD File Creation
+
+### Investigating Potential Persistence Through MOTD File Creation Detected
+
 Detection alerts from this rule indicate the creation of a new file in the "/etc/update-motd.d/" or "/usr/lib/update-notifier/ directories. Administrators might alter or create new MOTD files in these directories, so investigation to see whether the file is malicious is vital. The first files to check can be found here:
 - /etc/update-motd.d/
 - /usr/lib/update-notifier/
@@ -32,7 +34,12 @@ The file(s) created within these directories may contain links to executables, s
 
 To check for the execution of the newly added motd file, the "Suspicious Process Spawned from MOTD Detected" can be checked.
 
+### Related Rules
+
+- Suspicious Process Spawned from MOTD Detected - 4ec47004-b34a-42e6-8003-376a123ea447
+
 ### Response and remediation
+
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved host to prevent further post-compromise behavior.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
@@ -44,25 +51,18 @@ To check for the execution of the newly added motd file, the "Suspicious Process
 references = [
     "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#8-boot-or-logon-initialization-scripts-rc-scripts"
 ]
-risk_score = 21
+risk_score = 43
 rule_id = "96d11d31-9a79-480f-8401-da28b194608f"
-severity = "low"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Investigation Guide"]
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Elastic Endgame", "Investigation Guide"]
 type = "eql"
 
 query = '''
-sequence by user.id, host.id with maxspan = 15s
-[ file where host.os.type == "linux" and 
-  event.type == "creation" and
-  file.path : (
-    "/etc/update-motd.d/*",
-    "/usr/lib/update-notifier/*"
-) ]
-
-[ process where host.os.type == "linux" and 
-  event.type == "start" and 
-  event.action == "exec" and
-  process.name == "chmod" ]
+file where host.os.type == "linux" and
+event.action : ("creation", "file_create_event", "rename", "file_rename_event") and
+process.name : ("*sh", "nano", "vi*", "mv", "cp", "touch") and
+file.path : ("/etc/update-motd.d/*", "/usr/lib/update-notifier/*") and not 
+endsWith(file.name, "swp")
 '''
 
 
