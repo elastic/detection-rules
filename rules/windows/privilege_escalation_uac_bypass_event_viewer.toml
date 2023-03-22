@@ -2,7 +2,7 @@
 creation_date = "2020/03/17"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/01/31"
+updated_date = "2023/03/06"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -13,7 +13,7 @@ Identifies User Account Control (UAC) bypass via eventvwr.exe. Attackers bypass 
 elevated permissions.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Bypass UAC via Event Viewer"
@@ -36,7 +36,7 @@ During startup, `eventvwr.exe` checks the registry value of the `HKCU\\Software\
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Inspect the host for suspicious or abnormal behavior in the alert timeframe.
 - Investigate any abnormal behavior by the subject process such as network connections, registry or file modifications, and any spawned child processes.
-- Examine the host for derived artifacts that indicates suspicious activities:
+- Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the process executable using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
@@ -78,12 +78,12 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 73
 rule_id = "31b4c719-f2b4-41f6-a9bd-fce93c2eaf62"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Investigation Guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Investigation Guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
   process.parent.name : "eventvwr.exe" and
   not process.executable :
             ("?:\\Windows\\SysWOW64\\mmc.exe",
