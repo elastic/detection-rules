@@ -161,15 +161,18 @@ class FlatThreatMapping(MarshmallowDataclassMixin):
     sub_technique_names: List[str]
     sub_technique_ids: List[str]
 
+
 @dataclass
 class AlertSuppressDuration:
     unit: definitions.AlertSuppressionTimeUnits
     value: int
 
+
 @dataclass(frozen=True)
 class AlertSuppressionMapping(MarshmallowDataclassMixin):
     group_by: List[definitions.NonEmptyStr]
     duration: Optional[AlertSuppressDuration]
+
 
 @dataclass(frozen=True)
 class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
