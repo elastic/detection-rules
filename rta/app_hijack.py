@@ -15,7 +15,8 @@ metadata = RtaMetadata(
         {
             "rule_name": "Potential Default Application Hijacking",
             "rule_id": "5d2c3833-a36a-483a-acea-5bf8cf363a81",
-        }],
+        }
+    ],
     siem=[],
     techniques=["T1574"],
 )

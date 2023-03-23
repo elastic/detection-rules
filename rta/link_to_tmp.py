@@ -21,7 +21,6 @@ metadata = RtaMetadata(
 @common.requires_os(metadata.platforms)
 def main():
 
-
     masquerade = "/tmp/ln"
     common.create_macos_masquerade(masquerade)
 

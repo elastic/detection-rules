@@ -25,7 +25,7 @@ def main():
     common.create_macos_masquerade(masquerade)
 
     common.log("Executing shove processes to mimic sip bypass.")
-    command = '/System/Library/PrivateFrameworks/PackageKit.framework/Versions/A/Resources/shove -x'
+    command = "/System/Library/PrivateFrameworks/PackageKit.framework/Versions/A/Resources/shove -x"
     common.execute([masquerade, "childprocess", command], shell=True, timeout=5, kill=True)
 
     # cleanup

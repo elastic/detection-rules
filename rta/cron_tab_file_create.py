@@ -11,7 +11,10 @@ metadata = RtaMetadata(
     uuid="e85f7e39-da36-4ed4-be00-c5b29f4d763c",
     platforms=["macos"],
     endpoint=[
-        {"rule_name": "Cron Tab Creation or Modification by an Unusual Process", "rule_id": "e5fc1285-d312-4b45-9e6b-e6c037276c17"}
+        {
+            "rule_name": "Cron Tab Creation or Modification by an Unusual Process",
+            "rule_id": "e5fc1285-d312-4b45-9e6b-e6c037276c17",
+        }
     ],
     siem=[],
     techniques=["T1053", "T1053.003"],

@@ -35,5 +35,6 @@ def main():
     # cleanup
     common.remove_file(masquerade)
 
+
 if __name__ == "__main__":
     exit(main())

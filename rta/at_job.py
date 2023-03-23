@@ -11,7 +11,10 @@ metadata = RtaMetadata(
     uuid="084c5d8f-2578-4fe0-bc6f-f6c44205804a",
     platforms=["macos"],
     endpoint=[
-        {"rule_name": "At Job Creation or Modification by an Unusual Process", "rule_id": "779f18ce-1457-457c-80e1-3a5d146c2dc0"}
+        {
+            "rule_name": "At Job Creation or Modification by an Unusual Process",
+            "rule_id": "779f18ce-1457-457c-80e1-3a5d146c2dc0",
+        }
     ],
     siem=[],
     techniques=["T1053", "T1053.002"],

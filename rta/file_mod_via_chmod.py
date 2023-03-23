@@ -11,8 +11,10 @@ metadata = RtaMetadata(
     uuid="dbbfda7f-376d-482d-b7ea-3bb1e8918584",
     platforms=["macos"],
     endpoint=[
-        {"rule_name": "File Made Executable by Suspicious Parent Process",
-         "rule_id": "42ab2c0f-b10d-467d-8c6d-def890cf3f68"}
+        {
+            "rule_name": "File Made Executable by Suspicious Parent Process",
+            "rule_id": "42ab2c0f-b10d-467d-8c6d-def890cf3f68",
+        }
     ],
     siem=[],
     techniques=["T1222", "T1222.002", "T1564"],

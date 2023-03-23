@@ -34,5 +34,6 @@ def main():
     # cleanup
     common.remove_file("test.dylib")
 
+
 if __name__ == "__main__":
     exit(main())

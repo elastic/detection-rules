@@ -11,7 +11,10 @@ metadata = RtaMetadata(
     uuid="9332cece-38b7-49e1-9f8d-e879913ffdfb",
     platforms=["macos"],
     endpoint=[
-        {"rule_name": "Tclsh execution followed by immediate network connection", "rule_id": "ac1eaed8-2aee-48d7-9824-2be1f00eda0e"}
+        {
+            "rule_name": "Tclsh execution followed by immediate network connection",
+            "rule_id": "ac1eaed8-2aee-48d7-9824-2be1f00eda0e",
+        }
     ],
     siem=[],
     techniques=["T1059"],

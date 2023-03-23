@@ -32,6 +32,5 @@ def main():
     common.execute([masquerade, "/Volumes/*/Contents/*"], timeout=10, kill=True)
 
 
-
 if __name__ == "__main__":
     exit(main())

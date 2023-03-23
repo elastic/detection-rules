@@ -12,7 +12,10 @@ metadata = RtaMetadata(
     uuid="17c710a6-9070-4448-b68c-a3694657552e",
     platforms=["macos"],
     endpoint=[
-        {"rule_name": "Persistence via Suspicious Launch Agent or Launch Daemon", "rule_id": "c6037fad-ad13-46a6-9f7f-4deeef5ac69b"},
+        {
+            "rule_name": "Persistence via Suspicious Launch Agent or Launch Daemon",
+            "rule_id": "c6037fad-ad13-46a6-9f7f-4deeef5ac69b",
+        },
     ],
     siem=[],
     techniques=["T1547", "T1547.011", "T1543", "T1543.001", "T1543.004"],
@@ -35,10 +38,11 @@ plist = """
 </plist>
 """
 
+
 @common.requires_os(metadata.platforms)
 def main():
     plist_name = "com.test.plist"
-    daemon_dir = Path("/", "Library","LaunchDaemons").expanduser()
+    daemon_dir = Path("/", "Library", "LaunchDaemons").expanduser()
     daemon_dir.mkdir(parents=True, exist_ok=True)
     plist_path = str(daemon_dir / plist_name)
 
@@ -47,6 +51,7 @@ def main():
         f.write(plist)
         common.execute(["launchctl", "load", plist_path], kill=True)
         common.execute(["launchctl", "unload", plist_path], kill=True)
+
 
 if __name__ == "__main__":
     exit(main())
