@@ -20,6 +20,7 @@ NAME_PATTERN = r'^[a-zA-Z0-9].+?[a-zA-Z0-9()]$'
 PR_PATTERN = r'^$|\d+$'
 SHA256_PATTERN = r'^[a-fA-F0-9]{64}$'
 UUID_PATTERN = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+TIME_UNIT_PATTERN = r'[smh]'
 
 _version = r'\d+\.\d+(\.\d+[\w-]*)*'
 CONDITION_VERSION_PATTERN = rf'^\^{_version}$'
@@ -56,7 +57,7 @@ TIMELINE_TEMPLATES: Final[dict] = {
 
 
 NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
-
+AlertSuppressionTimeUnits = NewType('AlertSuppressionTimeUnits', str, validate=validate.Regexp(TIME_UNIT_PATTERN))
 BranchVer = NewType('BranchVer', str, validate=validate.Regexp(BRANCH_PATTERN))
 CardinalityFields = NewType('CardinalityFields', List[NonEmptyStr], validate=validate.Length(min=0, max=3))
 CodeString = NewType("CodeString", str)
