@@ -8,33 +8,29 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="f158a6dc-1974-4b98-a3e7-466f6f1afe01",
+    uuid="aec658cc-a5df-42e8-8e09-810b484b9ef2",
     platforms=["macos"],
     endpoint=[
         {
-            "rule_name": "Keychain Dump via native Security tool",
-            "rule_id": "549344d6-aaef-4495-9ca2-7a0b849bf571",
+            "rule_name": "MacOS Potential Data Exfiltration via Curl",
+            "rule_id": "192ec591-1d00-4c16-a717-8a7481038d23",
         }
     ],
-    siem=[
-        {
-            "rule_name": "Dumping of Keychain Content via Security Command",
-            "rule_id": "565d6ca5-75ba-4c82-9b13-add25353471c",
-        }
-    ],
-    techniques=["T1555", "T1555.001"],
+    siem=[],
+    techniques=["T1048"],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
 
-    masquerade = "/tmp/bash"
+    # create masquerades
+    masquerade = "/tmp/curl"
     common.create_macos_masquerade(masquerade)
 
     # Execute command
-    common.log("Launching fake commands to dump keychain credentials")
-    common.execute([masquerade, "dump-keychain", "-d"], timeout=10, kill=True)
+    common.log("Launching fake curl commands to simulate data exfil")
+    common.execute([masquerade, "-F", "*@*.zip", "http*"], timeout=10, kill=True)
 
     # cleanup
     common.remove_file(masquerade)
