@@ -14,7 +14,13 @@ from . import common
 from . import RtaMetadata
 
 
-metadata = RtaMetadata(uuid="6d2d3c21-2d71-4395-8ab7-b1d0138d9225", platforms=["windows"], endpoint=[], siem=[], techniques=[])
+metadata = RtaMetadata(
+    uuid="6d2d3c21-2d71-4395-8ab7-b1d0138d9225",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[],
+    techniques=[]
+)
 
 
 @common.requires_os(metadata.platforms)
