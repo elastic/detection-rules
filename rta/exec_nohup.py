@@ -8,33 +8,31 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="f158a6dc-1974-4b98-a3e7-466f6f1afe01",
+    uuid="b2faa842-ffc9-41c6-baed-8008c9749a52",
     platforms=["macos"],
-    endpoint=[
-        {
-            "rule_name": "Keychain Dump via native Security tool",
-            "rule_id": "549344d6-aaef-4495-9ca2-7a0b849bf571",
-        }
-    ],
+    endpoint=[],
     siem=[
         {
-            "rule_name": "Dumping of Keychain Content via Security Command",
-            "rule_id": "565d6ca5-75ba-4c82-9b13-add25353471c",
+            "rule_name": "Suspicious Nohup Execution",
+            "rule_id": "3f18726c-4897-41dc-8426-15da95b8482f",
         }
     ],
-    techniques=["T1555", "T1555.001"],
+    techniques=["T1059", "T1059.004", "T1564", "T1564.003"],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
 
+    test_file = "/tmp/test.txt"
     masquerade = "/tmp/bash"
     common.create_macos_masquerade(masquerade)
 
     # Execute command
-    common.log("Launching fake commands to dump keychain credentials")
-    common.execute([masquerade, "dump-keychain", "-d"], timeout=10, kill=True)
+    command = f"nohup {test_file}"
+    common.log("Launching bash commands to mimic suspicious nohup execution")
+    with common.temporary_file("testing", test_file):
+        common.execute([masquerade, "childprocess", command, "&"], timeout=10, kill=True)
 
     # cleanup
     common.remove_file(masquerade)
