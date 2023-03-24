@@ -20,7 +20,6 @@ NAME_PATTERN = r'^[a-zA-Z0-9].+?[a-zA-Z0-9()]$'
 PR_PATTERN = r'^$|\d+$'
 SHA256_PATTERN = r'^[a-fA-F0-9]{64}$'
 UUID_PATTERN = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-TIME_UNIT_PATTERN = r'[smh]'
 
 _version = r'\d+\.\d+(\.\d+[\w-]*)*'
 CONDITION_VERSION_PATTERN = rf'^\^{_version}$'

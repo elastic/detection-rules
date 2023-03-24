@@ -164,7 +164,7 @@ class FlatThreatMapping(MarshmallowDataclassMixin):
 
 @dataclass
 class AlertSuppressDuration:
-    unit: definitions.AlertSuppressionTimeUnits
+    unit: definitions.TimeUnits
     value: int
 
 
