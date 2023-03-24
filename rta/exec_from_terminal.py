@@ -8,33 +8,29 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="f158a6dc-1974-4b98-a3e7-466f6f1afe01",
+    uuid="1b681241-d9f1-4239-a9e7-650ebc0c38a4",
     platforms=["macos"],
-    endpoint=[
-        {
-            "rule_name": "Keychain Dump via native Security tool",
-            "rule_id": "549344d6-aaef-4495-9ca2-7a0b849bf571",
-        }
-    ],
+    endpoint=[],
     siem=[
         {
-            "rule_name": "Dumping of Keychain Content via Security Command",
-            "rule_id": "565d6ca5-75ba-4c82-9b13-add25353471c",
+            "rule_name": "Suspicious Terminal Child Process Execution",
+            "rule_id": "8e88d216-af7a-4f5c-8155-fa7d2be03987",
         }
     ],
-    techniques=["T1555", "T1555.001"],
+    techniques=["T1059", "T1059.004"],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
 
-    masquerade = "/tmp/bash"
+    masquerade = "/tmp/terminal"
     common.create_macos_masquerade(masquerade)
 
     # Execute command
-    common.log("Launching fake commands to dump keychain credentials")
-    common.execute([masquerade, "dump-keychain", "-d"], timeout=10, kill=True)
+    command = f"bash -c '/tmp/*'"
+    common.log("Launching bash commands to mimic terminal activity")
+    common.execute([masquerade, "childprocess", command], timeout=10, kill=True)
 
     # cleanup
     common.remove_file(masquerade)
