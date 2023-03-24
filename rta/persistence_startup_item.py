@@ -11,9 +11,9 @@ from pathlib import Path
 metadata = RtaMetadata(
     uuid="7a8c8ab6-4994-47d1-b8b6-d1dca4499289",
     platforms=["macos"],
-    endpoint=[{"rule_id": "eaf68cce-b250-4a17-a3c3-3c9c4cf1ec14", "rule_name": "Persistence Attempt via StartupItems"}],
+    endpoint=[{"rule_id": "eaf68cce-b250-4a17-a3c3-3c9c4cf1ec14", "rule_name": "Suspicious StartupItem Plist Creation or Modification"}],
     siem=[],
-    techniques=[""],
+    techniques=["T1037", "T1037.005"],
 )
 
 

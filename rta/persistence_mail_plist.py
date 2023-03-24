@@ -11,25 +11,25 @@ from pathlib import Path
 metadata = RtaMetadata(
     uuid="a9754fdb-2beb-454a-b918-36a56c5bf7bd",
     platforms=["macos"],
-    endpoint=[
-        {
-            "rule_id": "482e5ab2-029c-4896-afc0-f3e6b8280920",
-            "rule_name": "Suspicious Apple Mail Rule Creation or Modification",
-        }
-    ],
+    endpoint=[{
+        'rule_id': '482e5ab2-029c-4896-afc0-f3e6b8280920',
+        'rule_name': 'Suspicious Apple Mail Rule Plist Creation or Modification'
+    }],
     siem=[],
-    techniques=[""],
+    techniques=["T1546"],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
 
-    common.log("Executing deletion on SyncedRules.plist file.")
-    plist = f"{Path.home()}/Library/Mobile Documents/com.apple.mail/Data/test/MailData/SyncedRules.plist"
-    output_file = Path(plist)
-    output_file.parent.mkdir(exist_ok=True, parents=True)
-    common.temporary_file_helper("testing", file_name=str(plist))
+    common.log("Executing file modification on SyncedRules.plist file.")
+    plist_path = Path(f"{Path.home()}/Library/Mobile Documents/com.apple.mail/Data/test/MailData/")
+    plist_path.mkdir(exist_ok=True, parents=True)
+    output_file = plist_path / "SyncedRules.plist"
+
+    with open(output_file, "w") as f:
+        f.write("test")
     common.remove_directory(f"{Path.home()}/Library/Mobile Documents/com.apple.mail/Data/test/")
 
 

@@ -11,9 +11,10 @@ from pathlib import Path
 metadata = RtaMetadata(
     uuid="9010739f-05c5-4fc0-b806-27753d3d6b5b",
     platforms=["macos"],
-    endpoint=[
-        {"rule_id": "7e52f64b-b0be-4437-81d1-91dd4dd5cb79", "rule_name": "Potential iTerm2 Autolaunch Process Hijack"}
-    ],
+    endpoint=[{
+        'rule_id': '7e52f64b-b0be-4437-81d1-91dd4dd5cb79',
+        'rule_name': 'Potential iTerm2 Autolaunch Process Hijack'
+    }],
     siem=[],
     techniques=[""],
 )
@@ -26,6 +27,7 @@ def main():
     backup_iterm2 = "/tmp/backup_iterm2"
     masquerade_bash = "/tmp/bash"
     path = Path(iterm2)
+    path.mkdir(parents=True, exist_ok=True)
     restore_backup = False
 
     if path.is_file():

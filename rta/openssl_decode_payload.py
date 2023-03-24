@@ -13,11 +13,11 @@ metadata = RtaMetadata(
     endpoint=[
         {
             "rule_id": "4dd92062-2871-43bc-adda-82f15cf6e189",
-            "rule_name": "Decoded or Decrypted Payload Written to Temp Directory",
+            "rule_name": "Decoded or Decrypted Payload Written to Suspicious Directory",
         }
     ],
     siem=[],
-    techniques=[""],
+    techniques=["T1027", "T1140", "T1059", "T1059.004", "T1204", "T1204.002"],
 )
 
 

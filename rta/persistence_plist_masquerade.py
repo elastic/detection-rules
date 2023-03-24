@@ -11,11 +11,12 @@ from pathlib import Path
 metadata = RtaMetadata(
     uuid="8bd875f2-eafb-4151-bfb7-4bd97192400d",
     platforms=["macos"],
-    endpoint=[
-        {"rule_id": "3da48cdd-262a-42a9-af2f-c82ef639b9e3", "rule_name": "Persistence via a Masqueraded Plist Filename"}
-    ],
+    endpoint=[{
+        'rule_id': '3da48cdd-262a-42a9-af2f-c82ef639b9e3',
+        'rule_name': 'Persistence via a Masqueraded Plist Filename'
+    }],
     siem=[],
-    techniques=[""],
+    techniques=["T1547", "T1547.011", "T1543", "T1543.001", "T1036", "T1036.005"],
 )
 
 

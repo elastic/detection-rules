@@ -15,8 +15,25 @@ metadata = RtaMetadata(
         {"rule_id": "2ac8ec88-8549-4fcb-9697-5f53e2f78bf4", "rule_name": "Suspicious Terminal Plist Modification"}
     ],
     siem=[],
-    techniques=[""],
+    techniques=["T1547", "T1547.011"],
 )
+
+plist_content = """
+ <?xml version="1.0" encoding="UTF-8"?>
+ <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+ <plist version="1.0">
+   <dict>
+     <key>Label</key>
+     <string>com.example.myapp</string>
+     <key>ProgramArguments</key>
+     <array>
+       <string>bash</string>
+     </array>
+     <key>RunAtLoad</key>
+     <true/>
+   </dict>
+ </plist>
+ """
 
 
 @common.requires_os(metadata.platforms)
@@ -24,6 +41,10 @@ def main():
 
     common.log("Executing plutil commands to modify plist file.")
     plist = f"{Path.home()}/Library/Preferences/com.apple.Terminal.plist"
+
+    if not Path(plist).exists():
+        common.log(f"Creating plist file {plist}")
+        Path(plist).write_text(plist_content)
     common.execute(["plutil", "-convert", "xml1", plist])
     common.execute(["plutil", "-convert", "binary1", plist])
 
