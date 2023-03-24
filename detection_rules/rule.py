@@ -189,7 +189,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         integration: Optional[definitions.NonEmptyStr]
 
     actions: Optional[list]
-    alert_suppression: Optional[AlertSuppressionMapping]
+    alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.6")))
     author: List[str]
     building_block_type: Optional[str]
     description: str
