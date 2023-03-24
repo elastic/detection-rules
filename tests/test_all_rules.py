@@ -843,6 +843,7 @@ class TestEndpointQuery(BaseRuleTest):
             #     err_msg = f'{self.rule_str(rule)} missing required field for linux endpoint rule'
             #     self.assertIn('host.os.platform', fields, err_msg)
 
+
 class TestAlertSuppression(BaseRuleTest):
     """Test rule alert suppression."""
 
@@ -874,7 +875,8 @@ class TestAlertSuppression(BaseRuleTest):
                 _, _, schema = queryvalidator.get_beats_schema([], beats_version, ecs_version)
                 for fld in group_by_fields:
                     if fld not in schema.keys():
-                        self.fail(f"{self.rule_str(rule)} alert suppression field {fld} not found in ECS, Beats, or non-ecs schemas")
+                        self.fail(f"{self.rule_str(rule)} alert suppression field {fld} not \
+                            found in ECS, Beats, or non-ecs schemas")
 
     @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.6.0"),
                      "Test only applicable to 8.6+ stacks for rule alert suppression feature.")
@@ -882,7 +884,6 @@ class TestAlertSuppression(BaseRuleTest):
         """Test to ensure the stack version is 8.6+"""
         for rule in self.production_rules:
             if rule.contents.data.alert_suppression:
-                group_by_fields = rule.contents.data.alert_suppression.get("group_by", None)
                 per_time = rule.contents.data.alert_suppression.get("duration", None)
                 min_stack_version = rule.contents.metadata.get("min_stack_version")
                 if min_stack_version is None:
@@ -890,8 +891,8 @@ class TestAlertSuppression(BaseRuleTest):
                 else:
                     min_stack_version = Version.parse(min_stack_version)
                 if not per_time and min_stack_version < Version.parse("8.6.0"):
-                    self.fail(f'{self.rule_str(rule)} has rule alert suppression but min_stack is not 8.6+')
+                    self.fail(f'{self.rule_str(rule)} has rule alert suppression but \
+                        min_stack is not 8.6+')
                 elif per_time and min_stack_version < Version.parse("8.7.0"):
-                    self.fail(f'{self.rule_str(rule)} has rule alert suppression with per time but min_stack is not 8.7+')
-
-
+                    self.fail(f'{self.rule_str(rule)} has rule alert suppression with \
+                        per time but min_stack is not 8.7+')
