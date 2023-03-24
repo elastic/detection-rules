@@ -9,10 +9,14 @@ from . import RtaMetadata
 metadata = RtaMetadata(
     uuid="04361aca-0550-4134-ac21-939bf4a0582f",
     platforms=["macos", "linux"],
-    endpoint=[{"rule_id": "41f1f818-0efe-4670-a2ed-7a4c200dd621",
-               "rule_name": "Suspicious Content Extracted or Decompressed via Built-In Utilities"}],
+    endpoint=[
+        {
+            "rule_id": "41f1f818-0efe-4670-a2ed-7a4c200dd621",
+            "rule_name": "Suspicious Content Extracted or Decompressed via Built-In Utilities",
+        }
+    ],
     siem=[],
-    techniques=["T1059", "T1059.004", "T1027", "T1140"]
+    techniques=["T1059", "T1059.004", "T1027", "T1140"],
 )
 
 
