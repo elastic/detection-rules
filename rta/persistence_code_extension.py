@@ -10,10 +10,12 @@ from . import RtaMetadata
 metadata = RtaMetadata(
     uuid="4ef86185-1a6e-4dd4-915c-d0f4281f68aa",
     platforms=["macos"],
-    endpoint=[{
-        'rule_id': '1f207515-b56f-4d15-929e-b6c0b1bb34f2',
-        'rule_name': 'Suspicious Manual VScode Extension Installation'
-    }],
+    endpoint=[
+        {
+            "rule_id": "1f207515-b56f-4d15-929e-b6c0b1bb34f2",
+            "rule_name": "Suspicious Manual VScode Extension Installation",
+        }
+    ],
     siem=[],
     techniques=["T1554"],
 )

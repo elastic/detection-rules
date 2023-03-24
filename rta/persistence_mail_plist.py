@@ -11,10 +11,12 @@ from pathlib import Path
 metadata = RtaMetadata(
     uuid="a9754fdb-2beb-454a-b918-36a56c5bf7bd",
     platforms=["macos"],
-    endpoint=[{
-        'rule_id': '482e5ab2-029c-4896-afc0-f3e6b8280920',
-        'rule_name': 'Suspicious Apple Mail Rule Plist Creation or Modification'
-    }],
+    endpoint=[
+        {
+            "rule_id": "482e5ab2-029c-4896-afc0-f3e6b8280920",
+            "rule_name": "Suspicious Apple Mail Rule Plist Creation or Modification",
+        }
+    ],
     siem=[],
     techniques=["T1546"],
 )
