@@ -171,7 +171,7 @@ class AlertSuppressDuration:
 @dataclass(frozen=True)
 class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
     group_by: List[definitions.NonEmptyStr]
-    duration: Optional[AlertSuppressDuration]
+    duration: Optional[AlertSuppressDuration] = field(metadata=dict(metadata=dict(min_compat="8.7")))
 
 
 @dataclass(frozen=True)
