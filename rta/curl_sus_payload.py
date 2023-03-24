@@ -8,33 +8,28 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="f158a6dc-1974-4b98-a3e7-466f6f1afe01",
+    uuid="bf7645b2-d0cf-428d-a158-b1479160e60c",
     platforms=["macos"],
     endpoint=[
         {
-            "rule_name": "Keychain Dump via native Security tool",
-            "rule_id": "549344d6-aaef-4495-9ca2-7a0b849bf571",
+            "rule_name": "Payload Downloaded by Process Running in Suspicious Directory",
+            "rule_id": "8c42c8bd-c282-44ca-b308-92e4267b6244",
         }
     ],
-    siem=[
-        {
-            "rule_name": "Dumping of Keychain Content via Security Command",
-            "rule_id": "565d6ca5-75ba-4c82-9b13-add25353471c",
-        }
-    ],
-    techniques=["T1555", "T1555.001"],
+    siem=[],
+    techniques=["T1105"],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
 
-    masquerade = "/tmp/bash"
+    masquerade = "/tmp/curl"
     common.create_macos_masquerade(masquerade)
 
     # Execute command
-    common.log("Launching fake commands to dump keychain credentials")
-    common.execute([masquerade, "dump-keychain", "-d"], timeout=10, kill=True)
+    common.log("Launching fake curl commands to download payload")
+    common.execute([masquerade, "childprocess", "curl", "-k", "http://portquiz.net/"], timeout=5, kill=True)
 
     # cleanup
     common.remove_file(masquerade)

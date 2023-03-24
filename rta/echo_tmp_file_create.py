@@ -8,36 +8,34 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="f158a6dc-1974-4b98-a3e7-466f6f1afe01",
+    uuid="2182f7e5-fc4b-4476-86c3-e7128dfcaa7a",
     platforms=["macos"],
     endpoint=[
         {
-            "rule_name": "Keychain Dump via native Security tool",
-            "rule_id": "549344d6-aaef-4495-9ca2-7a0b849bf571",
+            "rule_name": "Suspicious File Overwrite and Modification via Echo",
+            "rule_id": "cd3a06dc-58c3-4d57-a03a-0d8991f237e7",
         }
     ],
-    siem=[
-        {
-            "rule_name": "Dumping of Keychain Content via Security Command",
-            "rule_id": "565d6ca5-75ba-4c82-9b13-add25353471c",
-        }
-    ],
-    techniques=["T1555", "T1555.001"],
+    siem=[],
+    techniques=["T1027", "T1059", "T1059.004"],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
 
-    masquerade = "/tmp/bash"
+    file_path = "/tmp/test"
+    masquerade = "/tmp/testbin"
     common.create_macos_masquerade(masquerade)
 
     # Execute command
-    common.log("Launching fake commands to dump keychain credentials")
-    common.execute([masquerade, "dump-keychain", "-d"], timeout=10, kill=True)
+    common.log("Launching fake bash commands to abnormal echo shell commands")
+    command = f"bash -c 'echo* > {file_path}'"
+    common.execute([masquerade, "childprocess", command], timeout=10, kill=True, shell=True)
 
     # cleanup
     common.remove_file(masquerade)
+    common.remove_file(file_path)
 
 
 if __name__ == "__main__":
