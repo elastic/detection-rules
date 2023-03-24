@@ -17,7 +17,7 @@ metadata = RtaMetadata(
         }
     ],
     siem=[],
-    techniques=[""],
+    techniques=["T1027", "T1140", "T1059", "T1059.004", "T1204", "T1204.002"],
 )
 
 

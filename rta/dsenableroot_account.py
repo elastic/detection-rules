@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["macos"],
     endpoint=[],
     siem=[{"rule_id": "cc2fd2d0-ba3a-4939-b87f-2901764ed036", "rule_name": "Attempt to Enable the Root Account"}],
-    techniques=[""],
+    techniques=["T1078", "T1078.003"],
 )
 
 

@@ -14,7 +14,7 @@ metadata = RtaMetadata(
         {"rule_id": "92525741-9ca8-466e-acee-ceb14ab0dc34", "rule_name": "System Discovery via Built-In Utilities"}
     ],
     siem=[],
-    techniques=[""],
+    techniques=["T1082", "T1059", "T1059.004"],
 )
 
 
