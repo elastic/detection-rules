@@ -169,7 +169,7 @@ class AlertSuppressDuration:
 
 
 @dataclass(frozen=True)
-class AlertSuppressionMapping(MarshmallowDataclassMixin):
+class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
     group_by: List[definitions.NonEmptyStr]
     duration: Optional[AlertSuppressDuration]
 
