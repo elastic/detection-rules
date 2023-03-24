@@ -57,7 +57,7 @@ TIMELINE_TEMPLATES: Final[dict] = {
 
 
 NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
-AlertSuppressionTimeUnits = NewType('AlertSuppressionTimeUnits', str, validate=validate.Regexp(TIME_UNIT_PATTERN))
+TimeUnits = Literal['s', 'm', 'h']
 BranchVer = NewType('BranchVer', str, validate=validate.Regexp(BRANCH_PATTERN))
 CardinalityFields = NewType('CardinalityFields', List[NonEmptyStr], validate=validate.Length(min=0, max=3))
 CodeString = NewType("CodeString", str)
