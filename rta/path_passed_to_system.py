@@ -8,21 +8,16 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="f158a6dc-1974-4b98-a3e7-466f6f1afe01",
+    uuid="7343a543-c2f6-4215-a21c-04eb8c764656",
     platforms=["macos"],
     endpoint=[
         {
-            "rule_name": "Keychain Dump via native Security tool",
-            "rule_id": "549344d6-aaef-4495-9ca2-7a0b849bf571",
+            "rule_name": "Potential Masquerading as System Binary",
+            "rule_id": "bb1de0c7-3504-4b31-8d3e-928aa3acf64f",
         }
     ],
-    siem=[
-        {
-            "rule_name": "Dumping of Keychain Content via Security Command",
-            "rule_id": "565d6ca5-75ba-4c82-9b13-add25353471c",
-        }
-    ],
-    techniques=["T1555", "T1555.001"],
+    siem=[],
+    techniques=["T1036", "T1036.004", "T1059", "T1059.004"],
 )
 
 
@@ -33,8 +28,9 @@ def main():
     common.create_macos_masquerade(masquerade)
 
     # Execute command
-    common.log("Launching fake commands to dump keychain credentials")
-    common.execute([masquerade, "dump-keychain", "-d"], timeout=10, kill=True)
+    common.log("Launching fake bash commands to mimic passing a path to system bin")
+    command = f"exec -a /System/Applications/test {masquerade}"
+    common.execute([masquerade, "childprocess", command], timeout=5, kill=True, shell=True)
 
     # cleanup
     common.remove_file(masquerade)
