@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2021/03/15"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +14,7 @@ task scheduling functionality to facilitate initial or recurring execution of ma
 """
 false_positives = ["Legitimate scheduled jobs may be created during installation of new software."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via Scheduled Job Creation"
@@ -24,12 +25,12 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 47
 rule_id = "1327384f-00f3-44d5-9a8c-2373ba071e92"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.type != "deletion" and
+file where host.os.type == "windows" and event.type != "deletion" and
  file.path : "?:\\Windows\\Tasks\\*" and file.extension : "job"
 '''
 

@@ -1,0 +1,50 @@
+[metadata]
+creation_date = "2022/08/29"
+integration = ["system", "windows"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/02/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Indicates the creation and deletion of a scheduled task within a short time interval. Adversaries can use these to proxy
+malicious execution via the schedule service and perform clean up.
+"""
+false_positives = ["Legitimate scheduled tasks may be created during installation of new software."]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Temporarily Scheduled Task Creation"
+references = ["https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4698"]
+risk_score = 47
+rule_id = "81ff45f8-f8c2-4e28-992e-5a0e8d98e0fe"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+type = "eql"
+
+query = '''
+sequence by winlog.computer_name, winlog.event_data.TaskName with maxspan=5m
+   [iam where host.os.type == "windows" and event.action == "scheduled-task-created" and not user.name : "*$"]
+   [iam where host.os.type == "windows" and event.action == "scheduled-task-deleted" and not user.name : "*$"]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+[[rule.threat.technique.subtechnique]]
+id = "T1053.005"
+name = "Scheduled Task"
+reference = "https://attack.mitre.org/techniques/T1053/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

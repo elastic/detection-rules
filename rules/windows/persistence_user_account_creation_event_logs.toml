@@ -1,13 +1,14 @@
 [metadata]
 creation_date = "2021/01/04"
+integration = ["system", "windows"]
 maturity = "development"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Skoetting"]
 description = """
-Identifies attempts to create new local users. This is sometimes done by attackers to increase access to a system or
-domain.
+Identifies attempts to create a Windows User Account. This is sometimes done by attackers to persist or increase access
+to a system or domain.
 """
 false_positives = [
     """
@@ -16,10 +17,10 @@ false_positives = [
     behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
-index = ["winlogbeat-*", "logs-system.*"]
+index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Creation of a local user account"
+name = "Windows User Account Creation"
 risk_score = 21
 rule_id = "38e17753-f581-4644-84da-0d60a8318694"
 severity = "low"
@@ -28,7 +29,8 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.module:security and event.code:4720
+event.module:("system" or "security") and host.os.type:windows and
+  (event.code:"4720" or event.action:"added-user-account")
 '''
 
 
@@ -38,11 +40,16 @@ framework = "MITRE ATT&CK"
 id = "T1136"
 name = "Create Account"
 reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1136/001/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1136.001"
-  name = "Local Account"
-  reference = "https://attack.mitre.org/techniques/T1136/001/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.002"
+name = "Domain Account"
+reference = "https://attack.mitre.org/techniques/T1136/002/"
+
 
 
 [rule.threat.tactic]

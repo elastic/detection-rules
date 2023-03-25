@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/11/23"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +14,7 @@ move laterally or persist locally. The AT command has been deprecated since Wind
 exists for backwards compatibility.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Scheduled Tasks AT Command Enabled"
@@ -25,14 +26,16 @@ references = ["https://docs.microsoft.com/en-us/windows/win32/cimwin32prov/win32
 risk_score = 47
 rule_id = "9aa0e1f6-52ce-42e1-abb3-09657cee2698"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where
- registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\Configuration\\EnableAt" and
- registry.data.strings : ("1", "0x00000001")
+registry where host.os.type == "windows" and
+  registry.path : (
+    "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\Configuration\\EnableAt",
+    "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\Configuration\\EnableAt"
+  ) and registry.data.strings : ("1", "0x00000001")
 '''
 
 

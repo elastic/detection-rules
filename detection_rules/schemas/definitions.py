@@ -27,6 +27,7 @@ VERSION_PATTERN = f'^{_version}$'
 MINOR_SEMVER = r'^\d+\.\d+$'
 BRANCH_PATTERN = f'{VERSION_PATTERN}|^master$'
 
+NON_DATASET_PACKAGES = ['apm', 'endpoint', 'system', 'windows']
 INTERVAL_PATTERN = r'^\d+[mshd]$'
 TACTIC_URL = r'^https://attack.mitre.org/tactics/TA[0-9]+/$'
 TECHNIQUE_URL = r'^https://attack.mitre.org/techniques/T[0-9]+/$'
@@ -48,7 +49,9 @@ TIMELINE_TEMPLATES: Final[dict] = {
     '4d4c0b59-ea83-483f-b8c1-8c360ee53c5c': 'Comprehensive File Timeline',
     'e70679c2-6cde-4510-9764-4823df18f7db': 'Comprehensive Process Timeline',
     '300afc76-072d-4261-864d-4149714bf3f1': 'Comprehensive Network Timeline',
-    '3e47ef71-ebfc-4520-975c-cb27fc090799': 'Comprehensive Registry Timeline'
+    '3e47ef71-ebfc-4520-975c-cb27fc090799': 'Comprehensive Registry Timeline',
+    '3e827bab-838a-469f-bd1e-5e19a2bff2fd': 'Alerts Involving a Single User Timeline',
+    '4434b91a-94ca-4a89-83cb-a37cdc0532b7': 'Alerts Involving a Single Host Timeline'
 }
 
 
@@ -64,12 +67,13 @@ Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
 Markdown = NewType("MarkdownField", CodeString)
 Maturity = Literal['development', 'experimental', 'beta', 'production', 'deprecated']
 MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
+NewTermsFields = NewType('NewTermsFields', List[NonEmptyStr], validate=validate.Length(min=1, max=3))
 Operator = Literal['equals']
 OSType = Literal['windows', 'linux', 'macos']
 PositiveInteger = NewType('PositiveInteger', int, validate=validate.Range(min=1))
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
 RuleName = NewType('RuleName', str, validate=validate.Regexp(NAME_PATTERN))
-RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'threshold', 'threat_match']
+RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'threshold', 'threat_match', 'new_terms']
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
 SemVerMinorOnly = NewType('SemVerFullStrict', str, validate=validate.Regexp(MINOR_SEMVER))
 Severity = Literal['low', 'medium', 'high', 'critical']

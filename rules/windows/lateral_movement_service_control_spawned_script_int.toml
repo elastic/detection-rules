@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
+integration = ["endpoint", "system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +13,7 @@ Identifies Service Control (sc.exe) spawning from script interpreter processes t
 This could be indicative of adversary lateral movement but will be noisy if commonly done by admins.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "logs-system.*", "winlogbeat-*"]
+index = ["logs-endpoint.events.*", "logs-system.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Service Control Spawned via Script Interpreter"
@@ -23,14 +24,14 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 21
 rule_id = "e8571d5f-bea1-46c2-9f56-998de2d3ed95"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 /* This rule is not compatible with Sysmon due to user.id issues */
 
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
   (process.name : "sc.exe" or process.pe.original_file_name == "sc.exe") and
   process.parent.name : ("cmd.exe", "wscript.exe", "rundll32.exe", "regsvr32.exe",
                          "wmic.exe", "mshta.exe","powershell.exe", "pwsh.exe") and

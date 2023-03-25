@@ -11,11 +11,27 @@
 import os
 
 from . import common
+from . import RtaMetadata
+
+
+metadata = RtaMetadata(
+    uuid="dfdcc4f4-5aca-486a-8115-b15b653b9b4f",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
+        {
+            "rule_id": "a7e7bfa3-088e-4f13-b29e-3986e0e756b8",
+            "rule_name": "Credential Acquisition via Registry Hive Dumping",
+        }
+    ],
+    techniques=["T1003"],
+)
+
 
 REG = "reg.exe"
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(metadata.platforms)
 def main():
     for hive in ["sam", "security", "system"]:
         filename = os.path.abspath("%s.reg" % hive)

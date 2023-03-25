@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2021/06/10"
 maturity = "production"
-updated_date = "2022/08/24"
+updated_date = "2023/03/06"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -26,11 +26,34 @@ interval = "15m"
 license = "Elastic License v2"
 machine_learning_job_id = "auth_rare_user"
 name = "Rare User Logon"
+note = """## Triage and analysis
+
+### Investigating Rare User Logon
+
+This rule uses a machine learning job to detect an unusual user name in authentication logs, which could detect new accounts created for persistence.
+
+#### Possible investigation steps
+
+- Check if the user was newly created and if the company policies were followed.
+  - Identify the user account that performed the action and whether it should perform this kind of action.
+- Investigate other alerts associated with the involved users during the past 48 hours.
+- Investigate any abnormal account behavior, such as command executions, file creations or modifications, and network connections.
+
+### False positive analysis
+
+- Accounts that are used for specific purposes — and therefore not normally active — may trigger the alert.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
 references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
 risk_score = 21
 rule_id = "138c5dd5-838b-446e-b1ac-c995c7f8108a"
 severity = "low"
-tags = ["Elastic", "Authentication", "Threat Detection", "ML", "Initial Access"]
+tags = ["Elastic", "Authentication", "Threat Detection", "ML", "Machine Learning", "Initial Access"]
 type = "machine_learning"
 
 [[rule.threat]]
@@ -39,7 +62,14 @@ framework = "MITRE ATT&CK"
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
-
+[[rule.threat.technique.subtechnique]]
+id = "T1078.002"
+name = "Domain Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/002/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.003"
+name = "Local Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/003/"
 
 [rule.threat.tactic]
 id = "TA0001"

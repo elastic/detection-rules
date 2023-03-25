@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/09/03"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +14,7 @@ starting after being renamed or from a non-standard path. This is uncommon behav
 defenses via side loading a malicious DLL within the memory space of one of those processes.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential DLL SideLoading via Trusted Microsoft Programs"
@@ -24,12 +25,12 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 73
 rule_id = "1160dcdb-0a0a-4a79-91d8-9b84616edebd"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
   process.pe.original_file_name in ("WinWord.exe", "EXPLORER.EXE", "w3wp.exe", "DISM.EXE") and
   not (process.name : ("winword.exe", "explorer.exe", "w3wp.exe", "Dism.exe") or
          process.executable : ("?:\\Windows\\explorer.exe",

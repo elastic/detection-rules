@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2022/01/27"
+integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +13,7 @@ Identifies the modification of the msDS-AllowedToDelegateTo attribute to KRBTGT.
 maintain persistence to the domain by having the ability to request tickets for the KRBTGT service.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*"]
+index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "KRBTGT Delegation Backdoor"
@@ -44,33 +45,33 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.action:modified-user-account and event.code:4738 and winlog.event_data.AllowedToDelegateTo:*krbtgt*
+event.action:modified-user-account and host.os.type:windows and event.code:4738 and
+  winlog.event_data.AllowedToDelegateTo:*krbtgt*
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1098"
-reference = "https://attack.mitre.org/techniques/T1098/"
 name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
 
 [rule.threat.tactic]
 id = "TA0003"
-reference = "https://attack.mitre.org/tactics/TA0003/"
 name = "Persistence"
-
-
+reference = "https://attack.mitre.org/tactics/TA0003/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1558"
 name = "Steal or Forge Kerberos Tickets"
 reference = "https://attack.mitre.org/techniques/T1558/"
 
+
 [rule.threat.tactic]
 id = "TA0006"
 name = "Credential Access"
 reference = "https://attack.mitre.org/tactics/TA0006/"
+

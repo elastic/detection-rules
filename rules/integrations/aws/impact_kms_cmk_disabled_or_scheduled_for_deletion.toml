@@ -1,0 +1,61 @@
+[metadata]
+creation_date = "2022/09/21"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/03/06"
+
+[rule]
+author = ["Xavier Pich"]
+description = """
+Identifies attempts to disable or schedule the deletion of an AWS KMS Customer Managed Key (CMK). Deleting an AWS KMS
+key is destructive and potentially dangerous. It deletes the key material and all metadata associated with the KMS key
+and is irreversible. After a KMS key is deleted, the data that was encrypted under that KMS key can no longer be
+decrypted, which means that data becomes unrecoverable.
+"""
+false_positives = [
+    """
+    A KMS customer managed key may be disabled or scheduled for deletion by a system administrator. Verify whether the
+    user identity, user agent, and/or hostname should be making changes in your environment. Key deletions by unfamiliar
+    users should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS KMS Customer Managed Key Disabled or Scheduled for Deletion"
+note = """## Setup
+
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://docs.aws.amazon.com/cli/latest/reference/kms/disable-key.html",
+    "https://docs.aws.amazon.com/cli/latest/reference/kms/schedule-key-deletion.html",
+]
+risk_score = 47
+rule_id = "6951f15e-533c-4a60-8014-a3c3ab851a1b"
+severity = "medium"
+tags = ["Elastic", "Cloud", "AWS", "Amazon Web Services", "Continuous Monitoring", "SecOps", "Log Auditing", "Impact"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and event.provider:kms.amazonaws.com and event.action:("DisableKey" or "ScheduleKeyDeletion") and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+

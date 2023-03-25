@@ -17,7 +17,9 @@ from uuid import uuid4
 
 import click
 
+
 from .cli_utils import rule_prompt, multi_collection
+from .mappings import build_coverage_map, get_triggered_rules, print_converage_summary
 from .misc import add_client, client_error, nested_set, parse_config, load_current_package_version
 from .rule import TOMLRule, TOMLRuleContents
 from .rule_formatter import toml_write
@@ -42,7 +44,8 @@ def root(ctx, debug):
 
 @root.command('create-rule')
 @click.argument('path', type=Path)
-@click.option('--config', '-c', type=click.Path(exists=True, dir_okay=False), help='Rule or config file')
+@click.option('--config', '-c', type=click.Path(exists=True, dir_okay=False, path_type=Path),
+              help='Rule or config file')
 @click.option('--required-only', is_flag=True, help='Only prompt for required fields')
 @click.option('--rule-type', '-t', type=click.Choice(sorted(TOMLRuleContents.all_rule_types())),
               help='Type of rule to create')
@@ -425,3 +428,29 @@ def prep_rule(author: str):
     updated_rule.write_text(json.dumps(template_rule, sort_keys=True))
     click.echo(f'Rule saved to: {updated_rule}. Import this to Kibana to create alerts on all dnstwist-* indexes')
     click.echo('Note: you only need to import and enable this rule one time for all dnstwist-* indexes')
+
+
+@root.group('rta')
+def rta_group():
+    """Commands related to Red Team Automation (RTA) scripts."""
+
+
+# create command to show rule-rta coverage
+@rta_group.command('coverage')
+@click.option("-o", "--os-filter", default="all",
+              help="Filter rule coverage summary by OS. (E.g. windows) Default: all")
+def rta_coverage(os_filter: str):
+    """Show coverage of RTA / rules by os type."""
+
+    # get all rules
+    all_rules = RuleCollection.default()
+
+    # get rules triggered by RTA
+    triggered_rules = get_triggered_rules()
+
+    # build coverage map
+    coverage_map = build_coverage_map(triggered_rules, all_rules)
+
+    # # print summary
+    all_rule_count = len(all_rules.rules)
+    print_converage_summary(coverage_map, all_rule_count, os_filter)

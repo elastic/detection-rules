@@ -1,0 +1,65 @@
+[metadata]
+creation_date = "2023/01/15"
+integration = ["google_workspace"]
+maturity = "production"
+min_stack_comments = "Google Workspace feature only present in 8.4+ stack versions"
+min_stack_version = "8.4.0"
+updated_date = "2023/01/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the occurrence of a security alert from the Google Workspace alerts center. Google Workspace's security alert
+center provides an overview of actionable alerts that may be affecting an organization's domain. An alert is a warning
+of a potential security issue that Google has detected.
+"""
+false_positives = [
+    """
+    To tune this rule, add exceptions to exclude any google_workspace.alert.type which should not trigger this rule.
+    """,
+    "For additional tuning, severity exceptions for google_workspace.alert.metadata.severity can be added.",
+]
+from = "now-130m"
+index = ["filebeat-*", "logs-google_workspace*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Forwarded Google Workspace Security Alert"
+note = """## Setup
+
+## Triage and analysis
+
+This is a promotion rule for Google Workspace security events, which are alertable events per the vendor.
+Consult vendor documentation on interpreting specific events.
+"""
+references = ["https://workspace.google.com/products/admin/alert-center/"]
+risk_score = 73
+rule_id = "f1a6d0f4-95b8-11ed-9517-f661ea17fbcc"
+rule_name_override = "google_workspace.alert.type"
+severity = "high"
+tags = ["Elastic", "Cloud", "Google Workspace", "Log Auditing", "Threat Detection"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: google_workspace.alert
+'''
+
+[[rule.severity_mapping]]
+field = "google_workspace.alert.metadata.severity"
+value = "LOW"
+operator = "equals"
+severity = "low"
+
+[[rule.severity_mapping]]
+field = "google_workspace.alert.metadata.severity"
+value = "MEDIUM"
+operator = "equals"
+severity = "medium"
+
+[[rule.severity_mapping]]
+field = "google_workspace.alert.metadata.severity"
+value = "HIGH"
+operator = "equals"
+severity = "high"
+

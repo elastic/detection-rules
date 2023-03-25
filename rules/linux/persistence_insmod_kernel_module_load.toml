@@ -3,7 +3,8 @@ creation_date = "2022/07/11"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
+integration = ["endpoint"]
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +12,7 @@ description = """
 Detects the use of the insmod binary to load a Linux kernel object file. Threat actors can use this binary, given they have root privileges, to load a rootkit on a system providing them with complete control and the ability to hide from security products. Manually loading a kernel module in this manner should not be at all common and can indicate suspcious or malicious behavior.
 """
 from = "now-9m"
-index = ["logs-*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Kernel module load via insmod"
@@ -21,12 +22,13 @@ references = [
 risk_score = 47
 rule_id = "2339f03c-f53f-40fa-834b-40c5983fc41f"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Rootkit"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Rootkit", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and process.executable : "/usr/sbin/insmod" and process.args : "*.ko"
+process where host.os.type == "linux" and event.type == "start" and
+  process.executable : "/usr/sbin/insmod" and process.args : "*.ko"
 '''
 
 [[rule.threat]]

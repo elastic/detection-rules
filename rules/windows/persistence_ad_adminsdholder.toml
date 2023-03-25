@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2022/01/31"
+integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +16,7 @@ the protected accounts and groups are reset to match those of the domain's Admin
 Administrative Privileges.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*"]
+index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AdminSDHolder Backdoor"
@@ -31,7 +32,8 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.action:"Directory Service Changes" and event.code:5136 and winlog.event_data.ObjectDN:CN=AdminSDHolder,CN=System*
+event.action:"Directory Service Changes" and host.os.type:windows and event.code:5136 and
+  winlog.event_data.ObjectDN:CN=AdminSDHolder,CN=System*
 '''
 
 
@@ -40,6 +42,6 @@ framework = "MITRE ATT&CK"
 
 [rule.threat.tactic]
 id = "TA0003"
-reference = "https://attack.mitre.org/tactics/TA0003/"
 name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 

@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/07/16"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +13,7 @@ Identifies an unexpected file being modified by dns.exe, the process responsible
 may indicate activity related to remote code execution or other forms of exploitation.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual File Modification by dns.exe"
@@ -30,17 +31,19 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 references = [
     "https://research.checkpoint.com/2020/resolving-your-way-into-domain-admin-exploiting-a-17-year-old-bug-in-windows-dns-servers/",
     "https://msrc-blog.microsoft.com/2020/07/14/july-2020-security-update-cve-2020-1350-vulnerability-in-windows-domain-name-system-dns-server/",
+    "https://www.elastic.co/security-labs/detection-rules-for-sigred-vulnerability",
 ]
 risk_score = 73
 rule_id = "c7ce36c0-32ff-4f9a-bfc2-dcb242bf99f9"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where process.name : "dns.exe" and event.type in ("creation", "deletion", "change") and
-  not file.name : "dns.log"
+file where host.os.type == "windows" and process.name : "dns.exe" and event.type in ("creation", "deletion", "change") and
+  not file.name : "dns.log" and not
+  (file.extension : ("old", "temp", "bak", "dns", "arpa") and file.path : "C:\\Windows\\System32\\dns\\*")
 '''
 
 

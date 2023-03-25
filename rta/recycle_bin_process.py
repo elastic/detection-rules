@@ -12,12 +12,28 @@ import os
 import time
 
 from . import common
+from . import RtaMetadata
+
+
+metadata = RtaMetadata(
+    uuid="790cbe6f-ee44-4654-9998-039236dbe0d8",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
+        {
+            "rule_id": "cff92c41-2225-4763-b4ce-6f71e5bda5e6",
+            "rule_name": "Execution from Unusual Directory - Command Line",
+        }
+    ],
+    techniques=["T1036", "T1059"],
+)
+
 
 RECYCLE_PATHS = ["C:\\$Recycle.Bin", "C:\\Recycler"]
 TARGET_APP = common.get_path("bin", "myapp.exe")
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(metadata.platforms)
 @common.dependencies(TARGET_APP, common.CMD_PATH)
 def main():
     common.log("Execute files from the Recycle Bin")

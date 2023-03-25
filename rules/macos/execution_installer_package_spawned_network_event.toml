@@ -1,16 +1,19 @@
 [metadata]
 creation_date = "2021/02/23"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the execution of a MacOS installer package with an abnormal child process (e.g bash) followed immediately by a network connection via a suspicious process (e.g curl).
-Threat actors will build and distribute malicious MacOS installer packages, which have a .pkg extension, many times imitating valid software in order to persuade and infect their victims often using the package files (e.g pre/post install scripts etc.) to download additional tools or malicious software.
-If this rule fires it should indicate the installation of a malicious or suspicious package.
+Detects the execution of a MacOS installer package with an abnormal child process (e.g bash) followed immediately by a
+network connection via a suspicious process (e.g curl). Threat actors will build and distribute malicious MacOS
+installer packages, which have a .pkg extension, many times imitating valid software in order to persuade and infect
+their victims often using the package files (e.g pre/post install scripts etc.) to download additional tools or
+malicious software. If this rule fires it should indicate the installation of a malicious or suspicious package.
 """
 false_positives = [
     """
@@ -26,7 +29,7 @@ name = "MacOS Installer Package Spawns Network Event"
 references = [
     "https://redcanary.com/blog/clipping-silver-sparrows-wings",
     "https://posts.specterops.io/introducing-mystikal-4fbd2f7ae520",
-    "https://github.com/D00MFist/Mystikal"
+    "https://github.com/D00MFist/Mystikal",
 ]
 risk_score = 47
 rule_id = "99239e7d-b0d4-46e3-8609-acafcf99f68c"
@@ -36,9 +39,10 @@ type = "eql"
 
 query = '''
 sequence by host.id, user.id with maxspan=30s
-[process where event.type == "start" and event.action == "exec" and process.parent.name : ("installer", "package_script_service") and process.name : ("bash", "sh", "zsh", "python", "osascript", "tclsh*")]
-[network where event.type == "start" and process.name : ("curl", "osascript", "wget", "python")]
+[process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and process.parent.name : ("installer", "package_script_service") and process.name : ("bash", "sh", "zsh", "python", "osascript", "tclsh*")]
+[network where host.os.type == "macos" and event.type == "start" and process.name : ("curl", "osascript", "wget", "python")]
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

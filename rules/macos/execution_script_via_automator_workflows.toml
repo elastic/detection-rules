@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/12/23"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -26,8 +27,8 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan=30s
- [process where event.type in ("start", "process_started") and process.name == "automator"]
- [network where process.name:"com.apple.automator.runner"]
+ [process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name == "automator"]
+ [network where host.os.type == "macos" and process.name:"com.apple.automator.runner"]
 '''
 
 

@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/12/07"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -28,8 +29,8 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan=1m
- [file where event.type != "deletion" and file.path : ("/System/Library/LaunchDaemons/*", "/Library/LaunchDaemons/*")]
- [process where event.type in ("start", "process_started") and process.name == "launchctl" and process.args == "load"]
+ [file where host.os.type == "macos" and event.type != "deletion" and file.path : ("/System/Library/LaunchDaemons/*", "/Library/LaunchDaemons/*")]
+ [process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name == "launchctl" and process.args == "load"]
 '''
 
 

@@ -1,0 +1,90 @@
+[metadata]
+creation_date = "2022/08/30"
+integration = ["system", "windows"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/02/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a network logon followed by Windows service creation with same LogonId. This could be indicative of lateral
+movement, but will be noisy if commonly done by administrators."
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Remote Windows Service Installed"
+risk_score = 47
+rule_id = "d33ea3bf-9a11-463e-bd46-f648f2a0f4b1"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement", "Persistence"]
+type = "eql"
+
+query = '''
+sequence by winlog.logon.id, winlog.computer_name with maxspan=1m
+[authentication where host.os.type == "windows" and event.action == "logged-in" and winlog.logon.type : "Network" and
+event.outcome=="success" and source.ip != null and source.ip != "127.0.0.1" and source.ip != "::1"]
+[iam where host.os.type == "windows" and event.action == "service-installed" and
+ not winlog.event_data.SubjectLogonId : "0x3e7" and
+ not winlog.event_data.ServiceFileName :
+               ("?:\\Windows\\ADCR_Agent\\adcrsvc.exe",
+                "?:\\Windows\\System32\\VSSVC.exe",
+                "?:\\Windows\\servicing\\TrustedInstaller.exe",
+                "?:\\Windows\\System32\\svchost.exe",
+                "?:\\Program Files (x86)\\*.exe",
+                "?:\\Program Files\\*.exe",
+                "?:\\Windows\\PSEXESVC.EXE",
+                "?:\\Windows\\System32\\sppsvc.exe",
+                "?:\\Windows\\System32\\wbem\\WmiApSrv.exe",
+                "?:\\WINDOWS\\RemoteAuditService.exe",
+                "?:\\Windows\\VeeamVssSupport\\VeeamGuestHelper.exe",
+                "?:\\Windows\\VeeamLogShipper\\VeeamLogShipper.exe",
+                "?:\\Windows\\CAInvokerService.exe",
+                "?:\\Windows\\System32\\upfc.exe",
+                "?:\\Windows\\AdminArsenal\\PDQ*.exe",
+                "?:\\Windows\\System32\\vds.exe",
+                "?:\\Windows\\Veeam\\Backup\\VeeamDeploymentSvc.exe",
+                "?:\\Windows\\ProPatches\\Scheduler\\STSchedEx.exe",
+                "?:\\Windows\\System32\\certsrv.exe",
+                "?:\\Windows\\eset-remote-install-service.exe",
+                "?:\\Pella Corporation\\Pella Order Management\\GPAutoSvc.exe",
+                "?:\\Pella Corporation\\OSCToGPAutoService\\OSCToGPAutoSvc.exe",
+                "?:\\Pella Corporation\\Pella Order Management\\GPAutoSvc.exe",
+                "?:\\Windows\\SysWOW64\\NwxExeSvc\\NwxExeSvc.exe",
+                "?:\\Windows\\System32\\taskhostex.exe")]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+[[rule.threat.technique.subtechnique]]
+id = "T1543.003"
+name = "Windows Service"
+reference = "https://attack.mitre.org/techniques/T1543/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

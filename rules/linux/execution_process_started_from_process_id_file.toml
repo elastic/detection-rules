@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2022/05/11"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +21,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Process Started from Process ID (PID) File"
@@ -35,16 +36,18 @@ references = [
     "https://www.sandflysecurity.com/blog/linux-file-masquerading-and-malicious-pids-sandfly-1-2-6-update/",
     "https://twitter.com/GossiTheDog/status/1522964028284411907",
     "https://exatrack.com/public/Tricephalic_Hellkeeper.pdf",
+    "https://www.elastic.co/security-labs/a-peek-behind-the-bpfdoor",
 ]
 risk_score = 73
 rule_id = "3688577a-d196-11ec-90b0-f661ea17fbce"
 severity = "high"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution", "BPFDoor"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution", "BPFDoor", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and user.id == "0" and process.executable regex~ """/var/run/\w+\.(pid|lock|reboot)"""
+process where host.os.type == "linux" and event.type == "start" and user.id == "0" and
+  process.executable regex~ """/var/run/\w+\.(pid|lock|reboot)"""
 '''
 
 

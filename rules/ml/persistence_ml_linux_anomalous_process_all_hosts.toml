@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2020/03/25"
 maturity = "production"
-updated_date = "2022/08/24"
+updated_date = "2023/03/06"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -26,16 +26,46 @@ machine_learning_job_id = ["v3_linux_anomalous_process_all_hosts"]
 name = "Anomalous Process For a Linux Population"
 note = """## Triage and analysis
 
-### Investigating an Unusual Linux Process
-Detection alerts from this rule indicate the presence of a Linux process that is rare and unusual for all of the monitored Linux hosts for which Auditbeat data is available. Here are some possible avenues of investigation:
-- Consider the user as identified by the username field. Is this program part of an expected workflow for the user who ran this program on this host?
-- Examine the history of execution. If this process only manifested recently, it might be part of a new software package. If it has a consistent cadence (for example if it runs monthly or quarterly), it might be part of a monthly or quarterly business process.
-- Examine the process arguments, title and working directory. These may provide indications as to the source of the program or the nature of the tasks it is performing."""
+### Investigating Anomalous Process For a Linux Population
+
+Searching for abnormal Linux processes is a good methodology to find potentially malicious activity within a network. Understanding what is commonly run within an environment and developing baselines for legitimate activity can help uncover potential malware and suspicious behaviors.
+
+This rule uses a machine learning job to detect a Linux process that is rare and unusual for all of the monitored Linux hosts in your fleet.
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, and whether they are located in expected locations.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Consider the user as identified by the `user.name` field. Is this program part of an expected workflow for the user who ran this program on this host?
+- Validate the activity is not related to planned patches, updates, network administrator activity, or legitimate software installations.
+- Validate if the activity has a consistent cadence (for example, if it runs monthly or quarterly), as it could be part of a monthly or quarterly business process.
+- Examine the arguments and working directory of the process. These may provide indications as to the source of the program or the nature of the tasks it is performing.
+
+### False Positive Analysis
+
+- If this activity is related to new benign software installation activity, consider adding exceptions — preferably with a combination of user and command line conditions.
+- Try to understand the context of the execution by thinking about the user, machine, or business purpose. A small number of endpoints, such as servers with unique software, might appear unusual but satisfy a specific business need.
+
+### Response and Remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved hosts to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that   attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
 references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
 risk_score = 21
 rule_id = "647fc812-7996-4795-8869-9c4ea595fe88"
 severity = "low"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "ML", "Persistence"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "ML", "Machine Learning", "Persistence"]
 type = "machine_learning"
 
 [[rule.threat]]

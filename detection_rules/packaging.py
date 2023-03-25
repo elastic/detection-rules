@@ -464,6 +464,7 @@ class Package(object):
                             package_version=self.name,
                             flat_mitre=ThreatMapping.flatten(rule.contents.data.threat).to_dict(),
                             relative_path=str(rule.path.resolve().relative_to(DEFAULT_RULES_DIR)))
+            rule_doc.update(**rule.contents.to_api_format())
             bulk_upload_docs.append(rule_doc)
             importable_rules_docs.append(rule_doc)
 

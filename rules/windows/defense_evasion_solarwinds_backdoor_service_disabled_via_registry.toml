@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/12/14"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +13,7 @@ Identifies a SolarWinds binary modifying the start type of a service to be disab
 technique to manipulate relevant security services.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "SolarWinds Process Disabling Services via Registry"
@@ -26,12 +27,15 @@ references = [
 risk_score = 47
 rule_id = "b9960fef-82c6-4816-befa-44745030e917"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where registry.path : "HKLM\\SYSTEM\\*ControlSet*\\Services\\*\\Start" and
+registry where host.os.type == "windows" and registry.path : (
+    "HKLM\\SYSTEM\\*ControlSet*\\Services\\*\\Start",
+    "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Services\\*\\Start"
+  ) and
   registry.data.strings : ("4", "0x00000004") and
   process.name : (
       "SolarWinds.BusinessLayerHost*.exe",
@@ -39,7 +43,7 @@ registry where registry.path : "HKLM\\SYSTEM\\*ControlSet*\\Services\\*\\Start" 
       "NetflowDatabaseMaintenance*.exe",
       "NetFlowService*.exe",
       "SolarWinds.Administration*.exe",
-      "SolarWinds.Collector.Service*.exe" ,
+      "SolarWinds.Collector.Service*.exe",
       "SolarwindsDiagnostics*.exe")
 '''
 

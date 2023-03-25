@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/04/29"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -36,7 +37,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where host.os.type == "linux" and event.type in ("start", "process_started") and
   process.working_directory in ("/tmp", "/var/tmp", "/dev/shm") and
   process.args regex~ """\.[a-z0-9_\-][a-z0-9_\-\.]{1,254}""" and
   not process.name in ("ls", "find", "grep")

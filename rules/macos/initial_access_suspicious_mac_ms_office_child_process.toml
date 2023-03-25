@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2021/01/04"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +27,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
+process where host.os.type == "macos" and event.type in ("start", "process_started") and
  process.parent.name:("Microsoft Word", "Microsoft PowerPoint", "Microsoft Excel") and
  process.name:
  (
@@ -81,3 +82,4 @@ reference = "https://attack.mitre.org/techniques/T1566/001/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+

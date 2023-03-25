@@ -11,9 +11,19 @@
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(
+    uuid="8ffd2053-c04a-435a-84b3-a8403a5395db",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "581add16-df76-42bb-af8e-c979bfb39a59", "rule_name": "Deleting Backup Catalogs with Wbadmin"}],
+    techniques=["T1490"],
+)
+
+
+@common.requires_os(metadata.platforms)
 def main():
     warning = "Deleting the backup catalog may have unexpected consequences. Operational issues are unknown."
     common.log("WARNING: %s" % warning, log_type="!")

@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/11/17"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +15,7 @@ be used to configure persistence and evade monitoring by avoiding the usage of t
 (schtasks.exe) used to manage scheduled tasks.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Image Load (taskschd.dll) from MS Office"
@@ -29,13 +30,13 @@ references = [
 risk_score = 21
 rule_id = "baa5d22c-5e1c-4f33-bfc9-efa73bb53022"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where
- (event.category == "library" or (event.category == "process" and event.action : "Image loaded*")) and
+any where host.os.type == "windows" and
+ (event.category : ("library", "driver") or (event.category == "process" and event.action : "Image loaded*")) and
   process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSPUB.EXE", "MSACCESS.EXE") and
   (dll.name : "taskschd.dll" or file.name : "taskschd.dll")
 '''

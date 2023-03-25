@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2021/04/12"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +14,7 @@ indicative of an active RDP shadowing session. An adversary may abuse the RDP Sh
 other users active RDP sessions.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Remote Desktop Shadowing Activity"
@@ -28,7 +29,7 @@ references = [
 risk_score = 73
 rule_id = "c57f8579-e2a5-4804-847f-f2732edc5156"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -36,14 +37,19 @@ query = '''
 /* Identifies the modification of RDP Shadow registry or
   the execution of processes indicative of active shadow RDP session */
 
-any where
+any where host.os.type == "windows" and
+(
   (event.category == "registry" and
-     registry.path : "HKLM\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow"
+     registry.path : (
+      "HKLM\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow",
+      "\\REGISTRY\\MACHINE\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow"
+    )
   ) or
-  (event.category == "process" and
+  (event.category == "process" and event.type == "start" and
      (process.name : ("RdpSaUacHelper.exe", "RdpSaProxy.exe") and process.parent.name : "svchost.exe") or
      (process.pe.original_file_name : "mstsc.exe" and process.args : "/shadow:*")
   )
+)
 '''
 
 

@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2022/04/27"
+integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +14,7 @@ localhost, followed by a sevice creation from the same LogonId. This may indicat
 relay attack variant that can be used to elevate privilege locally from a domain joined user to local System privileges.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*"]
+index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Service Creation via Local Kerberos Authentication"
@@ -26,12 +27,12 @@ references = [
 risk_score = 73
 rule_id = "e4e31051-ee01-4307-a6ee-b21b186958f4"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Credential Access"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Credential Access", "Active Directory"]
 type = "eql"
 
 query = '''
-sequence by host.id with maxspan=5m
- [authentication where
+sequence by winlog.computer_name with maxspan=5m
+ [authentication where host.os.type == "windows" and
 
   /* event 4624 need to be logged */
   event.action == "logged-in" and event.outcome == "success" and
@@ -40,7 +41,7 @@ sequence by host.id with maxspan=5m
   winlog.event_data.AuthenticationPackageName :"Kerberos" and winlog.logon.type == "Network" and
   cidrmatch(source.ip, "127.0.0.0/8", "::1") and source.port > 0] by winlog.event_data.TargetLogonId
 
-  [any where
+  [any where host.os.type == "windows" and
    /* event 4697 need to be logged */
    event.action : "service-installed"] by winlog.event_data.SubjectLogonId
 '''

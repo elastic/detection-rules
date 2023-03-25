@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2022/05/06"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -13,10 +14,10 @@ shell. The linux utility(s) activity of spawning shell is not a standard use of 
 administrator. It may indicates an attempt to improve the capabilities or stability of an adversary access.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Linux Restricted Shell Breakout via  Linux Binary(s)"
+name = "Linux Restricted Shell Breakout via Linux Binary(s)"
 note = """## Triage and analysis
 
 ### Investigating Shell Evasion via Linux Utilities
@@ -47,8 +48,7 @@ Initiate the incident response process based on the outcome of the triage.
   - Implement temporary network rules, procedures, and segmentation to contain the malware.
   - Stop suspicious processes.
   - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
-  attackers could use to reinfect the system.
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
 - If the triage revelaed defence evasion for imparing defenses
   - Isolate the involved host to prevent further post-compromise behavior.
   - Identified the disabled security guard components on the host and take necessary steps in renebaling the same.
@@ -61,8 +61,7 @@ Initiate the incident response process based on the outcome of the triage.
   - Intiate compromised credential deactivation and credential rotation process for all exposed crednetials.
   - Investiagte if any IPR data was accessed during the data crawling and take appropriate actions.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
-mean time to respond (MTTR).
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 ## Setup
 
@@ -93,18 +92,18 @@ references = [
     "https://gtfobins.github.io/gtfobins/capsh/",
     "https://gtfobins.github.io/gtfobins/byebug/",
     "https://gtfobins.github.io/gtfobins/git/",
-    "https://gtfobins.github.io/gtfobins/ftp/"
+    "https://gtfobins.github.io/gtfobins/ftp/",
 ]
 risk_score = 47
 rule_id = "52376a86-ee86-4967-97ae-1a05f55816f0"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution", "GTFOBins"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution", "GTFOBins", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
-
+process where host.os.type == "linux" and event.type == "start" and
+  (
     /* launch shells from unusual process */
     (process.name == "capsh" and process.args == "--") or
 
@@ -138,6 +137,7 @@ process where event.type == "start" and
     (process.parent.name == "mysql" and process.parent.args == "-e" and process.parent.args in ("\\!*sh", "\\!*bash", "\\!*dash", "\\!*/bin/sh", "\\!*/bin/bash", "\\!*/bin/dash")) or
     (process.parent.name == "ssh" and process.parent.args == "-o" and process.parent.args in ("ProxyCommand=;sh 0<&2 1>&2", "ProxyCommand=;bash 0<&2 1>&2", "ProxyCommand=;dash 0<&2 1>&2", "ProxyCommand=;/bin/sh 0<&2 1>&2", "ProxyCommand=;/bin/bash 0<&2 1>&2", "ProxyCommand=;/bin/dash 0<&2 1>&2")) or
     (process.parent.name in ("nawk", "mawk", "awk", "gawk") and process.parent.args : "BEGIN {system(*)}")
+  )
 '''
 
 

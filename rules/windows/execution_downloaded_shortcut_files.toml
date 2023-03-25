@@ -1,8 +1,9 @@
 [metadata]
 creation_date = "2020/09/02"
+integration = ["endpoint", "windows"]
 maturity = "development"
 query_schema_validation = false
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -26,9 +27,9 @@ query = '''
 
 sequence by process.entity_id with maxspan=2s
                                            /* file.extension added to endpoint fields for 7.10 */
-  [file where event.type == "creation" and file.extension == "lnk"]
+  [file where host.os.type == "windows" and event.type == "creation" and file.extension == "lnk"]
                                            /* not sure yet how the update will capture ADS */
-  [file where event.type == "creation" and file.extension == "lnk:Zone.Identifier" and
+  [file where host.os.type == "windows" and event.type == "creation" and file.extension == "lnk:Zone.Identifier" and
      /* non-ECS field - may disqualify conversion */
      file.Ext.windows.zone_identifier > 1]
 '''
@@ -40,11 +41,11 @@ framework = "MITRE ATT&CK"
 id = "T1204"
 name = "User Execution"
 reference = "https://attack.mitre.org/techniques/T1204/"
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
 
-  [[rule.threat.technique.subtechnique]]
-  id = "T1204.002"
-  name = "Malicious File"
-  reference = "https://attack.mitre.org/techniques/T1204/002/"
 
 
 [rule.threat.tactic]

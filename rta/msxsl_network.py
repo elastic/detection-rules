@@ -9,13 +9,24 @@
 # Description: Generates network traffic from msxsl.exe
 
 from . import common
+from . import RtaMetadata
+
+
+metadata = RtaMetadata(
+    uuid="a8331ff5-2199-48cf-9284-88351c859835",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "b86afe07-0d98-4738-b15d-8d7465f95ff5", "rule_name": "Network Connection via MsXsl"}],
+    techniques=["T1220"],
+)
+
 
 MS_XSL = common.get_path("bin", "msxsl.exe")
 XML_FILE = common.get_path("bin", "customers.xml")
 XSL_FILE = common.get_path("bin", "cscript.xsl")
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(metadata.platforms)
 @common.dependencies(MS_XSL, XML_FILE, XSL_FILE)
 def main():
     common.log("MsXsl Beacon")

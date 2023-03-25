@@ -13,16 +13,26 @@ import os
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(
+    uuid="161c5972-6bfe-47b5-92bd-e0399e025dec",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "f545ff26-3c94-4fd0-bd33-3c7f95a3a0fc", "rule_name": "Windows Script Executing PowerShell"}],
+    techniques=["T1566"],
+)
+
+
+@common.requires_os(metadata.platforms)
 def main():
     # Write script
     script_file = os.path.abspath("launchpowershell.vbs")
     script = """Set objShell = CreateObject("Wscript.shell")
     objShell.run("powershell echo 'Doing evil things...'; sleep 3")
     """
-    with open(script_file, 'w') as f:
+    with open(script_file, "w") as f:
         f.write(script)
 
     # Execute script

@@ -1,15 +1,16 @@
 [metadata]
 creation_date = "2020/11/24"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies remote execution via Windows PowerShell remoting. Windows PowerShell remoting allows a user to run any Windows
-PowerShell command on one or more remote computers. This could be an indication of lateral movement.
+Identifies remote execution via Windows PowerShell remoting. Windows PowerShell remoting allows a user to run any
+Windows PowerShell command on one or more remote computers. This could be an indication of lateral movement.
 """
 false_positives = [
     """
@@ -33,10 +34,9 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan = 30s
-   [network where network.direction : ("incoming", "ingress") and destination.port in (5985, 5986) and
-    network.protocol == "http" and source.ip != "127.0.0.1" and source.ip != "::1"
-   ]
-   [process where event.type == "start" and process.parent.name : "wsmprovhost.exe" and not process.name : "conhost.exe"]
+   [network where host.os.type == "windows" and network.direction : ("incoming", "ingress") and destination.port in (5985, 5986) and
+    network.protocol == "http" and source.ip != "127.0.0.1" and source.ip != "::1"]
+   [process where host.os.type == "windows" and event.type == "start" and process.parent.name : "wsmprovhost.exe" and not process.name : "conhost.exe"]
 '''
 
 
@@ -46,7 +46,10 @@ framework = "MITRE ATT&CK"
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
-
+[[rule.threat.technique.subtechnique]]
+id = "T1021.006"
+name = "Windows Remote Management"
+reference = "https://attack.mitre.org/techniques/T1021/006/"
 
 [rule.threat.tactic]
 id = "TA0008"

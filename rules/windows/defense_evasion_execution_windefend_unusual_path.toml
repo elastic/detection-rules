@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2021/07/07"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic", "Dennis Perto"]
@@ -14,7 +15,7 @@ side-loading a malicious DLL within the memory space of one of those processes.
 """
 false_positives = ["Microsoft Antimalware Service Executable installed on non default installation path."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential DLL Side-Loading via Microsoft Antimalware Service Executable"
@@ -28,12 +29,13 @@ references = [
 risk_score = 73
 rule_id = "053a0387-f3b5-4ba5-8245-8002cca2bd08"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
+(
   (process.pe.original_file_name == "MsMpEng.exe" and not process.name : "MsMpEng.exe") or
   (process.name : "MsMpEng.exe" and not
         process.executable : ("?:\\ProgramData\\Microsoft\\Windows Defender\\*.exe",
@@ -41,6 +43,7 @@ process where event.type == "start" and
                               "?:\\Program Files (x86)\\Windows Defender\\*.exe",
                               "?:\\Program Files\\Microsoft Security Client\\*.exe",
                               "?:\\Program Files (x86)\\Microsoft Security Client\\*.exe"))
+)
 '''
 
 

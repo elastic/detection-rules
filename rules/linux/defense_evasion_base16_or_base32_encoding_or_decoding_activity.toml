@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/04/17"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -15,19 +16,19 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*"]
+index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Base16 or Base32 Encoding/Decoding Activity"
 risk_score = 21
 rule_id = "debff20a-46bc-4a4d-bae5-5cdd14222795"
 severity = "low"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
+event.category:process and host.os.type:linux and event.type:(start or process_started) and
   process.name:(base16 or base32 or base32plain or base32hex)
 '''
 
@@ -35,14 +36,14 @@ event.category:process and event.type:(start or process_started) and
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1140"
-name = "Deobfuscate/Decode Files or Information"
-reference = "https://attack.mitre.org/techniques/T1140/"
-
-[[rule.threat.technique]]
 id = "T1027"
 name = "Obfuscated Files or Information"
 reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
 
 
 [rule.threat.tactic]

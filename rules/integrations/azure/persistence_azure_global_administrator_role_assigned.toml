@@ -1,18 +1,18 @@
 [metadata]
 creation_date = "2022/01/06"
-integration = "azure"
+integration = ["azure"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
 description = """
 In Azure Active Directory (Azure AD), permissions to manage resources are assigned using roles. The Global Administrator
-is a role that enables users to have access to all administrative features in Azure AD and services that use Azure
-AD identities like the Microsoft 365 Defender portal, the Microsoft 365 compliance center, Exchange, SharePoint Online,
-and Skype for Business Online. Attackers can add users as Global Administrators to maintain access and manage all
+is a role that enables users to have access to all administrative features in Azure AD and services that use Azure AD
+identities like the Microsoft 365 Defender portal, the Microsoft 365 compliance center, Exchange, SharePoint Online, and
+Skype for Business Online. Attackers can add users as Global Administrators to maintain access and manage all
 subscriptions and their settings and resources.
 """
 from = "now-25m"
@@ -24,7 +24,7 @@ note = """## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
-    "https://docs.microsoft.com/en-us/azure/active-directory/roles/permissions-reference#global-administrator"
+    "https://docs.microsoft.com/en-us/azure/active-directory/roles/permissions-reference#global-administrator",
 ]
 risk_score = 47
 rule_id = "04c5a96f-19c5-44fd-9571-a0b033f9086f"
@@ -42,18 +42,19 @@ azure.auditlogs.properties.target_resources.0.modified_properties.1.new_value:"\
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
-reference = "https://attack.mitre.org/techniques/T1098/"
-name = "Account Manipulation"
 id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
 
-    [[rule.threat.technique.subtechnique]]
-    reference = "https://attack.mitre.org/techniques/T1098/003/"
-    name = "Additional Cloud Roles"
-    id = "T1098.003"
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+

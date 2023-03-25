@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/08/21"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -25,9 +26,9 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=5m
- [process where event.type == "start" and
+ [process where host.os.type == "windows" and event.type == "start" and
   process.name : ("wscript.exe", "cscript.exe", "mshta.exe", "wmic.exe", "regsvr32.exe", "svchost.exe", "dllhost.exe", "cmstp.exe")]
- [file where event.type != "deletion" and
+ [file where host.os.type == "windows" and event.type != "deletion" and
   file.name : ("wscript.exe.log",
                "cscript.exe",
                "mshta.exe.log",
@@ -43,12 +44,12 @@ sequence by process.entity_id with maxspan=5m
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1055"
-reference = "https://attack.mitre.org/techniques/T1055/"
 name = "Process Injection"
+reference = "https://attack.mitre.org/techniques/T1055/"
 
 
 [rule.threat.tactic]
 id = "TA0005"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 

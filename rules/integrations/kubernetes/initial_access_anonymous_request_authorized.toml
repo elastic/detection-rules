@@ -1,0 +1,65 @@
+[metadata]
+creation_date = "2022/09/13"
+integration = ["kubernetes"]
+maturity = "production"
+min_stack_comments = "New fields added to Kubernetes Integration"
+min_stack_version = "8.4.0"
+updated_date = "2022/12/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects when an unauthenticated user request is authorized within the cluster. Attackers may attempt to use
+anonymous accounts to gain initial access to the cluster or to avoid attribution of their activities within the cluster.
+This rule excludes the /healthz, /livez and /readyz endpoints which are commonly accessed anonymously.
+"""
+false_positives = [
+    """
+    Anonymous access to the API server is a dangerous setting enabled by default. Common anonymous connections (e.g.,
+    health checks) have been excluded from this rule. All other instances of authorized anonymous requests should be
+    investigated.
+    """,
+]
+index = ["logs-kubernetes.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kubernetes Anonymous Request Authorized"
+note = """## Setup
+
+The Kubernetes Fleet integration with Audit Logs enabled or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://media.defense.gov/2022/Aug/29/2003066362/-1/-1/0/CTR_KUBERNETES_HARDENING_GUIDANCE_1.2_20220829.PDF",
+]
+risk_score = 47
+rule_id = "63c057cc-339a-11ed-a261-0242ac120002"
+severity = "medium"
+tags = ["Elastic", "Kubernetes", "Continuous Monitoring", "Execution", "Initial Access", "Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset : "kubernetes.audit_logs"
+  and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow"
+  and (kubernetes.audit.user.username:("system:anonymous" or "system:unauthenticated") or not kubernetes.audit.user.username:*)
+  and not kubernetes.audit.objectRef.resource:("healthz" or "livez" or "readyz")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.001"
+name = "Default Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2021/03/04"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -18,7 +19,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Microsoft Exchange Server UM Spawning Suspicious Processes"
@@ -33,12 +34,12 @@ references = [
 risk_score = 47
 rule_id = "483c4daf-b0c6-49e0-adf3-0bfa93231d6b"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
   process.parent.name : ("UMService.exe", "UMWorkerProcess.exe") and
     not process.executable :
               ("?:\\Windows\\System32\\werfault.exe",

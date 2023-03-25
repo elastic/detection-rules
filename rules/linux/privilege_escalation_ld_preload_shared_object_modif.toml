@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2021/01/27"
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +13,7 @@ Identifies modification of the dynamic linker preload shared object (ld.so.prelo
 payloads by hijacking the dynamic linker used to load libraries.
 """
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*"]
+index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Modification of Dynamic Linker Preload Shared Object"
@@ -22,12 +23,12 @@ references = [
 risk_score = 47
 rule_id = "717f82c2-7741-4f9b-85b8-d06aeb853f4f"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Privilege Escalation"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Privilege Escalation", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:file and not event.type:deletion and file.path:/etc/ld.so.preload
+event.category:file and host.os.type:linux and not event.type:deletion and file.path:/etc/ld.so.preload
 '''
 
 

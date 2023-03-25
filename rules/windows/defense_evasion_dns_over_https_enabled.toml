@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2021/07/22"
+integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Austin Songer"]
@@ -13,7 +14,7 @@ data. With this enabled, an organization will lose visibility into data such as 
 IP, which are used to determine bad actors.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "DNS-over-HTTPS Enabled via Registry"
@@ -28,12 +29,12 @@ references = [
 risk_score = 21
 rule_id = "a22a09c2-2162-4df0-a356-9aacbeb56a04"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where event.type in ("creation", "change") and
+registry where host.os.type == "windows" and event.type in ("creation", "change") and
   (registry.path : "*\\SOFTWARE\\Policies\\Microsoft\\Edge\\BuiltInDnsClientEnabled" and
   registry.data.strings : "1") or
   (registry.path : "*\\SOFTWARE\\Google\\Chrome\\DnsOverHttpsMode" and

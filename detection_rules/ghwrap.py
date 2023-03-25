@@ -147,7 +147,7 @@ class GithubClient:
     @classmethod
     def assert_github(cls):
         if not Github:
-            raise ModuleNotFoundError('Missing PyGithub - try running `pip install -r requirements-dev.txt`')
+            raise ModuleNotFoundError('Missing PyGithub - try running `pip3 install .[dev]`')
 
     @property
     def authenticated_client(self) -> Github:

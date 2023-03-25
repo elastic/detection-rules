@@ -1,23 +1,23 @@
 [metadata]
 creation_date = "2021/06/29"
+integration = ["aws"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
-integration = "aws"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Austin Songer"]
 description = """
-Identifies when an attempt was made to restore an RDS Snapshot. Snapshots are sometimes shared by threat actors in order to
-exfiltrate bulk data or evade detection after performing malicious activities. If the permissions were modified, verify if the snapshot was shared with an
-unauthorized or unexpected AWS account.
+Identifies when an attempt was made to restore an RDS Snapshot. Snapshots are sometimes shared by threat actors in order
+to exfiltrate bulk data or evade detection after performing malicious activities. If the permissions were modified,
+verify if the snapshot was shared with an unauthorized or unexpected AWS account.
 """
 false_positives = [
     """
     Restoring snapshots may be done by a system or network administrator. Verify whether the user identity, user agent,
-    and/or hostname should be making changes in your environment. Snapshot restoration by unfamiliar users or hosts should
-    be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    and/or hostname should be making changes in your environment. Snapshot restoration by unfamiliar users or hosts
+    should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
 index = ["filebeat-*", "logs-aws*"]
@@ -34,7 +34,7 @@ references = [
 risk_score = 47
 rule_id = "bf1073bf-ce26-4607-b405-ba1ed8e9e204"
 severity = "medium"
-tags = ["Elastic", "Cloud", "AWS", "Continuous Monitoring", "SecOps", "Asset Visibility", "Defense Evasion"]
+tags = ["Elastic", "Cloud", "AWS", "Amazon Web Services", "Continuous Monitoring", "SecOps", "Asset Visibility", "Defense Evasion"]
 timestamp_override = "event.ingested"
 type = "query"
 
@@ -43,19 +43,22 @@ event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.acti
 event.outcome:success
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
+id = "T1578"
 name = "Modify Cloud Compute Infrastructure"
 reference = "https://attack.mitre.org/techniques/T1578/"
-id = "T1578"
 [[rule.threat.technique.subtechnique]]
 id = "T1578.004"
 name = "Revert Cloud Instance"
 reference = "https://attack.mitre.org/techniques/T1578/004/"
 
 
+
 [rule.threat.tactic]
+id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-id = "TA0005"
+

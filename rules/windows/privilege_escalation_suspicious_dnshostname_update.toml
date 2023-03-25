@@ -1,19 +1,21 @@
 [metadata]
 creation_date = "2022/05/11"
+integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/08/24"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies the remote update to a computer account's DnsHostName attribute. If the new value set is a valid domain
 controller DNS hostname and the subject computer name is not a domain controller, then it's highly likely a preparation
-step to exploit CVE-2022-26923 in an attempt to elevate privileges from a standard domain user to domain admin privileges.
+step to exploit CVE-2022-26923 in an attempt to elevate privileges from a standard domain user to domain admin
+privileges.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*"]
+index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Remote Computer Account DnsHostName Update"
@@ -28,17 +30,21 @@ tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"
 type = "eql"
 
 query = '''
-sequence by host.id with maxspan=5m
+sequence by winlog.computer_name with maxspan=5m
 
-  [authentication where event.action == "logged-in" and
+  [authentication where host.os.type == "windows" and event.action == "logged-in" and
    winlog.logon.type == "Network" and event.outcome == "success" and
    not user.name == "ANONYMOUS LOGON" and not winlog.event_data.SubjectUserName : "*$" and
    not user.domain == "NT AUTHORITY" and source.ip != "127.0.0.1" and source.ip !="::1"] by winlog.event_data.TargetLogonId
 
-  [iam where event.action == "changed-computer-account" and
+  [iam where host.os.type == "windows" and event.action == "changed-computer-account" and
 
-   /* if DnsHostName value equal a DC DNS hostname then it's highly suspicious */
-    winlog.event_data.DnsHostName : "??*"] by winlog.event_data.SubjectLogonId
+    /* if DnsHostName value equal a DC DNS hostname then it's highly suspicious */
+    winlog.event_data.DnsHostName : "??*" and
+
+    /* exclude FPs where host.os.type == "windows" and DnsHostName starts with the ComputerName that was changed */
+    not startswith~(winlog.event_data.DnsHostName, substring(winlog.event_data.TargetUserName, 0, length(winlog.event_data.TargetUserName) - 1))
+    ] by winlog.event_data.SubjectLogonId
 '''
 
 

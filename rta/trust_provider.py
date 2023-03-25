@@ -9,6 +9,17 @@
 # Description: Substitutes an invalid code authentication policy, enabling trust policy bypass.
 
 from . import common
+from . import RtaMetadata
+
+
+metadata = RtaMetadata(
+    uuid="45541eb5-c636-477b-81c9-b6dcf184c9cc",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "f2c7b914-eda3-40c2-96ac-d23ef91776ca", "rule_name": "SIP Provider Modification"}],
+    techniques=["T1553"],
+)
+
 
 FINAL_POLICY_KEY = "Software\\Microsoft\\Cryptography\\providers\\trust\\FinalPolicy\\{00AAC56B-CD44-11D0-8CC2-00C04FC295EE}"  # noqa: E501
 
@@ -34,7 +45,7 @@ else:
 TARGET_APP = common.get_path("bin", "myapp.exe")
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(metadata.platforms)
 @common.dependencies(SIGCHECK, TRUST_PROVIDER_DLL, TARGET_APP)
 def main():
     common.log("Trust Provider")

@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2022/08/24"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -13,7 +14,7 @@ Certificate Services. CertUtil is often abused by attackers to live off the land
 data exfiltration.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious CertUtil Commands"
@@ -30,14 +31,14 @@ references = [
 risk_score = 47
 rule_id = "fd70c98a-c410-42dc-a2e3-761c71848acf"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
 timeline_id = "e70679c2-6cde-4510-9764-4823df18f7db"
 timeline_title = "Comprehensive Process Timeline"
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
   (process.name : "certutil.exe" or process.pe.original_file_name == "CertUtil.exe") and
   process.args : ("?decode", "?encode", "?urlcache", "?verifyctl", "?encodehex", "?decodehex", "?exportPFX")
 '''
