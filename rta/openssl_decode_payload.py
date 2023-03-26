@@ -8,33 +8,28 @@ from . import RtaMetadata
 
 
 metadata = RtaMetadata(
-    uuid="f158a6dc-1974-4b98-a3e7-466f6f1afe01",
+    uuid="fd86ee85-a3ee-4824-875b-bb386a23a578",
     platforms=["macos"],
     endpoint=[
         {
-            "rule_name": "Keychain Dump via native Security tool",
-            "rule_id": "549344d6-aaef-4495-9ca2-7a0b849bf571",
+            "rule_id": "4dd92062-2871-43bc-adda-82f15cf6e189",
+            "rule_name": "Decoded or Decrypted Payload Written to Suspicious Directory",
         }
     ],
-    siem=[
-        {
-            "rule_name": "Dumping of Keychain Content via Security Command",
-            "rule_id": "565d6ca5-75ba-4c82-9b13-add25353471c",
-        }
-    ],
-    techniques=["T1555", "T1555.001"],
+    siem=[],
+    techniques=["T1027", "T1140", "T1059", "T1059.004", "T1204", "T1204.002"],
 )
 
 
 @common.requires_os(metadata.platforms)
 def main():
 
-    masquerade = "/tmp/bash"
+    masquerade = "/tmp/openssl"
     common.create_macos_masquerade(masquerade)
 
     # Execute command
-    common.log("Launching fake commands to dump keychain credentials")
-    common.execute([masquerade, "dump-keychain", "-d"], timeout=10, kill=True)
+    common.log("Launching fake openssl commands to decode payload")
+    common.execute([masquerade, "-out", "/tmp/test", "enc", "-d"], timeout=10, kill=True)
 
     # cleanup
     common.remove_file(masquerade)
