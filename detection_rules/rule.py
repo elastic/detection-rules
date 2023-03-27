@@ -217,6 +217,19 @@ class FlatThreatMapping(MarshmallowDataclassMixin):
 
 
 @dataclass(frozen=True)
+class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
+    """Mapping to alert suppression."""
+    @dataclass
+    class AlertSuppressionDuration:
+        """Mapping to allert suppression duration."""
+        unit: definitions.TimeUnits
+        value: int
+
+    group_by: List[definitions.NonEmptyStr]
+    duration: Optional[AlertSuppressionDuration] = field(metadata=dict(metadata=dict(min_compat="8.7")))
+
+
+@dataclass(frozen=True)
 class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     @dataclass
     class RequiredFields:
@@ -231,6 +244,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         integration: Optional[definitions.NonEmptyStr]
 
     actions: Optional[list]
+    alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.6")))
     author: List[str]
     building_block_type: Optional[str]
     description: str
