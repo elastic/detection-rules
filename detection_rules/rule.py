@@ -162,14 +162,13 @@ class FlatThreatMapping(MarshmallowDataclassMixin):
     sub_technique_ids: List[str]
 
 
-@dataclass
-class AlertSuppressDuration:
-    unit: definitions.TimeUnits
-    value: int
-
-
 @dataclass(frozen=True)
 class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
+    @dataclass
+    class AlertSuppressDuration:
+        unit: definitions.TimeUnits
+        value: int
+
     group_by: List[definitions.NonEmptyStr]
     duration: Optional[AlertSuppressDuration] = field(metadata=dict(metadata=dict(min_compat="8.7")))
 
