@@ -164,8 +164,10 @@ class FlatThreatMapping(MarshmallowDataclassMixin):
 
 @dataclass(frozen=True)
 class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
+    """Mapping to alert suppression."""
     @dataclass
     class AlertSuppressionDuration:
+        """Mapping to allert suppression duration."""
         unit: definitions.TimeUnits
         value: int
 
