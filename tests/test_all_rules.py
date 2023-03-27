@@ -907,3 +907,14 @@ class TestAlertSuppression(BaseRuleTest):
                 elif per_time and min_stack_version < Version.parse("8.7.0"):
                     self.fail(f'{self.rule_str(rule)} has rule alert suppression with \
                         per time but min_stack is not 8.7+')
+
+    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.6.0"),
+                     "Test only applicable to 8.6+ stacks for rule alert suppression feature.")
+    def test_query_type(self):
+        """Test to ensure the query type is KQL only."""
+        for rule in self.production_rules:
+            if rule.contents.data.alert_suppression:
+                rule_type = rule.contents.data.language
+                if rule_type != 'kuery':
+                    self.fail(f'{self.rule_str(rule)} has rule alert suppression with \
+                        but query language is not KQL')
