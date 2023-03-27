@@ -165,12 +165,12 @@ class FlatThreatMapping(MarshmallowDataclassMixin):
 @dataclass(frozen=True)
 class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
     @dataclass
-    class AlertSuppressDuration:
+    class AlertSuppressionDuration:
         unit: definitions.TimeUnits
         value: int
 
     group_by: List[definitions.NonEmptyStr]
-    duration: Optional[AlertSuppressDuration] = field(metadata=dict(metadata=dict(min_compat="8.7")))
+    duration: Optional[AlertSuppressionDuration] = field(metadata=dict(metadata=dict(min_compat="8.7")))
 
 
 @dataclass(frozen=True)
