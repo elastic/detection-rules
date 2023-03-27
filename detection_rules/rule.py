@@ -339,24 +339,24 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         """Process transforms from toml [transform] called in TOMLRuleContents.to_dict."""
         # only create functions that CAREFULLY mutate the obj dict
 
-        def process_note_plugins(plugin_transform: RuleTransform = transform,
-                                 rule_obj: dict = obj):
+        def process_note_plugins():
             """Format the note field with osquery and insight plugin strings."""
-            note = rule_obj.get('note')
+            note = obj.get('note')
             if not note:
                 return
 
-            rendered = plugin_transform.render_insight_osquery_to_string()
+            rendered = transform.render_insight_osquery_to_string()
             rendered_patterns = {}
             for plugin, entries in rendered.items():
                 rendered_patterns.update(**{f'{plugin}_{i}': e for i, e in enumerate(entries)})
 
             note_template = PatchedTemplate(note)
             rendered_note = note_template.substitute(**rendered_patterns)
-            rule_obj['note'] = rendered_note
+            obj['note'] = rendered_note
 
         # call transform functions
-        process_note_plugins()
+        if transform:
+            process_note_plugins()
 
         return obj
 
