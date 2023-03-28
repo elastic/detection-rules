@@ -41,11 +41,14 @@ class KQLValidator(QueryValidator):
             package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
 
             # validate the query against fields within beats
-            self.validate_stack_combos(data, meta)
+            ecs_beats_validation = self.validate_stack_combos(data, meta)
 
             if package_integrations:
                 # validate the query against related integration fields
-                self.validate_integration(data, meta, package_integrations)
+                integration_validation = self.validate_integration(data, meta, package_integrations)
+            if not [ecs_beats_validation or integration_validation]:
+                raise Exception(f"Errors found during ECS/Beats/Integration schema validation: \n\t \
+                {ecs_beats_validation}{integration_validation}")
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> None:
         """Validate the query against ECS and beats schemas across stack combinations."""
@@ -65,11 +68,8 @@ class KQLValidator(QueryValidator):
                 if "Unknown field" in message and beat_types:
                     trailer = f"\nTry adding event.module or event.dataset to specify beats module\n\n{trailer}"
 
-                raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
-                                        len(exc.caret.lstrip()), trailer=trailer) from None
-            except Exception:
-                print(err_trailer)
-                raise
+                return kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
+                                         len(exc.caret.lstrip()), trailer=trailer)
 
     def validate_integration(self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]) -> None:
         """Validate the query, called from the parent which contains [metadata] information."""
@@ -161,11 +161,13 @@ class EQLValidator(QueryValidator):
             package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
 
             # validate the query against fields within beats
-            self.validate_stack_combos(data, meta)
+            ecs_validation = self.validate_stack_combos(data, meta)
 
             if package_integrations:
                 # validate the query against related integration fields
-                self.validate_integration(data, meta, package_integrations)
+                integration_validation = self.validate_integration(data, meta, package_integrations)
+            if True not in (ecs_validation, integration_validation):
+                raise Exception(f"""Query field schema validation failed\n{integration_validation}\n{ecs_validation}""")
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> None:
         """Validate the query against ECS and beats schemas across stack combinations."""
@@ -182,12 +184,14 @@ class EQLValidator(QueryValidator):
             eql_schema = ecs.KqlSchema2Eql(schema)
 
             # validate query against the beats and eql schema
-            self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer,
-                                            beat_types=beat_types)
+            eql_validation = self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer,
+                                                             beat_types=beat_types)
 
             if endgame_schema:
                 # validate query against the endgame schema
-                self.validate_query_with_schema(data=data, schema=endgame_schema, err_trailer=err_trailer)
+                endgame_validation = self.validate_query_with_schema(data=data, schema=endgame_schema,
+                                                                     err_trailer=err_trailer)
+            return eql_validation or endgame_validation
 
     def validate_integration(self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]) -> None:
         """Validate an EQL query while checking TOMLRule against integration schemas."""
@@ -221,7 +225,7 @@ class EQLValidator(QueryValidator):
                           f'ecs: {ecs_version}, package: {package}, package_version: {package_version}'
 
             try:
-                self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer)
+                return self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer)
             except eql.EqlParseError as exc:
                 message = exc.error_msg
                 if message == "Unknown field" or "Field not recognized" in message:
@@ -235,7 +239,7 @@ class EQLValidator(QueryValidator):
                     if data.get("notify", False):
                         print(f"\nWarning: `{field}` in `{data.name}` not found in schema. {trailer}")
                 else:
-                    raise exc
+                    return exec
 
         # don't error on fields that are in another integration schema
         for field in list(error_fields.keys()):
@@ -254,6 +258,7 @@ class EQLValidator(QueryValidator):
         try:
             with schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
                 eql.parse_query(self.query)
+            return True
         except eql.EqlParseError as exc:
             message = exc.error_msg
             trailer = err_trailer
@@ -265,12 +270,8 @@ class EQLValidator(QueryValidator):
                     fields_str = ', '.join(text_fields)
                     trailer = f"\neql does not support text fields: {fields_str}\n\n{trailer}"
 
-            raise exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
-                                len(exc.caret.lstrip()), trailer=trailer) from None
-
-        except Exception:
-            print(err_trailer)
-            raise
+            return exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
+                                 len(exc.caret.lstrip()), trailer=trailer)
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
