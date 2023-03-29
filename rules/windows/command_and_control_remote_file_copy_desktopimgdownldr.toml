@@ -39,7 +39,7 @@ Identifies the desktopimgdownldr utility being used to download a remote file. A
 download arbitrary files as an alternative to certutil.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Remote File Download via Desktopimgdownldr Utility"
@@ -119,9 +119,11 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  (process.name : "desktopimgdownldr.exe" or process.pe.original_file_name == "desktopimgdownldr.exe") and
-  process.args : "/lockscreenurl:http*"
+sequence by process.entity_id with maxspan=1m
+  [process where host.os.type == "windows" and event.type == "start" and
+    (process.name : "desktopimgdownldr.exe" or process.pe.original_file_name == "desktopimgdownldr.exe") and
+    process.args : "/lockscreenurl:http*"]
+  [file where host.os.type == "windows" and event.type == "creation"]
 '''
 
 
