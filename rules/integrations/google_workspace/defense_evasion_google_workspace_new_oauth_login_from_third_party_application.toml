@@ -9,11 +9,11 @@ updated_date = "2023/03/30"
 [rule]
 author = ["Elastic"]
 description = """
-Detects the first time a custom application logs in and authenticated with OAuth. OAuth is used to grant permissions to specific resources and services in Google Workspace. Compromised credentials or service accounts could allow an adversary to authenticate to Google Workspace as a valid user and inherit their privileges.
+Detects the first time a third-party application logs in and authenticated with OAuth. OAuth is used to grant permissions to specific resources and services in Google Workspace. Compromised credentials or service accounts could allow an adversary to authenticate to Google Workspace as a valid user and inherit their privileges.
 """
 false_positives = [
     """
-    Developers may leverage custom applications for legitimate purposes in Google Workspace such as for administrative tasks.
+    Developers may leverage third-party applications for legitimate purposes in Google Workspace such as for administrative tasks.
     """,
 ]
 from = "now-130m"
@@ -21,7 +21,7 @@ index = ["filebeat-*", "logs-google_workspace*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
-name = "Google Workspace New OAuth Login from Custom Application"
+name = "Google Workspace New OAuth Login from Third-Party Application"
 note = """## Setup
 The Google Workspace Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 ### Important Information Regarding Google Workspace Event Lag Times
@@ -46,7 +46,7 @@ type = "new_terms"
 
 query = '''
 event.dataset: "google_workspace.token" and event.action: "authorize" and
-    google_workspace.token.scope.data.scope_name: *Login and google_workspace.token.client.id: *apps.googleusercontent.com
+google_workspace.token.scope.data.scope_name: *Login and google_workspace.token.client.id: *apps.googleusercontent.com
 '''
 
 
