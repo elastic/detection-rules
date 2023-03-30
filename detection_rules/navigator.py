@@ -78,7 +78,7 @@ class Navigator(MarshmallowDataclassMixin):
     @dataclass
     class Versions:
         attack: str
-        layer: str = '4.3'
+        layer: str = '4.4'
         navigator: str = '4.5.5'
 
     @dataclass
