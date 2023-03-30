@@ -1,0 +1,69 @@
+[metadata]
+creation_date = "2023/03/29"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.8.0"
+updated_date = "2023/03/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Generates a detection alert each time a 'Container Workload Protection' alert is received. Enabling this rule allows you to
+immediately begin triaging and investigating these alerts.
+"""
+enabled = true
+from = "now-10m"
+index = ["logs-cloud_defend.alerts-*"]
+language = "kuery"
+license = "Elastic License v2"
+max_signals = 10000
+name = "Container Workload Protection"
+risk_score = 47
+rule_id = "9a1a2dae-0b5f-4c3d-8305-a268d404c306"
+rule_name_override = "message"
+severity = "medium"
+tags = ["Elastic", "Endpoint Security", "Container Workload Protection"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.kind:alert
+'''
+
+[[rule.exceptions_list]]
+id = "endpoint_list"
+list_id = "endpoint_list"
+namespace_type = "agnostic"
+type = "endpoint"
+
+[[rule.risk_score_mapping]]
+field = "event.risk_score"
+operator = "equals"
+value = ""
+
+[[rule.severity_mapping]]
+field = "event.severity"
+operator = "equals"
+severity = "low"
+value = "21"
+
+[[rule.severity_mapping]]
+field = "event.severity"
+operator = "equals"
+severity = "medium"
+value = "47"
+
+[[rule.severity_mapping]]
+field = "event.severity"
+operator = "equals"
+severity = "high"
+value = "73"
+
+[[rule.severity_mapping]]
+field = "event.severity"
+operator = "equals"
+severity = "critical"
+value = "99"
+
+
