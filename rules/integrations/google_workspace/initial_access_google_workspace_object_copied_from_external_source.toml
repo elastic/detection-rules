@@ -52,13 +52,19 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.dataset == "google_workspace.drive" and event.action == "copy" and
+sequence by source.user.email with maxspan=3m
+[file where event.dataset == "google_workspace.drive" and event.action == "copy" and
 
     /* Should only match if the object lives in a Drive that is external to the user's GWS organization */
     google_workspace.drive.owner_is_team_drive == "false" and google_workspace.drive.copy_type == "external" and
 
     /* Google Script, Forms, Sheets and Document can have container-bound scripts */
-    google_workspace.drive.file.type: ("script", "form", "spreadsheet", "document")
+    google_workspace.drive.file.type: ("script", "form", "spreadsheet", "document")]
+[any where event.dataset == "google_workspace.token" and event.action == "authorize" and
+
+    /* Ensures application ID references custom app in Google Workspace and not GCP */
+    google_workspace.token.client.id : "*apps.googleusercontent.com"]
+
 '''
 
 
