@@ -455,7 +455,7 @@ class TestRuleMetadata(BaseRuleTest):
             if isinstance(rule.contents.data, QueryRuleData) and rule.contents.data.language != 'lucene':
                 rule_integrations = rule.contents.metadata.get('integration') or []
                 rule_integrations = [rule_integrations] if isinstance(rule_integrations, str) else rule_integrations
-                rule_promotion = rule.contents.metadata.get('promotion') or None
+                rule_promotion = rule.contents.metadata.get('promotion')
                 data = rule.contents.data
                 meta = rule.contents.metadata
                 package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
