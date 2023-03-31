@@ -62,7 +62,8 @@ def get_available_tests(print_list: bool = False, os_filter: str = None) -> Dict
             test_metadata[file.stem] = asdict(module.metadata)
 
     if print_list:
-        longest_test_name = len(max(test_metadata.keys(), key=len)) + 3
+        py_ext = 3  # account for the .py ext
+        longest_test_name = len(max(test_metadata.keys(), key=len)) + py_ext
         header = f"{'name':{longest_test_name}} | {'platforms':<21} | {'rule id':<36} | {'rule name':<30}"
 
         print("Printing available tests")
