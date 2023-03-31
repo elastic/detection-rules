@@ -62,15 +62,27 @@ def get_available_tests(print_list: bool = False, os_filter: str = None) -> Dict
             test_metadata[file.stem] = asdict(module.metadata)
 
     if print_list:
-        longest_test_name = len(max(test_metadata.keys(), key=len))
-        header = f"{'name':{longest_test_name}} | {'platforms':<30}"
+        py_ext = 3  # account for the .py ext
+        longest_test_name = len(max(test_metadata.keys(), key=len)) + py_ext
+        header = f"{'name':{longest_test_name}} | {'platforms':<21} | {'rule id':<36} | {'rule name':<30}"
 
         print("Printing available tests")
         print(header)
         print("=" * len(header))
 
         for test in test_metadata.values():
-            print(f"{test['name']:<{longest_test_name}} | {', '.join(test['platforms'])}")
+            rule_list = []
+            if test['endpoint'] and test['siem']:
+                rule_list = test['endpoint'] + test['siem']
+            elif test['endpoint']:
+                rule_list = test['endpoint']
+            elif test['siem']:
+                rule_list = test['siem']
+            else:
+                rule_list = [{"rule_name": "", "rule_id": ""}]
+            print(f"{test['name']:<{longest_test_name}} | {', '.join(test['platforms']):<21} | {rule_list[0]['rule_id']:36} | {rule_list[0]['rule_name']}")
+            for rule in rule_list[1:]:
+                print(f"{'':<{longest_test_name}} | {'':<21} | {rule['rule_id']:36} | {rule['rule_name']}")
 
     return test_metadata
 
