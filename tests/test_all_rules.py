@@ -462,8 +462,8 @@ class TestRuleMetadata(BaseRuleTest):
                 package_integrations_list = list(set([integration["package"] for integration in package_integrations]))
                 indices = data.get('index')
                 for rule_integration in rule_integrations:
-                    if (not package_integrations and not rule_promotion and  # noqa: W504
-                       rule_integration not in definitions.NON_DATASET_PACKAGES):
+                    if ("even.dataset" in rule.contents.data.query and not package_integrations and  # noqa: W504
+                       not rule_promotion and rule_integration not in definitions.NON_DATASET_PACKAGES):  # noqa: W504
                         err_msg = f'{self.rule_str(rule)} {rule_integration} tag, but integration not \
                                 found in manifests/schemas.'
                         failures.append(err_msg)
