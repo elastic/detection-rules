@@ -1,0 +1,68 @@
+[metadata]
+creation_date = "2023/04/03"
+integration = ["windows", "endpoint"]
+maturity = "production"
+min_stack_comments = "The New Term rule type used in this rule was added in Elastic 8.4"
+min_stack_version = "8.4.0"
+updated_date = "2023/04/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Adversaries may install legitimate remote access tools (RAT) to compromised endpoints for further command-and-control
+(C2). Adversaries can rely on installed RATs for persistence, execution of native commands and more. This rule detects
+when an EXE or DLL binary is downloaded whose name resembles commonly abused RATs. This is a New Terms rule type
+indicating the host has not seen this binary downloaded within the last 30 days.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Commonly Abused Remote Access Tool Downloaded"
+references = [
+    "https://thedfirreport.com/2023/04/03/malicious-iso-file-leads-to-domain-wide-ransomware/",
+    "https://attack.mitre.org/techniques/T1219/",
+]
+risk_score = 47
+rule_id = "6e1a2cc4-d260-11ed-8829-f661ea17fbcc"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control"]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+host.os.type: "windows" and event.category: "file" and event.type: "creation" and
+    file.extension: ("exe" or "dll") and
+    file.path : ("*\\AppData\\Roaming\\*" or "*\\ProgramData\\*" or "*\\Program Files\\*") and
+    file.name : (
+        "AnyDesk*" or "Splashtop-streamer*" or "TeamViewer*" or "AA_v*" or
+        "rutserv*" or "rutview*" or "chrome*" or "vncserver*" or "vncviewer*" or
+        "tvnserver*" or "tvnviewer*" or "winvnc*" or "RemoteDesktopManager*" or
+        "LogMeIn*" or "ScreenConnect.WindowsClient*" or "RemotePC*" or
+        "r_server*" or "radmin*" or "ROMServer*" or "ROMViewer*" or "DWRCC*" or
+        "AeroAdmin*" or "ISLLightClient*" or "ISLLight*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Software"
+reference = "https://attack.mitre.org/techniques/T1219/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-30d"
+
+
