@@ -455,12 +455,18 @@ class TestRuleMetadata(BaseRuleTest):
             if isinstance(rule.contents.data, QueryRuleData) and rule.contents.data.language != 'lucene':
                 rule_integrations = rule.contents.metadata.get('integration') or []
                 rule_integrations = [rule_integrations] if isinstance(rule_integrations, str) else rule_integrations
+                rule_promotion = rule.contents.metadata.get('promotion')
                 data = rule.contents.data
                 meta = rule.contents.metadata
                 package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
                 package_integrations_list = list(set([integration["package"] for integration in package_integrations]))
                 indices = data.get('index')
                 for rule_integration in rule_integrations:
+                    if ("even.dataset" in rule.contents.data.query and not package_integrations and  # noqa: W504
+                       not rule_promotion and rule_integration not in definitions.NON_DATASET_PACKAGES):  # noqa: W504
+                        err_msg = f'{self.rule_str(rule)} {rule_integration} tag, but integration not \
+                                found in manifests/schemas.'
+                        failures.append(err_msg)
 
                     # checks if the rule path matches the intended integration
                     if rule_integration in valid_integration_folders:
