@@ -61,6 +61,7 @@ class RuleMeta(MarshmallowDataclassMixin):
     os_type_list: Optional[List[definitions.OSType]]
     query_schema_validation: Optional[bool]
     related_endpoint_rules: Optional[List[str]]
+    promotion: Optional[bool]
 
     # Extended information as an arbitrary dictionary
     extended: Optional[Dict[str, Any]]
