@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2023/04/03"
-integration = ["endpoint"]
+integration = ["windows","system","endpoint"]
 maturity = "production"
 min_stack_comments = "The New Term rule type used in this rule was added in Elastic 8.4"
 min_stack_version = "8.4.0"
@@ -15,10 +15,10 @@ when an EXE or DLL binary is downloaded whose name resembles commonly abused RAT
 indicating the host has not seen this binary downloaded within the last 30 days.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-system.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Commonly Abused Remote Access Tool Downloaded"
+name = "Commonly Abused Remote Access Tool Execution"
 references = [
     "https://thedfirreport.com/2023/04/03/malicious-iso-file-leads-to-domain-wide-ransomware/",
     "https://attack.mitre.org/techniques/T1219/",
@@ -31,16 +31,23 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type: "windows" and event.category: "process" and event.type: "creation" and
-    file.extension: ("exe" or "dll") and
+host.os.type: "windows" and event.category: "process" and event.action: "start" and
     file.path : ("*\\AppData\\Roaming\\*" or "*\\ProgramData\\*" or "*\\Program Files\\*") and
-    file.name : (
-        "AnyDesk*" or "Splashtop-streamer*" or "TeamViewer*" or "AA_v*" or
-        "rutserv*" or "rutview*" or "chrome*" or "vncserver*" or "vncviewer*" or
-        "tvnserver*" or "tvnviewer*" or "winvnc*" or "RemoteDesktopManager*" or
-        "LogMeIn*" or "ScreenConnect.WindowsClient*" or "RemotePC*" or
-        "r_server*" or "radmin*" or "ROMServer*" or "ROMViewer*" or "DWRCC*" or
-        "AeroAdmin*" or "ISLLightClient*" or "ISLLight*")
+
+    process.code_signature.subject_name : (
+        TeamViewer* or "NetSupport Ltd" or "GlavSoft" or "LogMeIn, Inc." or "Ammyy LLC" or
+        "Nanosystems S.r.l." or "Remote Utilities LLC" or "ShowMyPC" or "Splashtop Inc." or
+        "Yakhnovets Denis Aleksandrovich IP" or "Pro Softnet Corporation" or "BeamYourScreen GmbH" or
+        "RealVNC" or "uvnc" or "Splashtop Inc." or "SAFIB") or
+
+    process.name : (
+        "teamviewer.exe" or "apc_Admin.exe" or "apc_host.exe" or "SupremoHelper.exe" or "rfusclient.exe" or
+        "spclink.exe" or "smpcview.exe" or "ROMServer.exe" or "strwinclt.exe" or "RPCSuite.exe" or "RemotePCDesktop.exe" or
+        "RemotePCService.exe" or "tvn.exe" or "LMIIgnition.exe" or "B4-Service.exe" or "Mikogo-Service.exe" or "AnyDesk.exe" or
+        "Splashtop-streamer.exe" or AA_v*.exe, or "rutserv.exe" or "rutview.exe" or "vncserver.exe" or "vncviewer.exe" or
+        "tvnserver.exe" or "tvnviewer.exe" or "winvnc.exe" or "RemoteDesktopManager.exe" or "LogMeIn.exe" or ScreenConnect*.exe or
+        "RemotePC.exe" or "r_server.exe" or "radmin.exe" or "ROMServer.exe" or "ROMViewer.exe" or "DWRCC.exe" or "AeroAdmin.exe" or
+        "ISLLightClient.exe" or "ISLLight.exe")
 '''
 
 
