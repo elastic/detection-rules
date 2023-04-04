@@ -31,14 +31,16 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type: "windows" and event.category: "process" and event.action: "start" and
-    file.path : ("*\\AppData\\Roaming\\*" or "*\\ProgramData\\*" or "*\\Program Files\\*") and
-
-    process.code_signature.subject_name : (
+host.os.type: "windows" and 
+   
+   event.category: "process" and event.type : "start" and
+    
+    (
+	 process.code_signature.subject_name : (
         TeamViewer* or "NetSupport Ltd" or "GlavSoft" or "LogMeIn, Inc." or "Ammyy LLC" or
         "Nanosystems S.r.l." or "Remote Utilities LLC" or "ShowMyPC" or "Splashtop Inc." or
         "Yakhnovets Denis Aleksandrovich IP" or "Pro Softnet Corporation" or "BeamYourScreen GmbH" or
-        "RealVNC" or "uvnc" or "Splashtop Inc." or "SAFIB") or
+        "RealVNC" or "uvnc" or "SAFIB") or
 
     process.name : (
         "teamviewer.exe" or "apc_Admin.exe" or "apc_host.exe" or "SupremoHelper.exe" or "rfusclient.exe" or
@@ -47,7 +49,10 @@ host.os.type: "windows" and event.category: "process" and event.action: "start" 
         "Splashtop-streamer.exe" or AA_v*.exe, or "rutserv.exe" or "rutview.exe" or "vncserver.exe" or "vncviewer.exe" or
         "tvnserver.exe" or "tvnviewer.exe" or "winvnc.exe" or "RemoteDesktopManager.exe" or "LogMeIn.exe" or ScreenConnect*.exe or
         "RemotePC.exe" or "r_server.exe" or "radmin.exe" or "ROMServer.exe" or "ROMViewer.exe" or "DWRCC.exe" or "AeroAdmin.exe" or
-        "ISLLightClient.exe" or "ISLLight.exe")
+        "ISLLightClient.exe" or "ISLLight.exe" or "AteraAgent.exe" or "SRService.exe")
+	) and 
+	
+	not (process.pe.original_file_name : ("G2M.exe" or Updater.exe or powershellw.exe) and process.code_signature.subject_name : "LogMeIn, Inc.")
 '''
 
 
