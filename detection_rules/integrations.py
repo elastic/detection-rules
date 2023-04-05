@@ -304,7 +304,7 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
                         schema.update(integrations_schemas[package][package_version][dataset])
                 else:
                     if integration not in integrations_schemas[package][package_version]:
-                        raise ValueError(f"Integration {integration} not found in package {package} "
+                        yield ValueError(f"Integration {integration} not found in package {package} "
                                          f"version {package_version}")
                     schema = integrations_schemas[package][package_version][integration]
                 schema.update(ecs_schema)

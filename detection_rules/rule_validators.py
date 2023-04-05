@@ -40,12 +40,16 @@ class KQLValidator(QueryValidator):
             packages_manifest = load_integrations_manifests()
             package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
 
+            validation_checks = {"stack":None, "integrations":None}  
             # validate the query against fields within beats
-            self.validate_stack_combos(data, meta)
+            validation_checks["stack"] = self.validate_stack_combos(data, meta)
 
             if package_integrations:
                 # validate the query against related integration fields
-                self.validate_integration(data, meta, package_integrations)
+                validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
+
+            if("Error" in str(type(validation_checks["stack"])) and "Error" in str(type(validation_checks["integrations"]))):
+                raise f"Error in both stack and integrations checks: {validation_checks}"
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> None:
         """Validate the query against ECS and beats schemas across stack combinations."""
@@ -65,11 +69,11 @@ class KQLValidator(QueryValidator):
                 if "Unknown field" in message and beat_types:
                     trailer = f"\nTry adding event.module or event.dataset to specify beats module\n\n{trailer}"
 
-                raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
-                                        len(exc.caret.lstrip()), trailer=trailer) from None
+                return kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
+                                        len(exc.caret.lstrip()), trailer=trailer) 
             except Exception:
                 print(err_trailer)
-                raise
+                return Exception
 
     def validate_integration(self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]) -> None:
         """Validate the query, called from the parent which contains [metadata] information."""
@@ -81,6 +85,8 @@ class KQLValidator(QueryValidator):
         current_stack_version = ""
         combined_schema = {}
         for integration_schema_data in get_integration_schema_data(data, meta, package_integrations):
+            if "Error" in str(type(integration_schema_data)):
+                return integration_schema_data
             ecs_version = integration_schema_data['ecs_version']
             integration = integration_schema_data['integration']
             package = integration_schema_data['package']
@@ -113,8 +119,8 @@ class KQLValidator(QueryValidator):
                     if data.get("notify", False):
                         print(f"\nWarning: `{field}` in `{data.name}` not found in schema. {trailer}")
                 else:
-                    raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
-                                            len(exc.caret.lstrip()), trailer=trailer) from None
+                    return kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
+                                            len(exc.caret.lstrip()), trailer=trailer) 
 
         # don't error on fields that are in another integration schema
         for field in list(error_fields.keys()):
@@ -127,8 +133,8 @@ class KQLValidator(QueryValidator):
             exc = data["error"]
             trailer = data["trailer"]
 
-            raise kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
-                                    len(exc.caret.lstrip()), trailer=trailer) from None
+            return kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
+                                    len(exc.caret.lstrip()), trailer=trailer)
 
 
 class EQLValidator(QueryValidator):
@@ -160,12 +166,16 @@ class EQLValidator(QueryValidator):
             packages_manifest = load_integrations_manifests()
             package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
 
+            validation_checks = {"stack":None, "integrations":None}
             # validate the query against fields within beats
-            self.validate_stack_combos(data, meta)
+            validation_checks["stack"] = self.validate_stack_combos(data, meta)
 
             if package_integrations:
                 # validate the query against related integration fields
-                self.validate_integration(data, meta, package_integrations)
+                validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
+
+            if("Error" in str(type(validation_checks["stack"])) and "Error" in str(type(validation_checks["integrations"]))):
+                raise f"Error in both stack and integrations checks: {validation_checks}"
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> None:
         """Validate the query against ECS and beats schemas across stack combinations."""
@@ -182,12 +192,16 @@ class EQLValidator(QueryValidator):
             eql_schema = ecs.KqlSchema2Eql(schema)
 
             # validate query against the beats and eql schema
-            self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer,
+            output = self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer,
                                             beat_types=beat_types)
+            if ("Error" in str(type(output))):
+                return output
 
             if endgame_schema:
                 # validate query against the endgame schema
-                self.validate_query_with_schema(data=data, schema=endgame_schema, err_trailer=err_trailer)
+                output = self.validate_query_with_schema(data=data, schema=endgame_schema, err_trailer=err_trailer)
+                if ("Error" in str(type(output))):
+                    raise f"Endgame Schema error: {output}"
 
     def validate_integration(self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]) -> None:
         """Validate an EQL query while checking TOMLRule against integration schemas."""
@@ -199,6 +213,8 @@ class EQLValidator(QueryValidator):
         current_stack_version = ""
         combined_schema = {}
         for integration_schema_data in get_integration_schema_data(data, meta, package_integrations):
+            if "Error" in str(type(integration_schema_data)):
+                return integration_schema_data
             ecs_version = integration_schema_data['ecs_version']
             integration = integration_schema_data['integration']
             package = integration_schema_data['package']
@@ -235,7 +251,7 @@ class EQLValidator(QueryValidator):
                     if data.get("notify", False):
                         print(f"\nWarning: `{field}` in `{data.name}` not found in schema. {trailer}")
                 else:
-                    raise exc
+                    return exc
 
         # don't error on fields that are in another integration schema
         for field in list(error_fields.keys()):
@@ -246,7 +262,7 @@ class EQLValidator(QueryValidator):
         if error_fields:
             _, data = next(iter(error_fields.items()))
             exc = data["error"]
-            raise exc
+            return exc
 
     def validate_query_with_schema(self, data: 'QueryRuleData', schema: Union[ecs.KqlSchema2Eql, endgame.EndgameSchema],
                                    err_trailer: str, beat_types: list = None) -> None:
@@ -265,8 +281,8 @@ class EQLValidator(QueryValidator):
                     fields_str = ', '.join(text_fields)
                     trailer = f"\neql does not support text fields: {fields_str}\n\n{trailer}"
 
-            raise exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
-                                len(exc.caret.lstrip()), trailer=trailer) from None
+            return exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
+                                len(exc.caret.lstrip()), trailer=trailer)
 
         except Exception:
             print(err_trailer)
