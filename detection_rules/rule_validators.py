@@ -40,7 +40,7 @@ class KQLValidator(QueryValidator):
             packages_manifest = load_integrations_manifests()
             package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
 
-            validation_checks = {"stack":None, "integrations":None}  
+            validation_checks = {"stack": None, "integrations": None}
             # validate the query against fields within beats
             validation_checks["stack"] = self.validate_stack_combos(data, meta)
 
@@ -49,9 +49,10 @@ class KQLValidator(QueryValidator):
                 validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
 
             if("Error" in str(type(validation_checks["stack"])) and not package_integrations):
-               raise validation_checks["stack"]
+                raise validation_checks["stack"]
 
-            if("Error" in str(type(validation_checks["stack"])) and "Error" in str(type(validation_checks["integrations"]))):
+            if("Error" in str(type(validation_checks["stack"])) and "Error" in
+                    str(type(validation_checks["integrations"]))):
                 raise f"Error in both stack and integrations checks: {validation_checks}"
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> None:
@@ -73,7 +74,7 @@ class KQLValidator(QueryValidator):
                     trailer = f"\nTry adding event.module or event.dataset to specify beats module\n\n{trailer}"
 
                 return kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
-                                        len(exc.caret.lstrip()), trailer=trailer) 
+                                         len(exc.caret.lstrip()), trailer=trailer)
             except Exception:
                 print(err_trailer)
                 return Exception
@@ -123,7 +124,7 @@ class KQLValidator(QueryValidator):
                         print(f"\nWarning: `{field}` in `{data.name}` not found in schema. {trailer}")
                 else:
                     return kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
-                                            len(exc.caret.lstrip()), trailer=trailer) 
+                                             len(exc.caret.lstrip()), trailer=trailer)
 
         # don't error on fields that are in another integration schema
         for field in list(error_fields.keys()):
@@ -137,7 +138,7 @@ class KQLValidator(QueryValidator):
             trailer = data["trailer"]
 
             return kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
-                                    len(exc.caret.lstrip()), trailer=trailer)
+                                     len(exc.caret.lstrip()), trailer=trailer)
 
 
 class EQLValidator(QueryValidator):
@@ -169,7 +170,7 @@ class EQLValidator(QueryValidator):
             packages_manifest = load_integrations_manifests()
             package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
 
-            validation_checks = {"stack":None, "integrations":None}
+            validation_checks = {"stack": None, "integrations": None}
             # validate the query against fields within beats
             validation_checks["stack"] = self.validate_stack_combos(data, meta)
 
@@ -178,9 +179,10 @@ class EQLValidator(QueryValidator):
                 validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
 
             if("Error" in str(type(validation_checks["stack"])) and not package_integrations):
-               raise validation_checks["stack"]
+                raise validation_checks["stack"]
 
-            if("Error" in str(type(validation_checks["stack"])) and "Error" in str(type(validation_checks["integrations"]))):
+            if("Error" in str(type(validation_checks["stack"])) and "Error" in
+                    str(type(validation_checks["integrations"]))):
                 raise f"Error in both stack and integrations checks: {validation_checks}"
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> None:
@@ -199,7 +201,7 @@ class EQLValidator(QueryValidator):
 
             # validate query against the beats and eql schema
             output = self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer,
-                                            beat_types=beat_types)
+                                                     beat_types=beat_types)
             if ("Error" in str(type(output))):
                 return output
 
@@ -288,7 +290,7 @@ class EQLValidator(QueryValidator):
                     trailer = f"\neql does not support text fields: {fields_str}\n\n{trailer}"
 
             return exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
-                                len(exc.caret.lstrip()), trailer=trailer)
+                                 len(exc.caret.lstrip()), trailer=trailer)
 
         except Exception:
             print(err_trailer)
