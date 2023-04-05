@@ -17,12 +17,14 @@ from semver import Version
 import kql
 from detection_rules import attack
 from detection_rules.beats import parse_beats_from_index
+from detection_rules.integrations import load_integrations_schemas
+from detection_rules.misc import load_current_package_version
 from detection_rules.packaging import current_stack_version
 from detection_rules.rule import (QueryRuleData, TOMLRuleContents,
-                                  load_integrations_manifests)
+                                  load_integrations_manifests, QueryValidator)
 from detection_rules.rule_loader import FILE_PATTERN
-from detection_rules.schemas import definitions
-from detection_rules.utils import INTEGRATION_RULE_DIR, get_path, load_etc_dump
+from detection_rules.schemas import definitions, get_stack_schemas
+from detection_rules.utils import INTEGRATION_RULE_DIR, get_path, load_etc_dump, PatchedTemplate
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
@@ -453,12 +455,18 @@ class TestRuleMetadata(BaseRuleTest):
             if isinstance(rule.contents.data, QueryRuleData) and rule.contents.data.language != 'lucene':
                 rule_integrations = rule.contents.metadata.get('integration') or []
                 rule_integrations = [rule_integrations] if isinstance(rule_integrations, str) else rule_integrations
+                rule_promotion = rule.contents.metadata.get('promotion')
                 data = rule.contents.data
                 meta = rule.contents.metadata
                 package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
                 package_integrations_list = list(set([integration["package"] for integration in package_integrations]))
                 indices = data.get('index')
                 for rule_integration in rule_integrations:
+                    if ("even.dataset" in rule.contents.data.query and not package_integrations and  # noqa: W504
+                       not rule_promotion and rule_integration not in definitions.NON_DATASET_PACKAGES):  # noqa: W504
+                        err_msg = f'{self.rule_str(rule)} {rule_integration} tag, but integration not \
+                                found in manifests/schemas.'
+                        failures.append(err_msg)
 
                     # checks if the rule path matches the intended integration
                     if rule_integration in valid_integration_folders:
@@ -801,22 +809,6 @@ class TestRiskScoreMismatch(BaseRuleTest):
             self.fail(err_msg)
 
 
-class TestOsqueryPluginNote(BaseRuleTest):
-    """Test if a guide containing Osquery Plugin syntax contains the version note."""
-
-    def test_note_guide(self):
-        osquery_note = '> **Note**:\n'
-        osquery_note_pattern = osquery_note + '> This investigation guide uses the [Osquery Markdown Plugin]' \
-            '(https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic ' \
-            'Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.'
-
-        for rule in self.all_rules:
-            if rule.contents.data.note and "!{osquery" in rule.contents.data.note:
-                if osquery_note_pattern not in rule.contents.data.note:
-                    self.fail(f'{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain '
-                              f'the following note:\n{osquery_note_pattern}')
-
-
 class TestEndpointQuery(BaseRuleTest):
     """Test endpoint-specific rules."""
 
@@ -841,3 +833,139 @@ class TestEndpointQuery(BaseRuleTest):
             # if rule.path.parent.name == 'linux':
             #     err_msg = f'{self.rule_str(rule)} missing required field for linux endpoint rule'
             #     self.assertIn('host.os.platform', fields, err_msg)
+
+
+class TestNoteMarkdownPlugins(BaseRuleTest):
+    """Test if a guide containing Osquery Plugin syntax contains the version note."""
+
+    def test_note_has_osquery_warning(self):
+        """Test that all rules with osquery entries have the default notification of stack compatibility."""
+        osquery_note_pattern = ('> **Note**:\n> This investigation guide uses the [Osquery Markdown Plugin]'
+                                '(https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) '
+                                'introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display '
+                                'unrendered Markdown in this guide.')
+
+        for rule in self.production_rules.rules:
+            if not rule.contents.get('transform'):
+                continue
+            osquery = rule.contents.transform.get('osquery')
+            if osquery and osquery_note_pattern not in rule.contents.data.note:
+                self.fail(f'{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain '
+                          f'the following note:\n{osquery_note_pattern}')
+
+    def test_plugin_placeholders_match_entries(self):
+        """Test that the number of plugin entries match their respective placeholders in note."""
+        for rule in self.production_rules.rules:
+            has_transform = rule.contents.get('transform') is not None
+            has_note = rule.contents.data.get('note') is not None
+
+            if has_transform and not has_note:
+                self.fail(f'{self.rule_str(rule)} transformed defined with no note')
+            elif not has_transform:
+                continue
+
+            transform = rule.contents.transform
+            transform_counts = {plugin: len(entries) for plugin, entries in transform.to_dict().items()}
+            note = rule.contents.data.note
+            self.assertIsNotNone(note)
+            note_template = PatchedTemplate(note)
+
+            note_counts = defaultdict(int)
+            for identifier in note_template.get_identifiers():
+                # "$" is used for other things, so this verifies the pattern of a trailing "_" followed by ints
+                if '_' not in identifier:
+                    continue
+                dash_index = identifier.rindex('_')
+                if dash_index == len(identifier) or not identifier[dash_index + 1:].isdigit():
+                    continue
+
+                plugin, _ = identifier.split('_')
+                if plugin in transform_counts:
+                    note_counts[plugin] += 1
+
+            err_msg = f'{self.rule_str(rule)} plugin entry count mismatch between transform and note'
+            self.assertDictEqual(transform_counts, note_counts, err_msg)
+
+    def test_if_plugins_explicitly_defined(self):
+        """Check if plugins are explicitly defined with the pattern in note vs using transform."""
+        for rule in self.production_rules.rules:
+            note = rule.contents.data.get('note')
+            if note is not None:
+                results = re.search(r'(!{osquery|!{insight)', note, re.I | re.M)
+                err_msg = f'{self.rule_str(rule)} investigation guide plugin pattern detected! Use Transform'
+                self.assertIsNone(results, err_msg)
+
+
+class TestAlertSuppression(BaseRuleTest):
+    """Test rule alert suppression."""
+
+    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.6.0"),
+                     "Test only applicable to 8.6+ stacks for rule alert suppression feature.")
+    def test_group_length(self):
+        """Test to ensure the rule alert suppression group_by does not exceed 3 elements."""
+        for rule in self.production_rules:
+            if rule.contents.data.alert_suppression:
+                group_length = len(rule.contents.data.alert_suppression.group_by)
+                if group_length > 3:
+                    self.fail(f'{self.rule_str(rule)} has rule alert suppression with more than 3 elements.')
+
+    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.6.0"),
+                     "Test only applicable to 8.6+ stacks for rule alert suppression feature.")
+    def test_group_field_in_schemas(self):
+        """Test to ensure the fields are defined is in ECS/Beats/Integrations schema."""
+        for rule in self.production_rules:
+            if rule.contents.data.alert_suppression:
+                group_by_fields = rule.contents.data.alert_suppression.group_by
+                min_stack_version = rule.contents.metadata.get("min_stack_version")
+                if min_stack_version is None:
+                    min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+                else:
+                    min_stack_version = Version.parse(min_stack_version)
+                integration_tag = rule.contents.metadata.get("integration")
+                ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
+                beats_version = get_stack_schemas()[str(min_stack_version)]['beats']
+                queryvalidator = QueryValidator(rule.contents.data.query)
+                _, _, schema = queryvalidator.get_beats_schema([], beats_version, ecs_version)
+                if integration_tag:
+                    # if integration tag exists in rule, append integration schema to existing schema
+                    # grabs the latest
+                    integration_schemas = load_integrations_schemas()
+                    for ints in integration_tag:
+                        integration_schema = integration_schemas[ints]
+                        int_schema = integration_schema[list(integration_schema.keys())[-1]]
+                        for data_source in int_schema.keys():
+                            schema.update(**int_schema[data_source])
+                for fld in group_by_fields:
+                    if fld not in schema.keys():
+                        self.fail(f"{self.rule_str(rule)} alert suppression field {fld} not \
+                            found in ECS, Beats, or non-ecs schemas")
+
+    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.6.0"),
+                     "Test only applicable to 8.6+ stacks for rule alert suppression feature.")
+    def test_stack_version(self):
+        """Test to ensure the stack version is 8.6+"""
+        for rule in self.production_rules:
+            if rule.contents.data.alert_suppression:
+                per_time = rule.contents.data.alert_suppression.get("duration", None)
+                min_stack_version = rule.contents.metadata.get("min_stack_version")
+                if min_stack_version is None:
+                    min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+                else:
+                    min_stack_version = Version.parse(min_stack_version)
+                if not per_time and min_stack_version < Version.parse("8.6.0"):
+                    self.fail(f'{self.rule_str(rule)} has rule alert suppression but \
+                        min_stack is not 8.6+')
+                elif per_time and min_stack_version < Version.parse("8.7.0"):
+                    self.fail(f'{self.rule_str(rule)} has rule alert suppression with \
+                        per time but min_stack is not 8.7+')
+
+    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.6.0"),
+                     "Test only applicable to 8.6+ stacks for rule alert suppression feature.")
+    def test_query_type(self):
+        """Test to ensure the query type is KQL only."""
+        for rule in self.production_rules:
+            if rule.contents.data.alert_suppression:
+                rule_type = rule.contents.data.language
+                if rule_type != 'kuery':
+                    self.fail(f'{self.rule_str(rule)} has rule alert suppression with \
+                        but query language is not KQL')

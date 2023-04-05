@@ -11,7 +11,7 @@ metadata = RtaMetadata(
     uuid="d2671cc5-87d0-4612-9e3c-0862b137d242",
     platforms=["windows"],
     endpoint=[{"rule_name": "WMI Image Load via Microsoft Office", "rule_id": "46952f58-6741-4280-8e74-fa43f63c9604"}],
-    siem=[],
+    siem=[{'rule_id': '891cb88e-441a-4c3e-be2d-120d99fe7b0d', 'rule_name': 'Suspicious WMI Image Load from MS Office'}],
     techniques=["T1047", "T1566"],
 )
 
