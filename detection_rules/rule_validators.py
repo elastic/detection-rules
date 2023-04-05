@@ -48,6 +48,9 @@ class KQLValidator(QueryValidator):
                 # validate the query against related integration fields
                 validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
 
+            if("Error" in str(type(validation_checks["stack"])) and not package_integrations):
+               raise validation_checks["stack"]
+
             if("Error" in str(type(validation_checks["stack"])) and "Error" in str(type(validation_checks["integrations"]))):
                 raise f"Error in both stack and integrations checks: {validation_checks}"
 
@@ -173,6 +176,9 @@ class EQLValidator(QueryValidator):
             if package_integrations:
                 # validate the query against related integration fields
                 validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
+
+            if("Error" in str(type(validation_checks["stack"])) and not package_integrations):
+               raise validation_checks["stack"]
 
             if("Error" in str(type(validation_checks["stack"])) and "Error" in str(type(validation_checks["integrations"]))):
                 raise f"Error in both stack and integrations checks: {validation_checks}"
