@@ -28,20 +28,20 @@ note = """## Triage and analysis
 
 ### Investigating Google Workspace Admin Role Deletion
 
-Google Workspace roles allow administrators to assign specific permissions to users or groups where the principle of least privilege (PoLP) is recommended. Admin roles in Google Workspace grants users access to the Google Admin console, where further domain-wide settings are accessible. Google Workspace contains pre-built administrator roles for performing business functions related to users, groups and services. Custom administrator roles can be created where pre-built roles are not preferred.
+Google Workspace roles allow administrators to assign specific permissions to users or groups where the principle of least privilege (PoLP) is recommended. Admin roles in Google Workspace grant users access to the Google Admin console, where further domain-wide settings are accessible. Google Workspace contains prebuilt administrator roles for performing business functions related to users, groups, and services. Custom administrator roles can be created where prebuilt roles are not preferred.
 
-Deleted administrator roles may render some user accounts innaccessible or cause operational failure where these roles are relies upon to perform daily administrative tasks. Deletion of roles may also hinder the response and remediation actions of administrators regarding security related alerts and events. Without specific roles assigned, users will inherit the permissions and privileges of the root organizational unit.
+Deleted administrator roles may render some user accounts inaccessible or cause operational failure where these roles are relied upon to perform daily administrative tasks. The deletion of roles may also hinder the response and remediation actions of administrators responding to security-related alerts and events. Without specific roles assigned, users will inherit the permissions and privileges of the root organizational unit.
 
-This rule identifies when a Google Workspace administrative role is deleted within the Admin Console.
+This rule identifies when a Google Workspace administrative role is deleted within the Google Admin console.
 
 #### Possible investigation steps
 
-- Identify user account(s) associated by reviewing `user.name` or `user.email` in the alert
-- Identify the role deleted by reviewing `google_workspace.admin.role.name` in the alert
-- With the user identified, verify administrative privileges to disabled delete administrative roles
-- To identify other users affected by this role removed, search for `event.action: ASSIGN_ROLE`
-    - Add `google_workspace.admin.role.name` with the role deleted as an additional filter
-    - Adjust the relative time accordingly to identify all users that were assigned this admin role
+- Identify the user account(s) associated by reviewing `user.name` or `user.email` in the alert.
+- Identify the role deleted by reviewing `google_workspace.admin.role.name` in the alert.
+- With the user identified, verify if he has administrative privileges to disable or delete administrative roles.
+- To identify other users affected by this role removed, search for `event.action: ASSIGN_ROLE`.
+    - Add `google_workspace.admin.role.name` with the role deleted as an additional filter.
+    - Adjust the relative time accordingly to identify all users that were assigned this admin role.
 
 ### False positive analysis
 
@@ -59,9 +59,8 @@ This rule identifies when a Google Workspace administrative role is deleted with
     - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
     - Identify any regulatory or legal ramifications related to this activity.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
-- Reactivate multi-factor authentication for the user.
 - Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
-- Implement security defaults [provided by Google](https://cloud.google.com/security-command-center/docs/how-to-investigate-threats).
+- Implement security best practices [outlined](https://support.google.com/a/answer/7587183) by Google.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 

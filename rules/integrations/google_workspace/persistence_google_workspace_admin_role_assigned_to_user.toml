@@ -30,30 +30,30 @@ note = """## Triage and analysis
 
 ### Investigating Google Workspace Admin Role Assigned to a User
 
-Google Workspace roles allow administrators to assign specific permissions to users or groups where the principle of least privilege (PoLP) is recommended. Admin roles in Google Workspace grants users access to the Google Admin console, where further domain-wide settings are accessible. Google Workspace contains pre-built administrator roles for performing business functions related to users, groups and services. Custom administrator roles can be created where pre-built roles are not preferred.
+Google Workspace roles allow administrators to assign specific permissions to users or groups where the principle of least privilege (PoLP) is recommended. Admin roles in Google Workspace grant users access to the Google Admin console, where further domain-wide settings are accessible. Google Workspace contains prebuilt administrator roles for performing business functions related to users, groups, and services. Custom administrator roles can be created where prebuilt roles are not preferred.
 
-Administrator roles assigned to users will grant them additional permissions and privileges within the Google Workspace domain. Administrative roles also give users access to the admin console where domain-wide settings can be adjusted. Threat actors may rely on these new privileges to thus further their intrusion efforts and laterally move throughout the organization. User's with unexpected administrative privileges may also cause operational disfunction is unfamiliar settings are adjusted without warning.
+Administrator roles assigned to users will grant them additional permissions and privileges within the Google Workspace domain. Administrative roles also give users access to the admin console, where domain-wide settings can be adjusted. Threat actors may rely on these new privileges to thus further their intrusion efforts and laterally move throughout the organization. Users with unexpected administrative privileges may also cause operational disfunction if unfamiliar settings are adjusted without warning.
 
 This rule identifies when a Google Workspace administrative role is assigned to a user.
 
 #### Possible investigation steps
 
-- Identify user account(s) associated by reviewing `user.name` or `user.email` in the alert
-  - The `user.target.email` field contains the user whom received the admin role
-- Identify the role given to the user by reviewing `google_workspace.admin.role.name` in the alert
-- With the user identified, verify administrative privileges are scoped properly
-- To identify other users with this role, search for `event.action: ASSIGN_ROLE`
-  - Add `google_workspace.admin.role.name` with the role added as an additional filter
-  - Adjust the relative time accordingly to identify all users that were assigned this admin role
-- Identify if the user account was recently created by searching for `event.action: CREATE_USER`
-  - Add `user.email` with the target user account that recently received this new admin role
-- Filter on `user.name` or `user.target.email` of the user whom took this action and review the last 48 hours of activity for that may indicate a compromise
+- Identify the user account(s) associated by reviewing `user.name` or `user.email` in the alert.
+  - The `user.target.email` field contains the user who received the admin role.
+- Identify the role given to the user by reviewing `google_workspace.admin.role.name` in the alert.
+- With the user identified, verify administrative privileges are scoped properly.
+- To identify other users with this role, search for `event.action: ASSIGN_ROLE`.
+  - Add `google_workspace.admin.role.name` with the role added as an additional filter.
+  - Adjust the relative time accordingly to identify all users that were assigned this admin role.
+- Identify if the user account was recently created by searching for `event.action: CREATE_USER`.
+  - Add `user.email` with the target user account that recently received this new admin role.
+- Filter on `user.name` or `user.target.email` of the user who took this action and review the last 48 hours of activity for that may indicate a compromise.
 
 ### False positive analysis
 
-- With the user account whom added the admin role, verify this action was intentional
-- Verify that the target user whom received the admin role is expected to have administrative privileges in Google Workspace
-- Review organizational units or groups the target user may have been added to and ensure the admin role permissions align
+- With the user account who added the admin role, verify this action was intentional.
+- Verify that the target user who received the admin role is expected to have administrative privileges in Google Workspace.
+- Review organizational units or groups the target user may have been added to and ensure the admin role permissions align.
 
 ### Response and remediation
 
@@ -66,9 +66,8 @@ This rule identifies when a Google Workspace administrative role is assigned to 
     - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
     - Identify any regulatory or legal ramifications related to this activity.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
-- Reactivate multi-factor authentication for the user.
 - Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
-- Implement security defaults [provided by Google](https://cloud.google.com/security-command-center/docs/how-to-investigate-threats).
+- Implement security best practices [outlined](https://support.google.com/a/answer/7587183) by Google.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 

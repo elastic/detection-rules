@@ -39,18 +39,18 @@ This rule detections when a 2SV policy is disabled in Google Workspace.
 
 #### Possible investigation steps
 
-- Identify user account(s) associated by reviewing `user.name` or `source.user.email` in the alert
-- Identify what password setting was created or adjusted by reviewing `google_workspace.admin.setting.name`
-- Review if a password setting was enabled or disabled by reviewing `google_workspace.admin.new_value` and `google_workspace.admin.old_value`
-- With the user identified, verify administrative privileges are scoped properly to change
-- Filter `event.dataset` for `google_workspace.login` and aggregate by `user.name`, `event.action`
-  - The `google_workspace.login.challenge_method` field can be used to identify what challenge method was used for failed and successful logins
+- Identify the user account(s) associated by reviewing `user.name` or `source.user.email` in the alert.
+- Identify what password setting was created or adjusted by reviewing `google_workspace.admin.setting.name`.
+- Review if a password setting was enabled or disabled by reviewing `google_workspace.admin.new_value` and `google_workspace.admin.old_value`.
+- With the user identified, verify administrative privileges are scoped properly to change.
+- Filter `event.dataset` for `google_workspace.login` and aggregate by `user.name`, `event.action`.
+  - The `google_workspace.login.challenge_method` field can be used to identify what challenge method was used for failed and successful logins.
 
 ### False positive analysis
 
-- With the user account whom updated the password policy, verify this action was intentional
-- Verify that the user whom changed the password policy, is expected to have administrative privileges in Google Workspace to modify password policies
-- Review organizational units or groups the role may have been added to and ensure the new privileges align properly
+- With the user account that updated the password policy, verify whether the action was intentional.
+- Verify whether the user who changed the password policy is expected to have administrative privileges in Google Workspace to modify password policies.
+- Review organizational units or groups the role may have been added to and ensure the new privileges align properly.
 
 ### Response and remediation
 
@@ -63,9 +63,8 @@ This rule detections when a 2SV policy is disabled in Google Workspace.
     - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
     - Identify any regulatory or legal ramifications related to this activity.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
-- Reactivate multi-factor authentication for the user.
 - Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
-- Implement security defaults [provided by Google](https://cloud.google.com/security-command-center/docs/how-to-investigate-threats).
+- Implement security best practices [outlined](https://support.google.com/a/answer/7587183) by Google.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 

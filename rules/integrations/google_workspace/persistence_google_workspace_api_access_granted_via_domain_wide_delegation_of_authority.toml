@@ -31,24 +31,24 @@ note = """## Triage and analysis
 
 Domain-wide delegation is a feature that allows apps to access users' data across an organization's Google Workspace environment. Only super admins can manage domain-wide delegation, and they must specify each API scope that the application can access. Google Workspace services all have APIs that can be interacted with after domain-wide delegation is established with an OAuth2 client ID of the application. Typically, GCP service accounts and applications are created where the Google Workspace APIs are enabled, thus allowing the application to access resources and services in Google Workspace.
 
-Applications authorized to interact with Google Workspace resources and services through APIs have a wide-range of capability dependent on the scopes applied. If the principle of least privilege (PoLP) is not practiced when setting API scopes, threat actors could abuse additional privileges if the application is compromised. New applications created and given API access could indicate an attempt by a threat actor to register their malicious application with the Google Workspace domain in an attempt to establish a command and control foothold.
+Applications authorized to interact with Google Workspace resources and services through APIs have a wide range of capabilities depending on the scopes applied. If the principle of least privilege (PoLP) is not practiced when setting API scopes, threat actors could abuse additional privileges if the application is compromised. New applications created and given API access could indicate an attempt by a threat actor to register their malicious application with the Google Workspace domain in an attempt to establish a command and control foothold.
 
 This rule identifies when an application is authorized API client access.
 
 #### Possible investigation steps
 
-- Identify user account(s) associated by reviewing `user.name` or `user.email` in the alert
-  - Only users with super admin privileges can authorize API client access
-- Identify the API client name by reviewing `google_workspace.admin.api.client.name` in the alert
-  - If GCP audit logs are ingested pivot to reviewing the last 48 hours of activity related to the service account ID
-  - Search for the `google_workspace.admin.api.client.name` value with wildcards in the `gcp.audit.resource_name` field
-  - Search for API client name and aggregated results on `event.action` to determine what the service account is being used for in GWS
-- With the user identified, verify super administrative privileges to access domain-wide delegation settings
+- Identify the user account(s) associated by reviewing `user.name` or `user.email` in the alert.
+  - Only users with super admin privileges can authorize API client access.
+- Identify the API client name by reviewing `google_workspace.admin.api.client.name` in the alert.
+  - If GCP audit logs are ingested, pivot to reviewing the last 48 hours of activity related to the service account ID.
+  - Search for the `google_workspace.admin.api.client.name` value with wildcards in the `gcp.audit.resource_name` field.
+  - Search for API client name and aggregated results on `event.action` to determine what the service account is being used for in GWS.
+- With the user identified, verify super administrative privileges to access domain-wide delegation settings.
 
 ### False positive analysis
 
-- Changes to domain-wide delegation require super admin privileges, thus follow up with the user to ensure these changes were expected
-- Review scheduled maintenance notes related to expected API access changes
+- Changes to domain-wide delegation require super admin privileges, thus follow up with the user to ensure these changes were expected.
+- Review scheduled maintenance notes related to expected API access changes.
 
 ### Response and remediation
 
@@ -62,7 +62,6 @@ This rule identifies when an application is authorized API client access.
     - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
     - Identify any regulatory or legal ramifications related to this activity.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
-- Reactivate multi-factor authentication for the user.
 - Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
 - Implement security best practices [outlined](https://support.google.com/a/answer/7587183) by Google.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
