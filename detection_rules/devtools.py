@@ -161,9 +161,10 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
 @click.option("--major-release", is_flag=True, help="bump the major version")
 @click.option("--minor-release", is_flag=True, help="bump the minor version")
 @click.option("--patch-release", is_flag=True, help="bump the patch version")
+@click.option("--new-package", is_flag=True, default=False, help="indicates new package")
 @click.option("--maturity", type=click.Choice(['beta', 'ga'], case_sensitive=False),
               required=True, help="beta or production versions")
-def bump_versions(major_release: bool, minor_release: bool, patch_release: bool, maturity: str):
+def bump_versions(major_release: bool, minor_release: bool, patch_release: bool, new_package: bool, maturity: str):
     """Bump the versions"""
 
     pkg_data = load_etc_dump('packages.yml')['package']
@@ -197,6 +198,8 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
             pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_patch())
             pkg_data["registry_data"]["release"] = maturity
         else:
+            if new_package:
+                latest_patch_release_ver = latest_patch_release_ver.bump_patch()
             pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_prerelease("beta"))
             pkg_data["registry_data"]["release"] = maturity
 
