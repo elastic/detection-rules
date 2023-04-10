@@ -11,15 +11,26 @@ on:
         required: true
         default: 'main'
       draft:
-        description: 'Create a PR as draft (y/n)'
+        type: choice
+        description: 'Create a PR as draft'
         required: false
+        options:
+          - "y"
+          - "n"
       package_maturity:
-        description: 'Package Maturity (ga/beta)'
+        type: choice
+        description: 'Package Maturity'
         required: true
+        options:
+          - "ga"
+          - "beta"
       new_package:
+        type: choice
         description: 'New Package'
         required: true
-        type: boolean
+        options:
+          - "true"
+          - "false"
       commit_hash:
         description: 'Commit hash'
         required: true
@@ -99,11 +110,12 @@ jobs:
       - name: Bump prebuilt rules package version
         env:
           PACKAGE_MATURITY: "${{github.event.inputs.package_maturity}}"
+          NEW_PACKAGE: "${{github.event.inputs.new_package}}"
         run: |
           cd detection-rules
           python -m detection_rules dev bump-pkg-versions \
             --patch-release                               \
-            --new-package                                 \
+            --new-package $NEW_PACKAGE                    \
             --maturity $PACKAGE_MATURITY
 
       - name: Store release tag
