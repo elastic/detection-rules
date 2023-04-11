@@ -229,6 +229,10 @@ def migrate_to_8_6(version: Version, api_contents: dict) -> dict:
 @migrate("8.7")
 def migrate_to_8_7(version: Version, api_contents: dict) -> dict:
     """Default migration for 8.7."""
+    if "related_integrations" in api_contents:
+        del api_contents["related_integrations"]
+    if "required_fields" in api_contents:
+        del api_contents["required_fields"]
     return strip_additional_properties(version, api_contents)
 
 
