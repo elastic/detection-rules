@@ -37,23 +37,23 @@ This rule identifies when an application is authorized API client access.
 
 #### Possible investigation steps
 
-- Identify the user account(s) associated by reviewing `user.name` or `user.email` in the alert.
+- Identify the associated user accounts by reviewing `user.name` or `user.email` fields in the alert.
   - Only users with super admin privileges can authorize API client access.
-- Identify the API client name by reviewing `google_workspace.admin.api.client.name` in the alert.
+- Identify the API client name by reviewing the `google_workspace.admin.api.client.name` field in the alert.
   - If GCP audit logs are ingested, pivot to reviewing the last 48 hours of activity related to the service account ID.
   - Search for the `google_workspace.admin.api.client.name` value with wildcards in the `gcp.audit.resource_name` field.
   - Search for API client name and aggregated results on `event.action` to determine what the service account is being used for in GWS.
-- With the user identified, verify super administrative privileges to access domain-wide delegation settings.
+- After identifying the involved user, verify super administrative privileges to access domain-wide delegation settings.
 
 ### False positive analysis
 
-- Changes to domain-wide delegation require super admin privileges, thus follow up with the user to ensure these changes were expected.
+- Changes to domain-wide delegation require super admin privileges. Check with the user to ensure these changes were expected.
 - Review scheduled maintenance notes related to expected API access changes.
 
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
-- Review the scope of the authorized API client access in Google Workspace
+- Review the scope of the authorized API client access in Google Workspace.
 - Disable or limit the account during the investigation and response.
 - Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
     - Identify the account role in the cloud environment.
