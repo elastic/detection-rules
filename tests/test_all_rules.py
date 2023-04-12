@@ -601,18 +601,16 @@ class TestRuleMetadata(BaseRuleTest):
                         packages_manifest = load_integrations_manifests()
                         pkg_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
 
-                        validation_checks = {"stack": None, "integrations": None}
-                        # validate the query against fields within beats
-                        validation_checks["stack"] = test_validator.validate_stack_combos(data, meta)
+                        validation_integrations_check = None
 
                         if pkg_integrations:
                             # validate the query against related integration fields
-                            validation_checks["integrations"] = test_validator.validate_integration(data,
-                                                                                                    meta,
-                                                                                                    pkg_integrations)
+                            validation_integrations_check = test_validator.validate_integration(data,
+                                                                                                meta,
+                                                                                                pkg_integrations)
 
-                        if(validation_checks["integrations"] and "event.dataset" in rule.contents.data.query):
-                            raise validation_checks["integrations"]
+                        if(validation_integrations_check and "event.dataset" in rule.contents.data.query):
+                            raise validation_integrations_check
 
 
 class TestIntegrationRules(BaseRuleTest):
