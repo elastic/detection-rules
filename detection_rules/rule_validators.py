@@ -48,11 +48,12 @@ class KQLValidator(QueryValidator):
                 # validate the query against related integration fields
                 validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
 
-            if("Error" in str(type(validation_checks["stack"])) and not package_integrations):
+            if(isinstance(validation_checks["stack"], (kql.KqlParseError, ValueError)) and not
+               package_integrations):
                 raise validation_checks["stack"]
 
-            if("Error" in str(type(validation_checks["stack"])) and "Error" in
-                    str(type(validation_checks["integrations"]))):
+            if(isinstance(validation_checks["stack"], (kql.KqlParseError, ValueError)) and isinstance(
+                    validation_checks["integrations"], (kql.KqlParseError, ValueError))):
                 raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> None:
@@ -89,7 +90,7 @@ class KQLValidator(QueryValidator):
         current_stack_version = ""
         combined_schema = {}
         for integration_schema_data in get_integration_schema_data(data, meta, package_integrations):
-            if "Error" in str(type(integration_schema_data)):
+            if isinstance(integration_schema_data, kql.KqlParseError):
                 return integration_schema_data
             ecs_version = integration_schema_data['ecs_version']
             integration = integration_schema_data['integration']
@@ -178,11 +179,11 @@ class EQLValidator(QueryValidator):
                 # validate the query against related integration fields
                 validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
 
-            if("Error" in str(type(validation_checks["stack"])) and not package_integrations):
+            if(isinstance(validation_checks["stack"], (eql.EqlSchemaError, ValueError)) and not package_integrations):
                 raise validation_checks["stack"]
 
-            if("Error" in str(type(validation_checks["stack"])) and "Error" in
-                    str(type(validation_checks["integrations"]))):
+            if(isinstance(validation_checks["stack"], (eql.EqlSchemaError, ValueError)) and isinstance(
+                    validation_checks["integrations"], (eql.EqlSchemaError, ValueError))):
                 raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> None:
@@ -221,7 +222,7 @@ class EQLValidator(QueryValidator):
         current_stack_version = ""
         combined_schema = {}
         for integration_schema_data in get_integration_schema_data(data, meta, package_integrations):
-            if "Error" in str(type(integration_schema_data)):
+            if isinstance(integration_schema_data, (eql.EqlSchemaError, ValueError)):
                 return integration_schema_data
             ecs_version = integration_schema_data['ecs_version']
             integration = integration_schema_data['integration']
