@@ -7,6 +7,7 @@
 import os
 import re
 import unittest
+import uuid
 import warnings
 from collections import defaultdict
 from pathlib import Path
@@ -513,6 +514,58 @@ class TestRuleMetadata(BaseRuleTest):
                 """
             self.fail(err_msg + '\n'.join(failures))
 
+    def test_invalid_queries(self):
+        
+        # invalid queries
+        invalid_queries = [
+            """
+            process where process.fake == "cmd.exe"
+            """
+        ]
+        invalid_integration_queries = [
+            """file where event.dataset == "google_workspace.fake" and event.action : ("copy", "view", "download") and
+                    google_workspace.fake: "people_with_link" and source.user.email == "" and
+                    file.fake: (
+                        "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem", "gpg.sig", "der", "key",
+                        "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst", "pgp", "gpgz", "pfx", "crt",
+                        "p8", "sig", "pkcs7", "jceks", "pkcs8", "psc1", "p7c", "csr", "cer", "spc", "ps2xml")
+            """
+        ]
+
+        base_fields = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["filebeat-*"],
+            "language": "eql",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "eql"
+        }
+
+        def build_rule(query):
+            metadata = {
+                "creation_date": "1970/01/01",
+                "integration": ["google_workspace"],
+                "updated_date": "1970/01/01",
+                "query_schema_validation": True,
+                "maturity": "production",
+                "min_stack_version": load_current_package_version()
+            }
+            data = base_fields.copy()
+            data["query"] = query
+            obj = {"metadata": metadata, "rule": data}
+            return TOMLRuleContents.from_dict(obj)
+
+        for query in invalid_queries:
+            with self.assertRaises(eql.EqlSchemaError):
+                build_rule(query)
+
+        for query in invalid_integration_queries:
+            with self.assertRaises(ValueError):
+                build_rule(query)
 
 class TestIntegrationRules(BaseRuleTest):
     """Test integration rules."""

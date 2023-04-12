@@ -53,7 +53,7 @@ class KQLValidator(QueryValidator):
 
             if("Error" in str(type(validation_checks["stack"])) and "Error" in
                     str(type(validation_checks["integrations"]))):
-                raise f"Error in both stack and integrations checks: {validation_checks}"
+                raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> None:
         """Validate the query against ECS and beats schemas across stack combinations."""
@@ -183,7 +183,7 @@ class EQLValidator(QueryValidator):
 
             if("Error" in str(type(validation_checks["stack"])) and "Error" in
                     str(type(validation_checks["integrations"]))):
-                raise f"Error in both stack and integrations checks: {validation_checks}"
+                raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> None:
         """Validate the query against ECS and beats schemas across stack combinations."""
@@ -209,7 +209,7 @@ class EQLValidator(QueryValidator):
                 # validate query against the endgame schema
                 output = self.validate_query_with_schema(data=data, schema=endgame_schema, err_trailer=err_trailer)
                 if ("Error" in str(type(output))):
-                    raise f"Endgame Schema error: {output}"
+                    raise ValueError(f"Endgame Schema error: {output}")
 
     def validate_integration(self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]) -> None:
         """Validate an EQL query while checking TOMLRule against integration schemas."""
