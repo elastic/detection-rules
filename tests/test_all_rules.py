@@ -515,7 +515,6 @@ class TestRuleMetadata(BaseRuleTest):
             self.fail(err_msg + '\n'.join(failures))
 
     def test_invalid_queries(self):
-        
         # invalid queries
         invalid_queries = [
             """
@@ -527,7 +526,7 @@ class TestRuleMetadata(BaseRuleTest):
                     google_workspace.fake: "people_with_link" and source.user.email == "" and
                     file.fake: (
                         "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem", "gpg.sig", "der", "key",
-                        "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst", "pgp", "gpgz", "pfx", "crt",
+                        "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst", "pgp", "gpgz", "pfx",
                         "p8", "sig", "pkcs7", "jceks", "pkcs8", "psc1", "p7c", "csr", "cer", "spc", "ps2xml")
             """
         ]
@@ -566,6 +565,7 @@ class TestRuleMetadata(BaseRuleTest):
         for query in invalid_integration_queries:
             with self.assertRaises(ValueError):
                 build_rule(query)
+
 
 class TestIntegrationRules(BaseRuleTest):
     """Test integration rules."""
