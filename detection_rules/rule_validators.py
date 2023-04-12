@@ -179,10 +179,12 @@ class EQLValidator(QueryValidator):
                 # validate the query against related integration fields
                 validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
 
-            if(isinstance(validation_checks["stack"], (eql.EqlSchemaError, ValueError, eql.EqlTypeMismatchError)) and not package_integrations):
+            if(isinstance(validation_checks["stack"], (eql.EqlSchemaError, ValueError,
+                                                       eql.EqlTypeMismatchError)) and not package_integrations):
                 raise validation_checks["stack"]
 
-            if(isinstance(validation_checks["stack"], (eql.EqlSchemaError, ValueError, eql.EqlTypeMismatchError)) and isinstance(
+            if(isinstance(validation_checks["stack"], (eql.EqlSchemaError, ValueError,
+                                                       eql.EqlTypeMismatchError)) and isinstance(
                     validation_checks["integrations"], (eql.EqlSchemaError, ValueError, eql.EqlTypeMismatchError))):
                 raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
 
