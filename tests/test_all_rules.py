@@ -531,6 +531,22 @@ class TestRuleMetadata(BaseRuleTest):
             """
         ]
 
+        valid_queries = [
+            """file where file.extension: (
+                "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem",
+                "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst",
+                "p8", "sig", "pkcs7", "jceks", "pkcs8", "psc1", "p7c", "csr", "cer")
+            """,
+            """file where event.dataset == "google_workspace.drive" and event.action : ("copy", "view", "download") and
+                    google_workspace.drive.visibility: "people_with_link" and source.user.email == "" and
+                    file.extension: (
+                        "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem", "gpg.sig", "der", "key",
+                        "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst", "pgp", "gpgz", "pfx",
+                        "p8", "sig", "pkcs7", "jceks", "pkcs8", "psc1", "p7c", "csr", "cer", "spc", "ps2xml")
+            """
+
+        ]
+
         base_fields = {
             "author": ["Elastic"],
             "description": "test description",
@@ -557,6 +573,9 @@ class TestRuleMetadata(BaseRuleTest):
             data["query"] = query
             obj = {"metadata": metadata, "rule": data}
             return TOMLRuleContents.from_dict(obj)
+
+        for query in valid_queries:
+            build_rule(query)
 
         for query in invalid_queries:
             with self.assertRaises(eql.EqlSchemaError):
