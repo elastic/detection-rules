@@ -24,6 +24,7 @@ from detection_rules.packaging import current_stack_version
 from detection_rules.rule import (QueryRuleData, TOMLRuleContents,
                                   load_integrations_manifests, QueryValidator)
 from detection_rules.rule_loader import FILE_PATTERN
+from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_stack_schemas
 from detection_rules.utils import INTEGRATION_RULE_DIR, get_path, load_etc_dump, PatchedTemplate
 from detection_rules.version_lock import default_version_lock
@@ -584,6 +585,34 @@ class TestRuleMetadata(BaseRuleTest):
         for query in invalid_integration_queries:
             with self.assertRaises(ValueError):
                 build_rule(query)
+
+    def test_event_dataset(self):
+        for rule in self.all_rules:
+            if(isinstance(rule.contents.data, QueryRuleData)):
+                # Need to pick validator based on language
+                if rule.contents.data.language == "kuery":
+                    test_validator = KQLValidator(rule.contents.data.query)
+                if rule.contents.data.language == "eql":
+                    test_validator = EQLValidator(rule.contents.data.query)
+                data = rule.contents.data
+                meta = rule.contents.metadata
+                if meta.query_schema_validation is not False or meta.maturity != "deprecated":
+                    if isinstance(data, QueryRuleData) and data.language != 'lucene':
+                        packages_manifest = load_integrations_manifests()
+                        pkg_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
+
+                        validation_checks = {"stack": None, "integrations": None}
+                        # validate the query against fields within beats
+                        validation_checks["stack"] = test_validator.validate_stack_combos(data, meta)
+
+                        if pkg_integrations:
+                            # validate the query against related integration fields
+                            validation_checks["integrations"] = test_validator.validate_integration(data,
+                                                                                                    meta,
+                                                                                                    pkg_integrations)
+
+                        if(validation_checks["integrations"] and "event.dataset" in rule.contents.data.query):
+                            raise validation_checks["integrations"]
 
 
 class TestIntegrationRules(BaseRuleTest):
