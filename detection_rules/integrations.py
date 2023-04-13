@@ -8,9 +8,10 @@ import glob
 import gzip
 import json
 import re
+import zipfile
 from collections import OrderedDict
 from pathlib import Path
-from typing import Generator, Tuple, Union, Optional
+from typing import Generator, Tuple, Union, Optional, List
 
 import requests
 from semver import Version
@@ -315,8 +316,11 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
                         "package_version": package_version, "endgame_version": endgame_version}
                 yield data
 
-def get_integration_packages(package: str, stack_version: str, prerelease: Optional[bool] = False):
+def get_integration_packages(package: str, stack_version: str, prerelease: Optional[bool] = False,
+                             extract: Optional[bool] = False) -> List[Path]:
     """Downloads specific integration zip packages from EPR."""
+
+    # grabs EPR data regarding specific package
     epr_search_url = "https://epr.elastic.co/search"
     download_path = Path(__file__).resolve().parents[1] / "packages"
     download_path.mkdir(parents=True, exist_ok=True)
@@ -328,12 +332,18 @@ def get_integration_packages(package: str, stack_version: str, prerelease: Optio
     epr_search_response.raise_for_status()
     epr_data = epr_search_response.json()
 
-    # iterate over packages and create download path
-    # download packages to releases
-    # we should clear releases first
-
+    # identifies zip URLs and downloads them async
     pkg_download_paths = []
     for pkg_data in epr_data:
         pkg_download_paths.append(epr_search_url.replace("/search", pkg_data["download"]))
     async_downloads = AsyncFileDownloads(pkg_download_paths, download_path)
     async_downloads.download_multiple_files()
+
+    # unzips files and removes zips
+    if extract:
+        for pkg_path in download_path.glob("*"):
+            with zipfile.ZipFile(pkg_path, 'r') as zip_ref:
+                zip_ref.extractall(download_path)
+            pkg_path.unlink(missing_ok=False)
+
+    return [pkg_path for pkg_path in download_path.glob("*")]

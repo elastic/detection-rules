@@ -87,7 +87,7 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     """Assemble all the rules into Kibana-ready release files."""
     config = load_dump(config_file)['package']
     stack_version = Version.parse(config['name'], optional_minor_and_patch=True)
-    get_integration_packages("security_detection_engine", str(stack_version))
+    previous_pkg_paths = get_integration_packages("security_detection_engine", str(stack_version), extract=True)
     if generate_navigator:
         config['generate_navigator'] = True
 

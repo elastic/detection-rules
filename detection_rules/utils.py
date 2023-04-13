@@ -414,11 +414,14 @@ class PatchedTemplate(Template):
 
 
 class AsyncFileDownloads:
+    """Asynchronous file downloading."""
+
     def __init__(self, file_urls: list, download_path: Path):
         self.file_urls = file_urls
         self.download_path = download_path if download_path else Path()
 
-    async def download_file(self, session, url, filepath):
+    async def download_file(self, session: aiohttp.ClientSession, url: str, filepath: Path) -> None:
+        """Async task to download file and write to disk in chunks."""
         async with session.get(url) as response:
             if response.status == 200:
                 with open(filepath, 'wb') as f:
@@ -428,7 +431,8 @@ class AsyncFileDownloads:
                             break
                         f.write(chunk)
 
-    async def download_files_async(self):
+    async def download_files_async(self) -> None:
+        """Async task and HTTP session operator."""
         async with aiohttp.ClientSession() as session:
             tasks = []
             for url in self.file_urls:
@@ -438,5 +442,6 @@ class AsyncFileDownloads:
                 tasks.append(task)
             await asyncio.gather(*tasks)
 
-    def download_multiple_files(self):
+    def download_multiple_files(self) -> None:
+        """Runs async operator."""
         asyncio.run(self.download_files_async())
