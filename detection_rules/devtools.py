@@ -40,7 +40,8 @@ from .integrations import (build_integrations_manifest,
                            build_integrations_schemas,
                            find_latest_compatible_version,
                            find_latest_integration_version,
-                           load_integrations_manifests)
+                           load_integrations_manifests,
+                           get_integration_packages)
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
@@ -85,6 +86,8 @@ def dev_group():
 def build_release(config_file, update_version_lock: bool, generate_navigator: bool, release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
     config = load_dump(config_file)['package']
+    stack_version = Version.parse(config['name'], optional_minor_and_patch=True)
+    get_integration_packages("security_detection_engine", str(stack_version))
     if generate_navigator:
         config['generate_navigator'] = True
 

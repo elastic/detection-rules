@@ -22,7 +22,7 @@ import kql
 from . import ecs
 from .beats import flatten_ecs_schema
 from .misc import load_current_package_version
-from .utils import cached, get_etc_path, read_gzip, unzip
+from .utils import cached, get_etc_path, read_gzip, unzip, AsyncFileDownloads
 
 MANIFEST_FILE_PATH = Path(get_etc_path('integration-manifests.json.gz'))
 SCHEMA_FILE_PATH = Path(get_etc_path('integration-schemas.json.gz'))
@@ -314,3 +314,26 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
                         "stack_version": stack_version, "ecs_version": ecs_version,
                         "package_version": package_version, "endgame_version": endgame_version}
                 yield data
+
+def get_integration_packages(package: str, stack_version: str, prerelease: Optional[bool] = False):
+    """Downloads specific integration zip packages from EPR."""
+    epr_search_url = "https://epr.elastic.co/search"
+    download_path = Path(__file__).resolve().parents[1] / "packages"
+    download_path.mkdir(parents=True, exist_ok=True)
+    assert Version.parse(stack_version)
+    search_parameters = {"package": f"{package}", "prerelease": prerelease, "all": "true"}
+    if stack_version:
+        search_parameters["kibana.version"] = stack_version
+    epr_search_response = requests.get(epr_search_url, params=search_parameters, timeout=10)
+    epr_search_response.raise_for_status()
+    epr_data = epr_search_response.json()
+
+    # iterate over packages and create download path
+    # download packages to releases
+    # we should clear releases first
+
+    pkg_download_paths = []
+    for pkg_data in epr_data:
+        pkg_download_paths.append(epr_search_url.replace("/search", pkg_data["download"]))
+    async_downloads = AsyncFileDownloads(pkg_download_paths, download_path)
+    async_downloads.download_multiple_files()

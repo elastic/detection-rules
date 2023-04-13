@@ -4,6 +4,8 @@
 # 2.0.
 
 """Util functions."""
+import asyncio
+import aiohttp
 import base64
 import contextlib
 import distutils.spawn
@@ -409,3 +411,32 @@ class PatchedTemplate(Template):
                 raise ValueError('Unrecognized named group in pattern',
                                  self.pattern)
         return ids
+
+
+class AsyncFileDownloads:
+    def __init__(self, file_urls: list, download_path: Path):
+        self.file_urls = file_urls
+        self.download_path = download_path if download_path else Path()
+
+    async def download_file(self, session, url, filepath):
+        async with session.get(url) as response:
+            if response.status == 200:
+                with open(filepath, 'wb') as f:
+                    while True:
+                        chunk = await response.content.read(1024)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+
+    async def download_files_async(self):
+        async with aiohttp.ClientSession() as session:
+            tasks = []
+            for url in self.file_urls:
+                filename = url.split('/')[-1]
+                filepath = self.download_path / filename
+                task = asyncio.ensure_future(self.download_file(session, url, filepath))
+                tasks.append(task)
+            await asyncio.gather(*tasks)
+
+    def download_multiple_files(self):
+        asyncio.run(self.download_files_async())
