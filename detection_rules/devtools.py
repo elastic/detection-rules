@@ -9,6 +9,7 @@ import functools
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import textwrap
@@ -20,6 +21,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import click
+import pytoml
 import requests.exceptions
 from semver import Version
 import yaml
@@ -44,7 +46,7 @@ from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
                         Package, current_stack_version)
 from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
-                   ThreatMapping, TOMLRule)
+                   ThreatMapping, TOMLRule, TOMLRuleContents, RuleTransform)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
 from .utils import (dict_hash, get_etc_path, get_path, load_dump,
@@ -159,9 +161,10 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
 @click.option("--major-release", is_flag=True, help="bump the major version")
 @click.option("--minor-release", is_flag=True, help="bump the minor version")
 @click.option("--patch-release", is_flag=True, help="bump the patch version")
+@click.option("--new-package", type=click.Choice(['true', 'false']), help="indicates new package")
 @click.option("--maturity", type=click.Choice(['beta', 'ga'], case_sensitive=False),
               required=True, help="beta or production versions")
-def bump_versions(major_release: bool, minor_release: bool, patch_release: bool, maturity: str):
+def bump_versions(major_release: bool, minor_release: bool, patch_release: bool, new_package: str, maturity: str):
     """Bump the versions"""
 
     pkg_data = load_etc_dump('packages.yml')['package']
@@ -195,6 +198,9 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
             pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_patch())
             pkg_data["registry_data"]["release"] = maturity
         else:
+            # passing in true or false from GH actions; not using eval() for security purposes
+            if new_package == "true":
+                latest_patch_release_ver = latest_patch_release_ver.bump_patch()
             pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_prerelease("beta"))
             pkg_data["registry_data"]["release"] = maturity
 
@@ -1346,3 +1352,65 @@ def update_attack_in_rules() -> List[Optional[TOMLRule]]:
     else:
         click.echo('No rule changes needed')
     return new_rules
+
+
+@dev_group.group('transforms')
+def transforms_group():
+    """Commands for managing TOML [transform]."""
+
+
+def guide_plugin_convert_(contents: Optional[str] = None, default: Optional[str] = ''
+                          ) -> Optional[Dict[str, Dict[str, list]]]:
+    """Convert investigation guide plugin format to toml"""
+    contents = contents or click.prompt('Enter plugin contents', default=default)
+    if not contents:
+        return
+
+    parsed = re.match(r'!{(?P<plugin>\w+)(?P<data>{.+})}', contents.strip())
+    try:
+        plugin = parsed.group('plugin')
+        data = parsed.group('data')
+    except AttributeError as e:
+        raise client_error('Unrecognized pattern', exc=e)
+    loaded = {'transform': {plugin: [json.loads(data)]}}
+    click.echo(pytoml.dumps(loaded))
+    return loaded
+
+
+@transforms_group.command('guide-plugin-convert')
+def guide_plugin_convert(contents: Optional[str] = None, default: Optional[str] = ''
+                         ) -> Optional[Dict[str, Dict[str, list]]]:
+    """Convert investigation guide plugin format to toml."""
+    return guide_plugin_convert_(contents=contents, default=default)
+
+
+@transforms_group.command('guide-plugin-to-rule')
+@click.argument('rule-path', type=Path)
+@click.pass_context
+def guide_plugin_to_rule(ctx: click.Context, rule_path: Path, save: bool = True) -> TOMLRule:
+    """Convert investigation guide plugin format to toml and save to rule."""
+    rc = RuleCollection()
+    rule = rc.load_file(rule_path)
+
+    transforms = defaultdict(list)
+    existing_transform = rule.contents.transform
+    transforms.update(existing_transform.to_dict() if existing_transform is not None else {})
+
+    click.secho('(blank line to continue)', fg='yellow')
+    while True:
+        loaded = ctx.invoke(guide_plugin_convert)
+        if not loaded:
+            break
+
+        data = loaded['transform']
+        for plugin, entries in data.items():
+            transforms[plugin].extend(entries)
+
+    transform = RuleTransform.from_dict(transforms)
+    new_contents = TOMLRuleContents(data=rule.contents.data, metadata=rule.contents.metadata, transform=transform)
+    updated_rule = TOMLRule(contents=new_contents, path=rule.path)
+
+    if save:
+        updated_rule.save_toml()
+
+    return updated_rule

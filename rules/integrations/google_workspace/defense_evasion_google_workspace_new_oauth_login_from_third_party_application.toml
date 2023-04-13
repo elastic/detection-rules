@@ -1,36 +1,29 @@
 [metadata]
-creation_date = "2023/03/07"
+creation_date = "2023/03/30"
 integration = ["google_workspace"]
 maturity = "production"
 min_stack_comments = "Breaking changes for Google Workspace integration."
 min_stack_version = "8.4.0"
-updated_date = "2023/03/07"
+updated_date = "2023/04/12"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when a user copies a Google spreadsheet, form, document or script from an external drive. An adversary may send
-a phishing email to the victim with a Drive object link where "copy" is included in the URI, thus copying the object to
-the victim's drive.
+Detects the first time a third-party application logs in and authenticated with OAuth. OAuth is used to grant permissions to specific resources and services in Google Workspace. Compromised credentials or service accounts could allow an adversary to authenticate to Google Workspace as a valid user and inherit their privileges.
 """
 false_positives = [
     """
-    Google Workspace users typically share Drive resources with a shareable link where parameters are edited to indicate
-    when it is viewable or editable by the intended recipient. It is uncommon for a user in an organization to manually
-    copy a Drive object from an external drive to their corporate drive. This may happen where users find a useful
-    spreadsheet in a public drive, for example, and replicate it to their Drive.
+    Developers may leverage third-party applications for legitimate purposes in Google Workspace such as for administrative tasks.
     """,
 ]
 from = "now-130m"
 index = ["filebeat-*", "logs-google_workspace*"]
 interval = "10m"
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
-name = "Google Workspace Resource Copied from External Drive"
+name = "First Time Seen Google Workspace OAuth Login from Third-Party Application"
 note = """## Setup
-
 The Google Workspace Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
-
 ### Important Information Regarding Google Workspace Event Lag Times
 - As per Google's documentation, Google Workspace administrators may observe lag times ranging from minutes up to 3 days between the time of an event's occurrence and the event being visible in the Google Workspace admin/audit logs.
 - This rule is configured to run every 10 minutes with a lookback time of 130 minutes.
@@ -42,36 +35,49 @@ The Google Workspace Fleet integration, Filebeat module, or similarly structured
 references = [
     "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-one",
     "https://developers.google.com/apps-script/guides/bound",
-    "https://support.google.com/a/users/answer/13004165#share_make_a_copy_links",
+    "https://developers.google.com/identity/protocols/oauth2",
 ]
 risk_score = 47
-rule_id = "f33e68a4-bd19-11ed-b02f-f661ea17fbcc"
+rule_id = "21bafdf0-cf17-11ed-bd57-f661ea17fbcc"
 severity = "medium"
-tags = ["Elastic", "Cloud", "Google Workspace", "Continuous Monitoring", "SecOps", "Initial Access"]
+tags = ["Elastic", "Cloud", "Google Workspace", "Continuous Monitoring", "SecOps", "Defense Evasion", "Initial Access"]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 
 query = '''
-file where event.dataset == "google_workspace.drive" and event.action == "copy" and
-
-    /* Should only match if the object lives in a Drive that is external to the user's GWS organization */
-    google_workspace.drive.owner_is_team_drive == "false" and google_workspace.drive.copy_type == "external" and
-
-    /* Google Script, Forms, Sheets and Document can have container-bound scripts */
-    google_workspace.drive.file.type: ("script", "form", "spreadsheet", "document")
+event.dataset: "google_workspace.token" and event.action: "authorize" and
+google_workspace.token.scope.data.scope_name: *Login and google_workspace.token.client.id: *apps.googleusercontent.com
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1566"
-name = "Phishing"
-reference = "https://attack.mitre.org/techniques/T1566/"
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
 [[rule.threat.technique.subtechnique]]
-id = "T1566.002"
-name = "Spearphishing Link"
-reference = "https://attack.mitre.org/techniques/T1566/002/"
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
 
 
 
@@ -80,3 +86,10 @@ id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["google_workspace.token.client.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-15d"
