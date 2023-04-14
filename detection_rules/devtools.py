@@ -87,7 +87,6 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     """Assemble all the rules into Kibana-ready release files."""
     config = load_dump(config_file)['package']
     stack_version = Version.parse(config['name'], optional_minor_and_patch=True)
-    previous_pkg_paths = get_integration_packages("security_detection_engine", str(stack_version), extract=True)
     if generate_navigator:
         config['generate_navigator'] = True
 
@@ -98,11 +97,15 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
         click.echo(f'[+] Building package {config.get("name")}')
 
     package = Package.from_config(config, verbose=verbose)
+    rule_ids = [r.id for r in package.rules]
 
     if update_version_lock:
         default_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
 
     package.save(verbose=verbose)
+    historical_pkg_paths = get_integration_packages("security_detection_engine", str(stack_version), extract=True)
+    package.add_historical_rules(historical_pkg_paths, rule_ids, config['name'],
+                                 config["registry_data"]["version"])
 
     if verbose:
         package.get_package_hash(verbose=verbose)

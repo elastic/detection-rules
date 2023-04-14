@@ -13,7 +13,7 @@ import shutil
 import textwrap
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, List
 
 import click
 import yaml
@@ -469,6 +469,22 @@ class Package(object):
             importable_rules_docs.append(rule_doc)
 
         return bulk_upload_docs, importable_rules_docs
+
+    @staticmethod
+    def add_historical_rules(pkg_paths: List[Path], rule_ids: List[str], stack_version: str,
+                             manifest_version: str) -> None:
+        """Adds historical rules to existing build package."""
+        rules_dir = Path(RELEASE_DIR) / stack_version / 'fleet' / manifest_version / 'kibana' / 'security_rule'
+        for rule_id in rule_ids:
+            for historical_pkg in pkg_paths:
+                pkg_rule = historical_pkg.glob(f"kibana/security_rule/{rule_id}.json")
+                pkg_rule_str = str(Path(*pkg_rule))
+                if 'json' in pkg_rule_str:
+                    historical_rule_json = json.loads(Path(pkg_rule_str).read_text(encoding="UTF-8"))
+                    historical_rule_file = rules_dir / Path(pkg_rule_str).name \
+                        .replace(".json", f"_{historical_rule_json['attributes']['version']}.json")
+                    with historical_rule_file.open("w", encoding="UTF-8") as file:
+                        json.dump(historical_rule_json, file)
 
 
 @cached

@@ -316,6 +316,7 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
                         "package_version": package_version, "endgame_version": endgame_version}
                 yield data
 
+
 def get_integration_packages(package: str, stack_version: str, prerelease: Optional[bool] = False,
                              extract: Optional[bool] = False) -> List[Path]:
     """Downloads specific integration zip packages from EPR."""
