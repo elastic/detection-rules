@@ -326,6 +326,7 @@ def get_integration_packages(package: str, stack_version: str, prerelease: Optio
     download_path = Path(__file__).resolve().parents[1] / "packages"
     download_path.mkdir(parents=True, exist_ok=True)
     assert Version.parse(stack_version)
+    stack_version_parsed = Version.parse(stack_version)
     search_parameters = {"package": f"{package}", "prerelease": prerelease, "all": "true"}
     if stack_version:
         search_parameters["kibana.version"] = stack_version
@@ -336,6 +337,10 @@ def get_integration_packages(package: str, stack_version: str, prerelease: Optio
     # identifies zip URLs and downloads them async
     pkg_download_paths = []
     for pkg_data in epr_data:
+        pkg_stack_version = Version.parse(pkg_data['conditions']['kibana']['version'].strip("^"))
+        if (pkg_stack_version.major, pkg_stack_version.minor) != \
+           (stack_version_parsed.major, stack_version_parsed.minor):
+            continue
         pkg_download_paths.append(epr_search_url.replace("/search", pkg_data["download"]))
     async_downloads = AsyncFileDownloads(pkg_download_paths, download_path)
     async_downloads.download_multiple_files()
