@@ -213,9 +213,9 @@ class EQLValidator(QueryValidator):
 
             if endgame_schema:
                 # validate query against the endgame schema
-                output = self.validate_query_with_schema(data=data, schema=endgame_schema, err_trailer=err_trailer)
-                if output:
-                    raise ValueError(f"Endgame Schema error: {output}")
+                exc = self.validate_query_with_schema(data=data, schema=endgame_schema, err_trailer=err_trailer)
+                if exc:
+                    raise exc
 
     def validate_integration(self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]) -> Union[
             EQL_ERROR_TYPES, None, ValueError]:
