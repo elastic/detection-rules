@@ -98,8 +98,6 @@ class KQLValidator(QueryValidator):
         current_stack_version = ""
         combined_schema = {}
         for integration_schema_data in get_integration_schema_data(data, meta, package_integrations):
-            if isinstance(integration_schema_data, ValueError):
-                return integration_schema_data
             ecs_version = integration_schema_data['ecs_version']
             integration = integration_schema_data['integration']
             package = integration_schema_data['package']
@@ -230,8 +228,6 @@ class EQLValidator(QueryValidator):
         current_stack_version = ""
         combined_schema = {}
         for integration_schema_data in get_integration_schema_data(data, meta, package_integrations):
-            if isinstance(integration_schema_data, (ValueError)):
-                return integration_schema_data
             ecs_version = integration_schema_data['ecs_version']
             integration = integration_schema_data['integration']
             package = integration_schema_data['package']

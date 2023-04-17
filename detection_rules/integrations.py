@@ -253,8 +253,7 @@ def find_latest_integration_version(integration: str, maturity: str, stack_versi
     return max([Version.parse(pkg["version"]) for pkg in existing_pkgs])
 
 
-def get_integration_schema_data(data, meta, package_integrations: dict) -> Union[
-        Generator[dict, None, None], ValueError]:
+def get_integration_schema_data(data, meta, package_integrations: dict) -> Generator[dict, None, None]:
     """Iterates over specified integrations from package-storage and combines schemas per version."""
 
     # lazy import to avoid circular import
@@ -305,7 +304,7 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Union
                         schema.update(integrations_schemas[package][package_version][dataset])
                 else:
                     if integration not in integrations_schemas[package][package_version]:
-                        yield ValueError(f"Integration {integration} not found in package {package} "
+                        raise ValueError(f"Integration {integration} not found in package {package} "
                                          f"version {package_version}")
                     schema = integrations_schemas[package][package_version][integration]
                 schema.update(ecs_schema)
