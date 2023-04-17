@@ -507,3 +507,165 @@ def name_to_title(name: str) -> str:
     """Convert a rule name to tile."""
     initial = re.sub(r'[^\w]|_', r'-', name.lower().strip())
     return re.sub(r'-{2,}', '-', initial).strip('-')
+
+
+class MD:
+    """A class for generating Markdown content."""
+
+    @classmethod
+    def bold_kv(cls, key: str, value: str):
+        """Return a bold key-value pair in Markdown."""
+        return f'**{key}**: {value}'
+
+    @classmethod
+    def description_list(cls, value: Dict[str, str], linesep='\n\n'):
+        """Create a description list in Markdown."""
+        return f'{linesep}'.join(f'**{k}**:\n\n{v}' for k, v in value.items())
+
+    @classmethod
+    def bulleted(cls, value: str, depth=1):
+        """Create a bulleted list item with a specified depth."""
+        return f'{"  " * (depth - 1)}* {value}'
+
+    @classmethod
+    def bulleted_list(cls, values: Iterable):
+        """Create a bulleted list from an iterable."""
+        return '* ' + '\n* '.join(values)
+
+    @classmethod
+    def code(cls, value: str, language='js'):
+        """Return a code block with the specified language."""
+        return f"```{language}\n{value}```"
+
+    @classmethod
+    def title(cls, depth: int, value: str):
+        """Create a title with the specified depth."""
+        return f'{"#" * depth} {value}'
+
+    @classmethod
+    def inline_anchor(cls, value: str):
+        """Create an inline anchor with the specified value."""
+        return f'<a id="{value}" />'
+
+    @classmethod
+    def table(cls, data: dict) -> str:
+        """Create a table from a dictionary."""
+        entries = [f'| {k} | {v}' for k, v in data.items()]
+        table = ['|---|---|'] + entries
+        return '\n'.join(table)
+
+
+class IntegrationRuleDetailMD:
+    """Generates a rule detail page in Markdown."""
+
+    def __init__(self, rule_id: str, rule: dict, changelog: Dict[str, dict], package_str: str):
+        """Initialize with rule ID, rule details, changelog, and package string.
+
+        >>> rule_file = "/rules/integrations/google_workspace/collection_google_drive_ownership_transferred_via_google_workspace.toml"
+        >>> rule = RuleCollection().load_file(Path(rule_file))
+        >>> rule_detail = IntegrationRuleDetailMD(rule.id, rule.contents.to_api_format(), {}, "test")
+        >>> rule_detail.generate()
+
+        """
+        self.rule_id = rule_id
+        self.rule = rule
+        self.changelog = changelog
+        self.package = package_str
+        self.rule_title = f'prebuilt-rule-{self.package}-{name_to_title(self.rule["name"])}'
+
+        # set some defaults
+        self.rule.setdefault('max_signals', 100)
+        self.rule.setdefault('interval', '5m')
+
+    def generate(self) -> str:
+        """Generate the rule detail page in Markdown."""
+        page = [
+            MD.title(1, self.rule["name"]),
+            '',
+            self.rule['description'],
+            '',
+            self.metadata_str(),
+            ''
+        ]
+        if 'note' in self.rule:
+            page.extend([self.guide_str(), ''])
+        if 'query' in self.rule:
+            page.extend([self.query_str(), ''])
+        if 'threat' in self.rule:
+            page.extend([self.threat_mapping_str(), ''])
+
+        return '\n'.join(page)
+
+    def metadata_str(self) -> str:
+        """Generate the metadata section for the rule detail page."""
+        fields = {
+            'type': 'Rule type',
+            'index': 'Rule indices',
+            'severity': 'Severity',
+            'risk_score': 'Risk score',
+            'interval': 'Runs every',
+            'from': 'Searches indices from',
+            'max_signals': 'Maximum alerts per execution',
+            'references': 'References',
+            'tags': 'Tags',
+            'version': 'Version',
+            'author': 'Rule authors',
+            'license': 'Rule license'
+        }
+        values = []
+
+        for field, friendly_name in fields.items():
+            value = self.rule.get(field) or self.changelog.get(field)
+            if isinstance(value, list):
+                str_value = MD.bulleted_list(value)
+            else:
+                str_value = str(value)
+
+            if field == 'from':
+                str_value += ' (Date Math format, see also rule schedule)'
+
+            values.append(MD.bold_kv(friendly_name, str_value))
+
+        return '\n\n'.join(values)
+
+    def guide_str(self) -> str:
+        """Generate the investigation guide section for the rule detail page."""
+        return f'{MD.title(2, "Investigation guide")}\n\n{MD.code(self.rule["note"], "markdown")}'
+
+    def query_str(self) -> str:
+        """Generate the rule query section for the rule detail page."""
+        return f'{MD.title(2, "Rule query")}\n\n{MD.code(self.rule["query"], "sql")}'
+
+    def threat_mapping_str(self) -> str:
+        """Generate the threat mapping section for the rule detail page."""
+        values = [MD.bold_kv('Framework', 'MITRE ATT&CK^TM^')]
+
+        for entry in self.rule['threat']:
+            tactic = entry['tactic']
+            entry_values = [
+                MD.bulleted('Tactic:'),
+                MD.bulleted(f'Name: {tactic["name"]}', depth=2),
+                MD.bulleted(f'ID: {tactic["id"]}', depth=2),
+                MD.bulleted(f'Reference URL: {tactic["reference"]}', depth=2)
+            ]
+            techniques = entry.get('technique', [])
+            for technique in techniques:
+                entry_values.extend([
+                    MD.bulleted('Technique:'),
+                    MD.bulleted(f'Name: {technique["name"]}', depth=3),
+                    MD.bulleted(f'ID: {technique["id"]}', depth=3),
+                    MD.bulleted(f'Reference URL: {technique["reference"]}', depth=3)
+                ])
+
+                subtechniques = technique.get('subtechnique', [])
+                for subtechnique in subtechniques:
+                    entry_values.extend([
+                        MD.bulleted('Sub-technique:'),
+                        MD.bulleted(f'Name: {subtechnique["name"]}', depth=4),
+                        MD.bulleted(f'ID: {subtechnique["id"]}', depth=4),
+                        MD.bulleted(f'Reference URL: {subtechnique["reference"]}', depth=4)
+                    ])
+
+            values.extend(entry_values)
+
+        return '\n'.join(values)
