@@ -15,6 +15,15 @@ from . import ecs, endgame
 from .integrations import get_integration_schema_data, load_integrations_manifests
 from .rule import QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents
 
+EQL_ERROR_TYPES = Union(eql.EqlCompileError,
+                        eql.EqlError,
+                        eql.EqlParseError,
+                        eql.EqlSchemaError,
+                        eql.EqlSemanticError,
+                        eql.EqlSyntaxError,
+                        eql.EqlTypeMismatchError)
+KQL_ERROR_TYPES = Union(kql.KqlCompileError, kql.KqlParseError)
+
 
 class KQLValidator(QueryValidator):
     """Specific fields for KQL query event types."""
@@ -54,7 +63,7 @@ class KQLValidator(QueryValidator):
             if(validation_checks["stack"] and validation_checks["integrations"]):
                 raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
 
-    def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> None:
+    def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> Union(KQL_ERROR_TYPES, None, TypeError):
         """Validate the query against ECS and beats schemas across stack combinations."""
         for stack_version, mapping in meta.get_validation_stack_versions().items():
             beats_version = mapping['beats']
@@ -78,7 +87,8 @@ class KQLValidator(QueryValidator):
                 print(err_trailer)
                 return exc
 
-    def validate_integration(self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]) -> None:
+    def validate_integration(self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]) -> Union(
+            KQL_ERROR_TYPES, None, TypeError):
         """Validate the query, called from the parent which contains [metadata] information."""
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
             # syntax only, which is done via self.ast
@@ -183,7 +193,7 @@ class EQLValidator(QueryValidator):
             if(validation_checks["stack"] and validation_checks["integrations"]):
                 raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
 
-    def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> None:
+    def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> Union(EQL_ERROR_TYPES, None, ValueError):
         """Validate the query against ECS and beats schemas across stack combinations."""
         for stack_version, mapping in meta.get_validation_stack_versions().items():
             beats_version = mapping['beats']
@@ -209,7 +219,8 @@ class EQLValidator(QueryValidator):
                 if output:
                     raise ValueError(f"Endgame Schema error: {output}")
 
-    def validate_integration(self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]) -> None:
+    def validate_integration(self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]) -> Union(
+            EQL_ERROR_TYPES, None, ValueError):
         """Validate an EQL query while checking TOMLRule against integration schemas."""
         if meta.query_schema_validation is False or meta.maturity == "deprecated":
             # syntax only, which is done via self.ast
@@ -271,7 +282,8 @@ class EQLValidator(QueryValidator):
             return exc
 
     def validate_query_with_schema(self, data: 'QueryRuleData', schema: Union[ecs.KqlSchema2Eql, endgame.EndgameSchema],
-                                   err_trailer: str, beat_types: list = None) -> None:
+                                   err_trailer: str, beat_types: list = None) -> Union(
+            EQL_ERROR_TYPES, ValueError, None):
         """Validate the query against the schema."""
         try:
             with schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
