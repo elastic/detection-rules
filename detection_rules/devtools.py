@@ -40,7 +40,8 @@ from .integrations import (build_integrations_manifest,
                            build_integrations_schemas,
                            find_latest_compatible_version,
                            find_latest_integration_version,
-                           load_integrations_manifests)
+                           load_integrations_manifests,
+                           SecurityDetectionEngine)
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
@@ -85,6 +86,7 @@ def dev_group():
 def build_release(config_file, update_version_lock: bool, generate_navigator: bool, release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
     config = load_dump(config_file)['package']
+
     if generate_navigator:
         config['generate_navigator'] = True
 
@@ -100,7 +102,10 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
         default_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
 
     package.save(verbose=verbose)
-
+    previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga", config['name'])
+    sde = SecurityDetectionEngine()
+    historical_rules = sde.load_integration_assets(previous_pkg_version)
+    package.add_historical_rules(historical_rules, config['registry_data']['version'])
     if verbose:
         package.get_package_hash(verbose=verbose)
         click.echo(f'- {len(package.rules)} rules included')
