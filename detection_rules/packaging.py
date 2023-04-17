@@ -474,13 +474,14 @@ class Package(object):
     def add_historical_rules(historical_rules: Dict[str, dict], manifest_version: str) -> None:
         """Adds historical rules to existing build package."""
         rules_dir = CURRENT_RELEASE_PATH / 'fleet' / manifest_version / 'kibana' / 'security_rule'
+
         for rule_id, historical_rule_contents in historical_rules.items():
             historical_rule_version = historical_rule_contents['attributes']['version']
             current_rule_path = rules_dir.glob(f"{rule_id}.json")
             current_rule_path_str = str(Path(*current_rule_path))
-            current_rule_json = json.loads(Path(current_rule_path_str).read_text(encoding="UTF-8"))
-            current_rule_version = current_rule_json['attributes']['version']
             if 'json' in current_rule_path_str:
+                current_rule_json = json.loads(Path(current_rule_path_str).read_text(encoding="UTF-8"))
+                current_rule_version = current_rule_json['attributes']['version']
                 if (historical_rule_version != current_rule_version):
                     historical_rule_path = rules_dir / Path(current_rule_path_str).name \
                         .replace(".json", f"_{historical_rule_contents['attributes']['version']}.json")
