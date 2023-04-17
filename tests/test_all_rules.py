@@ -516,8 +516,7 @@ class TestRuleMetadata(BaseRuleTest):
             self.fail(err_msg + '\n'.join(failures))
 
     def test_invalid_queries(self):
-        # invalid queries
-        invalid_queries = [
+        invalid_queries_eql = [
             """file where file.fake: (
                 "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem", "gpg.sig", "der", "key",
                 "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst", "pgp", "gpgz", "pfx", "crt",
@@ -532,7 +531,7 @@ class TestRuleMetadata(BaseRuleTest):
                         "ps2xml")
             """
         ]
-        invalid_integration_queries = [
+        invalid_integration_queries_eql = [
             """file where event.dataset == "google_workspace.drive" and event.action : ("copy", "view", "download") and
                     google_workspace.drive.fake: "people_with_link" and source.user.email == "" and
                     file.extension: (
@@ -542,7 +541,7 @@ class TestRuleMetadata(BaseRuleTest):
             """
         ]
 
-        valid_queries = [
+        valid_queries_eql = [
             """file where file.extension: (
                 "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem",
                 "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst",
@@ -558,7 +557,31 @@ class TestRuleMetadata(BaseRuleTest):
 
         ]
 
-        base_fields = {
+        invalid_queries_kql = [
+            """
+            event.fake:"google_workspace.admin" and event.action:"CREATE_DATA_TRANSFER_REQUEST"
+              and event.category:"iam" and google_workspace.admin.application.name:Drive*
+            """
+        ]
+        invalid_integration_queries_kql = [
+            """
+            event.dataset:"google_workspace.admin" and event.action:"CREATE_DATA_TRANSFER_REQUEST"
+              and event.category:"iam" and google_workspace.fake:Drive*
+            """
+        ]
+
+        valid_queries_kql = [
+            """
+            event.dataset:"google_workspace.admin" and event.action:"CREATE_DATA_TRANSFER_REQUEST"
+              and event.category:"iam" and google_workspace.admin.application.name:Drive*
+            """,
+            """
+            event.dataset:"google_workspace.admin" and event.action:"CREATE_DATA_TRANSFER_REQUEST"
+            """
+
+        ]
+
+        base_fields_eql = {
             "author": ["Elastic"],
             "description": "test description",
             "index": ["filebeat-*"],
@@ -571,7 +594,20 @@ class TestRuleMetadata(BaseRuleTest):
             "type": "eql"
         }
 
-        def build_rule(query):
+        base_fields_kql = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["filebeat-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query"
+        }
+
+        def build_rule(query: str, query_language: str):
             metadata = {
                 "creation_date": "1970/01/01",
                 "integration": ["google_workspace"],
@@ -580,21 +616,35 @@ class TestRuleMetadata(BaseRuleTest):
                 "maturity": "production",
                 "min_stack_version": load_current_package_version()
             }
-            data = base_fields.copy()
+            if query_language == "eql":
+                data = base_fields_eql.copy()
+            elif query_language == "kuery":
+                data = base_fields_kql.copy()
             data["query"] = query
             obj = {"metadata": metadata, "rule": data}
             return TOMLRuleContents.from_dict(obj)
+        # eql
+        for query in valid_queries_eql:
+            build_rule(query, "eql")
 
-        for query in valid_queries:
-            build_rule(query)
-
-        for query in invalid_queries:
+        for query in invalid_queries_eql:
             with self.assertRaises(eql.EqlSchemaError):
-                build_rule(query)
+                build_rule(query, "eql")
 
-        for query in invalid_integration_queries:
+        for query in invalid_integration_queries_eql:
             with self.assertRaises(ValueError):
-                build_rule(query)
+                build_rule(query, "eql")
+        # kql
+        for query in valid_queries_kql:
+            build_rule(query, "kuery")
+
+        for query in invalid_queries_kql:
+            with self.assertRaises(kql.KqlParseError):
+                build_rule(query, "kuery")
+
+        for query in invalid_integration_queries_kql:
+            with self.assertRaises(ValueError):
+                build_rule(query, "kuery")
 
     def test_event_dataset(self):
         for rule in self.all_rules:
