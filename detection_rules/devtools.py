@@ -157,6 +157,17 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
     return docs
 
 
+@dev_group.command('test-new-docs')
+def test_new_docs():
+    """Test the new docs."""
+    # load rules from /Users/stryker/Downloads/8.7.2-historical-rules.json as a json object
+    # obtained from SecurityDetectionEngine()
+    historical_rules = load_dump('/Users/stryker/Downloads/8.7.2-historical-rules.json')
+    package = RuleCollection().default()
+    docs = IntegrationSecurityDocsMD('8.7.0', Path('8.7.0'), True, historical_rules, package)
+    docs.generate()
+
+
 @dev_group.command("bump-pkg-versions")
 @click.option("--major-release", is_flag=True, help="bump the major version")
 @click.option("--minor-release", is_flag=True, help="bump the minor version")

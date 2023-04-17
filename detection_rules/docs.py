@@ -530,7 +530,7 @@ class MD:
     @classmethod
     def bulleted_list(cls, values: Iterable):
         """Create a bulleted list from an iterable."""
-        return '* ' + '\n* '.join(values)
+        return '\n* ' + '\n* '.join(values)
 
     @classmethod
     def code(cls, value: str, language='js'):
@@ -555,13 +555,169 @@ class MD:
         return '\n'.join(table)
 
 
+class IntegrationSecurityDocsMD:
+    """Generate docs for prebuilt rules in Elastic documentation using MDX."""
+
+    def __init__(self, registry_version: str, directory: Path, overwrite=False,
+                 historical_package: Optional[Dict[str, dict]] =
+                 None, new_package: Optional[Dict[str, TOMLRule]] = None):
+        self.historical_package = historical_package
+        self.new_package = new_package
+        self.new_rules = self.get_new_rules()
+        self.updated_rules = self.get_updated_rules()
+        self.deprecated_rules = self.get_deprecated_rules()
+        self.included_rules = list(itertools.chain(self.new_rules,
+                                                   self.updated_rules,
+                                                   self.deprecated_rules))
+
+        self.registry_version_str, self.base_name, self.prebuilt_rule_base = self.parse_registry(registry_version)
+        self.package_directory = directory / self.base_name
+
+        if overwrite:
+            shutil.rmtree(self.package_directory, ignore_errors=True)
+
+        self.package_directory.mkdir(parents=True, exist_ok=overwrite)
+
+    @staticmethod
+    def parse_registry(registry_version: str) -> (str, str, str):
+        registry_version = Version.parse(registry_version)
+        short_registry_version = [str(n) for n in registry_version[:3]]
+        registry_version_str = '.'.join(short_registry_version)
+        base_name = "-".join(short_registry_version)
+        prebuilt_rule_base = f'prebuilt-rule-{base_name}'
+
+        return registry_version_str, base_name, prebuilt_rule_base
+
+    def get_new_rules(self):
+        """Compare the rules from the new_package, against rules in the historical_package."""
+        new_rules = []
+        for rule in self.new_package.rules:
+            if rule.id not in self.historical_package.keys():
+                new_rules.append(rule)
+        return new_rules
+
+    def get_updated_rules(self):
+        """Compare the rules from the new_package, against rules in the historical_package for updated rules."""
+        updated_rules = []
+        for rule in self.new_package.rules:
+            if rule.id in self.historical_package.keys():
+
+                # check if rule.id_version is in historical_package
+                versioned_id = f'{rule.id}_{rule.contents.to_api_format()["version"]}'
+                if versioned_id not in self.historical_package.keys():
+                    updated_rules.append(rule)
+
+        return updated_rules
+
+    def get_deprecated_rules(self):
+        """Compare the rules from the new_package, against rules in the historical_package for deprecated rules."""
+
+        # if rule is in the historical but not in the current package, its deprecated
+        deprecated_rule_ids = []
+        deprecated_rules = []
+        for _, content in self.historical_package.items():
+            rule_id = content["attributes"]["rule_id"]
+            if rule_id in self.new_package.deprecated.id_map.keys():
+                deprecated_rule_ids.append(rule_id)
+
+        deprecated_rule_ids = list(set(deprecated_rule_ids))
+        for rule_id in deprecated_rule_ids:
+            deprecated_rules.append(self.new_package.deprecated.id_map[rule_id])
+
+        return deprecated_rules
+
+    def generate_appendix(self):
+        # appendix = self.package_directory / f'prebuilt-rules-{self.base_name}-appendix.md'
+
+        # appendix_header = textwrap.dedent(f"""
+        # <a id="prebuilt-rule-{self.base_name}-prebuilt-rules-{self.base_name}-appendix" />
+
+        # # Downloadable rule update v{self.registry_version_str}
+
+        # This section lists all updates associated with version {self.registry_version_str}""").lstrip()
+
+        # include_format = f'import {self.prebuilt_rule_base}' + '{} from \'./{}.md\''
+        # appendix_lines = [appendix_header] + [include_format.format(name_to_title(r.name), name_to_title(r.name))
+        #                                       for r in self.included_rules]
+        # appendix_str = '\n'.join(appendix_lines) + '\n'
+        # appendix.write_text(appendix_str)
+        pass
+
+    def generate_summary(self):
+        # summary = self.package_directory / f'prebuilt-rules-{self.base_name}-summary.md'
+
+        # summary_header = textwrap.dedent(f"""
+        # <a id="prebuilt-rule-{self.base_name}-prebuilt-rules-{self.base_name}-summary" />
+
+        # ## Update v{self.registry_version_str}
+
+        # This section lists all updates associated with version {self.registry_version_str}
+        #   of the Fleet integration *Prebuilt Security Detection Rules*.
+
+        # | Rule | Description | Status | Version
+        # |---|---|---|---|
+        # """).lstrip()
+
+        # rule_entries = []
+        # for rule in self.included_rules:
+        #     title_name = name_to_title(rule.name)
+        #     status = 'new' if rule.id in self.new_rules else 'update' if rule.id in self.updated_rules
+        #                                                                   else 'deprecated'
+        #     description = rule.contents.to_api_format()['description']
+        #     version = rule.contents.autobumped_version
+        #     rule_entries.append(f'| [{rule.name}](./{self.prebuilt_rule_base}-{title_name}.md) '
+        #                         f'| {description} | {status} | {version} \n')
+
+        # summary_lines = [summary_header] + rule_entries
+        # summary_str = '\n'.join(summary_lines) + '\n'
+        # summary.write_text(summary_str)
+        pass
+
+    def generate_rule_details(self):
+        for rule in self.included_rules:
+            rule_detail = IntegrationRuleDetailMD(rule.id, rule.contents.to_api_format(), {}, self.base_name)
+            rule_path = self.package_directory / f'{self.prebuilt_rule_base}-{name_to_title(rule.name)}.md'
+            rule_path.write_text(rule_detail.generate())
+
+    def generate_manual_updates(self):
+        # update_file = self.package_directory / 'manual-updates.json'
+        # updates = {}
+
+        # today = datetime.today().strftime('%d %b %Y')
+
+        # updates['detections/prebuilt-rules/prebuilt-rules-downloadable-updates.md'] = {
+        #     'update_table_entry': (f'| [{self.registry_version_str}](./{self.base_name}/'
+        #                         f'prebuilt-rules-{self.base_name}-summary.md) | {today} | {len(self.new_rules)} | '
+        #                         f'{len(self.updated_rules)} | '),
+        #     'update_table_include': (f'import {self.base_name}Summary from
+        #                                       \'./downloadable-packages/{self.base_name}/'
+        #                             f'prebuilt-rules-{self.base_name}-summary.md\'')
+        # }
+
+        # updates['index.md'] = {
+        #     'update_index_include': (f'import {self.base_name}Appendix from
+        #                              \'./detections/prebuilt-rules/downloadable-packages/{self.base_name}/'
+        #                             f'prebuilt-rules-{self.base_name}-appendix.md\'')
+        # }
+
+        # update_file.write_text(json.dumps(updates, indent=2))
+        pass
+
+    def generate(self) -> Path:
+        self.generate_appendix()
+        self.generate_summary()
+        self.generate_rule_details()
+        self.generate_manual_updates()
+        return self.package_directory
+
+
 class IntegrationRuleDetailMD:
     """Generates a rule detail page in Markdown."""
 
     def __init__(self, rule_id: str, rule: dict, changelog: Dict[str, dict], package_str: str):
         """Initialize with rule ID, rule details, changelog, and package string.
 
-        >>> rule_file = "/rules/integrations/google_workspace/collection_google_drive_ownership_transferred_via_google_workspace.toml"
+        >>> rule_file = "/path/to/rule.toml"
         >>> rule = RuleCollection().load_file(Path(rule_file))
         >>> rule_detail = IntegrationRuleDetailMD(rule.id, rule.contents.to_api_format(), {}, "test")
         >>> rule_detail.generate()
