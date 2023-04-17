@@ -48,12 +48,10 @@ class KQLValidator(QueryValidator):
                 # validate the query against related integration fields
                 validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
 
-            if(isinstance(validation_checks["stack"], (kql.KqlParseError, ValueError)) and not
-               package_integrations):
+            if(validation_checks["stack"] and not package_integrations):
                 raise validation_checks["stack"]
 
-            if(isinstance(validation_checks["stack"], (kql.KqlParseError, ValueError)) and isinstance(
-                    validation_checks["integrations"], (kql.KqlParseError, ValueError))):
+            if(validation_checks["stack"] and validation_checks["integrations"]):
                 raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> None:
@@ -76,9 +74,9 @@ class KQLValidator(QueryValidator):
 
                 return kql.KqlParseError(exc.error_msg, exc.line, exc.column, exc.source,
                                          len(exc.caret.lstrip()), trailer=trailer)
-            except Exception:
+            except Exception as exc:
                 print(err_trailer)
-                return Exception
+                return exc
 
     def validate_integration(self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]) -> None:
         """Validate the query, called from the parent which contains [metadata] information."""
@@ -90,7 +88,7 @@ class KQLValidator(QueryValidator):
         current_stack_version = ""
         combined_schema = {}
         for integration_schema_data in get_integration_schema_data(data, meta, package_integrations):
-            if isinstance(integration_schema_data, kql.KqlParseError):
+            if isinstance(integration_schema_data, ValueError):
                 return integration_schema_data
             ecs_version = integration_schema_data['ecs_version']
             integration = integration_schema_data['integration']
@@ -179,13 +177,10 @@ class EQLValidator(QueryValidator):
                 # validate the query against related integration fields
                 validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
 
-            if(isinstance(validation_checks["stack"], (eql.EqlSchemaError, ValueError,
-                                                       eql.EqlTypeMismatchError)) and not package_integrations):
+            if(validation_checks["stack"] and not package_integrations):
                 raise validation_checks["stack"]
 
-            if(isinstance(validation_checks["stack"], (eql.EqlSchemaError, ValueError,
-                                                       eql.EqlTypeMismatchError)) and isinstance(
-                    validation_checks["integrations"], (eql.EqlSchemaError, ValueError, eql.EqlTypeMismatchError))):
+            if(validation_checks["stack"] and validation_checks["integrations"]):
                 raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> None:
@@ -203,15 +198,15 @@ class EQLValidator(QueryValidator):
             eql_schema = ecs.KqlSchema2Eql(schema)
 
             # validate query against the beats and eql schema
-            output = self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer,
+            exc = self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer,
                                                      beat_types=beat_types)
-            if ("Error" in str(type(output))):
-                return output
+            if exc:
+                return exc
 
             if endgame_schema:
                 # validate query against the endgame schema
                 output = self.validate_query_with_schema(data=data, schema=endgame_schema, err_trailer=err_trailer)
-                if ("Error" in str(type(output))):
+                if output:
                     raise ValueError(f"Endgame Schema error: {output}")
 
     def validate_integration(self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]) -> None:
@@ -224,7 +219,7 @@ class EQLValidator(QueryValidator):
         current_stack_version = ""
         combined_schema = {}
         for integration_schema_data in get_integration_schema_data(data, meta, package_integrations):
-            if isinstance(integration_schema_data, (eql.EqlSchemaError, ValueError)):
+            if isinstance(integration_schema_data, (ValueError)):
                 return integration_schema_data
             ecs_version = integration_schema_data['ecs_version']
             integration = integration_schema_data['integration']
@@ -247,9 +242,9 @@ class EQLValidator(QueryValidator):
             err_trailer = f'stack: {stack_version}, integration: {integration},' \
                           f'ecs: {ecs_version}, package: {package}, package_version: {package_version}'
 
-            try:
-                self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer)
-            except eql.EqlParseError as exc:
+            exc = self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer)
+            
+            if(isinstance(exc, eql.EqlParseError)):
                 message = exc.error_msg
                 if message == "Unknown field" or "Field not recognized" in message:
                     field = extract_error_field(exc)
@@ -295,9 +290,9 @@ class EQLValidator(QueryValidator):
             return exc.__class__(exc.error_msg, exc.line, exc.column, exc.source,
                                  len(exc.caret.lstrip()), trailer=trailer)
 
-        except Exception:
+        except Exception as exc:
             print(err_trailer)
-            raise
+            return exc
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
