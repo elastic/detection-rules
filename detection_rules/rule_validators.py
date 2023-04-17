@@ -199,7 +199,7 @@ class EQLValidator(QueryValidator):
 
             # validate query against the beats and eql schema
             exc = self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer,
-                                                     beat_types=beat_types)
+                                                  beat_types=beat_types)
             if exc:
                 return exc
 
@@ -243,7 +243,7 @@ class EQLValidator(QueryValidator):
                           f'ecs: {ecs_version}, package: {package}, package_version: {package_version}'
 
             exc = self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer)
-            
+
             if(isinstance(exc, eql.EqlParseError)):
                 message = exc.error_msg
                 if message == "Unknown field" or "Field not recognized" in message:
