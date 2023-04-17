@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/27"
+updated_date = "2023/04/17"
 
 [transform]
 [[transform.osquery]]
@@ -139,22 +139,37 @@ network where host.os.type == "windows" and network.protocol == "dns" and
         "script.googleusercontent.com"
     ) and
     /* Insert noisy false positives here */
-    not process.executable :
-    (
-      "?:\\Program Files\\*.exe",
-      "?:\\Program Files (x86)\\*.exe",
-      "?:\\Windows\\System32\\WWAHost.exe",
-      "?:\\Windows\\System32\\smartscreen.exe",
-      "?:\\Windows\\System32\\MicrosoftEdgeCP.exe",
-      "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
-      "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
-      "?:\\Users\\*\\AppData\\Local\\Programs\\Fiddler\\Fiddler.exe",
-      "?:\\Users\\*\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
-      "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
-      "?:\\Windows\\system32\\mobsync.exe",
-      "?:\\Windows\\SysWOW64\\mobsync.exe",
-      "?:\\Users\\*\\AppData\\Local\\Discord\\app-*\\Discord.exe"
-    )
+    not (
+      process.executable : (
+        "?:\\Program Files\\*.exe",
+        "?:\\Program Files (x86)\\*.exe",
+        "?:\\Windows\\System32\\WWAHost.exe",
+        "?:\\Windows\\System32\\smartscreen.exe",
+        "?:\\Windows\\System32\\MicrosoftEdgeCP.exe",
+        "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
+        "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
+        "?:\\Users\\*\\AppData\\Local\\Programs\\Fiddler\\Fiddler.exe",
+        "?:\\Users\\*\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
+        "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
+        "?:\\Windows\\system32\\mobsync.exe",
+        "?:\\Windows\\SysWOW64\\mobsync.exe"
+      ) or
+    
+      /* Discord App */
+      (process.name : "Discord.exe" and (process.code_signature.subject_name : "Discord Inc." and
+       process.code_signature.trusted == "true") and not dns.question.name : ("discord.com", "cdn.discordapp.com", "discordapp.com")
+      ) or 
+
+      /* MS Sharepoint */
+      (process.name : "Microsoft.SharePoint.exe" and (process.code_signature.subject_name : "Microsoft Corporation" and
+       process.code_signature.trusted == "true") and not dns.question.name : "onedrive.live.com"
+      ) or 
+
+      /* Firefox */
+      (process.name : "firefox.exe" and (process.code_signature.subject_name : "Mozilla Corporation" and
+       process.code_signature.trusted == "true")
+      )
+    ) 
 '''
 
 
