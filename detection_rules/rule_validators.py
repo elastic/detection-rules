@@ -57,10 +57,10 @@ class KQLValidator(QueryValidator):
                 # validate the query against related integration fields
                 validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
 
-            if(validation_checks["stack"] and not package_integrations):
+            if (validation_checks["stack"] and not package_integrations):
                 raise validation_checks["stack"]
 
-            if(validation_checks["stack"] and validation_checks["integrations"]):
+            if (validation_checks["stack"] and validation_checks["integrations"]):
                 raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> Union[KQL_ERROR_TYPES, None, TypeError]:
@@ -185,10 +185,10 @@ class EQLValidator(QueryValidator):
                 # validate the query against related integration fields
                 validation_checks["integrations"] = self.validate_integration(data, meta, package_integrations)
 
-            if(validation_checks["stack"] and not package_integrations):
+            if validation_checks["stack"] and not package_integrations:
                 raise validation_checks["stack"]
 
-            if(validation_checks["stack"] and validation_checks["integrations"]):
+            if validation_checks["stack"] and validation_checks["integrations"]:
                 raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> Union[EQL_ERROR_TYPES, None, ValueError]:
@@ -251,7 +251,7 @@ class EQLValidator(QueryValidator):
 
             exc = self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer)
 
-            if(isinstance(exc, eql.EqlParseError)):
+            if isinstance(exc, eql.EqlParseError):
                 message = exc.error_msg
                 if message == "Unknown field" or "Field not recognized" in message:
                     field = extract_error_field(exc)
