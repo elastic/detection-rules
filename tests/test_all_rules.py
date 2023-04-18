@@ -7,6 +7,7 @@
 import os
 import re
 import unittest
+import uuid
 import warnings
 from collections import defaultdict
 from pathlib import Path
@@ -23,6 +24,7 @@ from detection_rules.packaging import current_stack_version
 from detection_rules.rule import (QueryRuleData, TOMLRuleContents,
                                   load_integrations_manifests, QueryValidator)
 from detection_rules.rule_loader import FILE_PATTERN
+from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_stack_schemas
 from detection_rules.utils import INTEGRATION_RULE_DIR, get_path, load_etc_dump, PatchedTemplate
 from detection_rules.version_lock import default_version_lock
@@ -512,6 +514,163 @@ class TestRuleMetadata(BaseRuleTest):
                     - `python -m detection_rules dev integrations build-manifests`\n
                 """
             self.fail(err_msg + '\n'.join(failures))
+
+    def test_invalid_queries(self):
+        invalid_queries_eql = [
+            """file where file.fake: (
+                "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem", "gpg.sig", "der", "key",
+                "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst", "pgp", "gpgz", "pfx", "crt",
+                "p8", "sig", "pkcs7", "jceks", "pkcs8", "psc1", "p7c", "csr", "cer", "spc", "ps2xml")
+            """
+        ]
+        invalid_integration_queries_eql = [
+            """file where event.dataset == "google_workspace.drive" and event.action : ("copy", "view", "download") and
+                    google_workspace.drive.fake: "people_with_link" and source.user.email == "" and
+                    file.extension: (
+                        "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem", "gpg.sig", "der", "key",
+                        "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst", "pgp", "gpgz", "pfx",
+                        "crt", "p8", "sig", "pkcs7", "jceks", "pkcs8", "psc1", "p7c", "csr", "cer", "spc", "ps2xml")
+            """,
+            """file where event.dataset == "google_workspace.drive" and event.action : ("copy", "view", "download") and
+                    google_workspace.drive.visibility: "people_with_link" and source.user.email == "" and
+                    file.fake: (
+                        "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem", "gpg.sig", "der", "key",
+                        "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst", "pgp", "gpgz",
+                        "pfx", "crt", "p8", "sig", "pkcs7", "jceks", "pkcs8", "psc1", "p7c", "csr", "cer", "spc",
+                        "ps2xml")
+            """
+        ]
+
+        valid_queries_eql = [
+            """file where file.extension: (
+                "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem",
+                "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst",
+                "p8", "sig", "pkcs7", "jceks", "pkcs8", "psc1", "p7c", "csr", "cer")
+            """,
+            """file where event.dataset == "google_workspace.drive" and event.action : ("copy", "view", "download") and
+                    google_workspace.drive.visibility: "people_with_link" and source.user.email == "" and
+                    file.extension: (
+                        "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem", "gpg.sig", "der", "key",
+                        "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst", "pgp", "gpgz", "pfx",
+                        "p8", "sig", "pkcs7", "jceks", "pkcs8", "psc1", "p7c", "csr", "cer", "spc", "ps2xml")
+            """
+
+        ]
+
+        invalid_queries_kql = [
+            """
+            event.fake:"google_workspace.admin" and event.action:"CREATE_DATA_TRANSFER_REQUEST"
+              and event.category:"iam" and google_workspace.admin.application.name:Drive*
+            """
+        ]
+        invalid_integration_queries_kql = [
+            """
+            event.dataset:"google_workspace.admin" and event.action:"CREATE_DATA_TRANSFER_REQUEST"
+              and event.category:"iam" and google_workspace.fake:Drive*
+            """
+        ]
+
+        valid_queries_kql = [
+            """
+            event.dataset:"google_workspace.admin" and event.action:"CREATE_DATA_TRANSFER_REQUEST"
+              and event.category:"iam" and google_workspace.admin.application.name:Drive*
+            """,
+            """
+            event.dataset:"google_workspace.admin" and event.action:"CREATE_DATA_TRANSFER_REQUEST"
+            """
+
+        ]
+
+        base_fields_eql = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["filebeat-*"],
+            "language": "eql",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "eql"
+        }
+
+        base_fields_kql = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["filebeat-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query"
+        }
+
+        def build_rule(query: str, query_language: str):
+            metadata = {
+                "creation_date": "1970/01/01",
+                "integration": ["google_workspace"],
+                "updated_date": "1970/01/01",
+                "query_schema_validation": True,
+                "maturity": "production",
+                "min_stack_version": load_current_package_version()
+            }
+            if query_language == "eql":
+                data = base_fields_eql.copy()
+            elif query_language == "kuery":
+                data = base_fields_kql.copy()
+            data["query"] = query
+            obj = {"metadata": metadata, "rule": data}
+            return TOMLRuleContents.from_dict(obj)
+        # eql
+        for query in valid_queries_eql:
+            build_rule(query, "eql")
+
+        for query in invalid_queries_eql:
+            with self.assertRaises(eql.EqlSchemaError):
+                build_rule(query, "eql")
+
+        for query in invalid_integration_queries_eql:
+            with self.assertRaises(ValueError):
+                build_rule(query, "eql")
+        # kql
+        for query in valid_queries_kql:
+            build_rule(query, "kuery")
+
+        for query in invalid_queries_kql:
+            with self.assertRaises(kql.KqlParseError):
+                build_rule(query, "kuery")
+
+        for query in invalid_integration_queries_kql:
+            with self.assertRaises(ValueError):
+                build_rule(query, "kuery")
+
+    def test_event_dataset(self):
+        for rule in self.all_rules:
+            if(isinstance(rule.contents.data, QueryRuleData)):
+                # Need to pick validator based on language
+                if rule.contents.data.language == "kuery":
+                    test_validator = KQLValidator(rule.contents.data.query)
+                if rule.contents.data.language == "eql":
+                    test_validator = EQLValidator(rule.contents.data.query)
+                data = rule.contents.data
+                meta = rule.contents.metadata
+                if meta.query_schema_validation is not False or meta.maturity != "deprecated":
+                    if isinstance(data, QueryRuleData) and data.language != 'lucene':
+                        packages_manifest = load_integrations_manifests()
+                        pkg_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
+
+                        validation_integrations_check = None
+
+                        if pkg_integrations:
+                            # validate the query against related integration fields
+                            validation_integrations_check = test_validator.validate_integration(data,
+                                                                                                meta,
+                                                                                                pkg_integrations)
+
+                        if(validation_integrations_check and "event.dataset" in rule.contents.data.query):
+                            raise validation_integrations_check
 
 
 class TestIntegrationRules(BaseRuleTest):
