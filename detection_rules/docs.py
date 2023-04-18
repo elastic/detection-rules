@@ -603,7 +603,11 @@ class IntegrationSecurityDocsMD:
             if rule.id in self.historical_package.keys():
 
                 # check if rule.id_version is in historical_package
-                versioned_id = f'{rule.id}_{rule.contents.to_api_format()["version"]}'
+                latest_version = rule.contents.to_api_format()["version"]
+                if latest_version == self.historical_package[rule.id]["attributes"]["version"]:
+                    continue
+
+                versioned_id = f'{rule.id}_{latest_version}'
                 if versioned_id not in self.historical_package.keys():
                     updated_rules.append(rule)
 
@@ -626,60 +630,45 @@ class IntegrationSecurityDocsMD:
 
         return deprecated_rules
 
-    def generate_appendix(self):
-        # appendix = self.package_directory / f'prebuilt-rules-{self.base_name}-appendix.md'
+    def generate_update_summary(self):
+        """Generate a summary of all available current rules for the latest package."""
+        summary = self.package_directory / f'prebuilt-rules-{self.base_name}-summary.md'
 
-        # appendix_header = textwrap.dedent(f"""
-        # <a id="prebuilt-rule-{self.base_name}-prebuilt-rules-{self.base_name}-appendix" />
+        summary_header = textwrap.dedent(f"""
+        ## Update v{self.registry_version_str}
 
-        # # Downloadable rule update v{self.registry_version_str}
+        This section lists all updates associated with version {self.registry_version_str}
+            of the Fleet integration *Prebuilt Security Detection Rules*.
 
-        # This section lists all updates associated with version {self.registry_version_str}""").lstrip()
+        | Rule | Description | Status | Version
+        |---|---|---|---|
+        """).lstrip()
 
-        # include_format = f'import {self.prebuilt_rule_base}' + '{} from \'./{}.md\''
-        # appendix_lines = [appendix_header] + [include_format.format(name_to_title(r.name), name_to_title(r.name))
-        #                                       for r in self.included_rules]
-        # appendix_str = '\n'.join(appendix_lines) + '\n'
-        # appendix.write_text(appendix_str)
-        pass
+        rule_entries = []
+        new_rule_id_list = [rule.id for rule in self.new_rules]
+        updated_rule_id_list = [rule.id for rule in self.updated_rules]
+        for rule in self.included_rules:
+            title_name = name_to_title(rule.name)
+            status = 'new' if rule.id in new_rule_id_list else 'update' if rule.id in updated_rule_id_list \
+                else 'deprecated'
+            to_api_format = rule.contents.to_api_format()
+            rule_entries.append(f'| [{title_name}]({self.prebuilt_rule_base}-{rule.id}.md) | '
+                                f'{to_api_format["description"]} | {status} | '
+                                f'{to_api_format["version"]}')
 
-    def generate_summary(self):
-        # summary = self.package_directory / f'prebuilt-rules-{self.base_name}-summary.md'
+        rule_entries = sorted(rule_entries)
+        rule_entries = '\n'.join(rule_entries)
 
-        # summary_header = textwrap.dedent(f"""
-        # <a id="prebuilt-rule-{self.base_name}-prebuilt-rules-{self.base_name}-summary" />
-
-        # ## Update v{self.registry_version_str}
-
-        # This section lists all updates associated with version {self.registry_version_str}
-        #   of the Fleet integration *Prebuilt Security Detection Rules*.
-
-        # | Rule | Description | Status | Version
-        # |---|---|---|---|
-        # """).lstrip()
-
-        # rule_entries = []
-        # for rule in self.included_rules:
-        #     title_name = name_to_title(rule.name)
-        #     status = 'new' if rule.id in self.new_rules else 'update' if rule.id in self.updated_rules
-        #                                                                   else 'deprecated'
-        #     description = rule.contents.to_api_format()['description']
-        #     version = rule.contents.autobumped_version
-        #     rule_entries.append(f'| [{rule.name}](./{self.prebuilt_rule_base}-{title_name}.md) '
-        #                         f'| {description} | {status} | {version} \n')
-
-        # summary_lines = [summary_header] + rule_entries
-        # summary_str = '\n'.join(summary_lines) + '\n'
-        # summary.write_text(summary_str)
-        pass
+        summary.write_text(summary_header + rule_entries)
 
     def generate_rule_details(self):
+        """Generate a markdown file for each rule."""
         for rule in self.included_rules:
             rule_detail = IntegrationRuleDetailMD(rule.id, rule.contents.to_api_format(), {}, self.base_name)
             rule_path = self.package_directory / f'{self.prebuilt_rule_base}-{name_to_title(rule.name)}.md'
             rule_path.write_text(rule_detail.generate())
 
-    def generate_manual_updates(self):
+    def generate_downloadable_updates_summary(self):
         # update_file = self.package_directory / 'manual-updates.json'
         # updates = {}
 
@@ -704,10 +693,17 @@ class IntegrationSecurityDocsMD:
         pass
 
     def generate(self) -> Path:
-        self.generate_appendix()
-        self.generate_summary()
-        self.generate_rule_details()
-        self.generate_manual_updates()
+        """Generate the updates."""
+
+        # generate all the rules as markdown files
+        # self.generate_rule_details()
+
+        # generate the rule summary of changes within a package
+        self.generate_update_summary()
+
+        # generate the package summary that lists all downloadable packages
+        self.generate_downloadable_updates_summary()
+
         return self.package_directory
 
 
