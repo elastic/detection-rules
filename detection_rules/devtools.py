@@ -83,9 +83,12 @@ def dev_group():
 @click.option('--update-version-lock', '-u', is_flag=True,
               help='Save version.lock.json file with updated rule versions in the package')
 @click.option('--generate-navigator', is_flag=True, help='Generate ATT&CK navigator files')
-def build_release(config_file, update_version_lock: bool, generate_navigator: bool, release=None, verbose=True):
+@click.option('--add-historical', type=str, required=True, help='Generate historical package-registry files')
+def build_release(config_file, update_version_lock: bool, generate_navigator: bool, add_historical: str,
+                  release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
     config = load_dump(config_file)['package']
+    add_historical = True if add_historical == "yes" else False
 
     if generate_navigator:
         config['generate_navigator'] = True
@@ -96,17 +99,18 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     if verbose:
         click.echo(f'[+] Building package {config.get("name")}')
 
-    package = Package.from_config(config, verbose=verbose)
+    package = Package.from_config(config, verbose=verbose, historical=add_historical)
 
     if update_version_lock:
         default_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
 
     package.save(verbose=verbose)
-
-    previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga", config['name'])
-    sde = SecurityDetectionEngine()
-    historical_rules = sde.load_integration_assets(previous_pkg_version)
-    package.add_historical_rules(historical_rules, config['registry_data']['version'])
+    if add_historical:
+        previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga", config['name'])
+        sde = SecurityDetectionEngine()
+        historical_rules = sde.load_integration_assets(previous_pkg_version)
+        historical_rules = {f"{x['id']}_{x['attributes']['version']}": x for x in historical_rules.values()}
+        package.add_historical_rules(historical_rules, config['registry_data']['version'])
 
     if verbose:
         package.get_package_hash(verbose=verbose)

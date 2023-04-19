@@ -77,7 +77,7 @@ class Package(object):
     def __init__(self, rules: RuleCollection, name: str, release: Optional[bool] = False,
                  min_version: Optional[int] = None, max_version: Optional[int] = None,
                  registry_data: Optional[dict] = None, verbose: Optional[bool] = True,
-                 generate_navigator: bool = False):
+                 generate_navigator: bool = False, historical: bool = False):
         """Initialize a package."""
         self.name = name
         self.rules = rules
@@ -85,6 +85,7 @@ class Package(object):
         self.release = release
         self.registry_data = registry_data or {}
         self.generate_navigator = generate_navigator
+        self.historical = historical
 
         if min_version is not None:
             self.rules = self.rules.filter(lambda r: min_version <= r.contents.latest_version)
@@ -221,7 +222,7 @@ class Package(object):
         return sha256
 
     @classmethod
-    def from_config(cls, config: dict = None, verbose: bool = False) -> 'Package':
+    def from_config(cls, config: dict = None, verbose: bool = False, historical: bool = False) -> 'Package':
         """Load a rules package given a config."""
         all_rules = RuleCollection.default()
         config = config or {}
@@ -238,7 +239,7 @@ class Package(object):
         if verbose:
             click.echo(f' - {len(all_rules) - len(rules)} rules excluded from package')
 
-        package = cls(rules, verbose=verbose, **config)
+        package = cls(rules, verbose=verbose, historical=historical, **config)
 
         return package
 
@@ -399,8 +400,12 @@ class Package(object):
         # shutil.copyfile(CHANGELOG_FILE, str(rules_dir.joinpath('CHANGELOG.json')))
 
         for rule in self.rules:
-            asset_path = rules_dir / f'{rule.id}.json'
-            asset_path.write_text(json.dumps(rule.get_asset(), indent=4, sort_keys=True), encoding="utf-8")
+            asset = rule.get_asset()
+            if self.historical:
+                asset_path = rules_dir / f'{asset["id"]}_{asset["attributes"]["version"]}.json'
+            else:
+                asset_path = rules_dir / f'{asset["id"]}.json'
+            asset_path.write_text(json.dumps(asset, indent=4, sort_keys=True), encoding="utf-8")
 
         notice_contents = Path(NOTICE_FILE).read_text()
         readme_text = textwrap.dedent("""
@@ -471,20 +476,20 @@ class Package(object):
         return bulk_upload_docs, importable_rules_docs
 
     @staticmethod
-    def add_historical_rules(historical_rules: Dict[str, dict], manifest_version: str) -> None:
+    def add_historical_rules(historical_rules: Dict[str, dict], manifest_version: str) -> list:
         """Adds historical rules to existing build package."""
         rules_dir = CURRENT_RELEASE_PATH / 'fleet' / manifest_version / 'kibana' / 'security_rule'
-
         for rule_id, historical_rule_contents in historical_rules.items():
-            historical_rule_version = historical_rule_contents['attributes']['version']
-            current_rule_path = rules_dir.glob(f"{rule_id}.json")
-            current_rule_path_str = str(Path(*current_rule_path))
-            if 'json' in current_rule_path_str:
-                current_rule_json = json.loads(Path(current_rule_path_str).read_text(encoding="UTF-8"))
+                rule_id = historical_rule_contents["id"]
+                historical_rule_version = historical_rule_contents['attributes']['version']
+                current_rule_path = list(rules_dir.glob(f"{rule_id}*.json"))
+                if not current_rule_path:
+                    continue
+                current_rule_path = current_rule_path[0]
+                current_rule_json = json.load(current_rule_path.open(encoding="UTF-8"))
                 current_rule_version = current_rule_json['attributes']['version']
-                if (historical_rule_version != current_rule_version):
-                    historical_rule_path = rules_dir / Path(current_rule_path_str).name \
-                        .replace(".json", f"_{historical_rule_contents['attributes']['version']}.json")
+                if historical_rule_version != current_rule_version:
+                    historical_rule_path = rules_dir / f"{rule_id}.json"
                     with historical_rule_path.open("w", encoding="UTF-8") as file:
                         json.dump(historical_rule_contents, file)
 
