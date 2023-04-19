@@ -480,18 +480,18 @@ class Package(object):
         """Adds historical rules to existing build package."""
         rules_dir = CURRENT_RELEASE_PATH / 'fleet' / manifest_version / 'kibana' / 'security_rule'
         for rule_id, historical_rule_contents in historical_rules.items():
-                rule_id = historical_rule_contents["id"]
-                historical_rule_version = historical_rule_contents['attributes']['version']
-                current_rule_path = list(rules_dir.glob(f"{rule_id}*.json"))
-                if not current_rule_path:
-                    continue
-                current_rule_path = current_rule_path[0]
-                current_rule_json = json.load(current_rule_path.open(encoding="UTF-8"))
-                current_rule_version = current_rule_json['attributes']['version']
-                if historical_rule_version != current_rule_version:
-                    historical_rule_path = rules_dir / f"{rule_id}.json"
-                    with historical_rule_path.open("w", encoding="UTF-8") as file:
-                        json.dump(historical_rule_contents, file)
+            rule_id = historical_rule_contents["id"]
+            historical_rule_version = historical_rule_contents['attributes']['version']
+            current_rule_path = list(rules_dir.glob(f"{rule_id}*.json"))
+            if not current_rule_path:
+                continue
+            current_rule_path = current_rule_path[0]
+            current_rule_json = json.load(current_rule_path.open(encoding="UTF-8"))
+            current_rule_version = current_rule_json['attributes']['version']
+            if historical_rule_version != current_rule_version:
+                historical_rule_path = rules_dir / f"{rule_id}.json"
+                with historical_rule_path.open("w", encoding="UTF-8") as file:
+                    json.dump(historical_rule_contents, file)
 
 
 @cached
