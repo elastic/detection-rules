@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -32,7 +32,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
   (process.pe.original_file_name == "wuauclt.exe" or process.name : "wuauclt.exe") and
    /* necessary windows update client args to load a dll */
    process.args : "/RunHandlerComServer" and process.args : "/UpdateDeploymentProvider" and
