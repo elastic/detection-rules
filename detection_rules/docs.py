@@ -513,6 +513,11 @@ class MDX:
     """A class for generating Markdown content."""
 
     @classmethod
+    def bold(cls, value: str):
+        """Return a bold str in Markdown."""
+        return f'**{value}**'
+
+    @classmethod
     def bold_kv(cls, key: str, value: str):
         """Return a bold key-value pair in Markdown."""
         return f'**{key}**: {value}'
@@ -563,12 +568,10 @@ class IntegrationSecurityDocsMDX:
                  None, new_package: Optional[Dict[str, TOMLRule]] = None):
         self.historical_package = historical_package
         self.new_package = new_package
-        self.new_rules = self.get_new_rules()
-        self.updated_rules = self.get_updated_rules()
-        self.deprecated_rules = self.get_deprecated_rules()
-        self.included_rules = list(itertools.chain(self.new_rules,
-                                                   self.updated_rules,
-                                                   self.deprecated_rules))
+        self.rule_changes = self.get_rule_changes()
+        self.included_rules = list(itertools.chain(self.rule_changes["new"],
+                                                   self.rule_changes["updated"],
+                                                   self.rule_changes["deprecated"]))
 
         self.registry_version_str, self.base_name, self.prebuilt_rule_base = self.parse_registry(registry_version)
         self.package_directory = directory / self.base_name
@@ -588,37 +591,29 @@ class IntegrationSecurityDocsMDX:
 
         return registry_version_str, base_name, prebuilt_rule_base
 
-    def get_new_rules(self):
-        """Compare the rules from the new_package, against rules in the historical_package."""
-        new_rules = []
+    def get_rule_changes(self):
+        """Compare the rules from the new_package against rules in the historical_package."""
+
+        rule_changes = defaultdict(list)
+        rule_changes["new"], rule_changes["updated"], rule_changes["deprecated"] = [], [], []
+
+        historical_rule_ids = set(self.historical_package.keys())
+
+        # Identify new and updated rules
         for rule in self.new_package.rules:
-            if rule.id not in self.historical_package.keys():
-                new_rules.append(rule)
-        return new_rules
+            rule_to_api_format = rule.contents.to_api_format()
 
-    def get_updated_rules(self):
-        """Compare the rules from the new_package, against rules in the historical_package for updated rules."""
-        updated_rules = []
-        for rule in self.new_package.rules:
-            if rule.id in self.historical_package.keys():
+            latest_version = rule_to_api_format["version"]
+            rule_id = f'{rule.id}_{latest_version}'
 
-                # check if rule.id_version is in historical_package
-                latest_version = rule.contents.to_api_format()["version"]
-                if latest_version == self.historical_package[rule.id]["attributes"]["version"]:
-                    continue
+            if rule_id not in historical_rule_ids and latest_version == 1:
+                rule_changes['new'].append(rule)
+            elif rule_id not in historical_rule_ids:
+                rule_changes['updated'].append(rule)
 
-                versioned_id = f'{rule.id}_{latest_version}'
-                if versioned_id not in self.historical_package.keys():
-                    updated_rules.append(rule)
-
-        return updated_rules
-
-    def get_deprecated_rules(self):
-        """Compare the rules from the new_package, against rules in the historical_package for deprecated rules."""
-
+        # Identify deprecated rules
         # if rule is in the historical but not in the current package, its deprecated
         deprecated_rule_ids = []
-        deprecated_rules = []
         for _, content in self.historical_package.items():
             rule_id = content["attributes"]["rule_id"]
             if rule_id in self.new_package.deprecated.id_map.keys():
@@ -626,18 +621,18 @@ class IntegrationSecurityDocsMDX:
 
         deprecated_rule_ids = list(set(deprecated_rule_ids))
         for rule_id in deprecated_rule_ids:
-            deprecated_rules.append(self.new_package.deprecated.id_map[rule_id])
+            rule_changes['deprecated'].append(self.new_package.deprecated.id_map[rule_id])
 
-        return deprecated_rules
+        return dict(rule_changes)
 
-    def generate_rule_summary(self):
+    def generate_current_rule_summary(self):
         """Generate a summary of all available current rules in the latest package."""
-        summary = self.package_directory / 'prebuilt-rules-all-available-summary.mdx'
+        summary = self.package_directory / f'prebuilt-rules-{self.base_name}-all-available-summary.mdx'
 
         summary_header = textwrap.dedent(f"""
-        ## Update v{self.registry_version_str}
-        This section lists all rules and current status with latest package version {self.registry_version_str}
-            of the Fleet integration *Prebuilt Security Detection Rules*.
+        ## Latest rules for Stack Version ^{self.registry_version_str}
+        This section lists all available rules supporting latest package version {self.registry_version_str}
+            and greater of the Fleet integration *Prebuilt Security Detection Rules*.
 
         | Rule | Description | Tags | Version
         |---|---|---|---|
@@ -648,7 +643,7 @@ class IntegrationSecurityDocsMDX:
             title_name = name_to_title(rule.name)
             to_api_format = rule.contents.to_api_format()
             tags = ", ".join(to_api_format["tags"])
-            rule_entries.append(f'| [{title_name}]({self.prebuilt_rule_base}-{rule.id}.mdx) | '
+            rule_entries.append(f'| [{title_name}](rules/{self.prebuilt_rule_base}-{name_to_title(rule.name)}.mdx) | '
                                 f'{to_api_format["description"]} | {tags} | '
                                 f'{to_api_format["version"]}')
 
@@ -659,10 +654,10 @@ class IntegrationSecurityDocsMDX:
 
     def generate_update_summary(self):
         """Generate a summary of all rule updates based on the latest package."""
-        summary = self.package_directory / f'prebuilt-rules-{self.base_name}-summary.mdx'
+        summary = self.package_directory / f'prebuilt-rules-{self.base_name}-update-summary.mdx'
 
         summary_header = textwrap.dedent(f"""
-        ## Update v{self.registry_version_str}
+        ## Current Available Rules
         This section lists all updates associated with version {self.registry_version_str}
             of the Fleet integration *Prebuilt Security Detection Rules*.
 
@@ -671,14 +666,14 @@ class IntegrationSecurityDocsMDX:
         """).lstrip()
 
         rule_entries = []
-        new_rule_id_list = [rule.id for rule in self.new_rules]
-        updated_rule_id_list = [rule.id for rule in self.updated_rules]
+        new_rule_id_list = [rule.id for rule in self.rule_changes["new"]]
+        updated_rule_id_list = [rule.id for rule in self.rule_changes["updated"]]
         for rule in self.included_rules:
             title_name = name_to_title(rule.name)
             status = 'new' if rule.id in new_rule_id_list else 'update' if rule.id in updated_rule_id_list \
                 else 'deprecated'
             to_api_format = rule.contents.to_api_format()
-            rule_entries.append(f'| [{title_name}]({self.prebuilt_rule_base}-{rule.id}.mdx) | '
+            rule_entries.append(f'| [{title_name}](rules/{self.prebuilt_rule_base}-{name_to_title(rule.name)}.mdx) | '
                                 f'{to_api_format["description"]} | {status} | '
                                 f'{to_api_format["version"]}')
 
@@ -689,9 +684,11 @@ class IntegrationSecurityDocsMDX:
 
     def generate_rule_details(self):
         """Generate a markdown file for each rule."""
+        rules_dir = self.package_directory / "rules"
+        rules_dir.mkdir(exist_ok=True)
         for rule in self.new_package.rules:
             rule_detail = IntegrationRuleDetailMDX(rule.id, rule.contents.to_api_format(), {}, self.base_name)
-            rule_path = self.package_directory / f'{self.prebuilt_rule_base}-{name_to_title(rule.name)}.mdx'
+            rule_path = rules_dir / f'{self.prebuilt_rule_base}-{name_to_title(rule.name)}.mdx'
             rule_path.write_text(rule_detail.generate())
 
     def generate_downloadable_updates_summary(self):
@@ -722,16 +719,16 @@ class IntegrationSecurityDocsMDX:
         """Generate the updates."""
 
         # generate all the rules as markdown files
-        # self.generate_rule_details()
+        self.generate_rule_details()
 
         # generate the rule summary of changes within a package
         self.generate_update_summary()
 
         # generate the package summary that lists all downloadable packages
-        self.generate_downloadable_updates_summary()
+        # self.generate_downloadable_updates_summary()
 
         # generate the overview that lists all current available rules
-        self.generate_rule_summary()
+        self.generate_current_rule_summary()
 
 
         return self.package_directory
@@ -825,7 +822,7 @@ class IntegrationRuleDetailMDX:
         for entry in self.rule['threat']:
             tactic = entry['tactic']
             entry_values = [
-                MDX.bulleted('Tactic:'),
+                MDX.bulleted(MDX.bold('Tactic:')),
                 MDX.bulleted(f'Name: {tactic["name"]}', depth=2),
                 MDX.bulleted(f'ID: {tactic["id"]}', depth=2),
                 MDX.bulleted(f'Reference URL: {tactic["reference"]}', depth=2)
@@ -843,8 +840,8 @@ class IntegrationRuleDetailMDX:
                 for subtechnique in subtechniques:
                     entry_values.extend([
                         MDX.bulleted('Sub-technique:'),
-                        MDX.bulleted(f'Name: {subtechnique["name"]}', depth=4),
-                        MDX.bulleted(f'ID: {subtechnique["id"]}', depth=4),
+                        MDX.bulleted(f'Name: {subtechnique["name"]}', depth=3),
+                        MDX.bulleted(f'ID: {subtechnique["id"]}', depth=3),
                         MDX.bulleted(f'Reference URL: {subtechnique["reference"]}', depth=4)
                     ])
 

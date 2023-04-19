@@ -162,9 +162,9 @@ def test_new_docs():
     """Test the new docs."""
     # load rules from /Users/stryker/Downloads/8.7.2-historical-rules.json as a json object
     # obtained from SecurityDetectionEngine()
-    historical_rules = load_dump('/Users/stryker/Downloads/8.7.2-historical-rules.json')
+    historical_rules = load_dump('/Users/stryker/Downloads/8.7.2-historical-rules-2.json')
     package = RuleCollection().default()
-    docs = IntegrationSecurityDocsMDX('8.7.0', Path('8.7.0'), True, historical_rules, package)
+    docs = IntegrationSecurityDocsMDX('8.7.0', Path('8.7.0/updates'), True, historical_rules, package)
     docs.generate()
 
 
