@@ -509,7 +509,7 @@ def name_to_title(name: str) -> str:
     return re.sub(r'-{2,}', '-', initial).strip('-')
 
 
-class MD:
+class MDX:
     """A class for generating Markdown content."""
 
     @classmethod
@@ -555,7 +555,7 @@ class MD:
         return '\n'.join(table)
 
 
-class IntegrationSecurityDocsMD:
+class IntegrationSecurityDocsMDX:
     """Generate docs for prebuilt rules in Elastic documentation using MDX."""
 
     def __init__(self, registry_version: str, directory: Path, overwrite=False,
@@ -630,13 +630,39 @@ class IntegrationSecurityDocsMD:
 
         return deprecated_rules
 
-    def generate_update_summary(self):
-        """Generate a summary of all available current rules for the latest package."""
-        summary = self.package_directory / f'prebuilt-rules-{self.base_name}-summary.md'
+    def generate_rule_summary(self):
+        """Generate a summary of all available current rules in the latest package."""
+        summary = self.package_directory / 'prebuilt-rules-all-available-summary.mdx'
 
         summary_header = textwrap.dedent(f"""
         ## Update v{self.registry_version_str}
+        This section lists all rules and current status with latest package version {self.registry_version_str}
+            of the Fleet integration *Prebuilt Security Detection Rules*.
 
+        | Rule | Description | Tags | Version
+        |---|---|---|---|
+        """).lstrip()
+
+        rule_entries = []
+        for rule in self.new_package.rules:
+            title_name = name_to_title(rule.name)
+            to_api_format = rule.contents.to_api_format()
+            tags = ", ".join(to_api_format["tags"])
+            rule_entries.append(f'| [{title_name}]({self.prebuilt_rule_base}-{rule.id}.mdx) | '
+                                f'{to_api_format["description"]} | {tags} | '
+                                f'{to_api_format["version"]}')
+
+        rule_entries = sorted(rule_entries)
+        rule_entries = '\n'.join(rule_entries)
+
+        summary.write_text(summary_header + rule_entries)
+
+    def generate_update_summary(self):
+        """Generate a summary of all rule updates based on the latest package."""
+        summary = self.package_directory / f'prebuilt-rules-{self.base_name}-summary.mdx'
+
+        summary_header = textwrap.dedent(f"""
+        ## Update v{self.registry_version_str}
         This section lists all updates associated with version {self.registry_version_str}
             of the Fleet integration *Prebuilt Security Detection Rules*.
 
@@ -652,7 +678,7 @@ class IntegrationSecurityDocsMD:
             status = 'new' if rule.id in new_rule_id_list else 'update' if rule.id in updated_rule_id_list \
                 else 'deprecated'
             to_api_format = rule.contents.to_api_format()
-            rule_entries.append(f'| [{title_name}]({self.prebuilt_rule_base}-{rule.id}.md) | '
+            rule_entries.append(f'| [{title_name}]({self.prebuilt_rule_base}-{rule.id}.mdx) | '
                                 f'{to_api_format["description"]} | {status} | '
                                 f'{to_api_format["version"]}')
 
@@ -663,9 +689,9 @@ class IntegrationSecurityDocsMD:
 
     def generate_rule_details(self):
         """Generate a markdown file for each rule."""
-        for rule in self.included_rules:
-            rule_detail = IntegrationRuleDetailMD(rule.id, rule.contents.to_api_format(), {}, self.base_name)
-            rule_path = self.package_directory / f'{self.prebuilt_rule_base}-{name_to_title(rule.name)}.md'
+        for rule in self.new_package.rules:
+            rule_detail = IntegrationRuleDetailMDX(rule.id, rule.contents.to_api_format(), {}, self.base_name)
+            rule_path = self.package_directory / f'{self.prebuilt_rule_base}-{name_to_title(rule.name)}.mdx'
             rule_path.write_text(rule_detail.generate())
 
     def generate_downloadable_updates_summary(self):
@@ -674,19 +700,19 @@ class IntegrationSecurityDocsMD:
 
         # today = datetime.today().strftime('%d %b %Y')
 
-        # updates['detections/prebuilt-rules/prebuilt-rules-downloadable-updates.md'] = {
+        # updates['detections/prebuilt-rules/prebuilt-rules-downloadable-updates.mdx'] = {
         #     'update_table_entry': (f'| [{self.registry_version_str}](./{self.base_name}/'
-        #                         f'prebuilt-rules-{self.base_name}-summary.md) | {today} | {len(self.new_rules)} | '
+        #                         f'prebuilt-rules-{self.base_name}-summary.mdx) | {today} | {len(self.new_rules)} | '
         #                         f'{len(self.updated_rules)} | '),
         #     'update_table_include': (f'import {self.base_name}Summary from
         #                                       \'./downloadable-packages/{self.base_name}/'
-        #                             f'prebuilt-rules-{self.base_name}-summary.md\'')
+        #                             f'prebuilt-rules-{self.base_name}-summary.mdx\'')
         # }
 
-        # updates['index.md'] = {
+        # updates['index.mdx'] = {
         #     'update_index_include': (f'import {self.base_name}Appendix from
         #                              \'./detections/prebuilt-rules/downloadable-packages/{self.base_name}/'
-        #                             f'prebuilt-rules-{self.base_name}-appendix.md\'')
+        #                             f'prebuilt-rules-{self.base_name}-appendix.mdx\'')
         # }
 
         # update_file.write_text(json.dumps(updates, indent=2))
@@ -704,10 +730,14 @@ class IntegrationSecurityDocsMD:
         # generate the package summary that lists all downloadable packages
         self.generate_downloadable_updates_summary()
 
+        # generate the overview that lists all current available rules
+        self.generate_rule_summary()
+
+
         return self.package_directory
 
 
-class IntegrationRuleDetailMD:
+class IntegrationRuleDetailMDX:
     """Generates a rule detail page in Markdown."""
 
     def __init__(self, rule_id: str, rule: dict, changelog: Dict[str, dict], package_str: str):
@@ -715,7 +745,7 @@ class IntegrationRuleDetailMD:
 
         >>> rule_file = "/path/to/rule.toml"
         >>> rule = RuleCollection().load_file(Path(rule_file))
-        >>> rule_detail = IntegrationRuleDetailMD(rule.id, rule.contents.to_api_format(), {}, "test")
+        >>> rule_detail = IntegrationRuleDetailMDX(rule.id, rule.contents.to_api_format(), {}, "test")
         >>> rule_detail.generate()
 
         """
@@ -732,7 +762,7 @@ class IntegrationRuleDetailMD:
     def generate(self) -> str:
         """Generate the rule detail page in Markdown."""
         page = [
-            MD.title(1, self.rule["name"]),
+            MDX.title(1, self.rule["name"]),
             '',
             self.rule['description'],
             '',
@@ -769,53 +799,53 @@ class IntegrationRuleDetailMD:
         for field, friendly_name in fields.items():
             value = self.rule.get(field) or self.changelog.get(field)
             if isinstance(value, list):
-                str_value = MD.bulleted_list(value)
+                str_value = MDX.bulleted_list(value)
             else:
                 str_value = str(value)
 
             if field == 'from':
                 str_value += ' (Date Math format, see also rule schedule)'
 
-            values.append(MD.bold_kv(friendly_name, str_value))
+            values.append(MDX.bold_kv(friendly_name, str_value))
 
         return '\n\n'.join(values)
 
     def guide_str(self) -> str:
         """Generate the investigation guide section for the rule detail page."""
-        return f'{MD.title(2, "Investigation guide")}\n\n{MD.code(self.rule["note"], "markdown")}'
+        return f'{MDX.title(2, "Investigation guide")}\n\n{MDX.code(self.rule["note"], "markdown")}'
 
     def query_str(self) -> str:
         """Generate the rule query section for the rule detail page."""
-        return f'{MD.title(2, "Rule query")}\n\n{MD.code(self.rule["query"], "sql")}'
+        return f'{MDX.title(2, "Rule query")}\n\n{MDX.code(self.rule["query"], "sql")}'
 
     def threat_mapping_str(self) -> str:
         """Generate the threat mapping section for the rule detail page."""
-        values = [MD.bold_kv('Framework', 'MITRE ATT&CK^TM^')]
+        values = [MDX.bold_kv('Framework', 'MITRE ATT&CK^TM^')]
 
         for entry in self.rule['threat']:
             tactic = entry['tactic']
             entry_values = [
-                MD.bulleted('Tactic:'),
-                MD.bulleted(f'Name: {tactic["name"]}', depth=2),
-                MD.bulleted(f'ID: {tactic["id"]}', depth=2),
-                MD.bulleted(f'Reference URL: {tactic["reference"]}', depth=2)
+                MDX.bulleted('Tactic:'),
+                MDX.bulleted(f'Name: {tactic["name"]}', depth=2),
+                MDX.bulleted(f'ID: {tactic["id"]}', depth=2),
+                MDX.bulleted(f'Reference URL: {tactic["reference"]}', depth=2)
             ]
             techniques = entry.get('technique', [])
             for technique in techniques:
                 entry_values.extend([
-                    MD.bulleted('Technique:'),
-                    MD.bulleted(f'Name: {technique["name"]}', depth=3),
-                    MD.bulleted(f'ID: {technique["id"]}', depth=3),
-                    MD.bulleted(f'Reference URL: {technique["reference"]}', depth=3)
+                    MDX.bulleted('Technique:'),
+                    MDX.bulleted(f'Name: {technique["name"]}', depth=3),
+                    MDX.bulleted(f'ID: {technique["id"]}', depth=3),
+                    MDX.bulleted(f'Reference URL: {technique["reference"]}', depth=3)
                 ])
 
                 subtechniques = technique.get('subtechnique', [])
                 for subtechnique in subtechniques:
                     entry_values.extend([
-                        MD.bulleted('Sub-technique:'),
-                        MD.bulleted(f'Name: {subtechnique["name"]}', depth=4),
-                        MD.bulleted(f'ID: {subtechnique["id"]}', depth=4),
-                        MD.bulleted(f'Reference URL: {subtechnique["reference"]}', depth=4)
+                        MDX.bulleted('Sub-technique:'),
+                        MDX.bulleted(f'Name: {subtechnique["name"]}', depth=4),
+                        MDX.bulleted(f'ID: {subtechnique["id"]}', depth=4),
+                        MDX.bulleted(f'Reference URL: {subtechnique["reference"]}', depth=4)
                     ])
 
             values.extend(entry_values)

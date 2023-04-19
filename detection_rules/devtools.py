@@ -32,7 +32,7 @@ from kibana.connector import Kibana
 
 from . import attack, rule_loader, utils
 from .cli_utils import single_collection
-from .docs import IntegrationSecurityDocs
+from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
@@ -164,7 +164,7 @@ def test_new_docs():
     # obtained from SecurityDetectionEngine()
     historical_rules = load_dump('/Users/stryker/Downloads/8.7.2-historical-rules.json')
     package = RuleCollection().default()
-    docs = IntegrationSecurityDocsMD('8.7.0', Path('8.7.0'), True, historical_rules, package)
+    docs = IntegrationSecurityDocsMDX('8.7.0', Path('8.7.0'), True, historical_rules, package)
     docs.generate()
 
 
