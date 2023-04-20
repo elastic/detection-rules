@@ -10,17 +10,19 @@ import re
 import shutil
 import textwrap
 from collections import defaultdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Iterable, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
-from semver import Version
 import xlsxwriter
+from semver import Version
 
 from .attack import attack_tm, matrix, tactics, technique_lookup
 from .packaging import Package
 from .rule import ThreatMapping, TOMLRule
 from .rule_loader import DeprecatedCollection, RuleCollection
+from .utils import load_etc_dump, save_etc_dump
 
 
 class PackageDocument(xlsxwriter.Workbook):
@@ -509,6 +511,51 @@ def name_to_title(name: str) -> str:
     return re.sub(r'-{2,}', '-', initial).strip('-')
 
 
+@dataclass
+class UpdateEntry:
+    """A class schema for downloadable update entries."""
+    update_version: str
+    date: str
+    new_rules: int
+    updated_rules: int
+    note: str
+    url: str
+
+
+@dataclass
+class DownloadableUpdates:
+    """A class for managing downloadable updates."""
+    packages: List[UpdateEntry]
+
+    @classmethod
+    def load_updates(cls):
+        """Load the package."""
+        prebuilt = load_etc_dump("downloadable_updates.json")
+        packages = [UpdateEntry(**entry) for entry in prebuilt['packages']]
+        return cls(packages)
+
+    def save_updates(self):
+        """Save the package."""
+        sorted_package = sorted(self.packages, key=lambda entry: Version.parse(entry.update_version), reverse=True)
+        data = {'packages': [asdict(entry) for entry in sorted_package]}
+        save_etc_dump(data, "downloadable_updates.json")
+
+    def add_entry(self, entry: UpdateEntry, overwrite: bool = False):
+        """Add an entry to the package."""
+        existing_entry_index = -1
+        for index, existing_entry in enumerate(self.packages):
+            if existing_entry.update_version == entry.update_version:
+                if not overwrite:
+                    raise ValueError(f"Update version {entry.update_version} already exists.")
+                existing_entry_index = index
+                break
+
+        if existing_entry_index >= 0:
+            self.packages[existing_entry_index] = entry
+        else:
+            self.packages.append(entry)
+
+
 class MDX:
     """A class for generating Markdown content."""
 
@@ -563,9 +610,10 @@ class MDX:
 class IntegrationSecurityDocsMDX:
     """Generate docs for prebuilt rules in Elastic documentation using MDX."""
 
-    def __init__(self, registry_version: str, directory: Path, overwrite=False,
+    def __init__(self, release_version: str, directory: Path, overwrite: bool = False,
                  historical_package: Optional[Dict[str, dict]] =
-                 None, new_package: Optional[Dict[str, TOMLRule]] = None):
+                 None, new_package: Optional[Dict[str, TOMLRule]] = None,
+                 note: Optional[str] = None):
         self.historical_package = historical_package
         self.new_package = new_package
         self.rule_changes = self.get_rule_changes()
@@ -573,8 +621,10 @@ class IntegrationSecurityDocsMDX:
                                                    self.rule_changes["updated"],
                                                    self.rule_changes["deprecated"]))
 
-        self.registry_version_str, self.base_name, self.prebuilt_rule_base = self.parse_registry(registry_version)
+        self.release_version_str, self.base_name, self.prebuilt_rule_base = self.parse_release(release_version)
         self.package_directory = directory / self.base_name
+        self.overwrite = overwrite
+        self.note = note or "Rule Updates."
 
         if overwrite:
             shutil.rmtree(self.package_directory, ignore_errors=True)
@@ -582,14 +632,15 @@ class IntegrationSecurityDocsMDX:
         self.package_directory.mkdir(parents=True, exist_ok=overwrite)
 
     @staticmethod
-    def parse_registry(registry_version: str) -> (str, str, str):
-        registry_version = Version.parse(registry_version)
-        short_registry_version = [str(n) for n in registry_version[:3]]
-        registry_version_str = '.'.join(short_registry_version)
-        base_name = "-".join(short_registry_version)
+    def parse_release(release_version: str) -> (str, str, str):
+        """Parse the release version into a string, base name, and prebuilt rule base."""
+        release_version = Version.parse(release_version)
+        short_release_version = [str(n) for n in release_version[:3]]
+        release_version_str = '.'.join(short_release_version)
+        base_name = "-".join(short_release_version)
         prebuilt_rule_base = f'prebuilt-rule-{base_name}'
 
-        return registry_version_str, base_name, prebuilt_rule_base
+        return release_version_str, base_name, prebuilt_rule_base
 
     def get_rule_changes(self):
         """Compare the rules from the new_package against rules in the historical_package."""
@@ -630,8 +681,8 @@ class IntegrationSecurityDocsMDX:
         summary = self.package_directory / f'prebuilt-rules-{self.base_name}-all-available-summary.mdx'
 
         summary_header = textwrap.dedent(f"""
-        ## Latest rules for Stack Version ^{self.registry_version_str}
-        This section lists all available rules supporting latest package version {self.registry_version_str}
+        ## Latest rules for Stack Version ^{self.release_version_str}
+        This section lists all available rules supporting latest package version {self.release_version_str}
             and greater of the Fleet integration *Prebuilt Security Detection Rules*.
 
         | Rule | Description | Tags | Version
@@ -658,7 +709,7 @@ class IntegrationSecurityDocsMDX:
 
         summary_header = textwrap.dedent(f"""
         ## Current Available Rules
-        This section lists all updates associated with version {self.registry_version_str}
+        This section lists all updates associated with version {self.release_version_str}
             of the Fleet integration *Prebuilt Security Detection Rules*.
 
         | Rule | Description | Status | Version
@@ -692,44 +743,64 @@ class IntegrationSecurityDocsMDX:
             rule_path.write_text(rule_detail.generate())
 
     def generate_downloadable_updates_summary(self):
-        # update_file = self.package_directory / 'manual-updates.json'
-        # updates = {}
+        """Generate a summary of all the downloadable updates."""
 
-        # today = datetime.today().strftime('%d %b %Y')
+        docs_url = 'https://www.elastic.co/guide/en/security/current/rules-ui-management.html#download-prebuilt-rules'
+        summary = self.package_directory / 'prebuilt-rules-downloadable-packages-summary.mdx'
+        today = datetime.today().strftime('%d %b %Y')
+        package_list = DownloadableUpdates.load_updates()
+        ref = f"./prebuilt-rules-{self.base_name}-update-summary.mdx"
 
-        # updates['detections/prebuilt-rules/prebuilt-rules-downloadable-updates.mdx'] = {
-        #     'update_table_entry': (f'| [{self.registry_version_str}](./{self.base_name}/'
-        #                         f'prebuilt-rules-{self.base_name}-summary.mdx) | {today} | {len(self.new_rules)} | '
-        #                         f'{len(self.updated_rules)} | '),
-        #     'update_table_include': (f'import {self.base_name}Summary from
-        #                                       \'./downloadable-packages/{self.base_name}/'
-        #                             f'prebuilt-rules-{self.base_name}-summary.mdx\'')
-        # }
+        # Add a new entry
+        new_entry = UpdateEntry(
+            update_version=self.release_version_str,
+            date=today,
+            new_rules=len(self.rule_changes["new"]),
+            updated_rules=len(self.rule_changes["updated"]),
+            note=self.note,
+            url=ref
+        )
+        package_list.add_entry(new_entry, self.overwrite)
 
-        # updates['index.mdx'] = {
-        #     'update_index_include': (f'import {self.base_name}Appendix from
-        #                              \'./detections/prebuilt-rules/downloadable-packages/{self.base_name}/'
-        #                             f'prebuilt-rules-{self.base_name}-appendix.mdx\'')
-        # }
+        # Write the updated Package object back to the JSON file
+        package_list.save_updates()
 
-        # update_file.write_text(json.dumps(updates, indent=2))
-        pass
+        # generate the summary
+        summary_header = textwrap.dedent(f"""
+        ## Downloadable rule updates
+
+        This section lists all updates to prebuilt detection rules, made available
+            with the Prebuilt Security Detection Rules integration in Fleet.
+
+        To download the latest updates, follow the instructions in [download-prebuilt-rules]({docs_url})
+
+
+        |Update version |Date | New rules | Updated rules | Notes
+        |---|---|---|---|---|
+        """).lstrip()
+
+        entries = []
+        for entry in sorted(package_list.packages, key=lambda entry: Version.parse(entry.update_version), reverse=True):
+            entries.append(f'| [{entry.update_version}]({entry.url}) | {today} |'
+                           f' {entry.new_rules} | {entry.updated_rules} | {entry.note}| ')
+
+        entries = '\n'.join(entries)
+        summary.write_text(summary_header + entries)
 
     def generate(self) -> Path:
         """Generate the updates."""
 
         # generate all the rules as markdown files
-        self.generate_rule_details()
+        # self.generate_rule_details()
 
         # generate the rule summary of changes within a package
         self.generate_update_summary()
 
         # generate the package summary that lists all downloadable packages
-        # self.generate_downloadable_updates_summary()
+        self.generate_downloadable_updates_summary()
 
         # generate the overview that lists all current available rules
-        self.generate_current_rule_summary()
-
+        # self.generate_current_rule_summary()
 
         return self.package_directory
 
