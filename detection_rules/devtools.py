@@ -105,11 +105,12 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
         default_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
 
     package.save(verbose=verbose)
+
     if add_historical:
         previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga", config['name'])
         sde = SecurityDetectionEngine()
         historical_rules = sde.load_integration_assets(previous_pkg_version)
-        historical_rules = {f"{x['id']}_{x['attributes']['version']}": x for x in historical_rules.values()}
+        historical_rules = sde.transform_legacy_assets(historical_rules)
         package.add_historical_rules(historical_rules, config['registry_data']['version'])
 
     if verbose:
