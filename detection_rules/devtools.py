@@ -36,12 +36,12 @@ from .docs import IntegrationSecurityDocs
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
-from .integrations import (build_integrations_manifest,
+from .integrations import (SecurityDetectionEngine,
+                           build_integrations_manifest,
                            build_integrations_schemas,
                            find_latest_compatible_version,
                            find_latest_integration_version,
-                           load_integrations_manifests,
-                           SecurityDetectionEngine)
+                           load_integrations_manifests)
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
@@ -111,6 +111,7 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
         sde = SecurityDetectionEngine()
         historical_rules = sde.load_integration_assets(previous_pkg_version)
         historical_rules = sde.transform_legacy_assets(historical_rules)
+        click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
         package.add_historical_rules(historical_rules, config['registry_data']['version'])
 
     if verbose:

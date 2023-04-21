@@ -481,15 +481,24 @@ class Package(object):
     def add_historical_rules(historical_rules: Dict[str, dict], manifest_version: str) -> list:
         """Adds historical rules to existing build package."""
         rules_dir = CURRENT_RELEASE_PATH / 'fleet' / manifest_version / 'kibana' / 'security_rule'
+
+        # iterates over historical rules from previous package and writes them to disk
         for historical_rule_id, historical_rule_contents in historical_rules.items():
             rule_id = historical_rule_contents["attributes"]["rule_id"]
             historical_rule_version = historical_rule_contents['attributes']['version']
+
+            # checks if the rule exists in the current package first
             current_rule_path = list(rules_dir.glob(f"{rule_id}*.json"))
             if not current_rule_path:
                 continue
+
+            # load the current rule from disk
             current_rule_path = current_rule_path[0]
             current_rule_json = json.load(current_rule_path.open(encoding="UTF-8"))
             current_rule_version = current_rule_json['attributes']['version']
+
+            # if the historical rule version and current rules version differ, write
+            # the historical rule to disk
             if historical_rule_version != current_rule_version:
                 historical_rule_path = rules_dir / f"{historical_rule_id}.json"
                 with historical_rule_path.open("w", encoding="UTF-8") as file:
