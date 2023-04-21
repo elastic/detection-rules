@@ -15,8 +15,8 @@ on:
         description: 'Create a PR as draft'
         required: false
         options:
-          - "y"
-          - "n"
+          - "yes"
+          - "no"
       package_maturity:
         type: choice
         description: 'Package Maturity'
@@ -31,6 +31,13 @@ on:
         options:
           - "true"
           - "false"
+      add_historical:
+        type: choice
+        description: 'Add Historical Rules'
+        required: true
+        options:
+          - "yes"
+          - "no"
       commit_hash:
         description: 'Commit hash'
         required: true
@@ -136,9 +143,11 @@ jobs:
           git push origin $RELEASE_TAG
 
       - name: Build release package
+        env:
+          HISTORICAL: "${{github.event.inputs.add_historical}}"
         run: |
           cd detection-rules
-          python -m detection_rules dev build-release
+          python -m detection_rules dev build-release --add-historical $HISTORICAL
 
       - name: Set github config
         run: |
