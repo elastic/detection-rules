@@ -1,0 +1,81 @@
+name: Release Docs
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Target branch for PR base'
+        required: true
+        default: 'main'
+      draft:
+        type: choice
+        description: 'Create a PR as draft'
+        required: true
+        options:
+          - "yes"
+          - "no"
+      new_package:
+        type: choice
+        description: 'New Package'
+        required: true
+        options:
+          - "true"
+          - "false"
+      update_message:
+        description: 'Update status message for the latest package'
+        required: true
+      commit_hash:
+        description: 'Commit hash'
+        required: true
+
+jobs:
+  build-package:
+    name: Prepare Docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bump prebuilt rules package version
+        # need to specify release package version in package.yml
+        env:
+          NEW_PACKAGE: "${{github.event.inputs.new_package}}"
+          UPDATE_MESSAGE: "${{github.event.inputs.update_message}}"
+        run: |
+          cd detection-rules
+          python -m detection_rules dev bump-pkg-versions \
+            --patch-release                               \
+            --new-package $NEW_PACKAGE                    \
+            --maturity "ga"
+      - name: Build release package
+        # builds markdown files at releases/<package-version>-docs/...
+        # does this path need to change to use the docs workflow?
+        run: |
+          cd detection-rules
+          python -m detection_rules dev build-release --add-historical "yes" \
+            --update-message $UPDATE_MESSAGE
+
+  release-docs-co:
+    uses: elastic/workflows/.github/workflows/docs-elastic-co-publish.yml
+    if: github.event.inputs.draft == 'no'
+
+  release-docs-staging:
+    uses: elastic/workflows/.github/workflows/docs-elastic-staging-publish.yml@main
+    if: github.event.inputs.draft == 'yes'
+
+  save-downloadable-updates:
+    name: Save Updates to DR
+    runs-on: ubuntu-latest
+    if: github.event.inputs.draft == 'no'
+    steps:
+    - name: Commit and push changes
+      run: |
+        git branch -b update_downloadable_updates
+        git checkout update_downloadable_updates
+        git add detection_rules/etc/downloadable_updates.json
+        git commit -m "Update latest package"
+        git push origin --set-upstream origin update_downloadable_updates
+
+    - name: Create PR
+      env:
+        GITHUB_TOKEN: ${{ secrets.PROTECTIONS_MACHINE_TOKEN }}
+      run: |
+        gh pr create --title "Update Downloadable Updates" --body "This PR updates detection_rules/etc/downloadable_updates.json" --base update_downloadable_updates --head main
+

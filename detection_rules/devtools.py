@@ -84,8 +84,9 @@ def dev_group():
               help='Save version.lock.json file with updated rule versions in the package')
 @click.option('--generate-navigator', is_flag=True, help='Generate ATT&CK navigator files')
 @click.option('--add-historical', type=str, required=True, help='Generate historical package-registry files')
+@click.option('--update-message', type=str, help='Update message for new package')
 def build_release(config_file, update_version_lock: bool, generate_navigator: bool, add_historical: str,
-                  release=None, verbose=True):
+                  update_message: str, release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
     config = load_dump(config_file)['package']
     add_historical = True if add_historical == "yes" else False
@@ -111,6 +112,10 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
         sde = SecurityDetectionEngine()
         historical_rules = sde.load_integration_assets(previous_pkg_version)
         historical_rules = sde.transform_legacy_assets(historical_rules)
+
+        docs = IntegrationSecurityDocsMDX(config['registry_data']['version'], Path(f'releases/{config["name"]}-docs'), True, historical_rules, package, note=update_message)
+        docs.generate()
+
         click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
         package.add_historical_rules(historical_rules, config['registry_data']['version'])
 

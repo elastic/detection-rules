@@ -613,7 +613,7 @@ class IntegrationSecurityDocsMDX:
     def __init__(self, release_version: str, directory: Path, overwrite: bool = False,
                  historical_package: Optional[Dict[str, dict]] =
                  None, new_package: Optional[Dict[str, TOMLRule]] = None,
-                 note: Optional[str] = None):
+                 note: Optional[str] = "Rule Updates."):
         self.historical_package = historical_package
         self.new_package = new_package
         self.rule_changes = self.get_rule_changes()
@@ -624,7 +624,7 @@ class IntegrationSecurityDocsMDX:
         self.release_version_str, self.base_name, self.prebuilt_rule_base = self.parse_release(release_version)
         self.package_directory = directory / self.base_name
         self.overwrite = overwrite
-        self.note = note or "Rule Updates."
+        self.note = note
 
         if overwrite:
             shutil.rmtree(self.package_directory, ignore_errors=True)
@@ -667,21 +667,31 @@ class IntegrationSecurityDocsMDX:
         deprecated_rule_ids = []
         for _, content in self.historical_package.items():
             rule_id = content["attributes"]["rule_id"]
-            if rule_id in self.new_package.deprecated.id_map.keys():
+            if rule_id in self.new_package.deprecated_rules.id_map.keys():
                 deprecated_rule_ids.append(rule_id)
 
         deprecated_rule_ids = list(set(deprecated_rule_ids))
         for rule_id in deprecated_rule_ids:
-            rule_changes['deprecated'].append(self.new_package.deprecated.id_map[rule_id])
+            rule_changes['deprecated'].append(self.new_package.deprecate_rules.id_map[rule_id])
 
         return dict(rule_changes)
 
     def generate_current_rule_summary(self):
         """Generate a summary of all available current rules in the latest package."""
-        summary = self.package_directory / f'prebuilt-rules-{self.base_name}-all-available-summary.mdx'
+        slug = f'prebuilt-rules-{self.base_name}-all-available-summary.mdx'
+        summary = self.package_directory / slug
+        title = f'Latest rules for Stack Version ^{self.release_version_str}'
 
         summary_header = textwrap.dedent(f"""
-        ## Latest rules for Stack Version ^{self.release_version_str}
+        ---
+        id: {slug}
+        slug: /security-rules/{slug}
+        title: {title}
+        date: {datetime.today().strftime('%Y-%d-%m')}
+        tags: ["rules", "security", "detection-rules"]
+        ---
+
+        ## {title}
         This section lists all available rules supporting latest package version {self.release_version_str}
             and greater of the Fleet integration *Prebuilt Security Detection Rules*.
 
@@ -705,10 +715,20 @@ class IntegrationSecurityDocsMDX:
 
     def generate_update_summary(self):
         """Generate a summary of all rule updates based on the latest package."""
-        summary = self.package_directory / f'prebuilt-rules-{self.base_name}-update-summary.mdx'
+        slug = f'prebuilt-rules-{self.base_name}-update-summary.mdx'
+        summary = self.package_directory / slug
+        title = "Current Available Rules"
 
         summary_header = textwrap.dedent(f"""
-        ## Current Available Rules
+        ---
+        id: {slug}
+        slug: /security-rules/{slug}
+        title: {title}
+        date: {datetime.today().strftime('%Y-%d-%m')}
+        tags: ["rules", "security", "detection-rules"]
+        ---
+
+        ## {title}
         This section lists all updates associated with version {self.release_version_str}
             of the Fleet integration *Prebuilt Security Detection Rules*.
 
@@ -738,15 +758,29 @@ class IntegrationSecurityDocsMDX:
         rules_dir = self.package_directory / "rules"
         rules_dir.mkdir(exist_ok=True)
         for rule in self.new_package.rules:
+            slug = f'{self.prebuilt_rule_base}-{name_to_title(rule.name)}.mdx'
             rule_detail = IntegrationRuleDetailMDX(rule.id, rule.contents.to_api_format(), {}, self.base_name)
-            rule_path = rules_dir / f'{self.prebuilt_rule_base}-{name_to_title(rule.name)}.mdx'
-            rule_path.write_text(rule_detail.generate())
+            rule_path = rules_dir / slug
+            tags = ', '.join(f"\"{tag}\"" for tag in rule.contents.data.tags)
+            frontmatter = textwrap.dedent(f"""
+            ---
+            id: {slug}
+            slug: /security-rules/{slug}
+            title: {rule.name}
+            date: {datetime.today().strftime('%Y-%d-%m')}
+            tags: [{tags}]
+            ---
+
+            """).lstrip()
+            rule_path.write_text(frontmatter + rule_detail.generate())
 
     def generate_downloadable_updates_summary(self):
         """Generate a summary of all the downloadable updates."""
 
         docs_url = 'https://www.elastic.co/guide/en/security/current/rules-ui-management.html#download-prebuilt-rules'
-        summary = self.package_directory / 'prebuilt-rules-downloadable-packages-summary.mdx'
+        slug = 'prebuilt-rules-downloadable-packages-summary.mdx'
+        title = "Downloadable rule updates"
+        summary = self.package_directory / slug
         today = datetime.today().strftime('%d %b %Y')
         package_list = DownloadableUpdates.load_updates()
         ref = f"./prebuilt-rules-{self.base_name}-update-summary.mdx"
@@ -767,7 +801,15 @@ class IntegrationSecurityDocsMDX:
 
         # generate the summary
         summary_header = textwrap.dedent(f"""
-        ## Downloadable rule updates
+        ---
+        id: {slug}
+        slug: /security-rules/{slug}
+        title: {title}
+        date: {datetime.today().strftime('%Y-%d-%m')}
+        tags: ["rules", "security", "detection-rules"]
+        ---
+
+        ## {title}
 
         This section lists all updates to prebuilt detection rules, made available
             with the Prebuilt Security Detection Rules integration in Fleet.
@@ -791,7 +833,7 @@ class IntegrationSecurityDocsMDX:
         """Generate the updates."""
 
         # generate all the rules as markdown files
-        # self.generate_rule_details()
+        self.generate_rule_details()
 
         # generate the rule summary of changes within a package
         self.generate_update_summary()
@@ -800,7 +842,7 @@ class IntegrationSecurityDocsMDX:
         self.generate_downloadable_updates_summary()
 
         # generate the overview that lists all current available rules
-        # self.generate_current_rule_summary()
+        self.generate_current_rule_summary()
 
         return self.package_directory
 
@@ -848,6 +890,9 @@ class IntegrationRuleDetailMDX:
 
     def metadata_str(self) -> str:
         """Generate the metadata section for the rule detail page."""
+
+        date_math_doc = "https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#date-math"
+        loopback_doc = "https://www.elastic.co/guide/en/security/current/rules-ui-create.html#rule-schedule"
         fields = {
             'type': 'Rule type',
             'index': 'Rule indices',
@@ -872,7 +917,7 @@ class IntegrationRuleDetailMDX:
                 str_value = str(value)
 
             if field == 'from':
-                str_value += ' (Date Math format, see also rule schedule)'
+                str_value += f' ([Date Math format]({date_math_doc}), [Additional look-back time]({loopback_doc}))'
 
             values.append(MDX.bold_kv(friendly_name, str_value))
 
