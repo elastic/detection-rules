@@ -340,7 +340,7 @@ class SecurityDetectionEngine:
         return assets
 
     def transform_legacy_assets(self, assets: dict) -> dict:
-        """Transforms legacy rule assets to historical rules"""
+        """Transforms legacy rule assets to historical rules."""
         # this code can be removed after the 8.8 minor release
         # epr prebuilt rule packages should have appropriate file names
 
