@@ -333,11 +333,10 @@ class SecurityDetectionEngine:
         package_obj = epr_response.json()
         zip_url = f"https://epr.elastic.co{package_obj['download']}"
         zip_response = requests.get(zip_url)
-        with zipfile.ZipFile(BytesIO(zip_response.content)) as zip_package:
+        with utils.unzip(zip_response.content) as zip_package:
             asset_file_names = [asset for asset in zip_package.namelist() if "json" in asset]
             assets = {x.split("/")[-1].replace(".json", ""): json.loads(zip_package.read(x).decode('utf-8'))
                       for x in asset_file_names}
-            zip_package.close()
         return assets
 
     def transform_legacy_assets(self, assets: dict) -> dict:
