@@ -402,6 +402,8 @@ class Package(object):
         for rule in self.rules:
             asset = rule.get_asset()
             if self.historical:
+                # if this package includes historical rules the IDs need to be changed
+                # asset['id] and the file name needs to resemble RULEID_VERSION instead of RULEID
                 asset_id = f"{asset['attributes']['rule_id']}_{asset['attributes']['version']}"
                 asset["id"] = asset_id
                 asset_path = rules_dir / f'{asset_id}.json'
