@@ -104,7 +104,6 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
 
     if update_version_lock:
         default_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
-
     package.save(verbose=verbose)
 
     if add_historical:
@@ -173,17 +172,6 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
     click.echo(f'- {len(deprecated)} deprecated rules')
 
     return docs
-
-
-@dev_group.command('test-new-docs')
-def test_new_docs():
-    """Test the new docs."""
-    # load rules from /Users/stryker/Downloads/8.7.2-historical-rules.json as a json object
-    # obtained from SecurityDetectionEngine()
-    historical_rules = load_dump('/Users/stryker/Downloads/8.7.2-historical-rules-2.json')
-    package = RuleCollection().default()
-    docs = IntegrationSecurityDocsMDX('8.7.0', Path('8.7.0/updates'), True, historical_rules, package)
-    docs.generate()
 
 
 @dev_group.command("bump-pkg-versions")
