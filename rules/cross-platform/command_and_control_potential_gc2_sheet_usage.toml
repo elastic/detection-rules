@@ -1,0 +1,106 @@
+[metadata]
+creation_date = "2023/04/23"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/04/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the potential use of the Google Command and Control (GC2) tool. GC2 is a public open-source red teaming tool
+that uses Google Workspace services for C2. While the tool is only intended for red teaming, it has been leveraged by
+advanced persistent threats (APT) for intrusions.
+"""
+false_positives = ["    "]
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Google Command and Control (GC2) Sheet Activity"
+references = ["https://github.com/looCiprian/GC2-sheet"]
+risk_score = 73
+rule_id = "d54a104e-e223-11ed-8d6e-f661ea17fbcd"
+severity = "high"
+tags = [
+    "Elastic",
+    "Host",
+    "Linux",
+    "Threat Detection",
+    "Command and Control",
+    "Exfiltration",
+    "Execution",
+    "Windows",
+    "Linux",
+    "macOS",
+]
+type = "eql"
+
+query = '''
+sequence by host.id with maxspan=1m
+
+    /* unsigned binary executed where process is spawned */
+    [process where host.os.type: ("windows", "macOS", "linux") and event.action == "start" and process.code_signature.exists == false]
+
+    /* 3rd party application using OAuth token */
+    [network where host.os.type: ("windows", "macOS", "linux") and event.action == "lookup_requested" and dns.question.name == "oauth2.googleapis.com"]
+
+    /* connection attempt to Google after OAuth authorization */
+    [network where host.os.type: ("windows", "macOS", "linux") and event.action == "connection_attempted" and destination.as.organization.name == "GOOGLE"]
+
+    /* DNS lookup for sheets.googleapis.com where sheet containing commands is located */
+    [network where host.os.type: ("windows", "macOS", "linux") and event.action == "lookup_requested" and
+        dns.question.name : ("sheets.googleapis.com", "drive.googleapis.com", "script.googleapis.com")]
+
+    [any where host.os.type: ("windows", "macOS", "linux") and
+
+        /* commands being executed via cmd or PS that were pulled from the Google Sheet for Windows */
+        /* file downloads from Drive with suspicious extensions for Windows */
+        (event.category == "process" and process.name: ("cmd.exe", "powershell.exe") and process.command_line: "cmd /c*") or
+        (event.category == "file" and event.action == "modification" and file.extension : ("exe","bat","cmd","vbs","js","ps1","hta","scr","dll"))]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+[[rule.threat.technique.subtechnique]]
+id = "T1567"
+name = "Exfiltration to Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1567/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
