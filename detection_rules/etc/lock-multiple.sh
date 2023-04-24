@@ -10,7 +10,7 @@ do
     echo $BRANCH
     git checkout $BRANCH
     git pull
-    python -m detection_rules dev build-release --update-version-lock --add-historical 'no'
+    python -m detection_rules dev build-release --update-version-lock
 done
 
 git checkout ${CURRENT_BRANCH}
