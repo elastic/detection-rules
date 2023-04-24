@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Identifies a PowerShell process launched by either cscript.exe or wscript.exe. O
 executing a PowerShell script, may be indicative of malicious activity.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Windows Script Executing PowerShell"
@@ -74,12 +74,12 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 21
 rule_id = "f545ff26-3c94-4fd0-bd33-3c7f95a3a0fc"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access", "Investigation Guide"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Initial Access", "Investigation Guide", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
   process.parent.name : ("cscript.exe", "wscript.exe") and process.name : "powershell.exe"
 '''
 

@@ -3,7 +3,7 @@ creation_date = "2022/07/11"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/20"
+updated_date = "2023/02/22"
 integration = ["endpoint"]
 
 [rule]
@@ -27,7 +27,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and process.executable : "/usr/sbin/insmod" and process.args : "*.ko"
+process where host.os.type == "linux" and event.type == "start" and
+  process.executable : "/usr/sbin/insmod" and process.args : "*.ko"
 '''
 
 [[rule.threat]]

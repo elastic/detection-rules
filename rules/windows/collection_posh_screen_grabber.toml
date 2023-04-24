@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/01/05"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -32,8 +32,8 @@ Attackers can abuse PowerShell capabilities and take screen captures of desktops
 - Examine file or network events from the involved PowerShell process for suspicious behavior.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Evaluate whether the user needs to use PowerShell to complete tasks.
-- Investigate if the script stores the captured data locally.
-- Investigate if the script contains exfiltration capabilities and the destination of this exfiltration.
+- Determine whether the script stores the captured data locally.
+- Investigate whether the script contains exfiltration capabilities and identify the exfiltration server.
 - Assess network data to determine if the host communicated with the exfiltration server.
 
 ### False positive analysis
@@ -81,7 +81,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and
+event.category:process and host.os.type:windows and
   powershell.file.script_block_text : (
     CopyFromScreen and
     ("System.Drawing.Bitmap" or "Drawing.Bitmap")

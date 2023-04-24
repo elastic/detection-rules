@@ -9,6 +9,7 @@ import functools
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import textwrap
@@ -20,6 +21,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import click
+import pytoml
 import requests.exceptions
 from semver import Version
 import yaml
@@ -34,7 +36,8 @@ from .docs import IntegrationSecurityDocs
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
-from .integrations import (build_integrations_manifest,
+from .integrations import (SecurityDetectionEngine,
+                           build_integrations_manifest,
                            build_integrations_schemas,
                            find_latest_compatible_version,
                            find_latest_integration_version,
@@ -44,7 +47,7 @@ from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
                         Package, current_stack_version)
 from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
-                   ThreatMapping, TOMLRule)
+                   ThreatMapping, TOMLRule, TOMLRuleContents, RuleTransform)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
 from .utils import (dict_hash, get_etc_path, get_path, load_dump,
@@ -80,9 +83,13 @@ def dev_group():
 @click.option('--update-version-lock', '-u', is_flag=True,
               help='Save version.lock.json file with updated rule versions in the package')
 @click.option('--generate-navigator', is_flag=True, help='Generate ATT&CK navigator files')
-def build_release(config_file, update_version_lock: bool, generate_navigator: bool, release=None, verbose=True):
+@click.option('--add-historical', type=str, required=True, help='Generate historical package-registry files')
+def build_release(config_file, update_version_lock: bool, generate_navigator: bool, add_historical: str,
+                  release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
     config = load_dump(config_file)['package']
+    add_historical = True if add_historical == "yes" else False
+
     if generate_navigator:
         config['generate_navigator'] = True
 
@@ -92,12 +99,20 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     if verbose:
         click.echo(f'[+] Building package {config.get("name")}')
 
-    package = Package.from_config(config, verbose=verbose)
+    package = Package.from_config(config, verbose=verbose, historical=add_historical)
 
     if update_version_lock:
         default_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
 
     package.save(verbose=verbose)
+
+    if add_historical:
+        previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga", config['name'])
+        sde = SecurityDetectionEngine()
+        historical_rules = sde.load_integration_assets(previous_pkg_version)
+        historical_rules = sde.transform_legacy_assets(historical_rules)
+        click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
+        package.add_historical_rules(historical_rules, config['registry_data']['version'])
 
     if verbose:
         package.get_package_hash(verbose=verbose)
@@ -159,9 +174,10 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
 @click.option("--major-release", is_flag=True, help="bump the major version")
 @click.option("--minor-release", is_flag=True, help="bump the minor version")
 @click.option("--patch-release", is_flag=True, help="bump the patch version")
+@click.option("--new-package", type=click.Choice(['true', 'false']), help="indicates new package")
 @click.option("--maturity", type=click.Choice(['beta', 'ga'], case_sensitive=False),
               required=True, help="beta or production versions")
-def bump_versions(major_release: bool, minor_release: bool, patch_release: bool, maturity: str):
+def bump_versions(major_release: bool, minor_release: bool, patch_release: bool, new_package: str, maturity: str):
     """Bump the versions"""
 
     pkg_data = load_etc_dump('packages.yml')['package']
@@ -182,10 +198,22 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
     if patch_release:
         latest_patch_release_ver = find_latest_integration_version("security_detection_engine",
                                                                    maturity, pkg_data["name"])
+
+        # if an existing minor or major does not have a package, bump from the last
+        # example is 8.10.0-beta.1 is last, but on 9.0.0 major
+        # example is 8.10.0-beta.1 is last, but on 8.11.0 minor
+        if latest_patch_release_ver.minor != pkg_kibana_ver.minor:
+            latest_patch_release_ver = latest_patch_release_ver.bump_minor()
+        if latest_patch_release_ver.major != pkg_kibana_ver.major:
+            latest_patch_release_ver = latest_patch_release_ver.bump_major()
+
         if maturity == "ga":
             pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_patch())
             pkg_data["registry_data"]["release"] = maturity
         else:
+            # passing in true or false from GH actions; not using eval() for security purposes
+            if new_package == "true":
+                latest_patch_release_ver = latest_patch_release_ver.bump_patch()
             pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_prerelease("beta"))
             pkg_data["registry_data"]["release"] = maturity
 
@@ -193,8 +221,6 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
     click.echo(f"Package Kibana version: {pkg_data['registry_data']['conditions']['kibana.version']}")
     click.echo(f"Package version: {pkg_data['registry_data']['version']}")
 
-    # we only save major and minor version bumps
-    # patch version bumps are OOB packages and thus we keep the base versioning
     save_etc_dump({"package": pkg_data}, "packages.yml")
 
 
@@ -1339,3 +1365,65 @@ def update_attack_in_rules() -> List[Optional[TOMLRule]]:
     else:
         click.echo('No rule changes needed')
     return new_rules
+
+
+@dev_group.group('transforms')
+def transforms_group():
+    """Commands for managing TOML [transform]."""
+
+
+def guide_plugin_convert_(contents: Optional[str] = None, default: Optional[str] = ''
+                          ) -> Optional[Dict[str, Dict[str, list]]]:
+    """Convert investigation guide plugin format to toml"""
+    contents = contents or click.prompt('Enter plugin contents', default=default)
+    if not contents:
+        return
+
+    parsed = re.match(r'!{(?P<plugin>\w+)(?P<data>{.+})}', contents.strip())
+    try:
+        plugin = parsed.group('plugin')
+        data = parsed.group('data')
+    except AttributeError as e:
+        raise client_error('Unrecognized pattern', exc=e)
+    loaded = {'transform': {plugin: [json.loads(data)]}}
+    click.echo(pytoml.dumps(loaded))
+    return loaded
+
+
+@transforms_group.command('guide-plugin-convert')
+def guide_plugin_convert(contents: Optional[str] = None, default: Optional[str] = ''
+                         ) -> Optional[Dict[str, Dict[str, list]]]:
+    """Convert investigation guide plugin format to toml."""
+    return guide_plugin_convert_(contents=contents, default=default)
+
+
+@transforms_group.command('guide-plugin-to-rule')
+@click.argument('rule-path', type=Path)
+@click.pass_context
+def guide_plugin_to_rule(ctx: click.Context, rule_path: Path, save: bool = True) -> TOMLRule:
+    """Convert investigation guide plugin format to toml and save to rule."""
+    rc = RuleCollection()
+    rule = rc.load_file(rule_path)
+
+    transforms = defaultdict(list)
+    existing_transform = rule.contents.transform
+    transforms.update(existing_transform.to_dict() if existing_transform is not None else {})
+
+    click.secho('(blank line to continue)', fg='yellow')
+    while True:
+        loaded = ctx.invoke(guide_plugin_convert)
+        if not loaded:
+            break
+
+        data = loaded['transform']
+        for plugin, entries in data.items():
+            transforms[plugin].extend(entries)
+
+    transform = RuleTransform.from_dict(transforms)
+    new_contents = TOMLRuleContents(data=rule.contents.data, metadata=rule.contents.metadata, transform=transform)
+    updated_rule = TOMLRule(contents=new_contents, path=rule.path)
+
+    if save:
+        updated_rule.save_toml()
+
+    return updated_rule
