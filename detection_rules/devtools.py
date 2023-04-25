@@ -85,7 +85,7 @@ def dev_group():
 @click.option('--generate-navigator', is_flag=True, help='Generate ATT&CK navigator files')
 @click.option('--add-historical', type=str, required=True, default="no",
               help='Generate historical package-registry files')
-@click.option('--update-message', type=str, help='Update message for new package')              
+@click.option('--update-message', type=str, help='Update message for new package')
 def build_release(config_file, update_version_lock: bool, generate_navigator: bool, add_historical: str,
                   update_message: str, release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
