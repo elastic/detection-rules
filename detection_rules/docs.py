@@ -374,7 +374,7 @@ class IntegrationSecurityDocs:
         # Update downloadable rule updates entry
         today = datetime.today().strftime('%d %b %Y')
 
-        updates[f'downloadable-updates.asciidoc'] = {
+        updates['downloadable-updates.asciidoc'] = {
             'table_entry': (
                 f'|<<prebuilt-rule-{self.base_name}-prebuilt-rules-{self.base_name}-summary, '
                 f'{self.registry_version_str}>> | {today} | {len(self.new_rules)} | '
@@ -403,9 +403,8 @@ class IntegrationSecurityDocs:
         self.add_content_to_table_top(downloadable_updates, new_content)
 
         # Add table_include to/docs/detections/prebuilt-rules/prebuilt-rules-downloadable-updates.asciidoc
-        downloadable_updates.write_text(downloadable_updates.read_text() +
+        downloadable_updates.write_text(downloadable_updates.read_text() +  # noqa: W504
                                         updates['downloadable-updates.asciidoc']['table_include'] + '\n')
-
 
     def add_content_to_table_top(self, file_path: Path, new_content: str):
         """Insert content at the top of a Markdown table right after the specified header."""
