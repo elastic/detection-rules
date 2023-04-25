@@ -1,0 +1,95 @@
+name: Release Docs
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Target branch for PR base'
+        required: true
+        default: 'main'
+      draft:
+        type: choice
+        description: 'Create a PR as draft'
+        required: true
+        options:
+          - "yes"
+          - "no"
+      new_package:
+        type: choice
+        description: 'New Package'
+        required: true
+        options:
+          - "true"
+          - "false"
+      update_message:
+        description: 'Update status message for the latest package'
+        required: true
+      commit_hash:
+        description: 'Commit hash'
+        required: true
+
+jobs:
+  build-package:
+    name: Prepare Docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout detection-rules
+        uses: actions/checkout@v3
+        with:
+          path: detection-rules
+          fetch-depth: 0
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install Python dependencies
+        run: |
+          cd detection-rules
+          python -m pip install --upgrade pip
+          pip install .[dev]
+
+      - name: Bump prebuilt rules package version
+        env:
+          NEW_PACKAGE: "${{github.event.inputs.new_package}}"
+          UPDATE_MESSAGE: "${{github.event.inputs.update_message}}"
+        run: |
+          cd detection-rules
+          python -m detection_rules dev bump-pkg-versions \
+            --patch-release                               \
+            --new-package $NEW_PACKAGE                    \
+            --maturity "ga"
+
+      - name: Build Release Package
+        run: |
+          cd detection-rules
+          python -m detection_rules dev build-release --add-historical "yes" \
+            --update-message $UPDATE_MESSAGE
+
+      - name: Build Integration Docs
+        run: |
+          cd detection-rules
+          python -m detection_rules dev build-integration-docs
+
+      - name: Checkout elastic/security-docs
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.READ_WRITE_RELEASE_FLEET }}
+          repository: ${{github.event.inputs.target_repo}}
+
+      - name: Commit and push changes
+        run: |
+          cd security-docs
+          git branch -b update_docs
+          git checkout update_docs
+          git add -A
+          git commit -m "Update latest docs"
+          git push origin --set-upstream origin update_docs
+
+      - name: Create PR to elastic/security-docs
+        env:
+          GITHUB_TOKEN: ${{ secrets.PROTECTIONS_MACHINE_TOKEN }}
+        run: |
+          cd security-docs
+          gh pr create --title "Update Docs" --body "This PR updates security docs" --base update_docs --head main
