@@ -71,6 +71,13 @@ jobs:
           cd detection-rules
           python -m detection_rules dev build-release --add-historical "yes"
 
+      - name: Checkout elastic/security-docs
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.READ_WRITE_RELEASE_FLEET }}
+          path: security-docs
+          fetch-depth: 0
+
       - name: Build Integration Docs
         env:
           UPDATE_MESSAGE: ${{ github.event.inputs.update_message }}
@@ -82,13 +89,6 @@ jobs:
             --pre integration-v$PRE_VERSION --post integration-v$POST_VERSION \
             -d /.../security-docs/docs/detections/prebuilt-rules/downloadable-packages \
             --update-message $UPDATE_MESSAGE --force
-
-      - name: Checkout elastic/security-docs
-        uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.READ_WRITE_RELEASE_FLEET }}
-          path: security-docs
-          fetch-depth: 0
 
       - name: Commit and push changes
         run: |
