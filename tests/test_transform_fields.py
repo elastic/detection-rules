@@ -92,7 +92,7 @@ class TestGuideMarkdownPlugins(unittest.TestCase):
 
         new_rule_contents = TOMLRuleContents.from_dict(rule_dict)
         new_rule = TOMLRule(path=sample_rule.path, contents=new_rule_contents)
-        rendered_note = new_rule.contents.to_dict()['rule']['note']
+        rendered_note = new_rule.contents.to_api_format()['note']
 
         for pattern in self.osquery_patterns:
             self.assertIn(pattern, rendered_note)
@@ -109,6 +109,6 @@ class TestGuideMarkdownPlugins(unittest.TestCase):
             rule_dict_copy.update(**transform)
             new_rule_contents = TOMLRuleContents.from_dict(rule_dict_copy)
             new_rule = TOMLRule(path=sample_rule.path, contents=new_rule_contents)
-            rendered_note = new_rule.contents.to_dict()['rule']['note']
+            rendered_note = new_rule.contents.to_api_format()['note']
 
             self.assertIn(pattern, rendered_note)
