@@ -1,0 +1,66 @@
+[metadata]
+creation_date = "2023/04/25"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "New Integration: Cloud Defend"
+min_stack_version = "8.8.0"
+updated_date = "2023/04/25"
+
+[rule]
+author = ["Elastic"]
+description = "This rule detects when a process is launched inside an existing container and the process is not part of the expected or previously seen processes in an environment. Running an unexpected process inside a container could indicate an attempt to run malicious code, which could lead to further compromise of the system."
+false_positives = [ ]
+from = "now-360s"
+index = [ "logs-cloud_defend*", ".alerts-security.alerts*" ]
+interval = "5m"
+language = "eql"
+license = "Elastic License V2"
+name = "Anomalous Process Launched Inside an Existing Container"
+note = """## Setup
+
+This rule executes on the alert indices (.alerts-security.alerts*) and depends on building block rules that must be enabled with this one. Building block rules (BBRs) create hidden alerts that act as a basis for an ordinary rule to generate visible alerts. The following BBR rule must be enabled in order for this rule to alert on those alerts:
+- anomalous process executable run inside a container [BBR] - c28bd942-ed9a-49fa-8ead-5c5f7aab97a0
+"""
+references = [
+  "https://info.aquasec.com/hubfs/Threat%20reports/AquaSecurity_Cloud_Native_Threat_Report_2021.pdf?utm_campaign=WP%20-%20Jun2021%20Nautilus%202021%20Threat%20Research%20Report&utm_medium=email&_hsmi=132931006&_hsenc=p2ANqtz-_8oopT5Uhqab8B7kE0l3iFo1koirxtyfTehxF7N-EdGYrwk30gfiwp5SiNlW3G0TNKZxUcDkYOtwQ9S6nNVNyEO-Dgrw&utm_content=132931006&utm_source=hs_automation"
+]
+risk_score = 47
+rule_id = "de20fb8f-9c5e-4941-be36-488bd9d0be1b"
+severity = "medium"
+tags = [
+  "Elastic",
+  "Host",
+  "Linux",
+  "Threat Detection",
+  "Execution",
+  "Container"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = """
+sequence by host.name, container.id with maxspan = 5m
+[process where process.parent.name: "runc" and event.type== "start" 
+  and event.action== "exec" and process.entry_leader.entry_meta.type== "container"]
+[process where kibana.alert.rule.rule_id: "c28bd942-ed9a-49fa-8ead-5c5f7aab97a0"]
+"""
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002"
+  name = "Execution"
+
+  [[rule.threat.technique]]
+  id = "T1204"
+  reference = "https://attack.mitre.org/techniques/T1204"
+  name = "User Execution"
+
+    [[rule.threat.technique.subtechnique]]
+    id = "T1204.003"
+    reference = "https://attack.mitre.org/techniques/T1204/003"
+    name = "Malicious Image"
+

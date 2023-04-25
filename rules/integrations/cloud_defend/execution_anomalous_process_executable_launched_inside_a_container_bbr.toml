@@ -1,0 +1,63 @@
+[metadata]
+creation_date = "2023/04/25"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "New Integration: Cloud Defend"
+min_stack_version = "8.8.0"
+updated_date = "2023/04/25"
+
+[rule]
+author = ["Elastic"]
+description = """Indicates a process executable launched inside a container and not previously seen in the last 15 days."""
+false_positives = [ ]
+from = "now-180s"
+index = [ "logs-cloud_defend*" ]
+interval = "2m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Anomalous Process Executable Run Inside a Container [BBR]"
+risk_score = 21
+rule_id = "c28bd942-ed9a-49fa-8ead-5c5f7aab97a0"
+severity = "low"
+tags = [
+  "Elastic",
+  "Host",
+  "Linux",
+  "Threat Detection",
+  "BBR",
+  "Container"
+]
+building_block_type = "default"
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+process.entry_leader.entry_meta.type : "container" and 
+  event.type : "start" and event.action : "fork" and 
+  event.action : "exec" and (
+    (event.type: "end" and process.entry_leader.same_as_process:true) or 
+    (process.entry_leader.same_as_process:false)
+    ) and process.executable:*
+'''
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start" 
+value = "now-15d"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002"
+name = "Execution"
+
+[[rule.threat.technique]]
+id = "T1204"
+reference = "https://attack.mitre.org/techniques/T1204"
+name = "User Execution"
+
