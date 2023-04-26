@@ -1,0 +1,50 @@
+[metadata]
+creation_date = "2023/04/26"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "New Integration: Cloud Defend"
+min_stack_version = "8.8.0"
+updated_date = "2023/04/26"
+
+[rule]
+author = ["Elastic"]
+description = "This rule detects when a container management binary is run from inside a container. These binaries are critical components of many containerized environments, and their presence in unexpected locations or in unauthorized containers could indicate compromise or a misconfiguration."
+false_positives = [ ]
+from = "now-360s"
+index = [ "logs-cloud_defend*" ]
+interval = "5m"
+language = "eql"
+license = "Elastic Licence v2"
+name = "Container Management Binary Run Inside A Container"
+references = [ ]
+risk_score = 21
+rule_id = "6c6bb7ea-0636-44ca-b541-201478ef6b50"
+severity = "low"
+tags = [
+  "Elastic",
+  "Host",
+  "Linux",
+  "Threat Detection",
+  "Execution",
+  "Container"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = """
+process where process.entry_leader.entry_meta.type== "container" and event.type== "start" 
+  and process.name: ("dockerd", "docker", "kubelet", "kube-proxy", "kubectl", "containerd", "runc", "systemd", "crictl")
+"""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+  name = "Execution"
+
+  [[rule.threat.technique]]
+  id = "T1609"
+  reference = "https://attack.mitre.org/techniques/T1609/"
+  name = "Container Administration Command"
