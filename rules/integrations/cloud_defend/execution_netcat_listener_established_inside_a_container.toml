@@ -1,0 +1,71 @@
+[metadata]
+creation_date = "2023/04/26"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "New Integration: Cloud Defend"
+min_stack_version = "8.8.0"
+updated_date = "2023/04/26"
+
+[rule]
+author = ["Elastic"]
+description = "This rule detects an established netcat listener running inside a container. Netcat is a utility used for reading and writing data across network connections, and it can be used for malicious purposes such as establishing a backdoor for persistence or exfiltrating data."
+false_positives = [ ]
+from = "now-360s"
+index = [ "logs-cloud_defend*" ]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Netcat Listener Established Inside A Container"
+references = [ ]
+risk_score = 47
+rule_id = "a52a9439-d52c-401c-be37-2785235c6547"
+severity = "medium"
+tags = [
+  "Elastic",
+  "Host",
+  "Linux",
+  "Threat Detection",
+  "Execution",
+  "Container"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = """
+process where process.entry_leader.entry_meta.type== "container" and event.type== "start" 
+and event.action== "fork" and event.action== "exec" and not event.action== "end" and 
+(
+(process.name:("nc","ncat","netcat","netcat.openbsd","netcat.traditional") and (
+          /* bind shell to echo for command execution */
+          (process.args:("-*l*","-*p*") and process.args:("-c","echo","$*"))
+          /* bind shell to specific port */
+          or process.args:("-*l*","-*p*")
+          ))
+         /* account for tools like busybox, coreutils that package various tools into a single executable*/
+or (process.args: ("nc","ncat","netcat","netcat.openbsd","netcat.traditional") 
+and (
+          /* bind shell to echo for command execution */
+          (process.args:("-*l*","-*p*") and process.args:("-c","echo","$*"))
+          /* bind shell to specific port */
+          or process.args:("-*l*","-*p*")
+          ))
+)
+"""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+  name = "Execution"
+
+  [[rule.threat.technique]]
+  id = "T1059"
+  reference = "https://attack.mitre.org/techniques/T1059/"
+  name = "Command and Scripting Interpreter"
+
+    [[rule.threat.technique.subtechnique]]
+    id = "T1059.004"
+    reference = "https://attack.mitre.org/techniques/T1059/004/"
+    name = "Unix Shell"
