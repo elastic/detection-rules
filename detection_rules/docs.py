@@ -288,7 +288,7 @@ class IntegrationSecurityDocs:
 
     def __init__(self, registry_version: str, directory: Path, overwrite=False,
                  updated_rules: Optional[Dict[str, TOMLRule]] = None, new_rules: Optional[Dict[str, TOMLRule]] = None,
-                 deprecated_rules: Optional[Dict[str, TOMLRule]] = None):
+                 deprecated_rules: Optional[Dict[str, TOMLRule]] = None, update_message: str = ""):
         self.new_rules = new_rules
         self.updated_rules = updated_rules
         self.deprecated_rules = deprecated_rules
@@ -297,7 +297,8 @@ class IntegrationSecurityDocs:
                                                    deprecated_rules.values()))
 
         self.registry_version_str, self.base_name, self.prebuilt_rule_base = self.parse_registry(registry_version)
-        self.package_directory = directory / self.base_name
+        self.package_directory = directory / "docs" / "detections" / "prebuilt-rules" / "downloadable-packages" / self.base_name  # noqa: E501
+        self.update_message = update_message
 
         if overwrite:
             shutil.rmtree(self.package_directory, ignore_errors=True)
@@ -306,7 +307,7 @@ class IntegrationSecurityDocs:
 
     @staticmethod
     def parse_registry(registry_version: str) -> (str, str, str):
-        registry_version = Version.parse(registry_version)
+        registry_version = Version.parse(registry_version, optional_minor_and_patch=True)
         short_registry_version = [str(n) for n in registry_version[:3]]
         registry_version_str = '.'.join(short_registry_version)
         base_name = "-".join(short_registry_version)
@@ -367,27 +368,65 @@ class IntegrationSecurityDocs:
             rule_path.write_text(rule_detail.generate())
 
     def generate_manual_updates(self):
-        update_file = self.package_directory / 'manual-updates.json'
+        """
+        Generate manual updates for prebuilt rules downloadable updates and index.
+        """
         updates = {}
 
-        # update downloadable rule updates entry
-        # https://www.elastic.co/guide/en/security/current/prebuilt-rules-downloadable-updates.html
+        # Update downloadable rule updates entry
         today = datetime.today().strftime('%d %b %Y')
 
-        updates['detections/prebuilt-rules/prebuilt-rules-downloadable-updates.asciidoc'] = {
-            'update_table_entry': (f'|<<prebuilt-rule-{self.base_name}-prebuilt-rules-{self.base_name}-summary, '
-                                   f'{self.registry_version_str}>> | {today} | {len(self.new_rules)} | '
-                                   f'{len(self.updated_rules)} | '),
-            'update_table_include': (f'include::downloadable-packages/{self.base_name}/'
-                                     f'prebuilt-rules-{self.base_name}-summary.asciidoc[leveloffset=+1]')
+        updates['downloadable-updates.asciidoc'] = {
+            'table_entry': (
+                f'|<<prebuilt-rule-{self.base_name}-prebuilt-rules-{self.base_name}-summary, '
+                f'{self.registry_version_str}>> | {today} | {len(self.new_rules)} | '
+                f'{len(self.updated_rules)} | '
+            ),
+            'table_include': (
+                f'include::downloadable-packages/{self.base_name}/'
+                f'prebuilt-rules-{self.base_name}-summary.asciidoc[leveloffset=+1]'
+            )
         }
 
         updates['index.asciidoc'] = {
-            'update_index_include': (f'include::detections/prebuilt-rules/downloadable-packages/{self.base_name}/'
-                                     f'prebuilt-rules-{self.base_name}-appendix.asciidoc[]')
+            'index_include': (
+                f'include::detections/prebuilt-rules/downloadable-packages/{self.base_name}/'
+                f'prebuilt-rules-{self.base_name}-appendix.asciidoc[]'
+            )
         }
 
-        update_file.write_text(json.dumps(updates, indent=2))
+        # Add index.asciidoc:index_include in docs/index.asciidoc
+        docs_index = self.package_directory.parent.parent.parent.parent / 'index.asciidoc'
+        docs_index.write_text(docs_index.read_text() + '\n' + updates['index.asciidoc']['index_include'] + '\n')
+
+        # Add table_entry to docs/detections/prebuilt-rules/prebuilt-rules-downloadable-updates.asciidoc
+        downloadable_updates = self.package_directory.parent.parent / 'prebuilt-rules-downloadable-updates.asciidoc'
+        new_content = updates['downloadable-updates.asciidoc']['table_entry'] + '\n' + self.update_message
+        self.add_content_to_table_top(downloadable_updates, new_content)
+
+        # Add table_include to/docs/detections/prebuilt-rules/prebuilt-rules-downloadable-updates.asciidoc
+        downloadable_updates.write_text(downloadable_updates.read_text() +  # noqa: W504
+                                        updates['downloadable-updates.asciidoc']['table_include'] + '\n')
+
+    def add_content_to_table_top(self, file_path: Path, new_content: str):
+        """Insert content at the top of a Markdown table right after the specified header."""
+        file_contents = file_path.read_text()
+
+        # Find the header in the file
+        header = '|Update version |Date | New rules | Updated rules | Notes\n'
+        header_index = file_contents.find(header)
+
+        if header_index == -1:
+            raise ValueError("Header not found in the file")
+
+        # Calculate the position to insert new content
+        insert_position = header_index + len(header)
+
+        # Insert the new content at the insert_position
+        updated_contents = file_contents[:insert_position] + f"\n{new_content}\n" + file_contents[insert_position:]
+
+        # Write the updated contents back to the file
+        file_path.write_text(updated_contents)
 
     def generate(self) -> Path:
         self.generate_appendix()
