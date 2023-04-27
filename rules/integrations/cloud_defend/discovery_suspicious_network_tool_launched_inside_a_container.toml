@@ -1,0 +1,83 @@
+[metadata]
+creation_date = "2023/04/26"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "New Integration: Cloud Defend"
+min_stack_version = "8.8.0"
+updated_date = "2023/04/26"
+
+[rule]
+author = ["Elastic"]
+description = "This rule detects commonly abused network utilities running inside a container. Network utilities like nc, nmap, dig, tcpdump, ngrep, telnet, mitmproxy, zmap can be used for malicious purposes such as network reconnaissance, monitoring or exploitation, and should be monitored closely within a container."
+false_positives = [ ]
+from = "now-360s"
+index = [ "logs-cloud_defend*" ]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Network Tool Launched Inside A Container"
+
+tags = [
+  "Elastic",
+  "Host",
+  "Linux",
+  "Threat Detection",
+  "Discovery",
+  "Command and Control",
+  "Reconnaissance",
+  "Container"
+]
+references = [ ]
+risk_score = 21
+rule_id = "1a289854-5b78-49fe-9440-8a8096b1ab50"
+severity = "low"
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = """
+process where process.entry_leader.entry_meta.type== "container" and event.type== "start" and 
+(
+(process.name: ("nc", "ncat", "nmap", "dig", "nslookup", "tcpdump", "tshark", "ngrep", "telnet", "mitmproxy", "socat", "zmap")) or 
+/* account for tools like busybox, coreutils that package various utilities into a single executable*/
+(process.args: ("nc", "ncat", "nmap", "dig", "nslookup", "tcpdump", "tshark", "ngrep", "telnet", "mitmproxy", "socat", "zmap"))
+)
+"""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  id = "TA0007"
+  reference = "https://attack.mitre.org/tactics/TA0007/"
+  name = "Discovery"
+
+  [[rule.threat.technique]]
+  id = "T1046"
+  reference = "https://attack.mitre.org/techniques/T1046/"
+  name = "Network Service Discovery"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+  name = "Command and Control"
+
+  [[rule.threat.technique]]
+  id = "T1105"
+  reference = "https://attack.mitre.org/techniques/T1105/"
+  name = "Ingress Tool Transfer"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  id = "TA0043"
+  reference = "https://attack.mitre.org/tactics/TA0043/"
+  name = "Reconnaissance"
+
+  [[rule.threat.technique]]
+  id = "T1595"
+  reference = "https://attack.mitre.org/techniques/T1595/"
+  name = "Active Scanning"
