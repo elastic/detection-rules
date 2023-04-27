@@ -295,7 +295,7 @@ class IntegrationSecurityDocs:
                                                    deprecated_rules.values()))
 
         self.registry_version_str, self.base_name, self.prebuilt_rule_base = self.parse_registry(registry_version)
-        self.package_directory = directory / self.base_name
+        self.package_directory = directory / "docs" / "detections" / "prebuilt-rules" / "downloadable-packages" / self.base_name  # noqa: E501
         self.update_message = update_message
 
         if overwrite:
@@ -305,7 +305,7 @@ class IntegrationSecurityDocs:
 
     @staticmethod
     def parse_registry(registry_version: str) -> (str, str, str):
-        registry_version = Version.parse(registry_version)
+        registry_version = Version.parse(registry_version, optional_minor_and_patch=True)
         short_registry_version = [str(n) for n in registry_version[:3]]
         registry_version_str = '.'.join(short_registry_version)
         base_name = "-".join(short_registry_version)
