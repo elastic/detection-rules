@@ -7,13 +7,6 @@ on:
         description: 'Target branch for PR base'
         required: true
         default: 'main'
-      draft:
-        type: choice
-        description: 'Create a PR as draft'
-        required: true
-        options:
-          - "yes"
-          - "no"
       update_message:
         description: 'Update status message for the latest package'
         required: true
@@ -26,7 +19,7 @@ on:
 
 jobs:
   build-docs:
-    name: Prepare Docs
+    name: Build Security Docs
     runs-on: ubuntu-latest
     steps:
       - name: Checkout detection-rules
@@ -63,7 +56,7 @@ jobs:
           cd detection-rules
           python -m detection_rules dev build-integration-docs $POST_VERSION \
             --pre integration-v$PRE_VERSION --post integration-v$POST_VERSION \
-            -d .../security-docs/docs/detections/prebuilt-rules/downloadable-packages \
+            -d ../security-docs/docs/detections/prebuilt-rules/downloadable-packages \
             --update-message $UPDATE_MESSAGE --force
 
       - name: Commit and push changes
