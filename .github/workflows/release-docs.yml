@@ -28,6 +28,14 @@ jobs:
           path: detection-rules
           fetch-depth: 0
 
+      - name: Checkout elastic/security-docs
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.READ_WRITE_RELEASE_FLEET }}
+          path: security-docs
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.target_branch }}
+
       - name: Set up Python 3.8
         uses: actions/setup-python@v2
         with:
@@ -38,14 +46,6 @@ jobs:
           cd detection-rules
           python -m pip install --upgrade pip
           pip install .[dev]
-
-      - name: Checkout elastic/security-docs
-        uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.READ_WRITE_RELEASE_FLEET }}
-          path: security-docs
-          fetch-depth: 0
-          ref: ${{ github.event.inputs.target_branch }}
 
       - name: Build Integration Docs
         env:
