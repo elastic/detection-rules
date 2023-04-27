@@ -150,8 +150,10 @@ def get_release_diff(pre: str, post: str, remote: Optional[str] = 'origin'
 @click.option('--directory', '-d', type=Path, required=True, help='Output directory to save docs to')
 @click.option('--force', '-f', is_flag=True, help='Bypass the confirmation prompt')
 @click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
+@click.option('--update-message', default='Rule Updates.', help='Update message for new package')
 @click.pass_context
-def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, post: str, directory: Path, force: bool,
+def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, post: str,
+                           directory: Path, force: bool, update_message: str,
                            remote: Optional[str] = 'origin') -> IntegrationSecurityDocs:
     """Build documents from two git tags for an integration package."""
     if not force:
@@ -159,7 +161,7 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
             ctx.exit(1)
 
     rules_changes = get_release_diff(pre, post, remote)
-    docs = IntegrationSecurityDocs(registry_version, directory, True, *rules_changes)
+    docs = IntegrationSecurityDocs(registry_version, directory, True, *rules_changes, update_message=update_message)
     package_dir = docs.generate()
 
     click.echo(f'Generated documents saved to: {package_dir}')
