@@ -79,8 +79,9 @@ jobs:
       - name: Create PR to elastic/security-docs
         env:
           GITHUB_TOKEN: ${{ secrets.PROTECTIONS_MACHINE_TOKEN }}
-          TARGET_BRANCH: "${{github.event.inputs.target_branch}}"
+          POST_VERSION: "v${{ github.event.inputs.post_version }}"
+          TARGET_BRANCH: "${{ github.event.inputs.target_branch }}"
           UPDATE_BRANCH: "update-security-docs-prebuilt-rules-${{github.event.inputs.post_version}}"
         run: |
           cd security-docs
-          gh pr create --title "Update Docs" --body "This PR updates security docs" --base $TARGET_BRANCH --head $UPDATE_BRANCH
+          gh pr create --title "[Detection Rules] Adding Documents for $POST_VERSION Pre-Built Detection Rules" --body "Security Doc updates for prebuilt security rule integration package version $POST_VERSION. Please note these are meant to merge into $TARGET_BRANCH only and not backport." --base $TARGET_BRANCH --head $UPDATE_BRANCH
