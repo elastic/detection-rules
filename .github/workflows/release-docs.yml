@@ -50,12 +50,13 @@ jobs:
       - name: Build Integration Docs
         env:
           UPDATE_MESSAGE: ${{ github.event.inputs.update_message }}
-          PRE_VERSION: ${{ github.event.inputs.pre_version }}
-          POST_VERSION: ${{ github.event.inputs.post_version }}
+          REGISTRY_VERSION: ${{ github.event.inputs.post_version }}
+          PRE_VERSION: "integration-v${{ github.event.inputs.pre_version }}"
+          POST_VERSION: "integration-v${{ github.event.inputs.post_version }}"
         run: |
           cd detection-rules
-          python -m detection_rules dev build-integration-docs $POST_VERSION \
-            --pre integration-v$PRE_VERSION --post integration-v$POST_VERSION \
+          python -m detection_rules dev build-integration-docs $REGISTRY_VERSION \
+            --pre $PRE_VERSION --post $POST_VERSION \
             -d ../security-docs/docs/detections/prebuilt-rules/downloadable-packages \
             --update-message $UPDATE_MESSAGE --force
 
