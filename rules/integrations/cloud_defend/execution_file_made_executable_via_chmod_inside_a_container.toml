@@ -1,0 +1,56 @@
+[metadata]
+creation_date = "2023/04/26"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "New Integration: Cloud Defend"
+min_stack_version = "8.8.0"
+updated_date = "2023/04/26"
+
+[rule]
+author = ["Elastic"]
+description = "This rule detects when chmod is used to add the execute permission to a file inside a container. Modifying file permissions to make a file executable could indicate malicious activity, as an attacker may attempt to run unauthorized or malicious code inside the container."
+false_positives = [ ]
+from = "now-360s"
+index = [ "logs-cloud_defend*" ]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "File Made Executable via Chmod Inside A Container"
+references = [ ]
+risk_score = 47
+rule_id = "ec604672-bed9-43e1-8871-cf591c052550"
+severity = "medium"
+tags = [
+  "Elastic",
+  "Host",
+  "Linux",
+  "Threat Detection",
+  "Execution",
+  "Container"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = """
+process where process.entry_leader.entry_meta.type== "container" and event.type== "start" and 
+(
+(process.name : "chmod" and process.args : "*x*") or 
+/*account for tools like busybox, coreutils that package various utilities into a single executable*/
+(process.args: "chmod" and process.args: "*x*")
+)
+/*not a newly initiated container*/
+and not (process.previous.args: "runc" and process.previous.args: "init")
+"""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002"
+  name = "Execution"
+
+  [[rule.threat.technique]]
+  id = "T1059"
+  reference = "https://attack.mitre.org/techniques/T1059"
+  name = "Command and Scripting Interpreter"
