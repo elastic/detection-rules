@@ -1,0 +1,77 @@
+[metadata]
+creation_date = "2023/04/26"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "New Integration: Cloud Defend"
+min_stack_version = "8.8.0"
+updated_date = "2023/04/26"
+
+[rule]
+author = ["Elastic"]
+description = "This rule detects when a package management utility is run inside a container. Package management utilities are used to install, update, and remove software packages. They can be used for malicious purposes such as installing malware or modifying a container's configuration."
+false_positives = [ ]
+from = "now-360s"
+index = [ "logs-cloud_defend*" ]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Package Management Utility Launched Inside A Container"
+references = [ ]
+rule_id = "f37ccbae-50ec-4305-8de6-c61d2e0a0a12"
+risk_score = 21
+severity = "low"
+tags = [
+  "Elastic",
+  "Host",
+  "Linux",
+  "Threat Detection",
+  "Persistence",
+  "Container"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = """
+process where process.entry_leader.entry_meta.type== "container" and event.type== "start" and 
+  process.name: (
+/*rpm_binaries*/
+"dnf", "dnf-automatic", "rpm", "rpmkey", "yum", "75-system-update", 
+"rhsmcertd-worker", "rhsmcertd", "subscription-manager", "repoquery", "rpmkeys", "rpmq", 
+"yum-cron", "yum-config-manager", "yum-debug-dump", "abrt-action-sav", 
+"rpmdb_stat", "microdnf", "rhn_check", "yumdb",
+/*deb_binaries*/
+"dpkg", "dpkg-preconfigure", "dpkg-reconfigure", "dpkg-divert", 
+"apt", "apt-get", "aptitude", "frontend", "preinst", "add-apt-repository", 
+"apt-auto-removal", "apt-key", "apt-listchanges", "unattended-upgrade", 
+"apt-add-repository", "apt-cache", "apt.systemd.daily",
+/*others*/
+"update-alternatives", "gem", "npm", "pip", "pip3", "sane-utils.post", 
+"alternatives", "chef-client", "apk", "snapd") 
+and not process.parent.name: (
+/*rpm_binaries*/
+"dnf", "dnf-automatic", "rpm", "rpmkey", "yum", "75-system-update", 
+"rhsmcertd-worker", "rhsmcertd", "subscription-manager", "repoquery", "rpmkeys", "rpmq", 
+"yum-cron", "yum-config-manager", "yum-debug-dump", "abrt-action-sav", 
+"rpmdb_stat", "microdnf", "rhn_check", "yumdb",
+/*deb_binaries*/
+"dpkg", "dpkg-preconfigure", "dpkg-reconfigure", "dpkg-divert", 
+"apt", "apt-get", "aptitude", "frontend", "preinst", "add-apt-repository", 
+"apt-auto-removal", "apt-key", "apt-listchanges", "unattended-upgrade", 
+"apt-add-repository", "apt-cache", "apt.systemd.daily",
+/*others*/
+"update-alternatives", "gem", "npm", "pip", "pip3", "sane-utils.post", 
+"alternatives", "chef-client", "apk", "snapd")
+"""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  id = "TA0003"
+  reference = "https://attack.mitre.org/tactics/TA0003/"
+  name = "Persistence"
+
+  [[rule.threat.technique]]
+  id = "T1505"
+  reference = "https://attack.mitre.org/techniques/T1505/"
+  name = "Server Software Component"
