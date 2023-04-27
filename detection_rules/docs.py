@@ -421,7 +421,7 @@ class IntegrationSecurityDocs:
         insert_position = header_index + len(header)
 
         # Insert the new content at the insert_position
-        updated_contents = file_contents[:insert_position] + new_content + file_contents[insert_position:]
+        updated_contents = file_contents[:insert_position] + f"\n{new_content}\n" + file_contents[insert_position:]
 
         # Write the updated contents back to the file
         file_path.write_text(updated_contents)
