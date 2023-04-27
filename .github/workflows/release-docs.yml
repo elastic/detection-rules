@@ -1,0 +1,36 @@
+name: Release Docs
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Target branch for PR base'
+        required: true
+        default: 'main'
+      draft:
+        type: choice
+        description: 'Create a PR as draft'
+        required: true
+        options:
+          - "yes"
+          - "no"
+      update_message:
+        description: 'Update status message for the latest package'
+        required: true
+      pre_version:
+        description: 'Previous version'
+        required: true
+      post_version:
+        description: 'Post version'
+        required: true
+
+jobs:
+  build-docs:
+    name: Prepare Docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout detection-rules
+        uses: actions/checkout@v3
+        with:
+          path: detection-rules
+          fetch-depth: 0
