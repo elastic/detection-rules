@@ -3,7 +3,7 @@ creation_date = "2021/11/08"
 integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
+min_stack_version = "8.4.0"
 updated_date = "2023/02/22"
 
 [rule]
@@ -97,7 +97,7 @@ tags = [
     "Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "new_terms"
 
 query = '''
 host.os.type:windows and
@@ -137,3 +137,9 @@ id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["winlog.event_data.ShareName"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-15d"

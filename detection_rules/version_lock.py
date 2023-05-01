@@ -236,7 +236,7 @@ class VersionLock:
                     route = 'B'
                     # 3) on the latest stack, locking in a breaking change
                     stripped_latest_locked_stack_version = f"{latest_locked_stack_version.major}." \
-                                                            f"{latest_locked_stack_version.minor}"
+                                                           f"{latest_locked_stack_version.minor}"
                     # preserve buffer space to support forked version spacing
                     if exclude_version_update:
                         buffer_int -= 1
@@ -259,7 +259,8 @@ class VersionLock:
                     new_version = lock_from_rule['version']
                     log_changes(
                         rule, route, new_version,
-                        f'previous {stripped_latest_locked_stack_version} saved as version: {previous_lock_info["version"]}',
+                        f'previous {stripped_latest_locked_stack_version} saved as \
+                            version: {previous_lock_info["version"]}',
                         f'current min_stack updated to {stripped_version}'
                     )
 
