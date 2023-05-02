@@ -208,15 +208,6 @@ class VersionLock:
                 lock_from_rule = rule.contents.lock_info(bump=not exclude_version_update)
                 lock_from_file: dict = lock_file_contents.setdefault(rule.id, {})
 
-                # prevent rule type changes for already locked and released rules (#1854)
-                if lock_from_file:
-                    name = lock_from_rule['rule_name']
-                    existing_type = lock_from_file['type']
-                    current_type = lock_from_rule['type']
-                    if existing_type != current_type:
-                        err_msg = f'cannot change "type" in locked rule: {name} from {existing_type} to {current_type}'
-                        raise ValueError(err_msg)
-
                 # scenarios to handle, assuming older stacks are always locked first:
                 # 1) no breaking changes ever made or the first time a rule is created
                 # 2) on the latest, after a breaking change has been locked
@@ -244,7 +235,8 @@ class VersionLock:
                 elif min_stack > latest_locked_stack_version:
                     route = 'B'
                     # 3) on the latest stack, locking in a breaking change
-
+                    stripped_latest_locked_stack_version = f"{latest_locked_stack_version.major}." \
+                                                           f"{latest_locked_stack_version.minor}"
                     # preserve buffer space to support forked version spacing
                     if exclude_version_update:
                         buffer_int -= 1
@@ -260,14 +252,15 @@ class VersionLock:
                     lock_from_file.setdefault("previous", {})
 
                     # move the current locked info into the previous section
-                    lock_from_file["previous"][str(latest_locked_stack_version)] = previous_lock_info
+                    lock_from_file["previous"][stripped_latest_locked_stack_version] = previous_lock_info
 
                     # overwrite the "latest" part of the lock at the top level
                     lock_from_file.update(lock_from_rule, min_stack_version=stripped_version)
                     new_version = lock_from_rule['version']
                     log_changes(
                         rule, route, new_version,
-                        f'previous {latest_locked_stack_version} saved as version: {previous_lock_info["version"]}',
+                        f'previous {stripped_latest_locked_stack_version} saved as \
+                            version: {previous_lock_info["version"]}',
                         f'current min_stack updated to {stripped_version}'
                     )
 
