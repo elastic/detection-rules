@@ -4,24 +4,7 @@ integration = ["system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/03/22"
-
-[transform]
-[[transform.osquery]]
-label = "Osquery - Retrieve Information for a Specific Group"
-query = "SELECT * FROM groups WHERE groupname = 'attacker'"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Information for a Specific User"
-query = "SELECT * FROM users WHERE username = 'attacker'"
-
-[[transform.osquery]]
-label = "Osquery - Investigate the Account Authentication Status"
-query = "SELECT * FROM logged_in_users WHERE user = 'attacker'"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Running Processes by User"
-query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.uid ORDER BY username"
+updated_date = "2023/04/03"
 
 [rule]
 author = ["Elastic"]
@@ -30,55 +13,14 @@ Identifies attempts to create a new group. Attackers may create new groups to es
 persistence on a system or domain.
 """
 from = "now-9m"
-index = ["logs-system.auth-*"]
+index = ["logs-system.auth-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Linux Group Creation"
-note = """## Triage and analysis
-
-### Investigating Linux Group Creation
-
-Attackers may create new groups to maintain access to victim systems or escalate privileges by assigning a compromised account to a privileged group.
-
-This rule identifies the usages of `groupadd` and `addgroup` to create new groups.
-
-> **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
-
-#### Possible investigation steps
-
-- Investigate whether the group was created succesfully.
-  - $osquery_0
-- Identify if a user account was added to this group after creation.
-  - $osquery_1
-- Investigate whether the user is currently logged in and active.
-  - $osquery_2
-- Identify the user account that performed the action and whether it should perform this kind of action.
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence and whether they are located in expected locations.
-  - $osquery_3
-- Investigate other alerts associated with the user/host during the past 48 hours.
-
-### False positive analysis
-
-- Group creation is a common administrative task, so there is a high chance of the activity being legitimate. Before investigating further, verify that this activity is not benign.
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior.
-- Review the privileges assigned to the involved users to ensure that the least privilege principle is being followed.
-- Delete the created group and, in case an account was added to this group, delete the account.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-## Setup
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
-"""
 risk_score = 21
 rule_id = "a1c2589e-0c8c-4ca8-9eb6-f83c4bbdbe8f"
 severity = "low"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Investigation Guide"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence"]
 timestamp_override = "event.ingested"
 type = "eql"
 
