@@ -4,135 +4,21 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/03/22"
-
-[transform]
-[[transform.osquery]]
-label = "Osquery - Retrieve File Information"
-query = "SELECT * FROM file WHERE path = 'file_path'"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve File Listing Information"
-query = """
-SELECT * FROM file WHERE (
-path LIKE '/etc/systemd/system/%' OR 
-path LIKE '/usr/local/lib/systemd/system/%' OR 
-path LIKE '/lib/systemd/system/%' OR
-path LIKE '/usr/lib/systemd/system/%' OR
-path LIKE '/home/user/.config/systemd/user/%'
-)
-"""
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Additional File Listing Information"
-query = """
-SELECT
-  f.path,
-  u.username AS file_owner,
-  g.groupname AS group_owner,
-  datetime(f.atime, 'unixepoch') AS file_last_access_time,
-  datetime(f.mtime, 'unixepoch') AS file_last_modified_time,
-  datetime(f.ctime, 'unixepoch') AS file_last_status_change_time,
-  datetime(f.btime, 'unixepoch') AS file_created_time,
-  f.size AS size_bytes
-FROM
-  file f
-  LEFT JOIN users u ON f.uid = u.uid
-  LEFT JOIN groups g ON f.gid = g.gid
-WHERE (
-path LIKE '/etc/systemd/system/%' OR 
-path LIKE '/usr/local/lib/systemd/system/%' OR 
-path LIKE '/lib/systemd/system/%' OR
-path LIKE '/usr/lib/systemd/system/%' OR
-path LIKE '/home/user/.config/systemd/user/%'
-)
-"""
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Running Processes by User"
-query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.uid ORDER BY username"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Crontab Information"
-query = "SELECT * FROM crontab"
+updated_date = "2023/04/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the creation of a systemd timer within any of the default systemd timer directories. Systemd timers
-can be used by an attacker to gain persistence, by scheduling the execution of a command or script. Similarly
-to cron/at, systemd timers can be set up to execute on boot time, or on a specific point in time, which allows
-attackers to regain access in case the connection to the infected asset was lost. 
+Detects the creation of a systemd timer within any of the default systemd timer directories. Systemd timers can be used 
+by an attacker to gain persistence, by scheduling the execution of a command or script. Similarly to cron/at, systemd 
+timers can be set up to execute on boot time, or on a specific point in time, which allows attackers to regain access in 
+case the connection to the infected asset was lost. 
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "New Systemd Timer Created"
-note = """## Triage and analysis
-
-### Investigating New Systemd Timer Created
-
-Attackers can leverage systemd timers to run scripts, commands or malicious software every time a system is rebooted, or on a set time interval by creating a systemd timer and corresponding systemd service file. 
-
-This rule looks for the creation of new files within one or multiple of the following directories:
-
--  /etc/systemd/system/
--  /usr/local/lib/systemd/system/
--  /lib/systemd/system/
--  /usr/lib/systemd/system/
-
-Low privileged users can also set up systemd timers, these can be found in:
-
-- /home/user/.config/systemd/user/
-
-Service files in these directories will automatically run at a specified time interval or at boot with root privileges.
-
-> **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
-
-#### Possible Investigation Steps
-
-- Investigate the timer file that was created or modified.
-  - $osquery_0
-- Investigate the currently enabled systemd timers through the following command "sudo systemctl list-timers".
-- Search for the corresponding systemd service file with a similar file name as the timer that was created.
-- Investigate whether any other files in any of the available systemd directories have been altered through OSQuery.
-  - $osquery_1
-  - $osquery_2
-- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-  - $osquery_3
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Investigate whether the altered scripts call other malicious scripts elsewhere on the file system. 
-  - If scripts or executables were dropped, retrieve the files and determine if they are malicious:
-    - Use a private sandboxed malware analysis system to perform analysis.
-      - Observe and collect information about the following activities:
-        - Attempts to contact external domains and addresses.
-          - Check if the domain is newly registered or unexpected.
-          - Check the reputation of the domain or IP address.
-        - File access, modification, and creation activities.
-        - Cron jobs, services and other persistence mechanisms.
-            - $osquery_4
-
-### False Positive Analysis
-
-- If this activity is related to new benign software installation activity, consider adding exceptions — preferably with a combination of user and command line conditions.
-- If this activity is related to a system administrator who uses systemd timers for administrative purposes, consider adding exceptions for this specific administrator user account. 
-- Try to understand the context of the execution by thinking about the user, machine, or business purpose. A small number of endpoints, such as servers with unique software, might appear unusual but satisfy a specific business need.
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Delete the service/timer or restore it to the original configuration.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-## Setup
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
-"""
 references = [
     "https://opensource.com/article/20/7/systemd-timers",
     "https://pberba.github.io/security/2022/01/30/linux-threat-hunting-for-persistence-systemd-timers-cron/"
