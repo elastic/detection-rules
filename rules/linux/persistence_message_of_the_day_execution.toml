@@ -4,53 +4,16 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/03/22"
-
-[transform]
-[[transform.osquery]]
-label = "Osquery - Retrieve File Information"
-query = "SELECT * FROM file WHERE path = 'file_path'"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve File Listing Information"
-query = "SELECT * FROM file WHERE (path LIKE '/etc/update-motd.d/%' OR path LIKE '/usr/lib/update-notifier/%')"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Additional File Listing Information"
-query = """
-SELECT
-  f.path,
-  u.username AS file_owner,
-  g.groupname AS group_owner,
-  datetime(f.atime, 'unixepoch') AS file_last_access_time,
-  datetime(f.mtime, 'unixepoch') AS file_last_modified_time,
-  datetime(f.ctime, 'unixepoch') AS file_last_status_change_time,
-  datetime(f.btime, 'unixepoch') AS file_created_time,
-  f.size AS size_bytes
-FROM
-  file f
-  LEFT JOIN users u ON f.uid = u.uid
-  LEFT JOIN groups g ON f.gid = g.gid
-WHERE (path LIKE '/etc/update-motd.d/%' OR path LIKE '/usr/lib/update-notifier/%')
-"""
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Running Processes by User"
-query = "SELECT pid, username, name FROM processes p JOIN users u ON u.uid = p.uid ORDER BY username"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Crontab Information"
-query = "SELECT * FROM crontab"
+updated_date = "2023/04/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-Message of the day (MOTD) is the message that is presented to the user when a user connects to 
-a Linux server via SSH or a serial connection. Linux systems contain several default MOTD files
-located in the "/etc/update-motd.d/" and "/usr/lib/update-notifier/" directories. These scripts run 
-as the root user every time a user connects over SSH or a serial connection. Adversaries may create
-malicious MOTD files that grant them persistence onto the target every time a user connects to the 
-system by executing a backdoor script or command. This rule detects the execution of potentially 
+Message of the day (MOTD) is the message that is presented to the user when a user connects to a Linux server via SSH 
+or a serial connection. Linux systems contain several default MOTD files located in the "/etc/update-motd.d/" and 
+"/usr/lib/update-notifier/" directories. These scripts run as the root user every time a user connects over SSH or a 
+serial connection. Adversaries may create malicious MOTD files that grant them persistence onto the target every time a 
+user connects to the system by executing a backdoor script or command. This rule detects the execution of potentially 
 malicious processes through the MOTD utility. 
 """
 from = "now-9m"
@@ -58,57 +21,8 @@ index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Process Spawned from MOTD Detected"
-note = """## Triage and analysis
-
-### Investigating Suspicious Process Spawned from MOTD Detected
-
-Attackers can abuse message-of-the-day files to run scripts, commands or malicious software every time a user connects to a system over SSH or a serial connection, by creating a new file within the "/etc/update-motd.d/" or "/usr/lib/update-notifier/" directory. Files in these directories will automatically run with root privileges when they are made executable.
-
-This rule looks for the execution of potentially malicious or at least suspicious processes spawned from a MOTD script, which is not likely to occur as default benign behavior. 
-
-> **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
-
-#### Possible Investigation Steps
-
-- Investigate the file that was created or modified from which the suspicious process was executed.
-  - $osquery_0
-- Investigate whether any other files in the "/etc/update-motd.d/" or "/usr/lib/update-notifier/" directories have been altered.
-  - $osquery_1
-  - $osquery_2
-- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-  - $osquery_3
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Investigate whether the altered scripts call other malicious scripts elsewhere on the file system. 
-  - If scripts or executables were dropped, retrieve the files and determine if they are malicious:
-    - Use a private sandboxed malware analysis system to perform analysis.
-      - Observe and collect information about the following activities:
-        - Attempts to contact external domains and addresses.
-          - Check if the domain is newly registered or unexpected.
-          - Check the reputation of the domain or IP address.
-        - File access, modification, and creation activities.
-        - Cron jobs, services and other persistence mechanisms.
-            - $osquery_4
-
-### Related Rules
-
-- Potential Persistence Through MOTD File Creation Detected - 96d11d31-9a79-480f-8401-da28b194608f
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Delete the MOTD files or restore them to the original configuration.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-## Setup
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
-"""
 references = [
-    ""
+    "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#10-boot-or-logon-initialization-scripts-motd"
 ]
 risk_score = 73
 rule_id = "4ec47004-b34a-42e6-8003-376a123ea447"
