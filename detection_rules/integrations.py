@@ -314,3 +314,37 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
                         "stack_version": stack_version, "ecs_version": ecs_version,
                         "package_version": package_version, "endgame_version": endgame_version}
                 yield data
+
+
+class SecurityDetectionEngine:
+    """Dedicated to Security Detection Engine integration."""
+
+    def __init__(self):
+        self.epr_url = "https://epr.elastic.co/package/security_detection_engine/"
+
+    def load_integration_assets(self, package_version: Version) -> dict:
+        """Loads integration assets into memory."""
+
+        epr_package_url = f"{self.epr_url}{str(package_version)}/"
+        epr_response = requests.get(epr_package_url, timeout=10)
+        epr_response.raise_for_status()
+        package_obj = epr_response.json()
+        zip_url = f"https://epr.elastic.co{package_obj['download']}"
+        zip_response = requests.get(zip_url)
+        with unzip(zip_response.content) as zip_package:
+            asset_file_names = [asset for asset in zip_package.namelist() if "json" in asset]
+            assets = {x.split("/")[-1].replace(".json", ""): json.loads(zip_package.read(x).decode('utf-8'))
+                      for x in asset_file_names}
+        return assets
+
+    def transform_legacy_assets(self, assets: dict) -> dict:
+        """Transforms legacy rule assets to historical rules."""
+        # this code can be removed after the 8.8 minor release
+        # epr prebuilt rule packages should have appropriate file names
+
+        assets_transformed = {}
+        for asset_id, contents in assets.items():
+            new_asset_id = f"{contents['attributes']['rule_id']}_{contents['attributes']['version']}"
+            contents["id"] = new_asset_id
+            assets_transformed[new_asset_id] = contents
+        return assets_transformed
