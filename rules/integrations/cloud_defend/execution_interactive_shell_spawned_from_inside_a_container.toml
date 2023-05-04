@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "New Integration: Cloud Defend"
 min_stack_version = "8.8.0"
-updated_date = "2023/05/03"
+updated_date = "2023/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -37,11 +37,11 @@ query = """
 process where container.id: "*" and
 event.type== "start" and 
 /*D4C consolidates closely spawned event.actions, this excludes end actions to only capture ongoing processes*/
-event.action== "fork" and event.action== "exec" and not event.action== "end"
+event.action in ("fork", "exec") and not event.action== "end"
  and process.entry_leader.same_as_process== false and
 (
-(process.name: "*sh" and process.args: "-i") or
-process.args: ("*sh*")
+(process.executable: "*/*sh" and process.args: ("-i", "-it")) or
+process.args: "*/*sh*"
 )
 """
 
