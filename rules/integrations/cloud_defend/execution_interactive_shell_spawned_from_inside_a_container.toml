@@ -4,13 +4,13 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "New Integration: Cloud Defend"
 min_stack_version = "8.8.0"
-updated_date = "2023/04/26"
+updated_date = "2023/05/03"
 
 [rule]
 author = ["Elastic"]
-description = "This rule detects when an interactive shell is spawned inside a running container. This could indicate an attacker's attempt to gain unauthorized access to the container."
+description = "This rule detects when an interactive shell is spawned inside a running container. This could indicate a potential container breakout attempt or an attacker's attempt to gain unauthorized access to the underlying host."
 false_positives = ["""
-  Legitimate users and processes, such as system administration tools, may utilize shell binaries inside a container resulting in false positives.
+  Legitimate users and processes, such as system administration tools, may utilize shell utilities inside a container resulting in false positives.
   """
 ]
 from = "now-6m"
@@ -27,21 +27,21 @@ tags = [
   "Threat Detection",
   "Execution"
 ]
-risk_score = 47
+risk_score = 73
 rule_id = "8d3d0794-c776-476b-8674-ee2e685f6470"
-severity = "medium"
+severity = "high"
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = """
-process where process.entry_leader.entry_meta.type== "container" and
-event.type== "start" and event.action== "fork" and event.action== "exec" and not event.action== "end" 
-and process.entry_leader.same_as_process== false and
+process where container.id: "*" and
+event.type== "start" and 
+/*D4C consolidates closely spawned event.actions, this excludes end actions to only capture ongoing processes*/
+event.action== "fork" and event.action== "exec" and not event.action== "end"
+ and process.entry_leader.same_as_process== false and
 (
-(process.name: "*sh" and process.args: ("-i", "*sh")) or
-/* account for tools like busybox, coreutils that package various utilities into a single executable*/
-/* this also captures reverse shell processes*/
-process.args: ("*/*sh*")
+(process.name: "*sh" and process.args: "-i") or
+process.args: ("*sh*")
 )
 """
 
