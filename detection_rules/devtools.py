@@ -32,7 +32,7 @@ from kibana.connector import Kibana
 
 from . import attack, rule_loader, utils
 from .cli_utils import single_collection
-from .docs import IntegrationSecurityDocs
+from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
@@ -85,8 +85,9 @@ def dev_group():
 @click.option('--generate-navigator', is_flag=True, help='Generate ATT&CK navigator files')
 @click.option('--add-historical', type=str, required=True, default="no",
               help='Generate historical package-registry files')
+@click.option('--update-message', type=str, help='Update message for new package')
 def build_release(config_file, update_version_lock: bool, generate_navigator: bool, add_historical: str,
-                  release=None, verbose=True):
+                  update_message: str, release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
     config = load_dump(config_file)['package']
     add_historical = True if add_historical == "yes" else False
@@ -104,7 +105,6 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
 
     if update_version_lock:
         default_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
-
     package.save(verbose=verbose)
 
     if add_historical:
@@ -112,6 +112,11 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
         sde = SecurityDetectionEngine()
         historical_rules = sde.load_integration_assets(previous_pkg_version)
         historical_rules = sde.transform_legacy_assets(historical_rules)
+
+        docs = IntegrationSecurityDocsMDX(config['registry_data']['version'], Path(f'releases/{config["name"]}-docs'),
+                                          True, historical_rules, package, note=update_message)
+        docs.generate()
+
         click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
         package.add_historical_rules(historical_rules, config['registry_data']['version'])
 
