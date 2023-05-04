@@ -14,11 +14,11 @@ false_positives = ["""
   """
 ]
 from = "now-6m"
-index = [ "logs-cloud_defend*" ]
+index = ["logs-cloud_defend*"]
 interval = "5m"
 language = "eql"
 license = "Elastic License v2"
-name = "Interactive Shell Spawned From Inside A Container"
+name = "Suspicious Interactive Shell Spawned From Inside A Container"
 tags = [
   "Elastic",
   "Host",
@@ -40,7 +40,7 @@ and process.entry_leader.same_as_process== false and
 (
 (process.name: "*sh" and process.args: ("-i", "*sh")) or
 /* account for tools like busybox, coreutils that package various utilities into a single executable*/
-/* this also captures netcat reverse shell connections*/
+/* this also captures reverse shell processes*/
 process.args: ("*/*sh*")
 )
 """
