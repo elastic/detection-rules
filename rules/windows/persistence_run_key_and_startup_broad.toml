@@ -136,7 +136,7 @@ registry where host.os.type == "windows" and registry.data.strings != null and
     (
       process.code_signature.trusted == true and process.code_signature.subject_name : "Logitech Inc" and
       process.name : "lghub_agent.exe" and registry.data.strings : (
-        "\"C:\\Program Files\\LGHUB\\lghub.exe\" --background"
+        "\"?:\\Program Files\\LGHUB\\lghub.exe\" --background"
       )
     ) or
 
@@ -145,34 +145,34 @@ registry where host.os.type == "windows" and registry.data.strings != null and
       process.code_signature.trusted == true and process.code_signature.subject_name : "Google LLC" and
       (
         process.name : "GoogleDriveFS.exe" and registry.data.strings : (
-        "\"C:\\Program Files\\Google\\Drive File Stream\\*\\GoogleDriveFS.exe\" --startup_mode"
+        "\"?:\\Program Files\\Google\\Drive File Stream\\*\\GoogleDriveFS.exe\" --startup_mode"
         ) or
 
         process.name : "chrome.exe" and registry.data.strings : (
-          "\"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\" --no-startup-window /prefetch:5",
-          "\"C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe\" --no-startup-window /prefetch:5"
+          "\"?:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\" --no-startup-window /prefetch:5",
+          "\"?:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe\" --no-startup-window /prefetch:5"
         ) or
 
         process.name : "GoogleUpdate.exe" and registry.data.strings : (
-          "\"C:\\Users\\*\\AppData\\Local\\Google\\Update\\*\\GoogleUpdateCore.exe\""
+          "\"?:\\Users\\*\\AppData\\Local\\Google\\Update\\*\\GoogleUpdateCore.exe\""
         )
       )
     ) or
 
     /* MS Programs */
     (
-      process.code_signature.trusted == true and process.code_signature.subject_name : "Microsoft Corporation" and
+      process.code_signature.trusted == true and process.code_signature.subject_name : ("Microsoft Windows", "Microsoft Corporation") and
       (
         process.name : "msedge.exe" and registry.data.strings : (
           "\"?:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --no-startup-window --win-session-start /prefetch:5"
         ) or
 
         process.name : ("Update.exe", "Teams.exe") and registry.data.strings : (
-          "C:\\Users\\*\\AppData\\Local\\Microsoft\\Teams\\Update.exe --processStart \"Teams.exe\" --process-start-args \"--system-initiated\""
+          "?:\\Users\\*\\AppData\\Local\\Microsoft\\Teams\\Update.exe --processStart \"Teams.exe\" --process-start-args \"--system-initiated\""
         ) or
 
         process.name : "OneDriveStandaloneUpdater.exe" and registry.data.strings : (
-          "C:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\*\\Microsoft.SharePoint.exe"
+          "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\*\\Microsoft.SharePoint.exe"
         ) or
 
         process.name : "OneDriveSetup.exe" and
@@ -181,9 +181,9 @@ registry where host.os.type == "windows" and registry.data.strings != null and
           ) and
           registry.data.strings : (
             "?:\\Windows\\system32\\cmd.exe /q /c * \"?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\*\"",
-            "C:\\Program Files (x86)\\Microsoft OneDrive\\OneDrive.exe /background *",
-            "\"C:\\Program Files (x86)\\Microsoft OneDrive\\OneDrive.exe\" /background *",
-            "C:\\Program Files\\Microsoft OneDrive\\OneDrive.exe /background *"
+            "?:\\Program Files (x86)\\Microsoft OneDrive\\OneDrive.exe /background *",
+            "\"?:\\Program Files (x86)\\Microsoft OneDrive\\OneDrive.exe\" /background *",
+            "?:\\Program Files\\Microsoft OneDrive\\OneDrive.exe /background *"
           )
       )
     ) or
@@ -192,7 +192,7 @@ registry where host.os.type == "windows" and registry.data.strings != null and
     (
       process.code_signature.trusted == true and process.code_signature.subject_name : "Slack Technologies, Inc." and
       process.name : "slack.exe" and registry.data.strings : (
-        "\"C:\\Users\\*\\AppData\\Local\\slack\\slack.exe\" --process-start-args --startup"
+        "\"?:\\Users\\*\\AppData\\Local\\slack\\slack.exe\" --process-start-args --startup"
       )
     ) or
 
@@ -200,7 +200,7 @@ registry where host.os.type == "windows" and registry.data.strings != null and
     (
       process.code_signature.trusted == true and process.code_signature.subject_name : ("Cisco WebEx LLC", "Cisco Systems, Inc.") and
       process.name : "WebexHost.exe" and registry.data.strings : (
-        "\"C:\\Users\\*\\AppData\\Local\\WebEx\\WebexHost.exe\" /daemon /runFrom=autorun"
+        "\"?:\\Users\\*\\AppData\\Local\\WebEx\\WebexHost.exe\" /daemon /runFrom=autorun"
       )
     )
   )
