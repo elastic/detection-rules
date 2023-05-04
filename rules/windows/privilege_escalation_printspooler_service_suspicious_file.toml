@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/03/06"
+updated_date = "2023/04/05"
 
 [rule]
 author = ["Elastic"]
@@ -18,10 +18,6 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious PrintSpooler Service Executable File Creation"
-note = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
-"""
 references = [
     "https://voidsec.com/cve-2020-1337-printdemon-is-dead-long-live-printdemon/",
     "https://www.thezdi.com/blog/2020/7/8/cve-2020-1300-remote-code-execution-through-microsoft-windows-cab-files",
@@ -41,7 +37,8 @@ file where host.os.type == "windows" and event.type == "creation" and
           ("?:\\WINDOWS\\SysWOW64\\PrintConfig.dll",
            "?:\\WINDOWS\\system32\\x5lrs.dll",
            "?:\\WINDOWS\\sysWOW64\\x5lrs.dll",
-           "?:\\WINDOWS\\system32\\PrintConfig.dll")
+           "?:\\WINDOWS\\system32\\PrintConfig.dll"
+           "?:\\Windows\\system32\\spool\\DRIVERS\\*")
 '''
 
 
