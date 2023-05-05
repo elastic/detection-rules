@@ -34,10 +34,8 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-file where host.os.type == "linux" and 
-event.action in ("creation", "file_create_event", "rename", "file_rename_event") and 
-process.name : ("*sh", "nano", "vi*", "mv", "cp", "touch", "editor", "sed") and file.path : "/etc/init.d/*" and not 
-endsWith(file.name, "swp") and user.id == "0"
+host.os.type :"linux" and event.action:("creation" or "file_create_event" or "rename" or "file_rename_event") and 
+file.path : /etc/init.d/* and not process.executable : ("/usr/bin/dpkg" or "/usr/bin/dockerd" or "/bin/rpm")
 '''
 
 
