@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "New Integration: Cloud Defend"
 min_stack_version = "8.8.0"
-updated_date = "2023/04/26"
+updated_date = "2023/05/05"
 
 [rule]
 author = ["Elastic"]
@@ -15,9 +15,9 @@ interval = "5m"
 language = "eql"
 license = "Elastic License v2"
 name = "Netcat Listener Established Inside A Container"
-risk_score = 47
+risk_score = 73
 rule_id = "a52a9439-d52c-401c-be37-2785235c6547"
-severity = "medium"
+severity = "high"
 tags = [
   "Elastic",
   "Host",
@@ -30,22 +30,22 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = """
-process where process.entry_leader.entry_meta.type== "container" and event.type== "start" 
-and event.action== "fork" and event.action== "exec" and not event.action== "end" and 
+process where container.id: "*" and event.type== "start" 
+and event.action in ("fork", "exec") and not event.action== "end" and 
 (
 (process.name:("nc","ncat","netcat","netcat.openbsd","netcat.traditional") and (
           /* bind shell to echo for command execution */
-          (process.args:("-*l*","-*p*") and process.args:("-c","echo","$*"))
+          (process.args:("-*l*", "--listen", "-*p*", "--source-port") and process.args:("-c", "--sh-exec", "-e", "--exec", "echo","$*"))
           /* bind shell to specific port */
-          or process.args:("-*l*","-*p*")
+          or process.args:("-*l*", "--listen", "-*p*", "--source-port")
           ))
-         /* account for tools like busybox, coreutils that package various tools into a single executable*/
-or (process.args: ("nc","ncat","netcat","netcat.openbsd","netcat.traditional") 
-and (
+         /* this accounts for utilities that package various tools into a single executable, in this case the target utility name will appear as a process arg*/
+or (
+process.args: ("nc","ncat","netcat","netcat.openbsd","netcat.traditional") and (
           /* bind shell to echo for command execution */
-          (process.args:("-*l*","-*p*") and process.args:("-c","echo","$*"))
+          (process.args:("-*l*", "--listen", "-*p*", "--source-port") and process.args:("-c", "--sh-exec", "-e", "--exec", "echo","$*"))
           /* bind shell to specific port */
-          or process.args:("-*l*","-*p*")
+          or process.args:("-*l*", "--listen", "-*p*", "--source-port")
           ))
 )
 """
