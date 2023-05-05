@@ -2,9 +2,9 @@
 creation_date = "2023/02/28"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/04/03"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup, New Term"
+min_stack_version = "8.6.0"
+updated_date = "2023/04/05"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,7 @@ malicious files within the default MOTD file directories.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "Potential Persistence Through MOTD File Creation Detected"
 references = [
@@ -28,14 +28,13 @@ risk_score = 47
 rule_id = "96d11d31-9a79-480f-8401-da28b194608f"
 severity = "medium"
 tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Elastic Endgame"]
-type = "eql"
+type = "new_terms"
 
 query = '''
-file where host.os.type == "linux" and
-event.action : ("creation", "file_create_event", "rename", "file_rename_event") and
-process.name : ("*sh", "nano", "vi*", "mv", "cp", "touch") and
-file.path : ("/etc/update-motd.d/*", "/usr/lib/update-notifier/*") and not 
-endsWith(file.name, "swp")
+host.os.type :"linux" and event.action:("creation" or "file_create_event" or "rename" or "file_rename_event") and 
+(file.path : /etc/update-motd.d/* or file.path : /usr/lib/update-notifier/*) and not 
+process.executable : ("/usr/bin/dpkg" or "/usr/bin/dockerd" or "/bin/rpm") and not 
+file.extension : "swp"
 '''
 
 
@@ -52,3 +51,11 @@ reference = "https://attack.mitre.org/techniques/T1037/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["file.path", "process.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
