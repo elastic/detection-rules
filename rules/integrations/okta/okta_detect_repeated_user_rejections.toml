@@ -1,7 +1,46 @@
+[metadata]
+creation_date = "2023/05/07"
+integration = ["okta"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/05/07"
 
+[rule]
+author = ["Austin Songer"]
+description = """
+Detects the “fatigue” aspects of a push fatigue attack.
+"""
+false_positives = [
+    """
+    
+    """,
+]
+index = ["filebeat-*", "logs-okta*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Okta Threat Detected by Repeated User Rejections"
+note = """## Setup
 
+The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://developer.okta.com/docs/reference/api/system-log/",
+    "https://developer.okta.com/docs/reference/api/event-types/",
+    "https://sec.okta.com/pushfatigueworkflows",
+]
+risk_score = 47
+rule_id = "871bf9fe-f502-4ebb-b86f-d34508a7baf3"
+severity = "medium"
+tags = ["Elastic", "Identity", "Okta", "Continuous Monitoring", "SecOps", "Identity and Access"]
+type = "query"
 
 query = '''
 event.dataset:okta.system and event.category:authentication and 
   okta.outcome.result:failure and okta.event_type:user.authentication.auth_via_mfa and okta.outcome.reason:INVALID_CREDENTIALS and okta.debug_context.debug_data.factor:OKTA_VERIFY_PUSH
 '''
+
+
+
+
+
+
