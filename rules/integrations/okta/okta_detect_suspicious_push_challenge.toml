@@ -31,11 +31,14 @@ severity = "medium"
 tags = ["Elastic", "Identity", "Okta", "Continuous Monitoring", "SecOps", "Identity and Access"]
 type = "sequence"
 timestamp_override = "event.ingested"
+
 query = '''
 sequence with maxspan=10m
-    [event.dataset:okta.system and event.category:authentication and okta.event_type:system.push.send_factor_verify_push ]
-    [event.dataset:okta.system and event.category:authentication and okta.event_type:user.authentication.auth_via_mfa and okta.debug_context.debug_data.factor:OKTA_VERIFY_PUSH ]
+    [event.dataset:okta.system and event.action:system.push.send_factor_verify_push]
+    [event.dataset:okta.system and event.action:user.authentication.auth_via_mfa and okta.debug_context.debug_data.factor:OKTA_VERIFY_PUSH]
 '''
+
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
