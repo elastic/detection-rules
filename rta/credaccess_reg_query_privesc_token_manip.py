@@ -5,7 +5,7 @@
 
 from . import common
 from . import RtaMetadata
-import ctypes, win32gui, win32con, os
+import ctypes, win32con, os
 from ctypes import byref, windll, wintypes
 
 
