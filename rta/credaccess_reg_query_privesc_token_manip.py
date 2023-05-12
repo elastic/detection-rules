@@ -97,16 +97,16 @@ def main():
     hsystem_token = wintypes.HANDLE()
     hsystem_token_dup = wintypes.HANDLE()
 
-    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000  # noqa: N806
-    TOKEN_IMPERSONATE = 0x00000004  # noqa: N806
-    TOKEN_DUPLICATE = 0x00000002  # noqa: N806
-    SecurityImpersonation = 0x2  # noqa: N806
-    TokenPrimary = 0x1  # noqa: N806
-    LOGON_WITH_PROFILE = 0x1  # noqa: N806
-    TOKEN_ALL_ACCESS = 0xf01ff  # noqa: N806
-    LPBYTE = ctypes.POINTER(wintypes.BYTE)  # noqa: N806
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+    TOKEN_IMPERSONATE = 0x00000004
+    TOKEN_DUPLICATE = 0x00000002
+    SecurityImpersonation = 0x2
+    TokenPrimary = 0x1
+    LOGON_WITH_PROFILE = 0x1
+    TOKEN_ALL_ACCESS = 0xf01ff
+    LPBYTE = ctypes.POINTER(wintypes.BYTE)
 
-    class PROCESS_INFORMATION(ctypes.Structure):  # noqa: N801
+    class PROCESS_INFORMATION(ctypes.Structure):
         _pack_ = 1
         _fields_ = [
             ('hProcess', wintypes.HANDLE),
@@ -115,7 +115,7 @@ def main():
             ('dwThreadId', wintypes.DWORD),
         ]
 
-    class STARTUPINFO(ctypes.Structure):  # noqa: N801
+    class STARTUPINFO(ctypes.Structure):
         __slots__ = ()
         _fields_ = (('cb', wintypes.DWORD),
                     ('lpReserved', wintypes.LPWSTR),
@@ -136,15 +136,15 @@ def main():
                     ('hStdOutput', wintypes.HANDLE),
                     ('hStdError', wintypes.HANDLE))
 
-    OpenProcess = windll.kernel32.OpenProcess  # noqa: N806
+    OpenProcess = windll.kernel32.OpenProcess
     OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
     OpenProcess.restype = wintypes.HANDLE
 
-    OpenProcessToken = windll.kernel32.OpenProcessToken  # noqa: N806
+    OpenProcessToken = windll.kernel32.OpenProcessToken
     OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.LPCVOID]
     OpenProcessToken.restype = wintypes.BOOL
 
-    DuplicateTokenEx = windll.advapi32.DuplicateTokenEx  # noqa: N806
+    DuplicateTokenEx = windll.advapi32.DuplicateTokenEx
     DuplicateTokenEx.restype = wintypes.BOOL
     DuplicateTokenEx.argtypes = [
         wintypes.HANDLE,                 # TokenHandle
@@ -155,7 +155,7 @@ def main():
         wintypes.HANDLE,                 # phNewToken
     ]
 
-    CreateProcessWithTokenW = windll.advapi32.CreateProcessWithTokenW  # noqa: N806
+    CreateProcessWithTokenW = windll.advapi32.CreateProcessWithTokenW
     CreateProcessWithTokenW.argtypes = [
         wintypes.HANDLE,  # hToken
         wintypes.DWORD,  # dwLogonFlags
@@ -169,7 +169,7 @@ def main():
     ]
     CreateProcessWithTokenW.restype = wintypes.BOOL
 
-    CloseHandle = windll.kernel32.CloseHandle  # noqa: N806
+    CloseHandle = windll.kernel32.CloseHandle
     CloseHandle.argtypes = [wintypes.HANDLE]
     CloseHandle.restype = wintypes.BOOL 
     
