@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "New Integration: Cloud Defend"
 min_stack_version = "8.8.0"
-updated_date = "2023/05/08"
+updated_date = "2023/05/12"
 
 [rule]
 author = ["Elastic"]
@@ -23,12 +23,11 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = """
-process where container.id: "*" and event.type== "start" and 
-(
-(process.name : "chmod" and process.args : ("*x*", "777", "755", "754", "700") and not process.args: "-x") or 
+file where container.id: "*" and event.type in ("change", "creation") and
+
 /*account for tools that execute utilities as a subprocess, in this case the target utility name will appear as a process arg*/
-(process.args: "chmod" and process.args: ("*x*", "777", "755", "754", "700") and not process.args: "-x")
-)
+(process.name : "chmod" or process.args : "chmod") and 
+process.args : ("*x*", "777", "755", "754", "700") and not process.args: "-x"
 """
 
 [[rule.threat]]
