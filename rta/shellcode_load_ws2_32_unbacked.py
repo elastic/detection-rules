@@ -85,7 +85,6 @@ def main():
 
     # Inject shellcode into notepad.exe
     Inject(u"C:\\Windows\\SysWOw64\\WerFault.exe", shellcode)
-    common.execute(["taskkill", "/f", "/im", "WerFault.exe"])
 
 
 if __name__ == "__main__":
