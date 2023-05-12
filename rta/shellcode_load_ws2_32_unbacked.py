@@ -40,7 +40,7 @@ metadata = RtaMetadata(
          'rule_name': 'Potential Masquerading as Windows Error Manager'},
     ],
     siem=[],
-    techniques=["T1134", "T1003"],
+    techniques=["T1055", "T1036"],
 )
 
 

@@ -5,7 +5,9 @@
 
 from . import common
 from . import RtaMetadata
-import ctypes, win32gui, win32con, win32process, win32event, win32api, win32security, win32file, win32service, sys, time, os
+import ctypes, win32gui, win32process, win32event, win32api, win32security, win32file, win32service, sys, time, os
+import win32.lib.win32con as win32con
+
 
 BOOL    = ctypes.c_int
 DWORD   = ctypes.c_uint32

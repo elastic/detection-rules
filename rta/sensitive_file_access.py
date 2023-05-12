@@ -7,7 +7,8 @@
 from . import common
 from . import RtaMetadata
 from os import path
-import win32file, win32con
+import win32file
+import win32.lib.win32con as win32con
 
 metadata = RtaMetadata(
     uuid="bdb54776-d643-4f4c-90cc-7719c2fa7eab",
