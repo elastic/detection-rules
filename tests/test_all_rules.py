@@ -991,7 +991,6 @@ class TestEndpointQuery(BaseRuleTest):
                 if rule.path.parent.name == 'windows' and not any(field.startswith('winlog.') for field in fields):
                     self.assertIn('host.os.type', fields, err_msg)
 
-
             # going to bypass this for now
             # if rule.path.parent.name == 'linux':
             #     err_msg = f'{self.rule_str(rule)} missing required field for linux endpoint rule'
