@@ -23,25 +23,13 @@ severity = "high"
 tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution", "Elastic Endgame"]
 timeline_id = "e70679c2-6cde-4510-9764-4823df18f7db"
 timeline_title = "Comprehensive Process Timeline"
-timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 sequence with maxspan=1m
   [process where host.os.type == "linux" and event.type == "start" and process.name : "python*"] by process.entity_id
   [process where host.os.type == "linux" and event.type == "start" and 
-   process.executable : (
-      "/bin/bash",
-      "/bin/sh",
-      "/bin/dash",
-      "/bin/csh",
-      "/bin/zsh",
-      "/bin/ksh",
-      "/bin/tcsh",
-      "/bin/fish",
-      "/bin/ash",
-      "/bin/bsh"
-   )
+   process.executable : "/bin/*sh"
   ] by process.parent.entity_id
 '''
 
