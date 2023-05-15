@@ -17,16 +17,19 @@ metadata = RtaMetadata(
 
 # iso contains WerFault.exe and a testing faultrep.dll to be sideloaded
 ISO = common.get_path("bin", "rta_iso.iso")
+PROC = 'WER_RTA.exe'
 
-# ps script to mount, execute WerFault.exe and unmount ISO device
-psf = common.get_path("bin", "mount_wer_iso.ps1")
+# ps script to mount, execute a file and unmount ISO device
+psf = common.get_path("bin", "ExecFromISOFile.ps1")
 
 @common.requires_os(metadata.platforms)
 
 def main():
     if os.path.exists(ISO) and os.path.exists(psf):
         print('[+] - ISO File ', ISO, 'will be mounted and executed via powershell')
-        command = "powershell.exe -ExecutionPol Bypass " + psf
+
+        # import ExecFromISO function that takes two args -ISOFIle pointing to ISO file path and -procname pointing to the filename to execute
+        command = "powershell.exe -ExecutionPol Bypass -c import-module " + psf + '; ExecFromISO -ISOFile ' + ISO + ' -procname '+ PROC + ';'
         common.execute(command)
         print('[+] - RTA Done!')
 
