@@ -38,7 +38,7 @@ def main():
         common.execute(["taskkill", "/f", "/im", "notepad.exe"])
         win32file.DeleteFile(path.expandvars("%localappdata%\\Temp\\RTA_WER.exe"))
         win32file.DeleteFile(path.expandvars("%localappdata%\\Temp\\faultrep.dll"))
-        print('[+] - WerFault.EXE and FaultRep.dll deleted.')
+        print('[+] - RTA_WER.exe and FaultRep.dll deleted.')
         print('[+] - RTA Done.')
     else:
         print('[+] - Failed to copy WerFault.exe and FaultRep.dll')
