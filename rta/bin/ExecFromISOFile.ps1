@@ -12,6 +12,5 @@ function ExecFromISO {
 	else {invoke-item "$($DriveLetter):\$($procname)";} 
 	Start-Sleep -s 2; 
 	Stop-process -name $procname -Force -ErrorAction ignore; 
-	Stop-process -name "notepad.exe" -Force -ErrorAction ignore; 
 	Dismount-DiskImage -ImagePath $ISOFile | Out-Null;
 }

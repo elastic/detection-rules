@@ -16,7 +16,7 @@ metadata = RtaMetadata(
 )
 
 # iso contains WerFault.exe and a testing faultrep.dll to be sideloaded
-ISO = common.get_path("bin", "rta_iso.iso")
+ISO = common.get_path("bin", "werfault_iso.iso")
 PROC = 'WER_RTA.exe'
 
 # ps script to mount, execute a file and unmount ISO device
