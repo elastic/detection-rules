@@ -32,7 +32,7 @@ def main():
     # start RTA_WER.exe to load FaultRep.dll
     if os.path.exists(path.expandvars("%localappdata%\\Temp\\RTA_WER.exe")) and os.path.exists(path.expandvars("%localappdata%\\Temp\\faultrep.dll")):
         print('[+] - WerFault.EXE copied to', path.expandvars("%localappdata%\\Temp\\RTA_WER.exe"))
-        print('[+] - BIN\\Faultrep.dll copied to', path.expandvars("%localappdata%\\Temp\\faultrep.dll"))
+        print('[+] - Fake Faultrep.dll copied to', path.expandvars("%localappdata%\\Temp\\faultrep.dll"))
         common.execute(["cmd.exe", "/c", path.expandvars("%localappdata%\\Temp\\RTA_WER.exe")])
         # Cleanup
         common.execute(["taskkill", "/f", "/im", "notepad.exe"])
