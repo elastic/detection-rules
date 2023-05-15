@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/01/27"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -37,7 +37,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
     (process.name : "dsquery.exe" or process.pe.original_file_name: "dsquery.exe") and 
     process.args : "*objectClass=trustedDomain*"
 '''
@@ -49,7 +49,10 @@ framework = "MITRE ATT&CK"
 id = "T1482"
 name = "Domain Trust Discovery"
 reference = "https://attack.mitre.org/techniques/T1482/"
-
+[[rule.threat.technique]]
+id = "T1018"
+name = "Remote System Discovery"
+reference = "https://attack.mitre.org/techniques/T1018/"
 
 [rule.threat.tactic]
 id = "TA0007"

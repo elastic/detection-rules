@@ -27,6 +27,7 @@ VERSION_PATTERN = f'^{_version}$'
 MINOR_SEMVER = r'^\d+\.\d+$'
 BRANCH_PATTERN = f'{VERSION_PATTERN}|^master$'
 
+NON_DATASET_PACKAGES = ['apm', 'endpoint', 'system', 'windows', 'cloud_defend']
 INTERVAL_PATTERN = r'^\d+[mshd]$'
 TACTIC_URL = r'^https://attack.mitre.org/tactics/TA[0-9]+/$'
 TECHNIQUE_URL = r'^https://attack.mitre.org/techniques/T[0-9]+/$'
@@ -55,7 +56,7 @@ TIMELINE_TEMPLATES: Final[dict] = {
 
 
 NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
-
+TimeUnits = Literal['s', 'm', 'h']
 BranchVer = NewType('BranchVer', str, validate=validate.Regexp(BRANCH_PATTERN))
 CardinalityFields = NewType('CardinalityFields', List[NonEmptyStr], validate=validate.Length(min=0, max=3))
 CodeString = NewType("CodeString", str)

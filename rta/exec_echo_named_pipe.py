@@ -16,7 +16,10 @@ metadata = RtaMetadata(
             "rule_id": "a0265178-779d-4bc5-b3f1-abb3bcddedab",
         }
     ],
-    siem=[],
+    siem=[{
+        'rule_id': '3ecbdc9e-e4f2-43fa-8cca-63802125e582',
+        'rule_name': 'Privilege Escalation via Named Pipe Impersonation'
+    }],
     techniques=["T1134"],
 )
 
@@ -25,7 +28,7 @@ metadata = RtaMetadata(
 def main():
 
     # Execute command
-    common.execute(["cmd.exe", "/c", "'echo", "cmd.exe", ">", "\\\\.\\pipe\\named'"], timeout=5)
+    common.execute(["cmd.exe", "/c", "echo", "cmd.exe", ">", "\\\\.\\pipe\\named"], timeout=5)
 
 
 if __name__ == "__main__":

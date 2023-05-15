@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2021/11/08"
-integration = ["windows"]
+integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/21"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -80,8 +80,9 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.code: "5136" and winlog.event_data.AttributeLDAPDisplayName:"gPCMachineExtensionNames" and
-winlog.event_data.AttributeValue:(*827D319E-6EAC-11D2-A4EA-00C04F79F83A* and *803E14A0-B4FB-11D0-A0D0-00A0C90F574B*)
+host.os.type:windows and event.code: "5136" and
+  winlog.event_data.AttributeLDAPDisplayName:"gPCMachineExtensionNames" and
+  winlog.event_data.AttributeValue:(*827D319E-6EAC-11D2-A4EA-00C04F79F83A* and *803E14A0-B4FB-11D0-A0D0-00A0C90F574B*)
 '''
 
 

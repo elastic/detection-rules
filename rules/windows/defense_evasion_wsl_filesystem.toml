@@ -2,7 +2,7 @@
 creation_date = "2023/01/12"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/01/12"
+updated_date = "2023/02/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -27,11 +27,11 @@ type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=5m
- [process where event.type == "start" and 
+ [process where host.os.type == "windows" and event.type == "start" and
   process.name : "dllhost.exe" and 
    /* Plan9FileSystem CLSID - WSL Host File System Worker */
   process.command_line : "*{DFB65C4C-B34F-435D-AFE9-A86218684AA8}*"]
- [file where process.name : "dllhost.exe" and not file.path : "?:\\Users\\*\\Downloads\\*"]
+ [file where host.os.type == "windows" and process.name : "dllhost.exe" and not file.path : "?:\\Users\\*\\Downloads\\*"]
 '''
 
 
