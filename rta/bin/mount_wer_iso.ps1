@@ -1,0 +1,10 @@
+$ScriptPath = $MyInvocation.MyCommand.Path;
+$DIR = Split-Path $ScriptPath;
+$ISO = $DIR + ".\rta_iso.iso";
+$MountMeta = Mount-DiskImage -ImagePath $ISO -StorageType ISO -Access ReadOnly;
+$DriveLetter = ($MountMeta | Get-Volume).DriveLetter;
+invoke-item "$($DriveLetter):\WER_RTA.exe";
+Start-Sleep -s 2;
+Stop-process -name "WER_RTA.exe" -Force -ErrorAction ignore;
+Stop-process -name "notepad.exe" -Force -ErrorAction ignore;
+Dismount-DiskImage -ImagePath $ISO | Out-Null;
