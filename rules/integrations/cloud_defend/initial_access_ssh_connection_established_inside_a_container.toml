@@ -4,14 +4,14 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "New Integration: Cloud Defend"
 min_stack_version = "8.8.0"
-updated_date = "2023/05/12"
+updated_date = "2023/05/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects an incoming SSH connection established inside a running container.
-Running an ssh daemon inside a container should be avoided and monitored closely if necessary.
-If an attacker gains valid credentials they can use it to gain initial access or establish persistence within a compromised environment.
+This rule detects an incoming SSH connection established inside a running container. Running an ssh daemon inside 
+a container should be avoided and monitored closely if necessary. If an attacker gains valid credentials they can use 
+it to gain initial access or establish persistence within a compromised environment.
 """
 false_positives = ["""
   SSH usage may be legitimate depending on the environment. 
@@ -35,12 +35,14 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where container.id: "*" and event.type== "start" and 
+process where container.id: "*" and event.type == "start" and 
+
 /* use of sshd to enter a container*/
 process.entry_leader.entry_meta.type: "sshd"  and 
+
 /* process is the initial process run in a container or start of a new session*/
-(process.entry_leader.same_as_process== true or
-process.session_leader.same_as_process== true) and 
+(process.entry_leader.same_as_process== true or process.session_leader.same_as_process== true) and 
+
 /* interactive process*/
 process.interactive== true
 '''
