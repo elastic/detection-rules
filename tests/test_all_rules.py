@@ -986,7 +986,10 @@ class TestEndpointQuery(BaseRuleTest):
             fields = [str(f) for f in ast if isinstance(f, (kql.ast.Field, eql.ast.Field))]
 
             err_msg = f'{self.rule_str(rule)} missing required field for endpoint rule'
-            self.assertIn('host.os.type', fields, err_msg)
+            if 'host.os.type' not in fields:
+                # Exception for Forwarded Events which contain Windows-only fields.
+                if rule.path.parent.name == 'windows' and not any(field.startswith('winlog.') for field in fields):
+                    self.assertIn('host.os.type', fields, err_msg)
 
             # going to bypass this for now
             # if rule.path.parent.name == 'linux':
