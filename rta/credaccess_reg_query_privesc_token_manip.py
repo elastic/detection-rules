@@ -6,6 +6,7 @@
 from . import common
 from . import RtaMetadata
 import ctypes, os
+from ctypes import *
 from ctypes import byref, windll, wintypes
 
 
