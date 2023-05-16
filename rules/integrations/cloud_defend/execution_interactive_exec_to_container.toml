@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "New Integration: Cloud Defend"
 min_stack_version = "8.8.0"
-updated_date = "2023/05/12"
+updated_date = "2023/05/16"
 
 [rule]
 author = ["Elastic"]
@@ -42,13 +42,16 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where container.id: "*" and event.type== "start" and 
+process where container.id : "*" and event.type== "start" and 
+
 /* use of kubectl exec to enter a container */
-process.entry_leader.entry_meta.type: "container" and 
+process.entry_leader.entry_meta.type : "container" and 
+
 /* process is the inital process run in a container */
 process.entry_leader.same_as_process== true and
+
 /* interactive process */
-process.interactive== true
+process.interactive == true
 '''
 
 
