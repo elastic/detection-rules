@@ -12,7 +12,7 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{"rule_id": "779b9502-7912-4773-95a1-51cd702a71c8", "rule_name": "Suspicious ImageLoad from an ISO Mounted Device"},
-          {"rule_id": "779b9502-7912-4773-95a1-51cd702a71c8", "rule_name": "Potential DLL SideLoad via a Microsoft Signed Binary"}],
+          {"rule_id": "08fba401-b76f-4c7b-9a88-4f3b17fe00c1", "rule_name": "DLL Loaded from an Archive File"}],
     techniques=["T1574"],
 )
 
