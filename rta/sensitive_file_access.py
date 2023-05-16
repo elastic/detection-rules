@@ -8,7 +8,8 @@ from . import common
 from . import RtaMetadata
 from os import path
 import win32file
-import win32.lib.win32con as win32con
+
+OPEN_EXISTING = 3
 
 metadata = RtaMetadata(
     uuid="bdb54776-d643-4f4c-90cc-7719c2fa7eab",
@@ -38,7 +39,7 @@ def main():
              "C:\\Windows\\System32\\Microsoft\\Protect\\S-1-5-18\\User\\test"]
     for f in files:
         try:
-            win32file.CreateFile(path.expandvars(f), win32file.GENERIC_READ, 0, None, win32con.OPEN_EXISTING, 0, None)
+            win32file.CreateFile(path.expandvars(f), win32file.GENERIC_READ, 0, None, OPEN_EXISTING, 0, None)
             time.sleep(2)
         except Exception as e:
                print('failed to open ', f)
