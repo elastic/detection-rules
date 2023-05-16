@@ -4,7 +4,7 @@ integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/22"
+updated_date = "2023/04/27"
 
 [rule]
 author = ["Elastic"]
@@ -16,7 +16,7 @@ license = "Elastic License v2"
 name = "Startup/Logon Script added to Group Policy Object"
 note = """## Triage and analysis
 
-### Investigating Scheduled Task Execution at Scale via GPO
+### Investigating Startup/Logon Script added to Group Policy Object
 
 Group Policy Objects (GPOs) can be used by attackers to instruct arbitrarily large groups of clients to execute specified commands at startup, logon, shutdown, and logoff. This is done by creating or modifying the `scripts.ini` or `psscripts.ini` files. The scripts are stored in the following paths:
   - `<GPOPath>\\Machine\\Scripts\\`
@@ -98,7 +98,6 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-host.os.type:windows and
 (
  event.code:5136 and winlog.event_data.AttributeLDAPDisplayName:(gPCMachineExtensionNames or gPCUserExtensionNames) and
    winlog.event_data.AttributeValue:(*42B5FAAE-6536-11D2-AE5A-0000F87571E3* and
