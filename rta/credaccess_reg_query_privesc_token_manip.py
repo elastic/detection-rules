@@ -6,7 +6,6 @@
 from . import common
 from . import RtaMetadata
 import ctypes, os
-import win32.lib.win32con as win32con
 from ctypes import byref, windll, wintypes
 
 
@@ -23,6 +22,10 @@ UCHAR   = ctypes.c_ubyte
 ULONG   = ctypes.c_uint32
 
 TH32CS_SNAPPROCESS = 0x00000002
+PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+TOKEN_DUPLICATE = 0x0002
+TOKEN_ALL_ACCESS = 0xf00ff
+MAX_PATH = 260
 
 BOOL    = ctypes.c_int
 DWORD   = ctypes.c_uint32
@@ -47,7 +50,7 @@ class PROCESSENTRY32(ctypes.Structure):
         ('th32ParentProcessID', DWORD),
         ('pcPriClassBase',      LONG),
         ('dwFlags',             DWORD),
-        ('szExeFile',           TCHAR * win32con.MAX_PATH)
+        ('szExeFile',           TCHAR * MAX_PATH)
     ]
 
 
@@ -79,7 +82,7 @@ def getppid(pname):
     current_pid = os.getpid()
 
 
-    if Process32First(hProcessSnap, ctypes.byref(pe32)) == win32con.FALSE: 
+    if Process32First(hProcessSnap, ctypes.byref(pe32)) == 0:
      print("[x] - Failed getting first process.") 
      return
 
