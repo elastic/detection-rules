@@ -15,7 +15,7 @@ metadata = RtaMetadata(
     techniques=["T1574"],
 )
 
-# testing PE that will load ws2_32 via Callback
+# testing PE that will load ws2_32 and dnsapi.dll via a Callback function using RtlQueueWorkItem and RtlRegisterWait
 BIN = common.get_path("bin", "LoadLib-Callback64.exe")
 
 @common.requires_os(metadata.platforms)
@@ -24,7 +24,7 @@ def main():
     if os.path.exists(BIN) :
         print('[+] - File ', BIN, 'will be executed')
         common.execute(BIN)
-        # terminate notepad.exe spawned as a result of the DLL execution
+        # cleanup
         common.execute(["taskkill", "/f", "/im", "LoadLib-Callback64.exe"])
         print('[+] - RTA Done!')
 
