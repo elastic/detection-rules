@@ -21,6 +21,8 @@ metadata = RtaMetadata(
         {"rule_name": "Suspicious Access to Active Directory Database File", "rule_id": "d66765b8-010b-4a40-ab62-1d8f13a44878"},
         {"rule_name": "Sensitive File Access - SSH Saved Keys", "rule_id": "1487d726-2bd2-4a9e-a9d2-db8aef1d6239"},
         {"rule_name": "Failed Attempts to Access Sensitive Files", "rule_id": "3163dd96-c677-4f1f-98bf-c8f3c81b197b"},
+        {"rule_name": "Sensitive File Access - System Admin Utilities", "rule_id": "949c72ee-a283-4673-afe0-7fa72bddc2f6"},
+        {"rule_name": "Potential Credential Access via Windows Credential History", "rule_id": "ce8a6302-7248-457a-8427-3d6bad14e2f0"},
     ],    
     siem=[],
     techniques=["T1134"],
@@ -36,12 +38,15 @@ def main():
              "%appdata%\\Mozilla\\Firefox\\Profiles\\test\\logins.json",
              "%appdata%\\Mozilla\\Firefox\\Profiles\\test\\cookies.sqlite",
              "%appdata%\\key3.db",
+             "%appdata%\\KeePass\\KeePass.config.xml",
              "C:\\Users\\Public\\AppData\\Local\\Microsoft\\Vault\\test",
              "%appdata%\\Microsoft\\Credentials\\test",
              "C:\\Windows\\Panther\\Unattend.xml",
              "C:\\Windows\\System32\\Microsoft\\Protect\\S-1-5-18\\User\\test",
              "C:\\Windows\\NTDS\\NTDS.dit",
-             "C:\\Users\\Public\\.ssh\\known_hosts"]
+             "C:\\Users\\Public\\.ssh\\known_hosts",
+             "C:\\Users\\Public\\AppData\\Something\\FileZilla\\recentservers.xml",
+             "%appdata%\\Microsoft\\Protect\\CREDHIST"]
     for f in files:
         try:
             win32file.CreateFile(path.expandvars(f), win32file.GENERIC_READ, 0, None, OPEN_EXISTING, 0, None)
