@@ -711,7 +711,7 @@ class IntegrationSecurityDocsMDX:
 
         deprecated_rule_ids = list(set(deprecated_rule_ids))
         for rule_id in deprecated_rule_ids:
-            rule_changes['deprecated'].append(self.new_package.deprecate_rules.id_map[rule_id])
+            rule_changes['deprecated'].append(self.new_package.deprecated_rules.id_map[rule_id])
 
         return dict(rule_changes)
 
