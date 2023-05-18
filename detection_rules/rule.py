@@ -352,7 +352,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
                 rendered_patterns.update(**{f'{plugin}_{i}': e for i, e in enumerate(entries)})
 
             note_template = PatchedTemplate(note)
-            rendered_note = note_template.substitute(**rendered_patterns)
+            rendered_note = note_template.safe_substitute(**rendered_patterns)
             obj['note'] = rendered_note
 
         # call transform functions
@@ -1107,8 +1107,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     def to_api_format(self, include_version=True) -> dict:
         """Convert the TOML rule to the API format."""
-        converted = self.data.to_dict()
-        converted = self._post_dict_conversion(converted)
+        converted_data = self.to_dict()['rule']
+        converted = self._post_dict_conversion(converted_data)
 
         if include_version:
             converted["version"] = self.autobumped_version
