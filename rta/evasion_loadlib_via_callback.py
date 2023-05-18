@@ -16,6 +16,7 @@ metadata = RtaMetadata(
 )
 
 # testing PE that will load ws2_32 and dnsapi.dll via a Callback function using RtlQueueWorkItem and RtlRegisterWait
+# source code - https://gist.github.com/joe-desimone/0b2bb00eca4c522ba0bd5541a6f3528b
 BIN = common.get_path("bin", "LoadLib-Callback64.exe")
 
 @common.requires_os(metadata.platforms)
