@@ -12,22 +12,31 @@ import argparse
 import random
 
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(
+    uuid="9b19f4a3-7287-45d2-ab0f-9a9c0b1bc8e1",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
+        {"rule_id": "7b8bfc26-81d2-435e-965c-d722ee397ef1", "rule_name": "Windows Network Enumeration"},
+        {"rule_id": "871ea072-1b71-4def-b016-6278b505138d", "rule_name": "Enumeration of Administrator Accounts"},
+    ],
+    techniques=["T1135", "T1069", "T1087", "T1018"],
+)
+
+
+@common.requires_os(metadata.platforms)
 def main(args=None):
-    slow_commands = [
-        "gpresult.exe /z",
-        "systeminfo.exe"
-    ]
+    slow_commands = ["gpresult.exe /z", "systeminfo.exe"]
 
     commands = [
         "ipconfig /all",
         "net localgroup administrators",
         "net user",
         "net user administrator",
-        "net user /domain"
-        "tasklist",
+        "net user /domain" "tasklist",
         "net view",
         "net view /domain",
         "net view \\\\%s" % common.get_ip(),
@@ -43,7 +52,7 @@ def main(args=None):
         "net accounts",
         "net localgroup",
         "net group",
-        "net group \"Domain Admins\" /domain",
+        'net group "Domain Admins" /domain',
         "net share",
         "net config workstation",
     ]
@@ -51,8 +60,14 @@ def main(args=None):
     commands.extend(slow_commands)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--sample', dest="sample", default=len(commands), type=int,
-                        help="Number of commands to run, chosen at random from the list of enumeration commands")
+    parser.add_argument(
+        "-s",
+        "--sample",
+        dest="sample",
+        default=len(commands),
+        type=int,
+        help="Number of commands to run, chosen at random from the list of enumeration commands",
+    )
     args = parser.parse_args(args)
     sample = min(len(commands), args.sample)
 
@@ -65,7 +80,7 @@ def main(args=None):
         common.log("About to call {}".format(command))
         if command in slow_commands:
             common.execute(command, kill=True, timeout=15)
-            common.log("[output suppressed]", log_type='-')
+            common.log("[output suppressed]", log_type="-")
         else:
             common.execute(command)
 

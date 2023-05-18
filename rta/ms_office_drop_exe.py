@@ -12,9 +12,24 @@ import os
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(
+    uuid="ce85674f-fb6c-44d5-b880-4ce9062e1028",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
+        {
+            "rule_id": "0d8ad79f-9025-45d8-80c1-4f0cd3c5e8e5",
+            "rule_name": "Execution of File Written or Modified by Microsoft Office",
+        }
+    ],
+    techniques=["T1566"],
+)
+
+
+@common.requires_os(metadata.platforms)
 def main():
     cmd_path = "c:\\windows\\system32\\cmd.exe"
 
@@ -24,10 +39,10 @@ def main():
         common.copy_file(cmd_path, office_path)
 
         bad_path = os.path.abspath("bad-{}-{}.exe".format(hash(office_app), os.getpid()))
-        common.execute([office_path, '/c', 'copy', cmd_path, bad_path])
+        common.execute([office_path, "/c", "copy", cmd_path, bad_path])
 
         time.sleep(1)
-        common.execute([bad_path, '/c', 'whoami'])
+        common.execute([bad_path, "/c", "whoami"])
 
         # cleanup
         time.sleep(1)

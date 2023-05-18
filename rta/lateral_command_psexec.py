@@ -11,9 +11,19 @@
 import sys
 
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(
+    uuid="90cf6001-11a7-410b-b259-cf20a029b929",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "55d551c6-333b-4665-ab7e-5d14a59715ce", "rule_name": "PsExec Network Connection"}],
+    techniques=["T1569"],
+)
+
+
+@common.requires_os(metadata.platforms)
 @common.dependencies(common.PS_EXEC)
 def main(remote_host=None):
     remote_host = remote_host or common.get_ip()

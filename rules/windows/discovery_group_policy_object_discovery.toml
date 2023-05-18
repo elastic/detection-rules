@@ -1,0 +1,43 @@
+[metadata]
+creation_date = "2023/01/18"
+integration = ["windows", "endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/02/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the usage of gpresult.exe to query group policy objects. Attackers may query group policy 
+objects during the reconnaissance phase after compromising a system to gain a better understanding 
+of the active directory environment and possible methods to escalate privileges or move laterally. 
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Group Policy Discovery via Microsoft GPResult Utility"
+risk_score = 21
+rule_id = "94a401ba-4fa2-455c-b7ae-b6e037afc0b7"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery", "Elastic Endgame"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+(process.name: "gpresult.exe" or process.pe.original_file_name == "gprslt.exe") and process.args: ("/z", "/v", "/r", "/x")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1615"
+name = "Group Policy Discovery"
+reference = "https://attack.mitre.org/techniques/T1615/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"

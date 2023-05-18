@@ -10,9 +10,21 @@
 # Description: Identifies registry write modification to enable RDP access.
 
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(
+    uuid="1ef2a173-a9c8-446d-9d56-f7e54a197a33",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
+        {'rule_id': '58aa72ca-d968-4f34-b9f7-bea51d75eb50', 'rule_name': 'RDP Enabled via Registry'}
+    ],
+    techniques=['T1021', 'T1021.001'],
+)
+
+
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Enabling RDP Through Registry")
 
@@ -20,9 +32,8 @@ def main():
     key = "System\\CurrentControlSet\\Control\\Terminal Server"
     value = "fDenyTSConnections"
 
-    with common.temporary_reg(common.HKLM, key, value, 1, common.DWORD):
-        # while temporarily disabled, re-enable the service
-        common.write_reg(common.HKLM, key, value, 0, common.DWORD, restore=False)
+    with common.temporary_reg(common.HKLM, key, value, 0, common.DWORD):
+        pass
 
 
 if __name__ == "__main__":

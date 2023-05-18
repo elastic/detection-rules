@@ -4,7 +4,7 @@
 # 2.0.
 
 import datetime
-from typing import List, Type
+from typing import List, Optional, Type
 
 from .connector import Kibana
 
@@ -150,8 +150,9 @@ class Signal(BaseResource):
         raise NotImplementedError("Signals can't be instantiated yet")
 
     @classmethod
-    def search(cls, query_dsl: dict):
-        return Kibana.current().post(f"{cls.BASE_URI}/search", data=query_dsl)
+    def search(cls, query_dsl: dict, size: Optional[int] = 10):
+        payload = dict(size=size, **query_dsl)
+        return Kibana.current().post(f"{cls.BASE_URI}/search", data=payload)
 
     @classmethod
     def last_signal(cls) -> (int, datetime.datetime):
@@ -179,8 +180,8 @@ class Signal(BaseResource):
         return num_signals, last_seen
 
     @classmethod
-    def all(cls):
-        return cls.search({"query": {"bool": {"filter": {"match_all": {}}}}})
+    def all(cls, size: Optional[int] = 10):
+        return cls.search({"query": {"bool": {"filter": {"match_all": {}}}}}, size=size)
 
     @classmethod
     def set_status_many(cls, signal_ids: List[str], status: str) -> dict:

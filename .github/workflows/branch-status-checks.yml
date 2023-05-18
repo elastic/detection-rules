@@ -1,0 +1,36 @@
+name: Branch Version Status Checks
+
+on:
+  pull_request:
+    branches: [ "*" ]
+
+jobs:
+  get-branches:
+    uses: ./.github/workflows/get-target-branches.yml
+
+  branch-status-checks:
+    needs: get-branches
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target_branch: ${{ fromJSON(needs.get-branches.outputs.branches) }}
+
+    steps:
+    - name: Get Backport Status
+      id: get_backport_status
+      uses: fjogeleit/http-request-action@v1
+      with:
+        url: "https://api.github.com/repos/elastic/detection-rules/actions/workflows/pythonpackage.yml/runs?per_page=1&branch=${{matrix.target_branch}}"
+        method: 'GET'
+        bearerToken: ${{ secrets.READ_ORG_TOKEN }}
+
+    - name: Check Backport Status
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const workflow_status = ${{ toJSON(fromJSON(steps.get_backport_status.outputs.response).workflow_runs[0].status) }}
+          const workflow_conclusion = ${{ toJSON(fromJSON(steps.get_backport_status.outputs.response).workflow_runs[0].conclusion) }}
+          if (workflow_status != 'completed' ||
+              workflow_conclusion != 'success') {
+            core.setFailed('Recent Backport status: ' + workflow_status + ', conclusion: ' + workflow_conclusion)
+          }

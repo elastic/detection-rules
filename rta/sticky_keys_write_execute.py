@@ -15,12 +15,39 @@ import os
 import time
 
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(
+    uuid="398933ec-f8d4-4d81-93ed-e7d7adcb9d97",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
+        {
+            "rule_id": "7405ddf1-6c8e-41ce-818f-48bea6bcaed8",
+            "rule_name": "Potential Modification of Accessibility Binaries",
+        },
+        {
+            "rule_id": "68921d85-d0dc-48b3-865f-43291ca2c4f2",
+            "rule_name": "Persistence via TelemetryController Scheduled Task Hijack",
+        },
+    ],
+    techniques=["T1546", "T1053"],
+)
+
+
+@common.requires_os(metadata.platforms)
 def main():
     # Prep
-    bins = ["sethc.exe", "utilman.exe", "narrator.exe", "magnify.exe", "osk.exe", "displayswitch.exe", "atbroker.exe"]
+    bins = [
+        "sethc.exe",
+        "utilman.exe",
+        "narrator.exe",
+        "magnify.exe",
+        "osk.exe",
+        "displayswitch.exe",
+        "atbroker.exe",
+    ]
     calc = os.path.abspath("\\windows\\system32\\calc.exe")
     temp = os.path.abspath("temp.exe")
 

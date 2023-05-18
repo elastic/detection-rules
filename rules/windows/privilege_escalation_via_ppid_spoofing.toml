@@ -1,0 +1,83 @@
+[metadata]
+creation_date = "2022/10/20"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/02/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies parent process spoofing used to create an elevated child process. Adversaries may spoof the parent process
+identifier (PPID) of a new process to evade process-monitoring defenses or to elevate privileges.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Privileges Elevation via Parent Process PID Spoofing"
+references = [
+    "https://gist.github.com/xpn/a057a26ec81e736518ee50848b9c2cd6",
+    "https://blog.didierstevens.com/2017/03/20/",
+    "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-updateprocthreadattribute",
+    "https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1134.002/T1134.002.md",
+]
+risk_score = 73
+rule_id = "26b01043-4f04-4d2f-882a-5a1d2e95751b"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+/* This rule is compatible with Elastic Endpoint only */
+
+process where host.os.type == "windows" and event.action == "start" and
+
+ /* process creation via seclogon */
+ process.parent.Ext.real.pid > 0 and
+
+ /* PrivEsc to SYSTEM */
+ user.id : "S-1-5-18"  and
+
+ /* Common FPs - evasion via hollowing is possible, should be covered by code injection */
+ not process.executable : ("?:\\Windows\\System32\\WerFault.exe",
+                           "?:\\Windows\\SysWOW64\\WerFault.exe",
+                           "?:\\Windows\\System32\\WerFaultSecure.exe",
+                           "?:\\Windows\\SysWOW64\\WerFaultSecure.exe",
+                           "?:\\Windows\\System32\\Wermgr.exe",
+                           "?:\\Windows\\SysWOW64\\Wermgr.exe",
+                           "?:\\Windows\\SoftwareDistribution\\Download\\Install\\securityhealthsetup.exe") and
+
+ not process.parent.executable : "?:\\Windows\\System32\\AtBroker.exe" and
+
+ not (process.code_signature.subject_name in
+           ("philandro Software GmbH", "Freedom Scientific Inc.", "TeamViewer Germany GmbH", "Projector.is, Inc.",
+            "TeamViewer GmbH", "Cisco WebEx LLC", "Dell Inc") and process.code_signature.trusted == true)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1134"
+name = "Access Token Manipulation"
+reference = "https://attack.mitre.org/techniques/T1134/"
+[[rule.threat.technique.subtechnique]]
+id = "T1134.002"
+name = "Create Process with Token"
+reference = "https://attack.mitre.org/techniques/T1134/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1134.004"
+name = "Parent PID Spoofing"
+reference = "https://attack.mitre.org/techniques/T1134/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

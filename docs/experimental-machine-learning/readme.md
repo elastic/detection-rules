@@ -7,6 +7,7 @@ This repo contains some additional information and files to use experimental[*](
 * [ProblemChild](problem-child.md)
 * [HostRiskScore](host-risk-score.md)
 * [URLSpoof](url-spoof.md)
+* [UserRiskScore](user-risk-score.md)
 * [experimental detections](experimental-detections.md)
 
 ## Releases

@@ -1,0 +1,106 @@
+[metadata]
+creation_date = "2020/08/31"
+deprecation_date = "2022/08/03"
+maturity = "deprecated"
+updated_date = "2022/08/03"
+
+[rule]
+author = ["Elastic"]
+description = "Identifies a suspicious Conhost child process which may be an indication of code injection activity."
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Process from Conhost"
+note = """## Triage and analysis
+
+### Investigating Suspicious Process from Conhost
+
+The Windows Console Host, or `conhost.exe`, is both the server application for all of the Windows Console APIs as well as
+the classic Windows user interface for working with command-line applications.
+
+The `conhost.exe` process doesn't normally have child processes. Any processes spawned by the `conhost.exe` process can indicate code
+injection activity or a suspicious process masquerading as the `conhost.exe` process.
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate abnormal behaviors observed by the subject process, such as network connections, registry or file
+modifications, and any spawned child processes.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Inspect the host for suspicious or abnormal behaviors in the alert timeframe.
+- Retrieve the process executable and determine if it is malicious:
+  - Use a private sandboxed malware analysis system to perform analysis.
+    - Observe and collect information about the following activities:
+      - Attempts to contact external domains and addresses.
+      - File and registry access, modification, and creation activities.
+      - Service creation and launch activities.
+      - Scheduled tasks creation.
+  - Use the PowerShell `Get-FileHash` cmdlet to get the files' SHA-256 hash values.
+    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+
+### Related rules
+
+- Conhost Spawned By Suspicious Parent Process - 05b358de-aa6d-4f6c-89e6-78f74018b43b
+- Suspicious PowerShell Engine ImageLoad - 852c1f19-68e8-43a6-9dce-340771fe1be3
+
+### False positive analysis
+
+- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved hosts to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that
+  attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
+systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
+
+## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
+references = [
+    "https://modexp.wordpress.com/2018/09/12/process-injection-user-data/",
+    "https://github.com/sbousseaden/EVTX-ATTACK-SAMPLES/blob/master/Defense%20Evasion/evasion_codeinj_odzhan_conhost_sysmon_10_1.evtx",
+]
+risk_score = 73
+rule_id = "28896382-7d4f-4d50-9b72-67091901fd26"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  process.parent.name : "conhost.exe" and
+  not process.executable : ("?:\\Windows\\splwow64.exe", "?:\\Windows\\System32\\WerFault.exe", "?:\\Windows\\System32\\conhost.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1055"
+name = "Process Injection"
+reference = "https://attack.mitre.org/techniques/T1055/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

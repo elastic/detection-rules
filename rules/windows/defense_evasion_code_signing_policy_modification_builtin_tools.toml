@@ -1,0 +1,64 @@
+[metadata]
+creation_date = "2023/01/31"
+integration = ["endpoint", "windows"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/02/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies attempts to disable/modify the code signing policy through system native utilities. Code signing provides 
+authenticity on a program, and grants the user with the ability to check whether the program has been tampered with. 
+By allowing the execution of unsigned or self-signed code, threat actors can craft and execute malicious code. 
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Code Signing Policy Modification Through Built-in tools"
+risk_score = 47
+rule_id = "b43570de-a908-4f7f-8bdb-b2df6ffd8c80"
+severity = "medium"
+tags = [
+    "Elastic",
+    "Host",
+    "Windows",
+    "macOS",
+    "Threat Detection",
+    "Defense Evasion",
+    "Elastic Endgame",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+(
+  /* Windows */
+  ((process.name: "bcdedit.exe" or process.pe.original_file_name == "bcdedit.exe") and   process.args: ("-set", "/set") and 
+  process.args: ("TESTSIGNING", "nointegritychecks", "loadoptions", "DISABLE_INTEGRITY_CHECKS")) or
+  
+  /* MacOS */
+  (process.executable: "/usr/bin/csrutil" and process.args: "disable")
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1553"
+name = "Subvert Trust Controls"
+reference = "https://attack.mitre.org/techniques/T1553/"
+[[rule.threat.technique.subtechnique]]
+id = "T1553.006"
+name = "Code Signing Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1553/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

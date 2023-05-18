@@ -1,0 +1,69 @@
+[metadata]
+creation_date = "2023/01/23"
+integration = ["windows"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/02/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the use of Cmdlets and methods related to encryption/decryption of files in PowerShell scripts, which malware
+and offensive security tools can abuse to encrypt data or decrypt payloads to bypass security solutions.
+"""
+false_positives = ["Legitimate PowerShell Scripts which makes use of encryption."]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "PowerShell Script with Encryption/Decryption Capabilities"
+risk_score = 47
+rule_id = "1d9aeb0b-9549-46f6-a32d-05e2a001b7fd"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "PowerShell"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.category:process and host.os.type:windows and
+  powershell.file.script_block_text : (
+    (
+      "Cryptography.AESManaged" or
+      "Cryptography.RijndaelManaged" or
+      "Cryptography.SHA1Managed" or
+      "Cryptography.SHA256Managed" or
+      "Cryptography.SHA384Managed" or
+      "Cryptography.SHA512Managed" or
+      "Cryptography.SymmetricAlgorithm" or
+      "PasswordDeriveBytes" or
+      "Rfc2898DeriveBytes"
+    ) and
+    (
+      CipherMode and PaddingMode
+    ) and
+    (
+      ".CreateEncryptor" or
+      ".CreateDecryptor"
+    )
+  ) and not user.id : "S-1-5-18"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
+
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

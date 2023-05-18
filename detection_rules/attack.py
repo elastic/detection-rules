@@ -7,29 +7,34 @@
 import re
 import time
 from pathlib import Path
+from typing import Optional
 
 import json
 import requests
 from collections import OrderedDict
 
-from .semver import Version
-from .utils import get_etc_path, get_etc_glob_path, read_gzip, gzip_compress
+from semver import Version
+from .utils import cached, clear_caches, get_etc_path, get_etc_glob_path, read_gzip, gzip_compress
 
 PLATFORMS = ['Windows', 'macOS', 'Linux']
-CROSSWALK_FILE = get_etc_path('attack-crosswalk.json')
-TECHNIQUES_REDIRECT_FILE = get_etc_path('attack-technique-redirects.json')
-
-with open(TECHNIQUES_REDIRECT_FILE, 'r') as f:
-    techniques_redirect_map = json.load(f)['mapping']
+CROSSWALK_FILE = Path(get_etc_path('attack-crosswalk.json'))
+TECHNIQUES_REDIRECT_FILE = Path(get_etc_path('attack-technique-redirects.json'))
 
 tactics_map = {}
+
+
+@cached
+def load_techniques_redirect() -> dict:
+    return json.loads(TECHNIQUES_REDIRECT_FILE.read_text())['mapping']
 
 
 def get_attack_file_path() -> str:
     pattern = 'attack-v*.json.gz'
     attack_file = get_etc_glob_path(pattern)
-    if len(attack_file) != 1:
+    if len(attack_file) < 1:
         raise FileNotFoundError(f'Missing required {pattern} file')
+    elif len(attack_file) != 1:
+        raise FileExistsError(f'Multiple files found with {pattern} pattern. Only one is allowed')
     return attack_file[0]
 
 
@@ -91,7 +96,7 @@ technique_id_list = [t for t in technique_lookup if '.' not in t]
 sub_technique_id_list = [t for t in technique_lookup if '.' in t]
 
 
-def refresh_attack_data(save=True):
+def refresh_attack_data(save=True) -> (Optional[dict], Optional[bytes]):
     """Refresh ATT&CK data from Mitre."""
     attack_path = Path(get_attack_file_path())
     filename, _, _ = attack_path.name.rsplit('.', 2)
@@ -100,18 +105,19 @@ def refresh_attack_data(save=True):
         _, version = name.lower().split(pattern, 1)
         return version
 
-    current_version = get_version_from_tag(filename, 'attack-v')
+    current_version = Version.parse(get_version_from_tag(filename, 'attack-v'), optional_minor_and_patch=True)
 
     r = requests.get('https://api.github.com/repos/mitre/cti/tags')
     r.raise_for_status()
     releases = [t for t in r.json() if t['name'].startswith('ATT&CK-v')]
-    latest_release = max(releases, key=lambda release: Version(get_version_from_tag(release['name'])))
+    latest_release = max(releases, key=lambda release: Version.parse(get_version_from_tag(release['name']),
+                         optional_minor_and_patch=True))
     release_name = latest_release['name']
-    latest_version = get_version_from_tag(release_name)
+    latest_version = Version.parse(get_version_from_tag(release_name), optional_minor_and_patch=True)
 
-    if Version(current_version) >= Version(latest_version):
+    if current_version >= latest_version:
         print(f'No versions newer than the current detected: {current_version}')
-        return
+        return None, None
 
     download = f'https://raw.githubusercontent.com/mitre/cti/{release_name}/enterprise-attack/enterprise-attack.json'
     r = requests.get(download)
@@ -130,6 +136,7 @@ def refresh_attack_data(save=True):
 
 def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict:
     """Build rule threat map from technique IDs."""
+    techniques_redirect_map = load_techniques_redirect()
     url_base = 'https://attack.mitre.org/{type}/{id}/'
     tactic_id = tactics_map[tactic]
     tech_entries = {}
@@ -218,22 +225,19 @@ def build_redirected_techniques_map(threads=50):
     return technique_map
 
 
-def refresh_redirected_techniques_map(threads=50):
+def refresh_redirected_techniques_map(threads: int = 50):
     """Refresh the locally saved copy of the mapping."""
-    global techniques_redirect_map
-
     replacement_map = build_redirected_techniques_map(threads)
     mapping = {'saved_date': time.asctime(), 'mapping': replacement_map}
 
-    with open(TECHNIQUES_REDIRECT_FILE, 'w') as f:
-        json.dump(mapping, f, sort_keys=True, indent=2)
-
-    techniques_redirect_map = mapping
+    TECHNIQUES_REDIRECT_FILE.write_text(json.dumps(mapping, sort_keys=True, indent=2))
+    # reset the cached redirect contents
+    clear_caches()
 
     print(f'refreshed mapping file: {TECHNIQUES_REDIRECT_FILE}')
 
 
-def load_crosswalk_map():
+@cached
+def load_crosswalk_map() -> dict:
     """Retrieve the replacement mapping."""
-    with open(CROSSWALK_FILE, 'r') as f:
-        return json.load(f)['mapping']
+    return json.loads(CROSSWALK_FILE.read_text())['mapping']

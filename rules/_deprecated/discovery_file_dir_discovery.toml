@@ -1,0 +1,95 @@
+[metadata]
+creation_date = "2020/12/04"
+deprecation_date = "2022/08/02"
+maturity = "deprecated"
+updated_date = "2022/08/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Enumeration of files and directories using built-in tools. Adversaries may use the information discovered to plan
+follow-on activity.
+"""
+false_positives = [
+    """
+    Enumeration of files and directories may not be inherently malicious and noise may come from scripts, automation
+    tools, or normal command line usage. It's important to baseline your environment to determine the amount of expected
+    noise and exclude any known FP's from the rule.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "File and Directory Discovery"
+note = """## Triage and analysis
+
+### Investigating File and Directory Discovery
+
+After successfully compromising an environment, attackers may try to gain situational awareness to plan their next steps.
+This can happen by running commands to enumerate network resources, users, connections, files, and installed security
+software.
+
+This rule looks for three directory-listing commands in one minute, which can indicate attempts to locate valuable files,
+specific file types or installed programs.
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files
+for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Investigate abnormal behaviors observed using the account, such as commands executed, files created or modified, and
+network connections.
+
+### False positive analysis
+
+- Discovery activities are not inherently malicious if they occur in isolation. As long as the analyst did not identify
+suspicious activity related to the user or host, such alerts can be dismissed.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved hosts to prevent further post-compromise behavior.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are
+identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business
+systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and
+malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the
+mean time to respond (MTTR).
+"""
+risk_score = 21
+rule_id = "7b08314d-47a0-4b71-ae4e-16544176924f"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery"]
+type = "eql"
+
+query = '''
+sequence by agent.id, user.name with maxspan=1m
+[process where event.type in ("start", "process_started") and
+  ((process.name : "cmd.exe" or process.pe.original_file_name == "Cmd.Exe") and process.args : "dir") or
+    process.name : "tree.com"]
+[process where event.type in ("start", "process_started") and
+  ((process.name : "cmd.exe" or process.pe.original_file_name == "Cmd.Exe") and process.args : "dir") or
+    process.name : "tree.com"]
+[process where event.type in ("start", "process_started") and
+  ((process.name : "cmd.exe" or process.pe.original_file_name == "Cmd.Exe") and process.args : "dir") or
+    process.name : "tree.com"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1083"
+name = "File and Directory Discovery"
+reference = "https://attack.mitre.org/techniques/T1083/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+

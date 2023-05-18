@@ -1,7 +1,10 @@
 [metadata]
-creation_date = "2020/04/24"
+creation_date = "2023/02/22"
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2021/03/03"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -10,43 +13,51 @@ Adversaries may attempt to disable the iptables or firewall service in an attemp
 receive or send network traffic.
 """
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+index = ["logs-endpoint.events.*"]
+language = "eql"
 license = "Elastic License v2"
 name = "Attempt to Disable IPTables or Firewall"
-risk_score = 47
-rule_id = "125417b8-d3df-479f-8418-12d7e034fee3"
-severity = "medium"
+risk_score = 21
+rule_id = "83e9c2b3-24ef-4c1d-a8cd-5ebafb5dfa2f"
+severity = "low"
 tags = ["Elastic", "Host", "Linux", "Threat Detection", "Defense Evasion"]
 timestamp_override = "event.ingested"
-type = "query"
-
+type = "eql"
 query = '''
-event.category:process and event.type:(start or process_started) and
-  process.name:ufw and process.args:(allow or disable or reset) or
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+ (
+   /* disable FW */
+   (
+     (process.name == "ufw" and process.args == "disable") or
+     (process.name == "iptables" and process.args == "-F" and process.args_count == 2)
+   ) or
 
-  (((process.name:service and process.args:stop) or
-     (process.name:chkconfig and process.args:off) or
-     (process.name:systemctl and process.args:(disable or stop or kill))) and
-   process.args:(firewalld or ip6tables or iptables))
+   /* stop FW service */
+   (
+     ((process.name == "service" and process.args == "stop") or
+       (process.name == "chkconfig" and process.args == "off") or
+       (process.name == "systemctl" and process.args in ("disable", "stop", "kill"))) and
+    process.args in ("firewalld", "ip6tables", "iptables")
+    )
+  )
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1562"
 name = "Impair Defenses"
+id = "T1562"
 reference = "https://attack.mitre.org/techniques/T1562/"
 [[rule.threat.technique.subtechnique]]
-id = "T1562.001"
 name = "Disable or Modify Tools"
+id = "T1562.001"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
 
 
 [rule.threat.tactic]
-id = "TA0005"
 name = "Defense Evasion"
+id = "TA0005"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 

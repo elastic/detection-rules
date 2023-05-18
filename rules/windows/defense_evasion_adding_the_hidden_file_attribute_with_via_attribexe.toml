@@ -1,34 +1,39 @@
 [metadata]
 creation_date = "2020/02/18"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2022/03/31"
-min_stack_comments = "Comprehensive timeline templates only available in 8.2+"
-min_stack_version = "8.2"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/04/20"
 
 [rule]
 author = ["Elastic"]
 description = "Adversaries can add the 'hidden' attribute to files to hide them from the user in an attempt to evade detection."
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Adding Hidden File Attribute via Attrib"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 risk_score = 21
 rule_id = "4630d948-40d4-4cef-ac69-4002e29bc3db"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
 timeline_id = "e70679c2-6cde-4510-9764-4823df18f7db"
 timeline_title = "Comprehensive Process Timeline"
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and
-  process.name : "attrib.exe" and process.args : "+h"
+process where host.os.type == "windows" and event.type == "start" and
+  (process.name : "attrib.exe" or process.pe.original_file_name == "ATTRIB.EXE") and process.args : "+h" and
+  not
+  (process.parent.name: "cmd.exe" and
+    process.command_line: "attrib  +R +H +S +A *.cui" and
+    process.parent.command_line: "?:\\WINDOWS\\system32\\cmd.exe /c \"?:\\WINDOWS\\system32\\*.bat\"")
 '''
 
 

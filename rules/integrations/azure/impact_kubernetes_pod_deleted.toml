@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2021/06/24"
+integration = ["azure"]
 maturity = "production"
-updated_date = "2021/06/24"
-integration = "azure"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Austin Songer"]
@@ -12,9 +14,9 @@ of the environment.
 """
 false_positives = [
     """
-    Pods may be deleted by a system administrator. Verify whether the user identity, user agent, and/or hostname
-    should be making changes in your environment. Pods deletions by unfamiliar users or hosts should be
-    investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    Pods may be deleted by a system administrator. Verify whether the user identity, user agent, and/or hostname should
+    be making changes in your environment. Pods deletions by unfamiliar users or hosts should be investigated. If known
+    behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
 from = "now-25m"
@@ -22,7 +24,7 @@ index = ["filebeat-*", "logs-azure*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure Kubernetes Pods Deleted"
-note = """## Config
+note = """## Setup
 
 The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -36,7 +38,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/PODS/DELETE" and 
+event.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/PODS/DELETE" and
 event.outcome:(Success or success)
 '''
 
@@ -48,3 +50,4 @@ framework = "MITRE ATT&CK"
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+

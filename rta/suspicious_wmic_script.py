@@ -10,6 +10,17 @@
 import os
 
 from . import common
+from . import RtaMetadata
+
+
+metadata = RtaMetadata(
+    uuid="16b3d9c6-e188-49c5-8dce-d3eb5b0fcf91",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "7f370d54-c0eb-4270-ac5a-9a6020585dc6", "rule_name": "Suspicious WMIC XSL Script Execution"}],
+    techniques=["T1220"],
+)
+
 
 xsl_file = "test.xsl"
 xsl_content = """<?xml version='1.0'?>
@@ -26,7 +37,7 @@ version="1.0">
 """
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Executing suspicious WMIC script")
 

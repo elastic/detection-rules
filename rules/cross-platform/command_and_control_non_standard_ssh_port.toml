@@ -1,0 +1,60 @@
+[metadata]
+creation_date = "2022/10/18"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2022/12/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies potentially malicious processes communicating via a port paring typically not associated with SSH. For
+example, SSH over port 2200 or port 2222 as opposed to the traditional port 22. Adversaries may make changes to the
+standard port a protocol uses to bypass filtering or muddle analysis/parsing of network data.
+"""
+false_positives = [
+    """
+    SSH over ports apart from the traditional port 22 is highly uncommon. This rule alerts the usage of the such
+    uncommon ports by the ssh service. Tuning is needed to have higher confidence. If this activity is expected and
+    noisy in your environment, consider adding exceptions — preferably with a combination whitelisted ports for such
+    legitimate ssh activities.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Non-Standard Port SSH connection"
+references = ["https://attack.mitre.org/techniques/T1571/"]
+risk_score = 21
+rule_id = "bc8ca7e0-92fd-4b7c-b11e-ee0266b8d9c9"
+severity = "low"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Command and Control", "macOS"]
+type = "eql"
+
+query = '''
+sequence by process.entity_id with maxspan=1m
+[process where event.action == "exec" and process.name:"ssh"]
+[network where process.name:"ssh"
+ and event.action in ("connection_attempted", "connection_accepted")
+ and destination.port != 22
+ and destination.ip != "127.0.0.1"
+ and network.transport: "tcp"
+]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1571"
+name = "Non-Standard Port"
+reference = "https://attack.mitre.org/techniques/T1571/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+

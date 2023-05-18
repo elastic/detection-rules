@@ -10,17 +10,29 @@
 # Description: Adds an account to the local host using the net.exe command
 
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(
+    uuid="7884fa56-c4d6-494f-bfa5-825851ee0fda",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
+        {"rule_id": "41b638a1-8ab6-4f8e-86d9-466317ef2db5", "rule_name": "Potential Hidden Local User Account Creation"}
+    ],
+    techniques=["T1078"],
+)
+
+
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Creating local and domain user accounts using net.exe")
     commands = [
         'net.exe user macgyver $w!$$@rmy11 /add /fullname:"Angus Macgyver"',
         'net.exe user macgyver $w!$$@rmy11 /add /fullname:"Angus Macgyver" /domain',
-        'net.exe group  Administrators macgyver /add',
+        "net.exe group  Administrators macgyver /add",
         'net.exe group  "Domain Admins"  macgyver  /add  /domain',
-        'net.exe localgroup Administrators macgyver /add',
+        "net.exe localgroup Administrators macgyver /add",
     ]
 
     for cmd in commands:
@@ -28,7 +40,7 @@ def main():
 
     cleanup_commands = [
         "net.exe user macgyver /delete",
-        "net.exe user macgyver /delete /domain"
+        "net.exe user macgyver /delete /domain",
     ]
 
     common.log("Removing local and domain user accounts using net.exe", log_type="-")

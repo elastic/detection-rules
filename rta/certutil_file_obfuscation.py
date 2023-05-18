@@ -12,14 +12,31 @@
 import os
 
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(
+    uuid="7b2c1b3e-2097-4e2f-bf5c-e157a91b8001",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "fd70c98a-c410-42dc-a2e3-761c71848acf", "rule_name": "Suspicious CertUtil Commands"}],
+    techniques=["T1140"],
+)
+
+
+@common.requires_os(metadata.platforms)
 def main():
     common.log("Encoding target")
-    encoded_file = os.path.abspath('encoded.txt')
-    decoded_file = os.path.abspath('decoded.exe')
-    common.execute(["c:\\Windows\\System32\\certutil.exe", "-encode", "c:\\windows\\system32\\cmd.exe", encoded_file])
+    encoded_file = os.path.abspath("encoded.txt")
+    decoded_file = os.path.abspath("decoded.exe")
+    common.execute(
+        [
+            "c:\\Windows\\System32\\certutil.exe",
+            "-encode",
+            "c:\\windows\\system32\\cmd.exe",
+            encoded_file,
+        ]
+    )
 
     common.log("Decoding target")
     common.execute(["c:\\Windows\\System32\\certutil.exe", "-decode", encoded_file, decoded_file])

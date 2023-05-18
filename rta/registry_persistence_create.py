@@ -14,6 +14,22 @@
 import time
 
 from . import common
+from . import RtaMetadata
+
+
+metadata = RtaMetadata(
+    uuid="c62c65bf-248e-4f5a-ad4f-a48736c1d6f2",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[
+        {
+            "rule_id": "7405ddf1-6c8e-41ce-818f-48bea6bcaed8",
+            "rule_name": "Potential Modification of Accessibility Binaries",
+        }
+    ],
+    techniques=["T1546"],
+)
+
 
 TARGET_APP = common.get_path("bin", "myapp.exe")
 
@@ -22,15 +38,25 @@ def pause():
     time.sleep(0.5)
 
 
-@common.requires_os(common.WINDOWS)
+@common.requires_os(metadata.platforms)
 @common.dependencies(TARGET_APP)
 def main():
     common.log("Suspicious Registry Persistence")
     winreg = common.get_winreg()
 
     for hive in (common.HKLM, common.HKCU):
-        common.write_reg(hive, "Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\", "RunOnceTest", TARGET_APP)
-        common.write_reg(hive, "Software\\Microsoft\\Windows\\CurrentVersion\\Run\\", "RunTest", TARGET_APP)
+        common.write_reg(
+            hive,
+            "Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\",
+            "RunOnceTest",
+            TARGET_APP,
+        )
+        common.write_reg(
+            hive,
+            "Software\\Microsoft\\Windows\\CurrentVersion\\Run\\",
+            "RunTest",
+            TARGET_APP,
+        )
 
     # create Services subkey for "ServiceTest"
     common.log("Creating ServiceTest registry key")
@@ -70,8 +96,14 @@ def main():
     common.write_reg(common.HKLM, appcertdlls_key, "evil", "evil.dll", restore=True, pause=True)
 
     debugger_targets = [
-        "normalprogram.exe", "sethc.exe", "utilman.exe", "magnify.exe",
-        "narrator.exe", "osk.exe", "displayswitch.exe", "atbroker.exe"
+        "normalprogram.exe",
+        "sethc.exe",
+        "utilman.exe",
+        "magnify.exe",
+        "narrator.exe",
+        "osk.exe",
+        "displayswitch.exe",
+        "atbroker.exe",
     ]
 
     for victim in debugger_targets:
@@ -87,7 +119,15 @@ def main():
     # modify the list of SSPs
     common.log("Adding a new SSP to the list of security packages")
     key = "System\\CurrentControlSet\\Control\\Lsa"
-    common.write_reg(common.HKLM, key, "Security Packages", ["evilSSP"], common.MULTI_SZ, append=True, pause=True)
+    common.write_reg(
+        common.HKLM,
+        key,
+        "Security Packages",
+        ["evilSSP"],
+        common.MULTI_SZ,
+        append=True,
+        pause=True,
+    )
 
     hkey.Close()
     pause()

@@ -4,7 +4,9 @@
 # 2.0.
 
 """Detection rules."""
+
 import sys
+
 
 assert (3, 8) <= sys.version_info < (4, 0), "Only Python 3.8+ supported"
 

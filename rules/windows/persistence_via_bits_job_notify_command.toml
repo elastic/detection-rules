@@ -1,7 +1,10 @@
 [metadata]
 creation_date = "2021/12/04"
+integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2022/03/31"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/03/06"
 
 [rule]
 author = ["Elastic"]
@@ -11,11 +14,11 @@ that runs after a job finishes transferring data or after a job enters a specifi
 system.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via BITS Job Notify Cmdline"
-note = """## Config
+note = """## Setup
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
@@ -28,12 +31,12 @@ references = [
 risk_score = 47
 rule_id = "c3b915e0-22f3-4bf7-991d-b643513c722f"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence"]
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
   process.parent.name : "svchost.exe" and process.parent.args : "BITS" and
   not process.executable :
               ("?:\\Windows\\System32\\WerFaultSecure.exe",

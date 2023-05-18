@@ -22,6 +22,7 @@ from dataclasses import is_dataclass, astuple
 from datetime import datetime, date
 from pathlib import Path
 from typing import Dict, Union, Optional, Callable
+from string import Template
 
 import click
 import pytoml
@@ -33,6 +34,7 @@ import kql
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(CURR_DIR)
 ETC_DIR = os.path.join(ROOT_DIR, "detection_rules", "etc")
+INTEGRATION_RULE_DIR = os.path.join(ROOT_DIR, "rules", "integrations")
 
 
 class NonelessDict(dict):
@@ -112,7 +114,7 @@ def load_etc_dump(*path):
 
 
 def save_etc_dump(contents, *path, **kwargs):
-    """Load a json/yml/toml file from the detection_rules/etc/ folder."""
+    """Save a json/yml/toml file from the detection_rules/etc/ folder."""
     path = get_etc_path(*path)
     _, ext = os.path.splitext(path)
     sort_keys = kwargs.pop('sort_keys', True)
@@ -125,7 +127,7 @@ def save_etc_dump(contents, *path, **kwargs):
         return eql.utils.save_dump(contents, path)
 
 
-def gzip_compress(contents):
+def gzip_compress(contents) -> bytes:
     gz_file = io.BytesIO()
 
     with gzip.GzipFile(mode="w", fileobj=gz_file) as f:
@@ -386,3 +388,24 @@ class Ndjson(list):
     def load(cls, filename: Path, **kwargs):
         """Load content from an ndjson file."""
         return cls.from_string(filename.read_text(), **kwargs)
+
+
+class PatchedTemplate(Template):
+    """String template with updated methods from future versions."""
+
+    def get_identifiers(self):
+        """Returns a list of the valid identifiers in the template, in the order they first appear, ignoring any
+        invalid identifiers."""
+        # https://github.com/python/cpython/blob/3b4f8fc83dcea1a9d0bc5bd33592e5a3da41fa71/Lib/string.py#LL157-L171C19
+        ids = []
+        for mo in self.pattern.finditer(self.template):
+            named = mo.group('named') or mo.group('braced')
+            if named is not None and named not in ids:
+                # add a named group only the first time it appears
+                ids.append(named)
+            elif named is None and mo.group('invalid') is None and mo.group('escaped') is None:
+                # If all the groups are None, there must be
+                # another group we're not expecting
+                raise ValueError('Unrecognized named group in pattern',
+                                 self.pattern)
+        return ids

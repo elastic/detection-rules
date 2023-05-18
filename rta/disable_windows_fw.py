@@ -12,9 +12,19 @@
 import os
 
 from . import common
+from . import RtaMetadata
 
 
-@common.requires_os(common.WINDOWS)
+metadata = RtaMetadata(
+    uuid="75e14e5a-1188-47ea-9b96-2cf6e9443fc2",
+    platforms=["windows"],
+    endpoint=[],
+    siem=[{"rule_id": "4b438734-3793-4fda-bd42-ceeada0be8f9", "rule_name": "Disable Windows Firewall Rules via Netsh"}],
+    techniques=["T1562"],
+)
+
+
+@common.requires_os(metadata.platforms)
 def main():
     common.log("NetSH Advanced Firewall Configuration", log_type="~")
     netsh = "netsh.exe"

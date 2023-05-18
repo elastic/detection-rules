@@ -1,3 +1,4 @@
+**The setup instructions in this document have been deprecated. Please follow the steps outlined in [this](https://www.elastic.co/security-labs/detecting-living-off-the-land-attacks-with-new-elastic-integration) blog to enable Living off the Land (LotL) detection in your environment.**
 # ProblemChild in the Elastic Stack 
 
 ProblemChild helps detect anomalous activity in Windows process events by:

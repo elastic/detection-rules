@@ -1,0 +1,116 @@
+[metadata]
+creation_date = "2022/10/20"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup, process.Ext.effective_parent.executable"
+min_stack_version = "8.4.0"
+updated_date = "2023/03/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of a process running as SYSTEM and impersonating a Windows core binary privileges. Adversaries
+may create a new process with a different token to escalate privileges and bypass access controls.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Process Created with an Elevated Token"
+references = [
+    "https://lengjibo.github.io/token/",
+    "https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createprocesswithtokenw",
+]
+risk_score = 73
+rule_id = "02a23ee7-c8f8-4701-b99d-e9038ce313cb"
+severity = "high"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+/* This rule is only compatible with Elastic Endpoint 8.4+ */
+
+process where host.os.type == "windows" and event.action == "start" and
+
+ /* CreateProcessWithToken and effective parent is a privileged MS native binary used as a target for token theft */
+ user.id : "S-1-5-18"  and
+
+ /* Token Theft target process usually running as service are located in one of the following paths */
+ process.Ext.effective_parent.executable :
+                ("?:\\Windows\\*.exe",
+                 "?:\\Program Files\\*.exe",
+                 "?:\\Program Files (x86)\\*.exe",
+                 "?:\\ProgramData\\*") and
+
+/* Ignores Utility Manager in Windows running in debug mode */
+ not (process.Ext.effective_parent.executable : "?:\\Windows\\System32\\Utilman.exe" and
+      process.parent.executable : "?:\\Windows\\System32\\Utilman.exe" and process.parent.args : "/debug") and
+
+/* Ignores Windows print spooler service with correlation to Access Intelligent Form */
+not (process.parent.executable : "?\\Windows\\System32\\spoolsv.exe" and
+     process.executable: "?:\\Program Files*\\Access\\Intelligent Form\\*\\LaunchCreate.exe") and 
+
+/* Ignores Windows error reporting executables */
+ not process.executable : ("?:\\Windows\\System32\\WerFault.exe",
+                           "?:\\Windows\\SysWOW64\\WerFault.exe",
+                           "?:\\Windows\\System32\\WerFaultSecure.exe",
+                           "?:\\Windows\\SysWOW64\\WerFaultSecure.exe",
+                           "?:\\windows\\system32\\WerMgr.exe",
+                           "?:\\Windows\\SoftwareDistribution\\Download\\Install\\securityhealthsetup.exe")  and
+
+ /* Ignores Windows updates from TiWorker.exe that runs with elevated privileges */
+ not (process.parent.executable : "?:\\Windows\\WinSxS\\*\\TiWorker.exe" and
+      process.executable : ("?:\\Windows\\Microsoft.NET\\Framework*.exe",
+                            "?:\\Windows\\WinSxS\\*.exe",
+                            "?:\\Windows\\System32\\inetsrv\\iissetup.exe",
+                            "?:\\Windows\\SysWOW64\\inetsrv\\iissetup.exe",
+                            "?:\\Windows\\System32\\inetsrv\\aspnetca.exe",
+                            "?:\\Windows\\SysWOW64\\inetsrv\\aspnetca.exe",
+                            "?:\\Windows\\System32\\lodctr.exe",
+                            "?:\\Windows\\SysWOW64\\lodctr.exe",
+                            "?:\\Windows\\System32\\netcfg.exe",
+                            "?:\\Windows\\Microsoft.NET\\Framework*\\*\\ngen.exe",
+                            "?:\\Windows\\Microsoft.NET\\Framework*\\*\\aspnet_regiis.exe")) and
+
+
+/* Ignores additional parent executables that run with elevated privileges */
+ not process.parent.executable : 
+               ("?:\\Windows\\System32\\AtBroker.exe", 
+                "?:\\Windows\\system32\\svchost.exe", 
+                "?:\\Program Files (x86)\\*.exe", 
+                "?:\\Program Files\\*.exe", 
+                "?:\\Windows\\System32\\msiexec.exe",
+                "?:\\Windows\\System32\\DriverStore\\*") and
+
+/* Ignores Windows binaries with a trusted signature and specific signature name */
+ not (process.code_signature.trusted == true and
+      process.code_signature.subject_name : 
+                ("philandro Software GmbH", 
+                 "Freedom Scientific Inc.", 
+                 "TeamViewer Germany GmbH", 
+                 "Projector.is, Inc.", 
+                 "TeamViewer GmbH", 
+                 "Cisco WebEx LLC", 
+                 "Dell Inc"))
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1134"
+name = "Access Token Manipulation"
+reference = "https://attack.mitre.org/techniques/T1134/"
+[[rule.threat.technique.subtechnique]]
+id = "T1134.002"
+name = "Create Process with Token"
+reference = "https://attack.mitre.org/techniques/T1134/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
