@@ -36,7 +36,7 @@ def main():
     common.execute([addinproc, "/guid:32a91b0f-30cd-4c75-be79-ccbd6345de99", "/pid:123"], timeout=10)
     common.execute([certoc, "-LoadDLL"], timeout=10)
     common.execute([odbc, "-a", "-f"], timeout=10)
-    common.execute([gfxdwn, "http"], timeout=10)
+    common.execute([gfxdwn, "run", "2", "0"], timeout=10)
 
     # Cleanup
     common.remove_file(addinproc)
