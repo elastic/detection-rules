@@ -12,8 +12,9 @@ metadata = RtaMetadata(
     platforms=["windows"],
     endpoint=[],
     siem=[{'rule_id': '5bc7a8f8-4de8-4af4-bea4-cba538e54a5c', 'rule_name': 'Suspicious Execution via DotNet Remoting'},
-          {'rule_id': '6fcbf73f-4413-4689-be33-61b0d6bd0ffc', 'rule_name': 'Suspicious ImageLoad via Windows CertOC'}],
-    techniques=['T1218'],
+          {'rule_id': '6fcbf73f-4413-4689-be33-61b0d6bd0ffc', 'rule_name': 'Suspicious ImageLoad via Windows CertOC'},
+          {'rule_id': '1faebe83-38d7-4390-b6bd-9c6b851e47c4', 'rule_name': 'Suspicious ImageLoad via ODBC Driver Configuration Program'}],
+    techniques=['T1218', 'T1218.008'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
@@ -22,15 +23,19 @@ EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 def main():
     addinproc = "C:\\Users\\Public\\AddInProcess.exe"
     certoc = "C:\\Users\\Public\\CertOc.exe"
+    odbc = "C:\\Users\\Public\\odbcconf.exe"
 
     common.copy_file(EXE_FILE, addinproc)
     common.copy_file(EXE_FILE, certoc)
+    common.copy_file(EXE_FILE, odbc)
 
     # Execute command
     common.execute([addinproc, "/guid:32a91b0f-30cd-4c75-be79-ccbd6345de99", "/pid:123"], timeout=10)
     common.execute([certoc, "-LoadDLL"], timeout=10)
+    common.execute([odbc, "-a", "-f"], timeout=10)
     common.remove_file(addinproc)
     common.remove_file(certoc)
+    common.remove_file(odbc)
 
 
 if __name__ == "__main__":
