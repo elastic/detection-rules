@@ -19,6 +19,7 @@ metadata = RtaMetadata(
         {"rule_name": "Potential Discovery of Windows Credential Manager Store", "rule_id": "cc60be0e-2c6c-4dc9-9902-e97103ff8df9"},
         {"rule_name": "Potential Discovery of DPAPI Master Keys", "rule_id": "84bbe951-5141-4eb3-b9cf-8dfeea62a94e"},
         {"rule_name": "Suspicious Access to Active Directory Database File", "rule_id": "d66765b8-010b-4a40-ab62-1d8f13a44878"},
+        {"rule_name": "Sensitive File Access - SSH Saved Keys", "rule_id": "1487d726-2bd2-4a9e-a9d2-db8aef1d6239"},
     ],    
     siem=[],
     techniques=["T1134"],
@@ -38,7 +39,8 @@ def main():
              "%appdata%\\Microsoft\\Credentials\\test",
              "C:\\Windows\\Panther\\Unattend.xml",
              "C:\\Windows\\System32\\Microsoft\\Protect\\S-1-5-18\\User\\test",
-             "C:\\Windows\\NTDS\\NTDS.dit"]
+             "C:\\Windows\\NTDS\\NTDS.dit",
+             "C:\\Users\\Public\\.ssh\\known_hosts"]
     for f in files:
         try:
             win32file.CreateFile(path.expandvars(f), win32file.GENERIC_READ, 0, None, OPEN_EXISTING, 0, None)
