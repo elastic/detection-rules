@@ -11,7 +11,8 @@ metadata = RtaMetadata(
     uuid="6e84852e-b8a2-4158-971e-c5148d969d2a",
     platforms=["windows"],
     endpoint=[],
-    siem=[{'rule_id': '5bc7a8f8-4de8-4af4-bea4-cba538e54a5c', 'rule_name': 'Suspicious Execution via DotNet Remoting'}],
+    siem=[{'rule_id': '5bc7a8f8-4de8-4af4-bea4-cba538e54a5c', 'rule_name': 'Suspicious Execution via DotNet Remoting'},
+          {'rule_id': '6fcbf73f-4413-4689-be33-61b0d6bd0ffc', 'rule_name': 'Suspicious ImageLoad via Windows CertOC'}],
     techniques=['T1218'],
 )
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
@@ -20,11 +21,16 @@ EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 @common.requires_os(metadata.platforms)
 def main():
     addinproc = "C:\\Users\\Public\\AddInProcess.exe"
+    certoc = "C:\\Users\\Public\\CertOc.exe"
+
     common.copy_file(EXE_FILE, addinproc)
+    common.copy_file(EXE_FILE, certoc)
 
     # Execute command
     common.execute([addinproc, "/guid:32a91b0f-30cd-4c75-be79-ccbd6345de99", "/pid:123"], timeout=10)
+    common.execute([certoc, "-LoadDLL"], timeout=10)
     common.remove_file(addinproc)
+    common.remove_file(certoc)
 
 
 if __name__ == "__main__":
