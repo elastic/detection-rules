@@ -35,11 +35,11 @@ note = """## Triage and analysis
 
 ### Investigating Code Signing Policy Modification Through Registry
 
-Windows Driver Signature Enforcement (DSE) is a security feature introduced by Microsoft to enforce that only signed drivers can be loaded and executed into the kernel (ring 0). This feature was introduced to prevent attackers from loading their malicious drivers on targets. If the driver has an invalid signature, the system will not allow it to be loaded.
+Microsoft created the Windows Driver Signature Enforcement (DSE) security feature to prevent drivers with invalid signatures from loading and executing into the kernel (ring 0). DSE aims to protect systems by blocking attackers from loading malicious drivers on targets. 
 
-This protection is essential for maintaining the security of the system. However, attackers or even administrators can disable this feature and load untrusted drivers, as this can put the system at risk. Therefore, it is important to keep this feature enabled and only load drivers from trusted sources to ensure the integrity and security of the system.
+This protection is essential for maintaining system security. However, attackers or administrators can disable DSE and load untrusted drivers, which can put the system at risk. Therefore, it's important to keep this feature enabled and only load drivers from trusted sources to ensure system integrity and security.
 
-This rule identifies registru modifications that can disable the Driver Signature Enforcement feature.
+This rule identifies registry modifications that can disable DSE.
 
 > **Note**:
 > This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
@@ -69,7 +69,7 @@ This rule identifies registru modifications that can disable the Driver Signatur
 
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved host to prevent further post-compromise behavior.
-- Disable and uninstall all suspicious drivers found in the system. This can be done via Device Manager. (Note that this step may require you to boot the system into Safe Mode)
+- Disable and uninstall all suspicious drivers found in the system. This can be done via Device Manager. (Note that this step may require you to boot the system into Safe Mode.)
 - Remove the related services and registry keys found in the system. Note that the service will probably not stop if the driver is still installed.
   - This can be done via PowerShell `Remove-Service` cmdlet.
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
