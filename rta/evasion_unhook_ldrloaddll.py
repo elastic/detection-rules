@@ -14,7 +14,7 @@ metadata = RtaMetadata(
     siem=[{"rule_id": "d7bc9652-fe82-4fb3-8a48-4a9289c840f8", "rule_name": "Potential NTDLL Memory Unhooking"},
           {"rule_id": "2c4f5a78-a64f-4fcf-ac52-bf91fd9b82c8", "rule_name": "Suspicious Image Load via LdrLoadDLL"},
           {"rule_id": "703343f1-095a-4a5a-9bf4-5338db06ecb8", "rule_name": "Process Creation from Modified NTDLL"}],
-    techniques=["T1574"],
+    techniques=["T1055"],
 )
 
 # testing PE that will first unhook ntdll txt section and load ws2_32.dll, create notepad.exe from unhooked ntdll then load psapi.dll via LdrLoadDll
