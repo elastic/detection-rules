@@ -20,6 +20,7 @@ metadata = RtaMetadata(
         {"rule_name": "Potential Discovery of DPAPI Master Keys", "rule_id": "84bbe951-5141-4eb3-b9cf-8dfeea62a94e"},
         {"rule_name": "Suspicious Access to Active Directory Database File", "rule_id": "d66765b8-010b-4a40-ab62-1d8f13a44878"},
         {"rule_name": "Sensitive File Access - SSH Saved Keys", "rule_id": "1487d726-2bd2-4a9e-a9d2-db8aef1d6239"},
+        {"rule_name": "Failed Attempts to Access Sensitive Files", "rule_id": "3163dd96-c677-4f1f-98bf-c8f3c81b197b"},
     ],    
     siem=[],
     techniques=["T1134"],
