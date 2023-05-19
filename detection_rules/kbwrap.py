@@ -77,6 +77,7 @@ def upload_rule(ctx, rules, replace_id):
 
     return results
 
+
 @kibana_group.command("update-rule")
 @multi_collection
 @click.option('--replace-id', '-r', is_flag=True, help='Replace rule IDs with new IDs before export')
@@ -119,6 +120,7 @@ def update_rule(ctx, rules, replace_id):
         click.echo('Failed uploads:\n  - ' + '\n  - '.join(errors))
 
     return results
+
 
 @kibana_group.command('search-alerts')
 @click.argument('query', required=False)
