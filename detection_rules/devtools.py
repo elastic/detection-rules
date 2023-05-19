@@ -150,8 +150,6 @@ def get_release_diff(pre: str, post: str, remote: Optional[str] = 'origin'
     return rules_changes
 
 
-
-
 @dev_group.command('build-integration-docs')
 @click.argument('registry-version')
 @click.option('--pre', required=True, help='Tag for pre-existing rules')
@@ -1047,30 +1045,25 @@ def endpoint_by_attack(ctx: click.Context, pre: str, post: str, force: bool, rem
 
     return changed_stats, new_stats, dep_stats
 
+
 @diff_group.command('packages')
 @click.option('--pre', type=str, required=True, help='previous rules package version')
 @click.option('--post', type=str, required=True, help='post rules package version')
-@click.option('--all', '-a', is_flag=True, help='show all changes')
-@click.option('--attack', is_flag=True, help='show ATT&CK changes by platform')
-@click.option('--platform', is_flag=True, help='show rule changes by platform')
-@click.option('--id', type=str, help='show status of a specific rule')
 @click.pass_context
-def packages(ctx: click.Context, pre: str, post: str, all: bool, attack: bool, platform: bool, id: str):
+def packages(ctx: click.Context, pre: str, post: str):
     """Rule diffs across released prebuilt rules packages."""
-    if not all and not attack and not platform and not id:
-        raise click.UsageError('Must specify at least one of --all, --attack, --platform, or --id')
 
     sde = SecurityDetectionEngine()
 
     # load rules from packages and identify changes
-    pre_rules = {k.split("_")[0]: v for k,v in sde.load_integration_assets(pre).items()}
-    post_rules = {k.split("_")[0]: v for k,v in sde.load_integration_assets(post).items()}
+    pre_rules = {k.split("_")[0]: v for k, v in sde.load_integration_assets(pre).items()}
+    post_rules = {k.split("_")[0]: v for k, v in sde.load_integration_assets(post).items()}
     new_rules = {k: v for k, v in post_rules.items() if k not in pre_rules}
     deprecated_rules = {k: v for k, v in pre_rules.items() if k not in post_rules}
-    changed_rules = {k: v for k, v in post_rules.items() if k in pre_rules and \
+    changed_rules = {k: v for k, v in post_rules.items() if k in pre_rules and # noqa W504
                      v['attributes'] != pre_rules[k]['attributes']}
-    tuned_rules = {k: v for k, v in post_rules.items() if k in pre_rules and \
-                   v['attributes']['type'] != 'machine_learning' and \
+    tuned_rules = {k: v for k, v in post_rules.items() if k in pre_rules and # noqa W504
+                   v['attributes']['type'] != 'machine_learning' and # noqa W504
                    v['attributes']['query'] != pre_rules[k]['attributes']['query']}
 
     click.echo(f"New Rules: {len(new_rules.keys())}")
@@ -1084,37 +1077,40 @@ def packages(ctx: click.Context, pre: str, post: str, all: bool, attack: bool, p
         'windows', 'linux', 'macos', 'microsoft 365', 'container']
 
     if new_rules:
-        new_attributes = [v['attributes'] for k,v in new_rules.items()]
+        new_attributes = [v['attributes'] for k, v in new_rules.items()]
         new_df = pd.DataFrame(new_attributes).fillna(False)
         new_df['platform'] = new_df['tags'].apply(lambda x: " ".join([i.lower() for i in x
                                                   if i.lower() in tags]))
         click.echo("\n\nNew rules:")
-        click.echo(new_df.loc[:,column_filters].\
-            to_markdown(index=False, headers=tabulate_headers, tablefmt="grid"))
+        click.echo(new_df.loc[:, column_filters].
+                   to_markdown(index=False, headers=tabulate_headers, tablefmt="grid"))
+
     if deprecated_rules:
-        deprecated_attributes = [v['attributes'] for k,v in deprecated_rules.items()]
+        deprecated_attributes = [v['attributes'] for k, v in deprecated_rules.items()]
         deprecated_df = pd.DataFrame(deprecated_attributes).fillna(False)
         deprecated_df['platform'] = deprecated_df['tags'].apply(lambda x: " ".join([i.lower() for i in x
-                                                  if i.lower() in tags]))
+                                                                if i.lower() in tags]))
         click.echo("\n\nDeprecated rules:")
-        click.echo(deprecated_df.loc[:,column_filters].\
-            to_markdown(index=False, headers=tabulate_headers, tablefmt="grid"))
+        click.echo(deprecated_df.loc[:, column_filters].
+                   to_markdown(index=False, headers=tabulate_headers, tablefmt="grid"))
+
     if changed_rules:
-        changed_attributes = [v['attributes'] for k,v in changed_rules.items()]
+        changed_attributes = [v['attributes'] for k, v in changed_rules.items()]
         changed_df = pd.DataFrame(changed_attributes).fillna(False)
         changed_df['platform'] = changed_df['tags'].apply(lambda x: " ".join([i.lower() for i in x
-                                                  if i.lower() in tags]))
+                                                          if i.lower() in tags]))
         click.echo("\n\nChanged rules:")
-        click.echo(changed_df.loc[:,column_filters].\
-            to_markdown(index=False, headers=tabulate_headers, tablefmt="grid"))
+        click.echo(changed_df.loc[:, column_filters].
+                   to_markdown(index=False, headers=tabulate_headers, tablefmt="grid"))
+
     if tuned_rules:
-        tuned_attributes = [v['attributes'] for k,v in tuned_rules.items()]
+        tuned_attributes = [v['attributes'] for k, v in tuned_rules.items()]
         tuned_df = pd.DataFrame(tuned_attributes).fillna(False)
         tuned_df['platform'] = tuned_df['tags'].apply(lambda x: " ".join([i.lower() for i in x
-                                                  if i.lower() in tags]))
+                                                      if i.lower() in tags]))
         click.echo("\n\nTuned rules:")
-        click.echo(tuned_df.loc[:,column_filters].\
-            to_markdown(index=False, headers=tabulate_headers, tablefmt="grid"))
+        click.echo(tuned_df.loc[:, column_filters].
+                   to_markdown(index=False, headers=tabulate_headers, tablefmt="grid"))
 
 
 @dev_group.group('test')
