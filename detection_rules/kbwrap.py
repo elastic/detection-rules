@@ -77,6 +77,48 @@ def upload_rule(ctx, rules, replace_id):
 
     return results
 
+@kibana_group.command("update-rule")
+@multi_collection
+@click.option('--replace-id', '-r', is_flag=True, help='Replace rule IDs with new IDs before export')
+@click.pass_context
+def update_rule(ctx, rules, replace_id):
+    """Upload a list of rule .toml files to Kibana."""
+    kibana = ctx.obj['kibana']
+    api_payloads = []
+
+    for rule in rules:
+        try:
+            payload = rule.contents.to_api_format()
+            payload.setdefault("meta", {}).update(rule.contents.metadata.to_dict())
+
+            if replace_id:
+                payload["rule_id"] = str(uuid.uuid4())
+
+            payload = downgrade(payload, target_version=kibana.version)
+
+        except ValueError as e:
+            client_error(f'{e} in version:{kibana.version}, for rule: {rule.name}', e, ctx=ctx)
+
+        rule = RuleResource(payload)
+        api_payloads.append(rule)
+
+    with kibana:
+        results = RuleResource.bulk_update(api_payloads)
+
+    success = []
+    errors = []
+    for result in results:
+        if 'error' in result:
+            errors.append(f'{result["rule_id"]} - {result["error"]["message"]}')
+        else:
+            success.append(result['rule_id'])
+
+    if success:
+        click.echo('Successful uploads:\n  - ' + '\n  - '.join(success))
+    if errors:
+        click.echo('Failed uploads:\n  - ' + '\n  - '.join(errors))
+
+    return results
 
 @kibana_group.command('search-alerts')
 @click.argument('query', required=False)
