@@ -1049,8 +1049,9 @@ def endpoint_by_attack(ctx: click.Context, pre: str, post: str, force: bool, rem
 @diff_group.command('packages')
 @click.option('--pre', type=str, required=True, help='previous rules package version')
 @click.option('--post', type=str, required=True, help='post rules package version')
+@click.option('--table-format', type=str, default='github', help='table format for tabulate')
 @click.pass_context
-def packages(ctx: click.Context, pre: str, post: str):
+def packages(ctx: click.Context, pre: str, post: str, table_format: str):
     """Rule diffs across released prebuilt rules packages."""
 
     sde = SecurityDetectionEngine()
@@ -1083,7 +1084,7 @@ def packages(ctx: click.Context, pre: str, post: str):
                                                   if i.lower() in tags]))
         click.echo("\n\nNew rules:")
         click.echo(new_df.loc[:, column_filters].
-                   to_markdown(index=False, headers=tabulate_headers, tablefmt="grid"))
+                   to_markdown(index=False, headers=tabulate_headers, tablefmt=table_format))
 
     if deprecated_rules:
         deprecated_attributes = [v['attributes'] for k, v in deprecated_rules.items()]
@@ -1092,7 +1093,7 @@ def packages(ctx: click.Context, pre: str, post: str):
                                                                 if i.lower() in tags]))
         click.echo("\n\nDeprecated rules:")
         click.echo(deprecated_df.loc[:, column_filters].
-                   to_markdown(index=False, headers=tabulate_headers, tablefmt="grid"))
+                   to_markdown(index=False, headers=tabulate_headers, tablefmt=table_format))
 
     if changed_rules:
         changed_attributes = [v['attributes'] for k, v in changed_rules.items()]
@@ -1101,7 +1102,7 @@ def packages(ctx: click.Context, pre: str, post: str):
                                                           if i.lower() in tags]))
         click.echo("\n\nChanged rules:")
         click.echo(changed_df.loc[:, column_filters].
-                   to_markdown(index=False, headers=tabulate_headers, tablefmt="grid"))
+                   to_markdown(index=False, headers=tabulate_headers, tablefmt=table_format))
 
     if tuned_rules:
         tuned_attributes = [v['attributes'] for k, v in tuned_rules.items()]
@@ -1110,7 +1111,7 @@ def packages(ctx: click.Context, pre: str, post: str):
                                                       if i.lower() in tags]))
         click.echo("\n\nTuned rules:")
         click.echo(tuned_df.loc[:, column_filters].
-                   to_markdown(index=False, headers=tabulate_headers, tablefmt="grid"))
+                   to_markdown(index=False, headers=tabulate_headers, tablefmt=table_format))
 
 
 @dev_group.group('test')
