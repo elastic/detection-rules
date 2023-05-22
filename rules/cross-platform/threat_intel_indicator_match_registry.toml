@@ -1,7 +1,7 @@
 [metadata]
-creation_date = "2023/05/02"
+creation_date = "2023/05/22"
 maturity = "production"
-updated_date = "2023/05/02"
+updated_date = "2023/05/22"
 min_stack_comments = """
 Threat Intel Indicator Match general rules were deprecated in 8.7, adding these rules to 8.8 to avoid alert duplication
 """
@@ -10,15 +10,15 @@ min_stack_version = "8.8.0"
 [rule]
 author = ["Elastic"]
 description = """
-This rule is triggered when indicators from the Threat Intel Filebeat module or integrations has a match against a
-registry event.
+This rule is triggered when a Windows registry indicator from the Threat Intel Filebeat module or integrations has a
+match against a event that contains registry data.
 """
 from = "now-65m"
 index = ["auditbeat-*", "endgame-*", "filebeat-*", "logs-*", "packetbeat-*", "winlogbeat-*"]
 interval = "1h"
 language = "kuery"
 license = "Elastic License v2"
-name = "Threat Intel Registry Indicator Match"
+name = "Threat Intel Windows Registry Indicator Match"
 references = [
     "https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-threatintel.html",
     "https://www.elastic.co/guide/en/security/master/es-threat-intel-integrations.html",
@@ -37,7 +37,8 @@ threat_indicator_path = "threat.indicator"
 threat_language = "kuery"
 
 threat_query = '''
-@timestamp >= "now-30d/d" and event.module:threatintel and threat.indicator.registry.path:*
+@timestamp >= "now-30d/d" and event.module:threatintel and threat.indicator.registry.path:* and not _index : logs-ti_recordedfuture.*
+and not _index: logs-ti_anomali.*
 '''
 
 query = """
