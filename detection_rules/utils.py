@@ -193,6 +193,13 @@ def event_sort(events, timestamp='@timestamp', date_format='%Y-%m-%dT%H:%M:%S.%f
 
     def _event_sort(event):
         t = event[timestamp]
+        # If t has more than 6 decimal places round to 6
+        micro_seconds = t.split('.')[-1].split("Z")[0]
+        if t and len(micro_seconds) > 6:
+            print("Converting Time...")
+            micro_seconds = "0."+ micro_seconds
+            micro_seconds = str(round(float(micro_seconds), 6)).split(".")[-1]
+            t = t.split('.')[0] + '.' + micro_seconds + "Z"
         return (time.mktime(time.strptime(t, date_format)) + int(t.split('.')[-1][:-1]) / 1000) * 1000
 
     return sorted(events, key=_event_sort, reverse=not asc)
