@@ -32,11 +32,12 @@ from kibana.connector import Kibana
 
 from . import attack, rule_loader, utils
 from .cli_utils import single_collection
-from .docs import IntegrationSecurityDocs
+from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
-from .integrations import (build_integrations_manifest,
+from .integrations import (SecurityDetectionEngine,
+                           build_integrations_manifest,
                            build_integrations_schemas,
                            find_latest_compatible_version,
                            find_latest_integration_version,
@@ -82,9 +83,15 @@ def dev_group():
 @click.option('--update-version-lock', '-u', is_flag=True,
               help='Save version.lock.json file with updated rule versions in the package')
 @click.option('--generate-navigator', is_flag=True, help='Generate ATT&CK navigator files')
-def build_release(config_file, update_version_lock: bool, generate_navigator: bool, release=None, verbose=True):
+@click.option('--add-historical', type=str, required=True, default="no",
+              help='Generate historical package-registry files')
+@click.option('--update-message', type=str, help='Update message for new package')
+def build_release(config_file, update_version_lock: bool, generate_navigator: bool, add_historical: str,
+                  update_message: str, release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
     config = load_dump(config_file)['package']
+    add_historical = True if add_historical == "yes" else False
+
     if generate_navigator:
         config['generate_navigator'] = True
 
@@ -94,12 +101,24 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     if verbose:
         click.echo(f'[+] Building package {config.get("name")}')
 
-    package = Package.from_config(config, verbose=verbose)
+    package = Package.from_config(config, verbose=verbose, historical=add_historical)
 
     if update_version_lock:
         default_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
-
     package.save(verbose=verbose)
+
+    if add_historical:
+        previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga", config['name'])
+        sde = SecurityDetectionEngine()
+        historical_rules = sde.load_integration_assets(previous_pkg_version)
+        historical_rules = sde.transform_legacy_assets(historical_rules)
+
+        docs = IntegrationSecurityDocsMDX(config['registry_data']['version'], Path(f'releases/{config["name"]}-docs'),
+                                          True, historical_rules, package, note=update_message)
+        docs.generate()
+
+        click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
+        package.add_historical_rules(historical_rules, config['registry_data']['version'])
 
     if verbose:
         package.get_package_hash(verbose=verbose)
@@ -136,8 +155,10 @@ def get_release_diff(pre: str, post: str, remote: Optional[str] = 'origin'
 @click.option('--directory', '-d', type=Path, required=True, help='Output directory to save docs to')
 @click.option('--force', '-f', is_flag=True, help='Bypass the confirmation prompt')
 @click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
+@click.option('--update-message', default='Rule Updates.', help='Update message for new package')
 @click.pass_context
-def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, post: str, directory: Path, force: bool,
+def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, post: str,
+                           directory: Path, force: bool, update_message: str,
                            remote: Optional[str] = 'origin') -> IntegrationSecurityDocs:
     """Build documents from two git tags for an integration package."""
     if not force:
@@ -145,7 +166,7 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
             ctx.exit(1)
 
     rules_changes = get_release_diff(pre, post, remote)
-    docs = IntegrationSecurityDocs(registry_version, directory, True, *rules_changes)
+    docs = IntegrationSecurityDocs(registry_version, directory, True, *rules_changes, update_message=update_message)
     package_dir = docs.generate()
 
     click.echo(f'Generated documents saved to: {package_dir}')

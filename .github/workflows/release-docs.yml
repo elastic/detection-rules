@@ -1,0 +1,88 @@
+name: Release Docs
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Target branch for PR base'
+        required: true
+        default: 'main'
+      update_message:
+        description: 'Update status message for the latest package'
+        required: true
+      pre_version:
+        description: 'Previous version'
+        required: true
+      post_version:
+        description: 'Post version'
+        required: true
+
+jobs:
+  build-docs:
+    name: Build Security Docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout detection-rules
+        uses: actions/checkout@v3
+        with:
+          path: detection-rules
+          fetch-depth: 0
+
+      - name: Checkout elastic/security-docs
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.READ_WRITE_RELEASE_FLEET }}
+          repository: "elastic/security-docs"
+          path: security-docs
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.target_branch }}
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install Python dependencies
+        run: |
+          cd detection-rules
+          python -m pip install --upgrade pip
+          pip cache purge
+          pip install .[dev]
+
+      - name: Build Integration Docs
+        env:
+          UPDATE_MESSAGE: ${{ github.event.inputs.update_message }}
+          REGISTRY_VERSION: ${{ github.event.inputs.post_version }}
+          PRE_VERSION: "integration-v${{ github.event.inputs.pre_version }}"
+          POST_VERSION: "integration-v${{ github.event.inputs.post_version }}"
+        run: |
+          cd detection-rules
+          python -m detection_rules dev build-integration-docs $REGISTRY_VERSION \
+            --pre $PRE_VERSION --post $POST_VERSION \
+            -d ../security-docs \
+            --update-message "$UPDATE_MESSAGE" --force
+
+      - name: Set github config
+        run: |
+          git config --global user.email "72879786+protectionsmachine@users.noreply.github.com"
+          git config --global user.name "protectionsmachine"
+
+      - name: Commit and push changes
+        env:
+          UPDATE_BRANCH: "update-security-docs-prebuilt-rules-${{github.event.inputs.post_version}}"
+        run: |
+          cd security-docs
+          git checkout -b $UPDATE_BRANCH
+          git add -A
+          git commit -m "Update latest docs"
+          git push --set-upstream origin $UPDATE_BRANCH
+
+      - name: Create PR to elastic/security-docs
+        env:
+          GITHUB_TOKEN: ${{ secrets.PROTECTIONS_MACHINE_TOKEN }}
+          POST_VERSION: "v${{ github.event.inputs.post_version }}"
+          TARGET_BRANCH: "${{ github.event.inputs.target_branch }}"
+          UPDATE_BRANCH: "update-security-docs-prebuilt-rules-${{github.event.inputs.post_version}}"
+        run: |
+          cd security-docs
+          gh pr create --title "[Detection Rules] Adding Documents for $POST_VERSION Pre-Built Detection Rules" --body "Security Doc updates for prebuilt security rule integration package version $POST_VERSION. Please note these are meant to merge into $TARGET_BRANCH only and not backport." --base $TARGET_BRANCH --head $UPDATE_BRANCH
