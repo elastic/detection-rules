@@ -40,7 +40,7 @@ def main():
         win32file.CopyFile(wer, rta_pe, 0)
         if os.path.exists(tempc):
             print('[+] - ', DLL, 'copied to', tempc)
-        print('[+] - File ', tempc, 'will be appeded with null bytes to reach 90+ MB in size.')
+        print('[+] - File ', tempc, 'will be appended with null bytes to reach 90MB in size.')
         # append null bytes to makde the DLL oversized 90+MB in size
         with open(tempc, 'rb+') as binfile:
             binfile.seek(100000000)
