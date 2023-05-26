@@ -1,0 +1,62 @@
+[metadata]
+creation_date = "2023/05/17"
+integration = ["endpoint", "network_traffic"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/05/17"
+
+[rule]
+author = ["Elastic"]
+description = "This rule identifies a potential SYN-Based port scan."
+from = "now-9m"
+index = ["logs-endpoint.events.network-*", "logs-network_traffic.*", "packetbeat-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential SYN-Based Network Scan Detected"
+
+risk_score = 47
+rule_id = "bbaa96b9-f36c-4898-ace2-581acb00a409"
+severity = "medium"
+tags = ["Elastic", "Host", "Threat Detection", "Discovery", "Network", "Reconnaissance"]
+type = "threshold"
+
+query = '''
+destination.port :* and network.packets <= 2
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1046"
+name = "Network Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1046/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.001"
+name = "Scanning IP Blocks"
+reference = "https://attack.mitre.org/techniques/T1595/001/"
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"
+
+[rule.threshold]
+field = ["destination.ip", "source.ip"]
+value = 1
+[[rule.threshold.cardinality]]
+field = "destination.port"
+value = 10
