@@ -58,7 +58,7 @@ class TestValidRules(BaseRuleTest):
     def test_all_rule_queries_optimized(self):
         """Ensure that every rule query is in optimized form."""
         for rule in self.production_rules:
-            if rule.contents.data.get("language") == "kql":
+            if rule.contents.data.get("language") == "kuery":
                 source = rule.contents.data.query
                 tree = kql.parse(source, optimize=False)
                 optimized = tree.optimize(recursive=True)
