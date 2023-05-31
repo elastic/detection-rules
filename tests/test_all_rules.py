@@ -370,6 +370,10 @@ class TestRuleFiles(BaseRuleTest):
             rule_err_str = '\n'.join(bad_name_rules)
             self.fail(f'{error_msg}:\n{rule_err_str}')
 
+    def test_bbr_in_correct_dir(self):
+        """Ensure that the BBR is in the correct directory."""
+        for rule in self.bbr:
+            self.assertEqual(rule.path.parent.name, 'bbr', f'{self.rule_str(rule)} should be in the bbr directory')
 
 class TestRuleMetadata(BaseRuleTest):
     """Test the metadata of rules."""
@@ -471,8 +475,9 @@ class TestRuleMetadata(BaseRuleTest):
                         failures.append(err_msg)
 
                     # checks if the rule path matches the intended integration
+                    # excludes BBR rules
                     if rule_integration in valid_integration_folders:
-                        if rule.path.parent.name not in rule_integrations:
+                        if rule.path.parent.name not in rule_integrations and rule.path.parent.name != "bbr":
                             err_msg = f'{self.rule_str(rule)} {rule_integration} tag, path is {rule.path.parent.name}'
                             failures.append(err_msg)
 
