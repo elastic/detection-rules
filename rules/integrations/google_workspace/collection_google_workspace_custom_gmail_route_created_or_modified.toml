@@ -4,7 +4,7 @@ integration = ["google_workspace"]
 maturity = "production"
 min_stack_comments = "Breaking changes for Google Workspace integration."
 min_stack_version = "8.4.0"
-updated_date = "2023/04/12"
+updated_date = "2023/05/31"
 
 [rule]
 author = ["Elastic"]
@@ -82,13 +82,20 @@ references = ["https://support.google.com/a/answer/2685650?hl=en"]
 risk_score = 47
 rule_id = "9510add4-3392-11ed-bd01-f661ea17fbce"
 severity = "medium"
-tags = ["Elastic", "Cloud", "Google Workspace", "Continuous Monitoring", "SecOps", "Collection", "Investigation Guide"]
+tags = [
+    "Elastic",
+    "Cloud",
+    "Google Workspace",
+    "Continuous Monitoring",
+    "SecOps",
+    "Collection",
+    "Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:"google_workspace.admin" and event.action:("CREATE_GMAIL_SETTING" or "CHANGE_GMAIL_SETTING")
-  and google_workspace.event.type:"EMAIL_SETTINGS" and google_workspace.admin.setting.name:("EMAIL_ROUTE" or "MESSAGE_SECURITY_RULE")
+event.dataset:google_workspace.admin and event.action:(CHANGE_GMAIL_SETTING or CREATE_GMAIL_SETTING) and google_workspace.event.type:EMAIL_SETTINGS and google_workspace.admin.setting.name:(EMAIL_ROUTE or MESSAGE_SECURITY_RULE)
 '''
 
 

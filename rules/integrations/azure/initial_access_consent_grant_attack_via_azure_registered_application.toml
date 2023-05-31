@@ -4,7 +4,7 @@ integration = ["azure", "o365"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/01"
+updated_date = "2023/05/31"
 
 [rule]
 author = ["Elastic"]
@@ -88,13 +88,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:(azure.activitylogs or azure.auditlogs or o365.audit) and
-  (
-    azure.activitylogs.operation_name:"Consent to application" or
-    azure.auditlogs.operation_name:"Consent to application" or
-    o365.audit.Operation:"Consent to application."
-  ) and
-  event.outcome:(Success or success)
+event.dataset:(azure.activitylogs or azure.auditlogs or o365.audit) and (azure.activitylogs.operation_name:"Consent to application" or azure.auditlogs.operation_name:"Consent to application" or o365.audit.Operation:"Consent to application.") and event.outcome:(Success or success)
 '''
 
 

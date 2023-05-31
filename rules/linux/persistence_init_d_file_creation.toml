@@ -4,16 +4,16 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup, New Term"
 min_stack_version = "8.6.0"
-updated_date = "2023/04/03"
+updated_date = "2023/05/31"
 
 [rule]
 author = ["Elastic"]
 description = """
-Files that are placed in the /etc/init.d/ directory in Unix can be used to start custom applications,
-services, scripts or commands during start-up. Init.d has been mostly replaced in favor of Systemd, however, 
-through the "systemd-sysv-generator" init.d files can be converted to service unit files that run at boot.
-Adversaries may add or alter files located in the /etc/init.d/ directory to execute malicious code on boot
-time in order to gain persistence onto the system. 
+Files that are placed in the /etc/init.d/ directory in Unix can be used to start custom applications, services, scripts
+or commands during start-up. Init.d has been mostly replaced in favor of Systemd, however, through the
+"systemd-sysv-generator" init.d files can be converted to service unit files that run at boot. Adversaries may add or
+alter files located in the /etc/init.d/ directory to execute malicious code on boot time in order to gain persistence
+onto the system.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*"]
@@ -23,8 +23,7 @@ name = "Potential Persistence Through init.d Detected"
 references = [
     "https://www.intezer.com/blog/malware-analysis/hiddenwasp-malware-targeting-linux-systems/",
     "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#8-boot-or-logon-initialization-scripts-rc-scripts",
-    "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/"
-
+    "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/",
 ]
 risk_score = 47
 rule_id = "474fd20e-14cc-49c5-8160-d9ab4ba16c8b"
@@ -34,9 +33,7 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type :"linux" and event.action:("creation" or "file_create_event" or "rename" or "file_rename_event") and 
-file.path : /etc/init.d/* and not process.executable : ("/usr/bin/dpkg" or "/usr/bin/dockerd" or "/bin/rpm") and not 
-file.extension : "swp"
+host.os.type:linux and event.action:(creation or file_create_event or file_rename_event or rename) and file.path:/etc/init.d/* and not process.executable:(/bin/rpm or /usr/bin/dockerd or /usr/bin/dpkg) and not file.extension:swp
 '''
 
 
@@ -48,12 +45,10 @@ name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
 
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 
 [rule.new_terms]
 field = "new_terms_fields"
@@ -61,3 +56,5 @@ value = ["file.path", "process.name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
+
+

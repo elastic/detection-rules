@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/27"
+updated_date = "2023/05/31"
 
 [transform]
 [[transform.osquery]]
@@ -126,7 +126,7 @@ Turn on PowerShell Script Block Logging (Enable)
 Steps to implement the logging policy via registry:
 
 ```
-reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
+reg add "hklm\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
 ```
 """
 references = [
@@ -141,18 +141,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and host.os.type:windows and
-  powershell.file.script_block_text:(
-    "New-InMemoryModule" or
-    "Add-Win32Type" or
-    psenum or
-    DefineDynamicAssembly or
-    DefineDynamicModule or
-    "Reflection.TypeAttributes" or
-    "Reflection.Emit.OpCodes" or
-    "Reflection.Emit.CustomAttributeBuilder" or
-    "Runtime.InteropServices.DllImportAttribute"
-  ) and not user.id : "S-1-5-18"
+event.category:process and host.os.type:windows and powershell.file.script_block_text:(Add-Win32Type or DefineDynamicAssembly or DefineDynamicModule or New-InMemoryModule or Reflection.Emit.CustomAttributeBuilder or Reflection.Emit.OpCodes or Reflection.TypeAttributes or Runtime.InteropServices.DllImportAttribute or psenum) and not user.id:S-1-5-18
 '''
 
 

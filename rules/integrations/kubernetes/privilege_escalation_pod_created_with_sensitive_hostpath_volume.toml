@@ -4,7 +4,7 @@ integration = ["kubernetes"]
 maturity = "production"
 min_stack_comments = "New fields added to Kubernetes Integration"
 min_stack_version = "8.4.0"
-updated_date = "2022/12/14"
+updated_date = "2023/05/31"
 
 [rule]
 author = ["Elastic"]
@@ -43,28 +43,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset : "kubernetes.audit_logs"
-  and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow"
-  and kubernetes.audit.objectRef.resource:"pods"
-  and kubernetes.audit.verb:("create" or "update" or "patch")
-  and kubernetes.audit.requestObject.spec.volumes.hostPath.path:
-  ("/" or
-  "/proc" or
-  "/root" or
-  "/var" or
-  "/var/run" or
-  "/var/run/docker.sock" or
-  "/var/run/crio/crio.sock" or
-  "/var/run/cri-dockerd.sock" or
-  "/var/lib/kubelet" or
-  "/var/lib/kubelet/pki" or
-  "/var/lib/docker/overlay2" or
-  "/etc" or
-  "/etc/kubernetes" or
-  "/etc/kubernetes/manifests" or
-  "/etc/kubernetes/pki" or
-  "/home/admin")
-  and not kubernetes.audit.requestObject.spec.containers.image: ("docker.elastic.co/beats/elastic-agent:8.4.0")
+event.dataset:kubernetes.audit_logs and kubernetes.audit.annotations.authorization_k8s_io/decision:allow and kubernetes.audit.objectRef.resource:pods and kubernetes.audit.verb:(create or patch or update) and kubernetes.audit.requestObject.spec.volumes.hostPath.path:(/ or /etc or /etc/kubernetes or /etc/kubernetes/manifests or /etc/kubernetes/pki or /home/admin or /proc or /root or /var or /var/lib/docker/overlay2 or /var/lib/kubelet or /var/lib/kubelet/pki or /var/run or /var/run/cri-dockerd.sock or /var/run/crio/crio.sock or /var/run/docker.sock) and not kubernetes.audit.requestObject.spec.containers.image:"docker.elastic.co/beats/elastic-agent:8.4.0"
 '''
 
 

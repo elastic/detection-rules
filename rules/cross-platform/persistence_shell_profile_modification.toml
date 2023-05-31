@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/05/31"
 
 [rule]
 author = ["Elastic"]
@@ -29,30 +29,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:file and event.type:change and
-  process.name:(* and not (sudo or
-                           vim or
-                           zsh or
-                           env or
-                           nano or
-                           bash or
-                           Terminal or
-                           xpcproxy or
-                           login or
-                           cat or
-                           cp or
-                           launchctl or
-                           java)) and
-  not process.executable:(/Applications/* or /private/var/folders/* or /usr/local/*) and
-  file.path:(/private/etc/rc.local or
-             /etc/rc.local or
-             /home/*/.profile or
-             /home/*/.profile1 or
-             /home/*/.bash_profile or
-             /home/*/.bash_profile1 or
-             /home/*/.bashrc or
-             /Users/*/.bash_profile or
-             /Users/*/.zshenv)
+event.category:file and event.type:change and process.name:(* and not (Terminal or bash or cat or cp or env or java or launchctl or login or nano or sudo or vim or xpcproxy or zsh)) and not process.executable:(/Applications/* or /private/var/folders/* or /usr/local/*) and file.path:(/etc/rc.local or /private/etc/rc.local or /Users/*/.bash_profile or /Users/*/.zshenv or /home/*/.bash_profile or /home/*/.bash_profile1 or /home/*/.bashrc or /home/*/.profile or /home/*/.profile1)
 '''
 
 

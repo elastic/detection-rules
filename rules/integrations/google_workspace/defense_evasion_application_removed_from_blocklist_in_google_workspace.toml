@@ -4,7 +4,7 @@ integration = ["google_workspace"]
 maturity = "production"
 min_stack_comments = "Breaking changes for Google Workspace integration."
 min_stack_version = "8.4.0"
-updated_date = "2023/04/12"
+updated_date = "2023/05/31"
 
 [rule]
 author = ["Elastic"]
@@ -93,16 +93,13 @@ tags = [
     "SecOps",
     "Configuration Audit",
     "Impair Defenses",
-    "Investigation Guide"
+    "Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:"google_workspace.admin" and event.category:"iam" and event.type:"change"  and
-  event.action:"CHANGE_APPLICATION_SETTING" and
-  google_workspace.admin.application.name:"Google Workspace Marketplace" and
-  google_workspace.admin.old_value: *allowed*false* and google_workspace.admin.new_value: *allowed*true*
+event.dataset:google_workspace.admin and event.category:iam and event.type:change and event.action:CHANGE_APPLICATION_SETTING and google_workspace.admin.application.name:"Google Workspace Marketplace" and google_workspace.admin.old_value:*allowed*false* and google_workspace.admin.new_value:*allowed*true*
 '''
 
 
