@@ -375,6 +375,7 @@ class TestRuleFiles(BaseRuleTest):
         for rule in self.bbr:
             self.assertEqual(rule.path.parent.name, 'bbr', f'{self.rule_str(rule)} should be in the bbr directory')
 
+
 class TestRuleMetadata(BaseRuleTest):
     """Test the metadata of rules."""
 
