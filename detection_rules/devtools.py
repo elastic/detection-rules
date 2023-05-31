@@ -938,14 +938,14 @@ def trim_version_lock(stack_version: str, dry_run: bool):
     assert stack_version in stack_versions, \
         f'Unknown min_version ({stack_version}), expected: {", ".join(stack_versions)}'
 
-    min_version = Version.parse(min_version)
+    min_version = Version.parse(stack_version)
     version_lock_dict = default_version_lock.version_lock.to_dict()
     removed = {}
 
     for rule_id, lock in version_lock_dict.items():
         if 'previous' in lock:
             prev_vers = [Version.parse(v, optional_minor_and_patch=True) for v in list(lock['previous'])]
-            outdated_vers = [v for v in prev_vers if v <= min_version]
+            outdated_vers = [f"{v.major}.{v.minor}" for v in prev_vers if v < min_version]
 
             if not outdated_vers:
                 continue
