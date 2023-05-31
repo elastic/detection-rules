@@ -239,6 +239,13 @@ class RuleCollection(BaseCollection):
         self.deprecated.name_map[rule.name] = rule
         self.deprecated.rules.append(rule)
 
+    def get_bbr(self) -> List[TOMLRule]:
+        bbr_list = []
+        for rule in self.rules:
+            if "building_block_type" in rule.contents.data.to_dict().keys():
+                bbr_list.append(rule)
+        return bbr_list
+
     def load_dict(self, obj: dict, path: Optional[Path] = None) -> Union[TOMLRule, DeprecatedRule]:
         # bypass rule object load (load_dict) and load as a dict only
         if obj.get('metadata', {}).get('maturity', '') == 'deprecated':

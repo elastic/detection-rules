@@ -247,7 +247,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     actions: Optional[list]
     alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.6")))
     author: List[str]
-    building_block_type: Optional[str]
+    building_block_type: Optional[definitions.BuildingBlockType]
     description: str
     enabled: Optional[bool]
     exceptions_list: Optional[list]

@@ -43,6 +43,7 @@ class BaseRuleTest(unittest.TestCase):
                 cls.all_rules = rc.rules
                 cls.rule_lookup = rc.id_map
                 cls.production_rules = rc.filter(production_filter)
+                cls.bbr = rc.get_bbr()
                 cls.deprecated_rules: DeprecatedCollection = rc.deprecated
             except Exception as e:
                 RULE_LOADER_FAIL = True
