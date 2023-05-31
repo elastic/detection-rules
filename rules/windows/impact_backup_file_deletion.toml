@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -72,18 +72,22 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.type == "deletion" and
+file where host.os.type == "windows" and event.type == "deletion" and
   (
   /* Veeam Related Backup Files */
   (file.extension : ("VBK", "VIB", "VBM") and
-  not process.executable : ("?:\\Windows\\Veeam\\Backup\\*",
-                            "?:\\Program Files\\Veeam\\Backup and Replication\\*",
-                            "?:\\Program Files (x86)\\Veeam\\Backup and Replication\\*")) or
+  not (
+    process.executable : ("?:\\Windows\\*", "?:\\Program Files\\*", "?:\\Program Files (x86)\\*") and
+    (process.code_signature.trusted == true and process.code_signature.subject_name : "Veeam Software Group GmbH")
+  )) or
 
   /* Veritas Backup Exec Related Backup File */
   (file.extension : "BKF" and
   not process.executable : ("?:\\Program Files\\Veritas\\Backup Exec\\*",
-                            "?:\\Program Files (x86)\\Veritas\\Backup Exec\\*"))
+                            "?:\\Program Files (x86)\\Veritas\\Backup Exec\\*") and
+  not file.path : ("?:\\ProgramData\\Trend Micro\\*",
+                   "?:\\Program Files (x86)\\Trend Micro\\*",
+                   "?:\\$RECYCLE.BIN\\*"))
   )
 '''
 

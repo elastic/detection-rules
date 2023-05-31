@@ -1,0 +1,45 @@
+[metadata]
+creation_date = "2023/01/13"
+integration = ["endpoint", "windows"]
+maturity = "production"
+updated_date = "2023/02/22"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects attempts to enable the Windows Subsystem for Linux using Microsoft Dism utility. Adversaries may enable 
+and use WSL for Linux to avoid detection.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Windows Subsystem for Linux Enabled via Dism Utility"
+references = ["https://blog.f-secure.com/hunting-for-windows-subsystem-for-linux/"]
+risk_score = 47
+rule_id = "e2e0537d-7d8f-4910-a11d-559bcf61295a"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type : "start" and
+ (process.name : "Dism.exe" or process.pe.original_file_name == "DISM.EXE") and 
+ process.command_line : "*Microsoft-Windows-Subsystem-Linux*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1202"
+name = "Indirect Command Execution"
+reference = "https://attack.mitre.org/techniques/T1202/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

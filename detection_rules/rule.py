@@ -16,11 +16,13 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from uuid import uuid4
 
 import eql
-import kql
-from kql.ast import FieldComparison
+from semver import Version
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
 from marshmallow import ValidationError, validates_schema
+
+import kql
+from kql.ast import FieldComparison
 
 from . import beats, ecs, endgame, utils
 from .integrations import (find_least_compatible_version,
@@ -31,16 +33,15 @@ from .rule_formatter import nested_normalize, toml_write
 from .schemas import (SCHEMA_DIR, definitions, downgrade,
                       get_min_supported_stack_version, get_stack_schemas)
 from .schemas.stack_compat import get_restricted_fields
-from .semver import Version
-from .utils import cached
+from .utils import cached, PatchedTemplate
 
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
 
 BUILD_FIELD_VERSIONS = {
-    "related_integrations": (Version('8.3'), None),
-    "required_fields": (Version('8.3'), None),
-    "setup": (Version("8.3"), None)
+    "related_integrations": (Version.parse('8.3.0'), None),
+    "required_fields": (Version.parse('8.3.0'), None),
+    "setup": (Version.parse('8.3.0'), None)
 }
 
 
@@ -60,6 +61,7 @@ class RuleMeta(MarshmallowDataclassMixin):
     os_type_list: Optional[List[definitions.OSType]]
     query_schema_validation: Optional[bool]
     related_endpoint_rules: Optional[List[str]]
+    promotion: Optional[bool]
 
     # Extended information as an arbitrary dictionary
     extended: Optional[Dict[str, Any]]
@@ -68,6 +70,60 @@ class RuleMeta(MarshmallowDataclassMixin):
         """Get a dict of beats and ecs versions per stack release."""
         stack_versions = get_stack_schemas(self.min_stack_version)
         return stack_versions
+
+
+@dataclass(frozen=True)
+class RuleTransform(MarshmallowDataclassMixin):
+    """Data stored in a rule's [transform] section of TOML."""
+
+    # note (investigation guides) Markdown plugins
+    # /elastic/kibana/tree/main/x-pack/plugins/security_solution/public/common/components/markdown_editor/plugins
+    ##############################################
+
+    # timelines out of scope at the moment
+
+    @dataclass(frozen=True)
+    class OsQuery:
+        label: str
+        query: str
+        ecs_mapping: Optional[Dict[str, Dict[Literal['field', 'value'], str]]]
+
+    @dataclass(frozen=True)
+    class Insight:
+        @dataclass(frozen=True)
+        class Provider:
+            field: str
+            value: str
+            type: str
+
+        label: str
+        providers: List[List[Provider]]
+
+    # these must be lists in order to have more than one. Their index in the list is how they will be referenced in the
+    # note string templates
+    osquery: Optional[List[OsQuery]]
+    insight: Optional[List[Insight]]
+
+    @validates_schema
+    def validate_transforms(self, value: dict, **kwargs):
+        """Validate transform fields."""
+        # temporarily invalidate insights until schema stabilizes
+        insight = value.get('insight')
+        if insight is not None:
+            raise NotImplementedError('Insights are not stable yet.')
+        return
+
+    def render_insight_osquery_to_string(self) -> Dict[Literal['osquery', 'insight'], List[str]]:
+        obj = self.to_dict()
+
+        rendered: Dict[Literal['osquery', 'insight'], List[str]] = {'osquery': [], 'insight': []}
+        for plugin, entries in obj.items():
+            for entry in entries:
+                rendered[plugin].append(f'!{{{plugin}{json.dumps(entry, sort_keys=True, separators=(",", ":"))}}}')
+
+        return rendered
+
+    ##############################################
 
 
 @dataclass(frozen=True)
@@ -162,6 +218,19 @@ class FlatThreatMapping(MarshmallowDataclassMixin):
 
 
 @dataclass(frozen=True)
+class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
+    """Mapping to alert suppression."""
+    @dataclass
+    class AlertSuppressionDuration:
+        """Mapping to allert suppression duration."""
+        unit: definitions.TimeUnits
+        value: int
+
+    group_by: List[definitions.NonEmptyStr]
+    duration: Optional[AlertSuppressionDuration] = field(metadata=dict(metadata=dict(min_compat="8.7")))
+
+
+@dataclass(frozen=True)
 class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     @dataclass
     class RequiredFields:
@@ -176,6 +245,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         integration: Optional[definitions.NonEmptyStr]
 
     actions: Optional[list]
+    alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.6")))
     author: List[str]
     building_block_type: Optional[str]
     description: str
@@ -241,6 +311,10 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         return DataValidator(is_elastic_rule=self.is_elastic_rule, **self.to_dict())
 
     @cached_property
+    def notify(self) -> bool:
+        return os.environ.get('DR_NOTIFY_INTEGRATION_UPDATE_AVAILABLE') is not None
+
+    @cached_property
     def parsed_note(self) -> Optional[MarkoDocument]:
         dv = self.data_validator
         if dv:
@@ -260,6 +334,32 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
                 build_fields[fld] = BUILD_FIELD_VERSIONS[fld]
 
         return build_fields
+
+    @classmethod
+    def process_transforms(cls, transform: RuleTransform, obj: dict) -> dict:
+        """Process transforms from toml [transform] called in TOMLRuleContents.to_dict."""
+        # only create functions that CAREFULLY mutate the obj dict
+
+        def process_note_plugins():
+            """Format the note field with osquery and insight plugin strings."""
+            note = obj.get('note')
+            if not note:
+                return
+
+            rendered = transform.render_insight_osquery_to_string()
+            rendered_patterns = {}
+            for plugin, entries in rendered.items():
+                rendered_patterns.update(**{f'{plugin}_{i}': e for i, e in enumerate(entries)})
+
+            note_template = PatchedTemplate(note)
+            rendered_note = note_template.safe_substitute(**rendered_patterns)
+            obj['note'] = rendered_note
+
+        # call transform functions
+        if transform:
+            process_note_plugins()
+
+        return obj
 
 
 class DataValidator:
@@ -348,7 +448,7 @@ class QueryValidator:
     @cached
     def get_required_fields(self, index: str) -> List[dict]:
         """Retrieves fields needed for the query along with type information from the schema."""
-        current_version = Version(Version(load_current_package_version()) + (0,))
+        current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         ecs_version = get_stack_schemas()[str(current_version)]['ecs']
         beats_version = get_stack_schemas()[str(current_version)]['beats']
         endgame_version = get_stack_schemas()[str(current_version)]['endgame']
@@ -483,8 +583,8 @@ class NewTermsRuleData(QueryRuleData):
 
         kql_validator = KQLValidator(self.query)
         kql_validator.validate(self, meta)
-        feature_min_stack = Version('8.4.0')
-        feature_min_stack_extended_fields = Version('8.6.0')
+        feature_min_stack = Version.parse('8.4.0')
+        feature_min_stack_extended_fields = Version.parse('8.6.0')
 
         # validate history window start field exists and is correct
         assert self.new_terms.history_window_start, \
@@ -499,9 +599,9 @@ class NewTermsRuleData(QueryRuleData):
         # ecs validation
         min_stack_version = meta.get("min_stack_version")
         if min_stack_version is None:
-            min_stack_version = Version(Version(load_current_package_version()) + (0,))
+            min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         else:
-            min_stack_version = Version(min_stack_version)
+            min_stack_version = Version.parse(min_stack_version)
 
         assert min_stack_version >= feature_min_stack, \
             f"New Terms rule types only compatible with {feature_min_stack}+"
@@ -673,8 +773,8 @@ class BaseRuleContents(ABC):
     @property
     def is_dirty(self) -> Optional[bool]:
         """Determine if the rule has changed since its version was locked."""
-        min_stack = self.get_supported_version()
-        existing_sha256 = self.version_lock.get_locked_hash(self.id, min_stack)
+        min_stack = Version.parse(self.get_supported_version(), optional_minor_and_patch=True)
+        existing_sha256 = self.version_lock.get_locked_hash(self.id, f"{min_stack.major}.{min_stack.minor}")
 
         if existing_sha256 is not None:
             return existing_sha256 != self.sha256()
@@ -698,8 +798,8 @@ class BaseRuleContents(ABC):
         """Determine if the rule is in a forked version."""
         if not self.has_forked:
             return False
-        locked_min_stack = Version(self.lock_entry['min_stack_version'])
-        current_package_ver = Version(load_current_package_version())
+        locked_min_stack = Version.parse(self.lock_entry['min_stack_version'], optional_minor_and_patch=True)
+        current_package_ver = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         return current_package_ver < locked_min_stack
 
     def get_version_space(self) -> Optional[int]:
@@ -729,19 +829,18 @@ class BaseRuleContents(ABC):
     @classmethod
     def convert_supported_version(cls, stack_version: Optional[str]) -> Version:
         """Convert an optional stack version to the minimum for the lock in the form major.minor."""
-        min_version = get_min_supported_stack_version(drop_patch=True)
+        min_version = get_min_supported_stack_version()
         if stack_version is None:
             return min_version
-        short_stack_version = Version(Version(stack_version)[:2])
-        return max(short_stack_version, min_version)
+        return max(Version.parse(stack_version, optional_minor_and_patch=True), min_version)
 
     def get_supported_version(self) -> str:
         """Get the lowest stack version for the rule that is currently supported in the form major.minor."""
         rule_min_stack = self.metadata.get('min_stack_version')
         min_stack = self.convert_supported_version(rule_min_stack)
-        return str(min_stack)
+        return f"{min_stack.major}.{min_stack.minor}"
 
-    def _post_dict_transform(self, obj: dict) -> dict:
+    def _post_dict_conversion(self, obj: dict) -> dict:
         """Transform the converted API in place before sending to Kibana."""
 
         # cleanup the whitespace in the rule
@@ -754,7 +853,7 @@ class BaseRuleContents(ABC):
         return obj
 
     @abstractmethod
-    def to_api_format(self, include_version=True) -> dict:
+    def to_api_format(self, include_version: bool = True) -> dict:
         """Convert the rule to the API format."""
 
     @cached
@@ -768,6 +867,7 @@ class BaseRuleContents(ABC):
 class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     """Rule object which maps directly to the TOML layout."""
     metadata: RuleMeta
+    transform: Optional[RuleTransform]
     data: AnyRuleData = field(metadata=dict(data_key="rule"))
 
     @cached_property
@@ -817,14 +917,14 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def type(self) -> str:
         return self.data.type
 
-    def _post_dict_transform(self, obj: dict) -> dict:
+    def _post_dict_conversion(self, obj: dict) -> dict:
         """Transform the converted API in place before sending to Kibana."""
-        super()._post_dict_transform(obj)
+        super()._post_dict_conversion(obj)
 
         # build time fields
-        self._add_related_integrations(obj)
-        self._add_required_fields(obj)
-        self._add_setup(obj)
+        self._convert_add_related_integrations(obj)
+        self._convert_add_required_fields(obj)
+        self._convert_add_setup(obj)
 
         # validate new fields against the schema
         rule_type = obj['type']
@@ -836,7 +936,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         return obj
 
-    def _add_related_integrations(self, obj: dict) -> None:
+    def _convert_add_related_integrations(self, obj: dict) -> None:
         """Add restricted field related_integrations to the obj."""
         field_name = "related_integrations"
         package_integrations = obj.get(field_name, [])
@@ -847,7 +947,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
             if self.check_restricted_field_version(field_name):
                 if isinstance(self.data, QueryRuleData) and self.data.language != 'lucene':
-                    package_integrations = self._get_packaged_integrations(packages_manifest)
+                    package_integrations = self.get_packaged_integrations(self.data, self.metadata, packages_manifest)
 
                     if not package_integrations:
                         return
@@ -868,7 +968,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
                 obj.setdefault("related_integrations", package_integrations)
 
-    def _add_required_fields(self, obj: dict) -> None:
+    def _convert_add_required_fields(self, obj: dict) -> None:
         """Add restricted field required_fields to the obj, derived from the query AST."""
         if isinstance(self.data, QueryRuleData) and self.data.language != 'lucene':
             index = obj.get('index') or []
@@ -880,7 +980,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if required_fields and self.check_restricted_field_version(field_name=field_name):
             obj.setdefault(field_name, required_fields)
 
-    def _add_setup(self, obj: dict) -> None:
+    def _convert_add_setup(self, obj: dict) -> None:
         """Add restricted field setup to the obj."""
         rule_note = obj.get("note", "")
         field_name = "setup"
@@ -897,7 +997,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             # parse note tree
             for i, child in enumerate(parsed_note.children):
                 if child.get_type() == "Heading" and "Setup" in gfm.render(child):
-                    field_value = self._get_setup_content(parsed_note.children[i + 1:])
+                    field_value = self._convert_get_setup_content(parsed_note.children[i + 1:])
 
                     # clean up old note field
                     investigation_guide = rule_note.replace("## Setup\n\n", "")
@@ -907,7 +1007,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                     break
 
     @cached
-    def _get_setup_content(self, note_tree: list) -> str:
+    def _convert_get_setup_content(self, note_tree: list) -> str:
         """Get note paragraph starting from the setup header."""
         setup = []
         for child in note_tree:
@@ -916,17 +1016,17 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             elif child.get_type() == "CodeSpan":
                 setup.append(f"`{gfm.renderer.render_raw_text(child)}`")
             elif child.get_type() == "Paragraph":
-                setup.append(self._get_setup_content(child.children))
+                setup.append(self._convert_get_setup_content(child.children))
                 setup.append("\n")
             elif child.get_type() == "FencedCode":
-                setup.append(f"```\n{self._get_setup_content(child.children)}\n```")
+                setup.append(f"```\n{self._convert_get_setup_content(child.children)}\n```")
                 setup.append("\n")
             elif child.get_type() == "RawText":
                 setup.append(child.children)
             elif child.get_type() == "Heading" and child.level >= 2:
                 break
             else:
-                setup.append(self._get_setup_content(child.children))
+                setup.append(self._convert_get_setup_content(child.children))
 
         return "".join(setup).strip()
 
@@ -943,15 +1043,17 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     @staticmethod
     def compare_field_versions(min_stack: Version, max_stack: Version) -> bool:
         """Check current rule version is within min and max stack versions."""
-        current_version = Version(load_current_package_version())
+        current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         max_stack = max_stack or current_version
-        return Version(min_stack) <= current_version >= Version(max_stack)
+        return min_stack <= current_version >= max_stack
 
-    def _get_packaged_integrations(self, package_manifest: dict) -> Optional[List[dict]]:
+    @classmethod
+    def get_packaged_integrations(cls, data: QueryRuleData, meta: RuleMeta,
+                                  package_manifest: dict) -> Optional[List[dict]]:
         packaged_integrations = []
         datasets = set()
 
-        for node in self.data.get('ast', []):
+        for node in data.get('ast', []):
             if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
                 datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
             elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
@@ -960,10 +1062,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if not datasets:
             # windows and endpoint integration do not have event.dataset fields in queries
             # integration is None to remove duplicate references upstream in Kibana
-            rule_integrations = self.metadata.get("integration", [])
+            rule_integrations = meta.get("integration", [])
             if rule_integrations:
                 for integration in rule_integrations:
-                    if integration in ["windows", "endpoint", "apm"]:
+                    if integration in definitions.NON_DATASET_PACKAGES:
                         packaged_integrations.append({"package": integration, "integration": None})
 
         for value in sorted(datasets):
@@ -979,7 +1081,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         return packaged_integrations
 
     @validates_schema
-    def post_validation(self, value: dict, **kwargs):
+    def post_conversion_validation(self, value: dict, **kwargs):
         """Additional validations beyond base marshmallow schemas."""
         data: AnyRuleData = value["data"]
         metadata: RuleMeta = value["metadata"]
@@ -993,6 +1095,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         # result from union fields which contain classes and related subclasses (AnyRuleData). See issue #1141
         metadata = self.metadata.to_dict(strip_none_values=strip_none_values)
         data = self.data.to_dict(strip_none_values=strip_none_values)
+        self.data.process_transforms(self.transform, data)
         dict_obj = dict(metadata=metadata, rule=data)
         return nested_normalize(dict_obj)
 
@@ -1004,8 +1107,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     def to_api_format(self, include_version=True) -> dict:
         """Convert the TOML rule to the API format."""
-        converted = self.data.to_dict()
-        converted = self._post_dict_transform(converted)
+        converted_data = self.to_dict()['rule']
+        converted = self._post_dict_conversion(converted_data)
 
         if include_version:
             converted["version"] = self.autobumped_version
@@ -1014,9 +1117,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     def check_restricted_fields_compatibility(self) -> Dict[str, dict]:
         """Check for compatibility between restricted fields and the min_stack_version of the rule."""
-        default_min_stack = get_min_supported_stack_version(drop_patch=True)
+        default_min_stack = get_min_supported_stack_version()
         if self.metadata.min_stack_version is not None:
-            min_stack = Version(self.metadata.min_stack_version)
+            min_stack = Version.parse(self.metadata.min_stack_version, optional_minor_and_patch=True)
         else:
             min_stack = default_min_stack
         restricted = self.data.get_restricted_fields
@@ -1051,7 +1154,9 @@ class TOMLRule:
 
     def save_toml(self):
         assert self.path is not None, f"Can't save rule {self.name} (self.id) without a path"
-        converted = self.contents.to_dict()
+        converted = dict(metadata=self.contents.metadata.to_dict(), rule=self.contents.data.to_dict())
+        if self.contents.transform:
+            converted['transform'] = self.contents.transform.to_dict()
         toml_write(converted, str(self.path.absolute()))
 
     def save_json(self, path: Path, include_version: bool = True):
@@ -1065,6 +1170,7 @@ class TOMLRule:
 class DeprecatedRuleContents(BaseRuleContents):
     metadata: dict
     data: dict
+    transform: Optional[dict]
 
     @cached_property
     def version_lock(self):
@@ -1096,15 +1202,22 @@ class DeprecatedRuleContents(BaseRuleContents):
 
     @classmethod
     def from_dict(cls, obj: dict):
-        return cls(metadata=obj['metadata'], data=obj['rule'])
+        kwargs = dict(metadata=obj['metadata'], data=obj['rule'])
+        kwargs['transform'] = obj['transform'] if 'transform' in obj else None
+        return cls(**kwargs)
 
     def to_api_format(self, include_version=True) -> dict:
         """Convert the TOML rule to the API format."""
-        converted = copy.deepcopy(self.data)
+        data = copy.deepcopy(self.data)
+        if self.transform:
+            transform = RuleTransform.from_dict(self.transform)
+            BaseRuleData.process_transforms(transform, data)
+
+        converted = data
         if include_version:
             converted["version"] = self.autobumped_version
 
-        converted = self._post_dict_transform(converted)
+        converted = self._post_dict_conversion(converted)
         return converted
 
 

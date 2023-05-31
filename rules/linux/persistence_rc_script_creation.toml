@@ -1,0 +1,90 @@
+[metadata]
+creation_date = "2023/02/28"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/02/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+The /etc/rc.local file is used to start custom applications, services, scripts or commands during start-up. 
+The rc.local file has mostly been replaced by Systemd, however through the "systemd-rc-local-generator", 
+rc.local files can be converted to services that run at boot. Adversaries may alter rc.local to execute 
+malicious code at start-up, and gain persistence onto the system. 
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "auditbeat-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "RC Script Creation"
+note = """## Triage and analysis
+### Investigating RC script creation
+Detection alerts from this rule indicate the creation of a new `/etc/rc.local` file. The rc.local file has been deprecated in favor of the use of `systemd services`, and more recent Unix distributions no longer leverage this method of on-boot script execution. There might still be users that use rc.local in a benign matter, so investigation to see whether the file is malicious is vital. The first file to check can be found here:
+- /etc/rc.local
+
+This file may contain a path to an executable, script or a command. Additionally, the `systemd-rc-local-generator` located at `/usr/lib/systemd/system-generators/systemd-rc-local-generator` is used to convert rc.local into rc-local.service. The service and wants files can be found in the following directories:
+- /lib/systemd/system/rc-local.service
+- /run/systemd/generator/multi-user.target.wants/rc-local.service
+
+In case the file is not present here, the `sudo systemctl status rc-local` can be executed to find the location of the rc-local unit file. Make sure to investigate all files mentioned above, and files that these scripts may link to establish whether the alert is malicious or benign behavior.
+
+### Investigating RC script execution
+The detection rule queries for the creation of these files, but manual analysis is required to check for rc script execution. Systemd will generate syslogs in case of the execution of the rc-local service. The following command can be used to check for the execution of this service:
+
+`sudo cat /var/log/syslog | grep "rc-local.service|/etc/rc.local Compatibility"`
+
+If logging is found, analyze it, and chances are that the contents of the rc.local file have been executed. In case several syslog log files are available, use a wildcard to search through all of the available logs.
+
+### Response and remediation
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Delete the service/rc.local files or restore it to the original configuration.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = [
+    "https://www.intezer.com/blog/malware-analysis/hiddenwasp-malware-targeting-linux-systems/",
+    "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#8-boot-or-logon-initialization-scripts-rc-scripts",
+    "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/"
+
+]
+risk_score = 47
+rule_id = "0f4d35e4-925e-4959-ab24-911be207ee6f"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Investigation Guide"]
+type = "eql"
+
+query = '''
+sequence by user.id, host.id with maxspan=15s
+[file where host.os.type == "linux" and 
+   event.type == "creation" and
+   file.path == "/etc/rc.local"]
+[process where host.os.type == "linux" and 
+   event.type == "start" and
+   process.name == "chmod" and
+   process.args == "+x" and process.args == "/etc/rc.local"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+[[rule.threat.technique.subtechnique]]
+id = "T1037.004"
+name = "RC Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

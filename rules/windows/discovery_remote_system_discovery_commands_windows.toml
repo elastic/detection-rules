@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -54,9 +54,15 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
   ((process.name : "nbtstat.exe" and process.args : ("-n", "-s")) or
-  (process.name : "arp.exe" and process.args : "-a"))
+  (process.name : "arp.exe" and process.args : "-a") or
+  (process.name : "nltest.exe" and process.args : ("/dclist", "/dsgetdc")) or
+  (process.name: ("dsquery.exe", "dsget.exe") and process.args: "subnet") or
+  ((((process.name : "net.exe" or process.pe.original_file_name == "net.exe") or
+    ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and not 
+       process.parent.name : "net.exe")) and 
+       process.args : "group" and process.args : "/domain" and not process.args : "/add")))
 '''
 
 
