@@ -1,0 +1,46 @@
+[metadata]
+creation_date = "2023/03/20"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/03/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Ransomware is a type of malware that encrypts a victim's files or systems and demands payment 
+(usually in cryptocurrency) in exchange for the decryption key. One important indicator of a 
+ransomware attack is the mass encryption of the file system, after which a new file extension 
+is added to the file. This rule identifies a sequence of 50 file extension rename events 
+by the same process in a timespan of 1 second.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious File Changes Activity Detected"
+risk_score = 73
+rule_id = "28738f9f-7427-4d23-bc69-756708b5f624"
+severity = "high"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Impact"]
+type = "eql"
+query = '''
+sequence by host.id, process.entity_id, file.extension with maxspan=1s 
+[ file where host.os.type == "linux" and event.type == "change" and 
+  event.action == "rename" and file.extension != "" ] with runs=50 | tail 1
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1486"
+name = "Data Encrypted for Impact"
+reference = "https://attack.mitre.org/techniques/T1486/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
