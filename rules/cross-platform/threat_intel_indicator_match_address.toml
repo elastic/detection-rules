@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2023/05/22"
 maturity = "production"
-updated_date = "2023/05/31"
+updated_date = "2023/06/02"
 min_stack_comments = """
 Limiting the backport of these rules to the stack version which we are deprecating the Threat Intel Indicator Match
 general rules
@@ -20,6 +20,59 @@ interval = "1h"
 language = "kuery"
 license = "Elastic License v2"
 name = "Threat Intel IP Address Indicator Match"
+note = """## Triage and Analysis
+
+### Investigating Threat Intel IP Address Indicator Match
+
+Threat Intel indicator match rules allow matching from a local observation, such as an endpoint event that records a file hash with an entry of a file hash stored within the Threat Intel integrations index. 
+
+The matches will be based on the incoming last 30 days' feed data for integrations that don't support indicator expiration, so it's important to validate the data and review the results by investigating the associated activity to determine if it requires further investigation.
+
+This rule is triggered when an IP address indicator from the Threat Intel Filebeat module or integrations has a match
+against a network event.
+
+#### Possible investigation steps
+
+- Gain context about the field that matched the local observation so you can understand the nature of the connection. This information can be found in the `threat.indicator.matched.field` field.
+- Investigate the IP address (this information can be found in the `threat.indicator.matched.atomic` field):
+  - Check the reputation of the IP address in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc. 
+  - Execute a reverse DNS lookup to retrieve hostnames associated with the given IP address.
+- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
+- Identify the process responsible for the connection and investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Retrieve the involved process executable and examine the host for derived artifacts that indicate suspicious activities:
+  - Analyze the process executable using a private sandboxed analysis system.
+  - Observe and collect information about the following activities in both the sandbox and the alert subject host:
+    - Attempts to contact external domains and addresses.
+      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
+      - Examine the DNS cache for suspicious or anomalous entries.
+        - $osquery_0
+    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
+    - Examine the host services for suspicious or anomalous entries.
+      - $osquery_1
+      - $osquery_2
+      - $osquery_3
+- Using the data collected through the analysis, scope users targeted and other machines infected in the environment.
+
+### False Positive Analysis
+
+- For any matches found, it's important to consider the initial release date of that indicator. Threat intelligence can be a great tool for augmenting existing security processes, while at the same time it should be understood that threat intelligence can represent a specific set of activity observed at a point in time. For example, an IP address may have hosted malware observed in a Dridex campaign months ago, but it's possible that IP has been remediated and no longer represents any threat.
+- It's possible after large and publicly written campaigns, curious employees might end up going directly to attacker infrastructure and triggering these rules.
+- Some feeds may include internal or known benign addresses by mistake (e.g., 8.8.8.8, google.com, 127.0.0.1, etc.). Always get context on how blocking a specific domain or address may impact the organization or normal functioning of the systems.
+
+### Response and Remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
 references = [
     "https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-threatintel.html",
     "https://www.elastic.co/guide/en/security/master/es-threat-intel-integrations.html",
