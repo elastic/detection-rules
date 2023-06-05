@@ -194,7 +194,7 @@ def event_sort(events, timestamp='@timestamp', date_format='%Y-%m-%dT%H:%M:%S.%f
     def _round_microseconds(t: str) -> str:
         micro_seconds = t.split('.')[-1].split("Z")[0]
         if t and len(micro_seconds) > 6:
-            micro_seconds = "0."+ micro_seconds
+            micro_seconds = "0." + micro_seconds
             micro_seconds = str(round(float(micro_seconds), 6)).split(".")[-1]
             t = t.split('.')[0] + '.' + micro_seconds + "Z"
         return t
