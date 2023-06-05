@@ -27,7 +27,10 @@ type = "eql"
 
 query = '''
 sequence with maxspan=1m
-  [process where host.os.type == "linux" and event.type == "start" and process.name : "python*"] by process.entity_id
+  [process where host.os.type == "linux" and event.type == "start" and process.name : "python*" and
+   not (process.args == "/bin/yum" and process.args == "update") and 
+   not  process.args :  "/var/lib/dpkg/info/python3-*.*"
+  ] by process.entity_id
   [process where host.os.type == "linux" and event.type == "start" and 
    process.executable : "/bin/*sh"
   ] by process.parent.entity_id
