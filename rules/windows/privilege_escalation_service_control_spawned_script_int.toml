@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
@@ -30,21 +30,21 @@ authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.resu
 [rule]
 author = ["Elastic"]
 description = """
-Windows services typically run as SYSTEM and can be used as a privilege escalation opportunity. Malware or penetration
-testers may run a shell as a service to gain SYSTEM permissions.
+Identifies Service Control (sc.exe) spawning from script interpreter processes to create, modify, or start services.
+This can potentially indicate an attempt to elevate privileges or maintain persistence.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "logs-system.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "System Shells via Services"
+name = "Service Control Spawned via Script Interpreter"
 note = """## Triage and analysis
 
-### Investigating System Shells via Services
+### Investigating Service Control Spawned via Script Interpreter
 
-Attackers may configure existing services or create new ones to execute system shells to elevate their privileges from administrator to SYSTEM. They can also configure services to execute these shells with persistence payloads.
+Windows services are background processes that run with SYSTEM privileges and provide specific functionality or support to other applications and system components.
 
-This rule looks for system shells being spawned by `services.exe`, which is compatible with the above behavior.
+The `sc.exe` command line utility is used to manage and control Windows services on a local or remote computer. Attackers may use `sc.exe` to create, modify, and start services to elevate their privileges from administrator to SYSTEM.
 
 > **Note**:
 > This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
@@ -52,7 +52,7 @@ This rule looks for system shells being spawned by `services.exe`, which is comp
 #### Possible investigation steps
 
 - Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Identify how the service was created or modified. Look for registry changes events or Windows events related to service activities (for example, 4697 and/or 7045).
+- Examine the command line, registry changes events, and Windows events related to service activities (for example, 4697 and/or 7045) for suspicious characteristics.
   - Examine the created and existent services, the executables or drivers referenced, and command line arguments for suspicious entries.
     - $osquery_0
     - $osquery_1
@@ -62,11 +62,10 @@ This rule looks for system shells being spawned by `services.exe`, which is comp
 - Contact the account owner and confirm whether they are aware of this activity.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
-- Check for commands executed under the spawned shell.
 
 ### False positive analysis
 
-- This activity should not happen legitimately. The security team should address any potential benign true positive (B-TP), as this configuration can put the user and the domain at risk.
+- This activity is not inherently malicious if it occurs in isolation. As long as the analyst did not identify suspicious activity related to the user, host, and service, such alerts can be dismissed.
 
 ### Response and remediation
 
@@ -78,20 +77,23 @@ This rule looks for system shells being spawned by `services.exe`, which is comp
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
-risk_score = 47
-rule_id = "0022d47d-39c7-4f69-a232-4fe9dc7a3acd"
-severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Investigation Guide", "Elastic Endgame"]
+risk_score = 21
+rule_id = "e8571d5f-bea1-46c2-9f56-998de2d3ed95"
+severity = "low"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Elastic Endgame", "Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  process.parent.name : "services.exe" and
-  process.name : ("cmd.exe", "powershell.exe", "pwsh.exe", "powershell_ise.exe") and
+/* This rule is not compatible with Sysmon due to user.id issues */
 
-  /* Third party FP's */
-  not process.args : "NVDisplay.ContainerLocalSystem"
+process where host.os.type == "windows" and event.type == "start" and
+  (process.name : "sc.exe" or process.pe.original_file_name == "sc.exe") and
+  process.parent.name : ("cmd.exe", "wscript.exe", "rundll32.exe", "regsvr32.exe",
+                         "wmic.exe", "mshta.exe","powershell.exe", "pwsh.exe") and
+  process.args:("config", "create", "start", "delete", "stop", "pause") and
+  /* exclude SYSTEM SID - look for service creations by non-SYSTEM user */
+  not user.id : "S-1-5-18"
 '''
 
 
@@ -106,10 +108,7 @@ id = "T1543.003"
 name = "Windows Service"
 reference = "https://attack.mitre.org/techniques/T1543/003/"
 
-
-
 [rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
-
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
