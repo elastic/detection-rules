@@ -113,12 +113,15 @@ class RtaEvents:
         """Save collected events."""
         assert self.events, 'Nothing to save. Run Collector.run() method first or verify logging'
 
+        host_os_family = None
         for key in self.events.keys():
             if self.events.get(key, {})[0].get('host', {}).get('id') == host_id:
                 host_os_family = self.events.get(key, {})[0].get('host', {}).get('os').get('family')
-            else:
-                click.echo('Unable to determine host.os.family for host_id: {}'.format(host_id))
-                host_os_family = click.prompt("Please enter the host.os.family for this host_id")
+                break
+        if not host_os_family:
+            click.echo('Unable to determine host.os.family for host_id: {}'.format(host_id))
+            host_os_family = click.prompt("Please enter the host.os.family for this host_id",
+                                            type=click.Choice(["windows", "macos", "linux"]), default="windows")
 
         dump_dir = dump_dir or self._get_dump_dir(rta_name=rta_name, host_id=host_id, host_os_family=host_os_family)
 
