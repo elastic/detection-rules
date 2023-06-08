@@ -1090,6 +1090,19 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         data.data_validator.validate_note()
         data.validate(metadata) if hasattr(data, 'validate') else False
 
+    @validates_schema
+    def bbr_validation(self, value: dict, **kwargs):
+        """Validates that building block rules have a interval and from-to window set."""
+        data: AnyRuleData = value["data"]
+
+        # Enforce fire rate defaults to once every 60min if not set
+        # If maxspan is set and violates the fire rate, unit tests will raise an error
+        if "building_block_type" in data.to_dict().keys(): 
+            if "from" not in data.to_dict().keys():
+                raise ValidationError("Building block rules must have a from field. Default is \'now-120min\'.")
+            if "interval" not in data.to_dict().keys():
+                raise ValidationError('Building block rules must have an interval field. Default is \'60min\'.')
+
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
         # result from union fields which contain classes and related subclasses (AnyRuleData). See issue #1141
