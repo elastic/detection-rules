@@ -269,19 +269,20 @@ class TestSchemas(unittest.TestCase):
             return TOMLRuleContents.from_dict(obj)
 
         query = """
-            event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.action:StartExportTask and event.outcome:success
-        """ 
+            event.dataset:aws.cloudtrail and event.outcome:success
+        """
 
         build_rule(query=query)
 
         with self.assertRaises(ValidationError):
             build_rule(query=query, bbr_type="invalid")
-        
+
         with self.assertRaises(ValidationError):
             build_rule(query=query, from_field=None)
-        
+
         with self.assertRaises(ValidationError):
             build_rule(query=query, interval=None)
+
 
 class TestVersionLockSchema(unittest.TestCase):
     """Test that the version lock has proper entries."""
