@@ -1097,11 +1097,23 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         # Enforce fire rate defaults to once every 60min if not set
         # If maxspan is set and violates the fire rate, unit tests will raise an error
-        if "building_block_type" in data.to_dict().keys(): 
-            if "from" not in data.to_dict().keys():
-                raise ValidationError("Building block rules must have a from field. Default is \'now-120min\'.")
-            if "interval" not in data.to_dict().keys():
-                raise ValidationError('Building block rules must have an interval field. Default is \'60min\'.')
+        if "building_block_type" in data.to_dict().keys():
+
+            # if from and interval are not in not in data.to_dict().keys() set to default
+            if "from" not in data.to_dict().keys() and "interval" not in data.to_dict().keys():
+                raise ValidationError("Building block rules missing \'from\' and \'interval\' fields. Default is to have rule " \
+                                      "fire once every hour e.g. \'from = now-120min\' where interval >= " \
+                                      "from / 2 e.g. \'interval = 60min\'.")
+
+            elif "from" not in data.to_dict().keys():
+                raise ValidationError("Building block rules missing a \'from\' field. Default is to have rule " \
+                                      "fire once every hour e.g. \'from = now-120min\' where interval >= " \
+                                      "from / 2 e.g. \'interval = 60min\'.")
+
+            elif "interval" not in data.to_dict().keys():
+                raise ValidationError("Building block rules missing an \'interval\' field. Default is to have rule " \
+                                      "fire once every hour e.g. \'from = now-120min\' where interval >= " \
+                                      "from / 2 e.g. \'interval = 60min\'.")
 
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
