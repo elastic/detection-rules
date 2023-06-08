@@ -120,7 +120,7 @@ class RtaEvents:
                 click.echo('Unable to determine host.os.family for host_id: {}'.format(host_id))
                 host_os_family = click.prompt("Please enter the host.os.family for this host_id")
 
-        dump_dir = dump_dir or self._get_dump_dir(rta_name=rta_name, host_id=host_id, host_os_family=host_os_family)        
+        dump_dir = dump_dir or self._get_dump_dir(rta_name=rta_name, host_id=host_id, host_os_family=host_os_family)
 
         for source, events in self.events.items():
             path = os.path.join(dump_dir, source + '.ndjson')
