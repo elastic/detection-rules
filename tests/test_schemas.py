@@ -277,11 +277,12 @@ class TestSchemas(unittest.TestCase):
         with self.assertRaises(ValidationError):
             build_rule(query=query, bbr_type="invalid")
 
-        with self.assertRaises(ValidationError):
-            build_rule(query=query, from_field=None)
 
-        with self.assertRaises(ValidationError):
-            build_rule(query=query, interval=None)
+        rule = build_rule(query=query, from_field=None, interval=None)
+        api_rule = rule.to_api_format()
+        # assert from_field and interval are set to defaults
+        self.assertEqual(api_rule["from"], "now-119m")
+        self.assertEqual(api_rule["interval"], "60m")
 
 
 class TestVersionLockSchema(unittest.TestCase):
