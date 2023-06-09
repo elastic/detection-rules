@@ -1102,7 +1102,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         data.data_validator.validate_note()
         data.validate(metadata) if hasattr(data, 'validate') else False
 
-                                     
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
         # result from union fields which contain classes and related subclasses (AnyRuleData). See issue #1141
