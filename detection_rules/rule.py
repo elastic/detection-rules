@@ -926,6 +926,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         self._convert_add_required_fields(obj)
         self._convert_add_setup(obj)
 
+        # Set BBR rule defaults
+        self._default_bbr_fields(obj)
+
         # validate new fields against the schema
         rule_type = obj['type']
         subclass = self.get_data_subclass(rule_type)
@@ -1030,6 +1033,15 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         return "".join(setup).strip()
 
+    def _default_bbr_fields(self, obj: dict) -> None:
+        """Set default values for building block rule fields."""
+
+        if self.data.building_block_type:
+            # Set variables only if they do not exist
+            if "from" not in obj and "interval" not in obj:
+                obj.setdefault("from", "now-119m")
+                obj.setdefault("interval", "60m")
+
     def check_explicit_restricted_field_version(self, field_name: str) -> bool:
         """Explicitly check restricted fields against global min and max versions."""
         min_stack, max_stack = BUILD_FIELD_VERSIONS[field_name]
@@ -1090,31 +1102,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         data.data_validator.validate_note()
         data.validate(metadata) if hasattr(data, 'validate') else False
 
-    @validates_schema
-    def bbr_validation(self, value: dict, **kwargs):
-        """Validates that building block rules have a interval and from-to window set."""
-        data: AnyRuleData = value["data"]
-
-        # Enforce fire rate defaults to once every 60min if not set
-        # If maxspan is set and violates the fire rate, unit tests will raise an error
-        if "building_block_type" in data.to_dict().keys():
-
-            # if from and interval are not in not in data.to_dict().keys() set to default
-            if "from" not in data.to_dict().keys() and "interval" not in data.to_dict().keys():
-                raise ValidationError("Building block rules missing 'from' and \'interval\' fields. Default is "
-                                      "to have rule fire once every hour e.g. \'from = now-120min\' where "
-                                      "interval >= from / 2 e.g. \'interval = 60min\'.")
-
-            elif "from" not in data.to_dict().keys():
-                raise ValidationError("Building block rules missing a \'from\' field. Default is to have rule "
-                                      "fire once every hour e.g. \'from = now-120min\' where interval >= "
-                                      "from / 2 e.g. \'interval = 60min\'.")
-
-            elif "interval" not in data.to_dict().keys():
-                raise ValidationError("Building block rules missing an \'interval\' field. Default is to have rule "
-                                      "fire once every hour e.g. \'from = now-120min\' where interval >= "
-                                      "from / 2 e.g. \'interval = 60min\'.")
-
+                                     
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
         # result from union fields which contain classes and related subclasses (AnyRuleData). See issue #1141
