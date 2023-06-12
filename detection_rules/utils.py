@@ -191,12 +191,28 @@ def unzip_to_dict(zipped: zipfile.ZipFile, load_json=True) -> Dict[str, Union[di
 def event_sort(events, timestamp='@timestamp', date_format='%Y-%m-%dT%H:%M:%S.%f%z', asc=True):
     """Sort events from elasticsearch by timestamp."""
 
-    def _round_microseconds(t: str) -> str:
-        micro_seconds = t.split('.')[-1].split("Z")[0]
-        if t and len(micro_seconds) > 6:
-            micro_seconds = "0." + micro_seconds
-            micro_seconds = str(round(float(micro_seconds), 6)).split(".")[-1]
-            t = t.split('.')[0] + '.' + micro_seconds + "Z"
+    def round_microseconds(t: str) -> str:
+        """Rounds the microseconds part of a timestamp string to 6 decimal places."""
+
+        if not t:
+            # Return early if the timestamp string is empty
+            return t
+
+        parts = t.split('.')
+        if len(parts) == 2:
+            # Remove trailing "Z" from microseconds part
+            micro_seconds = parts[1].rstrip("Z")
+
+            if len(micro_seconds) > 6:
+                # If the microseconds part has more than 6 digits
+                # Convert the microseconds part to a float and round to 6 decimal places
+                rounded_micro_seconds = round(float(f"0.{micro_seconds}"), 6)
+                
+                # Format the rounded value to always have 6 decimal places
+                # Reconstruct the timestamp string with the rounded microseconds part
+                formatted_micro_seconds = f'{rounded_micro_seconds:0.6f}'.split(".")[-1]
+                t = f"{parts[0]}.{formatted_micro_seconds}Z"
+
         return t
 
     def _event_sort(event):
