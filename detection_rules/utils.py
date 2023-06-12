@@ -207,7 +207,7 @@ def event_sort(events, timestamp='@timestamp', date_format='%Y-%m-%dT%H:%M:%S.%f
                 # If the microseconds part has more than 6 digits
                 # Convert the microseconds part to a float and round to 6 decimal places
                 rounded_micro_seconds = round(float(f"0.{micro_seconds}"), 6)
-                
+
                 # Format the rounded value to always have 6 decimal places
                 # Reconstruct the timestamp string with the rounded microseconds part
                 formatted_micro_seconds = f'{rounded_micro_seconds:0.6f}'.split(".")[-1]
@@ -216,9 +216,9 @@ def event_sort(events, timestamp='@timestamp', date_format='%Y-%m-%dT%H:%M:%S.%f
         return t
 
     def _event_sort(event):
-       """Calculates the sort key for an event."""
+        """Calculates the sort key for an event."""
         t = round_microseconds(event[timestamp])
-        
+
         # Return the timestamp in seconds, adjusted for microseconds and then scaled to milliseconds
         return (time.mktime(time.strptime(t, date_format)) + int(t.split('.')[-1][:-1]) / 1000) * 1000
 
