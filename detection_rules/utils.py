@@ -216,7 +216,10 @@ def event_sort(events, timestamp='@timestamp', date_format='%Y-%m-%dT%H:%M:%S.%f
         return t
 
     def _event_sort(event):
-        t = _round_microseconds(event[timestamp])
+       """Calculates the sort key for an event."""
+        t = round_microseconds(event[timestamp])
+        
+        # Return the timestamp in seconds, adjusted for microseconds and then scaled to milliseconds
         return (time.mktime(time.strptime(t, date_format)) + int(t.split('.')[-1][:-1]) / 1000) * 1000
 
     return sorted(events, key=_event_sort, reverse=not asc)
