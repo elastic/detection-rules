@@ -1,11 +1,10 @@
 [metadata]
-creation_date = "2023/06/13"
+creation_date = "2020/05/21"
 integration = ["okta"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 updated_date = "2023/06/13"
-promotion = true
 
 [rule]
 author = ["Elastic"]
@@ -16,9 +15,7 @@ Okta's internal evaluation of the authentication or authorization workflow. When
 the presence of potential credential access techniques, such as password-spraying, bruteforcing, replay attacks, and
 other similar threats.
 """
-from = "now-30m"
 index = ["filebeat-*", "logs-okta*"]
-interval = "9m"
 language = "kuery"
 license = "Elastic License v2"
 name = "Okta ThreatInsight Threat Suspected Promotion"
@@ -30,27 +27,21 @@ This is a promotion rule for Okta ThreatInsight suspected threat events, which a
 Consult vendor documentation on interpreting specific events.
 """
 references = [
-    "https://help.okta.com/en-us/Content/Topics/Security/threat-insight/configure-threatinsight-system-log.htm",
+    "https://developer.okta.com/docs/reference/api/system-log/",
+    "https://developer.okta.com/docs/reference/api/event-types/",
+    "https://help.okta.com/en-us/Content/Topics/Security/threat-insight/configure-threatinsight-system-log.html",
     "https://www.elastic.co/security-labs/testing-okta-visibility-and-detection-dorothy",
 ]
-risk_score = 73
-rule_id = "56d66fa8-09fd-11ee-81d7-f661ea17fbcd"
+risk_score = 47
+rule_id = "6885d2ae-e008-4762-b98a-e8e1cd3a81e9"
 rule_name_override = "okta.display_message"
-severity = "high"
-tags = [
-    "Elastic",
-    "Identity",
-    "Okta",
-    "Continuous Monitoring",
-    "SecOps",
-    "Identity and Access",
-    "Credential Access",
-]
+severity = "medium"
+tags = ["Elastic", "Identity", "Identity and Access", "Okta", "Continuous Monitoring", "SecOps", "Monitoring"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:okta.system and okta.debug_context.debug_data.threat_suspected: true
+event.dataset:okta.system and (event.action:security.threat.detected or okta.debug_context.debug_data.threat_suspected: true)
 '''
 
 
@@ -72,11 +63,4 @@ operator = "equals"
 severity = "high"
 value = "HIGH"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0006"
-name = "Credential Access"
-reference = "https://attack.mitre.org/tactics/TA0006/"
 
