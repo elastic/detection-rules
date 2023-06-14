@@ -1,0 +1,68 @@
+[metadata]
+creation_date = "2023/06/14"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup, New Term"
+min_stack_version = "8.6.0"
+updated_date = "2023/06/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for the execution of several commonly used system commands executed by a previously unknown
+executable located in commonly abused directories. An alert from this rule can indicate the presence of potentially 
+malicious activity, such as the execution of unauthorized or suspicious processes attempting to run malicious code. 
+Detecting and investigating such behavior can help identify and mitigate potential security threats, protecting the 
+system and its data from potential compromise.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Suspicious System Commands Executed by Unknown Executable"
+risk_score = 47
+rule_id = "e9001ee6-2d00-4d2f-849e-b8b1fb05234c"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution"]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+host.os.type : "linux" and event.category : "process" and process.executable : (
+  /bin/* or /usr/bin/* or /usr/share/* or /tmp/* or /var/tmp/* or /dev/shm/* or
+  /etc/init.d/* or /etc/rc*.d/* or /etc/crontab or /etc/cron.*/* or /etc/update-motd.d/* or 
+  /usr/lib/update-notifier/* or /home/*/.* or /boot/* or /srv/* or /run/*
+  ) and process.args : (
+  "whoami" or "id" or "hostname" or "uptime" or "top" or "ifconfig" or "netstat" or "route" or 
+  "ps" or "pwd" or "ls"
+  ) and not process.name : (
+  "sudo" or "which" or "whoami" or "id" or "hostname" or "uptime" or "top" or "netstat" or "ps" or 
+  "pwd" or "ls" or "apt" or "dpkg" or "yum" or "rpm" or "dnf" or "dockerd" or "snapd" or "snap"
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+  
+[rule.threat.tactic]
+name = "Execution"
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+name = "Command and Scripting Interpreter"
+id = "T1059"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+name = "Unix Shell"
+id = "T1059.004"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
