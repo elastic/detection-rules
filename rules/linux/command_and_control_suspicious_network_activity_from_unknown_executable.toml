@@ -2,7 +2,7 @@
 creation_date = "2023/06/14"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup, New Term"
+min_stack_comments = "The New Term rule type using multiple new term fields used in this rule was added in Elastic 8.6"
 min_stack_version = "8.6.0"
 updated_date = "2023/06/14"
 
@@ -16,18 +16,19 @@ unknown or suspicious destinations such as a command and control server. Detecti
 help identify and mitigate potential security threats, protecting the system and its data from potential compromise.
 """
 from = "now-59m"
-index = ["auditbeat-*", "filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
+index = ["auditbeat-*", "filebeat-*", "packetbeat-*", "logs-endpoint.events.*", "endgame-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Suspicious Network Activity to the Internet by Previously Unknown Executable"
 risk_score = 21
 rule_id = "53617418-17b4-4e9c-8a2c-8deb8086ca4b"
 severity = "low"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Network", "Command and Control"]
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Network", "Command and Control", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
-host.os.type : "linux" and event.category : "network" and event.action : ("connection_attempted") and 
+host.os.type : "linux" and event.category : "network" and 
+event.action : ("connection_attempted" or "ipv4_connection_attempt_event") and 
 process.executable : ( 
   /tmp/* or /var/tmp/* or /dev/shm/* or /etc/init.d/* or /etc/rc*.d/* or /etc/crontab or /etc/cron.*/* or 
   /etc/update-motd.d/* or /usr/lib/update-notifier/* or /home/*/.* or /boot/* or /srv/* or /run/* or /etc/rc.local) and
