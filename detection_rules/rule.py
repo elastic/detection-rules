@@ -368,6 +368,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
             amount = int("".join(char for char in span if char.isdigit()))
             unit = eql.ast.TimeUnit("".join(char for char in span if char.isalpha()))
             return eql.ast.TimeRange(amount, unit).as_milliseconds()
+        
         def validate_time_defaults(str_time) -> None:
             """Validate that the time is at least now-119m and at least 60m respectively."""
             try:
@@ -394,8 +395,8 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
                     )
             elif not validate_time_defaults(value.get('from_')) and not validate_time_defaults(value.get("interval")):
                 raise ValidationError(
-                    "Default BBR require `from` and `interval` to be at least now-119m and at least 60m respectively "
-                    + "(using the now-Xm and Xm format where x is in minuets). Please set or bypass."
+                    "Default BBR require `from` and `interval` to be at least now-119m and at least 60m respectively " +
+                    "(using the now-Xm and Xm format where x is in minuets). Please set or bypass."
                     )
 
 
@@ -963,7 +964,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         self._convert_add_required_fields(obj)
         self._convert_add_setup(obj)
 
-
         # validate new fields against the schema
         rule_type = obj['type']
         subclass = self.get_data_subclass(rule_type)
@@ -1067,7 +1067,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                 setup.append(self._convert_get_setup_content(child.children))
 
         return "".join(setup).strip()
-
 
     def check_explicit_restricted_field_version(self, field_name: str) -> bool:
         """Explicitly check restricted fields against global min and max versions."""

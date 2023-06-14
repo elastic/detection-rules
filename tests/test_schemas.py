@@ -237,7 +237,6 @@ class TestSchemas(unittest.TestCase):
             """)
 
 
-
 class TestVersionLockSchema(unittest.TestCase):
     """Test that the version lock has proper entries."""
 
