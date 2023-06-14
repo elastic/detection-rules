@@ -368,7 +368,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
             amount = int("".join(char for char in span if char.isdigit()))
             unit = eql.ast.TimeUnit("".join(char for char in span if char.isalpha()))
             return eql.ast.TimeRange(amount, unit).as_milliseconds()
-        
+
         def validate_time_defaults(str_time) -> None:
             """Validate that the time is at least now-119m and at least 60m respectively."""
             try:
@@ -388,16 +388,16 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
             return True
 
         """Validate building block type and rule type."""
-        if value.get('building_block_type'): # TODO add check for bypass flag
+        if value.get('building_block_type'):  # TODO add check for bypass flag
             if not value.get('from_') and not value.get("interval"):
                 raise ValidationError(
                     "BBR require `from` and `interval` to be defined. Please set or bypass."
-                    )
+                )
             elif not validate_time_defaults(value.get('from_')) and not validate_time_defaults(value.get("interval")):
                 raise ValidationError(
-                    "Default BBR require `from` and `interval` to be at least now-119m and at least 60m respectively " +
+                    "Default BBR require `from` and `interval` to be at least now-119m and at least 60m respectively "
                     "(using the now-Xm and Xm format where x is in minuets). Please set or bypass."
-                    )
+                )
 
 
 class DataValidator:
