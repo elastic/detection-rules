@@ -370,7 +370,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
             return eql.ast.TimeRange(amount, unit).as_milliseconds()
 
         def skip_validate_bbr() -> bool:
-            return os.environ.get('DR_BYPASS_BBR_VALIDATION') is not None
+            return os.environ.get('DR_BYPASS_BBR_LOOKBACK_VALIDATION') is not None
 
         def validate_time_defaults(str_time) -> bool:
             """Validate that the time is at least now-119m and at least 60m respectively."""
