@@ -361,6 +361,43 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
 
         return obj
 
+    @validates_schema
+    def validate_bbr(self, value: dict, **kwargs):
+        def convert_time_span(span: str) -> int:
+            """Convert time span in datemath to value in milliseconds."""
+            amount = int("".join(char for char in span if char.isdigit()))
+            unit = eql.ast.TimeUnit("".join(char for char in span if char.isalpha()))
+            return eql.ast.TimeRange(amount, unit).as_milliseconds()
+        def validate_time_defaults(str_time) -> None:
+            """Validate that the time is at least now-119m and at least 60m respectively."""
+            try:
+                if "now" in str_time:
+                    str_time = str_time.replace("now-", "")
+                    time = convert_time_span(str_time)
+                    # if time is less than 119m as milliseconds
+                    if time < 119 * 60 * 1000:
+                        return False
+                else:
+                    time = convert_time_span(str_time)
+                    # if time is less than 60m as milliseconds
+                    if time < 60 * 60 * 1000:
+                        return False
+            except Exception as e:
+                raise ValidationError(f"Invalid time format: {e}")
+            return True
+
+        """Validate building block type and rule type."""
+        if value.get('building_block_type'): # TODO add check for bypass flag
+            if not value.get('from_') and not value.get("interval"):
+                raise ValidationError(
+                    "BBR require `from` and `interval` to be defined. Please set or bypass."
+                    )
+            elif not validate_time_defaults(value.get('from_')) and not validate_time_defaults(value.get("interval")):
+                raise ValidationError(
+                    "Default BBR require `from` and `interval` to be at least now-119m and at least 60m respectively "
+                    + "(using the now-Xm and Xm format where x is in minuets). Please set or bypass."
+                    )
+
 
 class DataValidator:
     """Additional validation beyond base marshmallow schema validation."""
@@ -926,8 +963,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         self._convert_add_required_fields(obj)
         self._convert_add_setup(obj)
 
-        # Set BBR rule defaults
-        self._default_bbr_fields(obj)
 
         # validate new fields against the schema
         rule_type = obj['type']
@@ -1033,14 +1068,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         return "".join(setup).strip()
 
-    def _default_bbr_fields(self, obj: dict) -> None:
-        """Set default values for building block rule fields."""
-
-        if self.data.building_block_type:
-            # Set variables only if they do not exist
-            if "from" not in obj and "interval" not in obj:
-                obj.setdefault("from", "now-119m")
-                obj.setdefault("interval", "60m")
 
     def check_explicit_restricted_field_version(self, field_name: str) -> bool:
         """Explicitly check restricted fields against global min and max versions."""
