@@ -320,10 +320,6 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         if dv:
             return dv.parsed_note
 
-    @cached_property
-    def skip_validate_bbr(self) -> bool:
-        return os.environ.get('DR_BYPASS_BBR_VALIDATION') is not None
-
     @property
     def is_elastic_rule(self):
         return 'elastic' in [a.lower() for a in self.author]
@@ -373,6 +369,9 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
             unit = eql.ast.TimeUnit("".join(char for char in span if char.isalpha()))
             return eql.ast.TimeRange(amount, unit).as_milliseconds()
 
+        def skip_validate_bbr() -> bool:
+            return os.environ.get('DR_BYPASS_BBR_VALIDATION') is not None
+
         def validate_time_defaults(str_time) -> bool:
             """Validate that the time is at least now-119m and at least 60m respectively."""
             try:
@@ -392,7 +391,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
             return True
 
         """Validate building block type and rule type."""
-        if value.get('building_block_type') and not self.skip_validate_bbr:
+        if value.get('building_block_type') and not skip_validate_bbr():
             if not value.get('from_') and not value.get("interval"):
                 raise ValidationError(
                     "BBR require `from` and `interval` to be defined. Please set or bypass."
