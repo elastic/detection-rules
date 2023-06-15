@@ -22,9 +22,11 @@ RULE_LOADER_FAIL_RAISED = False
 def default_rules() -> RuleCollection:
     return RuleCollection.default()
 
+
 @lru_cache
 def default_bbr() -> RuleCollection:
     return RuleCollection.default_bbr()
+
 
 class BaseRuleTest(unittest.TestCase):
     """Base class for shared test cases which need to load rules"""

@@ -403,7 +403,7 @@ class DataValidator:
 
     @cached_property
     def skip_validate_bbr(self) -> bool:
-            return os.environ.get('DR_BYPASS_BBR_LOOKBACK_VALIDATION') is not None
+        return os.environ.get('DR_BYPASS_BBR_LOOKBACK_VALIDATION') is not None
 
     def validate_bbr(self):
         if self.skip_validate_bbr:
@@ -440,7 +440,6 @@ class DataValidator:
                     "(using the now-Xm and Xm format where x is in minuets). Please update values or bypass. "
                     "To bypass, use the environment variable `DR_BYPASS_BBR_LOOKBACK_VALIDATION`"
                 )
-
 
     def validate_note(self):
         if self.skip_validate_note or not self.note:
