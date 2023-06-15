@@ -361,11 +361,53 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
 
         return obj
 
-    @validates_schema
-    def validate_bbr(self, value: dict, **kwargs):
 
-        def skip_validate_bbr() -> bool:
+class DataValidator:
+    """Additional validation beyond base marshmallow schema validation."""
+
+    def __init__(self,
+                 name: definitions.RuleName,
+                 is_elastic_rule: bool,
+                 note: Optional[definitions.Markdown] = None,
+                 interval: Optional[definitions.Interval] = None,
+                 building_block_type: Optional[definitions.BuildingBlockType] = None,
+                 setup: Optional[str] = None,
+                 **extras):
+        # only define fields needing additional validation
+        self.name = name
+        self.is_elastic_rule = is_elastic_rule
+        self.note = note
+        # Need to use extras because from is a reserved word in python
+        self.from_ = extras.get('from')
+        self.interval = interval
+        self.building_block_type = building_block_type
+        self.setup = setup
+        self._setup_in_note = False
+
+    @cached_property
+    def parsed_note(self) -> Optional[MarkoDocument]:
+        if self.note:
+            return gfm.parse(self.note)
+
+    @property
+    def setup_in_note(self):
+        return self._setup_in_note
+
+    @setup_in_note.setter
+    def setup_in_note(self, value: bool):
+        self._setup_in_note = value
+
+    @cached_property
+    def skip_validate_note(self) -> bool:
+        return os.environ.get('DR_BYPASS_NOTE_VALIDATION_AND_PARSE') is not None
+
+    @cached_property
+    def skip_validate_bbr(self) -> bool:
             return os.environ.get('DR_BYPASS_BBR_LOOKBACK_VALIDATION') is not None
+
+    def validate_bbr(self):
+        if self.skip_validate_bbr:
+            return
 
         def validate_time_defaults(str_time) -> bool:
             """Validate that the time is at least now-119m and at least 60m respectively."""
@@ -386,50 +428,17 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
             return True
 
         """Validate building block type and rule type."""
-        if value.get('building_block_type') and not skip_validate_bbr():
-            if not value.get('from_') and not value.get("interval"):
+        if self.building_block_type:
+            if not self.from_ or not self.interval:
                 raise ValidationError(
                     "BBR require `from` and `interval` to be defined. Please set or bypass."
                 )
-            elif not validate_time_defaults(value.get('from_')) and not validate_time_defaults(value.get("interval")):
+            elif not validate_time_defaults(self.from_) and not validate_time_defaults(self.interval):
                 raise ValidationError(
                     "Default BBR require `from` and `interval` to be at least now-119m and at least 60m respectively "
                     "(using the now-Xm and Xm format where x is in minuets). Please set or bypass."
                 )
 
-
-class DataValidator:
-    """Additional validation beyond base marshmallow schema validation."""
-
-    def __init__(self,
-                 name: definitions.RuleName,
-                 is_elastic_rule: bool,
-                 note: Optional[definitions.Markdown] = None,
-                 setup: Optional[str] = None,
-                 **extras):
-        # only define fields needing additional validation
-        self.name = name
-        self.is_elastic_rule = is_elastic_rule
-        self.note = note
-        self.setup = setup
-        self._setup_in_note = False
-
-    @cached_property
-    def parsed_note(self) -> Optional[MarkoDocument]:
-        if self.note:
-            return gfm.parse(self.note)
-
-    @property
-    def setup_in_note(self):
-        return self._setup_in_note
-
-    @setup_in_note.setter
-    def setup_in_note(self, value: bool):
-        self._setup_in_note = value
-
-    @cached_property
-    def skip_validate_note(self) -> bool:
-        return os.environ.get('DR_BYPASS_NOTE_VALIDATION_AND_PARSE') is not None
 
     def validate_note(self):
         if self.skip_validate_note or not self.note:
@@ -1117,6 +1126,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         data.validate_query(metadata)
         data.data_validator.validate_note()
+        data.data_validator.validate_bbr()
         data.validate(metadata) if hasattr(data, 'validate') else False
 
     def to_dict(self, strip_none_values=True) -> dict:

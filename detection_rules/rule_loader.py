@@ -240,13 +240,6 @@ class RuleCollection(BaseCollection):
         self.deprecated.name_map[rule.name] = rule
         self.deprecated.rules.append(rule)
 
-    def get_bbr(self) -> List[TOMLRule]:
-        bbr_list = []
-        for rule in self.rules:
-            if "building_block_type" in rule.contents.data.to_dict().keys():
-                bbr_list.append(rule)
-        return bbr_list
-
     def load_dict(self, obj: dict, path: Optional[Path] = None) -> Union[TOMLRule, DeprecatedRule]:
         # bypass rule object load (load_dict) and load as a dict only
         if obj.get('metadata', {}).get('maturity', '') == 'deprecated':
@@ -355,6 +348,16 @@ class RuleCollection(BaseCollection):
         if cls.__default is None:
             collection = RuleCollection()
             collection.load_directory(DEFAULT_RULES_DIR)
+            collection.freeze()
+            cls.__default = collection
+
+        return cls.__default
+
+    @classmethod
+    def default_bbr(cls) -> 'RuleCollection':
+        """Return the default rule collection, which retrieves from rules/."""
+        if cls.__default is None:
+            collection = RuleCollection()
             collection.load_directory(DEFAULT_BBR_DIR)
             collection.freeze()
             cls.__default = collection
