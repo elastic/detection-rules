@@ -413,7 +413,7 @@ class DataValidator:
             """Validate that the time is at least now-119m and at least 60m respectively."""
             try:
                 if "now-" in str_time:
-                    str_time = str_time.replace("now-", "")
+                    str_time = str_time[4:]
                     time = convert_time_span(str_time)
                     # if from time is less than 119m as milliseconds
                     if time < 119 * 60 * 1000:
