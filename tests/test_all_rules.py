@@ -420,6 +420,10 @@ class TestRuleFiles(BaseRuleTest):
         for rule in self.bbr:
             self.assertEqual(rule.path.parent.name, 'rules_building_block', f'{self.rule_str(rule)} should be in the rules_building_block directory')
 
+        for rule in self.all_rules:
+            if rule.path.parent.name == 'rules_building_block':
+                self.assertIn(rule, self.bbr, f'{self.rule_str(rule)} should be in the rules_building_block directory')
+
 
 class TestRuleMetadata(BaseRuleTest):
     """Test the metadata of rules."""
