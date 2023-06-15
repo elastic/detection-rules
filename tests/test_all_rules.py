@@ -137,7 +137,7 @@ class TestValidRules(BaseRuleTest):
 
         with self.assertRaises(ValidationError):
             build_rule(query=query, bbr_type="invalid")
-        
+
         with self.assertRaises(ValidationError):
             build_rule(query=query, from_field="now-10m", interval="10m")
 
