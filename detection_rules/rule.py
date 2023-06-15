@@ -412,7 +412,7 @@ class DataValidator:
         if self.skip_validate_bbr or bypass:
             return
 
-        def validate_lookback(str_time) -> bool:
+        def validate_lookback(str_time: str) -> bool:
             """Validate that the time is at least now-119m and at least 60m respectively."""
             try:
                 if "now-" in str_time:
