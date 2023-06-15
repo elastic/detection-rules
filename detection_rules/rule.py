@@ -415,12 +415,12 @@ class DataValidator:
                 if "now" in str_time:
                     str_time = str_time.replace("now-", "")
                     time = convert_time_span(str_time)
-                    # if time is less than 119m as milliseconds
+                    # if from time is less than 119m as milliseconds
                     if time < 119 * 60 * 1000:
                         return False
                 else:
                     time = convert_time_span(str_time)
-                    # if time is less than 60m as milliseconds
+                    # if interval time is less than 60m as milliseconds
                     if time < 60 * 60 * 1000:
                         return False
             except Exception as e:
