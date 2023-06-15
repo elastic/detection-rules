@@ -444,7 +444,6 @@ class DataValidator:
                     f"{self.name} is invalid."
                     "BBR require `from` and `interval` to be defined. "
                     "Please set or bypass." + bypass_instructions
-                    
                 )
             elif not validate_lookback(self.from_) or not validate_interval(self.interval):
                 raise ValidationError(
