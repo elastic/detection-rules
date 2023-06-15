@@ -33,7 +33,7 @@ from .rule_formatter import nested_normalize, toml_write
 from .schemas import (SCHEMA_DIR, definitions, downgrade,
                       get_min_supported_stack_version, get_stack_schemas)
 from .schemas.stack_compat import get_restricted_fields
-from .utils import cached, PatchedTemplate
+from .utils import cached, convert_time_span, PatchedTemplate
 
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
@@ -363,11 +363,6 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
 
     @validates_schema
     def validate_bbr(self, value: dict, **kwargs):
-        def convert_time_span(span: str) -> int:
-            """Convert time span in datemath to value in milliseconds."""
-            amount = int("".join(char for char in span if char.isdigit()))
-            unit = eql.ast.TimeUnit("".join(char for char in span if char.isalpha()))
-            return eql.ast.TimeRange(amount, unit).as_milliseconds()
 
         def skip_validate_bbr() -> bool:
             return os.environ.get('DR_BYPASS_BBR_LOOKBACK_VALIDATION') is not None
@@ -680,13 +675,6 @@ class EQLRuleData(QueryRuleData):
     """EQL rules are a special case of query rules."""
     type: Literal["eql"]
     language: Literal["eql"]
-
-    @staticmethod
-    def convert_time_span(span: str) -> int:
-        """Convert time span in datemath to value in milliseconds."""
-        amount = int("".join(char for char in span if char.isdigit()))
-        unit = eql.ast.TimeUnit("".join(char for char in span if char.isalpha()))
-        return eql.ast.TimeRange(amount, unit).as_milliseconds()
 
     def convert_relative_delta(self, lookback: str) -> int:
         now = len("now")
