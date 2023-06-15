@@ -421,6 +421,8 @@ class TestRuleFiles(BaseRuleTest):
             self.assertEqual(rule.path.parent.name, 'rules_building_block',
                              f'{self.rule_str(rule)} should be in the rules_building_block directory')
 
+    def test_non_bbr_in_correct_dir(self):
+        """Ensure that non-BBR are not in BBR directory."""
         for rule in self.all_rules:
             if rule.path.parent.name == 'rules_building_block':
                 self.assertIn(rule, self.bbr, f'{self.rule_str(rule)} should be in the rules_building_block directory')
