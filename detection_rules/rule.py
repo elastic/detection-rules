@@ -427,7 +427,7 @@ class DataValidator:
                 raise ValidationError(f"Invalid time format: {e}")
             return True
 
-        def validate_interval(str_time) -> bool:
+        def validate_interval(str_time: str) -> bool:
             """Validate that the time is at least now-119m and at least 60m respectively."""
             try:
                 time = convert_time_span(str_time)
