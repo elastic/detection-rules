@@ -53,6 +53,7 @@ class RuleMeta(MarshmallowDataclassMixin):
     deprecation_date: Optional[definitions.Date]
 
     # Optional fields
+    bypass_bbr_timing: Optional[bool]
     comments: Optional[str]
     integration: Optional[Union[str, List[str]]]
     maturity: Optional[definitions.Maturity]
@@ -405,7 +406,7 @@ class DataValidator:
     def skip_validate_bbr(self) -> bool:
         return os.environ.get('DR_BYPASS_BBR_LOOKBACK_VALIDATION') is not None
 
-    def validate_bbr(self, bypass: str = None):
+    def validate_bbr(self, bypass: bool = False):
         """Validate building block type and rule type."""
 
         if self.skip_validate_bbr or bypass:
