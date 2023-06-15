@@ -437,19 +437,21 @@ class DataValidator:
                 raise ValidationError(f"Invalid time format: {e}")
             return True
 
+        bypass_instructions = "To bypass, use the environment variable `DR_BYPASS_BBR_LOOKBACK_VALIDATION`"
         if self.building_block_type:
             if not self.from_ or not self.interval:
                 raise ValidationError(
                     f"{self.name} is invalid."
-                    "BBR require `from` and `interval` to be defined. Please set or bypass."
-                    "To bypass, use the environment variable `DR_BYPASS_BBR_LOOKBACK_VALIDATION`"
+                    "BBR require `from` and `interval` to be defined. "
+                    "Please set or bypass." + bypass_instructions
+                    
                 )
             elif not validate_lookback(self.from_) or not validate_interval(self.interval):
                 raise ValidationError(
                     f"{self.name} is invalid."
                     "Default BBR require `from` and `interval` to be at least now-119m and at least 60m respectively "
-                    "(using the now-Xm and Xm format where x is in minuets). Please update values or bypass. "
-                    "To bypass, use the environment variable `DR_BYPASS_BBR_LOOKBACK_VALIDATION`"
+                    "(using the now-Xm and Xm format where x is in minuets). "
+                    "Please update values or bypass. " + bypass_instructions
                 )
 
     def validate_note(self):
