@@ -405,10 +405,10 @@ class DataValidator:
     def skip_validate_bbr(self) -> bool:
         return os.environ.get('DR_BYPASS_BBR_LOOKBACK_VALIDATION') is not None
 
-    def validate_bbr(self):
+    def validate_bbr(self, bypass: str = None):
         """Validate building block type and rule type."""
 
-        if self.skip_validate_bbr:
+        if self.skip_validate_bbr or bypass:
             return
 
         def validate_lookback(str_time) -> bool:
@@ -1139,7 +1139,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         data.validate_query(metadata)
         data.data_validator.validate_note()
-        data.data_validator.validate_bbr()
+        data.data_validator.validate_bbr(metadata.get('bypass_bbr_timing'))
         data.validate(metadata) if hasattr(data, 'validate') else False
 
     def to_dict(self, strip_none_values=True) -> dict:
