@@ -141,12 +141,6 @@ class TestValidRules(BaseRuleTest):
         with self.assertRaises(ValidationError):
             build_rule(query=query, from_field="now-10m", interval="10m")
 
-        #rule = build_rule(query=query, from_field=None, interval=None)
-        #api_rule = rule.to_api_format()
-        # assert from_field and interval are set to defaults
-        #self.assertEqual(api_rule["from"], "now-119m")
-        #self.assertEqual(api_rule["interval"], "60m")
-
 
 class TestThreatMappings(BaseRuleTest):
     """Test threat mapping data for rules."""
