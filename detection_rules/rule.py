@@ -406,6 +406,8 @@ class DataValidator:
         return os.environ.get('DR_BYPASS_BBR_LOOKBACK_VALIDATION') is not None
 
     def validate_bbr(self):
+        """Validate building block type and rule type."""
+
         if self.skip_validate_bbr:
             return
 
@@ -435,7 +437,6 @@ class DataValidator:
                 raise ValidationError(f"Invalid time format: {e}")
             return True
 
-        """Validate building block type and rule type."""
         if self.building_block_type:
             if not self.from_ or not self.interval:
                 raise ValidationError(
