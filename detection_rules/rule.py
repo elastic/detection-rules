@@ -431,11 +431,13 @@ class DataValidator:
         if self.building_block_type:
             if not self.from_ or not self.interval:
                 raise ValidationError(
+                    f"{self.name} is invalid."
                     "BBR require `from` and `interval` to be defined. Please set or bypass."
                     "To bypass, use the environment variable `DR_BYPASS_BBR_LOOKBACK_VALIDATION`"
                 )
             elif not validate_time_defaults(self.from_) or not validate_time_defaults(self.interval):
                 raise ValidationError(
+                    f"{self.name} is invalid."
                     "Default BBR require `from` and `interval` to be at least now-119m and at least 60m respectively "
                     "(using the now-Xm and Xm format where x is in minuets). Please update values or bypass. "
                     "To bypass, use the environment variable `DR_BYPASS_BBR_LOOKBACK_VALIDATION`"
