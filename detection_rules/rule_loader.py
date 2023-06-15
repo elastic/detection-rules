@@ -23,6 +23,7 @@ from .schemas import definitions
 from .utils import cached, get_path
 
 DEFAULT_RULES_DIR = Path(get_path("rules"))
+DEFAULT_BBR_DIR = Path(get_path("rules_building_block"))
 DEFAULT_DEPRECATED_DIR = DEFAULT_RULES_DIR / '_deprecated'
 RTA_DIR = get_path("rta")
 FILE_PATTERN = r'^([a-z0-9_])+\.(json|toml)$'
@@ -354,6 +355,7 @@ class RuleCollection(BaseCollection):
         if cls.__default is None:
             collection = RuleCollection()
             collection.load_directory(DEFAULT_RULES_DIR)
+            collection.load_directory(DEFAULT_BBR_DIR)
             collection.freeze()
             cls.__default = collection
 
