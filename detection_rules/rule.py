@@ -409,7 +409,7 @@ class DataValidator:
         if self.skip_validate_bbr:
             return
 
-        def validate_time_defaults(str_time) -> bool:
+        def validate_lookback(str_time) -> bool:
             """Validate that the time is at least now-119m and at least 60m respectively."""
             try:
                 if "now-" in str_time:
@@ -419,10 +419,18 @@ class DataValidator:
                     if time < 119 * 60 * 1000:
                         return False
                 else:
-                    time = convert_time_span(str_time)
-                    # if interval time is less than 60m as milliseconds
-                    if time < 60 * 60 * 1000:
-                        return False
+                    return False
+            except Exception as e:
+                raise ValidationError(f"Invalid time format: {e}")
+            return True
+
+        def validate_interval(str_time) -> bool:
+            """Validate that the time is at least now-119m and at least 60m respectively."""
+            try:
+                time = convert_time_span(str_time)
+                # if interval time is less than 60m as milliseconds
+                if time < 60 * 60 * 1000:
+                    return False
             except Exception as e:
                 raise ValidationError(f"Invalid time format: {e}")
             return True
@@ -435,7 +443,7 @@ class DataValidator:
                     "BBR require `from` and `interval` to be defined. Please set or bypass."
                     "To bypass, use the environment variable `DR_BYPASS_BBR_LOOKBACK_VALIDATION`"
                 )
-            elif not validate_time_defaults(self.from_) or not validate_time_defaults(self.interval):
+            elif not validate_lookback(self.from_) or not validate_interval(self.interval):
                 raise ValidationError(
                     f"{self.name} is invalid."
                     "Default BBR require `from` and `interval` to be at least now-119m and at least 60m respectively "
