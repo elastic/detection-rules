@@ -694,10 +694,10 @@ class EQLRuleData(QueryRuleData):
             lookback = lookback[len("now"):]
             sign = lookback[0]  # + or -
             span = lookback[1:]
-            amount = self.convert_time_span(span)
+            amount = convert_time_span(span)
             return amount * (-1 if sign == "-" else 1)
         else:
-            return self.convert_time_span(lookback)
+            return convert_time_span(lookback)
 
     @cached_property
     def is_sequence(self) -> bool:
@@ -726,7 +726,7 @@ class EQLRuleData(QueryRuleData):
     def interval_ratio(self) -> Optional[float]:
         """Ratio of interval time window / max_span time window."""
         if self.max_span:
-            interval = self.convert_time_span(self.interval or '5m')
+            interval = convert_time_span(self.interval or '5m')
             return interval / self.max_span
 
 
