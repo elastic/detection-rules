@@ -35,7 +35,6 @@ SUBTECHNIQUE_URL = r'^https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/$'
 MACHINE_LEARNING = 'machine_learning'
 SAVED_QUERY = 'saved_query'
 QUERY = 'query'
-BUILDING_BLOCK_TYPE = 'default'
 
 # we had a bad rule ID make it in before tightening up the pattern, and so we have to let it bypass
 KNOWN_BAD_RULE_IDS = Literal['119c8877-8613-416d-a98a-96b6664ee73a5']
