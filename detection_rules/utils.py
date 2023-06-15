@@ -235,7 +235,7 @@ def combine_sources(*sources):  # type: (list[list]) -> list
 
 
 def convert_time_span(span: str) -> int:
-    """Convert time span in datemath to value in milliseconds."""
+    """Convert time span in Date Math to value in milliseconds."""
     amount = int("".join(char for char in span if char.isdigit()))
     unit = eql.ast.TimeUnit("".join(char for char in span if char.isalpha()))
     return eql.ast.TimeRange(amount, unit).as_milliseconds()
