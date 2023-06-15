@@ -10,6 +10,7 @@ import unittest
 import uuid
 import warnings
 from collections import defaultdict
+from marshmallow import ValidationError
 from pathlib import Path
 
 import eql.ast
@@ -95,6 +96,56 @@ class TestValidRules(BaseRuleTest):
     def test_rule_type_changes(self):
         """Test that a rule type did not change for a locked version"""
         default_version_lock.manage_versions(self.production_rules)
+
+    def test_bbr_validation(self):
+        base_fields = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["filebeat-*", "logs-aws*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+            "timestamp_override": "event.ingested"
+        }
+
+        def build_rule(query, bbr_type="default", from_field="now-120m", interval="60m"):
+            metadata = {
+                "creation_date": "1970/01/01",
+                "updated_date": "1970/01/01",
+                "min_stack_version": load_current_package_version(),
+                "integration": ["cloud_defend"]
+            }
+            data = base_fields.copy()
+            data["query"] = query
+            data["building_block_type"] = bbr_type
+            if from_field:
+                data["from"] = from_field
+            if interval:
+                data["interval"] = interval
+            obj = {"metadata": metadata, "rule": data}
+            return TOMLRuleContents.from_dict(obj)
+
+        query = """
+            event.dataset:aws.cloudtrail and event.outcome:success
+        """
+
+        build_rule(query=query)
+
+        with self.assertRaises(ValidationError):
+            build_rule(query=query, bbr_type="invalid")
+        
+        with self.assertRaises(ValidationError):
+            build_rule(query=query, from_field="now-10m", interval="10m")
+
+        #rule = build_rule(query=query, from_field=None, interval=None)
+        #api_rule = rule.to_api_format()
+        # assert from_field and interval are set to defaults
+        #self.assertEqual(api_rule["from"], "now-119m")
+        #self.assertEqual(api_rule["interval"], "60m")
 
 
 class TestThreatMappings(BaseRuleTest):
