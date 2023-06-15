@@ -157,6 +157,7 @@ class RuleCollection(BaseCollection):
     """Collection of rule objects."""
 
     __default = None
+    __default_bbr = None
 
     def __init__(self, rules: Optional[List[TOMLRule]] = None):
         from .version_lock import VersionLock
@@ -355,14 +356,14 @@ class RuleCollection(BaseCollection):
 
     @classmethod
     def default_bbr(cls) -> 'RuleCollection':
-        """Return the default rule collection, which retrieves from rules/."""
-        if cls.__default is None:
+        """Return the default BBR collection, which retrieves from building_block_rules/."""
+        if cls.__default_bbr is None:
             collection = RuleCollection()
             collection.load_directory(DEFAULT_BBR_DIR)
             collection.freeze()
-            cls.__default = collection
+            cls.__default_bbr = collection
 
-        return cls.__default
+        return cls.__default_bbr
 
     def compare_collections(self, other: 'RuleCollection'
                             ) -> (Dict[str, TOMLRule], Dict[str, TOMLRule], Dict[str, DeprecatedRule]):
