@@ -106,23 +106,18 @@ process where host.os.type == "linux" and event.type == "start" and
   /* launching shell from capsh */
   (process.name == "capsh" and process.args == "--") or
   
-  /* launching shell from awk, nawk, mawk or gawk */
-  (process.name : "*sh" and process.parent.name : "*awk" and process.parent.args : "BEGIN {system(*)}") or
-
-  /* launching shell from git */
-  (process.name : "*sh" and process.parent.name == "git" and (process.parent.args : ("*PAGER*", "!*sh", "exec *sh") or process.args : ("*PAGER*", "!*sh", "exec *sh"))) or
-
-  /* launching shell from tar */
-  (process.name : "*sh" and process.parent.name == "tar" and
-    (
-      (process.parent.args : "exec=*sh" or (process.parent.args : "-I" and process.parent.args : "*sh")) or
-      (process.args : "exec=*sh" or (process.args : "-I" and process.args : "*sh"))
-    )
-  ) or
-  
   /* launching shells from unusual parents or parent+arg combos */
   (process.name : "*sh" and (
-    (process.parent.name in ("byebug", "ftp", "strace", "zip")) or
+    (process.parent.name : ("byebug", "ftp", "strace", "zip", "*awk", "git", "tar") and 
+    (
+      process.parent.args : "BEGIN {system(*)}" or
+      (process.parent.args : ("*PAGER*", "!*sh", "exec *sh") or process.args : ("*PAGER*", "!*sh", "exec *sh")) or
+      (
+        (process.parent.args : "exec=*sh" or (process.parent.args : "-I" and process.parent.args : "*sh")) or
+        (process.args : "exec=*sh" or (process.args : "-I" and process.args : "*sh"))
+        )
+      )
+    ) or
     
     /* shells specified in parent args */
     /* nice rule is broken in 8.2 */
