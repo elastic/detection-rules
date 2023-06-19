@@ -32,7 +32,7 @@ def get_fp_data_files():
     return data
 
 
-def get_data_files_list(*folder, ext='jsonl', recursive=False):
+def get_data_files_list(*folder, ext='ndjson', recursive=False):
     """Get TP or FP file list."""
     folder = os.path.sep.join(folder)
     data_dir = [DATA_DIR, folder]
@@ -43,14 +43,14 @@ def get_data_files_list(*folder, ext='jsonl', recursive=False):
     return glob.glob(os.path.join(*data_dir), recursive=recursive)
 
 
-def get_data_files(*folder, ext='jsonl', recursive=False):
+def get_data_files(*folder, ext='ndjson', recursive=False):
     """Get data from data files."""
     data_files = {}
     for data_file in get_data_files_list(*folder, ext=ext, recursive=recursive):
         with open(data_file, 'r') as f:
             file_name = os.path.splitext(os.path.basename(data_file))[0]
 
-            if ext == 'jsonl':
+            if ext in ('.ndjson', '.jsonl'):
                 data = f.readlines()
                 data_files[file_name] = [json.loads(d) for d in data]
             else:
