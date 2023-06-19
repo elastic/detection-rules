@@ -26,11 +26,13 @@ timeline_title = "Comprehensive Process Timeline"
 type = "eql"
 
 query = '''
-sequence with maxspan=1m
-  [process where host.os.type == "linux" and event.type == "start" and process.name : "python*"] by process.entity_id
-  [process where host.os.type == "linux" and event.type == "start" and 
-   process.executable : "/bin/*sh"
-  ] by process.parent.entity_id
+process where host.os.type == "linux" and event.action : ("exec", "exec_event") and
+(
+   (process.parent.name : "*sh" and process.name : "python*" and process.parent.args : "*pty.spawn*"
+    and process.parent.args : "-c" and process.parent.args_count >= 3 )
+    or
+    (process.parent.name : "python*" and process.name : "*sh" and process.args : "*sh" and process.args_count == 1)
+)
 '''
 
 
