@@ -32,7 +32,7 @@ from kibana.connector import Kibana
 
 from . import attack, rule_loader, utils
 from .cli_utils import single_collection
-from .docs import IntegrationSecurityDocs
+from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
@@ -83,9 +83,11 @@ def dev_group():
 @click.option('--update-version-lock', '-u', is_flag=True,
               help='Save version.lock.json file with updated rule versions in the package')
 @click.option('--generate-navigator', is_flag=True, help='Generate ATT&CK navigator files')
-@click.option('--add-historical', type=str, required=True, help='Generate historical package-registry files')
+@click.option('--add-historical', type=str, required=True, default="no",
+              help='Generate historical package-registry files')
+@click.option('--update-message', type=str, help='Update message for new package')
 def build_release(config_file, update_version_lock: bool, generate_navigator: bool, add_historical: str,
-                  release=None, verbose=True):
+                  update_message: str, release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
     config = load_dump(config_file)['package']
     add_historical = True if add_historical == "yes" else False
@@ -103,7 +105,6 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
 
     if update_version_lock:
         default_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
-
     package.save(verbose=verbose)
 
     if add_historical:
@@ -111,6 +112,11 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
         sde = SecurityDetectionEngine()
         historical_rules = sde.load_integration_assets(previous_pkg_version)
         historical_rules = sde.transform_legacy_assets(historical_rules)
+
+        docs = IntegrationSecurityDocsMDX(config['registry_data']['version'], Path(f'releases/{config["name"]}-docs'),
+                                          True, historical_rules, package, note=update_message)
+        docs.generate()
+
         click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
         package.add_historical_rules(historical_rules, config['registry_data']['version'])
 
@@ -149,8 +155,10 @@ def get_release_diff(pre: str, post: str, remote: Optional[str] = 'origin'
 @click.option('--directory', '-d', type=Path, required=True, help='Output directory to save docs to')
 @click.option('--force', '-f', is_flag=True, help='Bypass the confirmation prompt')
 @click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
+@click.option('--update-message', default='Rule Updates.', help='Update message for new package')
 @click.pass_context
-def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, post: str, directory: Path, force: bool,
+def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, post: str,
+                           directory: Path, force: bool, update_message: str,
                            remote: Optional[str] = 'origin') -> IntegrationSecurityDocs:
     """Build documents from two git tags for an integration package."""
     if not force:
@@ -158,7 +166,7 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
             ctx.exit(1)
 
     rules_changes = get_release_diff(pre, post, remote)
-    docs = IntegrationSecurityDocs(registry_version, directory, True, *rules_changes)
+    docs = IntegrationSecurityDocs(registry_version, directory, True, *rules_changes, update_message=update_message)
     package_dir = docs.generate()
 
     click.echo(f'Generated documents saved to: {package_dir}')
@@ -922,44 +930,44 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
 
 
 @dev_group.command('trim-version-lock')
-@click.argument('min_version')
+@click.argument('stack_version')
 @click.option('--dry-run', is_flag=True, help='Print the changes rather than saving the file')
-def trim_version_lock(min_version: str, dry_run: bool):
+def trim_version_lock(stack_version: str, dry_run: bool):
     """Trim all previous entries within the version lock file which are lower than the min_version."""
     stack_versions = get_stack_versions()
-    assert min_version in stack_versions, f'Unknown min_version ({min_version}), expected: {", ".join(stack_versions)}'
+    assert stack_version in stack_versions, \
+        f'Unknown min_version ({stack_version}), expected: {", ".join(stack_versions)}'
 
-    min_version = Version.parse(min_version)
+    min_version = Version.parse(stack_version)
     version_lock_dict = default_version_lock.version_lock.to_dict()
     removed = {}
 
     for rule_id, lock in version_lock_dict.items():
         if 'previous' in lock:
             prev_vers = [Version.parse(v, optional_minor_and_patch=True) for v in list(lock['previous'])]
-            outdated_vers = [v for v in prev_vers if v <= min_version]
+            outdated_vers = [f"{v.major}.{v.minor}" for v in prev_vers if v < min_version]
 
             if not outdated_vers:
                 continue
 
-            # we want to remove all "old" versions, but save the latest that is <= the min version as the new
-            # min_version. Essentially collapsing the entries and bumping it to a new "true" min
-            latest_version = max(outdated_vers)
+            # we want to remove all "old" versions, but save the latest that is >= the min version supplied as the new
+            # stack_version.
 
             if dry_run:
-                outdated_minus_current = [str(v) for v in outdated_vers if v != min_version]
+                outdated_minus_current = [str(v) for v in outdated_vers if v < stack_version]
                 if outdated_minus_current:
                     removed[rule_id] = outdated_minus_current
             for outdated in outdated_vers:
                 popped = lock['previous'].pop(str(outdated))
-                if outdated == latest_version:
-                    lock['previous'][str(min_version)] = popped
+                if outdated >= stack_version:
+                    lock['previous'][str(Version(stack_version[:2]))] = popped
 
             # remove the whole previous entry if it is now blank
             if not lock['previous']:
                 lock.pop('previous')
 
     if dry_run:
-        click.echo(f'The following versions would be collapsed to {min_version}:' if removed else 'No changes')
+        click.echo(f'The following versions would be collapsed to {stack_version}:' if removed else 'No changes')
         click.echo('\n'.join(f'{k}: {", ".join(v)}' for k, v in removed.items()))
     else:
         new_lock = VersionLockFile.from_dict(dict(data=version_lock_dict))
@@ -1205,18 +1213,22 @@ def integrations_group():
 
 @integrations_group.command('build-manifests')
 @click.option('--overwrite', '-o', is_flag=True, help="Overwrite the existing integrations-manifest.json.gz file")
-def build_integration_manifests(overwrite: bool):
+@click.option("--integration", "-i", type=str, help="Adds an integration tag to the manifest file")
+def build_integration_manifests(overwrite: bool, integration: str):
     """Builds consolidated integrations manifests file."""
     click.echo("loading rules to determine all integration tags")
 
     def flatten(tag_list: List[str]) -> List[str]:
         return list(set([tag for tags in tag_list for tag in (flatten(tags) if isinstance(tags, list) else [tags])]))
 
-    rules = RuleCollection.default()
-    integration_tags = [r.contents.metadata.integration for r in rules if r.contents.metadata.integration]
-    unique_integration_tags = flatten(integration_tags)
-    click.echo(f"integration tags identified: {unique_integration_tags}")
-    build_integrations_manifest(overwrite, unique_integration_tags)
+    if integration:
+        build_integrations_manifest(overwrite=False, integration=integration)
+    else:
+        rules = RuleCollection.default()
+        integration_tags = [r.contents.metadata.integration for r in rules if r.contents.metadata.integration]
+        unique_integration_tags = flatten(integration_tags)
+        click.echo(f"integration tags identified: {unique_integration_tags}")
+        build_integrations_manifest(overwrite, rule_integrations=unique_integration_tags)
 
 
 @integrations_group.command('build-schemas')
