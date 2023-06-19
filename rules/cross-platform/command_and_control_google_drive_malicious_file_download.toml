@@ -1,0 +1,87 @@
+[metadata]
+creation_date = "2023/06/19"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/06/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies potential malicious file download and execution from Google Drive. The rule checks for download activity from
+Google Drive URL, followed by the creation of files commonly leveraged by or for malware. This could indicate an attempt
+to run malicious scripts, executables or payloads.
+"""
+false_positives = ["Legitimate administrative activity or approved third-party applications."]
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Malicious File Downloaded from Google Drive"
+note = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+"""
+references = ["https://intelligence.abnormalsecurity.com/blog/google-drive-matanbuchus-malware"]
+risk_score = 73
+rule_id = "a8afdce2-0ec1-11ee-b843-f661ea17fbcd"
+severity = "high"
+tags = [
+    "Elastic",
+    "Host",
+    "Linux",
+    "Windows",
+    "macOS",
+    "Threat Detection",
+    "Execution",
+    "Command and Control",
+    "Initial Access",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by host.id, user.id with maxspan=30s
+[any where (
+
+    /* Look for processes started or libraries loaded from untrusted or unsigned Windows binaries */
+    (event.action : ("start","load") and (process.code_signature.exists != true or process.code_signature.status != "trusted")) or
+
+    /* Look for Google Drive download URL with AV flag skipping */
+    (process.args == "*drive.google.com*" and process.args == "*export=download*" and process.args == "*confirm=no_antivirus*") or
+
+    /* Look for processes started on Linux and macOS */
+    event.action: ("exec","fork"))]
+
+[network where (
+    /* Look for DNS requests for Google Drive */
+    dns.question.name == "drive.google.com" and dns.question.type == "A") or
+
+    /* Look for connection attempts to address that resolves to Google */
+    (destination.as.organization.name == "GOOGLE" and event.action == "connection_attempted" and
+
+    /* To remove FPs, only flag if these DNS requests or connection attempts are from common LoLBins */
+    process.name: (
+                    "bitsadmin.exe", "certutil.exe", "esentutl.exe", "wmic.exe", "PowerShell.exe",
+                    "homedrive.exe","regsvr32.exe", "mshta.exe", "rundll32.exe", "cscript.exe", "wscript.exe",
+                    "curl", "wget", "scp", "ftp", "python", "perl", "ruby"))]
+
+/* Identify the creation of files following Google Drive connection with extensions commonly used for executables or libraries */
+[file where event.action == "creation" and file.extension: ("exe", "dll", "scr", "jar", "pif", "app", "dmg", "pkg", "so", "bin", "deb", "rpm","sh","hta","lnk")]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
