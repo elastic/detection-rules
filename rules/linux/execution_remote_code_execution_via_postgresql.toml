@@ -1,0 +1,49 @@
+[metadata]
+creation_date = "2022/06/20"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/06/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for suspicious activities that may indicate an attacker attempting to execute arbitrary code within 
+a PostgreSQL environment. Attackers execute code via PostgreSQL to exploit vulnerabilities, achieve remote command 
+execution, perform SQL injection attacks, and facilitate post-exploitation activities for unauthorized access and 
+malicious actions.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Code Execution via Postgresql"
+risk_score = 73
+rule_id = "2a692072-d78d-42f3-a48a-775677d79c4e"
+severity = "high"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution", "Elastic Endgame"]
+type = "eql"
+
+query = '''
+process where host.os.type == "linux" and event.action in ("exec", "exec_event", "fork", "fork_event") and 
+event.type == "start" and user.name == "postgres" and (process.parent.args : "*sh" or process.args : "*sh")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
