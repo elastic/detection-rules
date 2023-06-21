@@ -30,19 +30,14 @@ tags = ["Elastic", "Host", "Linux", "Windows", "macOS", "Threat Detection", "Com
 type = "eql"
 
 query = '''
-sequence by host.id, user.id with maxspan=30s
-[any where (
+sequence by host.id, process.entity_id with maxspan=30s
+[any where
 
     /* Look for processes started or libraries loaded from untrusted or unsigned Windows and macOS binaries */
-    (event.action : ("exec", "fork", "start", "load") and
-    (process.code_signature.exists != true or not process.code_signature.status : ("trusted", "No error."))) or
+    (event.action : ("exec", "fork", "start", "load")) or
 
     /* Look for Google Drive download URL with AV flag skipping */
-    (process.args == "*drive.google.com*" and process.args == "*export=download*" and process.args == "*confirm=no_antivirus*") or
-
-    /* Look for processes started on Linux, no code signatures */
-    (host.os.type : "linux" and event.action : ("exec","fork"))
-    )
+    (process.args == "*drive.google.com*" and process.args == "*export=download*" and process.args == "*confirm=no_antivirus*")
 ]
 
 [network where
