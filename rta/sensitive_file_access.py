@@ -9,7 +9,6 @@ from . import RtaMetadata
 from os import path
 import win32file
 
-OPEN_EXISTING = 3
 
 metadata = RtaMetadata(
     uuid="bdb54776-d643-4f4c-90cc-7719c2fa7eab",
@@ -49,7 +48,7 @@ def main():
              "%appdata%\\Microsoft\\Protect\\CREDHIST"]
     for f in files:
         try:
-            win32file.CreateFile(path.expandvars(f), win32file.GENERIC_READ, 0, None, OPEN_EXISTING, 0, None)
+            win32file.CreateFile(path.expandvars(f), win32file.GENERIC_READ, 0, None, 3, 0, None)
             time.sleep(2)
         except Exception as e:
                print('failed to open ', f)
