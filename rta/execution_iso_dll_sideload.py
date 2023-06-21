@@ -10,9 +10,9 @@ import os
 metadata = RtaMetadata(
     uuid="ba802fb2-f183-420e-947b-da5ce0c74d123",
     platforms=["windows"],
-    endpoint=[],
-    siem=[{"rule_id": "ba802fb2-f183-420e-947b-da5ce0c74dd3", "rule_name": "Potential DLL SideLoad via a Microsoft Signed Binary"}],
-    techniques=["T1574"],
+    siem=[],
+    endpoint=[{"rule_id": "ba802fb2-f183-420e-947b-da5ce0c74dd3", "rule_name": "Potential DLL SideLoad via a Microsoft Signed Binary"}],
+    techniques=["T1574", "T1574.002"],
 )
 
 # iso contains WerFault.exe and a testing faultrep.dll to be sideloaded

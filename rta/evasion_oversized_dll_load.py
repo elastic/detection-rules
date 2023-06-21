@@ -11,8 +11,8 @@ from os import path
 metadata = RtaMetadata(
     uuid="ec52377c-b2a8-4c44-8eb4-465376f2189a",
     platforms=["windows"],
-    endpoint=[],
-    siem=[
+    siem=[],
+    endpoint=[
         {"rule_id": "33cdad6c-5809-4d78-94f0-5a5153289e7e", "rule_name": "Oversized DLL Creation followed by SideLoad"},
         {"rule_id": "65a402ff-904b-4d14-b7aa-fa0c5ae575f8", "rule_name": "Potential Evasion via Oversized Image Load"},
         {"rule_id": "b58a6662-cc72-4c1c-a24e-703427f3b725", "rule_name": "Rundll32 or Regsvr32 Executing an OverSized File"},

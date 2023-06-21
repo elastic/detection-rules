@@ -10,10 +10,10 @@ import os
 metadata = RtaMetadata(
     uuid="7fcf2f31-b510-45f8-9de4-7dc8f5ecb68b",
     platforms=["windows"],
-    endpoint=[],
-    siem=[{"rule_id": "d7bc9652-fe82-4fb3-8a48-4a9289c840f8", "rule_name": "Potential NTDLL Memory Unhooking"},
-          {"rule_id": "2c4f5a78-a64f-4fcf-ac52-bf91fd9b82c8", "rule_name": "Suspicious Image Load via LdrLoadDLL"},
-          {"rule_id": "703343f1-095a-4a5a-9bf4-5338db06ecb8", "rule_name": "Process Creation from Modified NTDLL"}],
+    siem=[],
+    endpoint=[{"rule_id": "d7bc9652-fe82-4fb3-8a48-4a9289c840f8", "rule_name": "Potential NTDLL Memory Unhooking"}, 
+              {"rule_id": "2c4f5a78-a64f-4fcf-ac52-bf91fd9b82c8", "rule_name": "Suspicious Image Load via LdrLoadDLL"}, 
+              {"rule_id": "703343f1-095a-4a5a-9bf4-5338db06ecb8", "rule_name": "Process Creation from Modified NTDLL"}],
     techniques=["T1055"],
 )
 

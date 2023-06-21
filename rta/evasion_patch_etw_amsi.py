@@ -43,9 +43,9 @@ OLD_PROTECTION = wintypes.LPDWORD(ctypes.c_ulong(0))
 metadata = RtaMetadata(
     uuid="395d0e4c-e7f5-4c77-add7-92b1d2ba169e",
     platforms=["windows"],
-    endpoint=[],
-    siem=[{"rule_id": "586bf106-b208-45fc-9401-727664175ca0", "rule_name": "Potential AMSI Bypass via Memory Patching"},
-          {"rule_id": "3046168a-91cb-4ecd-a061-b75b1df1c107", "rule_name": "Potential Evasion via Event Tracing Patching"}],
+    siem=[],
+    endpoint=[{"rule_id": "586bf106-b208-45fc-9401-727664175ca0", "rule_name": "Potential AMSI Bypass via Memory Patching"}, 
+              {"rule_id": "3046168a-91cb-4ecd-a061-b75b1df1c107", "rule_name": "Potential Evasion via Event Tracing Patching"}],
     techniques=["T1562.001"],
 )
 

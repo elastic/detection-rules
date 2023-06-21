@@ -10,8 +10,9 @@ from . import RtaMetadata
 metadata = RtaMetadata(
     uuid="6e84852e-b8a2-4158-971e-c5148d969d2a",
     platforms=["windows"],
-    endpoint=[],
-    siem=[{'rule_id': '5bc7a8f8-4de8-4af4-bea4-cba538e54a5c', 'rule_name': 'Suspicious Execution via DotNet Remoting'},
+    siem=[],
+    endpoint=[
+          {'rule_id': '5bc7a8f8-4de8-4af4-bea4-cba538e54a5c', 'rule_name': 'Suspicious Execution via DotNet Remoting'},
           {'rule_id': '6fcbf73f-4413-4689-be33-61b0d6bd0ffc', 'rule_name': 'Suspicious ImageLoad via Windows CertOC'},
           {'rule_id': '1faebe83-38d7-4390-b6bd-9c6b851e47c4', 'rule_name': 'Suspicious ImageLoad via ODBC Driver Configuration Program'},
           {'rule_id': 'aafe3c78-15d9-4853-a602-663b8fada5b5', 'rule_name': 'Potential Evasion via Intel GfxDownloadWrapper'}],

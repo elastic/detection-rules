@@ -12,8 +12,8 @@ OPEN_EXISTING = 3
 metadata = RtaMetadata(
     uuid="b78f0255-3b97-4e39-8857-ec74d09e36ba",
     platforms=["windows"],
-    endpoint=[],
-    siem=[{'rule_id': 'dc27190a-688b-4f9b-88f0-1f13deccd67f', 'rule_name': 'Security Account Manager (SAM) File Access'}],
+    siem=[],
+    endpoint=[{'rule_id': 'dc27190a-688b-4f9b-88f0-1f13deccd67f', 'rule_name': 'Security Account Manager (SAM) File Access'}],
     techniques=['T1003', 'T1003.002'],
 )
 
