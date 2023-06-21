@@ -15,7 +15,7 @@ to run malicious scripts, executables or payloads.
 """
 false_positives = [
     "Approved third-party applications that use Google Drive download URLs.",
-    "Legitimate publicly shared files from Google Drive."
+    "Legitimate publicly shared files from Google Drive.",
 ]
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint*"]
@@ -26,46 +26,44 @@ references = ["https://intelligence.abnormalsecurity.com/blog/google-drive-matan
 risk_score = 73
 rule_id = "a8afdce2-0ec1-11ee-b843-f661ea17fbcd"
 severity = "high"
-tags = [
-    "Elastic",
-    "Host",
-    "Linux",
-    "Windows",
-    "macOS",
-    "Threat Detection",
-    "Command and Control",
-]
+tags = ["Elastic", "Host", "Linux", "Windows", "macOS", "Threat Detection", "Command and Control"]
 type = "eql"
+
 query = '''
 sequence by host.id, user.id with maxspan=30s
 [any where (
 
-    /* Look for processes started or libraries loaded from untrusted or unsigned Windows binaries */
-    (event.action : ("start","load") and (process.code_signature.exists != true or process.code_signature.status != "trusted")) or
+    /* Look for processes started or libraries loaded from untrusted or unsigned Windows and macOS binaries */
+    (event.action : ("exec", "fork", "start", "load") and
+    (process.code_signature.exists != true or not process.code_signature.status : ("trusted", "No error."))) or
 
     /* Look for Google Drive download URL with AV flag skipping */
     (process.args == "*drive.google.com*" and process.args == "*export=download*" and process.args == "*confirm=no_antivirus*") or
 
-    /* Look for processes started on Linux and macOS */
-    event.action: ("exec","fork")
-  )
+    /* Look for processes started on Linux, no code signatures */
+    (host.os.type : "linux" and event.action : ("exec","fork"))
+    )
 ]
 
-[network where 
+[network where
     /* Look for DNS requests for Google Drive */
-    (dns.question.name == "drive.google.com" and dns.question.type == "A") or
+    (dns.question.name : "drive.google.com" and dns.question.type : "A") or
 
     /* Look for connection attempts to address that resolves to Google */
-    (destination.as.organization.name == "GOOGLE" and event.action == "connection_attempted" and
+    (destination.as.organization.name : "GOOGLE" and event.action : "connection_attempted")
 
-    /* To remove FPs, only flag if these DNS requests or connection attempts are from common LoLBins */
+    /* NOTE: Add LoLBins if tuning is required
     process.name: (
-                    "cmd.exe", "bitsadmin.exe", "certutil.exe", "esentutl.exe", "wmic.exe", "PowerShell.exe",
-                    "homedrive.exe","regsvr32.exe", "mshta.exe", "rundll32.exe", "cscript.exe", "wscript.exe",
-                    "curl", "wget", "scp", "ftp", "python", "perl", "ruby"))]
+        "cmd.exe", "bitsadmin.exe", "certutil.exe", "esentutl.exe", "wmic.exe", "PowerShell.exe",
+        "homedrive.exe","regsvr32.exe", "mshta.exe", "rundll32.exe", "cscript.exe", "wscript.exe",
+        "curl", "wget", "scp", "ftp", "python", "perl", "ruby"))] */
+]
 
 /* Identify the creation of files following Google Drive connection with extensions commonly used for executables or libraries */
-[file where event.action == "creation" and file.extension: ("exe", "dll", "scr", "jar", "pif", "app", "dmg", "pkg", "elf", "so", "bin", "deb", "rpm","sh","hta","lnk")]
+[file where event.action == "creation" and file.extension: (
+    "exe", "dll", "scr", "jar", "pif", "app", "dmg", "pkg", "elf", "so", "bin", "deb", "rpm","sh","hta","lnk"
+    )
+]
 '''
 
 
