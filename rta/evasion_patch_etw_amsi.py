@@ -10,35 +10,6 @@ from ctypes import wintypes
 import ctypes
 import platform, time
 
-kernel32 = windll.kernel32
-
-
-LoadLibraryA = kernel32.LoadLibraryA
-LoadLibraryA.argtypes = [wintypes.LPCSTR]
-LoadLibraryA.restype = wintypes.HMODULE
-
-GetProcAddress = kernel32.GetProcAddress
-GetProcAddress.argtypes = [wintypes.HMODULE, wintypes.LPCSTR]
-GetProcAddress.restype = ctypes.c_void_p
-
-VirtualProtect = kernel32.VirtualProtect
-VirtualProtect.argtypes = [wintypes.LPVOID, ctypes.c_size_t, wintypes.DWORD, wintypes.PDWORD]
-VirtualProtect.restype = wintypes.BOOL
-
-GetCurrentProcess = kernel32.GetCurrentProcess
-GetCurrentProcess.restype = wintypes.HANDLE
-
-WriteProcessMemory = kernel32.WriteProcessMemory
-WriteProcessMemory.argtypes = [wintypes.HANDLE, wintypes.LPVOID, wintypes.LPCVOID, ctypes.c_size_t, wintypes.LPVOID]
-WriteProcessMemory.restype = wintypes.BOOL
-
-GetModuleHandleA = kernel32.GetModuleHandleA
-GetModuleHandleA.restype = wintypes.HANDLE
-GetModuleHandleA.argtypes = [ wintypes.LPCSTR ]
-
-
-RWX = 0x40 # PAGE_READ_WRITE_EXECUTE
-OLD_PROTECTION = wintypes.LPDWORD(ctypes.c_ulong(0))
 
 metadata = RtaMetadata(
     uuid="395d0e4c-e7f5-4c77-add7-92b1d2ba169e",
@@ -53,6 +24,35 @@ metadata = RtaMetadata(
 @common.requires_os(metadata.platforms)
 
 def main():
+
+    kernel32 = windll.kernel32
+
+    LoadLibraryA = kernel32.LoadLibraryA
+    LoadLibraryA.argtypes = [wintypes.LPCSTR]
+    LoadLibraryA.restype = wintypes.HMODULE
+
+    GetProcAddress = kernel32.GetProcAddress
+    GetProcAddress.argtypes = [wintypes.HMODULE, wintypes.LPCSTR]
+    GetProcAddress.restype = ctypes.c_void_p
+
+    VirtualProtect = kernel32.VirtualProtect
+    VirtualProtect.argtypes = [wintypes.LPVOID, ctypes.c_size_t, wintypes.DWORD, wintypes.PDWORD]
+    VirtualProtect.restype = wintypes.BOOL
+
+    GetCurrentProcess = kernel32.GetCurrentProcess
+    GetCurrentProcess.restype = wintypes.HANDLE
+
+    WriteProcessMemory = kernel32.WriteProcessMemory
+    WriteProcessMemory.argtypes = [wintypes.HANDLE, wintypes.LPVOID, wintypes.LPCVOID, ctypes.c_size_t, wintypes.LPVOID]
+    WriteProcessMemory.restype = wintypes.BOOL
+
+    GetModuleHandleA = kernel32.GetModuleHandleA
+    GetModuleHandleA.restype = wintypes.HANDLE
+    GetModuleHandleA.argtypes = [wintypes.LPCSTR]
+
+    RWX = 0x40  # PAGE_READ_WRITE_EXECUTE
+    OLD_PROTECTION = wintypes.LPDWORD(ctypes.c_ulong(0))
+
     if platform.architecture()[0] == '64bit':
         print('[+] using x64 based patch')
         patch = (ctypes.c_char * 6)(0x90, 0x90, 0x90, 0x90, 0x90, 0x90)
