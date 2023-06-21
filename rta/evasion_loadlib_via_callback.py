@@ -10,8 +10,8 @@ import os
 metadata = RtaMetadata(
     uuid="ae4b2807-3a16-485e-bb69-5d36bbe9b7d1",
     platforms=["windows"],
-    endpoint=[],
-    siem=[{"rule_id": "fae9f554-d3bc-4d48-8863-54d0dd68db54", "rule_name": "Library Loaded via a CallBack Function"}],
+    siem=[],
+    endpoint=[{"rule_id": "fae9f554-d3bc-4d48-8863-54d0dd68db54", "rule_name": "Library Loaded via a CallBack Function"}],
     techniques=["T1574"],
 )
 
