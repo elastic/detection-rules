@@ -19,11 +19,14 @@ import subprocess
 import sys
 import tempfile
 import threading
-import time
+import time 
+import ctypes
 from pathlib import Path
 from typing import Iterable, Optional, Union
+from ctypes import byref, windll, wintypes
 
 
+    
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 long_t = type(1 << 63)
@@ -104,6 +107,36 @@ EXPAND_SZ = "expand_sz"
 MULTI_SZ = "multi_sz"
 DWORD = "dword"
 
+TH32CS_SNAPPROCESS = 0x00000002
+PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+TOKEN_DUPLICATE = 0x0002
+TOKEN_ALL_ACCESS = 0xf00ff
+MAX_PATH = 260
+
+BOOL    = ctypes.c_int
+DWORD   = ctypes.c_uint32
+HANDLE  = ctypes.c_void_p
+LONG    = ctypes.c_int32
+NULL_T  = ctypes.c_void_p
+SIZE_T  = ctypes.c_uint
+TCHAR   = ctypes.c_char
+USHORT  = ctypes.c_uint16
+UCHAR   = ctypes.c_ubyte
+ULONG   = ctypes.c_uint32
+
+class PROCESSENTRY32(ctypes.Structure):
+   _fields_ = [
+        ('dwSize',              DWORD),
+        ('cntUsage',            DWORD),
+        ('th32ProcessID',       DWORD),
+        ('th32DefaultHeapID',   NULL_T),
+        ('th32ModuleID',        DWORD),
+        ('cntThreads',          DWORD),
+        ('th32ParentProcessID', DWORD),
+        ('pcPriClassBase',      LONG),
+        ('dwFlags',             DWORD),
+        ('szExeFile',           TCHAR * MAX_PATH)
+    ]
 
 OS_MAPPING = {WINDOWS: [], MACOS: [], LINUX: []}
 
@@ -669,3 +702,29 @@ def print_file(path):
             print(f.read().rstrip())
 
     print("")
+
+
+# return pid by process.name
+def getppid(pname):
+    CreateToolhelp32Snapshot = ctypes.windll.kernel32.CreateToolhelp32Snapshot 
+    Process32First = ctypes.windll.kernel32.Process32First  
+    Process32Next = ctypes.windll.kernel32.Process32Next 
+    CloseHandle = ctypes.windll.kernel32.CloseHandle 
+
+    hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) 
+    pe32 = PROCESSENTRY32() 
+    pe32.dwSize = ctypes.sizeof(PROCESSENTRY32)
+    current_pid = os.getpid()
+
+
+    if Process32First(hProcessSnap, ctypes.byref(pe32)) == 0:
+     print("[x] - Failed getting first process.") 
+     return
+
+    while True:
+        procname = pe32.szExeFile.decode("utf-8").lower()
+        if pname.lower() in procname:
+          return pe32.th32ProcessID
+        if not Process32Next(hProcessSnap, ctypes.byref(pe32)): 
+         return None
+    CloseHandle(hProcessSnap)
