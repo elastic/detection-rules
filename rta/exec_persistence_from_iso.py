@@ -10,9 +10,9 @@ import os
 metadata = RtaMetadata(
     uuid="a4355bfc-aa15-43f6-a36d-523aa637127b",
     platforms=["windows"],
-    endpoint=[],
-    siem=[{"rule_id": "0cdf1d24-b1c3-4952-a400-5ba3c1491087", "rule_name": "Persistence via a Process from a Removable or Mounted ISO Device"},
-          {"rule_id": "3c12c648-e29f-4bff-9157-b07f2cbddf1a", "rule_name": "Scheduled Task from a Removable or Mounted ISO Device"}],
+    siem=[],
+    endpoint=[{"rule_id": "0cdf1d24-b1c3-4952-a400-5ba3c1491087", "rule_name": "Persistence via a Process from a Removable or Mounted ISO Device"}, 
+              {"rule_id": "3c12c648-e29f-4bff-9157-b07f2cbddf1a", "rule_name": "Scheduled Task from a Removable or Mounted ISO Device"}],
     techniques=["T1071", "T1204"],
 )
 
