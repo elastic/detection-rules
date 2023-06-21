@@ -7,8 +7,10 @@
 import os
 import re
 import unittest
+import uuid
 import warnings
 from collections import defaultdict
+from marshmallow import ValidationError
 from pathlib import Path
 
 import eql.ast
@@ -23,6 +25,7 @@ from detection_rules.packaging import current_stack_version
 from detection_rules.rule import (QueryRuleData, TOMLRuleContents,
                                   load_integrations_manifests, QueryValidator)
 from detection_rules.rule_loader import FILE_PATTERN
+from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_stack_schemas
 from detection_rules.utils import INTEGRATION_RULE_DIR, get_path, load_etc_dump, PatchedTemplate
 from detection_rules.version_lock import default_version_lock
@@ -93,6 +96,50 @@ class TestValidRules(BaseRuleTest):
     def test_rule_type_changes(self):
         """Test that a rule type did not change for a locked version"""
         default_version_lock.manage_versions(self.production_rules)
+
+    def test_bbr_validation(self):
+        base_fields = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["filebeat-*", "logs-aws*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+            "timestamp_override": "event.ingested"
+        }
+
+        def build_rule(query, bbr_type="default", from_field="now-120m", interval="60m"):
+            metadata = {
+                "creation_date": "1970/01/01",
+                "updated_date": "1970/01/01",
+                "min_stack_version": load_current_package_version(),
+                "integration": ["cloud_defend"]
+            }
+            data = base_fields.copy()
+            data["query"] = query
+            data["building_block_type"] = bbr_type
+            if from_field:
+                data["from"] = from_field
+            if interval:
+                data["interval"] = interval
+            obj = {"metadata": metadata, "rule": data}
+            return TOMLRuleContents.from_dict(obj)
+
+        query = """
+            event.dataset:aws.cloudtrail and event.outcome:success
+        """
+
+        build_rule(query=query)
+
+        with self.assertRaises(ValidationError):
+            build_rule(query=query, bbr_type="invalid")
+
+        with self.assertRaises(ValidationError):
+            build_rule(query=query, from_field="now-10m", interval="10m")
 
 
 class TestThreatMappings(BaseRuleTest):
@@ -368,6 +415,18 @@ class TestRuleFiles(BaseRuleTest):
             rule_err_str = '\n'.join(bad_name_rules)
             self.fail(f'{error_msg}:\n{rule_err_str}')
 
+    def test_bbr_in_correct_dir(self):
+        """Ensure that BBR are in the correct directory."""
+        for rule in self.bbr:
+            self.assertEqual(rule.path.parent.name, 'rules_building_block',
+                             f'{self.rule_str(rule)} should be in the rules_building_block directory')
+
+    def test_non_bbr_in_correct_dir(self):
+        """Ensure that non-BBR are not in BBR directory."""
+        for rule in self.all_rules:
+            if rule.path.parent.name == 'rules_building_block':
+                self.assertIn(rule, self.bbr, f'{self.rule_str(rule)} should be in the rules_building_block directory')
+
 
 class TestRuleMetadata(BaseRuleTest):
     """Test the metadata of rules."""
@@ -455,16 +514,23 @@ class TestRuleMetadata(BaseRuleTest):
             if isinstance(rule.contents.data, QueryRuleData) and rule.contents.data.language != 'lucene':
                 rule_integrations = rule.contents.metadata.get('integration') or []
                 rule_integrations = [rule_integrations] if isinstance(rule_integrations, str) else rule_integrations
+                rule_promotion = rule.contents.metadata.get('promotion')
                 data = rule.contents.data
                 meta = rule.contents.metadata
                 package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
                 package_integrations_list = list(set([integration["package"] for integration in package_integrations]))
                 indices = data.get('index')
                 for rule_integration in rule_integrations:
+                    if ("even.dataset" in rule.contents.data.query and not package_integrations and  # noqa: W504
+                       not rule_promotion and rule_integration not in definitions.NON_DATASET_PACKAGES):  # noqa: W504
+                        err_msg = f'{self.rule_str(rule)} {rule_integration} tag, but integration not \
+                                found in manifests/schemas.'
+                        failures.append(err_msg)
 
                     # checks if the rule path matches the intended integration
+                    # excludes BBR rules
                     if rule_integration in valid_integration_folders:
-                        if rule.path.parent.name not in rule_integrations:
+                        if rule.path.parent.name not in rule_integrations and rule.path.parent.name != "bbr":
                             err_msg = f'{self.rule_str(rule)} {rule_integration} tag, path is {rule.path.parent.name}'
                             failures.append(err_msg)
 
@@ -506,6 +572,163 @@ class TestRuleMetadata(BaseRuleTest):
                     - `python -m detection_rules dev integrations build-manifests`\n
                 """
             self.fail(err_msg + '\n'.join(failures))
+
+    def test_invalid_queries(self):
+        invalid_queries_eql = [
+            """file where file.fake: (
+                "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem", "gpg.sig", "der", "key",
+                "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst", "pgp", "gpgz", "pfx", "crt",
+                "p8", "sig", "pkcs7", "jceks", "pkcs8", "psc1", "p7c", "csr", "cer", "spc", "ps2xml")
+            """
+        ]
+        invalid_integration_queries_eql = [
+            """file where event.dataset == "google_workspace.drive" and event.action : ("copy", "view", "download") and
+                    google_workspace.drive.fake: "people_with_link" and source.user.email == "" and
+                    file.extension: (
+                        "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem", "gpg.sig", "der", "key",
+                        "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst", "pgp", "gpgz", "pfx",
+                        "crt", "p8", "sig", "pkcs7", "jceks", "pkcs8", "psc1", "p7c", "csr", "cer", "spc", "ps2xml")
+            """,
+            """file where event.dataset == "google_workspace.drive" and event.action : ("copy", "view", "download") and
+                    google_workspace.drive.visibility: "people_with_link" and source.user.email == "" and
+                    file.fake: (
+                        "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem", "gpg.sig", "der", "key",
+                        "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst", "pgp", "gpgz",
+                        "pfx", "crt", "p8", "sig", "pkcs7", "jceks", "pkcs8", "psc1", "p7c", "csr", "cer", "spc",
+                        "ps2xml")
+            """
+        ]
+
+        valid_queries_eql = [
+            """file where file.extension: (
+                "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem",
+                "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst",
+                "p8", "sig", "pkcs7", "jceks", "pkcs8", "psc1", "p7c", "csr", "cer")
+            """,
+            """file where event.dataset == "google_workspace.drive" and event.action : ("copy", "view", "download") and
+                    google_workspace.drive.visibility: "people_with_link" and source.user.email == "" and
+                    file.extension: (
+                        "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem", "gpg.sig", "der", "key",
+                        "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst", "pgp", "gpgz", "pfx",
+                        "p8", "sig", "pkcs7", "jceks", "pkcs8", "psc1", "p7c", "csr", "cer", "spc", "ps2xml")
+            """
+
+        ]
+
+        invalid_queries_kql = [
+            """
+            event.fake:"google_workspace.admin" and event.action:"CREATE_DATA_TRANSFER_REQUEST"
+              and event.category:"iam" and google_workspace.admin.application.name:Drive*
+            """
+        ]
+        invalid_integration_queries_kql = [
+            """
+            event.dataset:"google_workspace.admin" and event.action:"CREATE_DATA_TRANSFER_REQUEST"
+              and event.category:"iam" and google_workspace.fake:Drive*
+            """
+        ]
+
+        valid_queries_kql = [
+            """
+            event.dataset:"google_workspace.admin" and event.action:"CREATE_DATA_TRANSFER_REQUEST"
+              and event.category:"iam" and google_workspace.admin.application.name:Drive*
+            """,
+            """
+            event.dataset:"google_workspace.admin" and event.action:"CREATE_DATA_TRANSFER_REQUEST"
+            """
+
+        ]
+
+        base_fields_eql = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["filebeat-*"],
+            "language": "eql",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "eql"
+        }
+
+        base_fields_kql = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["filebeat-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query"
+        }
+
+        def build_rule(query: str, query_language: str):
+            metadata = {
+                "creation_date": "1970/01/01",
+                "integration": ["google_workspace"],
+                "updated_date": "1970/01/01",
+                "query_schema_validation": True,
+                "maturity": "production",
+                "min_stack_version": load_current_package_version()
+            }
+            if query_language == "eql":
+                data = base_fields_eql.copy()
+            elif query_language == "kuery":
+                data = base_fields_kql.copy()
+            data["query"] = query
+            obj = {"metadata": metadata, "rule": data}
+            return TOMLRuleContents.from_dict(obj)
+        # eql
+        for query in valid_queries_eql:
+            build_rule(query, "eql")
+
+        for query in invalid_queries_eql:
+            with self.assertRaises(eql.EqlSchemaError):
+                build_rule(query, "eql")
+
+        for query in invalid_integration_queries_eql:
+            with self.assertRaises(ValueError):
+                build_rule(query, "eql")
+        # kql
+        for query in valid_queries_kql:
+            build_rule(query, "kuery")
+
+        for query in invalid_queries_kql:
+            with self.assertRaises(kql.KqlParseError):
+                build_rule(query, "kuery")
+
+        for query in invalid_integration_queries_kql:
+            with self.assertRaises(ValueError):
+                build_rule(query, "kuery")
+
+    def test_event_dataset(self):
+        for rule in self.all_rules:
+            if(isinstance(rule.contents.data, QueryRuleData)):
+                # Need to pick validator based on language
+                if rule.contents.data.language == "kuery":
+                    test_validator = KQLValidator(rule.contents.data.query)
+                if rule.contents.data.language == "eql":
+                    test_validator = EQLValidator(rule.contents.data.query)
+                data = rule.contents.data
+                meta = rule.contents.metadata
+                if meta.query_schema_validation is not False or meta.maturity != "deprecated":
+                    if isinstance(data, QueryRuleData) and data.language != 'lucene':
+                        packages_manifest = load_integrations_manifests()
+                        pkg_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
+
+                        validation_integrations_check = None
+
+                        if pkg_integrations:
+                            # validate the query against related integration fields
+                            validation_integrations_check = test_validator.validate_integration(data,
+                                                                                                meta,
+                                                                                                pkg_integrations)
+
+                        if(validation_integrations_check and "event.dataset" in rule.contents.data.query):
+                            raise validation_integrations_check
 
 
 class TestIntegrationRules(BaseRuleTest):
@@ -821,7 +1044,10 @@ class TestEndpointQuery(BaseRuleTest):
             fields = [str(f) for f in ast if isinstance(f, (kql.ast.Field, eql.ast.Field))]
 
             err_msg = f'{self.rule_str(rule)} missing required field for endpoint rule'
-            self.assertIn('host.os.type', fields, err_msg)
+            if 'host.os.type' not in fields:
+                # Exception for Forwarded Events which contain Windows-only fields.
+                if rule.path.parent.name == 'windows' and not any(field.startswith('winlog.') for field in fields):
+                    self.assertIn('host.os.type', fields, err_msg)
 
             # going to bypass this for now
             # if rule.path.parent.name == 'linux':
