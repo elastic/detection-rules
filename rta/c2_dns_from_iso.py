@@ -10,11 +10,11 @@ import os
 metadata = RtaMetadata(
     uuid="ba802fb2-f183-420e-947m-da5ce0235d123",
     platforms=["windows"],
-    endpoint=[],
-    siem=[{"rule_id": "3bc98de7-3349-43ac-869c-58357ae2aac0", "rule_name": "Suspicious DNS Query from Mounted Virtual Disk"},
-          {"rule_id": "88f6c3d4-112e-4fad-b3ef-33095c954b63", "rule_name": "Suspicious DNS Query to Free SSL Certificate Domains"},
-          {"rule_id": "d37ffe39-8e58-460f-938d-3bafbae60711", "rule_name": "DNS Query to Suspicious Top Level Domain"}],
-    techniques=["T1071", "T1204"],
+    siem=[],
+    endpoint=[{"rule_id": "3bc98de7-3349-43ac-869c-58357ae2aac0", "rule_name": "Suspicious DNS Query from Mounted Virtual Disk"}, 
+              {"rule_id": "88f6c3d4-112e-4fad-b3ef-33095c954b63", "rule_name": "Suspicious DNS Query to Free SSL Certificate Domains"}, 
+              {"rule_id": "d37ffe39-8e58-460f-938d-3bafbae60711", "rule_name": "DNS Query to Suspicious Top Level Domain"}],
+    techniques=["T1071", "T1204", "T1071.004"],
 )
 
 # iso contains ping.exe to test for rules looking for suspicious DNS queries from mounted ISO file
