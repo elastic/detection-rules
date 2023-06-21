@@ -25,7 +25,7 @@ metadata = RtaMetadata(
         {"rule_name": "Potential Credential Access via Windows Credential History", "rule_id": "ce8a6302-7248-457a-8427-3d6bad14e2f0"},
     ],    
     siem=[],
-    techniques=["T1134"],
+    techniques=["T1555.004", "T1552.001", "T1003.003"],
 )
 
 @common.requires_os(metadata.platforms)
