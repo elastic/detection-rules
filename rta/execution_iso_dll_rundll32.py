@@ -10,10 +10,10 @@ import os
 metadata = RtaMetadata(
     uuid="8bd17f51-3fc0-46a8-9e1a-662723314ad4",
     platforms=["windows"],
-    endpoint=[],
-    siem=[{"rule_id": "779b9502-7912-4773-95a1-51cd702a71c8", "rule_name": "Suspicious ImageLoad from an ISO Mounted Device"},
-          {"rule_id": "08fba401-b76f-4c7b-9a88-4f3b17fe00c1", "rule_name": "DLL Loaded from an Archive File"}],
-    techniques=["T1574"],
+    siem=[],
+    endpoint=[{"rule_id": "779b9502-7912-4773-95a1-51cd702a71c8", "rule_name": "Suspicious ImageLoad from an ISO Mounted Device"}, 
+              {"rule_id": "08fba401-b76f-4c7b-9a88-4f3b17fe00c1", "rule_name": "DLL Loaded from an Archive File"}],
+    techniques=["T1574", "T1574.002"],
 )
 
 # iso contains shortcut to start Rundll32 to load a testing DLL that when executed it will spawn notepad.exe
