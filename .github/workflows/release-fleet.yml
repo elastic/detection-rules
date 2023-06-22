@@ -11,11 +11,33 @@ on:
         required: true
         default: 'main'
       draft:
-        description: 'Create a PR as draft (y/n)'
+        type: choice
+        description: 'Create a PR as draft'
         required: false
+        options:
+          - "yes"
+          - "no"
       package_maturity:
-        description: 'Package Maturity (ga/beta)'
+        type: choice
+        description: 'Package Maturity'
         required: true
+        options:
+          - "ga"
+          - "beta"
+      new_package:
+        type: choice
+        description: 'New Package'
+        required: true
+        options:
+          - "true"
+          - "false"
+      add_historical:
+        type: choice
+        description: 'Add Historical Rules'
+        required: true
+        options:
+          - "yes"
+          - "no"
       commit_hash:
         description: 'Commit hash'
         required: true
@@ -83,6 +105,7 @@ jobs:
         run: |
           cd detection-rules
           python -m pip install --upgrade pip
+          pip cache purge
           pip install .[dev]
 
       - name: Checkout commit hash
@@ -95,10 +118,12 @@ jobs:
       - name: Bump prebuilt rules package version
         env:
           PACKAGE_MATURITY: "${{github.event.inputs.package_maturity}}"
+          NEW_PACKAGE: "${{github.event.inputs.new_package}}"
         run: |
           cd detection-rules
           python -m detection_rules dev bump-pkg-versions \
             --patch-release                               \
+            --new-package $NEW_PACKAGE                    \
             --maturity $PACKAGE_MATURITY
 
       - name: Store release tag
@@ -119,9 +144,11 @@ jobs:
           git push origin $RELEASE_TAG
 
       - name: Build release package
+        env:
+          HISTORICAL: "${{github.event.inputs.add_historical}}"
         run: |
           cd detection-rules
-          python -m detection_rules dev build-release
+          python -m detection_rules dev build-release --add-historical $HISTORICAL
 
       - name: Set github config
         run: |

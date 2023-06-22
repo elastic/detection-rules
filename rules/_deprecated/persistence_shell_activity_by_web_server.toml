@@ -1,0 +1,101 @@
+[metadata]
+creation_date = "2020/02/18"
+deprecation_date = "2023/03/04"
+integration = ["endpoint"]
+maturity = "deprecated"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/03/04"
+
+[rule]
+author = ["Elastic"]
+description = "Identifies suspicious commands executed via a web server, which may suggest a vulnerability and remote shell access."
+false_positives = [
+    """
+    Network monitoring or management products may have a web server component that runs shell commands as part of normal
+    behavior.
+    """,
+]
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential Shell via Web Server"
+note = """## Triage and analysis
+
+### Investigating Potential Shell via Web Server
+
+Adversaries may backdoor web servers with web shells to establish persistent access to systems. A web shell is a web script that is placed on an openly accessible web server to allow an adversary to use the web server as a gateway into a network. A web shell may provide a set of functions to execute or a command line interface on the system that hosts the web server.
+
+This rule detects a web server process spawning script and command line interface programs, potentially indicating attackers executing commands using the web shell.
+
+#### Possible investigation steps
+
+- Investigate abnormal behaviors observed by the subject process such as network connections, file modifications, and
+any other spawned child processes.
+- Examine the command line to determine which commands or scripts were executed.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- If scripts or executables were dropped, retrieve the files and determine if they are malicious:
+  - Use a private sandboxed malware analysis system to perform analysis.
+    - Observe and collect information about the following activities:
+      - Attempts to contact external domains and addresses.
+        - Check if the domain is newly registered or unexpected.
+        - Check the reputation of the domain or IP address.
+      - File access, modification, and creation activities.
+      - Cron jobs, services and other persistence mechanisms.
+
+### False positive analysis
+
+- This activity is unlikely to happen legitimately. Any activity that triggered the alert and is not inherently malicious must be monitored by the security team.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = [
+    "https://pentestlab.blog/tag/web-shell/",
+    "https://www.elastic.co/security-labs/elastic-response-to-the-the-spring4shell-vulnerability-cve-2022-22965",
+]
+risk_score = 47
+rule_id = "231876e7-4d1f-4d63-a47c-47dd1acdc1cb"
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Investigation Guide", "Elastic Endgame"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.category:process and host.os.type:linux and event.type:(start or process_started) and
+process.name:(bash or dash or ash or zsh or "python*" or "perl*" or "php*") and
+process.parent.name:("apache" or "nginx" or "www" or "apache2" or "httpd" or "www-data")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+[[rule.threat.technique.subtechnique]]
+id = "T1505.003"
+name = "Web Shell"
+reference = "https://attack.mitre.org/techniques/T1505/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
