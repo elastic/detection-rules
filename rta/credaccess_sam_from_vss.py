@@ -17,7 +17,7 @@ metadata = RtaMetadata(
     techniques=['T1003', 'T1003.002'],
 )
 
-def vss_list():
+def get_vss_list():
     wcd = win32com.client.Dispatch("WbemScripting.SWbemLocator")
     wmi = wcd.ConnectServer(".","root\cimv2")
     obj = wmi.ExecQuery("SELECT * FROM Win32_ShadowCopy")
