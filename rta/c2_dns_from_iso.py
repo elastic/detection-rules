@@ -22,12 +22,12 @@ ISO = common.get_path("bin", "ping_dns_from_iso.iso")
 PROC = 'ping.exe'
 
 # ps script to mount, execute a file and unmount ISO device
-psf = common.get_path("bin", "ExecFromISOFile.ps1")
+PS_SCRIPT = common.get_path("bin", "ExecFromISOFile.ps1")
 
 @common.requires_os(metadata.platforms)
 
 def main():
-    if os.path.exists(ISO) and os.path.exists(psf):
+    if os.path.exists(ISO) and os.path.exists(PS_SCRIPT):
         print('[+] - ISO File ', ISO, 'will be mounted and executed via powershell')
 
         # 3 unique domains to trigger 3 unique rules looking for dns events via a process running from a mounted ISO file
