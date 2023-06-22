@@ -26,7 +26,7 @@ metadata = RtaMetadata(
 DLL = common.get_path("bin", "faultrep.dll")
 
 # we will copy WerFault.exe to temp to sideload our testing DLL faultrep.dll
-wer = "c:\\windows\\system32\\werfault.exe"
+WER = "c:\\windows\\system32\\werfault.exe"
 
 @common.requires_os(metadata.platforms)
 
@@ -37,7 +37,7 @@ def main():
         rta_pe = path.expandvars("%localappdata%\\Temp\\wer.exe")
         # copy files to temp
         win32file.CopyFile(DLL,tempc, 0)
-        win32file.CopyFile(wer, rta_pe, 0)
+        win32file.CopyFile(WER, rta_pe, 0)
         if os.path.exists(tempc):
             print('[+] - ', DLL, 'copied to', tempc)
         print('[+] - File ', tempc, 'will be appended with null bytes to reach 90MB in size.')
