@@ -18,10 +18,10 @@ metadata = RtaMetadata(
 )
 
 def vss_list():
-    wcd=win32com.client.Dispatch("WbemScripting.SWbemLocator")
-    wmi=wcd.ConnectServer(".","root\cimv2")
-    obj=wmi.ExecQuery("SELECT * FROM Win32_ShadowCopy")
-    return [x.DeviceObject for x in obj]
+    wcd = win32com.client.Dispatch("WbemScripting.SWbemLocator")
+    wmi = wcd.ConnectServer(".","root\cimv2")
+    obj = wmi.ExecQuery("SELECT * FROM Win32_ShadowCopy")
+    return [o.DeviceObject for o in obj]
 
 def vss_create():
     wmi=win32com.client.GetObject("winmgmts:\\\\.\\root\\cimv2:Win32_ShadowCopy")
