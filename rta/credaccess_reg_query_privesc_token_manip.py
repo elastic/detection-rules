@@ -26,9 +26,6 @@ metadata = RtaMetadata(
 )
 
 @common.requires_os(metadata.platforms)
-
-
-
 def main():
     hprocess = wintypes.HANDLE()
     hsystem_token = wintypes.HANDLE()
