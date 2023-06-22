@@ -726,6 +726,7 @@ def print_file(path):
 
 
 # return pid by process.name
+@requires_os('windows')
 def getppid(pname):
     CreateToolhelp32Snapshot = ctypes.windll.kernel32.CreateToolhelp32Snapshot 
     Process32First = ctypes.windll.kernel32.Process32First  
