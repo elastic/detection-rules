@@ -7,7 +7,6 @@ from . import common
 from . import RtaMetadata
 import win32file, os, win32com.client
 
-OPEN_EXISTING = 3
 
 metadata = RtaMetadata(
     uuid="b78f0255-3b97-4e39-8857-ec74d09e36ba",
@@ -33,26 +32,26 @@ def vss_create():
 
 @common.requires_os(metadata.platforms)
 def main():
-    c = vss_list()
-    if len(c) > 0 :
-       sam_path = f"{c[0]}\\Windows\\System32\\config\\SAM"
+    vss_list = get_vss_list()
+    if len(vss_list) > 0 :
+       sam_path = f"{vss_list[0]}\\Windows\\System32\\config\\SAM"
        print(f'[+] - Attempting to Open {sam_path}')
-       hf = win32file.CreateFile(sam_path, win32file.GENERIC_READ, 0, None, OPEN_EXISTING, 0, None)
+       hf = win32file.CreateFile(sam_path, win32file.GENERIC_READ, 0, None, 3, 0, None)
        if (hf):
-           print('[+] - RTA Done!')
+           print(f'[+] - RTA Done!')
            win32file.CloseHandle(hf)
        else :
            print('[x] - RTA Failed :(')
 
     else :
-        c = vss_create()
-        sam_path = c[0] + "\\Windows\\System32\\config\\SAM"
-        hf = win32file.CreateFile(sam_path, win32file.GENERIC_READ, 0, None, OPEN_EXISTING, 0, None)
+        vss_list = vss_create()
+        sam_path = f"{vss_list[0]}\\Windows\\System32\\config\\SAM"
+        hf = win32file.CreateFile(sam_path, win32file.GENERIC_READ, 0, None, 3, 0, None)
         if (hf):
-            print('[+] - RTA Done!')
+            print(f'[+] - RTA Done!')
             win32file.CloseHandle(hf)
         else :
-            print('[x] - RTA Failed :(')
+            print(f'[x] - RTA Failed :(')
 
 if __name__ == "__main__":
     exit(main())
