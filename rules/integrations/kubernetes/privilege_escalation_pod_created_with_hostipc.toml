@@ -4,7 +4,7 @@ integration = ["kubernetes"]
 maturity = "production"
 min_stack_comments = "New fields added to Kubernetes Integration"
 min_stack_version = "8.4.0"
-updated_date = "2023/05/31"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -44,7 +44,12 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:kubernetes.audit_logs and kubernetes.audit.annotations.authorization_k8s_io/decision:allow and kubernetes.audit.objectRef.resource:pods and kubernetes.audit.verb:(create or patch or update) and kubernetes.audit.requestObject.spec.hostIPC:true and not kubernetes.audit.requestObject.spec.containers.image:"docker.elastic.co/beats/elastic-agent:8.4.0"
+event.dataset : "kubernetes.audit_logs"
+  and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow"
+  and kubernetes.audit.objectRef.resource:"pods"
+  and kubernetes.audit.verb:("create" or "update" or "patch")
+  and kubernetes.audit.requestObject.spec.hostIPC:true
+  and not kubernetes.audit.requestObject.spec.containers.image: ("docker.elastic.co/beats/elastic-agent:8.4.0")
 '''
 
 

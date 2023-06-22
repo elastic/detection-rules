@@ -4,14 +4,14 @@ integration = ["windows", "system"]
 maturity = "production"
 min_stack_comments = "The New Term rule type used in this rule was added in Elastic 8.4"
 min_stack_version = "8.4.0"
-updated_date = "2023/05/31"
+updated_date = "2023/03/29"
 
 [rule]
 author = ["Elastic"]
 description = """
-Adversaries may pass the hash using stolen password hashes to move laterally within an environment, bypassing normal
-system access controls. Pass the hash (PtH) is a method of authenticating as a user without having access to the user's
-cleartext password.
+Adversaries may pass the hash using stolen password hashes to move laterally within an environment, 
+bypassing normal system access controls. Pass the hash (PtH) is a method of authenticating as a user 
+without having access to the user's cleartext password. 
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.*", "logs-system.*"]
@@ -27,7 +27,10 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type:windows and event.category:authentication and event.action:logged-in and winlog.logon.type:NewCredentials and event.outcome:success and user.id:(S-1-12-1-* or S-1-5-21-*) and winlog.event_data.LogonProcessName:seclogo
+host.os.type:"windows" and 
+event.category : "authentication" and event.action : "logged-in" and 
+winlog.logon.type : "NewCredentials" and event.outcome : "success" and 
+user.id : (S-1-5-21-* or S-1-12-1-*) and winlog.event_data.LogonProcessName : "seclogo"
 '''
 
 
@@ -49,11 +52,11 @@ id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
 
+
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["user.id"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-10d"
-
-

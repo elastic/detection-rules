@@ -4,7 +4,7 @@ integration = ["google_workspace"]
 maturity = "production"
 min_stack_comments = "Breaking changes for Google Workspace integration."
 min_stack_version = "8.4.0"
-updated_date = "2023/05/31"
+updated_date = "2023/04/12"
 
 [rule]
 author = ["Elastic"]
@@ -97,13 +97,15 @@ tags = [
     "SecOps",
     "Configuration Audit",
     "Defense Evasion",
-    "Investigation Guide",
+    "Investigation Guide"
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:google_workspace.admin and event.action:CHANGE_APPLICATION_SETTING and event.category:(configuration or iam) and google_workspace.event.type:APPLICATION_SETTINGS and google_workspace.admin.application.name:"Google Workspace Marketplace" and google_workspace.admin.setting.name:"Apps Access Setting Allowlist access" and google_workspace.admin.new_value:ALLOW_ALL
+event.dataset:"google_workspace.admin" and event.action:"CHANGE_APPLICATION_SETTING" and event.category:(iam or configuration)
+    and google_workspace.event.type:"APPLICATION_SETTINGS" and google_workspace.admin.application.name:"Google Workspace Marketplace"
+        and google_workspace.admin.setting.name:"Apps Access Setting Allowlist access"  and google_workspace.admin.new_value:"ALLOW_ALL"
 '''
 
 

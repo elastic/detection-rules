@@ -4,7 +4,7 @@ integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/05/31"
+updated_date = "2023/04/27"
 
 [rule]
 author = ["Elastic"]
@@ -98,7 +98,17 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.code:5136 and winlog.event_data.AttributeLDAPDisplayName:(gPCMachineExtensionNames or gPCUserExtensionNames) and winlog.event_data.AttributeValue:(*42B5FAAE-6536-11D2-AE5A-0000F87571E3* and (*40B6664F-4972-11D1-A7CA-0000F87571E3* or *40B66650-4972-11D1-A7CA-0000F87571E3*)) or event.code:5145 and winlog.event_data.ShareName:\\\\\\\\*\\\\SYSVOL and winlog.event_data.RelativeTargetName:(*\\\\psscripts.ini or *\\\\scripts.ini) and (message:WriteData or winlog.event_data.AccessList:*%%4417*)
+(
+ event.code:5136 and winlog.event_data.AttributeLDAPDisplayName:(gPCMachineExtensionNames or gPCUserExtensionNames) and
+   winlog.event_data.AttributeValue:(*42B5FAAE-6536-11D2-AE5A-0000F87571E3* and
+                                      (*40B66650-4972-11D1-A7CA-0000F87571E3* or *40B6664F-4972-11D1-A7CA-0000F87571E3*))
+)
+or
+(
+ event.code:5145 and winlog.event_data.ShareName:\\\\*\\SYSVOL and
+   winlog.event_data.RelativeTargetName:(*\\scripts.ini or *\\psscripts.ini) and
+   (message:WriteData or winlog.event_data.AccessList:*%%4417*)
+)
 '''
 
 

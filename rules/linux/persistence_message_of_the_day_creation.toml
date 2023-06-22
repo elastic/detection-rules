@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup, New Term"
 min_stack_version = "8.6.0"
-updated_date = "2023/05/31"
+updated_date = "2023/04/05"
 
 [rule]
 author = ["Elastic"]
@@ -22,7 +22,7 @@ language = "kuery"
 license = "Elastic License v2"
 name = "Potential Persistence Through MOTD File Creation Detected"
 references = [
-    "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#10-boot-or-logon-initialization-scripts-motd",
+    "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#10-boot-or-logon-initialization-scripts-motd"
 ]
 risk_score = 47
 rule_id = "96d11d31-9a79-480f-8401-da28b194608f"
@@ -31,7 +31,10 @@ tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Elastic 
 type = "new_terms"
 
 query = '''
-host.os.type:linux and event.action:(creation or file_create_event or file_rename_event or rename) and file.path:(/etc/update-motd.d/* or /usr/lib/update-notifier/*) and not process.executable:(/bin/rpm or /usr/bin/dockerd or /usr/bin/dpkg) and not file.extension:swp
+host.os.type :"linux" and event.action:("creation" or "file_create_event" or "rename" or "file_rename_event") and 
+file.path : (/etc/update-motd.d/* or /usr/lib/update-notifier/*) and not 
+process.executable : ("/usr/bin/dpkg" or "/usr/bin/dockerd" or "/bin/rpm") and not 
+file.extension : "swp"
 '''
 
 
@@ -43,10 +46,12 @@ name = "Boot or Logon Initialization Scripts"
 reference = "https://attack.mitre.org/techniques/T1037/"
 
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 
 [rule.new_terms]
 field = "new_terms_fields"
@@ -54,5 +59,3 @@ value = ["file.path", "process.name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
-
-

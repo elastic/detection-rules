@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/05/31"
+updated_date = "2023/04/20"
 
 [rule]
 author = ["Elastic"]
@@ -83,7 +83,35 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and host.os.type:windows and powershell.file.script_block_text:(DsEnumerateDomainTrusts or DsGetSiteName or GetComputerNameEx or GetUserNameEx or LsaEnumerateTrustedDomains or LsaGetLogonSessionData or NetGroupEnum or NetGroupGetInfo or NetGroupGetUsers or NetLocalGroupEnum or NetLocalGroupGetMembers or NetScheduleJobEnum or NetServerGetInfo or NetSessionEnum or NetShareEnum or NetUserEnum or NetUserGetInfo or NetUserModalsGet or NetWkstaGetInfo or NetWkstaTransportEnum or NetWkstaUserEnum or QueryServiceObjectSecurity or WTSEnumerateSessionsEx or WTSQuerySessionInformation) and not (user.id:(S-1-5-18 or S-1-5-19) and file.directory:"C:\ProgramData\Microsoft\Windows Defender Advanced Threat Protection\DataCollection")
+event.category:process and host.os.type:windows and
+  powershell.file.script_block_text : (
+    NetShareEnum or
+    NetWkstaUserEnum or
+    NetSessionEnum or
+    NetLocalGroupEnum or
+    NetLocalGroupGetMembers or
+    DsGetSiteName or
+    DsEnumerateDomainTrusts or
+    WTSEnumerateSessionsEx or
+    WTSQuerySessionInformation or
+    LsaGetLogonSessionData or
+    QueryServiceObjectSecurity or
+    GetComputerNameEx or
+    NetWkstaGetInfo or
+    GetUserNameEx or
+    NetUserEnum or
+    NetUserGetInfo or
+    NetGroupEnum or
+    NetGroupGetInfo or
+    NetGroupGetUsers or
+    NetWkstaTransportEnum or
+    NetServerGetInfo or
+    LsaEnumerateTrustedDomains  or
+    NetScheduleJobEnum or
+    NetUserModalsGet
+  ) and not 
+  (user.id:("S-1-5-18" or "S-1-5-19") and
+   file.directory: "C:\\ProgramData\\Microsoft\\Windows Defender Advanced Threat Protection\\DataCollection")
 '''
 
 
@@ -98,7 +126,6 @@ id = "T1069.001"
 name = "Local Groups"
 reference = "https://attack.mitre.org/techniques/T1069/001/"
 
-
 [[rule.threat.technique]]
 id = "T1087"
 name = "Account Discovery"
@@ -108,16 +135,15 @@ id = "T1087.001"
 name = "Local Account"
 reference = "https://attack.mitre.org/techniques/T1087/001/"
 
+[[rule.threat.technique]]
+id = "T1482"
+name = "Domain Trust Discovery"
+reference = "https://attack.mitre.org/techniques/T1482/"
 
 [[rule.threat.technique]]
 id = "T1135"
 name = "Network Share Discovery"
 reference = "https://attack.mitre.org/techniques/T1135/"
-
-[[rule.threat.technique]]
-id = "T1482"
-name = "Domain Trust Discovery"
-reference = "https://attack.mitre.org/techniques/T1482/"
 
 
 [rule.threat.tactic]

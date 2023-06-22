@@ -4,7 +4,7 @@ integration = ["windows", "endpoint"]
 maturity = "production"
 min_stack_comments = "The New Term rule type used in this rule was added in Elastic 8.4"
 min_stack_version = "8.4.0"
-updated_date = "2023/05/31"
+updated_date = "2023/05/02"
 
 [rule]
 author = ["Elastic"]
@@ -31,7 +31,28 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type:windows and event.category:process and event.type:start and (process.code_signature.subject_name:("Ammyy LLC" or "BeamYourScreen GmbH" or GlavSoft or "LogMeIn, Inc." or "Nanosystems S.r.l." or "NetSupport Ltd" or "Pro Softnet Corporation" or RealVNC or "Remote Utilities LLC" or SAFIB or ShowMyPC or "Splashtop Inc." or "Yakhnovets Denis Aleksandrovich IP" or uvnc or TeamViewer*) or process.name.caseless:(AeroAdmin.exe or AnyDesk.exe or AteraAgent.exe or B4-Service.exe or DWRCC.exe or ISLLight.exe or ISLLightClient.exe or LMIIgnition.exe or LogMeIn.exe or Mikogo-Service.exe or ROMServer.exe or ROMServer.exe or ROMViewer.exe or RPCSuite.exe or RemoteDesktopManager.exe or RemotePC.exe or RemotePCDesktop.exe or RemotePCService.exe or SRService.exe or Splashtop-streamer.exe or SupremoHelper.exe or apc_Admin.exe or apc_host.exe or r_server.exe or radmin.exe or rfusclient.exe or rutserv.exe or rutview.exe or smpcview.exe or spclink.exe or strwinclt.exe or teamviewer.exe or tvn.exe or tvnserver.exe or tvnviewer.exe or vncserver.exe or vncviewer.exe or winvnc.exe or AA_v*.exe, or ScreenConnect*.exe)) and not (process.pe.original_file_name:(G2M.exe or Updater.exe or powershell.exe) and process.code_signature.subject_name:"LogMeIn, Inc.")
+host.os.type: "windows" and
+
+   event.category: "process" and event.type : "start" and
+
+    (
+    process.code_signature.subject_name : (
+        TeamViewer* or "NetSupport Ltd" or "GlavSoft" or "LogMeIn, Inc." or "Ammyy LLC" or
+        "Nanosystems S.r.l." or "Remote Utilities LLC" or "ShowMyPC" or "Splashtop Inc." or
+        "Yakhnovets Denis Aleksandrovich IP" or "Pro Softnet Corporation" or "BeamYourScreen GmbH" or
+        "RealVNC" or "uvnc" or "SAFIB") or
+
+    process.name.caseless : (
+        "teamviewer.exe" or "apc_Admin.exe" or "apc_host.exe" or "SupremoHelper.exe" or "rfusclient.exe" or
+        "spclink.exe" or "smpcview.exe" or "ROMServer.exe" or "strwinclt.exe" or "RPCSuite.exe" or "RemotePCDesktop.exe" or
+        "RemotePCService.exe" or "tvn.exe" or "LMIIgnition.exe" or "B4-Service.exe" or "Mikogo-Service.exe" or "AnyDesk.exe" or
+        "Splashtop-streamer.exe" or AA_v*.exe, or "rutserv.exe" or "rutview.exe" or "vncserver.exe" or "vncviewer.exe" or
+        "tvnserver.exe" or "tvnviewer.exe" or "winvnc.exe" or "RemoteDesktopManager.exe" or "LogMeIn.exe" or ScreenConnect*.exe or
+        "RemotePC.exe" or "r_server.exe" or "radmin.exe" or "ROMServer.exe" or "ROMViewer.exe" or "DWRCC.exe" or "AeroAdmin.exe" or
+        "ISLLightClient.exe" or "ISLLight.exe" or "AteraAgent.exe" or "SRService.exe")
+	) and
+
+	not (process.pe.original_file_name : ("G2M.exe" or "Updater.exe" or "powershell.exe") and process.code_signature.subject_name : "LogMeIn, Inc.")
 '''
 
 
