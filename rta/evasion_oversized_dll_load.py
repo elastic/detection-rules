@@ -39,8 +39,8 @@ def main():
         win32file.CopyFile(DLL,tempc, 0)
         win32file.CopyFile(WER, rta_pe, 0)
         if os.path.exists(tempc):
-            print('[+] - ', DLL, 'copied to', tempc)
-        print('[+] - File ', tempc, 'will be appended with null bytes to reach 90MB in size.')
+            print(f'[+] - ', DLL, 'copied to', tempc)
+        print(f'[+] - File ', tempc, 'will be appended with null bytes to reach 90MB in size.')
         # append null bytes to makde the DLL oversized 90+MB in size
         with open(tempc, 'rb+') as binfile:
             binfile.seek(100000000)
@@ -55,11 +55,11 @@ def main():
             common.execute(rta_pe)
         # cleanup
         common.execute(["taskkill", "/f", "/im", "notepad.exe"])
-        print('[+] - Cleanup.')
+        print(f'[+] - Cleanup.')
         win32file.DeleteFile(tempc)
         win32file.DeleteFile(rta_dll)
         win32file.DeleteFile(rta_pe)
-        print('[+] - RTA Done!')
+        print(f'[+] - RTA Done!')
 
 if __name__ == "__main__":
     exit(main())
