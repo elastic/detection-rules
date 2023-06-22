@@ -23,15 +23,15 @@ metadata = RtaMetadata(
 def main(): 
     win32file.CopyFile(path.expandvars("%systemroot%\\system32\\ntdll.dll"), path.expandvars("%localappdata%\\Temp\\notntdll.dll"), 0) 
     if os.path.exists("c:\\users\\public\\notntdll.dll"): 
-       print("[+] - NTDLL copied") 
+       print(f"[+] - NTDLL copied")
        r = win32api.LoadLibrary(path.expandvars("%localappdata%\\Temp\\notntdll.dll")) 
        if r > 0 : 
-          print("[+] - NTDLL copy loaded") 
+          print(f"[+] - NTDLL copy loaded")
           win32api.FreeLibrary(r)
           win32file.DeleteFile(path.expandvars("%localappdata%\\Temp\\notntdll.dll"))
-          print('[+] - NTDLL copy deleted')
+          print('f[+] - NTDLL copy deleted')
        else :  
-          print('[+] - Failed to load ntdll')
+          print('f[+] - Failed to load ntdll')
          
 if __name__ == "__main__":
     exit(main())

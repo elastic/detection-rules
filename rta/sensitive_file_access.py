@@ -46,12 +46,12 @@ def main():
              "C:\\Users\\Public\\.ssh\\known_hosts",
              "C:\\Users\\Public\\AppData\\Something\\FileZilla\\recentservers.xml",
              "%appdata%\\Microsoft\\Protect\\CREDHIST"]
-    for f in files:
+    for item in files:
         try:
-            win32file.CreateFile(path.expandvars(f), win32file.GENERIC_READ, 0, None, 3, 0, None)
+            win32file.CreateFile(path.expandvars(item), win32file.GENERIC_READ, 0, None, 3, 0, None)
             time.sleep(2)
         except Exception as e:
-               print('failed to open ', f)
+               print(f'[x] - Failed to open {item}')
                pass
          
 if __name__ == "__main__":

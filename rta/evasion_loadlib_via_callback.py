@@ -23,11 +23,11 @@ BIN = common.get_path("bin", "LoadLib-Callback64.exe")
 
 def main():
     if os.path.exists(BIN) :
-        print('[+] - File ', BIN, 'will be executed')
+        print(f'[+] - File {BIN} will be executed')
         common.execute(BIN)
         # cleanup
         common.execute(["taskkill", "/f", "/im", "LoadLib-Callback64.exe"])
-        print('[+] - RTA Done!')
+        print(f'[+] - RTA Done!')
 
 if __name__ == "__main__":
     exit(main())

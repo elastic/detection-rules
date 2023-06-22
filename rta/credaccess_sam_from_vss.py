@@ -41,7 +41,7 @@ def main():
            print(f'[+] - RTA Done!')
            win32file.CloseHandle(hf)
        else :
-           print('[x] - RTA Failed :(')
+           print(f'[x] - RTA Failed :(')
 
     else :
         vss_list = vss_create()

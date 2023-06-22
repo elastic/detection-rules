@@ -25,9 +25,9 @@ def startsvc_trustedinstaller():
        win32service.StartService(hs, "30")
        win32service.CloseServiceHandle(hscm)
        win32service.CloseServiceHandle(hs)
-       print('[+] - TrustedInstaller service started')
+       print(f'[+] - TrustedInstaller service started')
     except Exception as e:
-           print('[x] - Failed to start TrustedInstaller service, probably already started')
+           print(f'[x] - Failed to start TrustedInstaller service, probably already started')
            pass
 
 
@@ -37,16 +37,16 @@ def impersonate_trusted_installer():
         th = win32security.OpenProcessToken(hp, common.TOKEN_ALL_ACCESS)
         new_tokenh = win32security.DuplicateTokenEx(th, 2, common.TOKEN_ALL_ACCESS , win32security.TokenImpersonation , win32security.SECURITY_ATTRIBUTES())
         win32security.ImpersonateLoggedOnUser(new_tokenh) 
-        print('[+] - Impersonated TrustedInstaller service')
+        print(f'[+] - Impersonated TrustedInstaller service')
         hf = win32file.CreateFile("rta_ti.txt", win32file.GENERIC_WRITE, 0, None, 2, 0, None)
         win32file.WriteFile(hf,("AAAAAAAA").encode()) 
         win32file.CloseHandle(hf)
         win32api.CloseHandle(hp)
-        print('[+] - Created File rta_ti.txt as the TrustedInstaller service')
+        print(f'[+] - Created File rta_ti.txt as the TrustedInstaller service')
         win32file.DeleteFile("rta_ti.txt")
-        print('[+] - Deleted rta_ti.txt')
+        print(f'[+] - Deleted rta_ti.txt')
     except Exception as e:
-            print('[x] - Failed TrustedInstaller Impersonation')
+            print(f'[x] - Failed TrustedInstaller Impersonation')
             pass 
         
 def main():

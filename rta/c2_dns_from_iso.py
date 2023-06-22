@@ -28,7 +28,7 @@ PS_SCRIPT = common.get_path("bin", "ExecFromISOFile.ps1")
 
 def main():
     if os.path.exists(ISO) and os.path.exists(PS_SCRIPT):
-        print('[+] - ISO File ', ISO, 'will be mounted and executed via powershell')
+        print(f'[+] - ISO File {ISO} will be mounted and executed via powershell')
 
         # 3 unique domains to trigger 3 unique rules looking for dns events via a process running from a mounted ISO file
         for domain in ["Abc.xyz", "content.dropboxapi.com", "x1.c.lencr.org"] :
@@ -38,7 +38,7 @@ def main():
             command = f"powershell.exe -ExecutionPol Bypass -c import-module {PS_SCRIPT}; ExecFromISO -ISOFile {ISO} -procname {PROC} -cmdline {domain};"
             common.execute(command)
 
-        print('[+] - RTA Done!')
+        print(f'[+] - RTA Done!')
 
 if __name__ == "__main__":
     exit(main())

