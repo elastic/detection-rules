@@ -4,16 +4,16 @@ integration = ["system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/04/03"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies attempts to create new users. Attackers may add new users to escalate privileges or establish persistence 
-on a system or domain.
+on a system.
 """
 from = "now-9m"
-index = ["logs-system.auth-*", "logs-endpoint.events.*"]
+index = ["logs-system.auth-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Linux User Account Creation"
@@ -23,28 +23,25 @@ severity = "low"
 tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence"]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-iam where event.type == "creation" and host.os.type == "linux" and
+iam where host.os.type == "linux" (event.type == "user" and event.type == "creation") and
 process.name in ("useradd", "adduser") and user.name != null
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1136"
 name = "Create Account"
 reference = "https://attack.mitre.org/techniques/T1136/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1136.001"
 name = "Local Account"
 reference = "https://attack.mitre.org/techniques/T1136/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

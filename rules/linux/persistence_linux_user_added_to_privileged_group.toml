@@ -1,31 +1,30 @@
 [metadata]
 creation_date = "2023/02/13"
-integration = ["system"]
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/04/03"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies attempts to add a user to a privileged group. Attackers may add users to a privileged group in order to 
-escalate privileges or establish persistence on a system or domain.
+escalate privileges or establish persistence on a system.
 """
 from = "now-9m"
-index = ["logs-system.auth-*", "logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Linux User Added to Privileged Group"
-risk_score = 21
+risk_score = 47
 rule_id = "43d6ec12-2b1c-47b5-8f35-e9de65551d3b"
-severity = "low"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence"]
+severity = "medium"
+tags = ["Elastic", "Host", "Linux", "Threat Detection", "Persistence", "Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where event.type == "start" and host.os.type == "linux" and
+process where host.os.type == "linux" and event.type == "start" and
 process.parent.name == "sudo" and
 process.args in ("root", "admin", "wheel", "staff", "sudo",
                              "disk", "video", "shadow", "lxc", "lxd") and
@@ -36,22 +35,20 @@ process.args in ("root", "admin", "wheel", "staff", "sudo",
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1136"
 name = "Create Account"
 reference = "https://attack.mitre.org/techniques/T1136/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1136.001"
 name = "Local Account"
 reference = "https://attack.mitre.org/techniques/T1136/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
