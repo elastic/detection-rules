@@ -36,7 +36,7 @@ def main():
     c = vss_list()
     if len(c) > 0 :
        sam_path = c[0] + "\\Windows\\System32\\config\\SAM"
-       print('[+] - Attempting to Open', sam_path)
+       print(f'[+] - Attempting to Open {sam_path}')
        hf = win32file.CreateFile(sam_path, win32file.GENERIC_READ, 0, None, OPEN_EXISTING, 0, None)
        if (hf):
            print('[+] - RTA Done!')
