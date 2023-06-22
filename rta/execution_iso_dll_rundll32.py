@@ -22,21 +22,21 @@ ISO = common.get_path("bin", "lnk_from_iso_rundll.iso")
 PROC = 'Invite.lnk'
 
 # ps script to mount, execute a file and unmount ISO device
-psf = common.get_path("bin", "ExecFromISOFile.ps1")
+PS_SCRIPT = common.get_path("bin", "ExecFromISOFile.ps1")
 
 @common.requires_os(metadata.platforms)
 
 def main():
-    if os.path.exists(ISO) and os.path.exists(psf):
+    if os.path.exists(ISO) and os.path.exists(PS_SCRIPT):
         print('[+] - ISO File ', ISO, 'will be mounted and executed via powershell')
 
         # import ExecFromISO function that takes two args -ISOFIle pointing to ISO file path and -procname pointing to the filename to execute
-        command = "powershell.exe -ExecutionPol Bypass -c import-module " + psf + '; ExecFromISO -ISOFile ' + ISO + ' -procname '+ PROC + ';'
+        command = f"powershell.exe -ExecutionPol Bypass -c import-module {PS_SCRIPT}; ExecFromISO -ISOFile {ISO} -procname {PROC};"
         common.execute(command)
 
         # terminate notepad.exe spawned as a result of the DLL execution
         common.execute(["taskkill", "/f", "/im", "notepad.exe"])
-        print('[+] - RTA Done!')
+        print(f'[+] - RTA Done!')
 
 if __name__ == "__main__":
     exit(main())
