@@ -5,7 +5,7 @@
 
 from . import common
 from . import RtaMetadata
-import win32file, os, win32com.client
+
 
 
 metadata = RtaMetadata(
@@ -17,12 +17,14 @@ metadata = RtaMetadata(
 )
 
 def get_vss_list():
+    import win32com.client
     wcd = win32com.client.Dispatch("WbemScripting.SWbemLocator")
     wmi = wcd.ConnectServer(".","root\cimv2")
     obj = wmi.ExecQuery("SELECT * FROM Win32_ShadowCopy")
     return [o.DeviceObject for o in obj]
 
 def vss_create():
+    import win32com.client
     wmi=win32com.client.GetObject("winmgmts:\\\\.\\root\\cimv2:Win32_ShadowCopy")
     createmethod = wmi.Methods_("Create")
     createparams = createmethod.InParameters
@@ -32,6 +34,7 @@ def vss_create():
 
 @common.requires_os(metadata.platforms)
 def main():
+    import win32file
     vss_list = get_vss_list()
     if len(vss_list) > 0 :
        sam_path = f"{vss_list[0]}\\Windows\\System32\\config\\SAM"

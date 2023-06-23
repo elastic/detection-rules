@@ -25,7 +25,7 @@ metadata = RtaMetadata(
 def main():
     import ctypes
     from ctypes import byref, windll, wintypes
-    
+
     hprocess = wintypes.HANDLE()
     hsystem_token = wintypes.HANDLE()
     hsystem_token_dup = wintypes.HANDLE()
