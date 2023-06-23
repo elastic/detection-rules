@@ -5,10 +5,6 @@
 
 from . import common
 from . import RtaMetadata
-import ctypes, os
-from ctypes import *
-from ctypes import byref, windll, wintypes
-
 
 
 
@@ -27,6 +23,9 @@ metadata = RtaMetadata(
 
 @common.requires_os(metadata.platforms)
 def main():
+    import ctypes
+    from ctypes import byref, windll, wintypes
+    
     hprocess = wintypes.HANDLE()
     hsystem_token = wintypes.HANDLE()
     hsystem_token_dup = wintypes.HANDLE()
