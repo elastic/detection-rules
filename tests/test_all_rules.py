@@ -243,11 +243,65 @@ class TestRuleTags(BaseRuleTest):
         """Ensure consistent and expected casing for controlled tags."""
 
         expected_tags = [
-            'APM', 'AWS', 'Asset Visibility', 'Azure', 'Configuration Audit', 'Continuous Monitoring',
-            'Data Protection', 'Elastic', 'Elastic Endgame', 'Endpoint Security', 'GCP', 'Identity and Access',
-            'Investigation Guide', 'Linux', 'Logging', 'ML', 'macOS', 'Monitoring', 'Network', 'Okta', 'Packetbeat',
-            'Post-Execution', 'SecOps', 'Windows'
+            'Data Source: Active Directory',
+            'Data Source: Amazon Web Services',
+            'Data Source: AWS',
+            'Data Source: APM',
+            'Data Source: Azure',
+            'Data Source: CyberArk PAS',
+            'Data Source: Elastic Defend',
+            'Data Source: Elastic Defend for Containers',
+            'Data Source: Elastic Endgame',
+            'Data Source: GCP',
+            'Data Source: Google Cloud Platform',
+            'Data Source: Google Workspace',
+            'Data Source: Kubernetes',
+            'Data Source: Microsoft 365',
+            'Data Source: Okta',
+            'Data Source: PowerShell Logs',
+            'Data Source: Sysmon Only',
+            'Data Source: Zoom',
+            'Domain: Cloud',
+            'Domain: Container',
+            'Domain: Endpoint',
+            'OS: Linux',
+            'OS: macOS',
+            'OS: Windows',
+            'Resources: Investigation Guide',
+            'Rule Type: Higher-Order Rule',
+            'Rule Type: Machine Learning',
+            'Rule Type: ML',
+            'Tactic: Collection',
+            'Tactic: Command and Control',
+            'Tactic: Credential Access',
+            'Tactic: Defense Evasion',
+            'Tactic: Discovery',
+            'Tactic: Execution',
+            'Tactic: Exfiltration',
+            'Tactic: Impact',
+            'Tactic: Initial Access',
+            'Tactic: Lateral Movement',
+            'Tactic: Persistence',
+            'Tactic: Privilege Escalation',
+            'Tactic: Reconnaissance',
+            'Tactic: Resource Development',
+            'Threat: BPFDoor',
+            'Threat: Cobalt Strike',
+            'Threat: Lightning Framework',
+            'Threat: Orbit',
+            'Threat: Rootkit',
+            'Threat: TripleCross',
+            'Use Case: Active Directory Monitoring',
+            'Use Case: Asset Visibility',
+            'Use Case: Configuration Audit',
+            'Use case: Guided Onboarding',
+            'Use Case: Identity and Access Audit',
+            'Use Case: Log Auditing',
+            'Use Case: Network Security Monitoring',
+            'Use Case: Threat Detection',
+            'Use Case: Vulnerability',
         ]
+
         expected_case = {t.casefold(): t for t in expected_tags}
 
         for rule in self.all_rules:
@@ -265,22 +319,24 @@ class TestRuleTags(BaseRuleTest):
 
     def test_required_tags(self):
         """Test that expected tags are present within rules."""
-        # indexes considered; only those with obvious relationships included
-        # 'apm-*-transaction*', 'traces-apm*', 'auditbeat-*', 'endgame-*', 'filebeat-*', 'logs-*', 'logs-aws*',
-        # 'logs-endpoint.alerts-*', 'logs-endpoint.events.*', 'logs-okta*', 'packetbeat-*', 'winlogbeat-*'
 
         required_tags_map = {
-            'apm-*-transaction*': {'all': ['APM']},
-            'traces-apm*': {'all': ['APM']},
-            'auditbeat-*': {'any': ['Windows', 'macOS', 'Linux']},
-            'endgame-*': {'all': ['Elastic Endgame']},
-            'logs-aws*': {'all': ['AWS']},
-            'logs-endpoint.alerts-*': {'all': ['Endpoint Security']},
-            'logs-endpoint.events.*': {'any': ['Windows', 'macOS', 'Linux', 'Host']},
-            'logs-okta*': {'all': ['Okta']},
-            'logs-windows.*': {'all': ['Windows']},
-            'packetbeat-*': {'all': ['Network']},
-            'winlogbeat-*': {'all': ['Windows']}
+            'logs-endpoint.events.*': {'all': ['Domain: Endpoint']},
+            'endgame-*': {'all': ['Data Source: Elastic Endgame']},
+            'logs-aws*': {'all': ['Data Source: AWS', 'Data Source: Amazon Web Services', 'Domain: Cloud']},
+            'logs-azure*': {'all': ['Data Source: Azure', 'Domain: Cloud']},
+            'logs-o365*': {'all': ['Data Source: Microsoft 365', 'Domain: Cloud']},
+            'logs-okta*': {'all': ['Data Source: Okta']},
+            'logs-gcp*': {'all': ['Data Source: Google Cloud Platform', 'Data Source: GCP', 'Domain: Cloud']},
+            'logs-google_workspace*': {'all': ['Data Source: Google Workspace', 'Domain: Cloud']},
+            'logs-cloud_defend.alerts-*': {'all': ['Data Source: Elastic Defend for Containers', 'Domain: Container']},
+            'logs-cloud_defend*': {'all': ['Data Source: Elastic Defend for Containers', 'Domain: Container']},
+            'logs-kubernetes.*': {'all': ['Data Source: Kubernetes']},
+            'apm-*-transaction*': {'all': ['Data Source: APM']},
+            'traces-apm*': {'all': ['Data Source: APM']},
+            '.alerts-security.*': {'all': ['Rule Type: Higher-Order Rule']},
+            'logs-cyberarkpas.audit*': {'all': ['Data Source: CyberArk PAS']},
+            'logs-endpoint.alerts-*': {'all': ['Data Source: Elastic Defend']}
         }
 
         for rule in self.all_rules:
@@ -290,9 +346,6 @@ class TestRuleTags(BaseRuleTest):
             consolidated_optional_tags = []
             is_missing_any_tags = False
             missing_required_tags = set()
-
-            if 'Elastic' not in rule_tags:
-                missing_required_tags.add('Elastic')
 
             if isinstance(rule.contents.data, QueryRuleData):
                 for index in rule.contents.data.index:
@@ -331,10 +384,7 @@ class TestRuleTags(BaseRuleTest):
             if threat:
                 missing = []
                 threat_tactic_names = [e.tactic.name for e in threat]
-                primary_tactic = threat_tactic_names[0]
-
-                if 'Threat Detection' not in rule_tags:
-                    missing.append('Threat Detection')
+                primary_tactic = f"Tactic: {threat_tactic_names[0]}"
 
                 # missing primary tactic
                 if primary_tactic not in rule.contents.data.tags:
@@ -356,6 +406,67 @@ class TestRuleTags(BaseRuleTest):
         if invalid:
             err_msg = '\n'.join(invalid)
             self.fail(f'Rules with misaligned tags and tactics:\n{err_msg}')
+
+    def test_os_tags(self):
+        """Test that OS tags are present within rules."""
+        required_tags_map = {
+            'linux': 'OS: Linux',
+            'macos': 'OS: macOS',
+            'windows': 'OS: Windows'
+        }
+        invalid = []
+        for rule in self.all_rules:
+            dir_name = rule.path.parent.name
+            # if directory name is linux, macos, or windows,
+            # ensure the rule has the corresponding tag
+            if dir_name in ['linux', 'macos', 'windows']:
+                if required_tags_map[dir_name] not in rule.contents.data.tags:
+                    err_msg = self.rule_str(rule)
+                    err_msg += f'\n    expected: {required_tags_map[dir_name]}'
+                    invalid.append(err_msg)
+
+        if invalid:
+            err_msg = '\n'.join(invalid)
+            self.fail(f'Rules with missing OS tags:\n{err_msg}')
+
+    def test_ml_rule_type_tags(self):
+        """Test that ML rule type tags are present within rules."""
+        invalid = []
+
+        for rule in self.all_rules:
+            rule_tags = rule.contents.data.tags
+
+            if rule.contents.data.type == 'machine_learning':
+                if 'Rule Type: Machine Learning' not in rule_tags:
+                    err_msg = self.rule_str(rule)
+                    err_msg += '\n    expected: Rule Type: Machine Learning'
+                    invalid.append(err_msg)
+                if 'Rule Type: ML' not in rule_tags:
+                    err_msg = self.rule_str(rule)
+                    err_msg += '\n    expected: Rule Type: ML'
+                    invalid.append(err_msg)
+
+        if invalid:
+            err_msg = '\n'.join(invalid)
+            self.fail(f'Rules with misaligned ML rule type tags:\n{err_msg}')
+
+    @unittest.skip("Skipping until all Investigation Guides follow the proper format.")
+    def test_investigation_guide_tag(self):
+        """Test that investigation guide tags are present within rules."""
+        invalid = []
+        for rule in self.all_rules:
+            note = rule.contents.data.get('note')
+            if note is not None:
+                results = re.search(r'Investigating', note, re.M)
+                if results is not None:
+                    # check if investigation guide tag is present
+                    if 'Resources: Investigation Guide' not in rule.contents.data.tags:
+                        err_msg = self.rule_str(rule)
+                        err_msg += '\n    expected: Resources: Investigation Guide'
+                        invalid.append(err_msg)
+        if invalid:
+            err_msg = '\n'.join(invalid)
+            self.fail(f'Rules with missing Investigation tag:\n{err_msg}')
 
 
 class TestRuleTimelines(BaseRuleTest):
