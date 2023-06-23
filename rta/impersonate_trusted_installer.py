@@ -15,8 +15,6 @@ metadata = RtaMetadata(
     techniques=["T1134"],
 )
 
-@common.requires_os(metadata.platforms)
-
 
 def startsvc_trustedinstaller():
     try:
@@ -30,7 +28,6 @@ def startsvc_trustedinstaller():
     except Exception as e:
            print(f'[x] - Failed to start TrustedInstaller service, probably already started')
            pass
-
 
 def impersonate_trusted_installer():
     try:
@@ -51,6 +48,7 @@ def impersonate_trusted_installer():
             print(f'[x] - Failed TrustedInstaller Impersonation')
             pass 
         
+@common.requires_os(metadata.platforms)
 def main():
    common.impersonate_system()
    startsvc_trustedinstaller()
