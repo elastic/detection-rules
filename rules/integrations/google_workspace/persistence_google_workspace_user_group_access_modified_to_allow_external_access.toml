@@ -4,7 +4,7 @@ integration = ["google_workspace"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -54,10 +54,10 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset:"google_workspace.admin" and event.action:"CHANGE_GROUP_SETTING" and event.category:"iam"
-    and ((google_workspace.admin.setting.name:"ALLOW_EXTERNAL_MEMBERS" and google_workspace.admin.new_value:"true")
-        or (google_workspace.admin.setting.name:"WHO_CAN_JOIN" and not (google_workspace.admin.new_value:"INVITED_CAN_JOIN"
-            or google_workspace.admin.new_value:"CAN_REQUEST_TO_JOIN")))
+event.dataset:google_workspace.admin and event.action:CHANGE_GROUP_SETTING and event.category:iam and (
+    google_workspace.admin.setting.name:ALLOW_EXTERNAL_MEMBERS and google_workspace.admin.new_value:true or
+    google_workspace.admin.setting.name:WHO_CAN_JOIN and not google_workspace.admin.new_value:(
+        CAN_REQUEST_TO_JOIN or INVITED_CAN_JOIN))
 '''
 
 
