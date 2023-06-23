@@ -5,8 +5,7 @@
 
 from . import common
 from . import RtaMetadata
-import os, win32file
-from os import path
+
 
 metadata = RtaMetadata(
     uuid="ec52377c-b2a8-4c44-8eb4-465376f2189a",
@@ -28,9 +27,11 @@ DLL = common.get_path("bin", "faultrep.dll")
 # we will copy WerFault.exe to temp to sideload our testing DLL faultrep.dll
 WER = "c:\\windows\\system32\\werfault.exe"
 
-@common.requires_os(metadata.platforms)
 
+@common.requires_os(metadata.platforms)
 def main():
+    import os, win32file
+    from os import path
     if os.path.exists(DLL) :
         tempc = path.expandvars("%localappdata%\\Temp\\oversized.dll")
         rta_dll = path.expandvars("%localappdata%\\Temp\\faultrep.dll")
