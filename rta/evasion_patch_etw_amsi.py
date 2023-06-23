@@ -5,10 +5,6 @@
 
 from . import common
 from . import RtaMetadata
-from ctypes import windll
-from ctypes import wintypes
-import ctypes
-import platform, time
 
 
 metadata = RtaMetadata(
@@ -22,8 +18,9 @@ metadata = RtaMetadata(
 
 
 @common.requires_os(metadata.platforms)
-
 def main():
+    import ctypes, platform
+    from ctypes import windll, wintypes
 
     kernel32 = windll.kernel32
 
