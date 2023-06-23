@@ -294,7 +294,7 @@ class TestRuleTags(BaseRuleTest):
             'Use Case: Active Directory Monitoring',
             'Use Case: Asset Visibility',
             'Use Case: Configuration Audit',
-            'Use case: Guided Onboarding',
+            'Use Case: Guided Onboarding',
             'Use Case: Identity and Access Audit',
             'Use Case: Log Auditing',
             'Use Case: Network Security Monitoring',
