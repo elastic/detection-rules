@@ -54,6 +54,11 @@ TIMELINE_TEMPLATES: Final[dict] = {
     '4434b91a-94ca-4a89-83cb-a37cdc0532b7': 'Alerts Involving a Single Host Timeline'
 }
 
+EXPECTED_RULE_TAG_PREFIXES = [
+    'Data Source:','Domain:','OS:','Resources:','Rule Type:',
+    'Tactic:','Threat:','Use Case:'
+]
+
 
 NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
 TimeUnits = Literal['s', 'm', 'h']

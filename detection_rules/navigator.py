@@ -5,6 +5,7 @@
 
 """Create summary documents for a rule package."""
 
+from functools import reduce
 from collections import defaultdict
 from dataclasses import dataclass, field, fields
 from pathlib import Path
@@ -17,6 +18,7 @@ from . import utils
 from .attack import CURRENT_ATTACK_VERSION
 from .mixins import MarshmallowDataclassMixin
 from .rule import TOMLRule
+from .schemas.definitions import EXPECTED_RULE_TAG_PREFIXES
 
 
 _DEFAULT_PLATFORMS = [
@@ -186,6 +188,7 @@ class NavigatorBuilder:
     def _update_tags(self, rule: TOMLRule, tactic: str, technique_id: str):
         for tag in rule.contents.data.get('tags', []):
             value = rule.id
+            tag = reduce(lambda s, substr: s.replace(substr, ''), EXPECTED_RULE_TAG_PREFIXES, tag).lstrip()
             layer_key = tag.replace(' ', '-').lower()
             self.add_rule_to_technique(rule, 'tags', tactic, technique_id, value, layer_key=layer_key)
 
