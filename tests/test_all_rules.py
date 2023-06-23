@@ -414,8 +414,9 @@ class TestRuleTags(BaseRuleTest):
 
         for rule in self.all_rules:
             rule_tags = rule.contents.data.tags
+            expected_prefixes = set([tag.split(":")[0] + ":" for tag in definitions.EXPECTED_RULE_TAGS])
             [invalid.append(f"{self.rule_str(rule)}-{tag}") for tag in rule_tags
-             if not any(prefix in tag for prefix in definitions.EXPECTED_RULE_TAG_PREFIXES)]
+             if not any(prefix in tag for prefix in expected_prefixes)]
         if invalid:
             self.fail(f'Rules with invalid tags:\n{invalid}')
 
