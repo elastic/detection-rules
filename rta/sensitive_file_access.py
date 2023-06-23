@@ -6,8 +6,7 @@
 
 from . import common
 from . import RtaMetadata
-from os import path
-import win32file
+
 
 
 metadata = RtaMetadata(
@@ -31,6 +30,8 @@ metadata = RtaMetadata(
 
 
 def main():
+    from os import path
+    import win32file
     files = ["%localappdata%\\Google\\Chrome\\User Data\\Default\\Login Data",
              "%localappdata%\\Google\\Chrome\\User Data\\Default\\History",
              "%localappdata%\\Google\\Chrome\\User Data\\Default\\Local State",

