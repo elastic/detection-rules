@@ -468,6 +468,17 @@ class TestRuleTags(BaseRuleTest):
             err_msg = '\n'.join(invalid)
             self.fail(f'Rules with missing Investigation tag:\n{err_msg}')
 
+    def test_tag_prefix(self):
+        """Ensure all tags have a prefix from an expected list."""
+        invalid = []
+
+        for rule in self.all_rules:
+            rule_tags = rule.contents.data.tags
+            [invalid.append(f"{self.rule_str(rule)}-{tag}") for tag in rule_tags
+             if not any(prefix in tag for prefix in definitions.EXPECTED_RULE_TAG_PREFIXES)]
+        if invalid:
+            self.fail(f'Rules with invalid tags:\n{invalid}')
+
 
 class TestRuleTimelines(BaseRuleTest):
     """Test timelines in rules are valid."""
