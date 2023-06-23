@@ -19,18 +19,10 @@ import subprocess
 import sys
 import tempfile
 import threading
-import time 
-import ctypes
-import win32process
-import win32api, win32security
+import time
 from pathlib import Path
 from typing import Iterable, Optional, Union
-from ctypes import byref, windll, wintypes
-from ctypes.wintypes import BOOL
-from ctypes.wintypes import DWORD
-from ctypes.wintypes import HANDLE
-from ctypes.wintypes import LPVOID
-from ctypes.wintypes import LPCVOID
+
 
 
     
@@ -77,6 +69,60 @@ else:
 if CURRENT_OS == WINDOWS:
     CMD_PATH = os.environ.get("COMSPEC")
     POWERSHELL_PATH = "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+    import ctypes
+    import win32process
+    import win32file
+    import win32service
+    import win32api, win32security
+    from ctypes import byref, windll, wintypes
+    from ctypes.wintypes import BOOL
+    from ctypes.wintypes import DWORD
+    from ctypes.wintypes import HANDLE
+    from ctypes.wintypes import LPVOID
+    from ctypes.wintypes import LPCVOID
+    # Windows related constants and classes
+    TH32CS_SNAPPROCESS = 0x00000002
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+    TOKEN_DUPLICATE = 0x0002
+    TOKEN_ALL_ACCESS = 0xf00ff
+    MAX_PATH = 260
+    BOOL = ctypes.c_int
+    DWORD = ctypes.c_uint32
+    HANDLE = ctypes.c_void_p
+    LONG = ctypes.c_int32
+    NULL_T = ctypes.c_void_p
+    SIZE_T = ctypes.c_uint
+    TCHAR = ctypes.c_char
+    USHORT = ctypes.c_uint16
+    UCHAR = ctypes.c_ubyte
+    ULONG = ctypes.c_uint32
+
+    class PROCESSENTRY32(ctypes.Structure):
+        _fields_ = [
+            ('dwSize', DWORD),
+            ('cntUsage', DWORD),
+            ('th32ProcessID', DWORD),
+            ('th32DefaultHeapID', NULL_T),
+            ('th32ModuleID', DWORD),
+            ('cntThreads', DWORD),
+            ('th32ParentProcessID', DWORD),
+            ('pcPriClassBase', LONG),
+            ('dwFlags', DWORD),
+            ('szExeFile', TCHAR * MAX_PATH)
+        ]
+
+    LPCSTR = LPCTSTR = ctypes.c_char_p
+    LPDWORD = PDWORD = ctypes.POINTER(DWORD)
+
+    class _SECURITY_ATTRIBUTES(ctypes.Structure):
+        _fields_ = [('nLength', DWORD),
+                    ('lpSecurityDescriptor', LPVOID),
+                    ('bInheritHandle', BOOL), ]
+
+    SECURITY_ATTRIBUTES = _SECURITY_ATTRIBUTES
+    LPSECURITY_ATTRIBUTES = ctypes.POINTER(_SECURITY_ATTRIBUTES)
+    LPTHREAD_START_ROUTINE = LPVOID
+
 else:
     CMD_PATH = "/bin/sh"
     POWERSHELL_PATH = None
@@ -114,50 +160,6 @@ EXPAND_SZ = "expand_sz"
 MULTI_SZ = "multi_sz"
 DWORD = "dword"
 
-TH32CS_SNAPPROCESS = 0x00000002
-PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-TOKEN_DUPLICATE = 0x0002
-TOKEN_ALL_ACCESS = 0xf00ff
-MAX_PATH = 260
-
-BOOL    = ctypes.c_int
-DWORD   = ctypes.c_uint32
-HANDLE  = ctypes.c_void_p
-LONG    = ctypes.c_int32
-NULL_T  = ctypes.c_void_p
-SIZE_T  = ctypes.c_uint
-TCHAR   = ctypes.c_char
-USHORT  = ctypes.c_uint16
-UCHAR   = ctypes.c_ubyte
-ULONG   = ctypes.c_uint32
-
-class PROCESSENTRY32(ctypes.Structure):
-   _fields_ = [
-        ('dwSize',              DWORD),
-        ('cntUsage',            DWORD),
-        ('th32ProcessID',       DWORD),
-        ('th32DefaultHeapID',   NULL_T),
-        ('th32ModuleID',        DWORD),
-        ('cntThreads',          DWORD),
-        ('th32ParentProcessID', DWORD),
-        ('pcPriClassBase',      LONG),
-        ('dwFlags',             DWORD),
-        ('szExeFile',           TCHAR * MAX_PATH)
-    ]
-    
-LPCSTR = LPCTSTR = ctypes.c_char_p
-LPDWORD = PDWORD = ctypes.POINTER(DWORD)
-
-
-class _SECURITY_ATTRIBUTES(ctypes.Structure):
-    _fields_ = [('nLength', DWORD),
-                ('lpSecurityDescriptor', LPVOID),
-                ('bInheritHandle', BOOL), ]
-
-
-SECURITY_ATTRIBUTES = _SECURITY_ATTRIBUTES
-LPSECURITY_ATTRIBUTES = ctypes.POINTER(_SECURITY_ATTRIBUTES)
-LPTHREAD_START_ROUTINE = LPVOID
 
 OS_MAPPING = {WINDOWS: [], MACOS: [], LINUX: []}
 

