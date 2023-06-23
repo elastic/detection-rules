@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/22"
+updated_date = "2023/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -17,6 +17,34 @@ index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Attempt to Disable Syslog Service"
+note = """## Triage and analysis
+
+### Investigating Attempt to Disable Syslog Service
+
+The rule identifies executions to disable the syslog service in an attempt to an attempt to disrupt event logging
+and evade detection by security controls.
+
+#### Possible investigation steps
+
+- Identify the session entry leader and session user.
+- Examine the contents of session leading to the syslog service disable exectuions via the Session View.
+- Examine the command execution pattern in the session, which may lead to suspicious activities.
+- Examine process or services started after the syslog service has been disabled, which could indicate malicious activity intent.
+- Investigate any other alerts or malicious activities associated with the user/host during the past 48 hours.
+
+### False positive analysis
+
+- Infrastructure deployment or operation scripts trying to stop syslog services.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Ensure active session(s) on the host(s) are terminated as the malicious user could be running malicious process or services evading security controls.
+- Isolate the involved host(s) to prevent further post-compromise behavior.
+- Run a check across the process and services that could have been started after syslog being disabled , terminate all such suspicious process by the user in scrutiny.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
 risk_score = 47
 rule_id = "2f8a1226-5720-437d-9c20-e0029deb6194"
 severity = "medium"
