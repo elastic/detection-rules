@@ -55,8 +55,8 @@ TIMELINE_TEMPLATES: Final[dict] = {
 }
 
 EXPECTED_RULE_TAG_PREFIXES = [
-    'Data Source:','Domain:','OS:','Resources:','Rule Type:',
-    'Tactic:','Threat:','Use Case:'
+    'Data Source:', 'Domain:', 'OS:', 'Resources:', 'Rule Type:',
+    'Tactic:', 'Threat:', 'Use Case:'
 ]
 
 
