@@ -748,10 +748,11 @@ def getppid(pname):
     while True:
         procname = pe32.szExeFile.decode("utf-8").lower()
         if pname.lower() in procname:
-          return pe32.th32ProcessID
-        if not Process32Next(hProcessSnap, ctypes.byref(pe32)): 
-         return None
-    CloseHandle(hProcessSnap)
+            CloseHandle(hProcessSnap)
+            return pe32.th32ProcessID
+        if not Process32Next(hProcessSnap, ctypes.byref(pe32)):
+            CloseHandle(hProcessSnap)
+            return None
 
 @requires_os('windows')
 def impersonate_system(): 
