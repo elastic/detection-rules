@@ -26,44 +26,39 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and host.os.type:windows and
-  powershell.file.script_block_text : (
-    (
-      "Cryptography.AESManaged" or
-      "Cryptography.RijndaelManaged" or
-      "Cryptography.SHA1Managed" or
-      "Cryptography.SHA256Managed" or
-      "Cryptography.SHA384Managed" or
-      "Cryptography.SHA512Managed" or
-      "Cryptography.SymmetricAlgorithm" or
-      "PasswordDeriveBytes" or
-      "Rfc2898DeriveBytes"
-    ) and
-    (
-      CipherMode and PaddingMode
-    ) and
-    (
-      ".CreateEncryptor" or
-      ".CreateDecryptor"
-    )
-  ) and not user.id : "S-1-5-18"
+event.category:process and host.os.type:windows and 
+powershell.file.script_block_text : (
+    CipherMode and 
+    PaddingMode and 
+    ( 
+        Cryptography.AESManaged or 
+        Cryptography.RijndaelManaged or 
+        Cryptography.SHA1Managed or 
+        Cryptography.SHA256Managed or 
+        Cryptography.SHA384Managed or 
+        Cryptography.SHA512Managed or 
+        Cryptography.SymmetricAlgorithm or 
+        PasswordDeriveBytes or 
+        Rfc2898DeriveBytes
+    ) and (.CreateDecryptor or .CreateEncryptor)) and not user.id:S-1-5-18
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1140"
-name = "Deobfuscate/Decode Files or Information"
-reference = "https://attack.mitre.org/techniques/T1140/"
-
-[[rule.threat.technique]]
 id = "T1027"
 name = "Obfuscated Files or Information"
 reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
 
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
