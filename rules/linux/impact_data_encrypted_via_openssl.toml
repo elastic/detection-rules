@@ -28,13 +28,13 @@ severity = "medium"
 tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Impact", "Data Source: Elastic Endgame"]
 type = "eql"
 query = '''
-sequence by process.parent.entity_id with maxspan=5s
+sequence with maxspan=5s
   [ process where host.os.type == "linux" and event.action in ("exec", "exec_event") and 
     process.name : "openssl" and process.parent.name : ("*sh", "perl*", "php*", "python*", "xargs") and
     process.args == "-in" and process.args == "-out" and
     process.args in ("-k", "-K", "-kfile", "-pass", "-iv", "-md") and
     /* excluding base64 encoding options and including encryption password or key params */
-    not process.args in ("-d", "-a", "-A", "-base64", "-none", "-nosalt") ] with runs=10 | tail 1
+    not process.args in ("-d", "-a", "-A", "-base64", "-none", "-nosalt") ] by process.parent.entity_id with runs=10
 '''
 
 [[rule.threat]]
