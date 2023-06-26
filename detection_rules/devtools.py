@@ -32,7 +32,9 @@ from kibana.connector import Kibana
 
 from . import attack, rule_loader, utils
 from .cli_utils import single_collection
+from .beats import download_beats_schema, refresh_main_schema
 from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX
+from .ecs import download_schemas
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
@@ -1279,17 +1281,32 @@ def update_rule_data_schemas():
         cls.save_schema()
 
 
-@schemas_group.command("generate-endgame")
+@schemas_group.command("generate")
 @click.option("--token", required=True, prompt=get_github_token() is None, default=get_github_token(),
               help="GitHub token to use for the PR", hide_input=True)
-@click.option("--endgame-version", "-e", required=True, help="Tagged version from TBD. e.g., 1.9.0")
+@click.option("--schema", "-s", required=True, type=click.Choice(["endgame", "ecs", "beats"]),
+                help="Schema to generate")
+@click.option("--schema-version", "-sv", help="Tagged version from TBD. e.g., 1.9.0")
 @click.option("--overwrite", is_flag=True, help="Overwrite if versions exist")
-def generate_endgame_schema(token: str, endgame_version: str, overwrite: bool):
-    """Download Endgame-ECS mapping.json and generate flattend schema."""
+def generate_endgame_schema(token: str, schema: str, schema_version: str, overwrite: bool):
+    """Download schemas and generate flattend schema."""
     github = GithubClient(token)
     client = github.authenticated_client
-    schema_manager = EndgameSchemaManager(client, endgame_version)
-    schema_manager.save_schemas(overwrite=overwrite)
+
+    if not version.parse(schema_version):
+        raise click.BadParameter(f"Invalid schema version: {schema_version}")
+
+    click.echo(f"Generating {schema} schema")
+    if schema == "endgame":
+        schema_manager = EndgameSchemaManager(client, endgame_version)
+        schema_manager.save_schemas(overwrite=overwrite)
+    if schema == "ecs":
+        if not schema_version:
+            download_schemas(refresh_all=True)
+    if schema == "beats":
+        if not schema_version:
+            download_latest_beats_schema()
+            refresh_main_schema()
 
 
 @dev_group.group('attack')
