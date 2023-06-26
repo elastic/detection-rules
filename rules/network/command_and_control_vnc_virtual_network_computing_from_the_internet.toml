@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint"]
+integration = ["network_traffic"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
@@ -23,7 +23,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["auditbeat-*", "filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
+index = ["packetbeat-*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "VNC (Virtual Network Computing) from the Internet"
@@ -36,7 +36,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:(network or network_traffic) and network.transport:tcp and destination.port >= 5800 and destination.port <= 5810 and
+event.dataset: network_traffic.flow and network.transport:tcp and destination.port >= 5800 and destination.port <= 5810 and
   not source.ip:(
     10.0.0.0/8 or
     127.0.0.0/8 or

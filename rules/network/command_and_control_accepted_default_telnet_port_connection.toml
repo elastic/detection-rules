@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint"]
+integration = ["network_traffic"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
@@ -24,7 +24,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["auditbeat-*", "filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
+index = ["packetbeat-*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Accepted Default Telnet Port Connection"
@@ -45,8 +45,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:(network or network_traffic) and destination.port:23
-  and network.direction:(inbound or ingress or outbound or egress)
+event.dataset: network_traffic.flow and event.type: connection
   and not event.action:(
       flow_dropped or denied or deny or
       flow_terminated or timeout or Reject or network_flow)
