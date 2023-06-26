@@ -32,7 +32,7 @@ from kibana.connector import Kibana
 
 from . import attack, rule_loader, utils
 from .cli_utils import single_collection
-from .beats import download_beats_schema, refresh_main_schema
+from .beats import refresh_main_schema, download_latest_beats_schema
 from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX
 from .ecs import download_schemas, download_endpoint_schemas
 from .endgame import EndgameSchemaManager
@@ -1285,7 +1285,7 @@ def update_rule_data_schemas():
 @click.option("--token", required=True, prompt=get_github_token() is None, default=get_github_token(),
               help="GitHub token to use for the PR", hide_input=True)
 @click.option("--schema", "-s", required=True, type=click.Choice(["endgame", "ecs", "beats", "endpoint"]),
-                help="Schema to generate")
+              help="Schema to generate")
 @click.option("--schema-version", "-sv", help="Tagged version from TBD. e.g., 1.9.0")
 @click.option("--endpoint-target", "-t", type=str, default="endpoint", help="Target endpoint schema")
 @click.option("--overwrite", is_flag=True, help="Overwrite if versions exist")
@@ -1299,7 +1299,7 @@ def generate_endgame_schema(token: str, schema: str, schema_version: str, endpoi
 
     click.echo(f"Generating {schema} schema")
     if schema == "endgame":
-        schema_manager = EndgameSchemaManager(client, endgame_version)
+        schema_manager = EndgameSchemaManager(client, schema_version)
         schema_manager.save_schemas(overwrite=overwrite)
     if schema == "ecs":
         if not schema_version:
@@ -1310,7 +1310,7 @@ def generate_endgame_schema(token: str, schema: str, schema_version: str, endpoi
             refresh_main_schema()
     if schema == "endpoint":
         if not endpoint_target:
-            raise click.BadParameter(f"Endpoint target required")
+            raise click.BadParameter("Endpoint target required")
         download_endpoint_schemas(endpoint_target)
 
 

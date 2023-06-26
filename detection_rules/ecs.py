@@ -18,7 +18,7 @@ from semver import Version
 import yaml
 
 from .utils import (DateTimeEncoder, cached, get_etc_path, gzip_compress,
-                    load_etc_dump, read_gzip, unzip, save_etc_dump)
+                    load_etc_dump, read_gzip, unzip)
 
 ECS_NAME = "ecs_schemas"
 ECS_SCHEMAS_DIR = get_etc_path(ECS_NAME)
@@ -246,7 +246,7 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
                 out_file = file_name.replace(".yml", ".json.gz")
 
                 compressed = gzip_compress(json.dumps(contents, sort_keys=True, cls=DateTimeEncoder))
-                new_path = get_etc_path(ETC_NAME, str(version), out_file)
+                new_path = get_etc_path(ECS_NAME, str(version), out_file)
                 with open(new_path, 'wb') as f:
                     f.write(compressed)
 
@@ -269,10 +269,10 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
             shutil.rmtree(m, ignore_errors=True)
 
         master_dir = "master_{}".format(master_ver)
-        os.makedirs(get_etc_path(ETC_NAME, master_dir), exist_ok=True)
+        os.makedirs(get_etc_path(ECS_NAME, master_dir), exist_ok=True)
 
         compressed = gzip_compress(json.dumps(master_schema, sort_keys=True, cls=DateTimeEncoder))
-        new_path = get_etc_path(ETC_NAME, master_dir, "ecs_flat.json.gz")
+        new_path = get_etc_path(ECS_NAME, master_dir, "ecs_flat.json.gz")
         with open(new_path, 'wb') as f:
             f.write(compressed)
 
@@ -282,7 +282,6 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
 
 def download_endpoint_schemas(target: str, overwrite: bool = True) -> None:
     """Download endpoint custom schemas."""
-    existing = glob.glob(os.path.join(ENDPOINT_SCHEMAS_DIR, '*.json.gz'))
     url = "https://raw.githubusercontent.com/elastic/endpoint-package/main/custom_schemas"
     r = requests.get(f"{url}/custom_{target}.yml")
     r.raise_for_status()
@@ -315,4 +314,3 @@ def get_endpoint_schemas() -> dict:
     for f in existing:
         schema.update(json.loads(read_gzip(f)))
     return schema
-
