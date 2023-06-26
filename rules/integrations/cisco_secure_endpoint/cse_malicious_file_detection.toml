@@ -1,0 +1,103 @@
+[metadata]
+creation_date = "2023/06/23"
+integration = ["cisco_secure_endpoint"]
+maturity = "production"
+min_stack_comments = "Initial version of the Cisco Secure Endpoint alerts"
+min_stack_version = "8.8.0"
+updated_date = "2023/06/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a malicious file detection by Cisco Secure Endpoint.
+"""
+enabled = true
+from = "now-10m"
+index = ["logs-cisco_secure_endpoint.event-*"]
+language = "kuery"
+license = "Elastic License v2"
+max_signals = 10000
+name = "Cisco Secure Endpoint Malicious Threat Detected Event"
+
+note = """### Investigating Cisco Secure Endpoint Malicious Threat Detected Event
+
+Whenever a malicious file is detected by Cisco Secure Endpoint, the agent will attempt to quarantine the file. There are occasions where a quarantine attempt may fail, so investigating each detection should be a priority.
+
+This rule searches for files that have been deemed by Cisco Secure Endpoint to be malicious. 
+
+#### Possible investigation steps
+
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Determine if the collected files are malicious:
+  - Use a private sandboxed malware analysis system to perform analysis.
+    - Observe and collect information about the following activities:
+      - Attempts to contact external domains and addresses.
+      - File and registry access, modification, and creation activities.
+      - Service creation and launch activities.
+      - Scheduled task creation.
+  - Use the PowerShell `Get-FileHash` cmdlet to get the files' SHA-256 hash values.
+    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+
+### False positive analysis
+
+- Some legitimate but poorly written software may be flagged as malicious. Benign true positives (B-TPs) can be added as exceptions if necessary.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+  - If the malicious file was delivered via phishing:
+    - Block the email sender from sending future emails.
+    - Block the malicious web pages.
+    - Remove emails from the sender from mailboxes.
+    - Consider improvements to the security awareness program.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+risk_score = 99
+rule_id = "637c4b00-1214-11ee-980f-adf4cd9645cd"
+severity = "critical"
+tags = ["Domain: Endpoint", "Data Source: Cisco Secure Endpoint", "Use Case: Threat Detection", "Tactic: Execution", "Tactic: Command and Control"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.category: malware and event.action: "threat detected" and cisco.secure_endpoint.file.disposition: Malicious
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+[[rule.threat.technique.subtechnique]]
+id = "T1204.003"
+name = "Malicious Image"
+reference = "https://attack.mitre.org/techniques/T1204/003/"
+[[rule.threat.technique]]
+id = "T1569"
+name = "System Services"
+reference = "https://attack.mitre.org/techniques/T1569/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
