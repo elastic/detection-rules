@@ -34,7 +34,7 @@ from . import attack, rule_loader, utils
 from .cli_utils import single_collection
 from .beats import download_beats_schema, refresh_main_schema
 from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX
-from .ecs import download_schemas
+from .ecs import download_schemas, download_endpoint_schemas
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
@@ -1284,16 +1284,17 @@ def update_rule_data_schemas():
 @schemas_group.command("generate")
 @click.option("--token", required=True, prompt=get_github_token() is None, default=get_github_token(),
               help="GitHub token to use for the PR", hide_input=True)
-@click.option("--schema", "-s", required=True, type=click.Choice(["endgame", "ecs", "beats"]),
+@click.option("--schema", "-s", required=True, type=click.Choice(["endgame", "ecs", "beats", "endpoint"]),
                 help="Schema to generate")
 @click.option("--schema-version", "-sv", help="Tagged version from TBD. e.g., 1.9.0")
+@click.option("--endpoint-target", "-t", type=str, default="endpoint", help="Target endpoint schema")
 @click.option("--overwrite", is_flag=True, help="Overwrite if versions exist")
-def generate_endgame_schema(token: str, schema: str, schema_version: str, overwrite: bool):
+def generate_endgame_schema(token: str, schema: str, schema_version: str, endpoint_target: str, overwrite: bool):
     """Download schemas and generate flattend schema."""
     github = GithubClient(token)
     client = github.authenticated_client
 
-    if not version.parse(schema_version):
+    if schema_version and not Version.parse(schema_version):
         raise click.BadParameter(f"Invalid schema version: {schema_version}")
 
     click.echo(f"Generating {schema} schema")
@@ -1307,6 +1308,10 @@ def generate_endgame_schema(token: str, schema: str, schema_version: str, overwr
         if not schema_version:
             download_latest_beats_schema()
             refresh_main_schema()
+    if schema == "endpoint":
+        if not endpoint_target:
+            raise click.BadParameter(f"Endpoint target required")
+        download_endpoint_schemas(endpoint_target)
 
 
 @dev_group.group('attack')
