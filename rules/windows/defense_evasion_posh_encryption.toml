@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/05/31"
+updated_date = "2023/06/27"
 
 [rule]
 author = ["Elastic"]
@@ -51,49 +51,44 @@ PowerShell offers encryption and decryption functionalities that can be abused b
 risk_score = 47
 rule_id = "1d9aeb0b-9549-46f6-a32d-05e2a001b7fd"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "PowerShell"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: PowerShell Logs"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and host.os.type:windows and
-  powershell.file.script_block_text : (
-    (
-      "Cryptography.AESManaged" or
-      "Cryptography.RijndaelManaged" or
-      "Cryptography.SHA1Managed" or
-      "Cryptography.SHA256Managed" or
-      "Cryptography.SHA384Managed" or
-      "Cryptography.SHA512Managed" or
-      "Cryptography.SymmetricAlgorithm" or
-      "PasswordDeriveBytes" or
-      "Rfc2898DeriveBytes"
-    ) and
-    (
-      CipherMode and PaddingMode
-    ) and
-    (
-      ".CreateEncryptor" or
-      ".CreateDecryptor"
-    )
-  ) and not user.id : "S-1-5-18"
+event.category:process and host.os.type:windows and 
+powershell.file.script_block_text : (
+    CipherMode and 
+    PaddingMode and 
+    ( 
+        Cryptography.AESManaged or 
+        Cryptography.RijndaelManaged or 
+        Cryptography.SHA1Managed or 
+        Cryptography.SHA256Managed or 
+        Cryptography.SHA384Managed or 
+        Cryptography.SHA512Managed or 
+        Cryptography.SymmetricAlgorithm or 
+        PasswordDeriveBytes or 
+        Rfc2898DeriveBytes
+    ) and (.CreateDecryptor or .CreateEncryptor)) and not user.id:S-1-5-18
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1140"
-name = "Deobfuscate/Decode Files or Information"
-reference = "https://attack.mitre.org/techniques/T1140/"
-
-[[rule.threat.technique]]
 id = "T1027"
 name = "Obfuscated Files or Information"
 reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
 
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
