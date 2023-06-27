@@ -1301,6 +1301,9 @@ def generate_endgame_schema(token: str, schema: str, schema_version: str, endpoi
     if schema == "endgame":
         schema_manager = EndgameSchemaManager(client, schema_version)
         schema_manager.save_schemas(overwrite=overwrite)
+
+    # ecs, beats and endpoint schemas are refreshed during release
+    # these schemas do not require a schema version
     if schema == "ecs":
         if not schema_version:
             download_schemas(refresh_all=True)
@@ -1308,10 +1311,14 @@ def generate_endgame_schema(token: str, schema: str, schema_version: str, endpoi
         if not schema_version:
             download_latest_beats_schema()
             refresh_main_schema()
+
+    # endpoint package custom schemas can be downloaded
+    # this download requires a specific schema target
     if schema == "endpoint":
         if not endpoint_target:
             raise click.BadParameter("Endpoint target required")
         download_endpoint_schemas(endpoint_target)
+    click.echo(f"Done generating {schema} schema")
 
 
 @dev_group.group('attack')

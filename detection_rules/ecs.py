@@ -290,6 +290,7 @@ def download_endpoint_schemas(target: str, overwrite: bool = True) -> None:
     fields = schema["fields"]
     flattened = {}
 
+    # iterate over nested fields and flatten them
     for f in fields:
         if 'multi_fields' in f:
             for mf in f['multi_fields']:
@@ -297,6 +298,7 @@ def download_endpoint_schemas(target: str, overwrite: bool = True) -> None:
         else:
             flattened[f"{root_name}.{f['name']}"] = f['type']
 
+    # save schema to disk
     Path(ENDPOINT_SCHEMAS_DIR).mkdir(parents=True, exist_ok=True)
     compressed = gzip_compress(json.dumps(flattened, sort_keys=True, cls=DateTimeEncoder))
     new_path = Path(ENDPOINT_SCHEMAS_DIR) / f"endpoint_{target}.json.gz"
