@@ -23,18 +23,19 @@ from typing import Dict, List, Optional, Tuple
 import click
 import pytoml
 import requests.exceptions
-from semver import Version
 import yaml
 from elasticsearch import Elasticsearch
 from eql.table import Table
+from semver import Version
 
 from kibana.connector import Kibana
 
 from . import attack, rule_loader, utils
+from .beats import (download_beats_schema, download_latest_beats_schema,
+                    refresh_main_schema)
 from .cli_utils import single_collection
-from .beats import refresh_main_schema, download_latest_beats_schema
 from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX
-from .ecs import download_schemas, download_endpoint_schemas
+from .ecs import download_endpoint_schemas, download_schemas
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
@@ -49,7 +50,7 @@ from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
                         Package, current_stack_version)
 from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
-                   ThreatMapping, TOMLRule, TOMLRuleContents, RuleTransform)
+                   RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
 from .utils import (dict_hash, get_etc_path, get_path, load_dump,
@@ -1307,7 +1308,7 @@ def generate_schema(token: str, schema: str, schema_version: str, endpoint_targe
     # ecs, beats and endpoint schemas are refreshed during release
     # these schemas do not require a schema version
     if schema == "ecs":
-            download_schemas(refresh_all=True)
+        download_schemas(refresh_all=True)
     if schema == "beats":
         if not schema_version:
             download_latest_beats_schema()

@@ -306,7 +306,7 @@ def download_endpoint_schemas(target: str, overwrite: bool = True) -> None:
         shutil.rmtree(new_path, ignore_errors=True)
     with open(new_path, 'wb') as f:
         f.write(compressed)
-    click.echo(f"Saved endpoint schema to {new_path}")
+    print(f"Saved endpoint schema to {new_path}")
 
 
 @cached
