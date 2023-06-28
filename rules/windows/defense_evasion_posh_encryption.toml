@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/06/28"
 
 [rule]
 author = ["Elastic"]
@@ -26,21 +26,27 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and host.os.type:windows and 
-powershell.file.script_block_text : (
-    CipherMode and 
-    PaddingMode and 
-    ( 
-        Cryptography.AESManaged or 
-        Cryptography.RijndaelManaged or 
-        Cryptography.SHA1Managed or 
-        Cryptography.SHA256Managed or 
-        Cryptography.SHA384Managed or 
-        Cryptography.SHA512Managed or 
-        Cryptography.SymmetricAlgorithm or 
-        PasswordDeriveBytes or 
-        Rfc2898DeriveBytes
-    ) and (.CreateDecryptor or .CreateEncryptor)) and not user.id:S-1-5-18
+event.category:process and host.os.type:windows and
+  powershell.file.script_block_text : (
+    (
+      "Cryptography.AESManaged" or
+      "Cryptography.RijndaelManaged" or
+      "Cryptography.SHA1Managed" or
+      "Cryptography.SHA256Managed" or
+      "Cryptography.SHA384Managed" or
+      "Cryptography.SHA512Managed" or
+      "Cryptography.SymmetricAlgorithm" or
+      "PasswordDeriveBytes" or
+      "Rfc2898DeriveBytes"
+    ) and
+    (
+      CipherMode and PaddingMode
+    ) and
+    (
+      ".CreateEncryptor" or
+      ".CreateDecryptor"
+    )
+  ) and not user.id : "S-1-5-18"
 '''
 
 

@@ -83,6 +83,10 @@ Commands:
   view-rule       View an internal rule or specified rule file.
 ```
 
+Note:
+- If you are using a virtual environment, make sure to activate it before running the above command.
+- If using Windows, you may have to also run `<venv_directory>\Scripts\pywin32_postinstall.py -install` depending on your python version.
+
 The [contribution guide](CONTRIBUTING.md) describes how to use the `create-rule` and `test` commands to create and test a new rule when contributing to Detection Rules.
 
 For more advanced command line interface (CLI) usage, refer to the [CLI guide](CLI.md).

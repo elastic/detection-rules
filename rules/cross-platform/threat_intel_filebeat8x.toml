@@ -1,21 +1,23 @@
 [metadata]
 creation_date = "2021/11/24"
 maturity = "production"
-updated_date = "2023/06/22"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
+updated_date = "2023/06/27"
+min_stack_comments = "Updating the rule for 8.5+ users before deprecation."
+min_stack_version = "8.5.0"
 
 [rule]
 author = ["Elastic"]
 description = """
 This rule is triggered when indicators from the Threat Intel Filebeat module (v8.x) has a match against local file or network observations.
+
+This rule was deprecated. See the Setup section for more information and alternative rules.
 """
 from = "now-65m"
 index = ["auditbeat-*", "endgame-*", "filebeat-*", "logs-*", "packetbeat-*", "winlogbeat-*"]
 interval = "1h"
 language = "kuery"
 license = "Elastic License v2"
-name = "Threat Intel Filebeat Module (v8.x) Indicator Match"
+name = "Deprecated - Threat Intel Filebeat Module (v8.x) Indicator Match"
 note = """## Triage and Analysis
 
 ### Investigating Threat Intel Indicator Matches
@@ -30,20 +32,32 @@ If an indicator matches a local observation, the following enriched fields will 
 - `threat.indicator.matched.field` - this identifies the indicator field that matched the local observation
 - `threat.indicator.matched.type` - this identifies the indicator type that matched the local observation
 
-#### Possible investigation steps:
+#### Possible investigation steps
+
 - Investigation should be validated and reviewed based on the data (file hash, registry path, URL, imphash) that was matched and by viewing the source of that activity.
 - Consider the history of the indicator that was matched. Has it happened before? Is it happening on multiple machines? These kinds of questions can help understand if the activity is related to legitimate behavior.
 - Consider the user and their role within the company: is this something related to their job or work function?
 
 ### False Positive Analysis
+
 - For any matches found, it's important to consider the initial release date of that indicator. Threat intelligence can be a great tool for augmenting existing security processes, while at the same time it should be understood that threat intelligence can represent a specific set of activity observed at a point in time. For example, an IP address may have hosted malware observed in a Dridex campaign months ago, but it's possible that IP has been remediated and no longer represents any threat.
 - Adversaries often use legitimate tools as network administrators such as `PsExec` or `AdFind`; these tools often find their way into indicator lists creating the potential for false positives.
 - It's possible after large and publicly written campaigns, curious employees might end up going directly to attacker infrastructure and triggering these rules.
 
 ### Response and Remediation
+
 - If suspicious or malicious behavior is observed, take immediate action to isolate activity to prevent further post-compromise behavior.
 - One example of a response if a machine matched a command and control IP address would be to add an entry to a network device such as a firewall or proxy appliance to prevent any outbound activity from leaving that machine.
 - Another example of a response with a malicious file hash match would involve validating if the file was properly quarantined, reviewing current running processes for any abnormal activity, and investigating for any other follow-up actions such as persistence or lateral movement.
+
+## Setup
+
+This rule was deprecated in the 8.8 version of the Elastic Stack for performance reasons. Users using 8.8+ versions should disable this rule and enable indicator-based rules instead:
+
+* Threat Intel IP Address Indicator Match - 0c41e478-5263-4c69-8f9e-7dfd2c22da64
+* Threat Intel Hash Indicator Match - aab184d3-72b3-4639-b242-6597c99d8bca
+* Threat Intel Windows Registry Indicator Match - a61809f3-fb5b-465c-8bff-23a8a068ac60
+* Threat Intel URL Indicator Match - f3e22c8b-ea47-45d1-b502-b57b6de950b3
 """
 references = [ "https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-threatintel.html"]
 risk_score = 99
@@ -54,7 +68,7 @@ timeline_id = "495ad7a7-316e-4544-8a0f-9c098daee76e"
 timeline_title = "Generic Threat Match Timeline"
 type = "threat_match"
 
-threat_index = [ "filebeat-8*"]
+threat_index = ["filebeat-8*"]
 threat_indicator_path = "threat.indicator"
 threat_language = "kuery"
 
