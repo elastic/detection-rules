@@ -1,5 +1,6 @@
 [metadata]
 creation_date = "2020/07/16"
+integration = ["network_traffic"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
@@ -18,7 +19,7 @@ false_positives = [
     authorized vulnerability scan or compromise assessment.
     """,
 ]
-index = ["packetbeat-*", "filebeat-*"]
+index = ["packetbeat-*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Abnormally Large DNS Response"
@@ -68,7 +69,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:(network or network_traffic) and destination.port:53 and
+event.dataset: network_traffic.dns and
   (event.dataset:zeek.dns or type:dns or event.type:connection) and network.bytes > 60000
 '''
 

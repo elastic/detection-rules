@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint"]
+integration = ["network_traffic"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
@@ -20,7 +20,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["auditbeat-*", "filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
+index = ["packetbeat-*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "SMTP on Port 26/TCP"
@@ -36,7 +36,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:(network or network_traffic) and network.transport:tcp and (destination.port:26 or (event.dataset:zeek.smtp and destination.port:26))
+event.dataset: network_traffic.flow and network.transport:tcp and (destination.port:26 or (event.dataset:zeek.smtp and destination.port:26))
 '''
 
 
