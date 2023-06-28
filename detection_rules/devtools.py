@@ -1289,7 +1289,7 @@ def update_rule_data_schemas():
 @click.option("--schema-version", "-sv", help="Tagged version from TBD. e.g., 1.9.0")
 @click.option("--endpoint-target", "-t", type=str, default="endpoint", help="Target endpoint schema")
 @click.option("--overwrite", is_flag=True, help="Overwrite if versions exist")
-def generate_endgame_schema(token: str, schema: str, schema_version: str, endpoint_target: str, overwrite: bool):
+def generate_schema(token: str, schema: str, schema_version: str, endpoint_target: str, overwrite: bool):
     """Download schemas and generate flattend schema."""
     github = GithubClient(token)
     client = github.authenticated_client
