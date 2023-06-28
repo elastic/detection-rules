@@ -60,8 +60,8 @@ class TestValidRules(BaseRuleTest):
         """Ensure that every rule query is in optimized form."""
         for rule in self.production_rules:
             if (
-                rule.contents.data.get("language") == "kuery"
-                and "powershell.file.script_block_text" not in rule.contents.data.query
+                rule.contents.data.get("language") == "kuery" and "powershell.file.script_block_text"
+                not in rule.contents.data.query
             ):
                 source = rule.contents.data.query
                 tree = kql.parse(source, optimize=False)
