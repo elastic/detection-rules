@@ -61,7 +61,7 @@ class TestValidRules(BaseRuleTest):
         for rule in self.production_rules:
             if (
                 rule.contents.data.get("language") == "kuery" and not any(
-                item in rule.contents.data.query for item in definitions.QUERY_FIELD_OP_EXCEPTIONS
+                    item in rule.contents.data.query for item in definitions.QUERY_FIELD_OP_EXCEPTIONS
                 )
             ):
                 source = rule.contents.data.query
