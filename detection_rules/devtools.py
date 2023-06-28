@@ -1321,12 +1321,14 @@ def generate_schema(token: str, schema: str, schema_version: str, endpoint_targe
     if schema == "endpoint":
         repo = client.get_repo("elastic/endpoint-package")
         contents = repo.get_contents("custom_schemas")
-        optional_endpoint_targets = [Path(f.path).name.strip(".yml").split("_")[1]
-                                     for f in contents if f.name.endswith(".yml")]
+        optional_endpoint_targets = [
+            Path(f.path).name.replace("custom_", "").replace(".yml", "")
+            for f in contents if f.name.endswith(".yml") or Path(f.path).name == endpoint_target
+        ]
 
         if not endpoint_target:
             raise click.BadParameter("Endpoint target required")
-        if endpoint_target not in [f for f in contents]:
+        if endpoint_target not in optional_endpoint_targets:
             raise click.BadParameter(f"""Invalid endpoint schema target: {endpoint_target}
                                       \n Schema Options: {optional_endpoint_targets}""")
         download_endpoint_schemas(endpoint_target)

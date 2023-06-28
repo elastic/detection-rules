@@ -282,8 +282,12 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
 
 def download_endpoint_schemas(target: str, overwrite: bool = True) -> None:
     """Download endpoint custom schemas."""
+
+    # location of custom schema YAML files
     url = "https://raw.githubusercontent.com/elastic/endpoint-package/main/custom_schemas"
     r = requests.get(f"{url}/custom_{target}.yml")
+    if r.status_code == 404:
+        r = requests.get(f"{url}/{target}/custom_{target}.yaml")
     r.raise_for_status()
     schema = yaml.safe_load(r.text)[0]
     root_name = schema["name"]
