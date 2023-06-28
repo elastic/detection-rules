@@ -59,7 +59,7 @@ class TestValidRules(BaseRuleTest):
     def test_all_rule_queries_optimized(self):
         """Ensure that every rule query is in optimized form."""
         for rule in self.production_rules:
-            if rule.contents.data.get("language") == "kql":
+            if rule.contents.data.get("language") == "kuery":
                 source = rule.contents.data.query
                 tree = kql.parse(source, optimize=False)
                 optimized = tree.optimize(recursive=True)
@@ -242,67 +242,7 @@ class TestRuleTags(BaseRuleTest):
     def test_casing_and_spacing(self):
         """Ensure consistent and expected casing for controlled tags."""
 
-        expected_tags = [
-            'Data Source: Active Directory',
-            'Data Source: Amazon Web Services',
-            'Data Source: AWS',
-            'Data Source: APM',
-            'Data Source: Azure',
-            'Data Source: CyberArk PAS',
-            'Data Source: Elastic Defend',
-            'Data Source: Elastic Defend for Containers',
-            'Data Source: Elastic Endgame',
-            'Data Source: GCP',
-            'Data Source: Google Cloud Platform',
-            'Data Source: Google Workspace',
-            'Data Source: Kubernetes',
-            'Data Source: Microsoft 365',
-            'Data Source: Okta',
-            'Data Source: PowerShell Logs',
-            'Data Source: Sysmon Only',
-            'Data Source: Zoom',
-            'Domain: Cloud',
-            'Domain: Container',
-            'Domain: Endpoint',
-            'OS: Linux',
-            'OS: macOS',
-            'OS: Windows',
-            'Resources: Investigation Guide',
-            'Rule Type: Higher-Order Rule',
-            'Rule Type: Machine Learning',
-            'Rule Type: ML',
-            'Tactic: Collection',
-            'Tactic: Command and Control',
-            'Tactic: Credential Access',
-            'Tactic: Defense Evasion',
-            'Tactic: Discovery',
-            'Tactic: Execution',
-            'Tactic: Exfiltration',
-            'Tactic: Impact',
-            'Tactic: Initial Access',
-            'Tactic: Lateral Movement',
-            'Tactic: Persistence',
-            'Tactic: Privilege Escalation',
-            'Tactic: Reconnaissance',
-            'Tactic: Resource Development',
-            'Threat: BPFDoor',
-            'Threat: Cobalt Strike',
-            'Threat: Lightning Framework',
-            'Threat: Orbit',
-            'Threat: Rootkit',
-            'Threat: TripleCross',
-            'Use Case: Active Directory Monitoring',
-            'Use Case: Asset Visibility',
-            'Use Case: Configuration Audit',
-            'Use case: Guided Onboarding',
-            'Use Case: Identity and Access Audit',
-            'Use Case: Log Auditing',
-            'Use Case: Network Security Monitoring',
-            'Use Case: Threat Detection',
-            'Use Case: Vulnerability',
-        ]
-
-        expected_case = {t.casefold(): t for t in expected_tags}
+        expected_case = {t.casefold(): t for t in definitions.EXPECTED_RULE_TAGS}
 
         for rule in self.all_rules:
             rule_tags = rule.contents.data.tags
@@ -467,6 +407,18 @@ class TestRuleTags(BaseRuleTest):
         if invalid:
             err_msg = '\n'.join(invalid)
             self.fail(f'Rules with missing Investigation tag:\n{err_msg}')
+
+    def test_tag_prefix(self):
+        """Ensure all tags have a prefix from an expected list."""
+        invalid = []
+
+        for rule in self.all_rules:
+            rule_tags = rule.contents.data.tags
+            expected_prefixes = set([tag.split(":")[0] + ":" for tag in definitions.EXPECTED_RULE_TAGS])
+            [invalid.append(f"{self.rule_str(rule)}-{tag}") for tag in rule_tags
+             if not any(prefix in tag for prefix in expected_prefixes)]
+        if invalid:
+            self.fail(f'Rules with invalid tags:\n{invalid}')
 
 
 class TestRuleTimelines(BaseRuleTest):
