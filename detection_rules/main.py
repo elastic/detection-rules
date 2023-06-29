@@ -142,7 +142,8 @@ def build_limited_rules(stack_version: str, output_file: str):
     # Function to process each rule
     def process_rule(rule, incompatible_fields: List[str]):
         if rule.contents.type in definitions.UNSUPPORTED_RULE_TYPES:
-            click.secho(f'{rule.contents.name} - Skipping supported rule type: {rule.contents.get("type")}', fg='yellow')
+            click.secho(f'{rule.contents.name} - Skipping supported rule type: {rule.contents.get("type")}',
+                        fg='yellow')
             return None
 
         # Remove unsupported fields from rule
