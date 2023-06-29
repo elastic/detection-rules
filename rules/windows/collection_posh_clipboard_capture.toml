@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/06/28"
 
 [rule]
 author = ["Elastic"]
@@ -85,14 +85,17 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and host.os.type:windows and 
-  powershell.file.script_block_text:((Windows.Clipboard or 
-                                      Windows.Forms.Clipboard or 
-                                      Windows.Forms.TextBox) and 
-                                    (".Paste()" or 
-                                    "]::GetText")) or 
-  powershell.file.script_block_text:Get-Clipboard and 
-  not user.id:S-1-5-18
+event.category:process and host.os.type:windows and
+  (powershell.file.script_block_text : (
+    "Windows.Clipboard" or
+    "Windows.Forms.Clipboard" or
+    "Windows.Forms.TextBox"
+   ) and
+   powershell.file.script_block_text : (
+    "]::GetText" or
+    ".Paste()"
+  )) or powershell.file.script_block_text : "Get-Clipboard"
+  and not user.id : "S-1-5-18"
 '''
 
 
