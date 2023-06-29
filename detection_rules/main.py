@@ -25,7 +25,7 @@ from .misc import add_client, client_error, nested_set, parse_config, load_curre
 from .rule import TOMLRule, TOMLRuleContents, QueryRuleData
 from .rule_formatter import toml_write
 from .rule_loader import RuleCollection
-from .schemas import all_versions, definitions, get_incompatible_fields
+from .schemas import all_versions, definitions, get_incompatible_fields, get_schema_file
 from .utils import Ndjson, get_path, get_etc_path, clear_caches, load_dump, load_rule_contents
 
 RULES_DIR = get_path('rules')
@@ -139,10 +139,13 @@ def build_limited_rules(stack_version: str, output_file: str):
     # Define ndjson instance for output
     ndjson_output = Ndjson()
 
+    # Get API schema for rule type
+    api_schema = get_schema_file(stack_version, "base")["properties"]["type"]["enum"]
+
     # Function to process each rule
     def process_rule(rule, incompatible_fields: List[str]):
-        if rule.contents.type in definitions.UNSUPPORTED_RULE_TYPES:
-            click.secho(f'{rule.contents.name} - Skipping supported rule type: {rule.contents.get("type")}',
+        if rule.contents.type not in api_schema:
+            click.secho(f'{rule.contents.name} - Skipping unsupported rule type: {rule.contents.get("type")}',
                         fg='yellow')
             return None
 
