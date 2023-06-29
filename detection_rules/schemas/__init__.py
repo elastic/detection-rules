@@ -15,11 +15,13 @@ from ..misc import load_current_package_version
 from ..utils import cached, get_etc_path, load_etc_dump
 from . import definitions
 from .rta_schema import validate_rta_mapping
+from .stack_compat import get_incompatible_fields
 
 __all__ = (
     "SCHEMA_DIR",
     "definitions",
     "downgrade",
+    "get_incompatible_fields",
     "get_min_supported_stack_version",
     "get_stack_schemas",
     "get_stack_versions",
