@@ -23,16 +23,19 @@ from typing import Dict, List, Optional, Tuple
 import click
 import pytoml
 import requests.exceptions
-from semver import Version
 import yaml
 from elasticsearch import Elasticsearch
 from eql.table import Table
+from semver import Version
 
 from kibana.connector import Kibana
 
 from . import attack, rule_loader, utils
+from .beats import (download_beats_schema, download_latest_beats_schema,
+                    refresh_main_schema)
 from .cli_utils import single_collection
 from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX
+from .ecs import download_endpoint_schemas, download_schemas
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
@@ -47,7 +50,7 @@ from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
                         Package, current_stack_version)
 from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
-                   ThreatMapping, TOMLRule, TOMLRuleContents, RuleTransform)
+                   RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
 from .utils import (dict_hash, get_etc_path, get_path, load_dump,
@@ -1279,17 +1282,57 @@ def update_rule_data_schemas():
         cls.save_schema()
 
 
-@schemas_group.command("generate-endgame")
+@schemas_group.command("generate")
 @click.option("--token", required=True, prompt=get_github_token() is None, default=get_github_token(),
               help="GitHub token to use for the PR", hide_input=True)
-@click.option("--endgame-version", "-e", required=True, help="Tagged version from TBD. e.g., 1.9.0")
+@click.option("--schema", "-s", required=True, type=click.Choice(["endgame", "ecs", "beats", "endpoint"]),
+              help="Schema to generate")
+@click.option("--schema-version", "-sv", help="Tagged version from TBD. e.g., 1.9.0")
+@click.option("--endpoint-target", "-t", type=str, default="endpoint", help="Target endpoint schema")
 @click.option("--overwrite", is_flag=True, help="Overwrite if versions exist")
-def generate_endgame_schema(token: str, endgame_version: str, overwrite: bool):
-    """Download Endgame-ECS mapping.json and generate flattend schema."""
+def generate_schema(token: str, schema: str, schema_version: str, endpoint_target: str, overwrite: bool):
+    """Download schemas and generate flattend schema."""
     github = GithubClient(token)
     client = github.authenticated_client
-    schema_manager = EndgameSchemaManager(client, endgame_version)
-    schema_manager.save_schemas(overwrite=overwrite)
+
+    if schema_version and not Version.parse(schema_version):
+        raise click.BadParameter(f"Invalid schema version: {schema_version}")
+
+    click.echo(f"Generating {schema} schema")
+    if schema == "endgame":
+        if not schema_version:
+            raise click.BadParameter("Schema version required")
+        schema_manager = EndgameSchemaManager(client, schema_version)
+        schema_manager.save_schemas(overwrite=overwrite)
+
+    # ecs, beats and endpoint schemas are refreshed during release
+    # these schemas do not require a schema version
+    if schema == "ecs":
+        download_schemas(refresh_all=True)
+    if schema == "beats":
+        if not schema_version:
+            download_latest_beats_schema()
+            refresh_main_schema()
+        else:
+            download_beats_schema(schema_version)
+
+    # endpoint package custom schemas can be downloaded
+    # this download requires a specific schema target
+    if schema == "endpoint":
+        repo = client.get_repo("elastic/endpoint-package")
+        contents = repo.get_contents("custom_schemas")
+        optional_endpoint_targets = [
+            Path(f.path).name.replace("custom_", "").replace(".yml", "")
+            for f in contents if f.name.endswith(".yml") or Path(f.path).name == endpoint_target
+        ]
+
+        if not endpoint_target:
+            raise click.BadParameter("Endpoint target required")
+        if endpoint_target not in optional_endpoint_targets:
+            raise click.BadParameter(f"""Invalid endpoint schema target: {endpoint_target}
+                                      \n Schema Options: {optional_endpoint_targets}""")
+        download_endpoint_schemas(endpoint_target)
+    click.echo(f"Done generating {schema} schema")
 
 
 @dev_group.group('attack')
