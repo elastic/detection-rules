@@ -26,10 +26,9 @@ from .rule import TOMLRule, TOMLRuleContents, QueryRuleData
 from .rule_formatter import toml_write
 from .rule_loader import RuleCollection
 from .schemas import all_versions, definitions, get_incompatible_fields
-from .utils import get_path, get_etc_path, clear_caches, load_dump, load_rule_contents
+from .utils import Ndjson, get_path, get_etc_path, clear_caches, load_dump, load_rule_contents
 
 RULES_DIR = get_path('rules')
-UNSUPPORTED_RULE_TYPES = {'new_terms', 'threat_match', 'threshold', 'machine_learning'}
 
 
 @click.group('detection-rules', context_settings={'help_option_names': ['-h', '--help']})
@@ -137,28 +136,30 @@ def build_limited_rules(stack_version: str, output_file: str):
     # Define output path
     output_path = Path(output_file)
 
-    # Function to process and write each rule to the output file
-    def process_and_write_rule(rule, incompatible_fields: List[str], file):
-        if rule.contents.type in UNSUPPORTED_RULE_TYPES:
+    # Define ndjson instance for output
+    ndjson_output = Ndjson()
+
+    # Function to process each rule
+    def process_rule(rule, incompatible_fields: List[str]):
+        if rule.contents.type in definitions.UNSUPPORTED_RULE_TYPES:
             click.secho(f'Skipping unsupported rule type: {rule.contents.get("type")}', fg='yellow')
-            return
+            return None
 
         # Remove unsupported fields from rule
         rule_contents = rule.contents.to_api_format()
         for field in incompatible_fields:
             rule_contents.pop(field, None)
 
-        # Try to write the cleaned rule to the NDJSON output file
-        try:
-            json.dump(rule_contents, file)
-            file.write('\n')
-        except json.JSONDecodeError:
-            click.echo(f"Error: Failed to write rule {rule_contents.get('name')} to the file.", err=True)
+        return rule_contents
 
-    # Process and write each rule
-    with output_path.open('w', encoding="utf-8") as out_file:
-        for rule in rules.rules:
-            process_and_write_rule(rule, incompatible_fields, out_file)
+    # Process each rule and add to ndjson_output
+    for rule in rules.rules:
+        processed_rule = process_rule(rule, incompatible_fields)
+        if processed_rule is not None:
+            ndjson_output.append(processed_rule)
+
+    # Write ndjson_output to file
+    ndjson_output.dump(output_path)
 
     click.echo(f'Success: Rules written to {output_file}')
 
