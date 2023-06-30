@@ -30,7 +30,7 @@ type = "eql"
 query = '''
 sequence by host.id, user.name, process.parent.entity_id with maxspan=5s
   [ process where host.os.type == "linux" and event.action == "exec" and 
-    process.name : "openssl" and process.parent.name : ("*sh", "perl*", "php*", "python*", "xargs") and
+    process.name == "openssl" and process.parent.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "perl*", "php*", "python*", "xargs") and
     process.args == "-in" and process.args == "-out" and
     process.args in ("-k", "-K", "-kfile", "-pass", "-iv", "-md") and
     /* excluding base64 encoding options and including encryption password or key params */
