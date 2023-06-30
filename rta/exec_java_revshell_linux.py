@@ -26,7 +26,7 @@ def main():
   common.execute(['chmod', '+x', masquerade])
 
   commands = [
-   '/bin/java',
+   masquerade,
    'chain',
    '-h',
    '127.0.0.1',
