@@ -4,7 +4,7 @@ integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/22"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -20,14 +20,14 @@ name = "Remote Windows Service Installed"
 risk_score = 47
 rule_id = "d33ea3bf-9a11-463e-bd46-f648f2a0f4b1"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement", "Persistence"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Tactic: Persistence"]
 type = "eql"
 
 query = '''
 sequence by winlog.logon.id, winlog.computer_name with maxspan=1m
-[authentication where host.os.type == "windows" and event.action == "logged-in" and winlog.logon.type : "Network" and
+[authentication where event.action == "logged-in" and winlog.logon.type : "Network" and
 event.outcome=="success" and source.ip != null and source.ip != "127.0.0.1" and source.ip != "::1"]
-[iam where host.os.type == "windows" and event.action == "service-installed" and
+[iam where event.action == "service-installed" and
  not winlog.event_data.SubjectLogonId : "0x3e7" and
  not winlog.event_data.ServiceFileName :
                ("?:\\Windows\\ADCR_Agent\\adcrsvc.exe",
