@@ -5,7 +5,6 @@
 
 from . import common
 from . import RtaMetadata
-import subprocess
 
 metadata = RtaMetadata(
     uuid="e0db3577-879e-4ac2-bd58-691e1343afca",
@@ -23,6 +22,9 @@ def main():
   source = common.get_path("bin", "netcon_exec_chain.elf")
   common.copy_file(source, masquerade)
 
+  common.log("Granting execute permissions...")
+  common.execute(['chmod', '+x', masquerade])
+
   commands = [
    '/bin/java',
    'chain',
@@ -31,8 +33,6 @@ def main():
    '-p',
    '1337',
    '-c',
-   'sleep 2',
-   '&&',
    '-jar'
   ]
 
