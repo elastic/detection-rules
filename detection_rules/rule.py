@@ -16,10 +16,10 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from uuid import uuid4
 
 import eql
-from semver import Version
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
 from marshmallow import ValidationError, validates_schema
+from semver import Version
 
 import kql
 from kql.ast import FieldComparison
@@ -31,9 +31,10 @@ from .misc import load_current_package_version
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
 from .schemas import (SCHEMA_DIR, definitions, downgrade,
-                      get_min_supported_stack_version, get_stack_schemas)
+                      get_min_supported_stack_version, get_stack_schemas,
+                      strip_build_time_fields)
 from .schemas.stack_compat import get_restricted_fields
-from .utils import cached, convert_time_span, PatchedTemplate
+from .utils import PatchedTemplate, cached, convert_time_span
 
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
@@ -912,6 +913,10 @@ class BaseRuleContents(ABC):
     def sha256(self, include_version=False) -> str:
         # get the hash of the API dict without the version by default, otherwise it'll always be dirty.
         hashable_contents = self.to_api_format(include_version=include_version)
+
+        # remove build time fields that are dynamic from the contents
+        # this avoids the rule being dirty based on metadata TRADE may not control
+        hashable_contents = strip_build_time_fields(hashable_contents)
         return utils.dict_hash(hashable_contents)
 
 
