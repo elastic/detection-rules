@@ -4,7 +4,7 @@ integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/02/22"
 
 [rule]
 author = ["Elastic"]
@@ -84,19 +84,19 @@ risk_score = 73
 rule_id = "61d29caf-6c15-4d1e-9ccb-7ad12ccc0bc7"
 severity = "high"
 tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Data Source: Active Directory",
-    "Resources: Investigation Guide",
-    "Use Case: Active Directory Monitoring"
+    "Elastic",
+    "Host",
+    "Windows",
+    "Threat Detection",
+    "Persistence",
+    "Active Directory",
+    "Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where event.action == "Directory Service Changes" and
+any where host.os.type == "windows" and event.action == "Directory Service Changes" and
   event.code == "5136" and
   winlog.event_data.AttributeLDAPDisplayName : "dSHeuristics" and
   length(winlog.event_data.AttributeValue) > 15 and

@@ -36,9 +36,6 @@ EX: `DR_USER=joe`
 
 Using the environment variable `DR_BYPASS_NOTE_VALIDATION_AND_PARSE` will bypass the Detection Rules validation on the `note` field in toml files.
 
-Using the environment variable `DR_BYPASS_BBR_LOOKBACK_VALIDATION` will bypass the Detection Rules lookback and interval validation
-on the building block rules.
-
 
 ## Importing rules into the repo
 

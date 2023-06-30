@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/07/02"
-integration = ["network_traffic"]
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2022/12/14"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["packetbeat-*", "logs-network_traffic.*"]
+index = ["auditbeat-*", "filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Roshal Archive (RAR) or PowerShell File Downloaded from the Internet"
@@ -36,12 +36,12 @@ references = [
 risk_score = 47
 rule_id = "ff013cb4-274d-434a-96bb-fe15ddd3ae92"
 severity = "medium"
-tags = ["Use Case: Threat Detection", "Tactic: Command and Control", "Domain: Endpoint"]
+tags = ["Elastic", "Network", "Threat Detection", "Command and Control", "Host"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: (network_traffic.http or network_traffic.tls) and
+event.category:(network or network_traffic) and network.protocol:http and
   (url.extension:(ps1 or rar) or url.path:(*.ps1 or *.rar)) and
     not destination.ip:(
       10.0.0.0/8 or

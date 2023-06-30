@@ -113,9 +113,6 @@ class KQLValidator(QueryValidator):
             # add non-ecs-schema fields for edge cases not added to the integration
             for index_name in data.index:
                 integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
-
-            # add endpoint schema fields for multi-line fields
-            integration_schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))
             combined_schema.update(**integration_schema)
 
             try:
@@ -246,9 +243,6 @@ class EQLValidator(QueryValidator):
             # add non-ecs-schema fields for edge cases not added to the integration
             for index_name in data.index:
                 integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
-
-            # add endpoint schema fields for multi-line fields
-            integration_schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))
             combined_schema.update(**integration_schema)
 
             eql_schema = ecs.KqlSchema2Eql(integration_schema)
