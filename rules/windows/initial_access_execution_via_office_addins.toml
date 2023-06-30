@@ -1,0 +1,110 @@
+[metadata]
+creation_date = "2023/03/20"
+integration = ["endpoint", "windows"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/06/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies execution of common Microsoft Office applications to launch an Office Add-In from a suspicious path or 
+with an unusual parent process. This may indicate an attempt to get initial access via a malicious phishing 
+MS Office Add-In.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Execution via Microsoft Office Add-Ins"
+references = [
+"https://github.com/Octoberfest7/XLL_Phishing",
+"https://labs.f-secure.com/archive/add-in-opportunities-for-office-persistence/"
+]
+risk_score = 47
+rule_id = "ae8a142c-6a1d-4918-bea7-0b617e99ecfa"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Initial Access", "Tactic: Persistence", "Data Source: Elastic Endgame"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where 
+    
+    host.os.type == "windows" and event.type == "start" and  
+    
+    process.name : ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "MSACCESS.EXE", "VSTOInstaller.exe") and 
+    
+    process.args regex~ """.+\.(wll|xll|ppa|ppam|xla|xlam|vsto)""" and 
+    
+    /* Office Add-In from suspicious paths */
+    (process.args :
+             ("?:\\Users\\*\\Temp\\7z*",
+              "?:\\Users\\*\\Temp\\Rar$*",
+              "?:\\Users\\*\\Temp\\Temp?_*",
+              "?:\\Users\\*\\Temp\\BNZ.*",
+              "?:\\Users\\*\\Downloads\\*",
+              "?:\\Users\\*\\AppData\\Roaming\\*",
+              "?:\\Users\\Public\\*",
+              "?:\\ProgramData\\*",
+              "?:\\Windows\\Temp\\*",
+              "\\Device\\*",
+              "http*") or
+	      
+    process.parent.name : ("explorer.exe", "OpenWith.exe") or 
+    
+    /* Office Add-In from suspicious parent */
+    process.parent.name : ("cmd.exe", "powershell.exe")) and
+	  
+    /* False Positives */
+    not (process.args : "*.vsto" and
+         process.parent.executable :
+                   ("?:\\Program Files\\Logitech\\LogiOptions\\PlugInInstallerUtility*.exe",
+                    "?:\\ProgramData\\Logishrd\\LogiOptions\\Plugins\\VSTO\\*\\VSTOInstaller.exe",
+                    "?:\\Program Files\\Logitech\\LogiOptions\\PlugInInstallerUtility.exe",
+                    "?:\\Program Files\\LogiOptionsPlus\\PlugInInstallerUtility*.exe",
+                    "?:\\ProgramData\\Logishrd\\LogiOptionsPlus\\Plugins\\VSTO\\*\\VSTOInstaller.exe",
+                    "?:\\Program Files\\Common Files\\microsoft shared\\VSTO\\*\\VSTOInstaller.exe")) and
+    not (process.args : "/Uninstall" and process.name : "VSTOInstaller.exe") and
+    not (process.parent.name : "rundll32.exe" and
+         process.parent.args : "?:\\WINDOWS\\Installer\\MSI*.tmp,zzzzInvokeManagedCustomActionOutOfProc") and
+    not (process.name : "VSTOInstaller.exe" and process.args : "https://dl.getsidekick.com/outlook/vsto/Sidekick.vsto")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.001"
+name = "Spearphishing Attachment"
+reference = "https://attack.mitre.org/techniques/T1566/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1137"
+name = "Office Application Startup"
+reference = "https://attack.mitre.org/techniques/T1137/"
+[[rule.threat.technique.subtechnique]]
+id = "T1137.006"
+name = "Add-ins"
+reference = "https://attack.mitre.org/techniques/T1137/006/"
+	
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

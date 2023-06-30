@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/09"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -32,12 +32,12 @@ references = [
 risk_score = 21
 rule_id = "06a7a03c-c735-47a6-a313-51c354aef6c3"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Discovery", "Elastic Endgame"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Data Source: Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
     (process.name : "dsquery.exe" or process.pe.original_file_name: "dsquery.exe") and 
     process.args : "*objectClass=trustedDomain*"
 '''

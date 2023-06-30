@@ -2,9 +2,9 @@
 creation_date = "2022/08/25"
 integration = ["google_workspace"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_comments = "Breaking changes for Google Workspace integration."
 min_stack_version = "8.4.0"
-updated_date = "2023/01/13"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +26,50 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "Application Removed from Blocklist in Google Workspace"
-note = """## Setup
+note = """## Triage and analysis
+
+### Investigating Application Removed from Blocklist in Google Workspace
+
+Google Workspace Marketplace is an online store for free and paid web applications that work with Google Workspace services and third-party software. Listed applications are based on Google APIs or Google Apps Script and created by both Google and third-party developers.
+
+Marketplace applications require access to specific Google Workspace resources. Individual users with the appropriate permissions can install applications in their Google Workspace domain. Administrators have additional permissions that allow them to install applications for an entire Google Workspace domain. Consent screens typically display permissions and privileges the user needs to install an application. As a result, malicious Marketplace applications may require more permissions than necessary or have malicious intent.
+
+Google clearly states that they are not responsible for any Marketplace product that originates from a source that isn't Google.
+
+This rule identifies a Marketplace blocklist update that consists of a Google Workspace account with administrative privileges manually removing a previously blocked application.
+
+#### Possible investigation steps
+
+- Identify the associated user accounts by reviewing `user.name` or `user.email` fields in the alert.
+- This rule relies on data from `google_workspace.admin`, thus indicating the associated user has administrative privileges to the Marketplace.
+- With access to the Google Workspace admin console, visit the `Security > Investigation` tool with filters for the user email and event is `Assign Role` or `Update Role` to determine if new cloud roles were recently updated.
+- After identifying the involved user account, review other potentially related events within the last 48 hours.
+- Re-assess the permissions and reviews of the Marketplace applications to determine if they violate organizational policies or introduce unexpected risks.
+- With access to the Google Workspace admin console, determine if the application was installed domain-wide or individually by visiting `Apps > Google Workspace Marketplace Apps`.
+
+### False positive analysis
+
+- Google Workspace administrators might intentionally remove an application from the blocklist due to a re-assessment or a domain-wide required need for the application.
+- Identify the user account associated with this action and assess their administrative privileges with Google Workspace Marketplace.
+- Contact the user to verify that they intentionally removed the application from the blocklist and their reasoning.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Disable or limit the account during the investigation and response.
+- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
+    - Identify the account role in the cloud environment.
+    - Assess the criticality of affected services and servers.
+    - Work with your IT team to identify and minimize the impact on users.
+    - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
+    - Identify any regulatory or legal ramifications related to this activity.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
+- Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
+- Implement security best practices [outlined](https://support.google.com/a/answer/7587183) by Google.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+
+## Setup
 
 The Google Workspace Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 
@@ -43,13 +86,11 @@ risk_score = 47
 rule_id = "495e5f2e-2480-11ed-bea8-f661ea17fbce"
 severity = "medium"
 tags = [
-    "Elastic",
-    "Cloud",
-    "Google Workspace",
-    "Continuous Monitoring",
-    "SecOps",
-    "Configuration Audit",
-    "Impair Defenses",
+    "Domain: Cloud",
+    "Data Source: Google Workspace",
+    "Use Case: Configuration Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion"
 ]
 timestamp_override = "event.ingested"
 type = "query"

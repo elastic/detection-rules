@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/01/19"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -74,12 +74,12 @@ references = [
 risk_score = 47
 rule_id = "adb961e0-cb74-42a0-af9e-29fc41f88f5f"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Execution", "Investigation Guide"]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Resources: Investigation Guide"]
 type = "eql"
 
 query = '''
 sequence by process.entity_id
-  [process where event.type == "start" and 
+  [process where host.os.type == "linux" and event.type == "start" and
       process.name:("nc","ncat","netcat","netcat.openbsd","netcat.traditional") and (
           /* bind shell to echo for command execution */
           (process.args:("-l","-p") and process.args:("-c","echo","$*"))
@@ -92,7 +92,7 @@ sequence by process.entity_id
           /* file transfer via pipe */
           or (process.args:("|") and process.args:("nc","ncat"))
       )]
-  [network where (process.name == "nc" or process.name == "ncat" or process.name == "netcat" or
+  [network where host.os.type == "linux" and (process.name == "nc" or process.name == "ncat" or process.name == "netcat" or
                   process.name == "netcat.openbsd" or process.name == "netcat.traditional")]
 '''
 

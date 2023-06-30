@@ -2,9 +2,9 @@
 creation_date = "2020/11/17"
 integration = ["google_workspace"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_comments = "Breaking changes for Google Workspace integration."
 min_stack_version = "8.4.0"
-updated_date = "2023/01/13"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,52 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "Google Workspace Custom Admin Role Created"
-note = """## Setup
+note = """## Triage and analysis
+
+### Investigating Google Workspace Custom Admin Role Created
+
+Google Workspace roles allow administrators to assign specific permissions to users or groups where the principle of least privilege (PoLP) is recommended. Admin roles in Google Workspace grant users access to the Google Admin console, where more domain-wide settings are accessible. Google Workspace contains prebuilt administrator roles for performing business functions related to users, groups, and services. Custom administrator roles can be created where prebuilt roles are not preferred.
+
+Roles assigned to users will grant them additional permissions and privileges within the Google Workspace domain. Threat actors might create new admin roles with privileges to advance their intrusion efforts and laterally move throughout the organization if existing roles or users do not have privileges aligned with their modus operandi. Users with unexpected privileges from new admin roles may also cause operational dysfunction if unfamiliar settings are adjusted without warning. Instead of modifying existing roles, administrators might create new roles to accomplish short-term goals and unintentionally introduce additional risk exposure.
+
+This rule identifies when a Google Workspace administrative role is added within the Google Workspace admin console.
+
+#### Possible investigation steps
+
+- Identify the associated user accounts by reviewing `user.name` or `user.email` fields in the alert.
+- Identify the role added by reviewing the `google_workspace.admin.role.name` field in the alert.
+- After identifying the involved user, verify if they should have administrative privileges to add administrative roles.
+- To identify if users have been assigned this role, search for `event.action: ASSIGN_ROLE`.
+    - Add `google_workspace.admin.role.name` with the role added as an additional filter.
+    - Adjust the relative time accordingly to identify all users that were possibly assigned this admin role.
+- Monitor users assigned the admin role for the next 24 hours and look for attempts to use related privileges.
+  - The `event.provider` field will help filter for specific services in Google Workspace such as Drive or Admin.
+  - The `event.action` field will help trace what actions are being taken by users.
+
+### False positive analysis
+
+- After identifying the user account that created the role, verify whether the action was intentional.
+- Verify that the user who created the role should have administrative privileges in Google Workspace to create custom roles.
+- Review organizational units or groups the role may have been added to and ensure the new privileges align properly.
+- Create a filter with the user's `user.name` and filter for `event.action`. In the results, check if there are multiple `CREATE_ROLE` actions and note whether they are new or historical.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Disable or limit the account during the investigation and response.
+- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
+    - Identify the account role in the cloud environment.
+    - Assess the criticality of affected services and servers.
+    - Work with your IT team to identify and minimize the impact on users.
+    - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
+    - Identify any regulatory or legal ramifications related to this activity.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
+- Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
+- Implement security best practices [outlined](https://support.google.com/a/answer/7587183) by Google.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+
+## Setup
 
 The Google Workspace Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 
@@ -40,7 +85,7 @@ references = ["https://support.google.com/a/answer/2406043?hl=en"]
 risk_score = 47
 rule_id = "ad3f2807-2b3e-47d7-b282-f84acbbe14be"
 severity = "medium"
-tags = ["Elastic", "Cloud", "Google Workspace", "Continuous Monitoring", "SecOps", "Identity and Access"]
+tags = ["Domain: Cloud", "Data Source: Google Workspace", "Use Case: Identity and Access Audit", "Resources: Investigation Guide", "Tactic: Persistence"]
 timestamp_override = "event.ingested"
 type = "query"
 

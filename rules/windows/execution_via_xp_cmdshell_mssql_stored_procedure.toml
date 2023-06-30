@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -58,12 +58,12 @@ references = ["https://thedfirreport.com/2022/07/11/select-xmrig-from-sqlserver/
 risk_score = 73
 rule_id = "4ed493fc-d637-4a36-80ff-ac84937e5461"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution", "Investigation Guide", "Elastic Endgame"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Resources: Investigation Guide", "Data Source: Elastic Endgame"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
+process where host.os.type == "windows" and event.type == "start" and
   process.name : "cmd.exe" and process.parent.name : "sqlservr.exe" and
   not process.args : ("\\\\*", "diskfree", "rmdir", "mkdir", "dir", "del", "rename", "bcp", "*XMLNAMESPACES*",
                       "?:\\MSSQL\\Backup\\Jobs\\sql_agent_backup_job.ps1", "K:\\MSSQL\\Backup\\msdb", "K:\\MSSQL\\Backup\\Logins")

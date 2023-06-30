@@ -7,21 +7,27 @@
 import os
 import re
 import unittest
+import uuid
 import warnings
 from collections import defaultdict
+from marshmallow import ValidationError
 from pathlib import Path
 
+import eql.ast
 from semver import Version
 
 import kql
 from detection_rules import attack
 from detection_rules.beats import parse_beats_from_index
+from detection_rules.integrations import load_integrations_schemas
+from detection_rules.misc import load_current_package_version
 from detection_rules.packaging import current_stack_version
 from detection_rules.rule import (QueryRuleData, TOMLRuleContents,
-                                  load_integrations_manifests)
+                                  load_integrations_manifests, QueryValidator)
 from detection_rules.rule_loader import FILE_PATTERN
-from detection_rules.schemas import definitions
-from detection_rules.utils import INTEGRATION_RULE_DIR, get_path, load_etc_dump
+from detection_rules.rule_validators import EQLValidator, KQLValidator
+from detection_rules.schemas import definitions, get_stack_schemas
+from detection_rules.utils import INTEGRATION_RULE_DIR, get_path, load_etc_dump, PatchedTemplate
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
@@ -53,7 +59,11 @@ class TestValidRules(BaseRuleTest):
     def test_all_rule_queries_optimized(self):
         """Ensure that every rule query is in optimized form."""
         for rule in self.production_rules:
-            if rule.contents.data.get("language") == "kql":
+            if (
+                rule.contents.data.get("language") == "kuery" and not any(
+                    item in rule.contents.data.query for item in definitions.QUERY_FIELD_OP_EXCEPTIONS
+                )
+            ):
                 source = rule.contents.data.query
                 tree = kql.parse(source, optimize=False)
                 optimized = tree.optimize(recursive=True)
@@ -90,6 +100,50 @@ class TestValidRules(BaseRuleTest):
     def test_rule_type_changes(self):
         """Test that a rule type did not change for a locked version"""
         default_version_lock.manage_versions(self.production_rules)
+
+    def test_bbr_validation(self):
+        base_fields = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["filebeat-*", "logs-aws*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+            "timestamp_override": "event.ingested"
+        }
+
+        def build_rule(query, bbr_type="default", from_field="now-120m", interval="60m"):
+            metadata = {
+                "creation_date": "1970/01/01",
+                "updated_date": "1970/01/01",
+                "min_stack_version": load_current_package_version(),
+                "integration": ["cloud_defend"]
+            }
+            data = base_fields.copy()
+            data["query"] = query
+            data["building_block_type"] = bbr_type
+            if from_field:
+                data["from"] = from_field
+            if interval:
+                data["interval"] = interval
+            obj = {"metadata": metadata, "rule": data}
+            return TOMLRuleContents.from_dict(obj)
+
+        query = """
+            event.dataset:aws.cloudtrail and event.outcome:success
+        """
+
+        build_rule(query=query)
+
+        with self.assertRaises(ValidationError):
+            build_rule(query=query, bbr_type="invalid")
+
+        with self.assertRaises(ValidationError):
+            build_rule(query=query, from_field="now-10m", interval="10m")
 
 
 class TestThreatMappings(BaseRuleTest):
@@ -192,13 +246,7 @@ class TestRuleTags(BaseRuleTest):
     def test_casing_and_spacing(self):
         """Ensure consistent and expected casing for controlled tags."""
 
-        expected_tags = [
-            'APM', 'AWS', 'Asset Visibility', 'Azure', 'Configuration Audit', 'Continuous Monitoring',
-            'Data Protection', 'Elastic', 'Elastic Endgame', 'Endpoint Security', 'GCP', 'Identity and Access',
-            'Investigation Guide', 'Linux', 'Logging', 'ML', 'macOS', 'Monitoring', 'Network', 'Okta', 'Packetbeat',
-            'Post-Execution', 'SecOps', 'Windows'
-        ]
-        expected_case = {t.casefold(): t for t in expected_tags}
+        expected_case = {t.casefold(): t for t in definitions.EXPECTED_RULE_TAGS}
 
         for rule in self.all_rules:
             rule_tags = rule.contents.data.tags
@@ -215,22 +263,24 @@ class TestRuleTags(BaseRuleTest):
 
     def test_required_tags(self):
         """Test that expected tags are present within rules."""
-        # indexes considered; only those with obvious relationships included
-        # 'apm-*-transaction*', 'traces-apm*', 'auditbeat-*', 'endgame-*', 'filebeat-*', 'logs-*', 'logs-aws*',
-        # 'logs-endpoint.alerts-*', 'logs-endpoint.events.*', 'logs-okta*', 'packetbeat-*', 'winlogbeat-*'
 
         required_tags_map = {
-            'apm-*-transaction*': {'all': ['APM']},
-            'traces-apm*': {'all': ['APM']},
-            'auditbeat-*': {'any': ['Windows', 'macOS', 'Linux']},
-            'endgame-*': {'all': ['Elastic Endgame']},
-            'logs-aws*': {'all': ['AWS']},
-            'logs-endpoint.alerts-*': {'all': ['Endpoint Security']},
-            'logs-endpoint.events.*': {'any': ['Windows', 'macOS', 'Linux', 'Host']},
-            'logs-okta*': {'all': ['Okta']},
-            'logs-windows.*': {'all': ['Windows']},
-            'packetbeat-*': {'all': ['Network']},
-            'winlogbeat-*': {'all': ['Windows']}
+            'logs-endpoint.events.*': {'all': ['Domain: Endpoint']},
+            'endgame-*': {'all': ['Data Source: Elastic Endgame']},
+            'logs-aws*': {'all': ['Data Source: AWS', 'Data Source: Amazon Web Services', 'Domain: Cloud']},
+            'logs-azure*': {'all': ['Data Source: Azure', 'Domain: Cloud']},
+            'logs-o365*': {'all': ['Data Source: Microsoft 365', 'Domain: Cloud']},
+            'logs-okta*': {'all': ['Data Source: Okta']},
+            'logs-gcp*': {'all': ['Data Source: Google Cloud Platform', 'Data Source: GCP', 'Domain: Cloud']},
+            'logs-google_workspace*': {'all': ['Data Source: Google Workspace', 'Domain: Cloud']},
+            'logs-cloud_defend.alerts-*': {'all': ['Data Source: Elastic Defend for Containers', 'Domain: Container']},
+            'logs-cloud_defend*': {'all': ['Data Source: Elastic Defend for Containers', 'Domain: Container']},
+            'logs-kubernetes.*': {'all': ['Data Source: Kubernetes']},
+            'apm-*-transaction*': {'all': ['Data Source: APM']},
+            'traces-apm*': {'all': ['Data Source: APM']},
+            '.alerts-security.*': {'all': ['Rule Type: Higher-Order Rule']},
+            'logs-cyberarkpas.audit*': {'all': ['Data Source: CyberArk PAS']},
+            'logs-endpoint.alerts-*': {'all': ['Data Source: Elastic Defend']}
         }
 
         for rule in self.all_rules:
@@ -240,9 +290,6 @@ class TestRuleTags(BaseRuleTest):
             consolidated_optional_tags = []
             is_missing_any_tags = False
             missing_required_tags = set()
-
-            if 'Elastic' not in rule_tags:
-                missing_required_tags.add('Elastic')
 
             if isinstance(rule.contents.data, QueryRuleData):
                 for index in rule.contents.data.index:
@@ -281,10 +328,7 @@ class TestRuleTags(BaseRuleTest):
             if threat:
                 missing = []
                 threat_tactic_names = [e.tactic.name for e in threat]
-                primary_tactic = threat_tactic_names[0]
-
-                if 'Threat Detection' not in rule_tags:
-                    missing.append('Threat Detection')
+                primary_tactic = f"Tactic: {threat_tactic_names[0]}"
 
                 # missing primary tactic
                 if primary_tactic not in rule.contents.data.tags:
@@ -306,6 +350,79 @@ class TestRuleTags(BaseRuleTest):
         if invalid:
             err_msg = '\n'.join(invalid)
             self.fail(f'Rules with misaligned tags and tactics:\n{err_msg}')
+
+    def test_os_tags(self):
+        """Test that OS tags are present within rules."""
+        required_tags_map = {
+            'linux': 'OS: Linux',
+            'macos': 'OS: macOS',
+            'windows': 'OS: Windows'
+        }
+        invalid = []
+        for rule in self.all_rules:
+            dir_name = rule.path.parent.name
+            # if directory name is linux, macos, or windows,
+            # ensure the rule has the corresponding tag
+            if dir_name in ['linux', 'macos', 'windows']:
+                if required_tags_map[dir_name] not in rule.contents.data.tags:
+                    err_msg = self.rule_str(rule)
+                    err_msg += f'\n    expected: {required_tags_map[dir_name]}'
+                    invalid.append(err_msg)
+
+        if invalid:
+            err_msg = '\n'.join(invalid)
+            self.fail(f'Rules with missing OS tags:\n{err_msg}')
+
+    def test_ml_rule_type_tags(self):
+        """Test that ML rule type tags are present within rules."""
+        invalid = []
+
+        for rule in self.all_rules:
+            rule_tags = rule.contents.data.tags
+
+            if rule.contents.data.type == 'machine_learning':
+                if 'Rule Type: Machine Learning' not in rule_tags:
+                    err_msg = self.rule_str(rule)
+                    err_msg += '\n    expected: Rule Type: Machine Learning'
+                    invalid.append(err_msg)
+                if 'Rule Type: ML' not in rule_tags:
+                    err_msg = self.rule_str(rule)
+                    err_msg += '\n    expected: Rule Type: ML'
+                    invalid.append(err_msg)
+
+        if invalid:
+            err_msg = '\n'.join(invalid)
+            self.fail(f'Rules with misaligned ML rule type tags:\n{err_msg}')
+
+    @unittest.skip("Skipping until all Investigation Guides follow the proper format.")
+    def test_investigation_guide_tag(self):
+        """Test that investigation guide tags are present within rules."""
+        invalid = []
+        for rule in self.all_rules:
+            note = rule.contents.data.get('note')
+            if note is not None:
+                results = re.search(r'Investigating', note, re.M)
+                if results is not None:
+                    # check if investigation guide tag is present
+                    if 'Resources: Investigation Guide' not in rule.contents.data.tags:
+                        err_msg = self.rule_str(rule)
+                        err_msg += '\n    expected: Resources: Investigation Guide'
+                        invalid.append(err_msg)
+        if invalid:
+            err_msg = '\n'.join(invalid)
+            self.fail(f'Rules with missing Investigation tag:\n{err_msg}')
+
+    def test_tag_prefix(self):
+        """Ensure all tags have a prefix from an expected list."""
+        invalid = []
+
+        for rule in self.all_rules:
+            rule_tags = rule.contents.data.tags
+            expected_prefixes = set([tag.split(":")[0] + ":" for tag in definitions.EXPECTED_RULE_TAGS])
+            [invalid.append(f"{self.rule_str(rule)}-{tag}") for tag in rule_tags
+             if not any(prefix in tag for prefix in expected_prefixes)]
+        if invalid:
+            self.fail(f'Rules with invalid tags:\n{invalid}')
 
 
 class TestRuleTimelines(BaseRuleTest):
@@ -364,6 +481,18 @@ class TestRuleFiles(BaseRuleTest):
             error_msg = 'filename does not start with the primary tactic - update the tactic or the rule filename'
             rule_err_str = '\n'.join(bad_name_rules)
             self.fail(f'{error_msg}:\n{rule_err_str}')
+
+    def test_bbr_in_correct_dir(self):
+        """Ensure that BBR are in the correct directory."""
+        for rule in self.bbr:
+            self.assertEqual(rule.path.parent.name, 'rules_building_block',
+                             f'{self.rule_str(rule)} should be in the rules_building_block directory')
+
+    def test_non_bbr_in_correct_dir(self):
+        """Ensure that non-BBR are not in BBR directory."""
+        for rule in self.all_rules:
+            if rule.path.parent.name == 'rules_building_block':
+                self.assertIn(rule, self.bbr, f'{self.rule_str(rule)} should be in the rules_building_block directory')
 
 
 class TestRuleMetadata(BaseRuleTest):
@@ -452,16 +581,23 @@ class TestRuleMetadata(BaseRuleTest):
             if isinstance(rule.contents.data, QueryRuleData) and rule.contents.data.language != 'lucene':
                 rule_integrations = rule.contents.metadata.get('integration') or []
                 rule_integrations = [rule_integrations] if isinstance(rule_integrations, str) else rule_integrations
+                rule_promotion = rule.contents.metadata.get('promotion')
                 data = rule.contents.data
                 meta = rule.contents.metadata
                 package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
                 package_integrations_list = list(set([integration["package"] for integration in package_integrations]))
                 indices = data.get('index')
                 for rule_integration in rule_integrations:
+                    if ("even.dataset" in rule.contents.data.query and not package_integrations and  # noqa: W504
+                       not rule_promotion and rule_integration not in definitions.NON_DATASET_PACKAGES):  # noqa: W504
+                        err_msg = f'{self.rule_str(rule)} {rule_integration} tag, but integration not \
+                                found in manifests/schemas.'
+                        failures.append(err_msg)
 
                     # checks if the rule path matches the intended integration
+                    # excludes BBR rules
                     if rule_integration in valid_integration_folders:
-                        if rule.path.parent.name not in rule_integrations:
+                        if rule.path.parent.name not in rule_integrations and rule.path.parent.name != "bbr":
                             err_msg = f'{self.rule_str(rule)} {rule_integration} tag, path is {rule.path.parent.name}'
                             failures.append(err_msg)
 
@@ -486,7 +622,11 @@ class TestRuleMetadata(BaseRuleTest):
                         "eb079c62-4481-4d6e-9643-3ca499df7aaa",
                         "699e9fdb-b77c-4c01-995c-1c15019b9c43",
                         "0c9a14d9-d65d-486f-9b5b-91e4e6b22bd0",
-                        "a198fbbd-9413-45ec-a269-47ae4ccf59ce"
+                        "a198fbbd-9413-45ec-a269-47ae4ccf59ce",
+                        "0c41e478-5263-4c69-8f9e-7dfd2c22da64",
+                        "aab184d3-72b3-4639-b242-6597c99d8bca",
+                        "a61809f3-fb5b-465c-8bff-23a8a068ac60",
+                        "f3e22c8b-ea47-45d1-b502-b57b6de950b3"
                     ]
                     if any([re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
                             for i in rule.contents.data.index]):
@@ -503,6 +643,163 @@ class TestRuleMetadata(BaseRuleTest):
                     - `python -m detection_rules dev integrations build-manifests`\n
                 """
             self.fail(err_msg + '\n'.join(failures))
+
+    def test_invalid_queries(self):
+        invalid_queries_eql = [
+            """file where file.fake: (
+                "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem", "gpg.sig", "der", "key",
+                "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst", "pgp", "gpgz", "pfx", "crt",
+                "p8", "sig", "pkcs7", "jceks", "pkcs8", "psc1", "p7c", "csr", "cer", "spc", "ps2xml")
+            """
+        ]
+        invalid_integration_queries_eql = [
+            """file where event.dataset == "google_workspace.drive" and event.action : ("copy", "view", "download") and
+                    google_workspace.drive.fake: "people_with_link" and source.user.email == "" and
+                    file.extension: (
+                        "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem", "gpg.sig", "der", "key",
+                        "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst", "pgp", "gpgz", "pfx",
+                        "crt", "p8", "sig", "pkcs7", "jceks", "pkcs8", "psc1", "p7c", "csr", "cer", "spc", "ps2xml")
+            """,
+            """file where event.dataset == "google_workspace.drive" and event.action : ("copy", "view", "download") and
+                    google_workspace.drive.visibility: "people_with_link" and source.user.email == "" and
+                    file.fake: (
+                        "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem", "gpg.sig", "der", "key",
+                        "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst", "pgp", "gpgz",
+                        "pfx", "crt", "p8", "sig", "pkcs7", "jceks", "pkcs8", "psc1", "p7c", "csr", "cer", "spc",
+                        "ps2xml")
+            """
+        ]
+
+        valid_queries_eql = [
+            """file where file.extension: (
+                "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem",
+                "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst",
+                "p8", "sig", "pkcs7", "jceks", "pkcs8", "psc1", "p7c", "csr", "cer")
+            """,
+            """file where event.dataset == "google_workspace.drive" and event.action : ("copy", "view", "download") and
+                    google_workspace.drive.visibility: "people_with_link" and source.user.email == "" and
+                    file.extension: (
+                        "token","assig", "pssc", "keystore", "pub", "pgp.asc", "ps1xml", "pem", "gpg.sig", "der", "key",
+                        "p7r", "p12", "asc", "jks", "p7b", "signature", "gpg", "pgp.sig", "sst", "pgp", "gpgz", "pfx",
+                        "p8", "sig", "pkcs7", "jceks", "pkcs8", "psc1", "p7c", "csr", "cer", "spc", "ps2xml")
+            """
+
+        ]
+
+        invalid_queries_kql = [
+            """
+            event.fake:"google_workspace.admin" and event.action:"CREATE_DATA_TRANSFER_REQUEST"
+              and event.category:"iam" and google_workspace.admin.application.name:Drive*
+            """
+        ]
+        invalid_integration_queries_kql = [
+            """
+            event.dataset:"google_workspace.admin" and event.action:"CREATE_DATA_TRANSFER_REQUEST"
+              and event.category:"iam" and google_workspace.fake:Drive*
+            """
+        ]
+
+        valid_queries_kql = [
+            """
+            event.dataset:"google_workspace.admin" and event.action:"CREATE_DATA_TRANSFER_REQUEST"
+              and event.category:"iam" and google_workspace.admin.application.name:Drive*
+            """,
+            """
+            event.dataset:"google_workspace.admin" and event.action:"CREATE_DATA_TRANSFER_REQUEST"
+            """
+
+        ]
+
+        base_fields_eql = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["filebeat-*"],
+            "language": "eql",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "eql"
+        }
+
+        base_fields_kql = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["filebeat-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query"
+        }
+
+        def build_rule(query: str, query_language: str):
+            metadata = {
+                "creation_date": "1970/01/01",
+                "integration": ["google_workspace"],
+                "updated_date": "1970/01/01",
+                "query_schema_validation": True,
+                "maturity": "production",
+                "min_stack_version": load_current_package_version()
+            }
+            if query_language == "eql":
+                data = base_fields_eql.copy()
+            elif query_language == "kuery":
+                data = base_fields_kql.copy()
+            data["query"] = query
+            obj = {"metadata": metadata, "rule": data}
+            return TOMLRuleContents.from_dict(obj)
+        # eql
+        for query in valid_queries_eql:
+            build_rule(query, "eql")
+
+        for query in invalid_queries_eql:
+            with self.assertRaises(eql.EqlSchemaError):
+                build_rule(query, "eql")
+
+        for query in invalid_integration_queries_eql:
+            with self.assertRaises(ValueError):
+                build_rule(query, "eql")
+        # kql
+        for query in valid_queries_kql:
+            build_rule(query, "kuery")
+
+        for query in invalid_queries_kql:
+            with self.assertRaises(kql.KqlParseError):
+                build_rule(query, "kuery")
+
+        for query in invalid_integration_queries_kql:
+            with self.assertRaises(ValueError):
+                build_rule(query, "kuery")
+
+    def test_event_dataset(self):
+        for rule in self.all_rules:
+            if(isinstance(rule.contents.data, QueryRuleData)):
+                # Need to pick validator based on language
+                if rule.contents.data.language == "kuery":
+                    test_validator = KQLValidator(rule.contents.data.query)
+                if rule.contents.data.language == "eql":
+                    test_validator = EQLValidator(rule.contents.data.query)
+                data = rule.contents.data
+                meta = rule.contents.metadata
+                if meta.query_schema_validation is not False or meta.maturity != "deprecated":
+                    if isinstance(data, QueryRuleData) and data.language != 'lucene':
+                        packages_manifest = load_integrations_manifests()
+                        pkg_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
+
+                        validation_integrations_check = None
+
+                        if pkg_integrations:
+                            # validate the query against related integration fields
+                            validation_integrations_check = test_validator.validate_integration(data,
+                                                                                                meta,
+                                                                                                pkg_integrations)
+
+                        if(validation_integrations_check and "event.dataset" in rule.contents.data.query):
+                            raise validation_integrations_check
 
 
 class TestIntegrationRules(BaseRuleTest):
@@ -800,17 +1097,166 @@ class TestRiskScoreMismatch(BaseRuleTest):
             self.fail(err_msg)
 
 
-class TestOsqueryPluginNote(BaseRuleTest):
+class TestEndpointQuery(BaseRuleTest):
+    """Test endpoint-specific rules."""
+
+    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
+                     "Test only applicable to 8.3+ stacks since query updates are min_stacked at 8.3.0")
+    def test_os_and_platform_in_query(self):
+        """Test that all endpoint rules have an os defined and linux includes platform."""
+        for rule in self.production_rules:
+            if not rule.contents.data.get('language') in ('eql', 'kuery'):
+                continue
+            if rule.path.parent.name not in ('windows', 'macos', 'linux'):
+                # skip cross-platform for now
+                continue
+
+            ast = rule.contents.data.ast
+            fields = [str(f) for f in ast if isinstance(f, (kql.ast.Field, eql.ast.Field))]
+
+            err_msg = f'{self.rule_str(rule)} missing required field for endpoint rule'
+            if 'host.os.type' not in fields:
+                # Exception for Forwarded Events which contain Windows-only fields.
+                if rule.path.parent.name == 'windows' and not any(field.startswith('winlog.') for field in fields):
+                    self.assertIn('host.os.type', fields, err_msg)
+
+            # going to bypass this for now
+            # if rule.path.parent.name == 'linux':
+            #     err_msg = f'{self.rule_str(rule)} missing required field for linux endpoint rule'
+            #     self.assertIn('host.os.platform', fields, err_msg)
+
+
+class TestNoteMarkdownPlugins(BaseRuleTest):
     """Test if a guide containing Osquery Plugin syntax contains the version note."""
 
-    def test_note_guide(self):
-        osquery_note = '> **Note**:\n'
-        osquery_note_pattern = osquery_note + '> This investigation guide uses the [Osquery Markdown Plugin]' \
-            '(https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic ' \
-            'Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.'
+    def test_note_has_osquery_warning(self):
+        """Test that all rules with osquery entries have the default notification of stack compatibility."""
+        osquery_note_pattern = ('> **Note**:\n> This investigation guide uses the [Osquery Markdown Plugin]'
+                                '(https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) '
+                                'introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display '
+                                'unrendered Markdown in this guide.')
 
-        for rule in self.all_rules:
-            if rule.contents.data.note and "!{osquery" in rule.contents.data.note:
-                if osquery_note_pattern not in rule.contents.data.note:
-                    self.fail(f'{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain '
-                              f'the following note:\n{osquery_note_pattern}')
+        for rule in self.production_rules.rules:
+            if not rule.contents.get('transform'):
+                continue
+            osquery = rule.contents.transform.get('osquery')
+            if osquery and osquery_note_pattern not in rule.contents.data.note:
+                self.fail(f'{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain '
+                          f'the following note:\n{osquery_note_pattern}')
+
+    def test_plugin_placeholders_match_entries(self):
+        """Test that the number of plugin entries match their respective placeholders in note."""
+        for rule in self.production_rules.rules:
+            has_transform = rule.contents.get('transform') is not None
+            has_note = rule.contents.data.get('note') is not None
+
+            if has_transform and not has_note:
+                self.fail(f'{self.rule_str(rule)} transformed defined with no note')
+            elif not has_transform:
+                continue
+
+            transform = rule.contents.transform
+            transform_counts = {plugin: len(entries) for plugin, entries in transform.to_dict().items()}
+            note = rule.contents.data.note
+            self.assertIsNotNone(note)
+            note_template = PatchedTemplate(note)
+
+            note_counts = defaultdict(int)
+            for identifier in note_template.get_identifiers():
+                # "$" is used for other things, so this verifies the pattern of a trailing "_" followed by ints
+                if '_' not in identifier:
+                    continue
+                dash_index = identifier.rindex('_')
+                if dash_index == len(identifier) or not identifier[dash_index + 1:].isdigit():
+                    continue
+
+                plugin, _ = identifier.split('_')
+                if plugin in transform_counts:
+                    note_counts[plugin] += 1
+
+            err_msg = f'{self.rule_str(rule)} plugin entry count mismatch between transform and note'
+            self.assertDictEqual(transform_counts, note_counts, err_msg)
+
+    def test_if_plugins_explicitly_defined(self):
+        """Check if plugins are explicitly defined with the pattern in note vs using transform."""
+        for rule in self.production_rules.rules:
+            note = rule.contents.data.get('note')
+            if note is not None:
+                results = re.search(r'(!{osquery|!{insight)', note, re.I | re.M)
+                err_msg = f'{self.rule_str(rule)} investigation guide plugin pattern detected! Use Transform'
+                self.assertIsNone(results, err_msg)
+
+
+class TestAlertSuppression(BaseRuleTest):
+    """Test rule alert suppression."""
+
+    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.6.0"),
+                     "Test only applicable to 8.6+ stacks for rule alert suppression feature.")
+    def test_group_length(self):
+        """Test to ensure the rule alert suppression group_by does not exceed 3 elements."""
+        for rule in self.production_rules:
+            if rule.contents.data.alert_suppression:
+                group_length = len(rule.contents.data.alert_suppression.group_by)
+                if group_length > 3:
+                    self.fail(f'{self.rule_str(rule)} has rule alert suppression with more than 3 elements.')
+
+    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.6.0"),
+                     "Test only applicable to 8.6+ stacks for rule alert suppression feature.")
+    def test_group_field_in_schemas(self):
+        """Test to ensure the fields are defined is in ECS/Beats/Integrations schema."""
+        for rule in self.production_rules:
+            if rule.contents.data.alert_suppression:
+                group_by_fields = rule.contents.data.alert_suppression.group_by
+                min_stack_version = rule.contents.metadata.get("min_stack_version")
+                if min_stack_version is None:
+                    min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+                else:
+                    min_stack_version = Version.parse(min_stack_version)
+                integration_tag = rule.contents.metadata.get("integration")
+                ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
+                beats_version = get_stack_schemas()[str(min_stack_version)]['beats']
+                queryvalidator = QueryValidator(rule.contents.data.query)
+                _, _, schema = queryvalidator.get_beats_schema([], beats_version, ecs_version)
+                if integration_tag:
+                    # if integration tag exists in rule, append integration schema to existing schema
+                    # grabs the latest
+                    integration_schemas = load_integrations_schemas()
+                    for ints in integration_tag:
+                        integration_schema = integration_schemas[ints]
+                        int_schema = integration_schema[list(integration_schema.keys())[-1]]
+                        for data_source in int_schema.keys():
+                            schema.update(**int_schema[data_source])
+                for fld in group_by_fields:
+                    if fld not in schema.keys():
+                        self.fail(f"{self.rule_str(rule)} alert suppression field {fld} not \
+                            found in ECS, Beats, or non-ecs schemas")
+
+    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.6.0"),
+                     "Test only applicable to 8.6+ stacks for rule alert suppression feature.")
+    def test_stack_version(self):
+        """Test to ensure the stack version is 8.6+"""
+        for rule in self.production_rules:
+            if rule.contents.data.alert_suppression:
+                per_time = rule.contents.data.alert_suppression.get("duration", None)
+                min_stack_version = rule.contents.metadata.get("min_stack_version")
+                if min_stack_version is None:
+                    min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+                else:
+                    min_stack_version = Version.parse(min_stack_version)
+                if not per_time and min_stack_version < Version.parse("8.6.0"):
+                    self.fail(f'{self.rule_str(rule)} has rule alert suppression but \
+                        min_stack is not 8.6+')
+                elif per_time and min_stack_version < Version.parse("8.7.0"):
+                    self.fail(f'{self.rule_str(rule)} has rule alert suppression with \
+                        per time but min_stack is not 8.7+')
+
+    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.6.0"),
+                     "Test only applicable to 8.6+ stacks for rule alert suppression feature.")
+    def test_query_type(self):
+        """Test to ensure the query type is KQL only."""
+        for rule in self.production_rules:
+            if rule.contents.data.alert_suppression:
+                rule_type = rule.contents.data.language
+                if rule_type != 'kuery':
+                    self.fail(f'{self.rule_str(rule)} has rule alert suppression with \
+                        but query language is not KQL')

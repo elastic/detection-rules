@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,7 @@ name = "WMI Incoming Lateral Movement"
 risk_score = 47
 rule_id = "f3475224-b179-4f78-8877-c2bd64c26b88"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Lateral Movement"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement"]
 type = "eql"
 
 query = '''
@@ -28,15 +28,15 @@ sequence by host.id with maxspan = 2s
 
  /* Accepted Incoming RPC connection by Winmgmt service */
 
-  [network where process.name : "svchost.exe" and network.direction : ("incoming", "ingress") and
+  [network where host.os.type == "windows" and process.name : "svchost.exe" and network.direction : ("incoming", "ingress") and
    source.ip != "127.0.0.1" and source.ip != "::1" and source.port >= 49152 and destination.port >= 49152
   ]
 
   /* Excluding Common FPs Nessus and SCCM */
 
-  [process where event.type == "start" and process.parent.name : "WmiPrvSE.exe" and
+  [process where host.os.type == "windows" and event.type == "start" and process.parent.name : "WmiPrvSE.exe" and
    not process.args : ("C:\\windows\\temp\\nessus_*.txt",
-                       "C:\\windows\\TEMP\\nessus_*.TMP",
+                       "*C:\\windows\\TEMP\\nessus_*.TMP*",
                        "C:\\Windows\\CCM\\SystemTemp\\*",
                        "C:\\Windows\\CCMCache\\*",
                        "C:\\CCM\\Cache\\*")

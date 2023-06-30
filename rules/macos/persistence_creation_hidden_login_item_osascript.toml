@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -24,12 +24,12 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 47
 rule_id = "f24bcae1-8980-4b30-b5dd-f851b055c9e7"
 severity = "medium"
-tags = ["Elastic", "Host", "macOS", "Threat Detection", "Persistence", "Execution"]
+tags = ["Domain: Endpoint", "OS: macOS", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Execution"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and process.name : "osascript" and
+process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name : "osascript" and
  process.command_line : "osascript*login item*hidden:true*"
 '''
 

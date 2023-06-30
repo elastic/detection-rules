@@ -2,9 +2,9 @@
 creation_date = "2020/11/17"
 integration = ["google_workspace"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_comments = "Breaking changes for Google Workspace integration."
 min_stack_version = "8.4.0"
-updated_date = "2023/01/13"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,47 @@ interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
 name = "Domain Added to Google Workspace Trusted Domains"
-note = """## Setup
+note = """## Triage and analysis
+
+### Investigating Domain Added to Google Workspace Trusted Domains
+
+Organizations use trusted domains in Google Workspace to give external users access to resources.
+
+A threat actor with administrative privileges may be able to add a malicious domain to the trusted domain list. Based on the configuration, potentially sensitive resources may be exposed or accessible by an unintended third-party.
+
+This rule detects when a third-party domain is added to the list of trusted domains in Google Workspace.
+
+#### Possible investigation steps
+
+- Identify the associated user accounts by reviewing `user.name` or `user.email` fields in the alert.
+- After identifying the user, verify if the user should have administrative privileges to add external domains.
+- Check the `google_workspace.admin.domain.name` field to find the newly added domain.
+- Use reputational services, such as VirusTotal, for the trusted domain's third-party intelligence reputation.
+- Filter your data. Create a filter where `event.dataset` is `google_workspace.drive` and `google_workspace.drive.file.owner.email` is being compared to `user.email`.
+    - If mismatches are identified, this could indicate access from an external Google Workspace domain.
+
+### False positive analysis
+
+- Verify that the user account should have administrative privileges that allow them to edit trusted domains in Google Workspace.
+- Talk to the user to evaluate why they added the third-party domain and if the domain has confidentiality risks.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Disable or limit the account during the investigation and response.
+- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
+    - Identify the account role in the cloud environment.
+    - Assess the criticality of affected services and servers.
+    - Work with your IT team to identify and minimize the impact on users.
+    - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
+    - Identify any regulatory or legal ramifications related to this activity.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
+- Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
+- Implement security best practices [outlined](https://support.google.com/a/answer/7587183) by Google.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+
+## Setup
 
 The Google Workspace Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
 
@@ -41,13 +81,11 @@ risk_score = 73
 rule_id = "cf549724-c577-4fd6-8f9b-d1b8ec519ec0"
 severity = "high"
 tags = [
-    "Elastic",
-    "Cloud",
-    "Google Workspace",
-    "Continuous Monitoring",
-    "SecOps",
-    "Configuration Audit",
-    "Defense Evasion",
+    "Domain: Cloud",
+    "Data Source: Google Workspace",
+    "Use Case: Configuration Audit",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide"
 ]
 timestamp_override = "event.ingested"
 type = "query"

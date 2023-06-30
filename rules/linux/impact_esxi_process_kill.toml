@@ -1,0 +1,48 @@
+[metadata]
+creation_date = "2023/04/11"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.5.0"
+updated_date = "2023/04/11"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies instances where VMware processes, such as "vmware-vmx" or "vmx," are terminated on a Linux system
+by a "kill" command. The rule monitors for the "end" event type, which signifies the termination of a process.
+The presence of a "kill" command as the parent process for terminating VMware processes may indicate that a
+threat actor is attempting to interfere with the virtualized environment on the targeted system.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Termination of ESXI Process"
+references = [
+    "https://www.bleepingcomputer.com/news/security/massive-esxiargs-ransomware-attack-targets-vmware-esxi-servers-worldwide/",
+]
+risk_score = 47
+rule_id = "6641a5af-fb7e-487a-adc4-9e6503365318"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Impact"]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "end" and process.name : ("vmware-vmx", "vmx")
+and process.parent.name : "kill"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1489"
+name = "Service Stop"
+reference = "https://attack.mitre.org/techniques/T1489/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"

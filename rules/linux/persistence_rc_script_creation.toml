@@ -1,0 +1,66 @@
+[metadata]
+creation_date = "2023/02/28"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/06/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors the creation/alteration of the rc.local file by a previously unknown process executable
+through the use of the new terms rule type. The /etc/rc.local file is used to start custom applications,
+services, scripts or commands during start-up. The rc.local file has mostly been replaced by Systemd.
+However, through the "systemd-rc-local-generator", rc.local files can be converted to services that run at 
+boot. Adversaries may alter rc.local to execute malicious code at start-up, and gain persistence onto the 
+system. 
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "auditbeat-*", "endgame-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential Persistence Through Run Control Detected"
+references = [
+    "https://www.intezer.com/blog/malware-analysis/hiddenwasp-malware-targeting-linux-systems/",
+    "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#8-boot-or-logon-initialization-scripts-rc-scripts",
+    "https://www.cyberciti.biz/faq/how-to-enable-rc-local-shell-script-on-systemd-while-booting-linux-system/"
+
+]
+risk_score = 47
+rule_id = "0f4d35e4-925e-4959-ab24-911be207ee6f"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Endgame"]
+type = "new_terms"
+
+query = '''
+host.os.type : "linux" and event.category : "file" and 
+event.type : ("change" or "file_modify_event" or "creation" or "file_create_event") and
+file.path : "/etc/rc.local" and not file.extension : "swp"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1037.004"
+name = "RC Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/004/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

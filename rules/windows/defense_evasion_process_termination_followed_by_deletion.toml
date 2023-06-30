@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -22,16 +22,16 @@ name = "Process Termination followed by Deletion"
 risk_score = 47
 rule_id = "09443c92-46b3-45a4-8f25-383b028b258d"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion", "Elastic Endgame"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame"]
 type = "eql"
 
 query = '''
 sequence by host.id with maxspan=5s
-   [process where event.type == "end" and
+   [process where host.os.type == "windows" and event.type == "end" and
     process.code_signature.trusted != true and
     not process.executable : ("C:\\Windows\\SoftwareDistribution\\*.exe", "C:\\Windows\\WinSxS\\*.exe")
    ] by process.executable
-   [file where event.type == "deletion" and file.extension : ("exe", "scr", "com") and
+   [file where host.os.type == "windows" and event.type == "deletion" and file.extension : ("exe", "scr", "com") and
     not process.executable :
              ("?:\\Program Files\\*.exe",
               "?:\\Program Files (x86)\\*.exe",

@@ -9,6 +9,7 @@ import functools
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import textwrap
@@ -20,21 +21,26 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import click
+import pytoml
 import requests.exceptions
-from semver import Version
 import yaml
 from elasticsearch import Elasticsearch
 from eql.table import Table
+from semver import Version
 
 from kibana.connector import Kibana
 
 from . import attack, rule_loader, utils
+from .beats import (download_beats_schema, download_latest_beats_schema,
+                    refresh_main_schema)
 from .cli_utils import single_collection
-from .docs import IntegrationSecurityDocs
+from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX
+from .ecs import download_endpoint_schemas, download_schemas
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
-from .integrations import (build_integrations_manifest,
+from .integrations import (SecurityDetectionEngine,
+                           build_integrations_manifest,
                            build_integrations_schemas,
                            find_latest_compatible_version,
                            find_latest_integration_version,
@@ -44,7 +50,7 @@ from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
                         Package, current_stack_version)
 from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
-                   ThreatMapping, TOMLRule)
+                   RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
 from .utils import (dict_hash, get_etc_path, get_path, load_dump,
@@ -80,9 +86,15 @@ def dev_group():
 @click.option('--update-version-lock', '-u', is_flag=True,
               help='Save version.lock.json file with updated rule versions in the package')
 @click.option('--generate-navigator', is_flag=True, help='Generate ATT&CK navigator files')
-def build_release(config_file, update_version_lock: bool, generate_navigator: bool, release=None, verbose=True):
+@click.option('--add-historical', type=str, required=True, default="no",
+              help='Generate historical package-registry files')
+@click.option('--update-message', type=str, help='Update message for new package')
+def build_release(config_file, update_version_lock: bool, generate_navigator: bool, add_historical: str,
+                  update_message: str, release=None, verbose=True):
     """Assemble all the rules into Kibana-ready release files."""
     config = load_dump(config_file)['package']
+    add_historical = True if add_historical == "yes" else False
+
     if generate_navigator:
         config['generate_navigator'] = True
 
@@ -92,12 +104,24 @@ def build_release(config_file, update_version_lock: bool, generate_navigator: bo
     if verbose:
         click.echo(f'[+] Building package {config.get("name")}')
 
-    package = Package.from_config(config, verbose=verbose)
+    package = Package.from_config(config, verbose=verbose, historical=add_historical)
 
     if update_version_lock:
         default_version_lock.manage_versions(package.rules, save_changes=True, verbose=verbose)
-
     package.save(verbose=verbose)
+
+    if add_historical:
+        previous_pkg_version = find_latest_integration_version("security_detection_engine", "ga", config['name'])
+        sde = SecurityDetectionEngine()
+        historical_rules = sde.load_integration_assets(previous_pkg_version)
+        historical_rules = sde.transform_legacy_assets(historical_rules)
+
+        docs = IntegrationSecurityDocsMDX(config['registry_data']['version'], Path(f'releases/{config["name"]}-docs'),
+                                          True, historical_rules, package, note=update_message)
+        docs.generate()
+
+        click.echo(f'[+] Adding historical rules from {previous_pkg_version} package')
+        package.add_historical_rules(historical_rules, config['registry_data']['version'])
 
     if verbose:
         package.get_package_hash(verbose=verbose)
@@ -134,8 +158,10 @@ def get_release_diff(pre: str, post: str, remote: Optional[str] = 'origin'
 @click.option('--directory', '-d', type=Path, required=True, help='Output directory to save docs to')
 @click.option('--force', '-f', is_flag=True, help='Bypass the confirmation prompt')
 @click.option('--remote', '-r', default='origin', help='Override the remote from "origin"')
+@click.option('--update-message', default='Rule Updates.', help='Update message for new package')
 @click.pass_context
-def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, post: str, directory: Path, force: bool,
+def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, post: str,
+                           directory: Path, force: bool, update_message: str,
                            remote: Optional[str] = 'origin') -> IntegrationSecurityDocs:
     """Build documents from two git tags for an integration package."""
     if not force:
@@ -143,7 +169,7 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
             ctx.exit(1)
 
     rules_changes = get_release_diff(pre, post, remote)
-    docs = IntegrationSecurityDocs(registry_version, directory, True, *rules_changes)
+    docs = IntegrationSecurityDocs(registry_version, directory, True, *rules_changes, update_message=update_message)
     package_dir = docs.generate()
 
     click.echo(f'Generated documents saved to: {package_dir}')
@@ -159,9 +185,10 @@ def build_integration_docs(ctx: click.Context, registry_version: str, pre: str, 
 @click.option("--major-release", is_flag=True, help="bump the major version")
 @click.option("--minor-release", is_flag=True, help="bump the minor version")
 @click.option("--patch-release", is_flag=True, help="bump the patch version")
+@click.option("--new-package", type=click.Choice(['true', 'false']), help="indicates new package")
 @click.option("--maturity", type=click.Choice(['beta', 'ga'], case_sensitive=False),
               required=True, help="beta or production versions")
-def bump_versions(major_release: bool, minor_release: bool, patch_release: bool, maturity: str):
+def bump_versions(major_release: bool, minor_release: bool, patch_release: bool, new_package: str, maturity: str):
     """Bump the versions"""
 
     pkg_data = load_etc_dump('packages.yml')['package']
@@ -182,10 +209,22 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
     if patch_release:
         latest_patch_release_ver = find_latest_integration_version("security_detection_engine",
                                                                    maturity, pkg_data["name"])
+
+        # if an existing minor or major does not have a package, bump from the last
+        # example is 8.10.0-beta.1 is last, but on 9.0.0 major
+        # example is 8.10.0-beta.1 is last, but on 8.11.0 minor
+        if latest_patch_release_ver.minor != pkg_kibana_ver.minor:
+            latest_patch_release_ver = latest_patch_release_ver.bump_minor()
+        if latest_patch_release_ver.major != pkg_kibana_ver.major:
+            latest_patch_release_ver = latest_patch_release_ver.bump_major()
+
         if maturity == "ga":
             pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_patch())
             pkg_data["registry_data"]["release"] = maturity
         else:
+            # passing in true or false from GH actions; not using eval() for security purposes
+            if new_package == "true":
+                latest_patch_release_ver = latest_patch_release_ver.bump_patch()
             pkg_data["registry_data"]["version"] = str(latest_patch_release_ver.bump_prerelease("beta"))
             pkg_data["registry_data"]["release"] = maturity
 
@@ -193,8 +232,6 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
     click.echo(f"Package Kibana version: {pkg_data['registry_data']['conditions']['kibana.version']}")
     click.echo(f"Package version: {pkg_data['registry_data']['version']}")
 
-    # we only save major and minor version bumps
-    # patch version bumps are OOB packages and thus we keep the base versioning
     save_etc_dump({"package": pkg_data}, "packages.yml")
 
 
@@ -896,44 +933,44 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
 
 
 @dev_group.command('trim-version-lock')
-@click.argument('min_version')
+@click.argument('stack_version')
 @click.option('--dry-run', is_flag=True, help='Print the changes rather than saving the file')
-def trim_version_lock(min_version: str, dry_run: bool):
+def trim_version_lock(stack_version: str, dry_run: bool):
     """Trim all previous entries within the version lock file which are lower than the min_version."""
     stack_versions = get_stack_versions()
-    assert min_version in stack_versions, f'Unknown min_version ({min_version}), expected: {", ".join(stack_versions)}'
+    assert stack_version in stack_versions, \
+        f'Unknown min_version ({stack_version}), expected: {", ".join(stack_versions)}'
 
-    min_version = Version.parse(min_version)
+    min_version = Version.parse(stack_version)
     version_lock_dict = default_version_lock.version_lock.to_dict()
     removed = {}
 
     for rule_id, lock in version_lock_dict.items():
         if 'previous' in lock:
             prev_vers = [Version.parse(v, optional_minor_and_patch=True) for v in list(lock['previous'])]
-            outdated_vers = [v for v in prev_vers if v <= min_version]
+            outdated_vers = [f"{v.major}.{v.minor}" for v in prev_vers if v < min_version]
 
             if not outdated_vers:
                 continue
 
-            # we want to remove all "old" versions, but save the latest that is <= the min version as the new
-            # min_version. Essentially collapsing the entries and bumping it to a new "true" min
-            latest_version = max(outdated_vers)
+            # we want to remove all "old" versions, but save the latest that is >= the min version supplied as the new
+            # stack_version.
 
             if dry_run:
-                outdated_minus_current = [str(v) for v in outdated_vers if v != min_version]
+                outdated_minus_current = [str(v) for v in outdated_vers if v < stack_version]
                 if outdated_minus_current:
                     removed[rule_id] = outdated_minus_current
             for outdated in outdated_vers:
                 popped = lock['previous'].pop(str(outdated))
-                if outdated == latest_version:
-                    lock['previous'][str(min_version)] = popped
+                if outdated >= stack_version:
+                    lock['previous'][str(Version(stack_version[:2]))] = popped
 
             # remove the whole previous entry if it is now blank
             if not lock['previous']:
                 lock.pop('previous')
 
     if dry_run:
-        click.echo(f'The following versions would be collapsed to {min_version}:' if removed else 'No changes')
+        click.echo(f'The following versions would be collapsed to {stack_version}:' if removed else 'No changes')
         click.echo('\n'.join(f'{k}: {", ".join(v)}' for k, v in removed.items()))
     else:
         new_lock = VersionLockFile.from_dict(dict(data=version_lock_dict))
@@ -1179,18 +1216,22 @@ def integrations_group():
 
 @integrations_group.command('build-manifests')
 @click.option('--overwrite', '-o', is_flag=True, help="Overwrite the existing integrations-manifest.json.gz file")
-def build_integration_manifests(overwrite: bool):
+@click.option("--integration", "-i", type=str, help="Adds an integration tag to the manifest file")
+def build_integration_manifests(overwrite: bool, integration: str):
     """Builds consolidated integrations manifests file."""
     click.echo("loading rules to determine all integration tags")
 
     def flatten(tag_list: List[str]) -> List[str]:
         return list(set([tag for tags in tag_list for tag in (flatten(tags) if isinstance(tags, list) else [tags])]))
 
-    rules = RuleCollection.default()
-    integration_tags = [r.contents.metadata.integration for r in rules if r.contents.metadata.integration]
-    unique_integration_tags = flatten(integration_tags)
-    click.echo(f"integration tags identified: {unique_integration_tags}")
-    build_integrations_manifest(overwrite, unique_integration_tags)
+    if integration:
+        build_integrations_manifest(overwrite=False, integration=integration)
+    else:
+        rules = RuleCollection.default()
+        integration_tags = [r.contents.metadata.integration for r in rules if r.contents.metadata.integration]
+        unique_integration_tags = flatten(integration_tags)
+        click.echo(f"integration tags identified: {unique_integration_tags}")
+        build_integrations_manifest(overwrite, rule_integrations=unique_integration_tags)
 
 
 @integrations_group.command('build-schemas')
@@ -1241,17 +1282,57 @@ def update_rule_data_schemas():
         cls.save_schema()
 
 
-@schemas_group.command("generate-endgame")
+@schemas_group.command("generate")
 @click.option("--token", required=True, prompt=get_github_token() is None, default=get_github_token(),
               help="GitHub token to use for the PR", hide_input=True)
-@click.option("--endgame-version", "-e", required=True, help="Tagged version from TBD. e.g., 1.9.0")
+@click.option("--schema", "-s", required=True, type=click.Choice(["endgame", "ecs", "beats", "endpoint"]),
+              help="Schema to generate")
+@click.option("--schema-version", "-sv", help="Tagged version from TBD. e.g., 1.9.0")
+@click.option("--endpoint-target", "-t", type=str, default="endpoint", help="Target endpoint schema")
 @click.option("--overwrite", is_flag=True, help="Overwrite if versions exist")
-def generate_endgame_schema(token: str, endgame_version: str, overwrite: bool):
-    """Download Endgame-ECS mapping.json and generate flattend schema."""
+def generate_schema(token: str, schema: str, schema_version: str, endpoint_target: str, overwrite: bool):
+    """Download schemas and generate flattend schema."""
     github = GithubClient(token)
     client = github.authenticated_client
-    schema_manager = EndgameSchemaManager(client, endgame_version)
-    schema_manager.save_schemas(overwrite=overwrite)
+
+    if schema_version and not Version.parse(schema_version):
+        raise click.BadParameter(f"Invalid schema version: {schema_version}")
+
+    click.echo(f"Generating {schema} schema")
+    if schema == "endgame":
+        if not schema_version:
+            raise click.BadParameter("Schema version required")
+        schema_manager = EndgameSchemaManager(client, schema_version)
+        schema_manager.save_schemas(overwrite=overwrite)
+
+    # ecs, beats and endpoint schemas are refreshed during release
+    # these schemas do not require a schema version
+    if schema == "ecs":
+        download_schemas(refresh_all=True)
+    if schema == "beats":
+        if not schema_version:
+            download_latest_beats_schema()
+            refresh_main_schema()
+        else:
+            download_beats_schema(schema_version)
+
+    # endpoint package custom schemas can be downloaded
+    # this download requires a specific schema target
+    if schema == "endpoint":
+        repo = client.get_repo("elastic/endpoint-package")
+        contents = repo.get_contents("custom_schemas")
+        optional_endpoint_targets = [
+            Path(f.path).name.replace("custom_", "").replace(".yml", "")
+            for f in contents if f.name.endswith(".yml") or Path(f.path).name == endpoint_target
+        ]
+
+        if not endpoint_target:
+            raise click.BadParameter("Endpoint target required")
+        if endpoint_target not in optional_endpoint_targets:
+            raise click.BadParameter(f"""Invalid endpoint schema target: {endpoint_target}
+                                      \n Schema Options: {optional_endpoint_targets}""")
+        download_endpoint_schemas(endpoint_target)
+    click.echo(f"Done generating {schema} schema")
 
 
 @dev_group.group('attack')
@@ -1339,3 +1420,65 @@ def update_attack_in_rules() -> List[Optional[TOMLRule]]:
     else:
         click.echo('No rule changes needed')
     return new_rules
+
+
+@dev_group.group('transforms')
+def transforms_group():
+    """Commands for managing TOML [transform]."""
+
+
+def guide_plugin_convert_(contents: Optional[str] = None, default: Optional[str] = ''
+                          ) -> Optional[Dict[str, Dict[str, list]]]:
+    """Convert investigation guide plugin format to toml"""
+    contents = contents or click.prompt('Enter plugin contents', default=default)
+    if not contents:
+        return
+
+    parsed = re.match(r'!{(?P<plugin>\w+)(?P<data>{.+})}', contents.strip())
+    try:
+        plugin = parsed.group('plugin')
+        data = parsed.group('data')
+    except AttributeError as e:
+        raise client_error('Unrecognized pattern', exc=e)
+    loaded = {'transform': {plugin: [json.loads(data)]}}
+    click.echo(pytoml.dumps(loaded))
+    return loaded
+
+
+@transforms_group.command('guide-plugin-convert')
+def guide_plugin_convert(contents: Optional[str] = None, default: Optional[str] = ''
+                         ) -> Optional[Dict[str, Dict[str, list]]]:
+    """Convert investigation guide plugin format to toml."""
+    return guide_plugin_convert_(contents=contents, default=default)
+
+
+@transforms_group.command('guide-plugin-to-rule')
+@click.argument('rule-path', type=Path)
+@click.pass_context
+def guide_plugin_to_rule(ctx: click.Context, rule_path: Path, save: bool = True) -> TOMLRule:
+    """Convert investigation guide plugin format to toml and save to rule."""
+    rc = RuleCollection()
+    rule = rc.load_file(rule_path)
+
+    transforms = defaultdict(list)
+    existing_transform = rule.contents.transform
+    transforms.update(existing_transform.to_dict() if existing_transform is not None else {})
+
+    click.secho('(blank line to continue)', fg='yellow')
+    while True:
+        loaded = ctx.invoke(guide_plugin_convert)
+        if not loaded:
+            break
+
+        data = loaded['transform']
+        for plugin, entries in data.items():
+            transforms[plugin].extend(entries)
+
+    transform = RuleTransform.from_dict(transforms)
+    new_contents = TOMLRuleContents(data=rule.contents.data, metadata=rule.contents.metadata, transform=transform)
+    updated_rule = TOMLRule(contents=new_contents, path=rule.path)
+
+    if save:
+        updated_rule.save_toml()
+
+    return updated_rule

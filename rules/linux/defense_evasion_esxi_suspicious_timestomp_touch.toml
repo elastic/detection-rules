@@ -1,0 +1,54 @@
+[metadata]
+creation_date = "2023/04/11"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.5.0"
+updated_date = "2023/04/11"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies instances where the 'touch' command is executed on a Linux system with the "-r" flag,
+which is used to modify the timestamp of a file based on another file's timestamp. The rule targets specific VM-related
+paths, such as "/etc/vmware/", "/usr/lib/vmware/", or "/vmfs/*". These paths are associated with VMware virtualization
+software, and their presence in the touch command arguments may indicate that a threat actor is attempting to
+tamper with timestamps of VM-related files and configurations on the system.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "ESXI Timestomping using Touch Command"
+references = [
+    "https://www.bleepingcomputer.com/news/security/massive-esxiargs-ransomware-attack-targets-vmware-esxi-servers-worldwide/",
+]
+risk_score = 47
+rule_id = "30bfddd7-2954-4c9d-bbc6-19a99ca47e23"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+process.name : "touch" and process.args : "-r" and process.args : ("/etc/vmware/*", "/usr/lib/vmware/*", "/vmfs/*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.006"
+name = "Timestomp"
+reference = "https://attack.mitre.org/techniques/T1070/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

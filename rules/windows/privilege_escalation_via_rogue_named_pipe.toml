@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -33,12 +33,12 @@ references = [
 risk_score = 73
 rule_id = "76ddb638-abf7-42d5-be22-4a70b0bf7241"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation", "Sysmon Only"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Sysmon Only"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.action : "Pipe Created*" and
+file where host.os.type == "windows" and event.action : "Pipe Created*" and
  /* normal sysmon named pipe creation events truncate the pipe keyword */
   file.name : "\\*\\Pipe\\*"
 '''

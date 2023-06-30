@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -25,12 +25,12 @@ references = ["https://discussions.apple.com/thread/2266150"]
 risk_score = 47
 rule_id = "827f8d8f-4117-4ae4-b551-f56d54b9da6b"
 severity = "medium"
-tags = ["Elastic", "Host", "macOS", "Threat Detection", "Execution", "Privilege Escalation"]
+tags = ["Domain: Endpoint", "OS: macOS", "Use Case: Threat Detection", "Tactic: Execution", "Tactic: Privilege Escalation"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and process.name : "osascript" and
+process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name : "osascript" and
   process.command_line : "osascript*with administrator privileges"
 '''
 

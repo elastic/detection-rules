@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -26,14 +26,14 @@ references = [
 risk_score = 73
 rule_id = "26b01043-4f04-4d2f-882a-5a1d2e95751b"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 /* This rule is compatible with Elastic Endpoint only */
 
-process where event.action == "start" and
+process where host.os.type == "windows" and event.action == "start" and
 
  /* process creation via seclogon */
  process.parent.Ext.real.pid > 0 and

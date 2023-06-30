@@ -1,0 +1,52 @@
+[metadata]
+creation_date = "2022/08/30"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/06/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious usage of unshare to manipulate system namespaces. Unshare can be utilized to escalate privileges
+or escape container security boundaries. Threat actors have utilized this binary to allow themselves to escape to the
+host and access other resources or escalate privileges.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Namespace Manipulation Using Unshare"
+references = [
+    "https://man7.org/linux/man-pages/man1/unshare.1.html",
+    "https://www.crowdstrike.com/blog/cve-2022-0185-kubernetes-container-escape-using-linux-kernel-exploit/",
+]
+risk_score = 47
+rule_id = "d00f33e7-b57d-4023-9952-2db91b1767c4"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Elastic Endgame"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action : ("exec", "exec_event") and
+process.executable: "/usr/bin/unshare" and
+not process.parent.executable: ("/usr/bin/udevadm", "*/lib/systemd/systemd-udevd", "/usr/bin/unshare") and
+not process.args : "/usr/bin/snap"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

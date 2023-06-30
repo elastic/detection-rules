@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/01/17"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -22,17 +22,16 @@ risk_score = 47
 rule_id = "166727ab-6768-4e26-b80c-948b228ffc06"
 severity = "medium"
 tags = [
-    "Elastic",
-    "Host",
-    "Windows",
-    "Threat Detection",
-    "Defense Evasion"
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where event.code : "2" and 
+file where host.os.type == "windows" and event.code : "2" and
 
  /* Requires Sysmon EventID 2 - File creation time change */
  event.action : "File creation time changed*" and 

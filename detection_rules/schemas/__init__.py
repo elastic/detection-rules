@@ -15,11 +15,13 @@ from ..misc import load_current_package_version
 from ..utils import cached, get_etc_path, load_etc_dump
 from . import definitions
 from .rta_schema import validate_rta_mapping
+from .stack_compat import get_incompatible_fields
 
 __all__ = (
     "SCHEMA_DIR",
     "definitions",
     "downgrade",
+    "get_incompatible_fields",
     "get_min_supported_stack_version",
     "get_stack_schemas",
     "get_stack_versions",
@@ -62,6 +64,10 @@ def get_schema_file(version: Version, rule_type: str) -> dict:
 
 def strip_additional_properties(version: Version, api_contents: dict) -> dict:
     """Remove all fields that the target schema doesn't recognize."""
+
+    if Version.parse(version, optional_minor_and_patch=True) >= Version.parse("8.3.0"):
+        api_contents = strip_build_time_fields(api_contents)
+
     stripped = {}
     target_schema = get_schema_file(version, api_contents["type"])
 
@@ -72,6 +78,16 @@ def strip_additional_properties(version: Version, api_contents: dict) -> dict:
     # finally, validate against the json schema
     jsonschema.validate(stripped, target_schema)
     return stripped
+
+
+def strip_build_time_fields(api_contents: dict) -> dict:
+    """Remove all fields that are only used at build time."""
+    contents = api_contents.copy()
+    if "related_integrations" in contents:
+        del contents["related_integrations"]
+    if "required_fields" in contents:
+        del contents["required_fields"]
+    return contents
 
 
 @migrate("7.8")
@@ -229,6 +245,18 @@ def migrate_to_8_6(version: Version, api_contents: dict) -> dict:
 @migrate("8.7")
 def migrate_to_8_7(version: Version, api_contents: dict) -> dict:
     """Default migration for 8.7."""
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("8.8")
+def migrate_to_8_8(version: Version, api_contents: dict) -> dict:
+    """Default migration for 8.8."""
+    return strip_additional_properties(version, api_contents)
+
+
+@migrate("8.9")
+def migrate_to_8_9(version: Version, api_contents: dict) -> dict:
+    """Default migration for 8.9."""
     return strip_additional_properties(version, api_contents)
 
 

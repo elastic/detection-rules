@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -22,12 +22,12 @@ references = ["https://www.cyberciti.biz/faq/unix-linux-password-cracking-john-t
 risk_score = 47
 rule_id = "9a3a3689-8ed1-4cdb-83fb-9506db54c61f"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Privilege Escalation", "Credential Access"]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Tactic: Credential Access"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and event.action == "exec" and user.name == "root"
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and user.name == "root"
   and (process.args : "/etc/shadow" or (process.working_directory: "/etc" and process.args: "shadow"))
   and not process.executable:
     ("/usr/bin/tar",
@@ -49,8 +49,12 @@ process where event.type == "start" and event.action == "exec" and user.name == 
     "/usr/bin/uniq",
     "/bin/uniq",
     "/usr/bin/unzip",
-    "/bin/unzip")
-  and not process.parent.executable: "/bin/dracut"
+    "/bin/unzip",
+    "/usr/sbin/restorecon",
+    "/sbin/restorecon")
+  and not process.parent.executable: "/bin/dracut" and
+  not (process.executable : ("/bin/chown", "/usr/bin/chown") and process.args : "root:shadow") and
+  not (process.executable : ("/bin/chmod", "/usr/bin/chmod") and process.args : "640")
 '''
 
 

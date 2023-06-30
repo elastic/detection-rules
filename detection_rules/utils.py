@@ -22,6 +22,7 @@ from dataclasses import is_dataclass, astuple
 from datetime import datetime, date
 from pathlib import Path
 from typing import Dict, Union, Optional, Callable
+from string import Template
 
 import click
 import pytoml
@@ -190,8 +191,35 @@ def unzip_to_dict(zipped: zipfile.ZipFile, load_json=True) -> Dict[str, Union[di
 def event_sort(events, timestamp='@timestamp', date_format='%Y-%m-%dT%H:%M:%S.%f%z', asc=True):
     """Sort events from elasticsearch by timestamp."""
 
+    def round_microseconds(t: str) -> str:
+        """Rounds the microseconds part of a timestamp string to 6 decimal places."""
+
+        if not t:
+            # Return early if the timestamp string is empty
+            return t
+
+        parts = t.split('.')
+        if len(parts) == 2:
+            # Remove trailing "Z" from microseconds part
+            micro_seconds = parts[1].rstrip("Z")
+
+            if len(micro_seconds) > 6:
+                # If the microseconds part has more than 6 digits
+                # Convert the microseconds part to a float and round to 6 decimal places
+                rounded_micro_seconds = round(float(f"0.{micro_seconds}"), 6)
+
+                # Format the rounded value to always have 6 decimal places
+                # Reconstruct the timestamp string with the rounded microseconds part
+                formatted_micro_seconds = f'{rounded_micro_seconds:0.6f}'.split(".")[-1]
+                t = f"{parts[0]}.{formatted_micro_seconds}Z"
+
+        return t
+
     def _event_sort(event):
-        t = event[timestamp]
+        """Calculates the sort key for an event."""
+        t = round_microseconds(event[timestamp])
+
+        # Return the timestamp in seconds, adjusted for microseconds and then scaled to milliseconds
         return (time.mktime(time.strptime(t, date_format)) + int(t.split('.')[-1][:-1]) / 1000) * 1000
 
     return sorted(events, key=_event_sort, reverse=not asc)
@@ -204,6 +232,13 @@ def combine_sources(*sources):  # type: (list[list]) -> list
         combined.extend(source.copy())
 
     return event_sort(combined)
+
+
+def convert_time_span(span: str) -> int:
+    """Convert time span in Date Math to value in milliseconds."""
+    amount = int("".join(char for char in span if char.isdigit()))
+    unit = eql.ast.TimeUnit("".join(char for char in span if char.isalpha()))
+    return eql.ast.TimeRange(amount, unit).as_milliseconds()
 
 
 def evaluate(rule, events):
@@ -387,3 +422,24 @@ class Ndjson(list):
     def load(cls, filename: Path, **kwargs):
         """Load content from an ndjson file."""
         return cls.from_string(filename.read_text(), **kwargs)
+
+
+class PatchedTemplate(Template):
+    """String template with updated methods from future versions."""
+
+    def get_identifiers(self):
+        """Returns a list of the valid identifiers in the template, in the order they first appear, ignoring any
+        invalid identifiers."""
+        # https://github.com/python/cpython/blob/3b4f8fc83dcea1a9d0bc5bd33592e5a3da41fa71/Lib/string.py#LL157-L171C19
+        ids = []
+        for mo in self.pattern.finditer(self.template):
+            named = mo.group('named') or mo.group('braced')
+            if named is not None and named not in ids:
+                # add a named group only the first time it appears
+                ids.append(named)
+            elif named is None and mo.group('invalid') is None and mo.group('escaped') is None:
+                # If all the groups are None, there must be
+                # another group we're not expecting
+                raise ValueError('Unrecognized named group in pattern',
+                                 self.pattern)
+        return ids

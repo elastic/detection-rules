@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "development"
-updated_date = "2022/12/14"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,7 @@ name = "Bypass UAC via Sdclt"
 risk_score = 73
 rule_id = "9b54e002-034a-47ac-9307-ad12c03fa900"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Privilege Escalation"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation"]
 type = "eql"
 
 query = '''
@@ -26,12 +26,12 @@ query = '''
 /* still needs testing, applicable binary was not available on test machine */
 
 sequence with maxspan=1m
-  [process where event.type == "start" and process.name : "sdclt.exe" and
+  [process where host.os.type == "windows" and event.type == "start" and process.name : "sdclt.exe" and
      /* uncomment once in winlogbeat */
      /* process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true and */
      process.args : "/kickoffelev"
   ] by process.entity_id
-  [process where event.type == "start" and process.parent.name : "sdclt.exe" and
+  [process where host.os.type == "windows" and event.type == "start" and process.parent.name : "sdclt.exe" and
      not (process.executable : "C:\\Windows\\System32\\sdclt.exe" or
           process.executable : "C:\\Windows\\System32\\control.exe" or
           process.executable : "C:\\Windows\\SysWOW64\\sdclt.exe" or

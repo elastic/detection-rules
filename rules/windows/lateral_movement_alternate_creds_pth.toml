@@ -1,0 +1,62 @@
+[metadata]
+creation_date = "2023/03/29"
+integration = ["windows", "system"]
+maturity = "production"
+min_stack_comments = "The New Term rule type used in this rule was added in Elastic 8.4"
+min_stack_version = "8.4.0"
+updated_date = "2023/06/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Adversaries may pass the hash using stolen password hashes to move laterally within an environment, 
+bypassing normal system access controls. Pass the hash (PtH) is a method of authenticating as a user 
+without having access to the user's cleartext password. 
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.*", "logs-system.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential Pass-the-Hash (PtH) Attempt"
+references = ["https://attack.mitre.org/techniques/T1550/002/"]
+risk_score = 47
+rule_id = "daafdf96-e7b1-4f14-b494-27e0d24b11f6"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement"]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+host.os.type:"windows" and 
+event.category : "authentication" and event.action : "logged-in" and 
+winlog.logon.type : "NewCredentials" and event.outcome : "success" and 
+user.id : (S-1-5-21-* or S-1-12-1-*) and winlog.event_data.LogonProcessName : "seclogo"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+[[rule.threat.technique.subtechnique]]
+id = "T1550.002"
+name = "Pass the Hash"
+reference = "https://attack.mitre.org/techniques/T1550/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"

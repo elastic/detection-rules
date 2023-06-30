@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -68,12 +68,12 @@ This rule searches for executable files written by MS Office applications execut
 risk_score = 73
 rule_id = "0d8ad79f-9025-45d8-80c1-4f0cd3c5e8e5"
 severity = "high"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution", "Investigation Guide", "Elastic Endgame"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Resources: Investigation Guide", "Data Source: Elastic Endgame"]
 type = "eql"
 
 query = '''
 sequence with maxspan=2h
-  [file where event.type != "deletion" and file.extension : "exe" and
+  [file where host.os.type == "windows" and event.type != "deletion" and file.extension : "exe" and
      (process.name : "WINWORD.EXE" or
       process.name : "EXCEL.EXE" or
       process.name : "OUTLOOK.EXE" or
@@ -83,7 +83,7 @@ sequence with maxspan=2h
       process.name : "MSPUB.EXE" or
       process.name : "MSACCESS.EXE")
   ] by host.id, file.path
-  [process where event.type == "start"] by host.id, process.executable
+  [process where host.os.type == "windows" and event.type == "start"] by host.id, process.executable
 '''
 
 

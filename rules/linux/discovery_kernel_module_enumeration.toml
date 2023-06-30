@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/20"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -20,20 +20,23 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
-language = "kuery"
+index = ["logs-endpoint.events.*"]
+language = "eql"
 license = "Elastic License v2"
 name = "Enumeration of Kernel Modules"
 risk_score = 47
 rule_id = "2d8043ed-5bda-4caf-801c-c1feb7410504"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Discovery", "Elastic Endgame"]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and event.type:(start or process_started) and
-  process.args:(kmod and list and sudo or sudo and (depmod or lsmod or modinfo))
+process where host.os.type == "linux" and event.type == "start" and 
+((process.name == "kmod" and process.args == "list") or (process.name == "modinfo" and process.parent.user.id != "0") or 
+(process.name == "depmod" and process.args in ("--all", "-a") and process.parent.user.id != "0") 
+or process.name == "lsmod") and not process.parent.name : ("vboxmanage", "virtualbox", "prime-offload", "vboxdrv.sh") and not 
+process.group_leader.name : "qualys-cloud-agent"
 '''
 
 

@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -28,12 +28,12 @@ references = [
 risk_score = 47
 rule_id = "8a1d4831-3ce6-4859-9891-28931fa6101d"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and process.executable : "C:\\*" and
+process where host.os.type == "windows" and event.type == "start" and process.executable : "C:\\*" and
   (process.working_directory : "?:\\" and not process.working_directory: "C:\\") and
   process.parent.name : "explorer.exe" and
   process.name : ("rundll32.exe", "mshta.exe", "powershell.exe", "pwsh.exe", "cmd.exe", "regsvr32.exe",
