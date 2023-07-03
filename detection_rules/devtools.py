@@ -43,7 +43,8 @@ from .integrations import (SecurityDetectionEngine,
                            build_integrations_schemas,
                            find_latest_compatible_version,
                            find_latest_integration_version,
-                           load_integrations_manifests)
+                           load_integrations_manifests,
+                           get_integration_manifests)
 from .main import root
 from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
@@ -1066,6 +1067,10 @@ def packages(ctx: click.Context, pre: str, post: str, table_format: str):
     tuned_rules = {k: v for k, v in post_rules.items() if k in pre_rules and # noqa W504
                    v['attributes']['type'] != 'machine_learning' and # noqa W504
                    v['attributes']['query'] != pre_rules[k]['attributes']['query']}
+    query_type_rules = {k: v for k, v in post_rules.items() if k in pre_rules and # noqa W504
+                   v['attributes']['type'] != 'machine_learning' and # noqa W504
+                   v['attributes']['type'] != pre_rules[k]['attributes']['type']}
+
 
     click.echo(f"New Rules: {len(new_rules.keys())}")
     click.echo(f"Deprecated Rules: {len(deprecated_rules.keys())}")
@@ -1112,6 +1117,40 @@ def packages(ctx: click.Context, pre: str, post: str, table_format: str):
         click.echo("\n\nTuned rules:")
         click.echo(tuned_df.loc[:, column_filters].
                    to_markdown(index=False, headers=tabulate_headers, tablefmt=table_format))
+
+    if query_type_rules:
+        query_type_attributes = [v['attributes'] for k, v in query_type_rules.items()]
+        query_type_df = pd.DataFrame(query_type_attributes).fillna(False)
+        query_type_df['platform'] = query_type_df['tags'].apply(lambda x: " ".join([i.lower() for i in x
+                                                      if i.lower() in tags]))
+        click.echo("\n\nQuery Type rules:")
+        click.echo(query_type_df.loc[:, column_filters].
+                   to_markdown(index=False, headers=tabulate_headers, tablefmt=table_format))
+
+
+@diff_group.command('rule-history')
+@click.option('--rule-id', type=str, required=True, help='rule id to diff')
+@click.option('--attribute', type=str, required=True, help='rule attribute to diff')
+@click.option('--max', type=str, required=True, help='previous rules package version')
+@click.option('--table-format', type=str, default='github', help='table format for tabulate')
+@click.pass_context
+def rule_history(ctx: click.Context, rule_id: str, attribute: str, max: str, table_format: str):
+    """Rule diffs across released prebuilt rules packages."""
+
+    click.echo("analyzing rule history for rule: {}".format(rule_id))
+    sde = SecurityDetectionEngine()
+    ga_packages = get_integration_manifests(integration="security_detection_engine", kibana_version=max)
+    history = {}
+    for gp in ga_packages:
+        history[gp['version']] = {k.split("_")[0]: v for k, v in sde.load_integration_assets(gp['version']).items()}
+    for ver in history.keys():
+        if rule_id not in history[ver]:
+            history.pop(ver)
+    click.echo("rule found in {} packages".format(len(history.keys())))
+    click.echo("package versions: {}".format(history.keys()))
+
+    for ver in history.keys():
+        click.echo(f"attribute {attribute} for rule {rule_id} in version {ver} is {history[ver][rule_id]['attributes'][attribute]}")
 
 
 @dev_group.group('test')
