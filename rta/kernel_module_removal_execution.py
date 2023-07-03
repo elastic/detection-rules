@@ -35,7 +35,7 @@ def main():
     common.copy_file(source, masquerade)
 
     # Execute command
-    common.log("Launching fake commands to dump credential via proc")
+    common.log("Launching fake commands to remove Kernel Module")
     common.execute([masquerade], timeout=10, kill=True)
 
     # cleanup
