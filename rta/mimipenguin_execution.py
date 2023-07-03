@@ -38,7 +38,7 @@ def main():
 
     # Execute command
     common.log("Launching fake commands to dump credential via proc")
-    common.execute([masquerade, "-eo, pid, command"], timeout=10, kill=True)
+    common.execute([masquerade, "-eo", "pid", "command"], timeout=10, kill=True)
     common.execute([masquerade2, "/tmp/test"], timeout=10, kill=True)
 
     # cleanup
