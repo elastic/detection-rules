@@ -1018,6 +1018,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                             if package["integration"] not in policy_templates:
                                 del package["integration"]
 
+                # remove duplicate entries
+                package_integrations = list({json.dumps(d, sort_keys=True):
+                                            d for d in package_integrations}.values())
                 obj.setdefault("related_integrations", package_integrations)
 
     def _convert_add_required_fields(self, obj: dict) -> None:
