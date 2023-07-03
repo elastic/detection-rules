@@ -26,19 +26,18 @@ note = """## Triage and Analysis
 
 Threat Intel indicator match rules allow matching from a local observation, such as an endpoint event that records a file hash with an entry of a file hash stored within the Threat Intel integrations index. 
 
-The matches will be based on the incoming last 30 days' feed data for integrations that don't support indicator expiration, so it's important to validate the data and review the results by investigating the associated activity to determine if it requires further investigation.
+Matches are based on threat intelligence data that's been ingested during the last 30 days. Some integrations don't place expiration dates on their threat indicators, so we strongly recommend validating ingested threat indicators and reviewing match results. When reviewing match results, check associated activity to determine whether the event requires additional investigation.
 
-This rule is triggered when an IP address indicator from the Threat Intel Filebeat module or integrations has a match
-against a network event.
+This rule is triggered when an IP address indicator from the Threat Intel Filebeat module or a threat intelligence integration matches against a network event.
 
 #### Possible investigation steps
 
 - Gain context about the field that matched the local observation so you can understand the nature of the connection. This information can be found in the `threat.indicator.matched.field` field.
-- Investigate the IP address (this information can be found in the `threat.indicator.matched.atomic` field):
+- Investigate the IP address, which can be found in the `threat.indicator.matched.atomic` field:
   - Check the reputation of the IP address in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc. 
   - Execute a reverse DNS lookup to retrieve hostnames associated with the given IP address.
 - Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
-- Identify the process responsible for the connection and investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Identify the process responsible for the connection, and investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Retrieve the involved process executable and examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the process executable using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
@@ -55,9 +54,9 @@ against a network event.
 
 ### False Positive Analysis
 
-- For any matches found, it's important to consider the initial release date of that indicator. Threat intelligence can be a great tool for augmenting existing security processes, while at the same time it should be understood that threat intelligence can represent a specific set of activity observed at a point in time. For example, an IP address may have hosted malware observed in a Dridex campaign months ago, but it's possible that IP has been remediated and no longer represents any threat.
-- It's possible after large and publicly written campaigns, curious employees might end up going directly to attacker infrastructure and triggering these rules.
-- Some feeds may include internal or known benign addresses by mistake (e.g., 8.8.8.8, google.com, 127.0.0.1, etc.). Always get context on how blocking a specific domain or address may impact the organization or normal functioning of the systems.
+- When a match is found, it's important to consider the indicator's initial release date. Threat intelligence is useful for augmenting existing security processes, but it can become quickly outdated. In other words, some threat intelligence only represents a specific set of activity that's been observed at a specific point in time. For example, an IP address may have hosted malware observed in a Dridex campaign months ago, but it's possible that IP has been remediated and no longer represents any threat.
+- False positives might occur after large and publicly written campaigns if curious employees interact with attacker infrastructure.
+- Some feeds may include internal or known benign addresses by mistake (e.g., 8.8.8.8, google.com, 127.0.0.1, etc.). Make sure you understand how blocking a specific domain or address might impact the organization or normal system functioning.
 
 ### Response and Remediation
 
@@ -72,6 +71,12 @@ against a network event.
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+
+## Setup
+
+This rule needs threat intelligence indicators to work. This data can be collected using an [Elastic Agent integration](https://www.elastic.co/guide/en/security/current/es-threat-intel-integrations.html#agent-ti-integration), the [Threat Intel module](https://www.elastic.co/guide/en/security/current/es-threat-intel-integrations.html#ti-mod-integration), or [custom integration](https://www.elastic.co/guide/en/security/current/es-threat-intel-integrations.html#custom-ti-integration).
+
+More information can be found [here](https://www.elastic.co/guide/en/security/current/es-threat-intel-integrations.html).
 """
 references = [
     "https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-threatintel.html",
