@@ -25,25 +25,17 @@ risk_score = 47
 rule_id = "4b1a807a-4e7b-414e-8cea-24bf580f6fc5"
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution"]
-timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-sequence by host.id with maxspan=5s
-[ process where host.os.type == "linux" and event.action == "fork" and 
-process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and 
-process.parent.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") ] by process.entity_id
-[ process where host.os.type == "linux" and event.action == "exec" and 
-process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "perl", "python*",
-"nc", "ncat", "netcat", "php*", "ruby", "openssl", "awk", "telnet", "lua*", "socat") and 
-process.parent.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") ] by process.entity_id
-[ process where host.os.type == "linux" and event.action == "fork" and 
-process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "perl", "python*",
-"nc", "ncat", "netcat", "php*", "ruby", "openssl", "awk", "telnet", "lua*", "socat") and 
-process.parent.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "perl", "python*",
-"nc", "ncat", "netcat", "php*", "ruby", "openssl", "awk", "telnet", "lua*", "socat") ] by process.parent.entity_id
-[ network where host.os.type == "linux" and event.action : ("connection_attempted", "connection_accepted") and 
-process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "perl", "python*",
-"nc", "ncat", "netcat", "php*", "ruby", "openssl", "awk", "telnet", "lua*", "socat") ] by process.parent.entity_id
+sequence by host.id with maxspan=1s
+[ process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  (process.name : "perl" and process.args : "-e") or
+  (process.name : "ruby" and process.args : ("-e", "-rsocket"))) ] by process.entity_id
+[ process where host.os.type == "linux" and event.type == "start" and event.action == "fork" and (
+  (process.name : "perl" and process.args : "-e") or
+  (process.name : "ruby" and process.args : ("-e", "-rsocket"))) ] by process.parent.entity_id
+[ network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and 
+  process.name : ("perl", "ruby") ] by process.parent.entity_id
 '''
 
 [[rule.threat]]

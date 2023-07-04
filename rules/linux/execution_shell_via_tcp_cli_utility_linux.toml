@@ -25,13 +25,12 @@ risk_score = 47
 rule_id = "48b3d2e3-f4e8-41e6-95e6-9b2091228db3"
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution"]
-timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-sequence by host.id with maxspan=5s
-[ network where host.os.type == "linux" and event.action : ("connection_attempted", "connection_accepted") and 
+sequence by host.id with maxspan=1s
+[ network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and 
   process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat") ] by process.entity_id
-[ process where host.os.type == "linux" and event.action : ("exec", "fork") and 
+[ process where host.os.type == "linux" and event.type == "start" and event.action : ("exec", "fork") and 
   process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and 
   process.parent.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat") ] by process.parent.entity_id
 '''

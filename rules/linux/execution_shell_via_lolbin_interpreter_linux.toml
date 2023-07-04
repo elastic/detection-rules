@@ -25,17 +25,21 @@ risk_score = 73
 rule_id = "76e4d92b-61c1-4a95-ab61-5fd94179a1ee"
 severity = "high"
 tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution"]
-timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-sequence by host.id, process.entity_id with maxspan=5s
-[ process where host.os.type == "linux" and event.action == "fork" and 
-  process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and 
-  process.parent.name :  ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") ]
-[ process where host.os.type == "linux" and event.action == "exec" and 
-  process.name : ("perl", "python*", "nc", "netcat", "ncat", "php*", "ruby", "openssl", "awk", "telnet", "lua*") and 
+sequence by host.id, process.entity_id with maxspan=1s
+[ process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  (process.name == "perl" and process.args : "-e") or
+  (process.name : "python*" and process.args : "-c") or
+  (process.name : "ruby" and process.args : ("-e", "-rsocket")) or
+  (process.name : "php*" and process.args : "-r") or
+  (process.name : "lua*" and process.args : "-e") or
+  (process.name : "openssl" and process.args : "-connect") or
+  (process.name : ("nc", "ncat", "netcat") and process.args_count >= 3) or
+  (process.name : "telnet" and process.args_count >= 3) or
+  (process.name : "awk")) and 
   process.parent.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") ]
-[ network where host.os.type == "linux" and event.action : ("connection_attempted", "connection_accepted") and 
+[ network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and 
   process.name : ("perl", "python*", "nc", "netcat", "ncat", "php*", "ruby", "openssl", "awk", "telnet", "lua*") ]
 '''
 
