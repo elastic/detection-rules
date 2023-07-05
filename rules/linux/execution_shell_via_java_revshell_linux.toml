@@ -16,7 +16,7 @@ from = "now-9m"
 index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Potential Linux Reverse Shell via Java"
+name = "Potential Reverse Shell via Java"
 references = [
     "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md"
 ]
@@ -26,7 +26,7 @@ severity = "medium"
 tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution"]
 type = "eql"
 query = '''
-sequence with maxspan=5s
+sequence by host.id with maxspan=5s
 [ network where host.os.type == "linux" and event.action in ("connection_accepted", "connection_attempted") and 
   process.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") ] by process.entity_id
 [ process where host.os.type == "linux" and event.action == "exec" and 

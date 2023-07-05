@@ -17,7 +17,7 @@ from = "now-9m"
 index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Suspicious Shell Network Activity"
+name = "Potential Reverse Shell via Suspicious Parent Process"
 references = [
     "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md"
 ]
@@ -27,15 +27,20 @@ severity = "medium"
 tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution"]
 type = "eql"
 query = '''
-sequence by host.id with maxspan=1s
-[ process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
-  (process.name : "perl" and process.args : "-e") or
-  (process.name : "ruby" and process.args : ("-e", "-rsocket"))) ] by process.entity_id
+sequence by host.id, process.parent.entity_id with maxspan=1s
 [ process where host.os.type == "linux" and event.type == "start" and event.action == "fork" and (
+  (process.name : "python*" and process.args : "-c") or
+  (process.name : "php*" and process.args : "-r") or
   (process.name : "perl" and process.args : "-e") or
-  (process.name : "ruby" and process.args : ("-e", "-rsocket"))) ] by process.parent.entity_id
+  (process.name : "ruby" and process.args : ("-e", "-rsocket")) or
+  (process.name : "lua*" and process.args : "-e") or
+  (process.name : "openssl" and process.args : "-connect") or
+  (process.name : ("nc", "ncat", "netcat") and process.args_count >= 3) or
+  (process.name : "telnet" and process.args_count >= 3) or
+  (process.name : "awk")) and 
+  process.parent.name : ("python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk") ]
 [ network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and 
-  process.name : ("perl", "ruby") ] by process.parent.entity_id
+  process.name : ("python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk") ]
 '''
 
 [[rule.threat]]
