@@ -487,8 +487,8 @@ class TestRuleFiles(BaseRuleTest):
         for rule in self.bbr:
             # Is the rule a BBR
             self.assertEqual(rule.contents.data.building_block_type, 'default',
-                            f'{self.rule_str(rule)} should have building_block_type = "default"')
-            
+                             f'{self.rule_str(rule)} should have building_block_type = "default"')
+
             # Is the rule in the rules_building_block directory
             self.assertEqual(rule.path.parent.name, 'rules_building_block',
                              f'{self.rule_str(rule)} should be in the rules_building_block directory')
@@ -501,7 +501,7 @@ class TestRuleFiles(BaseRuleTest):
                 self.assertIn(rule, self.bbr, f'{self.rule_str(rule)} should be in the {proper_directory}')
             # Is the rule of type BBR
             self.assertEqual(rule.contents.data.building_block_type, None,
-                            f'{self.rule_str(rule)} should not have building_block_type or be moved to {proper_directory}')
+                             f'{self.rule_str(rule)} should not have building_block_type or be in {proper_directory}')
 
 
 class TestRuleMetadata(BaseRuleTest):
