@@ -35,6 +35,7 @@ SUBTECHNIQUE_URL = r'^https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/$'
 MACHINE_LEARNING = 'machine_learning'
 SAVED_QUERY = 'saved_query'
 QUERY = 'query'
+QUERY_FIELD_OP_EXCEPTIONS = ["powershell.file.script_block_text"]
 
 # we had a bad rule ID make it in before tightening up the pattern, and so we have to let it bypass
 KNOWN_BAD_RULE_IDS = Literal['119c8877-8613-416d-a98a-96b6664ee73a5']
@@ -53,6 +54,66 @@ TIMELINE_TEMPLATES: Final[dict] = {
     '3e827bab-838a-469f-bd1e-5e19a2bff2fd': 'Alerts Involving a Single User Timeline',
     '4434b91a-94ca-4a89-83cb-a37cdc0532b7': 'Alerts Involving a Single Host Timeline'
 }
+
+EXPECTED_RULE_TAGS = [
+    'Data Source: Active Directory',
+    'Data Source: Amazon Web Services',
+    'Data Source: AWS',
+    'Data Source: APM',
+    'Data Source: Azure',
+    'Data Source: CyberArk PAS',
+    'Data Source: Elastic Defend',
+    'Data Source: Elastic Defend for Containers',
+    'Data Source: Elastic Endgame',
+    'Data Source: GCP',
+    'Data Source: Google Cloud Platform',
+    'Data Source: Google Workspace',
+    'Data Source: Kubernetes',
+    'Data Source: Microsoft 365',
+    'Data Source: Okta',
+    'Data Source: PowerShell Logs',
+    'Data Source: Sysmon Only',
+    'Data Source: Zoom',
+    'Domain: Cloud',
+    'Domain: Container',
+    'Domain: Endpoint',
+    'OS: Linux',
+    'OS: macOS',
+    'OS: Windows',
+    'Resources: Investigation Guide',
+    'Rule Type: Higher-Order Rule',
+    'Rule Type: Machine Learning',
+    'Rule Type: ML',
+    'Tactic: Collection',
+    'Tactic: Command and Control',
+    'Tactic: Credential Access',
+    'Tactic: Defense Evasion',
+    'Tactic: Discovery',
+    'Tactic: Execution',
+    'Tactic: Exfiltration',
+    'Tactic: Impact',
+    'Tactic: Initial Access',
+    'Tactic: Lateral Movement',
+    'Tactic: Persistence',
+    'Tactic: Privilege Escalation',
+    'Tactic: Reconnaissance',
+    'Tactic: Resource Development',
+    'Threat: BPFDoor',
+    'Threat: Cobalt Strike',
+    'Threat: Lightning Framework',
+    'Threat: Orbit',
+    'Threat: Rootkit',
+    'Threat: TripleCross',
+    'Use Case: Active Directory Monitoring',
+    'Use Case: Asset Visibility',
+    'Use Case: Configuration Audit',
+    'Use Case: Guided Onboarding',
+    'Use Case: Identity and Access Audit',
+    'Use Case: Log Auditing',
+    'Use Case: Network Security Monitoring',
+    'Use Case: Threat Detection',
+    'Use Case: Vulnerability'
+]
 
 
 NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
@@ -85,7 +146,7 @@ ThresholdValue = NewType("ThresholdValue", int, validate=validate.Range(min=1))
 TimelineTemplateId = NewType('TimelineTemplateId', str, validate=validate.OneOf(list(TIMELINE_TEMPLATES)))
 TimelineTemplateTitle = NewType('TimelineTemplateTitle', str, validate=validate.OneOf(TIMELINE_TEMPLATES.values()))
 UUIDString = NewType('UUIDString', str, validate=validate.Regexp(UUID_PATTERN))
-
+BuildingBlockType = Literal['default']
 
 # experimental machine learning features and releases
 MachineLearningType = Literal['DGA', 'ProblemChild']
