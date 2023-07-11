@@ -314,19 +314,27 @@ class EQLValidator(QueryValidator):
             return exc
 
     def validate_rule_type_configurations(self, data, meta: RuleMeta) -> List[dict]:
-        """EQL rule type configurations."""
+        """Validate EQL rule type configurations."""
         if data.timestamp_field or data.event_category_override or data.tiebreaker_field:
 
+            # get a list of rule type configuration fields
             set_fields = [f for f in [
                 data.get("timestamp_field"),
                 data.get("event_category_override"),
                 data.get("tiebreaker_field")] if f]
+
+            # get stack_version and ECS schema
             min_stack_version = meta.get("min_stack_version")
-        if min_stack_version is None:
-            min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-        ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
-        schema = ecs.get_schema(ecs_version)
-        return (set_fields, any([f not in schema.keys() for f in set_fields]))
+            if min_stack_version is None:
+                min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+            ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
+            schema = ecs.get_schema(ecs_version)
+
+            # return a list of rule type config field values and whether any are not in the schema
+            return (set_fields, any([f not in schema.keys() for f in set_fields]))
+        else:
+            # if rule type fields are not set, return an empty list and False
+            return [], False
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
