@@ -6,6 +6,7 @@
 """Validation logic for rules containing queries."""
 from functools import cached_property
 from typing import List, Optional, Union
+from semver import Version
 
 import eql
 
@@ -13,6 +14,7 @@ import kql
 
 from . import ecs, endgame
 from .integrations import get_integration_schema_data, load_integrations_manifests
+from .misc import load_current_package_version
 from .schemas import get_stack_schemas
 from .rule import QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents
 
@@ -197,7 +199,8 @@ class EQLValidator(QueryValidator):
 
             rule_type_config_fields, rule_type_config_validation = self.validate_rule_type_configurations(data, meta)
             if rule_type_config_validation:
-                raise ValueError(f"Rule type config values are not valid, check these values: {rule_type_config_fields}")
+                raise ValueError(f"""Rule type config values are not valid, check these values:
+                                 {rule_type_config_fields}""")
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> Union[EQL_ERROR_TYPES, None, ValueError]:
         """Validate the query against ECS and beats schemas across stack combinations."""
