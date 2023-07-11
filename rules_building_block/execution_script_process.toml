@@ -1,0 +1,53 @@
+[metadata]
+creation_date = "2023/07/11"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/07/11"
+
+[rule]
+author = [ "Elastic" ]
+building_block_type = "default"
+description = "Execution via script process"
+from = "now-119m"
+interval = "60m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Execution via Script Process"
+risk_score = 21
+rule_id = "8af93dc4-4d00-4b93-944b-e7d8c4bbb2ed"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Linux", "OS: macOS", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Rule Type: BBR"]
+type = "eql"
+timestamp_override = "event.ingested"
+query = '''
+   process where event.type == "start" and
+   process.name : ("wscript.exe", "cscript.exe", "gpscript.exe", "powershell.exe", "powershell_ise.exe", "cmd.exe",
+   "wmic.exe", "rundll32.exe", "regsvr32.exe", "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "python*",
+   "perl*", "php*", "pwsh.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.003"
+name = "Windows Command Shell"
+reference = "https://attack.mitre.org/techniques/T1059/003/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
