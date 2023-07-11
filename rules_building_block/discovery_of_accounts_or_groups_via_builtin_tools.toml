@@ -14,31 +14,25 @@ Adversaries may use built-in applications to get a listing of local system or do
 """
 from = "now-119m"
 interval = "60m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Account or Group Discovery via Built-In Tools"
 risk_score = 21
 rule_id = "f638a66d-3bbf-46b1-a52c-ef6f39fb6caf"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "OS: macOS", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Rule Type: BBR"]
+tags = ["Domain: Endpoint", "OS: Linux", "OS: macOS", "Use Case: Threat Detection", "Tactic: Discovery", "Rule Type: BBR"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type== "start" and
-  ((
-    ((process.name : "net.exe" or process.pe.original_file_name== "net.exe") or
-      ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and not process.parent.name : "net.exe"))
-      and process.args:("user", "localgroup", "group"))
-    or process.name: ("groups","id")
+process where event.type== "start" and event.action == "exec" and
+  ( (process.name: ("groups","id"))
     or (process.name : "dscl" and process.args : ("/Active Directory/*", "/Users*", "/Groups*"))
     or (process.name: "dscacheutil" and process.args:("user", "group"))
     or process.args:("/etc/passwd", "/etc/master.passwd", "/etc/sudoers")
     or (process.name: "getent" and process.args:("passwd", "group"))
-    or (process.name:("dsquery.exe", "dsget.exe") and process.args:("*members*", "user"))
-    or (process.name:"dsquery.exe" and process.args:"*filter*")
-    or process.name:("quser.exe", "qwinsta.exe"))
+  )
 '''
 
 

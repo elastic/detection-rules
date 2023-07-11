@@ -12,25 +12,22 @@ building_block_type = "default"
 description = "Identifies the use of built-in tools attackers can use to discover running processes on an endpoint."
 from = "now-119m"
 interval = "60m"
-index = ["auditbeat-*", "winlogbeat-*", "logs-windows.*", "logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Process Discovery via Built-In Applications"
 risk_score = 21
 rule_id = "3f4d7734-2151-4481-b394-09d7c6c91f75"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "OS: macOS", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Rule Type: BBR"]
+tags = ["Domain: Endpoint", "OS: Linux", "OS: macOS", "Use Case: Threat Detection", "Tactic: Discovery", "Rule Type: BBR"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and event.action : ("start", "exec") and
+process where event.type == "start" and event.action == "exec" and
   (
-    process.name :("ps", "pstree", "htop", "pgrep", "PsList.exe", "tasklist.exe", "quser.exe", "qprocess.exe", "tree.com") or
-   (process.name : "powershell.exe" and process.args : "get-process*") or
-   (process.name : "wmic.exe" and process.args : "process" and process.args : "get")
+    process.name :("ps", "pstree", "htop", "pgrep") or
   ) and
-
   not (event.action == "exec" and process.parent.name in ("amazon-ssm-agent", "snap"))
 '''
 

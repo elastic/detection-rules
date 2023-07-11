@@ -16,20 +16,20 @@ and proxy servers.
 """
 from = "now-119m"
 interval = "60m"
-index = ["winlogbeat-*", "logs-windows.*", "logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Discovery of Internet Capabilities via Built-in Tools"
 risk_score = 21
 rule_id = "c2d49ec7-5aaa-49e5-97bc-07faa6b1df04"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Rule Type: BBR"]
+tags = ["Domain: Endpoint", "OS: Linux", "OS: macOS", "Use Case: Threat Detection", "Tactic: Discovery", "Rule Type: BBR"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type == "start" and
-  process.name : ("ping", "ping.exe", "tracert.exe")
+process where event.type == "start" and event.action == "exec" and
+  process.name : ("ping")
 '''
 
 
