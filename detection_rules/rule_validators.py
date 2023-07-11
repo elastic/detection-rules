@@ -13,6 +13,7 @@ import kql
 
 from . import ecs, endgame
 from .integrations import get_integration_schema_data, load_integrations_manifests
+from .schemas import get_stack_schemas
 from .rule import QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents
 
 EQL_ERROR_TYPES = Union[eql.EqlCompileError,
@@ -194,6 +195,10 @@ class EQLValidator(QueryValidator):
             if validation_checks["stack"] and validation_checks["integrations"]:
                 raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
 
+            rule_type_config_fields, rule_type_config_validation = self.validate_rule_type_configurations(data, meta)
+            if rule_type_config_validation:
+                raise ValueError(f"Rule type config values are not valid, check these values: {rule_type_config_fields}")
+
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> Union[EQL_ERROR_TYPES, None, ValueError]:
         """Validate the query against ECS and beats schemas across stack combinations."""
         for stack_version, mapping in meta.get_validation_stack_versions().items():
@@ -307,6 +312,21 @@ class EQLValidator(QueryValidator):
         except Exception as exc:
             print(err_trailer)
             return exc
+
+    def validate_rule_type_configurations(self, data, meta: RuleMeta) -> List[dict]:
+        """EQL rule type configurations."""
+        if data.timestamp_field or data.event_category_override or data.tiebreaker_field:
+
+            set_fields = [f for f in [
+                data.get("timestamp_field"),
+                data.get("event_category_override"),
+                data.get("tiebreaker_field")] if f]
+            min_stack_version = meta.get("min_stack_version")
+        if min_stack_version is None:
+            min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+        ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
+        schema = ecs.get_schema(ecs_version)
+        return (set_fields, any([f not in schema.keys() for f in set_fields]))
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
