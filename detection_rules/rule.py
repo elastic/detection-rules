@@ -698,9 +698,9 @@ class EQLRuleData(QueryRuleData):
     """EQL rules are a special case of query rules."""
     type: Literal["eql"]
     language: Literal["eql"]
-    timestamp_field: Optional[str]
-    event_category_override: Optional[str]
-    tiebreaker_field: Optional[str]
+    timestamp_field: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.0")))
+    event_category_override: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.0")))
+    tiebreaker_field: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.0")))
 
     def convert_relative_delta(self, lookback: str) -> int:
         now = len("now")
