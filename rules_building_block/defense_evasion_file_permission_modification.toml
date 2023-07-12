@@ -13,6 +13,7 @@ Identifies the change of permissions/ownership of files/folders through built-in
 require permission modification of files/folders to change, modify or delete them.
 """
 from = "now-119m"
+interval = "60m"
 index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
@@ -26,7 +27,7 @@ building_block_type = "default"
 type = "eql"
 
 query = '''
-process where event.type == "start" and host.os.type == "windows" 
+process where event.type == "start" and host.os.type == "windows" and
 (
   ((process.name: "icacls.exe" or process.pe.original_file_name == "iCACLS.EXE") and process.args: ("*:F", "/reset", "/setowner", "*grant*")) or
   ((process.name: "cacls.exe" or process.pe.original_file_name == "CACLS.EXE") and process.args: ("/g", "*:f")) or

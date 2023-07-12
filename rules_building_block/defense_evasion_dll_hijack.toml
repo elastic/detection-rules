@@ -14,6 +14,7 @@ application folder and invoke the legitimate application to execute the payload,
 legitimate, trusted, and potentially elevated system or software process.
 """
 from = "now-119m"
+interval = "60m"
 index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
@@ -27,7 +28,7 @@ building_block_type = "default"
 type = "eql"
 
 query = '''
-library where host.os.type == "windows"
+library where host.os.type == "windows" and
    (dll.Ext.relative_file_creation_time <= 500 or
     dll.Ext.relative_file_name_modify_time <= 500 or
     dll.Ext.device.product_id : ("Virtual DVD-ROM", "Virtual Disk")) and dll.hash.sha256 != null and 
