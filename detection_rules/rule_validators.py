@@ -5,7 +5,7 @@
 
 """Validation logic for rules containing queries."""
 from functools import cached_property
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Tuple
 from semver import Version
 
 import eql
@@ -16,7 +16,7 @@ from . import ecs, endgame
 from .integrations import get_integration_schema_data, load_integrations_manifests
 from .misc import load_current_package_version
 from .schemas import get_stack_schemas
-from .rule import QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents
+from .rule import QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, EQLRuleData
 
 EQL_ERROR_TYPES = Union[eql.EqlCompileError,
                         eql.EqlError,
@@ -197,8 +197,9 @@ class EQLValidator(QueryValidator):
             if validation_checks["stack"] and validation_checks["integrations"]:
                 raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
 
-            rule_type_config_fields, rule_type_config_validation = self.validate_rule_type_configurations(data, meta)
-            if rule_type_config_validation:
+            rule_type_config_fields, rule_type_config_validation_failed = \
+                self.validate_rule_type_configurations(data, meta)
+            if rule_type_config_validation_failed:
                 raise ValueError(f"""Rule type config values are not valid, check these values:
                                  {rule_type_config_fields}""")
 
@@ -316,7 +317,8 @@ class EQLValidator(QueryValidator):
             print(err_trailer)
             return exc
 
-    def validate_rule_type_configurations(self, data, meta: RuleMeta) -> List[dict]:
+    def validate_rule_type_configurations(self, data: EQLRuleData, meta: RuleMeta) -> \
+            Tuple[List[Optional[str]], bool]:
         """Validate EQL rule type configurations."""
         if data.timestamp_field or data.event_category_override or data.tiebreaker_field:
 
