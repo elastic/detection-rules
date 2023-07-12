@@ -28,12 +28,10 @@ tags = ["Domain: Endpoint", "OS: Linux", "OS: macOS", "Use Case: Threat Detectio
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-sequence by process.entity_id with maxspan=1m
-[process where event.action == "exec" and process.name: ("http", "https")]
-[network where process.name : ("http", "https")
+network where process.name : ("http", "https")
   and destination.port not in (80, 443)
   and event.action in ("connection_attempted", "connection_accepted")
-  and destination.ip !="127.0.0.1"]
+  and destination.ip !="127.0.0.1"
 '''
 
 
