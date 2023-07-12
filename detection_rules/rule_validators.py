@@ -200,7 +200,7 @@ class EQLValidator(QueryValidator):
             rule_type_config_fields, rule_type_config_validation_failed = \
                 self.validate_rule_type_configurations(data, meta)
             if rule_type_config_validation_failed:
-                raise ValueError(f"""Rule type config values are not valid, check these values:
+                raise ValueError(f"""Rule type config values are not ECS compliant, check these values:
                                  {rule_type_config_fields}""")
 
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> Union[EQL_ERROR_TYPES, None, ValueError]:
