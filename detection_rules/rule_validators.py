@@ -323,10 +323,9 @@ class EQLValidator(QueryValidator):
         if data.timestamp_field or data.event_category_override or data.tiebreaker_field:
 
             # get a list of rule type configuration fields
-            set_fields = [f for f in [
-                data.get("timestamp_field"),
-                data.get("event_category_override"),
-                data.get("tiebreaker_field")] if f]
+            # Get a list of rule type configuration fields
+            fields = ["timestamp_field", "event_category_override", "tiebreaker_field"]
+            set_fields = list(filter(None, (data.get(field) for field in fields)))
 
             # get stack_version and ECS schema
             min_stack_version = meta.get("min_stack_version")
