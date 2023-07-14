@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/22"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -40,15 +40,15 @@ references = [
 risk_score = 47
 rule_id = "eb6a3790-d52d-11ec-8ce9-f661ea17fbce"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Command and Control"]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Command and Control"]
 type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=1m
 [network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and user.id == "0" and
-    not process.executable : ("/bin/ssh", "/sbin/ssh", "/usr/lib/systemd/systemd", "/usr/sbin/sshd")]
+    not process.executable : ("/bin/ssh", "/sbin/ssh", "/usr/lib/systemd/systemd", "/usr/sbin/sshd","/usr/bin/ssh","/usr/bin/sshpass")]
 [process where host.os.type == "linux" and event.action == "session_id_change" and user.id == "0" and
-    not process.executable : ("/bin/ssh", "/sbin/ssh", "/usr/lib/systemd/systemd", "/usr/sbin/sshd")]
+    not process.executable : ("/bin/ssh", "/sbin/ssh", "/usr/lib/systemd/systemd", "/usr/sbin/sshd","/usr/bin/ssh","/usr/bin/sshpass")]
 '''
 
 

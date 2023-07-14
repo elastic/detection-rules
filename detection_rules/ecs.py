@@ -20,8 +20,10 @@ import yaml
 from .utils import (DateTimeEncoder, cached, get_etc_path, gzip_compress,
                     load_etc_dump, read_gzip, unzip)
 
-ETC_NAME = "ecs_schemas"
-ECS_SCHEMAS_DIR = get_etc_path(ETC_NAME)
+ECS_NAME = "ecs_schemas"
+ECS_SCHEMAS_DIR = get_etc_path(ECS_NAME)
+ENDPOINT_NAME = "endpoint_schemas"
+ENDPOINT_SCHEMAS_DIR = get_etc_path(ENDPOINT_NAME)
 
 
 def add_field(schema, name, info):
@@ -117,10 +119,15 @@ def get_eql_schema(version=None, index_patterns=None):
         field_type = schema_info.get('type', '')
         add_field(converted, field, convert_type(field_type))
 
+    # add non-ecs schema
     if index_patterns:
         for index_name in index_patterns:
             for k, v in flatten(get_index_schema(index_name)).items():
                 add_field(converted, k, convert_type(v))
+
+    # add endpoint custom schema
+    for k, v in flatten(get_endpoint_schemas()).items():
+        add_field(converted, k, convert_type(v))
 
     return converted
 
@@ -198,6 +205,9 @@ def get_kql_schema(version=None, indexes=None, beat_schema=None) -> dict:
     for index_name in indexes:
         converted.update(**flatten(get_index_schema(index_name)))
 
+    # add endpoint custom schema
+    converted.update(**flatten(get_endpoint_schemas()))
+
     if isinstance(beat_schema, dict):
         converted = dict(flatten_multi_fields(beat_schema), **converted)
 
@@ -214,7 +224,7 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
         version = Version.parse(release.get('tag_name', '').lstrip('v'))
 
         # we don't ever want beta
-        if not version or version < (1, 0, 1) or version in existing:
+        if not version or version < Version.parse("1.0.1") or version in existing:
             continue
 
         schema_dir = os.path.join(ECS_SCHEMAS_DIR, str(version))
@@ -236,7 +246,7 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
                 out_file = file_name.replace(".yml", ".json.gz")
 
                 compressed = gzip_compress(json.dumps(contents, sort_keys=True, cls=DateTimeEncoder))
-                new_path = get_etc_path(ETC_NAME, str(version), out_file)
+                new_path = get_etc_path(ECS_NAME, str(version), out_file)
                 with open(new_path, 'wb') as f:
                     f.write(compressed)
 
@@ -259,12 +269,55 @@ def download_schemas(refresh_master=True, refresh_all=False, verbose=True):
             shutil.rmtree(m, ignore_errors=True)
 
         master_dir = "master_{}".format(master_ver)
-        os.makedirs(get_etc_path(ETC_NAME, master_dir), exist_ok=True)
+        os.makedirs(get_etc_path(ECS_NAME, master_dir), exist_ok=True)
 
         compressed = gzip_compress(json.dumps(master_schema, sort_keys=True, cls=DateTimeEncoder))
-        new_path = get_etc_path(ETC_NAME, master_dir, "ecs_flat.json.gz")
+        new_path = get_etc_path(ECS_NAME, master_dir, "ecs_flat.json.gz")
         with open(new_path, 'wb') as f:
             f.write(compressed)
 
         if verbose:
             print('Saved files to {}: \n\t- {}'.format(master_dir, 'ecs_flat.json.gz'))
+
+
+def download_endpoint_schemas(target: str, overwrite: bool = True) -> None:
+    """Download endpoint custom schemas."""
+
+    # location of custom schema YAML files
+    url = "https://raw.githubusercontent.com/elastic/endpoint-package/main/custom_schemas"
+    r = requests.get(f"{url}/custom_{target}.yml")
+    if r.status_code == 404:
+        r = requests.get(f"{url}/{target}/custom_{target}.yaml")
+    r.raise_for_status()
+    schema = yaml.safe_load(r.text)[0]
+    root_name = schema["name"]
+    fields = schema["fields"]
+    flattened = {}
+
+    # iterate over nested fields and flatten them
+    for f in fields:
+        if 'multi_fields' in f:
+            for mf in f['multi_fields']:
+                flattened[f"{root_name}.{f['name']}.{mf['name']}"] = mf['type']
+        else:
+            flattened[f"{root_name}.{f['name']}"] = f['type']
+
+    # save schema to disk
+    Path(ENDPOINT_SCHEMAS_DIR).mkdir(parents=True, exist_ok=True)
+    compressed = gzip_compress(json.dumps(flattened, sort_keys=True, cls=DateTimeEncoder))
+    new_path = Path(ENDPOINT_SCHEMAS_DIR) / f"endpoint_{target}.json.gz"
+    if overwrite:
+        shutil.rmtree(new_path, ignore_errors=True)
+    with open(new_path, 'wb') as f:
+        f.write(compressed)
+    print(f"Saved endpoint schema to {new_path}")
+
+
+@cached
+def get_endpoint_schemas() -> dict:
+    """Load endpoint schemas."""
+    schema = {}
+    existing = glob.glob(os.path.join(ENDPOINT_SCHEMAS_DIR, '*.json.gz'))
+    for f in existing:
+        schema.update(json.loads(read_gzip(f)))
+    return schema

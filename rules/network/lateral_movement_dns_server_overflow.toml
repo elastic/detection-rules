@@ -1,9 +1,10 @@
 [metadata]
 creation_date = "2020/07/16"
+integration = ["network_traffic"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/11/28"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +19,7 @@ false_positives = [
     authorized vulnerability scan or compromise assessment.
     """,
 ]
-index = ["packetbeat-*", "filebeat-*"]
+index = ["packetbeat-*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Abnormally Large DNS Response"
@@ -63,12 +64,12 @@ references = [
 risk_score = 47
 rule_id = "11013227-0301-4a8c-b150-4db924484475"
 severity = "medium"
-tags = ["Elastic", "Network", "Threat Detection", "Lateral Movement", "Investigation Guide"]
+tags = ["Use Case: Threat Detection", "Tactic: Lateral Movement", "Resources: Investigation Guide", "Use Case: Vulnerability"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:(network or network_traffic) and destination.port:53 and
+event.dataset: network_traffic.dns and
   (event.dataset:zeek.dns or type:dns or event.type:connection) and network.bytes > 60000
 '''
 
