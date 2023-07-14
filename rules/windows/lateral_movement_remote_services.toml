@@ -112,10 +112,10 @@ sequence with maxspan=1s
       network.direction : ("incoming", "ingress") and network.transport == "tcp" and
       source.port >= 49152 and destination.port >= 49152 and source.ip != "127.0.0.1" and source.ip != "::1"
    ] by host.id, process.entity_id
-
-   [process where host.os.type == "windows" and event.type == "start" and process.parent.name : "services.exe" and
-       not (process.name : "svchost.exe" and process.args : "tiledatamodelsvc") and
-       not (process.name : "msiexec.exe" and process.args : "/V") and
+   [process where host.os.type == "windows" and 
+       event.type == "start" and process.parent.name : "services.exe" and
+       not (process.executable : "?:\\Windows\\System32\\svchost.exe" and process.args : "tiledatamodelsvc") and
+       not (process.executable : "?:\\Windows\\System32\\msiexec.exe" and process.args : "/V") and
        not process.executable :
                ("?:\\Windows\\ADCR_Agent\\adcrsvc.exe",
                 "?:\\Windows\\System32\\VSSVC.exe",
