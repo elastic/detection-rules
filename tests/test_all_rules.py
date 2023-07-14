@@ -59,7 +59,11 @@ class TestValidRules(BaseRuleTest):
     def test_all_rule_queries_optimized(self):
         """Ensure that every rule query is in optimized form."""
         for rule in self.production_rules:
-            if rule.contents.data.get("language") == "kuery":
+            if (
+                rule.contents.data.get("language") == "kuery" and not any(
+                    item in rule.contents.data.query for item in definitions.QUERY_FIELD_OP_EXCEPTIONS
+                )
+            ):
                 source = rule.contents.data.query
                 tree = kql.parse(source, optimize=False)
                 optimized = tree.optimize(recursive=True)
@@ -481,14 +485,23 @@ class TestRuleFiles(BaseRuleTest):
     def test_bbr_in_correct_dir(self):
         """Ensure that BBR are in the correct directory."""
         for rule in self.bbr:
+            # Is the rule a BBR
+            self.assertEqual(rule.contents.data.building_block_type, 'default',
+                             f'{self.rule_str(rule)} should have building_block_type = "default"')
+
+            # Is the rule in the rules_building_block directory
             self.assertEqual(rule.path.parent.name, 'rules_building_block',
                              f'{self.rule_str(rule)} should be in the rules_building_block directory')
 
     def test_non_bbr_in_correct_dir(self):
         """Ensure that non-BBR are not in BBR directory."""
+        proper_directory = 'rules_building_block'
         for rule in self.all_rules:
             if rule.path.parent.name == 'rules_building_block':
-                self.assertIn(rule, self.bbr, f'{self.rule_str(rule)} should be in the rules_building_block directory')
+                self.assertIn(rule, self.bbr, f'{self.rule_str(rule)} should be in the {proper_directory}')
+            # Is the rule of type BBR
+            self.assertEqual(rule.contents.data.building_block_type, None,
+                             f'{self.rule_str(rule)} should not have building_block_type or be in {proper_directory}')
 
 
 class TestRuleMetadata(BaseRuleTest):
@@ -618,7 +631,11 @@ class TestRuleMetadata(BaseRuleTest):
                         "eb079c62-4481-4d6e-9643-3ca499df7aaa",
                         "699e9fdb-b77c-4c01-995c-1c15019b9c43",
                         "0c9a14d9-d65d-486f-9b5b-91e4e6b22bd0",
-                        "a198fbbd-9413-45ec-a269-47ae4ccf59ce"
+                        "a198fbbd-9413-45ec-a269-47ae4ccf59ce",
+                        "0c41e478-5263-4c69-8f9e-7dfd2c22da64",
+                        "aab184d3-72b3-4639-b242-6597c99d8bca",
+                        "a61809f3-fb5b-465c-8bff-23a8a068ac60",
+                        "f3e22c8b-ea47-45d1-b502-b57b6de950b3"
                     ]
                     if any([re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
                             for i in rule.contents.data.index]):

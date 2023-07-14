@@ -1,0 +1,51 @@
+[metadata]
+creation_date = "2023/06/26"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/06/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when the openssl command-line utility is used to encrypt multiple files on a host within a short time window.
+Adversaries may encrypt data on a single or multiple systems in order to disrupt the availability of their target's data
+and may attempt to hold the organization's data to ransom for the purposes of extortion.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Data Encryption via OpenSSL Utility"
+references = [
+  "https://www.welivesecurity.com/2017/06/30/telebots-back-supply-chain-attacks-against-ukraine/",
+  "https://www.trendmicro.com/en_us/research/21/f/bash-ransomware-darkradiation-targets-red-hat--and-debian-based-linux-distributions.html",
+]
+risk_score = 47
+rule_id = "f530ca17-153b-4a7a-8cd3-98dd4b4ddf73"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Impact"]
+type = "eql"
+query = '''
+sequence by host.id, user.name, process.parent.entity_id with maxspan=5s
+  [ process where host.os.type == "linux" and event.action == "exec" and 
+    process.name == "openssl" and process.parent.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "perl*", "php*", "python*", "xargs") and
+    process.args == "-in" and process.args == "-out" and
+    process.args in ("-k", "-K", "-kfile", "-pass", "-iv", "-md") and
+    /* excluding base64 encoding options and including encryption password or key params */
+    not process.args in ("-d", "-a", "-A", "-base64", "-none", "-nosalt") ] with runs=10
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Impact"
+id = "TA0040"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[[rule.threat.technique]]
+name = "Data Encrypted for Impact"
+id = "T1486"
+reference = "https://attack.mitre.org/techniques/T1486/"

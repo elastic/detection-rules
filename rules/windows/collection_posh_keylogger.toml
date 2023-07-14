@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/07/05"
 
 [rule]
 author = ["Elastic"]
@@ -85,23 +85,17 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and host.os.type:windows and 
-powershell.file.script_block_text : ( 
-    Get-Keystrokes or GetAsyncKeyState or GetKeyboardState or NtUserGetAsyncKeyState or 
-        (
-            NtUserSetWindowsHookEx or 
-            SetWindowsHookA or 
-            SetWindowsHookEx or 
-            SetWindowsHookExA or 
-            SetWindowsHookW
-        ) and 
-        (
-            GetForegroundWindow or 
-            GetWindowTextA or 
-            GetWindowTextW or 
-            WM_KEYBOARD_LL)
-        ) 
-and not user.id:S-1-5-18
+event.category:process and host.os.type:windows and
+  (
+   powershell.file.script_block_text : (GetAsyncKeyState or NtUserGetAsyncKeyState or GetKeyboardState or "Get-Keystrokes") or
+   powershell.file.script_block_text : (
+        (SetWindowsHookA or SetWindowsHookW or SetWindowsHookEx or SetWindowsHookExA or NtUserSetWindowsHookEx) and
+        (GetForegroundWindow or GetWindowTextA or GetWindowTextW or "WM_KEYBOARD_LL")
+   )
+   ) and not user.id : "S-1-5-18"
+  and not powershell.file.script_block_text : (
+    "sentinelbreakpoints" and "Set-PSBreakpoint" and "PowerSploitIndicators"
+  )
 '''
 
 
