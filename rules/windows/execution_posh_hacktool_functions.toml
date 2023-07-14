@@ -2,7 +2,7 @@
 creation_date = "2023/01/17"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2023/06/22"
+updated_date = "2023/07/05"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -53,8 +53,7 @@ event.category:process and host.os.type:windows and
     "Add-RemoteConnection" or "Add-ServiceDacl" or
     "Add-Win32Type" or "Convert-ADName" or
     "Convert-LDAPProperty" or "ConvertFrom-LDAPLogonHours" or
-    "ConvertFrom-SID" or "ConvertFrom-UACValue" or
-    "ConvertTo-SID" or "Copy-ArrayOfMemAddresses" or
+    "ConvertFrom-UACValue" or "Copy-ArrayOfMemAddresses" or
     "Create-NamedPipe" or "Create-ProcessWithToken" or
     "Create-RemoteThread" or "Create-SuspendedWinLogon" or
     "Create-WinLogonProcess" or "Emit-CallThreadStub" or
@@ -70,7 +69,7 @@ event.category:process and host.os.type:windows and
     "Find-ProcessDLLHijack" or "Find-RDPClientConnection" or
     "Get-AllAttributesForClass" or "Get-CachedGPPPassword" or
     "Get-DecryptedCpassword" or "Get-DecryptedSitelistPassword" or
-    "Get-DelegateType" or "Get-DomainController" or
+    "Get-DelegateType" or
     "Get-DomainDFSShare" or "Get-DomainDFSShareV1" or
     "Get-DomainDFSShareV2" or "Get-DomainDNSRecord" or
     "Get-DomainDNSZone" or "Get-DomainFileServer" or
@@ -94,7 +93,7 @@ event.category:process and host.os.type:windows and
     "Get-GPPInnerFields" or "Get-GPPPassword" or
     "Get-GptTmpl" or "Get-GroupsXML" or
     "Get-HttpStatus" or "Get-ImageNtHeaders" or
-    "Get-IniContent" or "Get-Keystrokes" or
+    "Get-Keystrokes" or
     "Get-MemoryProcAddress" or "Get-MicrophoneAudio" or
     "Get-ModifiablePath" or "Get-ModifiableRegistryAutoRun" or
     "Get-ModifiableScheduledTaskFile" or "Get-ModifiableService" or
@@ -105,9 +104,8 @@ event.category:process and host.os.type:windows and
     "Get-NetShare" or "Get-PEArchitecture" or
     "Get-PEBasicInfo" or "Get-PEDetailedInfo" or
     "Get-PathAcl" or "Get-PrimaryToken" or
-    "Get-PrincipalContext" or "Get-ProcAddress" or
-    "Get-ProcessTokenGroup" or "Get-ProcessTokenPrivilege" or
-    "Get-ProcessTokenType" or "Get-Property" or
+    "Get-ProcAddress" or "Get-ProcessTokenGroup" or
+    "Get-ProcessTokenPrivilege" or "Get-ProcessTokenType" or
     "Get-RegLoggedOn" or "Get-RegistryAlwaysInstallElevated" or
     "Get-RegistryAutoLogon" or "Get-RemoteProcAddress" or
     "Get-Screenshot" or "Get-ServiceDetail" or
@@ -140,7 +138,7 @@ event.category:process and host.os.type:windows and
     "Invoke-WmiCommand" or "Mount-VolumeShadowCopy" or
     "New-ADObjectAccessControlEntry" or "New-DomainGroup" or
     "New-DomainUser" or "New-DynamicParameter" or
-    "New-InMemoryModule" or "New-ScriptBlockCallback" or
+    "New-InMemoryModule" or
     "New-ThreadedFunction" or "New-VolumeShadowCopy" or
     "Out-CompressedDll" or "Out-EncodedCommand" or
     "Out-EncryptedScript" or "Out-Minidump" or
@@ -162,6 +160,9 @@ event.category:process and host.os.type:windows and
     "Get-DomainAccountPolicy" or "Get-DomainAdmins" or
     "Get-AVProcesses" or "Get-AVInfo" or
     "Get-RecycleBin"
+  )
+  and not powershell.file.script_block_text : (
+    "sentinelbreakpoints" and "Set-PSBreakpoint" and "PowerSploitIndicators"
   )
 '''
 
