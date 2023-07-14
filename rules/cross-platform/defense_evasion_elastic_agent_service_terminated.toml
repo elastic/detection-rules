@@ -44,6 +44,9 @@ or
     process.args : "elastic-agent" and
     process.args : "stop")
   or
+  /* pkill , killall used to stop Elastic Agent on Linux */
+  ( event.type == "end" and process.name : ("pkill", "killall") and process.args: "elastic-agent")
+  or
   /* Unload Elastic Agent extension on MacOS */
   (process.name : "kextunload" and
     process.args : "com.apple.iokit.EndpointSecurity" and
