@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/06/28"
 
 [rule]
 author = ["Elastic"]
@@ -86,13 +86,18 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and host.os.type:windows and 
-powershell.file.script_block_text : ( 
-    "::olFolderInBox" or 
-    Interop.Outlook.olDefaultFolders or 
-    Microsoft.Exchange.WebServices.Data.FileAttachment or 
-    Microsoft.Exchange.WebServices.Data.Folder or 
-    Microsoft.Office.Interop.Outlook)
+event.category:process and host.os.type:windows and
+  (
+   powershell.file.script_block_text : (
+      "Microsoft.Office.Interop.Outlook" or
+      "Interop.Outlook.olDefaultFolders" or
+      "::olFolderInBox"
+   ) or
+   powershell.file.script_block_text : (
+      "Microsoft.Exchange.WebServices.Data.Folder" or
+      "Microsoft.Exchange.WebServices.Data.FileAttachment"
+   )
+   )
 '''
 
 

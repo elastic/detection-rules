@@ -698,6 +698,9 @@ class EQLRuleData(QueryRuleData):
     """EQL rules are a special case of query rules."""
     type: Literal["eql"]
     language: Literal["eql"]
+    timestamp_field: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.0")))
+    event_category_override: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.0")))
+    tiebreaker_field: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.0")))
 
     def convert_relative_delta(self, lookback: str) -> int:
         now = len("now")
@@ -1018,6 +1021,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                             if package["integration"] not in policy_templates:
                                 del package["integration"]
 
+                # remove duplicate entries
+                package_integrations = list({json.dumps(d, sort_keys=True):
+                                            d for d in package_integrations}.values())
                 obj.setdefault("related_integrations", package_integrations)
 
     def _convert_add_required_fields(self, obj: dict) -> None:
