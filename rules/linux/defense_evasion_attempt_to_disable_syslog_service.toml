@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/28"
+updated_date = "2023/07/17"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,11 @@ note = """## Triage and analysis
 
 ### Investigating Attempt to Disable Syslog Service
 
-This rule identifies the execution of commands to disable the syslog service. Attackers may attempt to disrupt event logging to evade security controls that use these logs.
+Syslog is the general standard for logging system and program messages in the Linux environment.
+This service constitutes the system log service daemon, where any program can utilise its functionality for logging
+debug, security, normal operation activities in addition to the Linux kernel messages. This rule identifies the
+execution of commands to disable the syslog service. Attackers may attempt to disrupt event logging to evade security
+controls for process that use this service daemon for logs.
 
 #### Possible investigation steps
 
@@ -38,16 +42,16 @@ This rule identifies the execution of commands to disable the syslog service. At
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
-- Ensure active session(s) on the host(s) are terminated as the malicious user could be running malicious process or services evading security controls.
-- Isolate the involved host(s) to prevent further post-compromise behavior.
+- Isolate the involved host to prevent further post-compromise behavior.
 - Run a check across the process and services that could have been started after syslog being disabled , terminate all such suspicious process by the user in scrutiny.
+- Ensure suspicious active session on the host is terminated as the malicious user could restart any such sucpicious process.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
 risk_score = 47
 rule_id = "2f8a1226-5720-437d-9c20-e0029deb6194"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame"]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "eql"
 
