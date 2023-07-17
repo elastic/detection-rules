@@ -1076,17 +1076,29 @@ def packages(ctx: click.Context, pre: str, post: str, table_format: str):
     click.echo(f"Deprecated Rules: {len(deprecated_rules.keys())}")
     click.echo(f"Changed Rules: {len(changed_rules.keys())}")
     click.echo(f"Tuned Rules: {len(tuned_rules.keys())}")
+    click.echo(f"Query Type Rules: {len(query_type_rules.keys())}")
 
-    column_filters = ['rule_id', 'name', 'version', 'language', 'type', 'platform']
+    column_filters = ['rule_id', 'name', 'version', 'language', 'type', 'platforms']
     tabulate_headers = ['Rule ID', 'Name', 'Version', 'Query Language', 'Type', "Platform"]
     tags = [x.name.replace("_", " ") for x in Path(RULES_DIR + "/integrations").glob("*")] + [
         'windows', 'linux', 'macos', 'microsoft 365', 'container']
 
+    def get_platforms(dtags):
+        platforms = []
+        for tag in dtags:
+            if ":" in tag:
+                tag = tag.split(": ")[1]
+                if tag.lower() in tags:
+                    platforms.append(tag)
+            else:
+                if tag.lower() in tags:
+                    platforms.append(tag)
+        return ":".join(platforms)
+
     if new_rules:
         new_attributes = [v['attributes'] for k, v in new_rules.items()]
         new_df = pd.DataFrame(new_attributes).fillna(False)
-        new_df['platform'] = new_df['tags'].apply(lambda x: " ".join([i.lower() for i in x
-                                                  if i.lower() in tags]))
+        new_df['platforms'] = new_df['tags'].apply(lambda x: get_platforms(x))
         click.echo("\n\nNew rules:")
         click.echo(new_df.loc[:, column_filters].
                    to_markdown(index=False, headers=tabulate_headers, tablefmt=table_format))
@@ -1094,8 +1106,7 @@ def packages(ctx: click.Context, pre: str, post: str, table_format: str):
     if deprecated_rules:
         deprecated_attributes = [v['attributes'] for k, v in deprecated_rules.items()]
         deprecated_df = pd.DataFrame(deprecated_attributes).fillna(False)
-        deprecated_df['platform'] = deprecated_df['tags'].apply(lambda x: " ".join([i.lower().split(": ")[1] for i in x
-                                                                if i.lower().split(": ")[1] in tags]))
+        deprecated_df['platforms'] = deprecated_df['tags'].apply(lambda x: get_platforms(x))
         click.echo("\n\nDeprecated rules:")
         click.echo(deprecated_df.loc[:, column_filters].
                    to_markdown(index=False, headers=tabulate_headers, tablefmt=table_format))
@@ -1103,8 +1114,7 @@ def packages(ctx: click.Context, pre: str, post: str, table_format: str):
     if changed_rules:
         changed_attributes = [v['attributes'] for k, v in changed_rules.items()]
         changed_df = pd.DataFrame(changed_attributes).fillna(False)
-        changed_df['platform'] = changed_df['tags'].apply(lambda x: " ".join([i.lower().split(": ")[1] for i in x
-                                                                if i.lower().split(": ")[1] in tags]))
+        changed_df['platforms'] = changed_df['tags'].apply(lambda x: get_platforms(x))
         click.echo("\n\nChanged rules:")
         click.echo(changed_df.loc[:, column_filters].
                    to_markdown(index=False, headers=tabulate_headers, tablefmt=table_format))
@@ -1112,8 +1122,7 @@ def packages(ctx: click.Context, pre: str, post: str, table_format: str):
     if tuned_rules:
         tuned_attributes = [v['attributes'] for k, v in tuned_rules.items()]
         tuned_df = pd.DataFrame(tuned_attributes).fillna(False)
-        tuned_df['platform'] = tuned_df['tags'].apply(lambda x: " ".join([i.lower().split(": ")[1] for i in x
-                                                                if i.lower().split(": ")[1] in tags]))
+        tuned_df['platforms'] = tuned_df['tags'].apply(lambda x: get_platforms(x))
         click.echo("\n\nTuned rules:")
         click.echo(tuned_df.loc[:, column_filters].
                    to_markdown(index=False, headers=tabulate_headers, tablefmt=table_format))
@@ -1121,8 +1130,7 @@ def packages(ctx: click.Context, pre: str, post: str, table_format: str):
     if query_type_rules:
         query_type_attributes = [v['attributes'] for k, v in query_type_rules.items()]
         query_type_df = pd.DataFrame(query_type_attributes).fillna(False)
-        query_type_df['platform'] = query_type_df['tags'].apply(lambda x: " ".join([i.lower().split(": ")[1] for i in x
-                                                                if i.lower().split(": ")[1] in tags]))
+        query_type_df['platforms'] = query_type_df['tags'].apply(lambda x: get_platforms(x))
         click.echo("\n\nQuery Type rules:")
         click.echo(query_type_df.loc[:, column_filters].
                    to_markdown(index=False, headers=tabulate_headers, tablefmt=table_format))
