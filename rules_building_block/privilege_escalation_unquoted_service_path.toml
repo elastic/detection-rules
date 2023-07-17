@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/13"
+updated_date = "2023/07/17"
 
 [rule]
 author = ["Elastic"]
@@ -28,13 +28,10 @@ building_block_type = "default"
 type = "eql"
 
 query = '''
-any where event.category : ("process", "file") and
-  event.type : ("start", "creation") and 
+process where event.type == "start" and 
   (
-    (
-      process.parent.name == "services.exe" and   
-      process.executable : ("?:\\Program", "?:\\Program.exe")
-    ) or file.path : "?:\\Program.exe"
+    process.executable : "?:\\Program.exe" or 
+    process.executable regex """(C:\\Program Files \(x86\)\\|C:\\Program Files\\)\w+.exe"""
   )
 '''
 
