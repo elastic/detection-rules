@@ -75,7 +75,7 @@ note = """## Triage and analysis
 
 Systemd timers are used for scheduling and automating recurring tasks or services on Linux systems. 
 
-Attackers can leverage systemd timers to run scripts, commands or malicious software every time a system is rebooted, or on a set time interval by creating a systemd timer and corresponding systemd service file. 
+Attackers can leverage systemd timers to run scripts, commands, or malicious software at system boot or on a set time interval by creating a systemd timer and a corresponding systemd service file. 
 
 This rule monitors the creation of new systemd timer files, potentially indicating the creation of a persistence mechanism.
 
@@ -87,13 +87,14 @@ This rule monitors the creation of new systemd timer files, potentially indicati
 - Investigate the timer file that was created or modified.
   - $osquery_0
 - Investigate the currently enabled systemd timers through the following command `sudo systemctl list-timers`.
-- Search for the corresponding systemd service file with a similar file name as the timer that was created.
+- Search for the systemd service file named similarly to the timer that was created.
 - Investigate whether any other files in any of the available systemd directories have been altered through OSQuery.
   - $osquery_1
   - $osquery_2
 - Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence and whether they are located in expected locations.
   - $osquery_3
 - Investigate other alerts associated with the user/host during the past 48 hours.
+- Validate the activity is not related to planned patches, updates, network administrator activity, or legitimate software installations.
 - Investigate whether the altered scripts call other malicious scripts elsewhere on the file system. 
   - If scripts or executables were dropped, retrieve the files and determine if they are malicious:
     - Use a private sandboxed malware analysis system to perform analysis.
@@ -121,7 +122,7 @@ This rule monitors the creation of new systemd timer files, potentially indicati
   - Immediately block the identified indicators of compromise (IoCs).
   - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Delete the service/timer or restore it to the original configuration.
+- Delete the service/timer or restore its original configuration.
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).

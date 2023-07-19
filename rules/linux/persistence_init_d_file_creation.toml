@@ -46,10 +46,10 @@ query = "SELECT * FROM crontab"
 author = ["Elastic"]
 description = """
 Files that are placed in the /etc/init.d/ directory in Unix can be used to start custom applications, services, scripts
-or commands during start-up. Init.d has been mostly replaced in favor of Systemd, however, through the 
-"systemd-sysv-generator", init.d files can be converted to service unit files that run at boot. Adversaries may add or 
-alter files located in the /etc/init.d/ directory to execute malicious code on boot time in order to gain persistence 
-onto the system. 
+or commands during start-up. Init.d has been mostly replaced in favor of Systemd. However, the 
+"systemd-sysv-generator" can convert init.d files to service unit files that run at boot. Adversaries may add or 
+alter files located in the /etc/init.d/ directory to execute malicious code upon boot in order to gain persistence 
+on the system. 
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*"]
@@ -58,13 +58,13 @@ license = "Elastic License v2"
 name = "Potential Persistence Through init.d Detected"
 note = """## Triage and analysis
 
-### Investigating Suspicious File Creation in init.d for Persistence Detected
+### Investigating Potential Persistence Through init.d Detected
 
 The `/etc/init.d` directory is used in Linux systems to store the initialization scripts for various services and daemons that are executed during system startup and shutdown.
 
 Attackers can abuse files within the `/etc/init.d/` directory to run scripts, commands or malicious software every time a system is rebooted by converting an executable file into a service file through the `systemd-sysv-generator`. After conversion, a unit file is created within the `/run/systemd/generator.late/` directory.
 
-This rule looks for the creation of new files within the `/etc/init.d/` directory. Files in these directories will automatically run at boot with root privileges when they are made executable.
+This rule looks for the creation of new files within the `/etc/init.d/` directory. Executable files in these directories will automatically run at boot with root privileges.
 
 > **Note**:
 > This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
@@ -80,6 +80,7 @@ This rule looks for the creation of new files within the `/etc/init.d/` director
   - $osquery_3
 - Investigate syslog through the `sudo cat /var/log/syslog | grep 'LSB'` command to find traces of the LSB header of the script (if present). If syslog is being ingested into Elasticsearch, the same can be accomplished through Kibana.
 - Investigate other alerts associated with the user/host during the past 48 hours.
+- Validate whether this activity is related to planned patches, updates, network administrator activity, or legitimate software installations.
 - Investigate whether the altered scripts call other malicious scripts elsewhere on the file system. 
   - If scripts or executables were dropped, retrieve the files and determine if they are malicious:
     - Use a private sandboxed malware analysis system to perform analysis.
