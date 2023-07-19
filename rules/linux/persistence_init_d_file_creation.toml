@@ -78,7 +78,7 @@ This rule looks for the creation of new files within the `/etc/init.d/` director
   - $osquery_2
 - Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence and whether they are located in expected locations.
   - $osquery_3
-- Investigate syslog through the `sudo cat /var/log/syslog | grep 'LSB'` command to find traces of the LSB header of the script (if present).  
+- Investigate syslog through the `sudo cat /var/log/syslog | grep 'LSB'` command to find traces of the LSB header of the script (if present). If syslog is being ingested into Elasticsearch, the same can be accomplished through Kibana.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Investigate whether the altered scripts call other malicious scripts elsewhere on the file system. 
   - If scripts or executables were dropped, retrieve the files and determine if they are malicious:
@@ -112,7 +112,7 @@ This rule looks for the creation of new files within the `/etc/init.d/` director
   - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
 - Remove and block malicious artifacts identified during triage.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Delete the service/init.d files or restore it to the original configuration.
+- Delete the maliciously created service/init.d files or restore it to the original configuration.
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
