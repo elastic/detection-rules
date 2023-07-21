@@ -4,7 +4,7 @@ integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/07/21"
 
 [rule]
 author = ["Elastic"]
@@ -30,21 +30,13 @@ tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic
 type = "eql"
 
 query = '''
-sequence by winlog.computer_name with maxspan=5m
-
-  [authentication where event.action == "logged-in" and
-   winlog.logon.type == "Network" and event.outcome == "success" and
-   not user.name == "ANONYMOUS LOGON" and not winlog.event_data.SubjectUserName : "*$" and
-   not user.domain == "NT AUTHORITY" and source.ip != "127.0.0.1" and source.ip !="::1"] by winlog.event_data.TargetLogonId
-
-  [iam where event.action == "changed-computer-account" and
+iam where event.action == "changed-computer-account" and
 
     /* if DnsHostName value equal a DC DNS hostname then it's highly suspicious */
     winlog.event_data.DnsHostName : "??*" and
 
     /* exclude FPs where DnsHostName starts with the ComputerName that was changed */
     not startswith~(winlog.event_data.DnsHostName, substring(winlog.event_data.TargetUserName, 0, length(winlog.event_data.TargetUserName) - 1))
-    ] by winlog.event_data.SubjectLogonId
 '''
 
 
