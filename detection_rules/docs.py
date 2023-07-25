@@ -816,7 +816,7 @@ class IntegrationSecurityDocsMDX:
     def generate_downloadable_updates_summary(self):
         """Generate a summary of all the downloadable updates."""
 
-        docs_url = 'https://www.elastic.co/guide/en/security/current/rules-ui-management.html#download-prebuilt-rules'
+        docs_url = 'https://www.elastic.co/guide/en/security/current/rules-ui-management.html#update-prebuilt-rules'
         slug = 'prebuilt-rules-downloadable-packages-summary.mdx'
         title = "Downloadable rule updates"
         summary = self.package_directory / slug
@@ -853,7 +853,7 @@ class IntegrationSecurityDocsMDX:
         This section lists all updates to prebuilt detection rules, made available
             with the Prebuilt Security Detection Rules integration in Fleet.
 
-        To download the latest updates, follow the instructions in [download-prebuilt-rules]({docs_url})
+        To update your rules to the latest versions, follow the instructions in [update-prebuilt-rules]({docs_url})
 
 
         |Update version |Date | New rules | Updated rules | Notes
