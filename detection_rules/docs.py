@@ -384,9 +384,6 @@ class IntegrationSecurityDocs:
 
         rule_entries = []
         all_rules = RuleCollection.default().rules
-        package_version = Version.parse(self.registry_version_str)
-        rule_version = f"{package_version.major}.{package_version.minor}"
-        prebuilt_rule_url = f"https://www.elastic.co/guide/en/security/{rule_version}/"
         for rule in all_rules:
             if isinstance(rule, DeprecatedRule):
                 continue
@@ -395,8 +392,7 @@ class IntegrationSecurityDocs:
             description = rule.contents.to_api_format()['description']
             version = rule.contents.autobumped_version
             added = rule.contents.metadata.min_stack_version
-            rule_url = f'{prebuilt_rule_url}{title_name}.html'
-            rule_entries.append(f'|<<{rule_url}, {rule.name}>> | {description} | {added} | {tags} | {version} \n')
+            rule_entries.append(f'|<<{title_name}, {rule.name}>> | {description} | {added} | {tags} | {version} \n')
 
         summary_lines = [summary_header] + rule_entries + ['|==============================================']
         summary_str = '\n'.join(summary_lines) + '\n'
