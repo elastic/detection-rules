@@ -30,7 +30,8 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event") and 
 (
-  (process.name == "docker" and process.args : "run" and process.args : "-it"  and process.args : ("unix://*/docker.sock", "unix://*/dockershim.sock")) or 
+  (process.name == "docker" and process.args : "run" and process.args : "-it"  and 
+   process.args : ("unix://*/docker.sock", "unix://*/dockershim.sock")) or 
   (process.name == "socat" and process.args : ("UNIX-CONNECT:*/docker.sock", "UNIX-CONNECT:*/dockershim.sock"))
 ) and not user.Ext.real.id : "0" and not group.Ext.real.id : "0"
 '''
