@@ -20,7 +20,7 @@ from semver import Version
 
 from .attack import attack_tm, matrix, tactics, technique_lookup
 from .packaging import Package
-from .rule import ThreatMapping, TOMLRule
+from .rule import DeprecatedRule, ThreatMapping, TOMLRule
 from .rule_loader import DeprecatedCollection, RuleCollection
 from .utils import load_etc_dump, save_etc_dump
 
@@ -297,6 +297,7 @@ class IntegrationSecurityDocs:
                                                    deprecated_rules.values()))
 
         self.registry_version_str, self.base_name, self.prebuilt_rule_base = self.parse_registry(registry_version)
+        self.directory = directory
         self.package_directory = directory / "docs" / "detections" / "prebuilt-rules" / "downloadable-packages" / self.base_name  # noqa: E501
         self.update_message = update_message
 
@@ -356,6 +357,46 @@ class IntegrationSecurityDocs:
             version = rule.contents.autobumped_version
             rule_entries.append(f'|<<prebuilt-rule-{self.base_name}-{title_name}, {rule.name}>> '
                                 f'| {description} | {status} | {version} \n')
+
+        summary_lines = [summary_header] + rule_entries + ['|==============================================']
+        summary_str = '\n'.join(summary_lines) + '\n'
+        summary.write_text(summary_str)
+
+    def generate_rule_reference(self):
+        summary = self.directory / "docs" / "detections" / "prebuilt-rules" / 'prebuilt-rules-reference.asciidoc'
+
+        summary_header = textwrap.dedent("""
+        [[prebuilt-rules]]
+        [role="xpack"]
+        == Prebuilt rule reference
+
+        This section lists all available prebuilt rules.
+
+        IMPORTANT: To run {ml} prebuilt rules, you must have the
+        https://www.elastic.co/subscriptions[appropriate license] or use a
+        {ess-trial}[Cloud] deployment. All {ml} prebuilt rules are tagged with `ML`,
+        and their rule type is `machine_learning`.
+
+        [width="100%",options="header"]
+        |==============================================
+        |Rule |Description |Tags |Added |Version
+        """).lstrip()  # noqa: E501
+
+        rule_entries = []
+        all_rules = RuleCollection.default().rules
+        package_version = Version.parse(self.registry_version_str)
+        rule_version = f"{package_version.major}.{package_version.minor}"
+        prebuilt_rule_url = f"https://www.elastic.co/guide/en/security/{rule_version}/"
+        for rule in all_rules:
+            if isinstance(rule, DeprecatedRule):
+                continue
+            title_name = name_to_title(rule.name)
+            tags = ', '.join(f'[{tag}]' for tag in rule.contents.data.tags)
+            description = rule.contents.to_api_format()['description']
+            version = rule.contents.autobumped_version
+            added = rule.contents.metadata.min_stack_version
+            rule_url = f'{prebuilt_rule_url}{title_name}.html'
+            rule_entries.append(f'|<<{rule_url}, {rule.name}>> | {description} | {added} | {tags} | {version} \n')
 
         summary_lines = [summary_header] + rule_entries + ['|==============================================']
         summary_str = '\n'.join(summary_lines) + '\n'
@@ -433,6 +474,7 @@ class IntegrationSecurityDocs:
     def generate(self) -> Path:
         self.generate_appendix()
         self.generate_summary()
+        self.generate_rule_reference()
         self.generate_rule_details()
         self.generate_manual_updates()
         return self.package_directory
