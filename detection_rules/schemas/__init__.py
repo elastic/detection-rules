@@ -82,6 +82,9 @@ def strip_additional_properties(version: Version, api_contents: dict) -> dict:
 
 def strip_build_time_fields(api_contents: dict) -> dict:
     """Remove all fields that are only used at build time."""
+
+    # remove fields that are build time
+    # these field values are dependent on external data to Detection Rules
     contents = api_contents.copy()
     if "related_integrations" in contents:
         del contents["related_integrations"]
