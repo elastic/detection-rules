@@ -405,7 +405,9 @@ class IntegrationSecurityDocs:
         self.add_content_to_table_top(downloadable_updates, new_content)
 
         # Add table_include to/docs/detections/prebuilt-rules/prebuilt-rules-downloadable-updates.asciidoc
-        downloadable_updates.write_text(downloadable_updates.read_text() +  # noqa: W504
+        # Reset the historic information at the beginning of each minor version
+        historic_data = downloadable_updates.read_text() if Version.parse(self.registry_version_str).patch > 1 else ''
+        downloadable_updates.write_text(historic_data +  # noqa: W504
                                         updates['downloadable-updates.asciidoc']['table_include'] + '\n')
 
     def add_content_to_table_top(self, file_path: Path, new_content: str):
