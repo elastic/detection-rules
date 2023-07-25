@@ -42,7 +42,7 @@ sequence by host.id, process.entity_id with maxspan=1s
   "./*", "/tmp/*", "/var/tmp/*", "/var/www/*", "/dev/shm/*", "/etc/init.d/*", "/etc/rc*.d/*",
   "/etc/crontab", "/etc/cron.*", "/etc/update-motd.d/*", "/usr/lib/update-notifier/*",
   "/boot/*", "/srv/*", "/run/*", "/root/*", "/etc/rc.local"
-   ) ]
+   ) and destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1" ]
 [ process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
   process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and 
   process.parent.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") ]
