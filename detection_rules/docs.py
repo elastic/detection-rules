@@ -299,6 +299,7 @@ class IntegrationSecurityDocs:
         self.registry_version_str, self.base_name, self.prebuilt_rule_base = self.parse_registry(registry_version)
         self.directory = directory
         self.package_directory = directory / "docs" / "detections" / "prebuilt-rules" / "downloadable-packages" / self.base_name  # noqa: E501
+        self.rule_details = directory / "docs" / "detections" / "prebuilt-rules" / "rule-details"
         self.update_message = update_message
 
         if overwrite:
@@ -390,13 +391,16 @@ class IntegrationSecurityDocs:
             if isinstance(rule, DeprecatedRule):
                 continue
             title_name = name_to_title(rule.name)
+
+            # skip rules not built for this package
+            built_rules = [x.name for x in self.rule_details.glob('*.asciidoc')]
+            if f"{title_name}.asciidoc" not in built_rules:
+                continue
             tags = ', '.join(f'[{tag}]' for tag in rule.contents.data.tags)
             description = rule.contents.to_api_format()['description']
             version = rule.contents.autobumped_version
-            version_history = f" <<{title_name}, Version history>>" if version > 1 else ""
-            version_info = f"{version}{version_history}"
             added = rule.contents.metadata.min_stack_version
-            rule_entries.append(f'|<<{title_name}, {rule.name}>> |{description} |{tags} |{added} |{version_info}\n')
+            rule_entries.append(f'|<<{title_name}, {rule.name}>> |{description} |{tags} |{added} |{version}\n')
 
         summary_lines = [summary_header] + rule_entries + ['|==============================================']
         summary_str = '\n'.join(summary_lines) + '\n'
@@ -406,6 +410,8 @@ class IntegrationSecurityDocs:
         for rule in self.included_rules:
             rule_detail = IntegrationRuleDetail(rule.id, rule.contents.to_api_format(), {}, self.base_name)
             rule_path = self.package_directory / f'{self.prebuilt_rule_base}-{name_to_title(rule.name)}.asciidoc'
+            prebuilt_rule_path = self.rule_details / f'{name_to_title(rule.name)}.asciidoc'  # noqa: E501
+            prebuilt_rule_path.write_text(rule_detail.generate(title=f'{name_to_title(rule.name)}'))
             rule_path.write_text(rule_detail.generate())
 
     def generate_manual_updates(self):
@@ -456,7 +462,6 @@ class IntegrationSecurityDocs:
 
         For previous rule updates, please navigate to the {version_url}[last version].
 
-
         [width="100%",options="header"]
         |==============================================
         |Update version |Date | New rules | Updated rules | Notes
@@ -494,8 +499,8 @@ class IntegrationSecurityDocs:
     def generate(self) -> Path:
         self.generate_appendix()
         self.generate_summary()
-        self.generate_rule_reference()
         self.generate_rule_details()
+        self.generate_rule_reference()
         self.generate_manual_updates()
         return self.package_directory
 
@@ -514,10 +519,11 @@ class IntegrationRuleDetail:
         self.rule.setdefault('max_signals', 100)
         self.rule.setdefault('interval', '5m')
 
-    def generate(self) -> str:
+    def generate(self, title: str = None) -> str:
         """Generate the rule detail page."""
+        title = title or self.rule_title
         page = [
-            AsciiDoc.inline_anchor(self.rule_title),
+            AsciiDoc.inline_anchor(title),
             AsciiDoc.title(3, self.rule['name']),
             '',
             self.rule['description'],
