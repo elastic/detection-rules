@@ -533,8 +533,10 @@ class TestRuleMetadata(BaseRuleTest):
 
         misplaced_rules = []
         for r in self.all_rules:
-            if 'rules_building_block' not in str(r.path):
-                if r.path.relative_to(rules_path).parts[-2] == '_deprecated' and \
+            if 'rules_building_block' in str(r.path):
+                if r.contents.metadata.maturity == 'deprecated':
+                    misplaced_rules.append(r)
+            elif r.path.relative_to(rules_path).parts[-2] == '_deprecated' and \
                 r.contents.metadata.maturity != 'deprecated':
                     misplaced_rules.append(r)
 
