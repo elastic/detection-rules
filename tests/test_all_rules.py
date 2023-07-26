@@ -502,7 +502,7 @@ class TestRuleFiles(BaseRuleTest):
             else:
                 # Is the rule of type BBR and not in the correct directory
                 self.assertEqual(rule.contents.data.building_block_type, None,
-                                f'{self.rule_str(rule)} should not have building_block_type or be in {proper_directory}')
+                                 f'{self.rule_str(rule)} should be in {proper_directory}')
 
 
 class TestRuleMetadata(BaseRuleTest):
