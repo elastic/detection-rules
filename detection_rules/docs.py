@@ -365,6 +365,7 @@ class IntegrationSecurityDocs:
 
     def generate_rule_reference(self):
         summary = self.directory / "docs" / "detections" / "prebuilt-rules" / 'prebuilt-rules-reference.asciidoc'
+        rule_list = self.directory / "docs" / "detections" / "prebuilt-rules" / 'rule-desc-index.asciidoc'
 
         summary_header = textwrap.dedent("""
         [[prebuilt-rules]]
@@ -385,12 +386,14 @@ class IntegrationSecurityDocs:
         """).lstrip()  # noqa: E501
 
         rule_entries = []
+        rule_includes = []
         all_rules = RuleCollection.default().rules
         sorted_rules = sorted(all_rules, key=lambda rule: rule.name)
         for rule in sorted_rules:
             if isinstance(rule, DeprecatedRule):
                 continue
             title_name = name_to_title(rule.name)
+            rule_includes.append(f'include::rule-details/{title_name}.asciidoc[]')
 
             # skip rules not built for this package
             built_rules = [x.name for x in self.rule_details.glob('*.asciidoc')]
@@ -405,6 +408,9 @@ class IntegrationSecurityDocs:
         summary_lines = [summary_header] + rule_entries + ['|==============================================']
         summary_str = '\n'.join(summary_lines) + '\n'
         summary.write_text(summary_str)
+
+        # update rule-desc-index.asciidoc
+        rule_list.write_text('\n'.join(rule_includes))
 
     def generate_rule_details(self):
         for rule in self.included_rules:
