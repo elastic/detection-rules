@@ -380,19 +380,23 @@ class IntegrationSecurityDocs:
         [width="100%",options="header"]
         |==============================================
         |Rule |Description |Tags |Added |Version
+
         """).lstrip()  # noqa: E501
 
         rule_entries = []
         all_rules = RuleCollection.default().rules
-        for rule in all_rules:
+        sorted_rules = sorted(all_rules, key=lambda rule: rule.name)
+        for rule in sorted_rules:
             if isinstance(rule, DeprecatedRule):
                 continue
             title_name = name_to_title(rule.name)
             tags = ', '.join(f'[{tag}]' for tag in rule.contents.data.tags)
             description = rule.contents.to_api_format()['description']
             version = rule.contents.autobumped_version
+            version_history = f" <<{title_name}, Version history>>" if version > 1 else ""
+            version_info = f"{version}{version_history}"
             added = rule.contents.metadata.min_stack_version
-            rule_entries.append(f'|<<{title_name}, {rule.name}>> | {description} | {added} | {tags} | {version} \n')
+            rule_entries.append(f'|<<{title_name}, {rule.name}>> |{description} |{tags} |{added} |{version_info}\n')
 
         summary_lines = [summary_header] + rule_entries + ['|==============================================']
         summary_str = '\n'.join(summary_lines) + '\n'
