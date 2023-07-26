@@ -442,8 +442,28 @@ class IntegrationSecurityDocs:
 
         # Add table_entry to docs/detections/prebuilt-rules/prebuilt-rules-downloadable-updates.asciidoc
         downloadable_updates = self.package_directory.parent.parent / 'prebuilt-rules-downloadable-updates.asciidoc'
+        version = Version.parse(self.registry_version_str)
+        last_version = f"{version.major}.{version.minor - 1}"
+        version_url = f"https://www.elastic.co/guide/en/security/{last_version}/prebuilt-rules.html"
+        summary_header = textwrap.dedent(f"""
+        [[prebuilt-rules-downloadable-updates]]
+        [role="xpack"]
+        == Downloadable rule updates
+
+        This section lists all updates to prebuilt detection rules, made available with the *Prebuilt Security Detection Rules* integration in Fleet.
+
+        To update your installed rules to the latest versions, follow the instructions in <<update-prebuilt-rules>>.
+
+        For previous rule updates, please navigate to the {version_url}[last version].
+
+
+        [width="100%",options="header"]
+        |==============================================
+        |Update version |Date | New rules | Updated rules | Notes
+
+        """).lstrip()  # noqa: E501
         new_content = updates['downloadable-updates.asciidoc']['table_entry'] + '\n' + self.update_message
-        self.add_content_to_table_top(downloadable_updates, new_content)
+        self.add_content_to_table_top(downloadable_updates, summary_header, new_content)
 
         # Add table_include to/docs/detections/prebuilt-rules/prebuilt-rules-downloadable-updates.asciidoc
         # Reset the historic information at the beginning of each minor version
@@ -451,7 +471,7 @@ class IntegrationSecurityDocs:
         downloadable_updates.write_text(historic_data +  # noqa: W504
                                         updates['downloadable-updates.asciidoc']['table_include'] + '\n')
 
-    def add_content_to_table_top(self, file_path: Path, new_content: str):
+    def add_content_to_table_top(self, file_path: Path, summary_header: str, new_content: str):
         """Insert content at the top of a Markdown table right after the specified header."""
         file_contents = file_path.read_text()
 
@@ -466,7 +486,7 @@ class IntegrationSecurityDocs:
         insert_position = header_index + len(header)
 
         # Insert the new content at the insert_position
-        updated_contents = file_contents[:insert_position] + f"\n{new_content}\n" + file_contents[insert_position:]
+        updated_contents = summary_header + f"\n{new_content}\n" + file_contents[insert_position:]
 
         # Write the updated contents back to the file
         file_path.write_text(updated_contents)
