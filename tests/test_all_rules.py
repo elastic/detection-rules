@@ -485,14 +485,23 @@ class TestRuleFiles(BaseRuleTest):
     def test_bbr_in_correct_dir(self):
         """Ensure that BBR are in the correct directory."""
         for rule in self.bbr:
+            # Is the rule a BBR
+            self.assertEqual(rule.contents.data.building_block_type, 'default',
+                             f'{self.rule_str(rule)} should have building_block_type = "default"')
+
+            # Is the rule in the rules_building_block directory
             self.assertEqual(rule.path.parent.name, 'rules_building_block',
                              f'{self.rule_str(rule)} should be in the rules_building_block directory')
 
     def test_non_bbr_in_correct_dir(self):
         """Ensure that non-BBR are not in BBR directory."""
+        proper_directory = 'rules_building_block'
         for rule in self.all_rules:
             if rule.path.parent.name == 'rules_building_block':
-                self.assertIn(rule, self.bbr, f'{self.rule_str(rule)} should be in the rules_building_block directory')
+                self.assertIn(rule, self.bbr, f'{self.rule_str(rule)} should be in the {proper_directory}')
+            # Is the rule of type BBR
+            self.assertEqual(rule.contents.data.building_block_type, None,
+                             f'{self.rule_str(rule)} should not have building_block_type or be in {proper_directory}')
 
 
 class TestRuleMetadata(BaseRuleTest):
