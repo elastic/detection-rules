@@ -366,6 +366,7 @@ class IntegrationSecurityDocs:
         summary.write_text(summary_str)
 
     def generate_rule_reference(self):
+        """Generate rule reference page for prebuilt rules."""
         summary = self.directory / "docs" / "detections" / "prebuilt-rules" / 'prebuilt-rules-reference.asciidoc'
         rule_list = self.directory / "docs" / "detections" / "prebuilt-rules" / 'rule-desc-index.asciidoc'
 
@@ -415,6 +416,7 @@ class IntegrationSecurityDocs:
         rule_list.write_text('\n'.join(rule_includes))
 
     def generate_rule_details(self):
+        """Generate rule details for each prebuilt rule."""
         included_rules = [x.name for x in self.included_rules]
         for rule in self.sorted_rules:
             rule_detail = IntegrationRuleDetail(rule.id, rule.contents.to_api_format(), {}, self.base_name)
