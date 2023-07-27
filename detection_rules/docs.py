@@ -296,6 +296,8 @@ class IntegrationSecurityDocs:
                                                    updated_rules.values(),
                                                    deprecated_rules.values()))
 
+        all_rules = RuleCollection.default().rules
+        self.sorted_rules = sorted(all_rules, key=lambda rule: rule.name)
         self.registry_version_str, self.base_name, self.prebuilt_rule_base = self.parse_registry(registry_version)
         self.directory = directory
         self.package_directory = directory / "docs" / "detections" / "prebuilt-rules" / "downloadable-packages" / self.base_name  # noqa: E501
@@ -387,18 +389,18 @@ class IntegrationSecurityDocs:
 
         rule_entries = []
         rule_includes = []
-        all_rules = RuleCollection.default().rules
-        sorted_rules = sorted(all_rules, key=lambda rule: rule.name)
-        for rule in sorted_rules:
+
+        for rule in self.sorted_rules:
             if isinstance(rule, DeprecatedRule):
                 continue
             title_name = name_to_title(rule.name)
-            rule_includes.append(f'include::rule-details/{title_name}.asciidoc[]')
 
             # skip rules not built for this package
             built_rules = [x.name for x in self.rule_details.glob('*.asciidoc')]
             if f"{title_name}.asciidoc" not in built_rules:
                 continue
+
+            rule_includes.append(f'include::rule-details/{title_name}.asciidoc[]')
             tags = ', '.join(f'[{tag}]' for tag in rule.contents.data.tags)
             description = rule.contents.to_api_format()['description']
             version = rule.contents.autobumped_version
@@ -413,12 +415,18 @@ class IntegrationSecurityDocs:
         rule_list.write_text('\n'.join(rule_includes))
 
     def generate_rule_details(self):
-        for rule in self.included_rules:
+        included_rules = [x.name for x in self.included_rules]
+        for rule in self.sorted_rules:
             rule_detail = IntegrationRuleDetail(rule.id, rule.contents.to_api_format(), {}, self.base_name)
             rule_path = self.package_directory / f'{self.prebuilt_rule_base}-{name_to_title(rule.name)}.asciidoc'
             prebuilt_rule_path = self.rule_details / f'{name_to_title(rule.name)}.asciidoc'  # noqa: E501
+
+            if rule.name in included_rules:
+                # only include updates
+                rule_path.write_text(rule_detail.generate())
+
+            # add all available rules to the rule details directory
             prebuilt_rule_path.write_text(rule_detail.generate(title=f'{name_to_title(rule.name)}'))
-            rule_path.write_text(rule_detail.generate())
 
     def generate_manual_updates(self):
         """
@@ -456,7 +464,7 @@ class IntegrationSecurityDocs:
         downloadable_updates = self.package_directory.parent.parent / 'prebuilt-rules-downloadable-updates.asciidoc'
         version = Version.parse(self.registry_version_str)
         last_version = f"{version.major}.{version.minor - 1}"
-        version_url = f"https://www.elastic.co/guide/en/security/{last_version}/prebuilt-rules.html"
+        update_url = f"https://www.elastic.co/guide/en/security/{last_version}/prebuilt-rules-downloadable-updates.html"
         summary_header = textwrap.dedent(f"""
         [[prebuilt-rules-downloadable-updates]]
         [role="xpack"]
@@ -466,7 +474,7 @@ class IntegrationSecurityDocs:
 
         To update your installed rules to the latest versions, follow the instructions in <<update-prebuilt-rules>>.
 
-        For previous rule updates, please navigate to the {version_url}[last version].
+        For previous rule updates, please navigate to the {update_url}[last version].
 
         [width="100%",options="header"]
         |==============================================
