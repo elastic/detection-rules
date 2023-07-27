@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/04"
+updated_date = "2023/07/25"
 
 [rule]
 author = ["Elastic"]
@@ -28,7 +28,8 @@ type = "eql"
 query = '''
 sequence by host.id with maxspan=5s
 [ network where host.os.type == "linux" and event.action in ("connection_accepted", "connection_attempted") and 
-  process.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") ] by process.entity_id
+  process.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") and
+  destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1" ] by process.entity_id
 [ process where host.os.type == "linux" and event.action == "exec" and 
   process.parent.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") and
   process.parent.args : "-jar"  and process.executable : "*sh" ] by process.parent.entity_id
