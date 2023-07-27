@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2023/05/22"
 maturity = "production"
-updated_date = "2023/07/03"
+updated_date = "2023/07/24"
 min_stack_comments = """
 Limiting the backport of these rules to the stack version which we are deprecating the Threat Intel Indicator Match
 general rules.
@@ -100,11 +100,11 @@ threat_language = "kuery"
 
 threat_query = '''
 @timestamp >= "now-30d/d" and event.module:(threatintel or ti_*) and
-  (threat.indicator.url.full:* or threat.indicator.url.domain:*) and not labels.is_ioc_transform_source:"true"
+  threat.indicator.url.full:* and not labels.is_ioc_transform_source:"true"
 '''
 
 query = """
-url.full:* or url.domain:*
+url.full:*
 """
 
 
@@ -155,18 +155,6 @@ value = "threat.indicator.url.full"
 
 [[rule.threat_mapping]]
 [[rule.threat_mapping.entries]]
-field = "url.domain"
+field = "url.original"
 type = "mapping"
-value = "threat.indicator.url.domain"
-
-[[rule.threat_mapping]]
-[[rule.threat_mapping.entries]]
-field = "source.domain"
-type = "mapping"
-value = "threat.indicator.url.domain"
-
-[[rule.threat_mapping]]
-[[rule.threat_mapping.entries]]
-field = "destination.domain"
-type = "mapping"
-value = "threat.indicator.url.domain"
+value = "threat.indicator.url.original"
