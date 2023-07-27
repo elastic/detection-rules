@@ -499,9 +499,10 @@ class TestRuleFiles(BaseRuleTest):
         for rule in self.all_rules:
             if rule.path.parent.name == 'rules_building_block':
                 self.assertIn(rule, self.bbr, f'{self.rule_str(rule)} should be in the {proper_directory}')
-            # Is the rule of type BBR
-            self.assertEqual(rule.contents.data.building_block_type, None,
-                             f'{self.rule_str(rule)} should not have building_block_type or be in {proper_directory}')
+            else:
+                # Is the rule of type BBR and not in the correct directory
+                self.assertEqual(rule.contents.data.building_block_type, None,
+                                 f'{self.rule_str(rule)} should be in {proper_directory}')
 
 
 class TestRuleMetadata(BaseRuleTest):
@@ -530,9 +531,15 @@ class TestRuleMetadata(BaseRuleTest):
         rules_path = get_path('rules')
         deprecated_path = get_path("rules", "_deprecated")
 
-        misplaced_rules = [r for r in self.all_rules
-                           if r.path.relative_to(rules_path).parts[-2] == '_deprecated' and  # noqa: W504
-                           r.contents.metadata.maturity != 'deprecated']
+        misplaced_rules = []
+        for r in self.all_rules:
+            if "rules_building_block" in str(r.path):
+                if r.contents.metadata.maturity == "deprecated":
+                    misplaced_rules.append(r)
+            elif r.path.relative_to(rules_path).parts[-2] == "_deprecated" \
+                    and r.contents.metadata.maturity != "deprecated":
+                misplaced_rules.append(r)
+
         misplaced = '\n'.join(f'{self.rule_str(r)} {r.contents.metadata.maturity}' for r in misplaced_rules)
         err_str = f'The following rules are stored in {deprecated_path} but are not marked as deprecated:\n{misplaced}'
         self.assertListEqual(misplaced_rules, [], err_str)
