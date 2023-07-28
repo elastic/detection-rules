@@ -34,10 +34,8 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and 
 ((process.name == "kmod" and process.args == "list") or (process.name == "modinfo" and process.parent.user.id != "0") or 
-(process.name == "depmod" and process.args in ("--all", "-a") and process.parent.user.id != "0") or 
- process.name == "lsmod" and process.entry_leader.name not in (
- "crond", "docker-init", "qualys-scan-util", "jem", "cron", "nessus-service", "gitlab-runner", "sentinelone-agent")
- ) and not process.parent.name : ("vboxmanage", "virtualbox", "prime-offload", "vboxdrv.sh") and not 
+(process.name == "depmod" and process.args in ("--all", "-a") and process.parent.user.id != "0") 
+or process.name == "lsmod") and not process.parent.name : ("vboxmanage", "virtualbox", "prime-offload", "vboxdrv.sh") and not 
 process.group_leader.name : "qualys-cloud-agent"
 '''
 
