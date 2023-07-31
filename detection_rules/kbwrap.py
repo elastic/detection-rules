@@ -9,12 +9,14 @@ import uuid
 
 import click
 
+from semver import Version
+
 import kql
 from kibana import Signal, RuleResource
 from .cli_utils import multi_collection
 from .main import root
 from .misc import add_params, client_error, kibana_options, get_kibana_client, nested_set
-from .schemas import downgrade
+from .schemas import downgrade, strip_non_public_fields
 from .utils import format_command_options
 
 
@@ -46,6 +48,10 @@ def upload_rule(ctx, rules, replace_id):
     for rule in rules:
         try:
             payload = rule.contents.to_api_format()
+            min_stack_version = rule.contents.metadata.min_stack_version or "8.3.0"
+            min_stack_version = Version.parse(min_stack_version,
+                                              optional_minor_and_patch=True)
+            payload = strip_non_public_fields(min_stack_version, payload)
             payload.setdefault("meta", {}).update(rule.contents.metadata.to_dict())
 
             if replace_id:

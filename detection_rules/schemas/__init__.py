@@ -80,6 +80,15 @@ def strip_additional_properties(version: Version, api_contents: dict) -> dict:
     return stripped
 
 
+def strip_non_public_fields(min_stack_version: Version, data_dict: dict) -> dict:
+    """Remove all non public fields."""
+    for field, version_range in definitions.NON_PUBLIC_FIELDS.items():
+        if version_range[0] <= min_stack_version <= (version_range[1] or min_stack_version):
+            if field in data_dict:
+                del data_dict[field]
+    return data_dict
+
+
 def strip_build_time_fields(api_contents: dict) -> dict:
     """Remove all fields that are only used at build time."""
     contents = api_contents.copy()
