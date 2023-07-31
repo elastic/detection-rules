@@ -18,6 +18,7 @@ from . import utils
 from .attack import CURRENT_ATTACK_VERSION
 from .mixins import MarshmallowDataclassMixin
 from .rule import TOMLRule
+from .rule_loader import DEFAULT_RULES_DIR, DEFAULT_BBR_DIR
 from .schemas import definitions
 
 
@@ -163,8 +164,10 @@ class NavigatorBuilder:
 
     def rule_links_dict(self, rule: TOMLRule) -> dict:
         base_url = 'https://github.com/elastic/detection-rules/blob/main/rules/'
-        local_rules_path = utils.get_path('rules')
-        base_path = rule.path.relative_to(local_rules_path)
+        try:
+            base_path = str(rule.path.resolve().relative_to(DEFAULT_RULES_DIR))
+        except ValueError:
+            base_path = str(rule.path.resolve().relative_to(DEFAULT_BBR_DIR))
         url = f'{base_url}{base_path}'
         return self.links_dict(rule.name, url)
 
