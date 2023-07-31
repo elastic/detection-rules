@@ -14,7 +14,6 @@ from marshmallow import pre_load
 
 import json
 
-from . import utils
 from .attack import CURRENT_ATTACK_VERSION
 from .mixins import MarshmallowDataclassMixin
 from .rule import TOMLRule
