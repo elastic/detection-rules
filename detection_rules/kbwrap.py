@@ -39,8 +39,9 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
 @kibana_group.command("upload-rule")
 @multi_collection
 @click.option('--replace-id', '-r', is_flag=True, help='Replace rule IDs with new IDs before export')
+@click.option('--stack_version', '-s', help='Version used to strip non-public fields')
 @click.pass_context
-def upload_rule(ctx, rules, replace_id):
+def upload_rule(ctx, rules, replace_id, stack_version):
     """Upload a list of rule .toml files to Kibana."""
     kibana = ctx.obj['kibana']
     api_payloads = []
@@ -48,7 +49,7 @@ def upload_rule(ctx, rules, replace_id):
     for rule in rules:
         try:
             payload = rule.contents.to_api_format()
-            min_stack_version = rule.contents.metadata.min_stack_version or "8.3.0"
+            min_stack_version = stack_version or rule.contents.metadata.min_stack_version or "8.3.0"
             min_stack_version = Version.parse(min_stack_version,
                                               optional_minor_and_patch=True)
             payload = strip_non_public_fields(min_stack_version, payload)
