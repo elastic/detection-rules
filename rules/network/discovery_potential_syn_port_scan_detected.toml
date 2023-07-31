@@ -4,7 +4,7 @@ integration = ["endpoint", "network_traffic"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/05/26"
+updated_date = "2023/07/31"
 
 [rule]
 author = ["Elastic"]
@@ -21,19 +21,18 @@ index = ["logs-endpoint.events.network-*", "logs-network_traffic.*", "packetbeat
 language = "kuery"
 license = "Elastic License v2"
 name = "Potential SYN-Based Network Scan Detected"
-
 risk_score = 47
 rule_id = "bbaa96b9-f36c-4898-ace2-581acb00a409"
 severity = "medium"
 tags = ["Domain: Network", "Tactic: Discovery", "Tactic: Reconnaissance", "Use Case: Network Security Monitoring"]
 type = "threshold"
-
 query = '''
-destination.port :* and network.packets <= 2
+destination.port : * and network.packets <= 2 and source.ip : (10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
 '''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1046"
 name = "Network Service Discovery"
@@ -46,6 +45,7 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1595"
 name = "Active Scanning"
@@ -64,6 +64,7 @@ reference = "https://attack.mitre.org/tactics/TA0043/"
 [rule.threshold]
 field = ["destination.ip", "source.ip"]
 value = 1
+
 [[rule.threshold.cardinality]]
 field = "destination.port"
-value = 10
+value = 250
