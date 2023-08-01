@@ -1,0 +1,53 @@
+[metadata]
+creation_date = "2023/07/13"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/07/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule identifies the execution of commands that can be used to enumerate running processes. Adversaries may
+enumerate processes to identify installed applications and security solutions.
+"""
+from = "now-119m"
+interval = "60m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Process Discovery Using Built-in Tools"
+risk_score = 21
+rule_id = "4982ac3e-d0ee-4818-b95d-d9522d689259"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Rule Type: BBR"]
+timestamp_override = "event.ingested"
+building_block_type = "default"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  (
+   process.name == "reg.exe" and process.args : "query" or
+   (process.name: ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and
+    (process.args: ("*Get-ChildItem*", "*Get-Item*", "*Get-ItemProperty*") and
+     process.args : (
+      "*HKLM*", "*HKCU*", "*HKEY_LOCAL_MACHINE*", "*HKEY_CURRENT_USER*", "Registry::"
+   )))
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1057"
+name = "Process Discovery"
+reference = "https://attack.mitre.org/techniques/T1057/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
