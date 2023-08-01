@@ -904,8 +904,8 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
     # Race condition with github
     if not raw_urls:
         raw_urls = {
-            f"Elastic-{repo}-all.json": f"{response_data['html_url']}/raw/Elastic-{repo}-all.json",
-            f"Elastic-{repo}-platforms.json": f"{response_data['html_url']}/raw/Elastic-{repo}-platforms.json",
+            f"Elastic-detection-rules-all.json": f"{response_data['html_url']}/raw/Elastic-detection-rules-all.json",
+            f"Elastic-detection-rules-platforms.json": f"{response_data['html_url']}/raw/Elastic-detection-rules-platforms.json",
         }
 
     base_url = 'https://mitre-attack.github.io/attack-navigator/#layerURL={}&leave_site_dialog=false&tabs=false'
