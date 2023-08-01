@@ -48,10 +48,11 @@ tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: 
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where host.os.type == "linux" and event.action == "opened-file" and 
-file.path == "/proc/modules" and not (
-  process.name in ("auditbeat", "kmod", "modprobe", "lsmod", "insmod", "modinfo", "rmmod", "SchedulerRunner", "grep"
-) or process.parent.pid == 1 or process.title : "*grep*")
+file where host.os.type == "linux" and event.action == "opened-file" and file.path == "/proc/modules" and not 
+(
+  process.name in ("auditbeat", "kmod", "modprobe", "lsmod", "insmod", "modinfo", "rmmod", "SchedulerRunner", "grep") or 
+  process.parent.pid == 1 or process.title : "*grep*"
+)
 '''
 
 [[rule.threat]]
