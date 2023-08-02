@@ -5,19 +5,16 @@
 
 """Kibana cli commands."""
 import sys
-import uuid
 
 import click
 
-from semver import Version
 
 import kql
 from kibana import Signal, RuleResource
 from .cli_utils import multi_collection
 from .main import root
 from .misc import add_params, client_error, kibana_options, get_kibana_client, nested_set
-from .rule_loader import TOMLRuleContents
-from .schemas import downgrade, strip_non_public_fields
+from .rule import downgrade_contents_from_rule
 from .utils import format_command_options
 
 
@@ -40,31 +37,15 @@ def kibana_group(ctx: click.Context, **kibana_kwargs):
 @kibana_group.command("upload-rule")
 @multi_collection
 @click.option('--replace-id', '-r', is_flag=True, help='Replace rule IDs with new IDs before export')
-@click.option('--stack_version', '-s', help='Version used to strip non-public fields')
 @click.pass_context
-def upload_rule(ctx, rules, replace_id, stack_version):
+def upload_rule(ctx, rules, replace_id):
     """Upload a list of rule .toml files to Kibana."""
     kibana = ctx.obj['kibana']
     api_payloads = []
 
     for rule in rules:
         try:
-            rule_dict = rule.contents.to_dict()["rule"]
-            min_stack_version = stack_version or rule.contents.metadata.min_stack_version or "8.3.0"
-            min_stack_version = Version.parse(min_stack_version,
-                                              optional_minor_and_patch=True)
-            rule_dict.setdefault("meta", {}).update(rule.contents.metadata.to_dict())
-
-            if replace_id:
-                rule_dict["rule_id"] = str(uuid.uuid4())
-
-            rule_dict = downgrade(rule_dict, target_version=kibana.version)
-            meta = rule_dict.pop("meta")
-            rule_contents = TOMLRuleContents.from_dict({"rule": rule_dict, "metadata": meta,
-                                                        "transform": rule.contents.transform})
-            payload = rule_contents.to_api_format()
-            payload = strip_non_public_fields(min_stack_version, payload)
-
+            payload = downgrade_contents_from_rule(rule, kibana.version, replace_id=replace_id)
         except ValueError as e:
             client_error(f'{e} in version:{kibana.version}, for rule: {rule.name}', e, ctx=ctx)
 
