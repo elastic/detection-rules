@@ -16,6 +16,7 @@ from kibana import Signal, RuleResource
 from .cli_utils import multi_collection
 from .main import root
 from .misc import add_params, client_error, kibana_options, get_kibana_client, nested_set
+from .rule_loader import TOMLRuleContents
 from .schemas import downgrade, strip_non_public_fields
 from .utils import format_command_options
 
@@ -48,17 +49,21 @@ def upload_rule(ctx, rules, replace_id, stack_version):
 
     for rule in rules:
         try:
-            payload = rule.contents.to_api_format()
+            rule_dict = rule.contents.to_dict()["rule"]
             min_stack_version = stack_version or rule.contents.metadata.min_stack_version or "8.3.0"
             min_stack_version = Version.parse(min_stack_version,
                                               optional_minor_and_patch=True)
-            payload = strip_non_public_fields(min_stack_version, payload)
-            payload.setdefault("meta", {}).update(rule.contents.metadata.to_dict())
+            rule_dict.setdefault("meta", {}).update(rule.contents.metadata.to_dict())
 
             if replace_id:
-                payload["rule_id"] = str(uuid.uuid4())
+                rule_dict["rule_id"] = str(uuid.uuid4())
 
-            payload = downgrade(payload, target_version=kibana.version)
+            rule_dict = downgrade(rule_dict, target_version=kibana.version)
+            meta = rule_dict.pop("meta")
+            rule_contents = TOMLRuleContents.from_dict({"rule": rule_dict, "metadata": meta,
+                                                        "transform": rule.contents.transform})
+            payload = rule_contents.to_api_format()
+            payload = strip_non_public_fields(min_stack_version, payload)
 
         except ValueError as e:
             client_error(f'{e} in version:{kibana.version}, for rule: {rule.name}', e, ctx=ctx)
