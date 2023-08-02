@@ -31,7 +31,8 @@ from .misc import load_current_package_version
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
 from .schemas import (SCHEMA_DIR, definitions, downgrade,
-                      get_min_supported_stack_version, get_stack_schemas)
+                      get_min_supported_stack_version, get_stack_schemas,
+                      strip_non_public_fields)
 from .schemas.stack_compat import get_restricted_fields
 from .utils import cached, convert_time_span, PatchedTemplate
 
@@ -1300,13 +1301,23 @@ class DeprecatedRule(dict):
         return self.contents.name
 
 
-def downgrade_contents_from_rule(rule: TOMLRule, target_version: str) -> dict:
+def downgrade_contents_from_rule(rule: TOMLRule, target_version: str, replace_id: bool = True) -> dict:
     """Generate the downgraded contents from a rule."""
-    payload = rule.contents.to_api_format()
-    meta = payload.setdefault("meta", {})
-    meta["original"] = dict(id=rule.id, **rule.contents.metadata.to_dict())
-    payload["rule_id"] = str(uuid4())
-    payload = downgrade(payload, target_version)
+    rule_dict = rule.contents.to_dict()["rule"]
+    min_stack_version = target_version or rule.contents.metadata.min_stack_version or "8.3.0"
+    min_stack_version = Version.parse(min_stack_version,
+                                      optional_minor_and_patch=True)
+    rule_dict.setdefault("meta", {}).update(rule.contents.metadata.to_dict())
+
+    if replace_id:
+        rule_dict["rule_id"] = str(uuid4())
+
+    rule_dict = downgrade(rule_dict, target_version=str(min_stack_version))
+    meta = rule_dict.pop("meta")
+    rule_contents = TOMLRuleContents.from_dict({"rule": rule_dict, "metadata": meta,
+                                                "transform": rule.contents.transform})
+    payload = rule_contents.to_api_format()
+    payload = strip_non_public_fields(min_stack_version, payload)
     return payload
 
 
