@@ -1,0 +1,33 @@
+name: Investigation Guide Check
+
+on:
+  pull_request:
+    types: [opened, reopened, labeled, synchronize]
+    branches: [ "*" ]
+    paths:
+      - 'rules/**/*.toml'
+
+jobs:
+  investigation_guide_check:
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-guide') }}
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip cache purge
+        pip install .[dev]
+
+    - name: Run Investigation Guide Check
+      env:
+        GITHUB_TOKEN: "${{ secrets.PROTECTIONS_MACHINE_TOKEN }}"
+      run: |
+        python -m detection_rules dev check_investigation_guide --pr-number ${{ github.event.pull_request.number }}
