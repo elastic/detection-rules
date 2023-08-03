@@ -28,19 +28,21 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.action : ("exec", "exec_event") and event.type == "start" and process.name == "ln" and 
-(
-/* suspicious files */
-(process.args : ("/etc/shadow", "/etc/shadow-", "/etc/shadow~", "/etc/gshadow", "/etc/gshadow-") or 
-(process.working_directory: "/etc" and process.args : ("shadow", "shadow-", "shadow~", "gshadow", "gshadow-"))) or 
-/* suspicious bins */
-(process.args : ("/bin/bash", "/bin/dash", "/bin/sh", "/bin/tcsh", "/bin/csh", "/bin/zsh", "/bin/ksh", "/bin/fish") or 
-(process.working_directory : "/bin" and process.args : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish"))) or 
-(process.args : ("/usr/bin/bash", "/usr/bin/dash", "/usr/bin/sh", "/usr/bin/tcsh", "/usr/bin/csh", "/usr/bin/zsh", "/usr/bin/ksh", "/usr/bin/fish") or 
-(process.working_directory : "/usr/bin" and process.args : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish"))) or
-/* suspicious locations */
-(process.args : ("/etc/cron.d/*", "/etc/cron.daily/*", "/etc/cron.hourly/*", "/etc/cron.weekly/*", "/etc/cron.monthly/*")) or
-(process.args : ("/home/*/.ssh/*", "/root/.ssh/*","/etc/sudoers.d/*", "/var/backups/*", "/dev/shm/*"))
-) and not user.Ext.real.id : "0" and not group.Ext.real.id : "0"
+  (
+    /* suspicious files */
+    (process.args in ("/etc/shadow", "/etc/shadow-", "/etc/shadow~", "/etc/gshadow", "/etc/gshadow-") or 
+    (process.working_directory == "/etc" and process.args in ("shadow", "shadow-", "shadow~", "gshadow", "gshadow-"))) or 
+    /* suspicious bins */
+    (process.args in ("/bin/bash", "/bin/dash", "/bin/sh", "/bin/tcsh", "/bin/csh", "/bin/zsh", "/bin/ksh", "/bin/fish") or 
+    (process.working_directory in "/bin" and process.args : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish"))) 
+or 
+    (process.args in: ("/usr/bin/bash", "/usr/bin/dash", "/usr/bin/sh", "/usr/bin/tcsh", "/usr/bin/csh", "/usr/bin/zsh", "/usr/bin/ksh", "/usr/bin/fish") or 
+    (process.working_directory == "/usr/bin" and process.args in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish"))) or
+    /* suspicious locations */
+    (process.args : ("/etc/cron.d/*", "/etc/cron.daily/*", "/etc/cron.hourly/*", "/etc/cron.weekly/*", "/etc/cron.monthly/*")) or
+    (process.args : ("/home/*/.ssh/*", "/root/.ssh/*","/etc/sudoers.d/*", "/var/backups/*", "/dev/shm/*"))
+  ) and 
+  not user.Ext.real.id : "0" and not group.Ext.real.id : "0"
 '''
 
 [[rule.threat]]
