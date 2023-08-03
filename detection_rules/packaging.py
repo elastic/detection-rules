@@ -21,7 +21,7 @@ import yaml
 from .misc import JS_LICENSE, cached, load_current_package_version
 from .navigator import NavigatorBuilder, Navigator
 from .rule import TOMLRule, QueryRuleData, ThreatMapping
-from .rule_loader import DeprecatedCollection, RuleCollection, DEFAULT_RULES_DIR
+from .rule_loader import DeprecatedCollection, RuleCollection, DEFAULT_RULES_DIR, DEFAULT_BBR_DIR
 from .schemas import definitions
 from .utils import Ndjson, get_path, get_etc_path, load_etc_dump
 from .version_lock import default_version_lock
@@ -466,13 +466,19 @@ class Package(object):
                 status = 'unmodified'
 
             bulk_upload_docs.append(create)
+
+            try:
+                relative_path = str(rule.path.resolve().relative_to(DEFAULT_RULES_DIR))
+            except ValueError:
+                relative_path = str(rule.path.resolve().relative_to(DEFAULT_BBR_DIR))
+
             rule_doc = dict(hash=rule.contents.sha256(),
                             source='repo',
                             datetime_uploaded=now,
                             status=status,
                             package_version=self.name,
                             flat_mitre=ThreatMapping.flatten(rule.contents.data.threat).to_dict(),
-                            relative_path=str(rule.path.resolve().relative_to(DEFAULT_RULES_DIR)))
+                            relative_path=relative_path)
             rule_doc.update(**rule.contents.to_api_format())
             bulk_upload_docs.append(rule_doc)
             importable_rules_docs.append(rule_doc)

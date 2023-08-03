@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2023/05/22"
 maturity = "production"
-updated_date = "2023/06/27"
+updated_date = "2023/07/24"
 min_stack_comments = """
 Limiting the backport of these rules to the stack version which we are deprecating the Threat Intel Indicator Match
 general rules.
@@ -20,6 +20,66 @@ interval = "1h"
 language = "kuery"
 license = "Elastic License v2"
 name = "Threat Intel Hash Indicator Match"
+note = """## Triage and Analysis
+
+### Investigating Threat Intel Hash Indicator Match
+
+Threat Intel indicator match rules allow matching from a local observation, such as an endpoint event that records a file hash with an entry of a file hash stored within the Threat Intel integrations index. 
+
+Matches are based on threat intelligence data that's been ingested during the last 30 days. Some integrations don't place expiration dates on their threat indicators, so we strongly recommend validating ingested threat indicators and reviewing match results. When reviewing match results, check associated activity to determine whether the event requires additional investigation.
+
+This rule is triggered when a hash indicator from the Threat Intel Filebeat module or an indicator ingested from a threat intelligence integration matches against an event that contains file hashes, such as antivirus alerts, file operation events, etc.
+
+> **Note**:
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+
+#### Possible investigation steps
+
+- Gain context about the field that matched the local observation. This information can be found in the `threat.indicator.matched.field` field.
+- Investigate the hash , which can be found in the `threat.indicator.matched.atomic` field:
+  - Search for the existence and reputation of the hash in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+  - Scope other potentially compromised hosts in your environment by mapping hosts with file operations involving the same hash.
+- Identify the process that created the file.
+  - Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+  - Enrich the information that you have right now by determining how the file was dropped, where it was downloaded from, etc. This can help you determine if the event is part of an ongoing campaign against the organization.
+- Retrieve the involved file and examine the host for derived artifacts that indicate suspicious activities:
+  - Analyze the process executable using a private sandboxed analysis system.
+  - Observe and collect information about the following activities in both the sandbox and the alert subject host:
+    - Attempts to contact external domains and addresses.
+      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
+      - Examine the DNS cache for suspicious or anomalous entries.
+        - $osquery_0
+    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
+    - Examine the host services for suspicious or anomalous entries.
+      - $osquery_1
+      - $osquery_2
+      - $osquery_3
+- Using the data collected through the analysis, scope users targeted and other machines infected in the environment.
+
+### False Positive Analysis
+
+- Adversaries often use legitimate tools as network administrators, such as `PsExec` or `AdFind`. These tools are often included in indicator lists, which creates the potential for false positives.
+
+### Response and Remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
+- Remove and block malicious artifacts identified during triage.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+
+## Setup
+
+This rule needs threat intelligence indicators to work. Threat intelligence indicators can be collected using an [Elastic Agent integration](https://www.elastic.co/guide/en/security/current/es-threat-intel-integrations.html#agent-ti-integration), the [Threat Intel module](https://www.elastic.co/guide/en/security/current/es-threat-intel-integrations.html#ti-mod-integration), or a [custom integration](https://www.elastic.co/guide/en/security/current/es-threat-intel-integrations.html#custom-ti-integration).
+
+More information can be found [here](https://www.elastic.co/guide/en/security/current/es-threat-intel-integrations.html).
+"""
 references = [
     "https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-threatintel.html",
     "https://www.elastic.co/guide/en/security/master/es-threat-intel-integrations.html",
@@ -44,7 +104,7 @@ threat_query = '''
 '''
 
 query = """
-file.hash.*:* or file.pe.imphash:*  or process.hash.*:* or process.pe.imphash:* or dll.hash.*:* or dll.pe.imphash:* 
+file.hash.*:* or file.pe.imphash:* or process.hash.*:* or process.pe.imphash:* or dll.hash.*:*
 """
 
 
@@ -146,12 +206,6 @@ value = "threat.indicator.file.hash.sha1"
 field = "process.hash.sha256"
 type = "mapping"
 value = "threat.indicator.file.hash.sha256"
-
-[[rule.threat_mapping]]
-[[rule.threat_mapping.entries]]
-field = "dll.pe.imphash"
-type = "mapping"
-value = "threat.indicator.file.pe.imphash"
 
 [[rule.threat_mapping]]
 [[rule.threat_mapping.entries]]
