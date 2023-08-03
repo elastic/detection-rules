@@ -4,7 +4,7 @@ integration = ["auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/28"
+updated_date = "2023/08/03"
 
 [rule]
 author = ["Elastic"]
@@ -47,7 +47,8 @@ type = "threshold"
 
 query = '''
 host.os.type : "linux" and event.category : "file" and event.action : "opened-file" and 
-file.path : (/proc/*/cmdline or /proc/*/stat or /proc/*/exe) and not process.parent.pid : 1
+file.path : (/proc/*/cmdline or /proc/*/stat or /proc/*/exe) and not process.name == "pidof" and 
+not process.parent.pid : 1
 '''
 
 [[rule.threat]]
