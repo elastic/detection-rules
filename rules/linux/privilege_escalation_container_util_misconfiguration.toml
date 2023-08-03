@@ -20,6 +20,21 @@ index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Privilege Escalation via Container Misconfiguration"
+note = """## Setup
+This rule leverages `session` fields, which requires that the collection of session data is enabled for Linux operating systems.  
+
+The following steps should be performed in order to enable session data event collection on a Linux system. 
+```
+Kibana -->
+Management -->
+Fleet -->
+Agent Policies -->
+Agent Policy with Elastic Defend installed -->
+Elastic Defend integration -->
+Enable the "Collect session data" box under "Event Collection" for "Linux"
+```
+More information on this topic and how to enable session data collection can be found at https://www.elastic.co/blog/secure-your-cloud-with-cloud-workload-protection-in-elastic-security.
+"""
 references = [
     "https://book.hacktricks.xyz/linux-hardening/privilege-escalation/runc-privilege-escalation",
     "https://book.hacktricks.xyz/linux-hardening/privilege-escalation/containerd-ctr-privilege-escalation"
@@ -32,9 +47,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and (
-  (process.name == "runc" and process.args : "run") or
-  (process.name == "ctr" and process.args : "run" and process.args : ("--privileged", "--mount"))
-) and not user.Ext.real.id : "0" and not group.Ext.real.id : "0" and 
+  (process.name == "runc" and process.args == "run") or
+  (process.name == "ctr" and process.args == "run" and process.args in ("--privileged", "--mount"))
+) and not user.Ext.real.id == "0" and not group.Ext.real.id == "0" and 
 process.interactive == true and process.parent.interactive == true
 '''
 
