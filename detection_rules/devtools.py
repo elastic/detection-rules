@@ -235,6 +235,39 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
     save_etc_dump({"package": pkg_data}, "packages.yml")
 
 
+@dev_group.command('check-investigation-guide')
+@click.option("--token", required=True, prompt=get_github_token() is None, default=get_github_token(),
+              help="GitHub token to use for the PR", hide_input=True)
+@click.option("--pr-number", required=True, help="PR number to check", type=int)
+@click.pass_context
+def check_investigation_guide(ctx, token: str, pr_number: int):
+    """Check for rules in a GitHub PR to see if it has an investigation guide."""
+
+    failed = False
+    github = GithubClient(token)
+    client = github.authenticated_client
+    repository = client.get_repo("elastic/detection-rules")
+    pull_request = repository.get_pull(pr_number)
+    files = pull_request.get_files()
+
+    for file in files:
+        if file.filename.startswith('rules/') and file.filename.endswith('.toml'):
+            if file.filename.startswith('rules/_deprecated/'):
+                continue
+
+            rule = RuleCollection().load_file(Path(file.filename))
+            note = rule.contents.data.get('note')
+
+            if note is None or not re.search(rf'### Investigating\s+{re.escape(rule.name)}', note, re.I | re.M):
+                if not failed:
+                    click.echo("Missing investigation guide for:", err=True)
+
+                failed = True
+                click.echo(file.filename, err=True)
+
+    ctx.exit(int(failed))
+
+
 @dataclasses.dataclass
 class GitChangeEntry:
     status: str

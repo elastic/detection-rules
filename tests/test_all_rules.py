@@ -793,7 +793,7 @@ class TestRuleMetadata(BaseRuleTest):
 
     def test_event_dataset(self):
         for rule in self.all_rules:
-            if(isinstance(rule.contents.data, QueryRuleData)):
+            if (isinstance(rule.contents.data, QueryRuleData)):
                 # Need to pick validator based on language
                 if rule.contents.data.language == "kuery":
                     test_validator = KQLValidator(rule.contents.data.query)
@@ -814,7 +814,7 @@ class TestRuleMetadata(BaseRuleTest):
                                                                                                 meta,
                                                                                                 pkg_integrations)
 
-                        if(validation_integrations_check and "event.dataset" in rule.contents.data.query):
+                        if (validation_integrations_check and "event.dataset" in rule.contents.data.query):
                             raise validation_integrations_check
 
 
@@ -1201,6 +1201,21 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
                 results = re.search(r'(!{osquery|!{insight)', note, re.I | re.M)
                 err_msg = f'{self.rule_str(rule)} investigation guide plugin pattern detected! Use Transform'
                 self.assertIsNone(results, err_msg)
+
+    def test_investigation_guide_uses_rule_name(self):
+        """Check if investigation guide uses rule name in the title."""
+        errors = []
+        for rule in self.production_rules.rules:
+            note = rule.contents.data.get('note')
+            if note is not None:
+                # Check if `### Investigating` is present and if so,
+                # check if it is followed by the rule name.
+                if '### Investigating' in note:
+                    results = re.search(rf'### Investigating\s+{re.escape(rule.name)}', note, re.I | re.M)
+                    if results is None:
+                        errors.append(f'{self.rule_str(rule)} investigation guide does not use rule name in the title')
+        if errors:
+            self.fail('\n'.join(errors))
 
 
 class TestAlertSuppression(BaseRuleTest):

@@ -4,13 +4,13 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/08/02"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the abuse of a Linux binary to break out of a restricted shell or environment by spawning an interactive 
-system shell. The activity of spawning a shell from a binary is not common behavior for a user or system administrator, 
+Identifies the abuse of a Linux binary to break out of a restricted shell or environment by spawning an interactive
+system shell. The activity of spawning a shell from a binary is not common behavior for a user or system administrator,
 and may indicate an attempt to evade detection, increase capabilities or enhance the stability of an adversary.
 """
 from = "now-9m"
@@ -20,7 +20,7 @@ license = "Elastic License v2"
 name = "Linux Restricted Shell Breakout via Linux Binary(s)"
 note = """## Triage and analysis
 
-### Investigating Shell Evasion via Linux Utilities
+### Investigating Linux Restricted Shell Breakout via Linux Binary(s)
 Detection alerts from this rule indicate that a Linux utility has been abused to breakout of restricted shells or
 environments by spawning an interactive system shell.
 Here are some possible avenues of investigation:
@@ -105,10 +105,10 @@ process where host.os.type == "linux" and event.type == "start" and
 (
   /* launching shell from capsh */
   (process.name == "capsh" and process.args == "--") or
-  
+
   /* launching shells from unusual parents or parent+arg combos */
   (process.name : "*sh" and (
-    (process.parent.name : ("byebug", "ftp", "strace", "zip", "*awk", "git", "tar") and 
+    (process.parent.name : ("byebug", "ftp", "strace", "zip", "*awk", "git", "tar") and
     (
       process.parent.args : "BEGIN {system(*)}" or
       (process.parent.args : ("*PAGER*", "!*sh", "exec *sh") or process.args : ("*PAGER*", "!*sh", "exec *sh")) or
@@ -118,7 +118,7 @@ process where host.os.type == "linux" and event.type == "start" and
         )
       )
     ) or
-    
+
     /* shells specified in parent args */
     /* nice rule is broken in 8.2 */
     (process.parent.args : "*sh" and
@@ -136,7 +136,7 @@ process where host.os.type == "linux" and event.type == "start" and
     (process.parent.name == "crash" and process.parent.args == "-h") or
     (process.name == "sensible-pager" and process.parent.name in ("apt", "apt-get") and process.parent.args == "changelog")
     /* scope to include more sensible-pager invoked shells with different parent process to reduce noise and remove false positives */
-    
+
   )) or
   (process.name == "busybox" and event.action == "exec" and process.args_count == 2 and process.args : "*sh" and not process.executable : "/var/lib/docker/overlay2/*/merged/bin/busybox") or
   (process.name == "env" and process.args_count == 2 and process.args : "*sh") or
