@@ -1,0 +1,63 @@
+[metadata]
+creation_date = "2023/07/28"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/07/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for the execution of a set of linux binaries, that are potentially vulnerable to wildcard injection,
+with suspicious command line flags followed by a shell spawn event. Linux wildcard injection is a type of security
+vulnerability where attackers manipulate commands or input containing wildcards (e.g., *, ?, []) to execute unintended
+operations or access sensitive data by tricking the system into interpreting the wildcard characters in unexpected ways.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Shell via Wildcard Injection Detected"
+references = ["https://www.exploit-db.com/papers/33930"]
+risk_score = 47
+rule_id = "0b803267-74c5-444d-ae29-32b5db2d562a"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Tactic: Execution"]
+type = "eql"
+query = '''
+sequence by host.id with maxspan=1s
+  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and (
+    (process.name == "tar" and process.args : "--checkpoint=*" and process.args : "--checkpoint-action=*") or
+    (process.name == "rsync" and process.args : "-e*") or
+    (process.name == "zip" and process.args == "--unzip-command") )]  by process.entity_id
+  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+     process.parent.name : ("tar", "rsync", "zip") and 
+     process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")] by process.parent.entity_id
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
