@@ -26,7 +26,7 @@ severity = "medium"
 tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Tactic: Execution"]
 type = "eql"
 query = '''
-sequence by host.id, process.parent.entity_id with maxspan=1s
+sequence by host.id with maxspan=1s
   [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and (
     (process.name == "tar" and process.args : "--checkpoint=*" and process.args : "--checkpoint-action=*") or
     (process.name == "rsync" and process.args : "-e*") or
