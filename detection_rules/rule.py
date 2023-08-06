@@ -1321,6 +1321,18 @@ def downgrade_contents_from_rule(rule: TOMLRule, target_version: str, replace_id
     return payload
 
 
+def set_eql_config(min_stack_version: str) -> eql.parser.ParserConfig:
+    """Based on the rule version set the eql functions allowed."""
+    min_stack_version = Version.parse(min_stack_version, optional_minor_and_patch=True)
+    config = eql.parser.ParserConfig()
+
+    for feature, version_range in definitions.ELASTICSEARCH_EQL_FEATURES.items():
+        if version_range[0] <= min_stack_version <= (version_range[1] or min_stack_version):
+            config.context[feature] = True
+
+    return config
+
+
 def get_unique_query_fields(rule: TOMLRule) -> List[str]:
     """Get a list of unique fields used in a rule query from rule contents."""
     contents = rule.contents.to_api_format()
@@ -1328,7 +1340,9 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
     query = contents.get('query')
     if language in ('kuery', 'eql'):
         # TODO: remove once py-eql supports ipv6 for cidrmatch
-        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+
+        config = set_eql_config(rule.contents.metadata.min_stack_version)
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, config:
             parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
 
         return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))

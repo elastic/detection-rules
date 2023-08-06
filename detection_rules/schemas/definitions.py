@@ -27,7 +27,11 @@ CONDITION_VERSION_PATTERN = rf'^\^{_version}$'
 VERSION_PATTERN = f'^{_version}$'
 MINOR_SEMVER = r'^\d+\.\d+$'
 BRANCH_PATTERN = f'{VERSION_PATTERN}|^master$'
-
+ELASTICSEARCH_EQL_FEATURES = {
+    "allow_runs": (Version.parse('8.3.0'), None),
+    "allow_sample": (Version.parse('8.9.0'), None),
+    "validate_optional_fields": (Version.parse('8.5.0'), None)
+}
 NON_DATASET_PACKAGES = ['apm', 'endpoint', 'system', 'windows', 'cloud_defend', 'network_traffic']
 NON_PUBLIC_FIELDS = {
     "related_integrations": (Version.parse('8.3.0'), None),
