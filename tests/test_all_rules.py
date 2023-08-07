@@ -265,7 +265,7 @@ class TestRuleTags(BaseRuleTest):
         """Test that expected tags are present within rules."""
 
         required_tags_map = {
-            'logs-endpoint.events.*': {'all': ['Domain: Endpoint']},
+            'logs-endpoint.events.*': {'all': ['Domain: Endpoint', 'Data Source: Elastic Defend']},
             'endgame-*': {'all': ['Data Source: Elastic Endgame']},
             'logs-aws*': {'all': ['Data Source: AWS', 'Data Source: Amazon Web Services', 'Domain: Cloud']},
             'logs-azure*': {'all': ['Data Source: Azure', 'Domain: Cloud']},
