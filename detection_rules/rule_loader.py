@@ -23,6 +23,7 @@ from .schemas import definitions
 from .utils import cached, get_path
 
 DEFAULT_RULES_DIR = Path(get_path("rules"))
+DEFAULT_BBR_DIR = Path(get_path("rules_building_block"))
 DEFAULT_DEPRECATED_DIR = DEFAULT_RULES_DIR / '_deprecated'
 RTA_DIR = get_path("rta")
 FILE_PATTERN = r'^([a-z0-9_])+\.(json|toml)$'
@@ -156,6 +157,7 @@ class RuleCollection(BaseCollection):
     """Collection of rule objects."""
 
     __default = None
+    __default_bbr = None
 
     def __init__(self, rules: Optional[List[TOMLRule]] = None):
         from .version_lock import VersionLock
@@ -347,10 +349,22 @@ class RuleCollection(BaseCollection):
         if cls.__default is None:
             collection = RuleCollection()
             collection.load_directory(DEFAULT_RULES_DIR)
+            collection.load_directory(DEFAULT_BBR_DIR)
             collection.freeze()
             cls.__default = collection
 
         return cls.__default
+
+    @classmethod
+    def default_bbr(cls) -> 'RuleCollection':
+        """Return the default BBR collection, which retrieves from building_block_rules/."""
+        if cls.__default_bbr is None:
+            collection = RuleCollection()
+            collection.load_directory(DEFAULT_BBR_DIR)
+            collection.freeze()
+            cls.__default_bbr = collection
+
+        return cls.__default_bbr
 
     def compare_collections(self, other: 'RuleCollection'
                             ) -> (Dict[str, TOMLRule], Dict[str, TOMLRule], Dict[str, DeprecatedRule]):

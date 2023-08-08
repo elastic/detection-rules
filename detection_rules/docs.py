@@ -20,7 +20,7 @@ from semver import Version
 
 from .attack import attack_tm, matrix, tactics, technique_lookup
 from .packaging import Package
-from .rule import ThreatMapping, TOMLRule
+from .rule import DeprecatedRule, ThreatMapping, TOMLRule
 from .rule_loader import DeprecatedCollection, RuleCollection
 from .utils import load_etc_dump, save_etc_dump
 
@@ -296,8 +296,12 @@ class IntegrationSecurityDocs:
                                                    updated_rules.values(),
                                                    deprecated_rules.values()))
 
+        all_rules = RuleCollection.default().rules
+        self.sorted_rules = sorted(all_rules, key=lambda rule: rule.name)
         self.registry_version_str, self.base_name, self.prebuilt_rule_base = self.parse_registry(registry_version)
+        self.directory = directory
         self.package_directory = directory / "docs" / "detections" / "prebuilt-rules" / "downloadable-packages" / self.base_name  # noqa: E501
+        self.rule_details = directory / "docs" / "detections" / "prebuilt-rules" / "rule-details"
         self.update_message = update_message
 
         if overwrite:
@@ -361,11 +365,70 @@ class IntegrationSecurityDocs:
         summary_str = '\n'.join(summary_lines) + '\n'
         summary.write_text(summary_str)
 
+    def generate_rule_reference(self):
+        """Generate rule reference page for prebuilt rules."""
+        summary = self.directory / "docs" / "detections" / "prebuilt-rules" / 'prebuilt-rules-reference.asciidoc'
+        rule_list = self.directory / "docs" / "detections" / "prebuilt-rules" / 'rule-desc-index.asciidoc'
+
+        summary_header = textwrap.dedent("""
+        [[prebuilt-rules]]
+        [role="xpack"]
+        == Prebuilt rule reference
+
+        This section lists all available prebuilt rules.
+
+        IMPORTANT: To run {ml} prebuilt rules, you must have the
+        https://www.elastic.co/subscriptions[appropriate license] or use a
+        {ess-trial}[Cloud] deployment. All {ml} prebuilt rules are tagged with `ML`,
+        and their rule type is `machine_learning`.
+
+        [width="100%",options="header"]
+        |==============================================
+        |Rule |Description |Tags |Added |Version
+
+        """).lstrip()  # noqa: E501
+
+        rule_entries = []
+        rule_includes = []
+
+        for rule in self.sorted_rules:
+            if isinstance(rule, DeprecatedRule):
+                continue
+            title_name = name_to_title(rule.name)
+
+            # skip rules not built for this package
+            built_rules = [x.name for x in self.rule_details.glob('*.asciidoc')]
+            if f"{title_name}.asciidoc" not in built_rules:
+                continue
+
+            rule_includes.append(f'include::rule-details/{title_name}.asciidoc[]')
+            tags = ', '.join(f'[{tag}]' for tag in rule.contents.data.tags)
+            description = rule.contents.to_api_format()['description']
+            version = rule.contents.autobumped_version
+            added = rule.contents.metadata.min_stack_version
+            rule_entries.append(f'|<<{title_name}, {rule.name}>> |{description} |{tags} |{added} |{version}\n')
+
+        summary_lines = [summary_header] + rule_entries + ['|==============================================']
+        summary_str = '\n'.join(summary_lines) + '\n'
+        summary.write_text(summary_str)
+
+        # update rule-desc-index.asciidoc
+        rule_list.write_text('\n'.join(rule_includes))
+
     def generate_rule_details(self):
-        for rule in self.included_rules:
+        """Generate rule details for each prebuilt rule."""
+        included_rules = [x.name for x in self.included_rules]
+        for rule in self.sorted_rules:
             rule_detail = IntegrationRuleDetail(rule.id, rule.contents.to_api_format(), {}, self.base_name)
             rule_path = self.package_directory / f'{self.prebuilt_rule_base}-{name_to_title(rule.name)}.asciidoc'
-            rule_path.write_text(rule_detail.generate())
+            prebuilt_rule_path = self.rule_details / f'{name_to_title(rule.name)}.asciidoc'  # noqa: E501
+
+            if rule.name in included_rules:
+                # only include updates
+                rule_path.write_text(rule_detail.generate())
+
+            # add all available rules to the rule details directory
+            prebuilt_rule_path.write_text(rule_detail.generate(title=f'{name_to_title(rule.name)}'))
 
     def generate_manual_updates(self):
         """
@@ -401,14 +464,35 @@ class IntegrationSecurityDocs:
 
         # Add table_entry to docs/detections/prebuilt-rules/prebuilt-rules-downloadable-updates.asciidoc
         downloadable_updates = self.package_directory.parent.parent / 'prebuilt-rules-downloadable-updates.asciidoc'
+        version = Version.parse(self.registry_version_str)
+        last_version = f"{version.major}.{version.minor - 1}"
+        update_url = f"https://www.elastic.co/guide/en/security/{last_version}/prebuilt-rules-downloadable-updates.html"
+        summary_header = textwrap.dedent(f"""
+        [[prebuilt-rules-downloadable-updates]]
+        [role="xpack"]
+        == Downloadable rule updates
+
+        This section lists all updates to prebuilt detection rules, made available with the *Prebuilt Security Detection Rules* integration in Fleet.
+
+        To update your installed rules to the latest versions, follow the instructions in <<update-prebuilt-rules>>.
+
+        For previous rule updates, please navigate to the {update_url}[last version].
+
+        [width="100%",options="header"]
+        |==============================================
+        |Update version |Date | New rules | Updated rules | Notes
+
+        """).lstrip()  # noqa: E501
         new_content = updates['downloadable-updates.asciidoc']['table_entry'] + '\n' + self.update_message
-        self.add_content_to_table_top(downloadable_updates, new_content)
+        self.add_content_to_table_top(downloadable_updates, summary_header, new_content)
 
         # Add table_include to/docs/detections/prebuilt-rules/prebuilt-rules-downloadable-updates.asciidoc
-        downloadable_updates.write_text(downloadable_updates.read_text() +  # noqa: W504
+        # Reset the historic information at the beginning of each minor version
+        historic_data = downloadable_updates.read_text() if Version.parse(self.registry_version_str).patch > 1 else ''
+        downloadable_updates.write_text(historic_data +  # noqa: W504
                                         updates['downloadable-updates.asciidoc']['table_include'] + '\n')
 
-    def add_content_to_table_top(self, file_path: Path, new_content: str):
+    def add_content_to_table_top(self, file_path: Path, summary_header: str, new_content: str):
         """Insert content at the top of a Markdown table right after the specified header."""
         file_contents = file_path.read_text()
 
@@ -423,7 +507,7 @@ class IntegrationSecurityDocs:
         insert_position = header_index + len(header)
 
         # Insert the new content at the insert_position
-        updated_contents = file_contents[:insert_position] + f"\n{new_content}\n" + file_contents[insert_position:]
+        updated_contents = summary_header + f"\n{new_content}\n" + file_contents[insert_position:]
 
         # Write the updated contents back to the file
         file_path.write_text(updated_contents)
@@ -432,6 +516,7 @@ class IntegrationSecurityDocs:
         self.generate_appendix()
         self.generate_summary()
         self.generate_rule_details()
+        self.generate_rule_reference()
         self.generate_manual_updates()
         return self.package_directory
 
@@ -450,10 +535,11 @@ class IntegrationRuleDetail:
         self.rule.setdefault('max_signals', 100)
         self.rule.setdefault('interval', '5m')
 
-    def generate(self) -> str:
+    def generate(self, title: str = None) -> str:
         """Generate the rule detail page."""
+        title = title or self.rule_title
         page = [
-            AsciiDoc.inline_anchor(self.rule_title),
+            AsciiDoc.inline_anchor(title),
             AsciiDoc.title(3, self.rule['name']),
             '',
             self.rule['description'],
@@ -711,7 +797,7 @@ class IntegrationSecurityDocsMDX:
 
         deprecated_rule_ids = list(set(deprecated_rule_ids))
         for rule_id in deprecated_rule_ids:
-            rule_changes['deprecated'].append(self.new_package.deprecate_rules.id_map[rule_id])
+            rule_changes['deprecated'].append(self.new_package.deprecated_rules.id_map[rule_id])
 
         return dict(rule_changes)
 
@@ -816,7 +902,7 @@ class IntegrationSecurityDocsMDX:
     def generate_downloadable_updates_summary(self):
         """Generate a summary of all the downloadable updates."""
 
-        docs_url = 'https://www.elastic.co/guide/en/security/current/rules-ui-management.html#download-prebuilt-rules'
+        docs_url = 'https://www.elastic.co/guide/en/security/current/rules-ui-management.html#update-prebuilt-rules'
         slug = 'prebuilt-rules-downloadable-packages-summary.mdx'
         title = "Downloadable rule updates"
         summary = self.package_directory / slug
@@ -853,7 +939,7 @@ class IntegrationSecurityDocsMDX:
         This section lists all updates to prebuilt detection rules, made available
             with the Prebuilt Security Detection Rules integration in Fleet.
 
-        To download the latest updates, follow the instructions in [download-prebuilt-rules]({docs_url})
+        To update your rules to the latest versions, follow the instructions in [update-prebuilt-rules]({docs_url})
 
 
         |Update version |Date | New rules | Updated rules | Notes

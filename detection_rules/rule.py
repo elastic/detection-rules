@@ -31,9 +31,10 @@ from .misc import load_current_package_version
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
 from .schemas import (SCHEMA_DIR, definitions, downgrade,
-                      get_min_supported_stack_version, get_stack_schemas)
+                      get_min_supported_stack_version, get_stack_schemas,
+                      strip_non_public_fields)
 from .schemas.stack_compat import get_restricted_fields
-from .utils import cached, PatchedTemplate
+from .utils import cached, convert_time_span, PatchedTemplate
 
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
@@ -53,6 +54,7 @@ class RuleMeta(MarshmallowDataclassMixin):
     deprecation_date: Optional[definitions.Date]
 
     # Optional fields
+    bypass_bbr_timing: Optional[bool]
     comments: Optional[str]
     integration: Optional[Union[str, List[str]]]
     maturity: Optional[definitions.Maturity]
@@ -247,7 +249,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     actions: Optional[list]
     alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.6")))
     author: List[str]
-    building_block_type: Optional[str]
+    building_block_type: Optional[definitions.BuildingBlockType]
     description: str
     enabled: Optional[bool]
     exceptions_list: Optional[list]
@@ -369,12 +371,18 @@ class DataValidator:
                  name: definitions.RuleName,
                  is_elastic_rule: bool,
                  note: Optional[definitions.Markdown] = None,
+                 interval: Optional[definitions.Interval] = None,
+                 building_block_type: Optional[definitions.BuildingBlockType] = None,
                  setup: Optional[str] = None,
                  **extras):
         # only define fields needing additional validation
         self.name = name
         self.is_elastic_rule = is_elastic_rule
         self.note = note
+        # Need to use extras because from is a reserved word in python
+        self.from_ = extras.get('from')
+        self.interval = interval
+        self.building_block_type = building_block_type
         self.setup = setup
         self._setup_in_note = False
 
@@ -394,6 +402,58 @@ class DataValidator:
     @cached_property
     def skip_validate_note(self) -> bool:
         return os.environ.get('DR_BYPASS_NOTE_VALIDATION_AND_PARSE') is not None
+
+    @cached_property
+    def skip_validate_bbr(self) -> bool:
+        return os.environ.get('DR_BYPASS_BBR_LOOKBACK_VALIDATION') is not None
+
+    def validate_bbr(self, bypass: bool = False):
+        """Validate building block type and rule type."""
+
+        if self.skip_validate_bbr or bypass:
+            return
+
+        def validate_lookback(str_time: str) -> bool:
+            """Validate that the time is at least now-119m and at least 60m respectively."""
+            try:
+                if "now-" in str_time:
+                    str_time = str_time[4:]
+                    time = convert_time_span(str_time)
+                    # if from time is less than 119m as milliseconds
+                    if time < 119 * 60 * 1000:
+                        return False
+                else:
+                    return False
+            except Exception as e:
+                raise ValidationError(f"Invalid time format: {e}")
+            return True
+
+        def validate_interval(str_time: str) -> bool:
+            """Validate that the time is at least now-119m and at least 60m respectively."""
+            try:
+                time = convert_time_span(str_time)
+                # if interval time is less than 60m as milliseconds
+                if time < 60 * 60 * 1000:
+                    return False
+            except Exception as e:
+                raise ValidationError(f"Invalid time format: {e}")
+            return True
+
+        bypass_instructions = "To bypass, use the environment variable `DR_BYPASS_BBR_LOOKBACK_VALIDATION`"
+        if self.building_block_type:
+            if not self.from_ or not self.interval:
+                raise ValidationError(
+                    f"{self.name} is invalid."
+                    "BBR require `from` and `interval` to be defined. "
+                    "Please set or bypass." + bypass_instructions
+                )
+            elif not validate_lookback(self.from_) or not validate_interval(self.interval):
+                raise ValidationError(
+                    f"{self.name} is invalid."
+                    "Default BBR require `from` and `interval` to be at least now-119m and at least 60m respectively "
+                    "(using the now-Xm and Xm format where x is in minuets). "
+                    "Please update values or bypass. " + bypass_instructions
+                )
 
     def validate_note(self):
         if self.skip_validate_note or not self.note:
@@ -639,13 +699,9 @@ class EQLRuleData(QueryRuleData):
     """EQL rules are a special case of query rules."""
     type: Literal["eql"]
     language: Literal["eql"]
-
-    @staticmethod
-    def convert_time_span(span: str) -> int:
-        """Convert time span in datemath to value in milliseconds."""
-        amount = int("".join(char for char in span if char.isdigit()))
-        unit = eql.ast.TimeUnit("".join(char for char in span if char.isalpha()))
-        return eql.ast.TimeRange(amount, unit).as_milliseconds()
+    timestamp_field: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.0")))
+    event_category_override: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.0")))
+    tiebreaker_field: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.0")))
 
     def convert_relative_delta(self, lookback: str) -> int:
         now = len("now")
@@ -655,10 +711,10 @@ class EQLRuleData(QueryRuleData):
             lookback = lookback[len("now"):]
             sign = lookback[0]  # + or -
             span = lookback[1:]
-            amount = self.convert_time_span(span)
+            amount = convert_time_span(span)
             return amount * (-1 if sign == "-" else 1)
         else:
-            return self.convert_time_span(lookback)
+            return convert_time_span(lookback)
 
     @cached_property
     def is_sequence(self) -> bool:
@@ -687,7 +743,7 @@ class EQLRuleData(QueryRuleData):
     def interval_ratio(self) -> Optional[float]:
         """Ratio of interval time window / max_span time window."""
         if self.max_span:
-            interval = self.convert_time_span(self.interval or '5m')
+            interval = convert_time_span(self.interval or '5m')
             return interval / self.max_span
 
 
@@ -966,6 +1022,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                             if package["integration"] not in policy_templates:
                                 del package["integration"]
 
+                # remove duplicate entries
+                package_integrations = list({json.dumps(d, sort_keys=True):
+                                            d for d in package_integrations}.values())
                 obj.setdefault("related_integrations", package_integrations)
 
     def _convert_add_required_fields(self, obj: dict) -> None:
@@ -1088,6 +1147,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         data.validate_query(metadata)
         data.data_validator.validate_note()
+        data.data_validator.validate_bbr(metadata.get('bypass_bbr_timing'))
         data.validate(metadata) if hasattr(data, 'validate') else False
 
     def to_dict(self, strip_none_values=True) -> dict:
@@ -1241,13 +1301,23 @@ class DeprecatedRule(dict):
         return self.contents.name
 
 
-def downgrade_contents_from_rule(rule: TOMLRule, target_version: str) -> dict:
+def downgrade_contents_from_rule(rule: TOMLRule, target_version: str, replace_id: bool = True) -> dict:
     """Generate the downgraded contents from a rule."""
-    payload = rule.contents.to_api_format()
-    meta = payload.setdefault("meta", {})
-    meta["original"] = dict(id=rule.id, **rule.contents.metadata.to_dict())
-    payload["rule_id"] = str(uuid4())
-    payload = downgrade(payload, target_version)
+    rule_dict = rule.contents.to_dict()["rule"]
+    min_stack_version = target_version or rule.contents.metadata.min_stack_version or "8.3.0"
+    min_stack_version = Version.parse(min_stack_version,
+                                      optional_minor_and_patch=True)
+    rule_dict.setdefault("meta", {}).update(rule.contents.metadata.to_dict())
+
+    if replace_id:
+        rule_dict["rule_id"] = str(uuid4())
+
+    rule_dict = downgrade(rule_dict, target_version=str(min_stack_version))
+    meta = rule_dict.pop("meta")
+    rule_contents = TOMLRuleContents.from_dict({"rule": rule_dict, "metadata": meta,
+                                                "transform": rule.contents.transform})
+    payload = rule_contents.to_api_format()
+    payload = strip_non_public_fields(min_stack_version, payload)
     return payload
 
 

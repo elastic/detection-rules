@@ -10,6 +10,7 @@ import unittest
 import uuid
 import warnings
 from collections import defaultdict
+from marshmallow import ValidationError
 from pathlib import Path
 
 import eql.ast
@@ -58,7 +59,11 @@ class TestValidRules(BaseRuleTest):
     def test_all_rule_queries_optimized(self):
         """Ensure that every rule query is in optimized form."""
         for rule in self.production_rules:
-            if rule.contents.data.get("language") == "kql":
+            if (
+                rule.contents.data.get("language") == "kuery" and not any(
+                    item in rule.contents.data.query for item in definitions.QUERY_FIELD_OP_EXCEPTIONS
+                )
+            ):
                 source = rule.contents.data.query
                 tree = kql.parse(source, optimize=False)
                 optimized = tree.optimize(recursive=True)
@@ -95,6 +100,50 @@ class TestValidRules(BaseRuleTest):
     def test_rule_type_changes(self):
         """Test that a rule type did not change for a locked version"""
         default_version_lock.manage_versions(self.production_rules)
+
+    def test_bbr_validation(self):
+        base_fields = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["filebeat-*", "logs-aws*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+            "timestamp_override": "event.ingested"
+        }
+
+        def build_rule(query, bbr_type="default", from_field="now-120m", interval="60m"):
+            metadata = {
+                "creation_date": "1970/01/01",
+                "updated_date": "1970/01/01",
+                "min_stack_version": load_current_package_version(),
+                "integration": ["cloud_defend"]
+            }
+            data = base_fields.copy()
+            data["query"] = query
+            data["building_block_type"] = bbr_type
+            if from_field:
+                data["from"] = from_field
+            if interval:
+                data["interval"] = interval
+            obj = {"metadata": metadata, "rule": data}
+            return TOMLRuleContents.from_dict(obj)
+
+        query = """
+            event.dataset:aws.cloudtrail and event.outcome:success
+        """
+
+        build_rule(query=query)
+
+        with self.assertRaises(ValidationError):
+            build_rule(query=query, bbr_type="invalid")
+
+        with self.assertRaises(ValidationError):
+            build_rule(query=query, from_field="now-10m", interval="10m")
 
 
 class TestThreatMappings(BaseRuleTest):
@@ -197,13 +246,7 @@ class TestRuleTags(BaseRuleTest):
     def test_casing_and_spacing(self):
         """Ensure consistent and expected casing for controlled tags."""
 
-        expected_tags = [
-            'APM', 'AWS', 'Asset Visibility', 'Azure', 'Configuration Audit', 'Continuous Monitoring',
-            'Data Protection', 'Elastic', 'Elastic Endgame', 'Endpoint Security', 'GCP', 'Identity and Access',
-            'Investigation Guide', 'Linux', 'Logging', 'ML', 'macOS', 'Monitoring', 'Network', 'Okta', 'Packetbeat',
-            'Post-Execution', 'SecOps', 'Windows'
-        ]
-        expected_case = {t.casefold(): t for t in expected_tags}
+        expected_case = {t.casefold(): t for t in definitions.EXPECTED_RULE_TAGS}
 
         for rule in self.all_rules:
             rule_tags = rule.contents.data.tags
@@ -220,22 +263,24 @@ class TestRuleTags(BaseRuleTest):
 
     def test_required_tags(self):
         """Test that expected tags are present within rules."""
-        # indexes considered; only those with obvious relationships included
-        # 'apm-*-transaction*', 'traces-apm*', 'auditbeat-*', 'endgame-*', 'filebeat-*', 'logs-*', 'logs-aws*',
-        # 'logs-endpoint.alerts-*', 'logs-endpoint.events.*', 'logs-okta*', 'packetbeat-*', 'winlogbeat-*'
 
         required_tags_map = {
-            'apm-*-transaction*': {'all': ['APM']},
-            'traces-apm*': {'all': ['APM']},
-            'auditbeat-*': {'any': ['Windows', 'macOS', 'Linux']},
-            'endgame-*': {'all': ['Elastic Endgame']},
-            'logs-aws*': {'all': ['AWS']},
-            'logs-endpoint.alerts-*': {'all': ['Endpoint Security']},
-            'logs-endpoint.events.*': {'any': ['Windows', 'macOS', 'Linux', 'Host']},
-            'logs-okta*': {'all': ['Okta']},
-            'logs-windows.*': {'all': ['Windows']},
-            'packetbeat-*': {'all': ['Network']},
-            'winlogbeat-*': {'all': ['Windows']}
+            'logs-endpoint.events.*': {'all': ['Domain: Endpoint']},
+            'endgame-*': {'all': ['Data Source: Elastic Endgame']},
+            'logs-aws*': {'all': ['Data Source: AWS', 'Data Source: Amazon Web Services', 'Domain: Cloud']},
+            'logs-azure*': {'all': ['Data Source: Azure', 'Domain: Cloud']},
+            'logs-o365*': {'all': ['Data Source: Microsoft 365', 'Domain: Cloud']},
+            'logs-okta*': {'all': ['Data Source: Okta']},
+            'logs-gcp*': {'all': ['Data Source: Google Cloud Platform', 'Data Source: GCP', 'Domain: Cloud']},
+            'logs-google_workspace*': {'all': ['Data Source: Google Workspace', 'Domain: Cloud']},
+            'logs-cloud_defend.alerts-*': {'all': ['Data Source: Elastic Defend for Containers', 'Domain: Container']},
+            'logs-cloud_defend*': {'all': ['Data Source: Elastic Defend for Containers', 'Domain: Container']},
+            'logs-kubernetes.*': {'all': ['Data Source: Kubernetes']},
+            'apm-*-transaction*': {'all': ['Data Source: APM']},
+            'traces-apm*': {'all': ['Data Source: APM']},
+            '.alerts-security.*': {'all': ['Rule Type: Higher-Order Rule']},
+            'logs-cyberarkpas.audit*': {'all': ['Data Source: CyberArk PAS']},
+            'logs-endpoint.alerts-*': {'all': ['Data Source: Elastic Defend']}
         }
 
         for rule in self.all_rules:
@@ -245,9 +290,6 @@ class TestRuleTags(BaseRuleTest):
             consolidated_optional_tags = []
             is_missing_any_tags = False
             missing_required_tags = set()
-
-            if 'Elastic' not in rule_tags:
-                missing_required_tags.add('Elastic')
 
             if isinstance(rule.contents.data, QueryRuleData):
                 for index in rule.contents.data.index:
@@ -286,10 +328,7 @@ class TestRuleTags(BaseRuleTest):
             if threat:
                 missing = []
                 threat_tactic_names = [e.tactic.name for e in threat]
-                primary_tactic = threat_tactic_names[0]
-
-                if 'Threat Detection' not in rule_tags:
-                    missing.append('Threat Detection')
+                primary_tactic = f"Tactic: {threat_tactic_names[0]}"
 
                 # missing primary tactic
                 if primary_tactic not in rule.contents.data.tags:
@@ -311,6 +350,79 @@ class TestRuleTags(BaseRuleTest):
         if invalid:
             err_msg = '\n'.join(invalid)
             self.fail(f'Rules with misaligned tags and tactics:\n{err_msg}')
+
+    def test_os_tags(self):
+        """Test that OS tags are present within rules."""
+        required_tags_map = {
+            'linux': 'OS: Linux',
+            'macos': 'OS: macOS',
+            'windows': 'OS: Windows'
+        }
+        invalid = []
+        for rule in self.all_rules:
+            dir_name = rule.path.parent.name
+            # if directory name is linux, macos, or windows,
+            # ensure the rule has the corresponding tag
+            if dir_name in ['linux', 'macos', 'windows']:
+                if required_tags_map[dir_name] not in rule.contents.data.tags:
+                    err_msg = self.rule_str(rule)
+                    err_msg += f'\n    expected: {required_tags_map[dir_name]}'
+                    invalid.append(err_msg)
+
+        if invalid:
+            err_msg = '\n'.join(invalid)
+            self.fail(f'Rules with missing OS tags:\n{err_msg}')
+
+    def test_ml_rule_type_tags(self):
+        """Test that ML rule type tags are present within rules."""
+        invalid = []
+
+        for rule in self.all_rules:
+            rule_tags = rule.contents.data.tags
+
+            if rule.contents.data.type == 'machine_learning':
+                if 'Rule Type: Machine Learning' not in rule_tags:
+                    err_msg = self.rule_str(rule)
+                    err_msg += '\n    expected: Rule Type: Machine Learning'
+                    invalid.append(err_msg)
+                if 'Rule Type: ML' not in rule_tags:
+                    err_msg = self.rule_str(rule)
+                    err_msg += '\n    expected: Rule Type: ML'
+                    invalid.append(err_msg)
+
+        if invalid:
+            err_msg = '\n'.join(invalid)
+            self.fail(f'Rules with misaligned ML rule type tags:\n{err_msg}')
+
+    @unittest.skip("Skipping until all Investigation Guides follow the proper format.")
+    def test_investigation_guide_tag(self):
+        """Test that investigation guide tags are present within rules."""
+        invalid = []
+        for rule in self.all_rules:
+            note = rule.contents.data.get('note')
+            if note is not None:
+                results = re.search(r'Investigating', note, re.M)
+                if results is not None:
+                    # check if investigation guide tag is present
+                    if 'Resources: Investigation Guide' not in rule.contents.data.tags:
+                        err_msg = self.rule_str(rule)
+                        err_msg += '\n    expected: Resources: Investigation Guide'
+                        invalid.append(err_msg)
+        if invalid:
+            err_msg = '\n'.join(invalid)
+            self.fail(f'Rules with missing Investigation tag:\n{err_msg}')
+
+    def test_tag_prefix(self):
+        """Ensure all tags have a prefix from an expected list."""
+        invalid = []
+
+        for rule in self.all_rules:
+            rule_tags = rule.contents.data.tags
+            expected_prefixes = set([tag.split(":")[0] + ":" for tag in definitions.EXPECTED_RULE_TAGS])
+            [invalid.append(f"{self.rule_str(rule)}-{tag}") for tag in rule_tags
+             if not any(prefix in tag for prefix in expected_prefixes)]
+        if invalid:
+            self.fail(f'Rules with invalid tags:\n{invalid}')
 
 
 class TestRuleTimelines(BaseRuleTest):
@@ -370,6 +482,28 @@ class TestRuleFiles(BaseRuleTest):
             rule_err_str = '\n'.join(bad_name_rules)
             self.fail(f'{error_msg}:\n{rule_err_str}')
 
+    def test_bbr_in_correct_dir(self):
+        """Ensure that BBR are in the correct directory."""
+        for rule in self.bbr:
+            # Is the rule a BBR
+            self.assertEqual(rule.contents.data.building_block_type, 'default',
+                             f'{self.rule_str(rule)} should have building_block_type = "default"')
+
+            # Is the rule in the rules_building_block directory
+            self.assertEqual(rule.path.parent.name, 'rules_building_block',
+                             f'{self.rule_str(rule)} should be in the rules_building_block directory')
+
+    def test_non_bbr_in_correct_dir(self):
+        """Ensure that non-BBR are not in BBR directory."""
+        proper_directory = 'rules_building_block'
+        for rule in self.all_rules:
+            if rule.path.parent.name == 'rules_building_block':
+                self.assertIn(rule, self.bbr, f'{self.rule_str(rule)} should be in the {proper_directory}')
+            else:
+                # Is the rule of type BBR and not in the correct directory
+                self.assertEqual(rule.contents.data.building_block_type, None,
+                                 f'{self.rule_str(rule)} should be in {proper_directory}')
+
 
 class TestRuleMetadata(BaseRuleTest):
     """Test the metadata of rules."""
@@ -397,9 +531,15 @@ class TestRuleMetadata(BaseRuleTest):
         rules_path = get_path('rules')
         deprecated_path = get_path("rules", "_deprecated")
 
-        misplaced_rules = [r for r in self.all_rules
-                           if r.path.relative_to(rules_path).parts[-2] == '_deprecated' and  # noqa: W504
-                           r.contents.metadata.maturity != 'deprecated']
+        misplaced_rules = []
+        for r in self.all_rules:
+            if "rules_building_block" in str(r.path):
+                if r.contents.metadata.maturity == "deprecated":
+                    misplaced_rules.append(r)
+            elif r.path.relative_to(rules_path).parts[-2] == "_deprecated" \
+                    and r.contents.metadata.maturity != "deprecated":
+                misplaced_rules.append(r)
+
         misplaced = '\n'.join(f'{self.rule_str(r)} {r.contents.metadata.maturity}' for r in misplaced_rules)
         err_str = f'The following rules are stored in {deprecated_path} but are not marked as deprecated:\n{misplaced}'
         self.assertListEqual(misplaced_rules, [], err_str)
@@ -471,8 +611,9 @@ class TestRuleMetadata(BaseRuleTest):
                         failures.append(err_msg)
 
                     # checks if the rule path matches the intended integration
+                    # excludes BBR rules
                     if rule_integration in valid_integration_folders:
-                        if rule.path.parent.name not in rule_integrations:
+                        if rule.path.parent.name not in rule_integrations and rule.path.parent.name != "bbr":
                             err_msg = f'{self.rule_str(rule)} {rule_integration} tag, path is {rule.path.parent.name}'
                             failures.append(err_msg)
 
@@ -497,7 +638,11 @@ class TestRuleMetadata(BaseRuleTest):
                         "eb079c62-4481-4d6e-9643-3ca499df7aaa",
                         "699e9fdb-b77c-4c01-995c-1c15019b9c43",
                         "0c9a14d9-d65d-486f-9b5b-91e4e6b22bd0",
-                        "a198fbbd-9413-45ec-a269-47ae4ccf59ce"
+                        "a198fbbd-9413-45ec-a269-47ae4ccf59ce",
+                        "0c41e478-5263-4c69-8f9e-7dfd2c22da64",
+                        "aab184d3-72b3-4639-b242-6597c99d8bca",
+                        "a61809f3-fb5b-465c-8bff-23a8a068ac60",
+                        "f3e22c8b-ea47-45d1-b502-b57b6de950b3"
                     ]
                     if any([re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
                             for i in rule.contents.data.index]):
@@ -986,7 +1131,10 @@ class TestEndpointQuery(BaseRuleTest):
             fields = [str(f) for f in ast if isinstance(f, (kql.ast.Field, eql.ast.Field))]
 
             err_msg = f'{self.rule_str(rule)} missing required field for endpoint rule'
-            self.assertIn('host.os.type', fields, err_msg)
+            if 'host.os.type' not in fields:
+                # Exception for Forwarded Events which contain Windows-only fields.
+                if rule.path.parent.name == 'windows' and not any(field.startswith('winlog.') for field in fields):
+                    self.assertIn('host.os.type', fields, err_msg)
 
             # going to bypass this for now
             # if rule.path.parent.name == 'linux':

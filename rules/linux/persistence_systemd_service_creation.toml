@@ -1,0 +1,82 @@
+[metadata]
+creation_date = "2023/06/09"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup, New Term"
+min_stack_version = "8.6.0"
+updated_date = "2023/07/31"
+
+[rule]
+author = ["Elastic"]
+description = """
+Systemd service files are configuration files in Linux systems used to define and manage system services. Malicious 
+actors can leverage systemd service files to achieve persistence by creating or modifying service files to execute 
+malicious commands or payloads during system startup. This allows them to maintain unauthorized access, execute 
+additional malicious activities, or evade detection.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "endgame-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "New Systemd Service Created by Previously Unknown Process"
+references = [
+    "https://opensource.com/article/20/7/systemd-timers",
+    "https://pberba.github.io/security/2022/01/30/linux-threat-hunting-for-persistence-systemd-timers-cron/"
+]
+risk_score = 47
+rule_id = "17b0a495-4d9f-414c-8ad0-92f018b8e001"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Privilege Escalation", "Data Source: Elastic Endgame"]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+host.os.type : "linux" and event.action : ("creation" or "file_create_event") and
+file.path : (/etc/systemd/system/* or /usr/local/lib/systemd/system/* or /lib/systemd/system/* or 
+/usr/lib/systemd/system/* or /home/*/.config/systemd/user/*) and not 
+(process.name : ("dpkg" or "dockerd" or "rpm" or "snapd" or "yum" or "exe" or "dnf" or "dnf-automatic" or python* or 
+ "elastic-agent" or "cinc-client") or file.extension : ("swp" or "swx"))
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1543.002"
+name = "Systemd Service"
+reference = "https://attack.mitre.org/techniques/T1543/002/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1543.002"
+name = "Systemd Service"
+reference = "https://attack.mitre.org/techniques/T1543/002/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["file.path", "process.name"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
