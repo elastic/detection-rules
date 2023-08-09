@@ -4,15 +4,15 @@ integration = ["auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/06"
+updated_date = "2023/07/31"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects file events involving kernel modules in modprobe configuration files, which may indicate unauthorized 
-access or manipulation of critical kernel modules. Attackers may tamper with the modprobe files to load malicious or 
-unauthorized kernel modules, potentially bypassing security measures, escalating privileges, or hiding their activities 
-within the system.
+Detects file events involving kernel modules in modprobe configuration files, which may indicate unauthorized access or 
+manipulation of critical kernel modules. Attackers may tamper with the modprobe files to load malicious or unauthorized
+kernel modules, potentially bypassing security measures, escalating privileges, or hiding their activities within the 
+system.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
@@ -47,9 +47,12 @@ tags = ["OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery"]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where host.os.type == "linux" and event.action in ("opened-file", "read-file", "wrote-to-file") and
+file where host.os.type == "linux" and event.action == "opened-file" and
 file.path : ("/etc/modprobe.conf", "/etc/modprobe.d", "/etc/modprobe.d/*") and not 
-(process.name in ("auditbeat", "kmod", "modprobe", "lsmod", "insmod", "modinfo", "rmmod") or process.title : ("*grep*") or process.parent.pid == 1)
+(
+  process.name in ("auditbeat", "kmod", "modprobe", "lsmod", "insmod", "modinfo", "rmmod", "dpkg", "cp") or 
+  process.title : "*grep*" or process.parent.pid == 1
+)
 '''
 
 [[rule.threat]]

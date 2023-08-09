@@ -4,7 +4,7 @@ integration = ["auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/12"
+updated_date = "2023/07/31"
 
 [rule]
 author = ["Elastic"]
@@ -41,29 +41,29 @@ For this detection rule to trigger, the following additional audit rules are req
 ```
 Add the newly installed `auditd manager` to an agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
 """
-risk_score = 47
+risk_score = 21
 rule_id = "80084fa9-8677-4453-8680-b891d3c0c778"
-severity = "medium"
+severity = "low"
 tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery"]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-file where host.os.type == "linux" and event.action == "opened-file" and 
-file.path == "/proc/modules" and not process.parent.pid == 1
+file where host.os.type == "linux" and event.action == "opened-file" and file.path == "/proc/modules" and not 
+(
+  process.name in ("auditbeat", "kmod", "modprobe", "lsmod", "insmod", "modinfo", "rmmod", "SchedulerRunner", "grep") or 
+  process.parent.pid == 1 or process.title : "*grep*"
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
