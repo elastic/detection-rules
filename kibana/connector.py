@@ -93,7 +93,7 @@ class Kibana(object):
         response = self.session.request(method, url, params=params, data=body, **kwargs)
 
         if response.status_code != 200:
-            # address anomaly where the response inconsistently returns 401 vs 403
+            # retry once
             response = self.session.request(method, url, params=params, data=body, **kwargs)
 
         if error:
@@ -173,6 +173,7 @@ class Kibana(object):
 
     def add_cookie(self, cookie):
         """Add cookie to be used for auth (such as from an SSO session)."""
+        # https://www.elastic.co/guide/en/kibana/7.10/security-settings-kb.html#security-session-and-cookie-settings
         self.session.headers['sid'] = cookie
         self.session.cookies.set('sid', cookie)
         self.status = self.get('/api/status')
