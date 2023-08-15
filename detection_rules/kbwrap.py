@@ -5,16 +5,16 @@
 
 """Kibana cli commands."""
 import sys
-import uuid
 
 import click
+
 
 import kql
 from kibana import Signal, RuleResource
 from .cli_utils import multi_collection
 from .main import root
 from .misc import add_params, client_error, kibana_options, get_kibana_client, nested_set
-from .schemas import downgrade
+from .rule import downgrade_contents_from_rule
 from .utils import format_command_options
 
 
@@ -45,14 +45,7 @@ def upload_rule(ctx, rules, replace_id):
 
     for rule in rules:
         try:
-            payload = rule.contents.to_api_format()
-            payload.setdefault("meta", {}).update(rule.contents.metadata.to_dict())
-
-            if replace_id:
-                payload["rule_id"] = str(uuid.uuid4())
-
-            payload = downgrade(payload, target_version=kibana.version)
-
+            payload = downgrade_contents_from_rule(rule, kibana.version, replace_id=replace_id)
         except ValueError as e:
             client_error(f'{e} in version:{kibana.version}, for rule: {rule.name}', e, ctx=ctx)
 
