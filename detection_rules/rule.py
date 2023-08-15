@@ -1002,30 +1002,31 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             current_stack_version = load_current_package_version()
 
             if self.check_restricted_field_version(field_name):
-                if isinstance(self.data, QueryRuleData) and self.data.language != 'lucene':
-                    package_integrations = self.get_packaged_integrations(self.data, self.metadata, packages_manifest)
+                if (isinstance(self.data, QueryRuleData) or isinstance(self.data, MachineLearningRuleData)):
+                    if (self.data.get('language') is not None and self.data.get('language') != 'lucene') or self.data.get('type') == 'machine_learning':
+                        package_integrations = self.get_packaged_integrations(self.data, self.metadata, packages_manifest)
 
-                    if not package_integrations:
-                        return
+                        if not package_integrations:
+                            return
 
-                    for package in package_integrations:
-                        package["version"] = find_least_compatible_version(
-                            package=package["package"],
-                            integration=package["integration"],
-                            current_stack_version=current_stack_version,
-                            packages_manifest=packages_manifest)
+                        for package in package_integrations:
+                            package["version"] = find_least_compatible_version(
+                                package=package["package"],
+                                integration=package["integration"],
+                                current_stack_version=current_stack_version,
+                                packages_manifest=packages_manifest)
 
-                        # if integration is not a policy template remove
-                        if package["version"]:
-                            policy_templates = packages_manifest[
-                                package["package"]][package["version"].strip("^")]["policy_templates"]
-                            if package["integration"] not in policy_templates:
-                                del package["integration"]
+                            # if integration is not a policy template remove
+                            if package["version"]:
+                                policy_templates = packages_manifest[
+                                    package["package"]][package["version"].strip("^")]["policy_templates"]
+                                if package["integration"] not in policy_templates:
+                                    del package["integration"]
 
-                # remove duplicate entries
-                package_integrations = list({json.dumps(d, sort_keys=True):
-                                            d for d in package_integrations}.values())
-                obj.setdefault("related_integrations", package_integrations)
+                    # remove duplicate entries
+                    package_integrations = list({json.dumps(d, sort_keys=True):
+                                                d for d in package_integrations}.values())
+                    obj.setdefault("related_integrations", package_integrations)
 
     def _convert_add_required_fields(self, obj: dict) -> None:
         """Add restricted field required_fields to the obj, derived from the query AST."""
@@ -1124,7 +1125,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             rule_integrations = meta.get("integration", [])
             if rule_integrations:
                 for integration in rule_integrations:
-                    if integration in definitions.NON_DATASET_PACKAGES:
+                    if integration in definitions.NON_DATASET_PACKAGES or isinstance(data, MachineLearningRuleData):
                         packaged_integrations.append({"package": integration, "integration": None})
 
         for value in sorted(datasets):
