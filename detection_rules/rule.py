@@ -1003,8 +1003,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
             if self.check_restricted_field_version(field_name):
                 if (isinstance(self.data, QueryRuleData) or isinstance(self.data, MachineLearningRuleData)):
-                    if (self.data.get('language') is not None and self.data.get('language') != 'lucene') or self.data.get('type') == 'machine_learning':
-                        package_integrations = self.get_packaged_integrations(self.data, self.metadata, packages_manifest)
+                    if (self.data.get('language') is not None and self.data.get('language') != 'lucene') or \
+                            self.data.get('type') == 'machine_learning':
+                        package_integrations = self.get_packaged_integrations(self.data, self.metadata,
+                                                                              packages_manifest)
 
                         if not package_integrations:
                             return
