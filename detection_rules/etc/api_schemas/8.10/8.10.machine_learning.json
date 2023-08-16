@@ -54,6 +54,10 @@
       ],
       "type": "object"
     },
+    "anomaly_threshold": {
+      "format": "integer",
+      "type": "number"
+    },
     "author": {
       "items": {
         "type": "string"
@@ -71,10 +75,6 @@
     },
     "enabled": {
       "type": "boolean"
-    },
-    "event_category_override": {
-      "min_compat": "8.0",
-      "type": "string"
     },
     "exceptions_list": {
       "items": {
@@ -112,25 +112,26 @@
     "from": {
       "type": "string"
     },
-    "index": {
-      "items": {
-        "type": "string"
-      },
-      "type": "array"
-    },
     "interval": {
       "description": "Interval",
       "pattern": "^\\d+[mshd]$",
       "type": "string"
     },
-    "language": {
-      "enum": [
-        "eql"
-      ],
-      "type": "string"
-    },
     "license": {
       "type": "string"
+    },
+    "machine_learning_job_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ]
     },
     "max_signals": {
       "description": "MaxSignals",
@@ -157,9 +158,6 @@
     },
     "note": {
       "description": "MarkdownField",
-      "type": "string"
-    },
-    "query": {
       "type": "string"
     },
     "references": {
@@ -405,10 +403,6 @@
     "throttle": {
       "type": "string"
     },
-    "tiebreaker_field": {
-      "min_compat": "8.0",
-      "type": "string"
-    },
     "timeline_id": {
       "description": "TimelineTemplateId",
       "enum": [
@@ -443,10 +437,6 @@
       "enumNames": [],
       "type": "string"
     },
-    "timestamp_field": {
-      "min_compat": "8.0",
-      "type": "string"
-    },
     "timestamp_override": {
       "type": "string"
     },
@@ -455,17 +445,17 @@
     },
     "type": {
       "enum": [
-        "eql"
+        "machine_learning"
       ],
       "type": "string"
     }
   },
   "required": [
+    "anomaly_threshold",
     "author",
     "description",
-    "language",
+    "machine_learning_job_id",
     "name",
-    "query",
     "risk_score",
     "rule_id",
     "severity",
