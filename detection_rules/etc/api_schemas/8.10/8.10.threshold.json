@@ -72,10 +72,6 @@
     "enabled": {
       "type": "boolean"
     },
-    "event_category_override": {
-      "min_compat": "8.0",
-      "type": "string"
-    },
     "exceptions_list": {
       "items": {
         "type": [
@@ -125,8 +121,10 @@
     },
     "language": {
       "enum": [
-        "eql"
+        "kuery",
+        "lucene"
       ],
+      "enumNames": [],
       "type": "string"
     },
     "license": {
@@ -402,11 +400,55 @@
       },
       "type": "array"
     },
-    "throttle": {
-      "type": "string"
+    "threshold": {
+      "additionalProperties": false,
+      "properties": {
+        "cardinality": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "value": {
+                "description": "ThresholdValue",
+                "format": "integer",
+                "minimum": 1,
+                "type": "number"
+              }
+            },
+            "required": [
+              "field",
+              "value"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "field": {
+          "description": "CardinalityFields",
+          "items": {
+            "description": "NonEmptyStr",
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 3,
+          "type": "array"
+        },
+        "value": {
+          "description": "ThresholdValue",
+          "format": "integer",
+          "minimum": 1,
+          "type": "number"
+        }
+      },
+      "required": [
+        "field",
+        "value"
+      ],
+      "type": "object"
     },
-    "tiebreaker_field": {
-      "min_compat": "8.0",
+    "throttle": {
       "type": "string"
     },
     "timeline_id": {
@@ -443,10 +485,6 @@
       "enumNames": [],
       "type": "string"
     },
-    "timestamp_field": {
-      "min_compat": "8.0",
-      "type": "string"
-    },
     "timestamp_override": {
       "type": "string"
     },
@@ -455,7 +493,7 @@
     },
     "type": {
       "enum": [
-        "eql"
+        "threshold"
       ],
       "type": "string"
     }
@@ -469,6 +507,7 @@
     "risk_score",
     "rule_id",
     "severity",
+    "threshold",
     "type"
   ],
   "type": "object"
