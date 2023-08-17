@@ -66,15 +66,17 @@
       ],
       "type": "string"
     },
+    "concurrent_searches": {
+      "description": "PositiveInteger",
+      "format": "integer",
+      "minimum": 1,
+      "type": "number"
+    },
     "description": {
       "type": "string"
     },
     "enabled": {
       "type": "boolean"
-    },
-    "event_category_override": {
-      "min_compat": "8.0",
-      "type": "string"
     },
     "exceptions_list": {
       "items": {
@@ -123,10 +125,18 @@
       "pattern": "^\\d+[mshd]$",
       "type": "string"
     },
+    "items_per_search": {
+      "description": "PositiveInteger",
+      "format": "integer",
+      "minimum": 1,
+      "type": "number"
+    },
     "language": {
       "enum": [
-        "eql"
+        "kuery",
+        "lucene"
       ],
+      "enumNames": [],
       "type": "string"
     },
     "license": {
@@ -402,11 +412,84 @@
       },
       "type": "array"
     },
-    "throttle": {
+    "threat_filters": {
+      "items": {
+        "additionalProperties": {
+          "type": [
+            "string",
+            "number",
+            "object",
+            "array",
+            "boolean"
+          ]
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "threat_index": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "threat_indicator_path": {
       "type": "string"
     },
-    "tiebreaker_field": {
-      "min_compat": "8.0",
+    "threat_language": {
+      "enum": [
+        "kuery",
+        "lucene"
+      ],
+      "enumNames": [],
+      "type": "string"
+    },
+    "threat_mapping": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "field": {
+                  "description": "NonEmptyStr",
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": {
+                  "enum": [
+                    "mapping"
+                  ],
+                  "type": "string"
+                },
+                "value": {
+                  "description": "NonEmptyStr",
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field",
+                "type",
+                "value"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "threat_query": {
+      "type": "string"
+    },
+    "throttle": {
       "type": "string"
     },
     "timeline_id": {
@@ -443,10 +526,6 @@
       "enumNames": [],
       "type": "string"
     },
-    "timestamp_field": {
-      "min_compat": "8.0",
-      "type": "string"
-    },
     "timestamp_override": {
       "type": "string"
     },
@@ -455,7 +534,7 @@
     },
     "type": {
       "enum": [
-        "eql"
+        "threat_match"
       ],
       "type": "string"
     }
@@ -469,6 +548,8 @@
     "risk_score",
     "rule_id",
     "severity",
+    "threat_index",
+    "threat_mapping",
     "type"
   ],
   "type": "object"
