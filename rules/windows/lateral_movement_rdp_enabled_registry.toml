@@ -65,14 +65,16 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.type in ("creation", "change") and
-  registry.path : (
-    "HKLM\\SYSTEM\\*ControlSet*\\Control\\Terminal Server\\fDenyTSConnections",
-    "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Control\\Terminal Server\\fDenyTSConnections"
-  ) and
+registry where host.os.type == "windows" and 
+ event.type in ("creation", "change") and
+  registry.path : "HKLM\\SYSTEM\\*ControlSet*\\Control\\Terminal Server\\fDenyTSConnections" and
   registry.data.strings : ("0", "0x00000000") and
-  not (process.name : "svchost.exe" and user.domain == "NT AUTHORITY") and
-  not process.executable : "C:\\Windows\\System32\\SystemPropertiesRemote.exe"
+  not process.executable : ("?:\\Windows\\System32\\SystemPropertiesRemote.exe", 
+                            "?:\\Windows\\System32\\SystemPropertiesComputerName.exe", 
+                            "?:\\Windows\\System32\\SystemPropertiesAdvanced.exe", 
+                            "?:\\Windows\\System32\\SystemSettingsAdminFlows.exe", 
+                            "?:\\Windows\\WinSxS\\*\\TiWorker.exe", 
+                            "?:\\Windows\\system32\\svchost.exe")
 '''
 
 

@@ -59,7 +59,11 @@ class TestValidRules(BaseRuleTest):
     def test_all_rule_queries_optimized(self):
         """Ensure that every rule query is in optimized form."""
         for rule in self.production_rules:
-            if rule.contents.data.get("language") == "kql":
+            if (
+                rule.contents.data.get("language") == "kuery" and not any(
+                    item in rule.contents.data.query for item in definitions.QUERY_FIELD_OP_EXCEPTIONS
+                )
+            ):
                 source = rule.contents.data.query
                 tree = kql.parse(source, optimize=False)
                 optimized = tree.optimize(recursive=True)
@@ -242,67 +246,7 @@ class TestRuleTags(BaseRuleTest):
     def test_casing_and_spacing(self):
         """Ensure consistent and expected casing for controlled tags."""
 
-        expected_tags = [
-            'Data Source: Active Directory',
-            'Data Source: Amazon Web Services',
-            'Data Source: AWS',
-            'Data Source: APM',
-            'Data Source: Azure',
-            'Data Source: CyberArk PAS',
-            'Data Source: Elastic Defend',
-            'Data Source: Elastic Defend for Containers',
-            'Data Source: Elastic Endgame',
-            'Data Source: GCP',
-            'Data Source: Google Cloud Platform',
-            'Data Source: Google Workspace',
-            'Data Source: Kubernetes',
-            'Data Source: Microsoft 365',
-            'Data Source: Okta',
-            'Data Source: PowerShell Logs',
-            'Data Source: Sysmon Only',
-            'Data Source: Zoom',
-            'Domain: Cloud',
-            'Domain: Container',
-            'Domain: Endpoint',
-            'OS: Linux',
-            'OS: macOS',
-            'OS: Windows',
-            'Resources: Investigation Guide',
-            'Rule Type: Higher-Order Rule',
-            'Rule Type: Machine Learning',
-            'Rule Type: ML',
-            'Tactic: Collection',
-            'Tactic: Command and Control',
-            'Tactic: Credential Access',
-            'Tactic: Defense Evasion',
-            'Tactic: Discovery',
-            'Tactic: Execution',
-            'Tactic: Exfiltration',
-            'Tactic: Impact',
-            'Tactic: Initial Access',
-            'Tactic: Lateral Movement',
-            'Tactic: Persistence',
-            'Tactic: Privilege Escalation',
-            'Tactic: Reconnaissance',
-            'Tactic: Resource Development',
-            'Threat: BPFDoor',
-            'Threat: Cobalt Strike',
-            'Threat: Lightning Framework',
-            'Threat: Orbit',
-            'Threat: Rootkit',
-            'Threat: TripleCross',
-            'Use Case: Active Directory Monitoring',
-            'Use Case: Asset Visibility',
-            'Use Case: Configuration Audit',
-            'Use case: Guided Onboarding',
-            'Use Case: Identity and Access Audit',
-            'Use Case: Log Auditing',
-            'Use Case: Network Security Monitoring',
-            'Use Case: Threat Detection',
-            'Use Case: Vulnerability',
-        ]
-
-        expected_case = {t.casefold(): t for t in expected_tags}
+        expected_case = {t.casefold(): t for t in definitions.EXPECTED_RULE_TAGS}
 
         for rule in self.all_rules:
             rule_tags = rule.contents.data.tags
@@ -468,6 +412,18 @@ class TestRuleTags(BaseRuleTest):
             err_msg = '\n'.join(invalid)
             self.fail(f'Rules with missing Investigation tag:\n{err_msg}')
 
+    def test_tag_prefix(self):
+        """Ensure all tags have a prefix from an expected list."""
+        invalid = []
+
+        for rule in self.all_rules:
+            rule_tags = rule.contents.data.tags
+            expected_prefixes = set([tag.split(":")[0] + ":" for tag in definitions.EXPECTED_RULE_TAGS])
+            [invalid.append(f"{self.rule_str(rule)}-{tag}") for tag in rule_tags
+             if not any(prefix in tag for prefix in expected_prefixes)]
+        if invalid:
+            self.fail(f'Rules with invalid tags:\n{invalid}')
+
 
 class TestRuleTimelines(BaseRuleTest):
     """Test timelines in rules are valid."""
@@ -529,14 +485,24 @@ class TestRuleFiles(BaseRuleTest):
     def test_bbr_in_correct_dir(self):
         """Ensure that BBR are in the correct directory."""
         for rule in self.bbr:
+            # Is the rule a BBR
+            self.assertEqual(rule.contents.data.building_block_type, 'default',
+                             f'{self.rule_str(rule)} should have building_block_type = "default"')
+
+            # Is the rule in the rules_building_block directory
             self.assertEqual(rule.path.parent.name, 'rules_building_block',
                              f'{self.rule_str(rule)} should be in the rules_building_block directory')
 
     def test_non_bbr_in_correct_dir(self):
         """Ensure that non-BBR are not in BBR directory."""
+        proper_directory = 'rules_building_block'
         for rule in self.all_rules:
             if rule.path.parent.name == 'rules_building_block':
-                self.assertIn(rule, self.bbr, f'{self.rule_str(rule)} should be in the rules_building_block directory')
+                self.assertIn(rule, self.bbr, f'{self.rule_str(rule)} should be in the {proper_directory}')
+            else:
+                # Is the rule of type BBR and not in the correct directory
+                self.assertEqual(rule.contents.data.building_block_type, None,
+                                 f'{self.rule_str(rule)} should be in {proper_directory}')
 
 
 class TestRuleMetadata(BaseRuleTest):
@@ -565,9 +531,15 @@ class TestRuleMetadata(BaseRuleTest):
         rules_path = get_path('rules')
         deprecated_path = get_path("rules", "_deprecated")
 
-        misplaced_rules = [r for r in self.all_rules
-                           if r.path.relative_to(rules_path).parts[-2] == '_deprecated' and  # noqa: W504
-                           r.contents.metadata.maturity != 'deprecated']
+        misplaced_rules = []
+        for r in self.all_rules:
+            if "rules_building_block" in str(r.path):
+                if r.contents.metadata.maturity == "deprecated":
+                    misplaced_rules.append(r)
+            elif r.path.relative_to(rules_path).parts[-2] == "_deprecated" \
+                    and r.contents.metadata.maturity != "deprecated":
+                misplaced_rules.append(r)
+
         misplaced = '\n'.join(f'{self.rule_str(r)} {r.contents.metadata.maturity}' for r in misplaced_rules)
         err_str = f'The following rules are stored in {deprecated_path} but are not marked as deprecated:\n{misplaced}'
         self.assertListEqual(misplaced_rules, [], err_str)
@@ -666,7 +638,11 @@ class TestRuleMetadata(BaseRuleTest):
                         "eb079c62-4481-4d6e-9643-3ca499df7aaa",
                         "699e9fdb-b77c-4c01-995c-1c15019b9c43",
                         "0c9a14d9-d65d-486f-9b5b-91e4e6b22bd0",
-                        "a198fbbd-9413-45ec-a269-47ae4ccf59ce"
+                        "a198fbbd-9413-45ec-a269-47ae4ccf59ce",
+                        "0c41e478-5263-4c69-8f9e-7dfd2c22da64",
+                        "aab184d3-72b3-4639-b242-6597c99d8bca",
+                        "a61809f3-fb5b-465c-8bff-23a8a068ac60",
+                        "f3e22c8b-ea47-45d1-b502-b57b6de950b3"
                     ]
                     if any([re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
                             for i in rule.contents.data.index]):
