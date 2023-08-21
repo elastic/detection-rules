@@ -1,0 +1,64 @@
+[metadata]
+creation_date = "2023/06/09"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup, New Term"
+min_stack_version = "8.6.0"
+updated_date = "2023/07/31"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors the creation of shared object files by previously unknown processes. The creation of a shared object
+file involves compiling code into a dynamically linked library that can be loaded by other programs at runtime. While
+this process is typically used for legitimate purposes, malicious actors can leverage shared object files to execute
+unauthorized code, inject malicious functionality into legitimate processes, or bypass security controls. This allows
+malware to persist on the system, evade detection, and potentially compromise the integrity and confidentiality of the
+affected system and its data.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "endgame-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Shared Object Created or Changed by Previously Unknown Process"
+references = ["https://threatpost.com/sneaky-malware-backdoors-linux/180158/"]
+risk_score = 47
+rule_id = "aebaa51f-2a91-4f6a-850b-b601db2293f4"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Endgame"]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+host.os.type:linux and event.action:(creation or file_create_event or file_rename_event or rename) and 
+file.path:(/dev/shm/* or /usr/lib/*) and file.extension:so and 
+process.name: ( * and not ("5" or "dockerd" or "dpkg" or "rpm" or "snapd" or "exe" or "yum" or "vmis-launcher"))
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+[[rule.threat.technique.subtechnique]]
+id = "T1574.006"
+name = "Dynamic Linker Hijacking"
+reference = "https://attack.mitre.org/techniques/T1574/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["file.path", "process.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+

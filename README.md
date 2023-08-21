@@ -24,15 +24,16 @@ This repository was first announced on Elastic's blog post, [Elastic Security op
 
 Detection Rules contains more than just static rule files. This repository also contains code for unit testing in Python and integrating with the Detection Engine in Kibana.
 
-| folder                                |  description                                                                        |
-|-------------------------------------- |------------------------------------------------------------------------------------ |
-| [`detection_rules/`](detection_rules) | Python module for rule parsing, validating and packaging                            |
-| [`detection_rules/etc/`](etc)         | Miscellaneous files, such as ECS and Beats schemas                                  |
-| [`kibana/`](kibana)                   | Python library for handling the API calls to Kibana and the Detection Engine        |
-| [`kql/`](kql)                         | Python library for parsing and validating Kibana Query Language                     |
-| [`rta/`](rta)                         | Red Team Automation code used to emulate attacker techniques, used for rule testing |
-| [`rules/`](rules)                     | Root directory where rules are stored                                               |
-| [`tests/`](tests)                     | Python code for unit testing rules                                                  |
+| folder                                          |  description                                                                        |
+|------------------------------------------------ |------------------------------------------------------------------------------------ |
+| [`detection_rules/`](detection_rules)           | Python module for rule parsing, validating and packaging                            |
+| [`etc/`](detection_rules/etc)                   | Miscellaneous files, such as ECS and Beats schemas                                  |
+| [`kibana/`](kibana)                             | Python library for handling the API calls to Kibana and the Detection Engine        |
+| [`kql/`](kql)                                   | Python library for parsing and validating Kibana Query Language                     |
+| [`rta/`](rta)                                   | Red Team Automation code used to emulate attacker techniques, used for rule testing |
+| [`rules/`](rules)                               | Root directory where rules are stored                                               |
+| [`rules_building_block/`](rules_building_block) | Root directory where building block rules are stored                                |
+| [`tests/`](tests)                               | Python code for unit testing rules                                                  |
 
 
 ## Getting started
@@ -81,6 +82,10 @@ Commands:
   validate-rule   Check if a rule staged in rules dir validates against a...
   view-rule       View an internal rule or specified rule file.
 ```
+
+Note:
+- If you are using a virtual environment, make sure to activate it before running the above command.
+- If using Windows, you may have to also run `<venv_directory>\Scripts\pywin32_postinstall.py -install` depending on your python version.
 
 The [contribution guide](CONTRIBUTING.md) describes how to use the `create-rule` and `test` commands to create and test a new rule when contributing to Detection Rules.
 

@@ -2,9 +2,9 @@
 creation_date = "2020/04/23"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/02/22"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/07/31"
 
 [rule]
 author = ["Elastic"]
@@ -20,33 +20,41 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Enumeration of Kernel Modules"
 risk_score = 47
 rule_id = "2d8043ed-5bda-4caf-801c-c1feb7410504"
 severity = "medium"
-tags = ["Elastic", "Host", "Linux", "Threat Detection", "Discovery", "Elastic Endgame"]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery"]
 timestamp_override = "event.ingested"
-type = "query"
-
+type = "new_terms"
 query = '''
-event.category:process and host.os.type:linux and event.type:(start or process_started) and
-  process.args:(kmod and list and sudo or sudo and (depmod or lsmod or modinfo))
+event.category:process and host.os.type:linux and event.type:start and (
+ (process.name:(lsmod or modinfo)) or 
+ (process.name:kmod and process.args:list) or 
+ (process.name:depmod and process.args:(--all or -a))
+) and not process.parent.user.id:0
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
+
 id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
-
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.parent.name", "host.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"

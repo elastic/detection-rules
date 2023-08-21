@@ -1,0 +1,68 @@
+[metadata]
+creation_date = "2023/07/04"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/08/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+This detection rule identifies suspicious network traffic patterns associated with TCP reverse shell activity. This
+activity consists of a parent-child relationship where a network event is followed by the creation of a shell process.
+An attacker may establish a Linux TCP reverse shell to gain remote access to a target system.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Reverse Shell"
+references = [
+    "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md"
+]
+risk_score = 47
+rule_id = "48b3d2e3-f4e8-41e6-95e6-9b2091228db3"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution"]
+type = "eql"
+query = '''
+sequence by host.id with maxspan=1s
+[ network where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and 
+  process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat") and 
+  destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1" ] by process.entity_id
+[ process where host.os.type == "linux" and event.type == "start" and event.action : ("exec", "fork") and 
+  process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and 
+  process.parent.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat") ] by process.parent.entity_id
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Execution"
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Command and Control"
+id = "TA0011"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat.technique]]
+name = "Application Layer Protocol"
+id = "T1071"
+reference = "https://attack.mitre.org/techniques/T1071/"

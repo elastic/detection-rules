@@ -1,0 +1,110 @@
+[metadata]
+creation_date = "2023/06/14"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/07/31"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for network connectivity to the internet from a previously unknown executable located in a suspicious
+directory to a previously unknown destination ip. An alert from this rule can indicate the presence of potentially
+malicious activity, such as the execution of unauthorized or suspicious processes attempting to establish connections to
+unknown or suspicious destinations such as a command and control server. Detecting and investigating such behavior can
+help identify and mitigate potential security threats, protecting the system and its data from potential compromise.
+"""
+from = "now-59m"
+index = ["auditbeat-*", "filebeat-*", "packetbeat-*", "logs-endpoint.events.*", "endgame-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Suspicious Network Activity to the Internet by Previously Unknown Executable"
+risk_score = 21
+rule_id = "53617418-17b4-4e9c-8a2c-8deb8086ca4b"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Command and Control", "Data Source: Elastic Endgame"]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+host.os.type:linux and event.category:network and 
+event.action:(connection_attempted or ipv4_connection_attempt_event) and 
+process.executable : ( 
+    (/etc/crontab or 
+     /etc/rc.local or 
+     /boot/* or 
+     /dev/shm/* or 
+     /etc/cron.*/* or 
+     /etc/init.d/* or 
+     /etc/rc*.d/* or 
+     /etc/update-motd.d/* or 
+     /home/*/.* or 
+     /run/* or 
+     /srv/* or 
+     /tmp/* or 
+     /usr/lib/update-notifier/* or 
+     /var/tmp/*) and 
+     not (/usr/bin/apt or 
+          /usr/bin/curl or 
+          /usr/bin/dnf or 
+          /usr/bin/dockerd or 
+          /usr/bin/dpkg or 
+          /usr/bin/rpm or 
+          /usr/bin/wget or 
+          /usr/bin/yum) 
+    ) 
+and source.ip : ( 
+    10.0.0.0/8 or 
+    127.0.0.0/8 or 
+    172.16.0.0/12 or 
+    192.168.0.0/16) and 
+    not destination.ip : ( 
+        10.0.0.0/8 or 
+        100.64.0.0/10 or 
+        127.0.0.0/8 or 
+        169.254.0.0/16 or 
+        172.16.0.0/12 or 
+        192.0.0.0/24 or 
+        192.0.0.0/29 or 
+        192.0.0.10/32 or 
+        192.0.0.170/32 or 
+        192.0.0.171/32 or 
+        192.0.0.8/32 or 
+        192.0.0.9/32 or 
+        192.0.2.0/24 or 
+        192.168.0.0/16 or 
+        192.175.48.0/24 or 
+        192.31.196.0/24 or 
+        192.52.193.0/24 or 
+        192.88.99.0/24 or 
+        198.18.0.0/15 or 
+        198.51.100.0/24 or 
+        203.0.113.0/24 or 
+        224.0.0.0/4 or 
+        240.0.0.0/4 or 
+        "::1" or 
+        "FE80::/10" or 
+        "FF00::/8")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["destination.ip", "process.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
