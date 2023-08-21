@@ -4,7 +4,7 @@ integration = ["auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/06"
+updated_date = "2023/07/31"
 
 [rule]
 author = ["Elastic"]
@@ -48,7 +48,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 file where host.os.type == "linux" and event.action in ("opened-file", "read-file", "wrote-to-file") and
-file.path : ("/etc/sysctl.conf", "/etc/sysctl.d", "/etc/sysctl.d/*") and not process.name == "auditbeat"
+file.path : ("/etc/sysctl.conf", "/etc/sysctl.d", "/etc/sysctl.d/*") and 
+not process.name in ("auditbeat", "systemd-sysctl")
 '''
 
 [[rule.threat]]
