@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/23"
+updated_date = "2023/08/21"
 
 [rule]
 author = ["Elastic"]
@@ -51,8 +51,8 @@ process where host.os.type == "windows" and event.action == "start" and
                            "?:\\Windows\\SoftwareDistribution\\Download\\Install\\securityhealthsetup.exe") and
  /* Logon Utilities */
  not (process.parent.executable : "?:\\Windows\\System32\\Utilman.exe" and
-     process.executable : ("?:\\Windows\\System32\\osk.exe", 
-                           "?:\\Windows\\System32\\Narrator.exe", 
+     process.executable : ("?:\\Windows\\System32\\osk.exe",
+                           "?:\\Windows\\System32\\Narrator.exe",
                            "?:\\Windows\\System32\\Magnify.exe")) and
 
  not process.parent.executable : "?:\\Windows\\System32\\AtBroker.exe" and
@@ -60,6 +60,10 @@ process where host.os.type == "windows" and event.action == "start" and
  not (process.code_signature.subject_name in
            ("philandro Software GmbH", "Freedom Scientific Inc.", "TeamViewer Germany GmbH", "Projector.is, Inc.",
             "TeamViewer GmbH", "Cisco WebEx LLC", "Dell Inc") and process.code_signature.trusted == true)
+
+ /* AM_Delta_Patch Windows Update */
+ not (process.executable : ("?:\\Windows\\System32\\MpSigStub.exe", "?:\\Windows\\SysWOW64\\MpSigStub.exe") and
+     process.parent.name : ("wuauclt.exe", "wuaucltcore.exe") and user.id : "S-1-5-18") and
 '''
 
 
