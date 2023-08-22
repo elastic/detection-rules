@@ -91,6 +91,11 @@ class Kibana(object):
             body = json.dumps(data)
 
         response = self.session.request(method, url, params=params, data=body, **kwargs)
+
+        if response.status_code != 200:
+            # retry once
+            response = self.session.request(method, url, params=params, data=body, **kwargs)
+
         if error:
             try:
                 response.raise_for_status()
@@ -168,8 +173,9 @@ class Kibana(object):
 
     def add_cookie(self, cookie):
         """Add cookie to be used for auth (such as from an SSO session)."""
-        # the request to /api/status will also add the cookie to the cookie jar upon a successful response
-        self.session.headers['cookie'] = cookie
+        # https://www.elastic.co/guide/en/kibana/7.10/security-settings-kb.html#security-session-and-cookie-settings
+        self.session.headers['sid'] = cookie
+        self.session.cookies.set('sid', cookie)
         self.status = self.get('/api/status')
         self.authenticated = True
 
