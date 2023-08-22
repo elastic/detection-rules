@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/08/21"
+updated_date = "2023/08/22"
 
 [rule]
 author = ["Elastic"]
@@ -59,11 +59,29 @@ process where host.os.type == "windows" and event.action == "start" and
 
  not (process.code_signature.subject_name in
            ("philandro Software GmbH", "Freedom Scientific Inc.", "TeamViewer Germany GmbH", "Projector.is, Inc.",
-            "TeamViewer GmbH", "Cisco WebEx LLC", "Dell Inc") and process.code_signature.trusted == true)
+            "TeamViewer GmbH", "Cisco WebEx LLC", "Dell Inc") and process.code_signature.trusted == true) and 
 
  /* AM_Delta_Patch Windows Update */
  not (process.executable : ("?:\\Windows\\System32\\MpSigStub.exe", "?:\\Windows\\SysWOW64\\MpSigStub.exe") and
-     process.parent.name : ("wuauclt.exe", "wuaucltcore.exe") and user.id : "S-1-5-18") and
+      process.parent.executable : ("?:\\Windows\\System32\\wuauclt.exe", 
+                                   "?:\\Windows\\SysWOW64\\wuauclt.exe", 
+                                   "?:\\Windows\\UUS\\Packages\\Preview\\amd64\\wuaucltcore.exe", 
+                                   "?:\\Windows\\UUS\\amd64\\wuauclt.exe", 
+                                   "?:\\Windows\\UUS\\amd64\\wuaucltcore.exe", 
+                                   "?:\\ProgramData\\Microsoft\\Windows\\UUS\\*\\amd64\wuaucltcore.exe")) and
+ not (process.executable : ("?:\\Windows\\System32\\MpSigStub.exe", "?:\\Windows\\SysWOW64\\MpSigStub.exe") and process.parent.executable == null) and
+
+ /* Other third party SW */
+ not process.parent.executable :
+                   ("?:\\Program Files (x86)\\HEAT Software\\HEAT Remote\\HEATRemoteServer.exe",
+                    "?:\\Program Files (x86)\\VisualCron\\VisualCronService.exe",
+                    "?:\\Program Files\\BinaryDefense\\Vision\\Agent\\bds-vision-agent-app.exe",
+                    "?:\\Program Files\\Tablet\\Wacom\\WacomHost.exe",
+                    "?:\\Program Files (x86)\\LogMeIn\\x64\\LogMeIn.exe",
+                    "?:\\Program Files (x86)\\EMC Captiva\\Captiva Cloud Runtime\\Emc.Captiva.WebCaptureRunner.exe",
+                    "?:\\Program Files\\Freedom Scientific\\*.exe",
+                    "?:\\Program Files (x86)\\Google\\Chrome Remote Desktop\\*\\remoting_host.exe",
+                    "?:\\Program Files (x86)\\GoToAssist Remote Support Customer\\*\\g2ax_comm_customer.exe")
 '''
 
 
