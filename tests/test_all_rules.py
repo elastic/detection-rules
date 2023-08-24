@@ -672,6 +672,10 @@ class TestRuleMetadata(BaseRuleTest):
                 """
             self.fail(err_msg + '\n'.join(failures))
 
+    def test_invalid_keys(self):
+        """Validate that listing all of the rules does not produce a key error"""
+        get_available_tests(print_list=True)
+
     def test_invalid_queries(self):
         invalid_queries_eql = [
             """file where file.fake: (
