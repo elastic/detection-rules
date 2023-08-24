@@ -700,7 +700,6 @@ class TestRuleMetadata(BaseRuleTest):
                 else:
                     raise KeyError(f"Invalid key in RTA metadata: {rule}")
 
-
     def test_invalid_queries(self):
         invalid_queries_eql = [
             """file where file.fake: (
