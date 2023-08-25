@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/27"
+updated_date = "2023/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -44,7 +44,8 @@ event.type == "start" and process.name == "ln" and
     (process.args : ("/etc/cron.d/*", "/etc/cron.daily/*", "/etc/cron.hourly/*", "/etc/cron.weekly/*", "/etc/cron.monthly/*")) or
     (process.args : ("/home/*/.ssh/*", "/root/.ssh/*","/etc/sudoers.d/*", "/dev/shm/*"))
   ) and 
-not user.Ext.real.id == "0" and not group.Ext.real.id == "0"
+  process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and 
+  not user.Ext.real.id == "0" and not group.Ext.real.id == "0"
 '''
 
 [[rule.threat]]
