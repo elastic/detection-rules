@@ -1,0 +1,89 @@
+[metadata]
+creation_date = "2023/08/25"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/08/25"
+bypass_bbr_timing = true
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies unusual child processes for MSSQL processes, which can indicate the exploitation/compromise of SQL instances.
+Attackers may exploit exposed MSSQL instances for initial access or lateral movement.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Unusual Child Process of MSSQL Processes"
+references = [
+    "https://www.microsoft.com/en-us/security/blog/2023/08/24/flax-typhoon-using-legitimate-software-to-quietly-access-taiwanese-organizations/",
+    "https://learn.microsoft.com/en-us/sql/database-engine/configure-windows/configure-windows-service-accounts-and-permissions?view=sql-server-ver16"
+]
+risk_score = 21
+rule_id = "99fc1c9c-d14b-48b2-be6e-3d44c6bfd15b"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Initial Access", "Data Source: Elastic Defend", "Rule Type: BBR"]
+timestamp_override = "event.ingested"
+type = "eql"
+building_block_type = "default"
+
+query = '''
+process where event.type == "start" and host.os.type == "windows" and
+  process.parent.name : (
+    "sqlceip.exe", "sqlservr.exe", "sqlagent.exe",
+    "ReportingServicesService.exe", "MsDtsSrvr.exe",
+    "sqlbrowser.exe"
+  ) and
+  
+  /* Covered by 4ed493fc-d637-4a36-80ff-ac84937e5461 */
+  not (process.name : "cmd.exe" and process.parent.name : "sqlservr.exe")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1505.001"
+name = "SQL Stored Procedures"
+reference = "https://attack.mitre.org/techniques/T1505/001/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1055"
+name = "Process Injection"
+reference = "https://attack.mitre.org/techniques/T1055/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
