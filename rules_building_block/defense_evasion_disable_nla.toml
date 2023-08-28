@@ -10,13 +10,13 @@ bypass_bbr_timing = true
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the disable of Network-Level Authentication (NLA). Network Level Authentication (NLA) is a feature on Windows
+Identifies the attempt to disable Network-Level Authentication (NLA) via registry modification. Network Level Authentication (NLA) is a feature on Windows
 that provides an extra layer of security for Remote Desktop (RDP) connections, as it requires users to authenticate
 before allowing a full RDP session. Attackers can disable NLA to enable persistence methods that require access to the
 Windows sign-in screen without authenticating, such as Accessibility Features persistence methods, like Sticky Keys.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Network-Level Authentication (NLA) Disabled"
@@ -26,14 +26,16 @@ references = [
 risk_score = 21
 rule_id = "db65f5ba-d1ef-4944-b9e8-7e51060c2b42"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "Rule Type: BBR"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "Data Source: Elastic Endgame", "Rule Type: BBR"]
 timestamp_override = "event.ingested"
 building_block_type = "default"
 type = "eql"
 
 query = '''
 registry where host.os.type == "windows" and event.action != "deletion" and
-  registry.path : "HKLM\\SYSTEM\\ControlSet*\\Control\\Terminal Server\\WinStations\\RDP-Tcp\\UserAuthentication" and
+  registry.path :
+       ("HKLM\\SYSTEM\\ControlSet*\\Control\\Terminal Server\\WinStations\\RDP-Tcp\\UserAuthentication", 
+        "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Control\\Terminal Server\\WinStations\\RDP-Tcp\\UserAuthentication" ) and
   registry.data.strings : "0"
 '''
 
@@ -41,14 +43,9 @@ registry where host.os.type == "windows" and event.action != "deletion" and
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1562"
-name = "Impair Defenses"
-reference = "https://attack.mitre.org/techniques/T1562/"
-[[rule.threat.technique.subtechnique]]
-id = "T1562.002"
-name = "Disable Windows Event Logging"
-reference = "https://attack.mitre.org/techniques/T1562/002/"
-
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
 
 
 [rule.threat.tactic]
