@@ -256,6 +256,12 @@ def migrate_to_8_9(version: Version, api_contents: dict) -> dict:
     return strip_additional_properties(version, api_contents)
 
 
+@migrate("8.10")
+def migrate_to_8_10(version: Version, api_contents: dict) -> dict:
+    """Default migration for 8.10."""
+    return strip_additional_properties(version, api_contents)
+
+
 def downgrade(api_contents: dict, target_version: str, current_version: Optional[str] = None) -> dict:
     """Downgrade a rule to a target stack version."""
     from ..packaging import current_stack_version
