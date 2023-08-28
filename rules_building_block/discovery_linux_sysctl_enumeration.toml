@@ -4,21 +4,21 @@ integration = ["auditd_manager"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/31"
+updated_date = "2023/08/24"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects file events involving kernel modules in modprobe configuration files, which may indicate unauthorized access or 
-manipulation of critical kernel modules. Attackers may tamper with the modprobe files to load malicious or unauthorized
-kernel modules, potentially bypassing security measures, escalating privileges, or hiding their activities within the 
-system.
+Monitors file events on sysctl configuration files (e.g., /etc/sysctl.conf, /etc/sysctl.d/*.conf) to identify potential 
+unauthorized access or manipulation of system-level configuration settings. Attackers may tamper with the sysctl 
+configuration files to modify kernel parameters, potentially compromising system stability, performance, or security.
 """
-from = "now-9m"
+from = "now-119m"
+interval = "60m"
 index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Suspicious Modprobe File Event"
+name = "Suspicious Sysctl File Event"
 note = """## Setup
 This rule requires the use of the `auditd_manager` integration. `Auditd_manager` is a tool designed to simplify and enhance the management of the audit subsystem in Linux systems. It provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system. The following steps should be executed in order to install and deploy `auditd_manager` on a Linux system. 
 
@@ -33,26 +33,25 @@ Add Auditd Manager
 `Auditd_manager` subscribes to the kernel and receives events as they occur without any additional configuration. However, if more advanced configuration is required to detect specific behavior, audit rules can be added to the integration in either the "audit rules" configuration box or the "auditd rule files" box by specifying a file to read the audit rules from. 
 
 For this detection rule to trigger, the following additional audit rules are required to be added to the integration:
+
 ```
--w /etc/modprobe.conf -p wa -k modprobe
--w /etc/modprobe.d -p wa -k modprobe
+-w /etc/sysctl.conf -p wa -k sysctl
+-w /etc/sysctl.d -p wa -k sysctl
 ```
 
 Add the newly installed `auditd manager` to an agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
 """
 risk_score = 21
-rule_id = "40ddbcc8-6561-44d9-afc8-eefdbfe0cccd"
+rule_id = "7592c127-89fb-4209-a8f6-f9944dfd7e02"
 severity = "low"
-tags = ["OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery"]
+tags = ["OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Rule Type: BBR"]
 timestamp_override = "event.ingested"
 type = "eql"
+building_block_type = "default"
 query = '''
-file where host.os.type == "linux" and event.action == "opened-file" and
-file.path : ("/etc/modprobe.conf", "/etc/modprobe.d", "/etc/modprobe.d/*") and not 
-(
-  process.name in ("auditbeat", "kmod", "modprobe", "lsmod", "insmod", "modinfo", "rmmod", "dpkg", "cp") or 
-  process.title : "*grep*" or process.parent.pid == 1
-)
+file where host.os.type == "linux" and event.action in ("opened-file", "read-file", "wrote-to-file") and
+file.path : ("/etc/sysctl.conf", "/etc/sysctl.d", "/etc/sysctl.d/*") and 
+not process.name in ("auditbeat", "systemd-sysctl", "dpkg", "dnf", "yum", "rpm", "apt")
 '''
 
 [[rule.threat]]
