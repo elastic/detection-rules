@@ -1,0 +1,52 @@
+[metadata]
+creation_date = "2023/08/24"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/08/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+InstallUtil is a command-line utility that allows for installation and uninstallation of resources by executing specific
+installer components specified in .NET binaries. Adversaries may use InstallUtil to proxy the execution of code through
+a trusted Windows utility.
+"""
+from = "now-119m"
+interval = "60m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "InstallUtil Activity"
+risk_score = 21
+rule_id = "90babaa8-5216-4568-992d-d4a01a105d98"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "Rule Type: BBR"]
+timestamp_override = "event.ingested"
+building_block_type = "default"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.name : "installutil.exe" and not user.id : "S-1-5-18"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.004"
+name = "InstallUtil"
+reference = "https://attack.mitre.org/techniques/T1218/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
