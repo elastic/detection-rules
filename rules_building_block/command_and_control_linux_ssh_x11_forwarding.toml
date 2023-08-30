@@ -1,0 +1,48 @@
+[metadata]
+creation_date = "2023/08/23"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/08/23"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+This rule monitors for X11 forwarding via SSH. X11 forwarding is a feature that allows users to run graphical
+applications on a remote server and display the application's graphical user interface on their local machine. Attackers
+can abuse X11 forwarding for tunneling their GUI-based tools, pivot through compromised systems, and create covert 
+communication channels, enabling lateral movement and facilitating remote control of systems within a network.
+"""
+from = "now-119m"
+interval = "60m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Linux SSH X11 Forwarding"
+references = ["https://book.hacktricks.xyz/generic-methodologies-and-resources/tunneling-and-port-forwarding"]
+risk_score = 21
+rule_id = "29f0cf93-d17c-4b12-b4f3-a433800539fa"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Command and Control", "Data Source: Elastic Defend", "Rule Type: BBR"]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and
+process.name in ("ssh", "sshd") and process.args in ("-X", "-Y") and process.args_count >= 3 and 
+process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
