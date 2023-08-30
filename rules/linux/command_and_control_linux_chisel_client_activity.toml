@@ -1,0 +1,55 @@
+[metadata]
+creation_date = "2023/08/23"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/08/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for common command line flags leveraged by the Chisel client utility followed by a connection attempt.
+Chisel is a command-line utility used for creating and managing TCP and UDP tunnels, enabling port forwarding and secure
+communication between machines. Attackers can abuse the Chisel utility to establish covert communication channels, bypass
+network restrictions, and carry out malicious activities by creating tunnels that allow unauthorized access to internal
+systems.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Protocol Tunneling via Chisel Client"
+references = [
+    "https://blog.bitsadmin.com/living-off-the-foreign-land-windows-as-offensive-platform",
+    "https://book.hacktricks.xyz/generic-methodologies-and-resources/tunneling-and-port-forwarding"
+    ]
+risk_score = 47
+rule_id = "3f12325a-4cc6-410b-8d4c-9fbbeb744cfd"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Command and Control", "Data Source: Elastic Defend"]
+type = "eql"
+query = '''
+sequence by host.id, process.entity_id with maxspan=1s
+  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+   process.args == "client" and process.args : ("R*", "*:*", "*socks*", "*.*") and process.args_count >= 4 and 
+   process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")]
+  [network where host.os.type == "linux" and event.action == "connection_attempted" and event.type == "start" and 
+   destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1" and 
+   not process.name : (
+     "python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk", "java", "telnet",
+     "ftp", "socat", "curl", "wget", "dpkg", "docker", "dockerd", "yum", "apt", "rpm", "dnf", "ssh", "sshd")]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
