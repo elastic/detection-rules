@@ -920,11 +920,6 @@ class TestRuleTiming(BaseRuleTest):
                 'msg': ('eql rules include beats indexes. Non-elastic-agent indexes do not add the `event.ingested` '
                         'field and there is no default fallback to @timestamp for EQL rules <8.2, so the override '
                         'should be removed or a config entry included to manually add it in a custom pipeline')
-            },
-            'gte_82_eql': {
-                'errors': [],
-                'msg': ('should have the `timestamp_override` set to `event.ingested` - default fallback to '
-                        '@timestamp was added in 8.2')
             }
         }
 
@@ -961,9 +956,9 @@ class TestRuleTiming(BaseRuleTest):
                             errors['lt_82_eql']['errors'].append(rule_str)
                         elif beats_indexes and has_event_ingested and pipeline_config not in config:
                             errors['lt_82_eql_beats']['errors'].append(rule_str)
-                    else:
-                        if not has_event_ingested:
-                            errors['gte_82_eql']['errors'].append(rule_str)
+                        else:
+                            if not has_event_ingested:
+                                errors['lt_82_eql']['errors'].append(rule_str)
 
         if any([v['errors'] for k, v in errors.items()]):
             err_strings = ['errors with `timestamp_override = "event.ingested"`']
