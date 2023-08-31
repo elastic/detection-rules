@@ -21,17 +21,16 @@ note = """## Triage and analysis
 
 ### Investigating Attempt to Disable IPTables or Firewall
 
-Iptables is a firewall program for Linux. It will monitor traffic from and to your server using tables.
-These tables contain sets of rules, called chains, that will filter incoming and outgoing data packets.
-The rule identifies executions to disable iptables or firewalld in an attempt to affect how a host is allowed to
-receive or send network traffic.
+Iptables is a Linux firewall program that uses tables to filter incoming and outgoing network traffic.
+Tables contain chains, which are sets of rules that monitor data packets.
+This rule identifies efforts to turn off iptables or firewalld to prevent hosts from receiving or sending network traffic.
 
 #### Possible investigation steps
 
 - Identify the session entry leader and session user.
-- Examine the contents of session leading to the iptables or firewalld disable exectuions via the Session View.
-- Examine the command execution pattern within the active session, which may lead to discovering suspicious activities.
-- Examine processes or services started after the iptables or firewalld service has been disabled, which could indicate malicious activity.
+- Use [Session View](https://www.elastic.co/guide/en/security/master/session-view.html) to examine the session and locate commands that turned off iptables or firewalld.
+- Examine the command execution pattern within the session for suspicious activities.
+- Examine processes and services that ran after iptables or firewalld were turned off. They could be malicious activity.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 
 ### False positive analysis
@@ -41,9 +40,9 @@ receive or send network traffic.
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
-- Ensure active session(s) on the host(s) are terminated as the malicious user could be running malicious process or services trying to affect host network traffic flow.
-- Isolate the involved host to prevent further post-compromise behavior.
-- Run a check across the process and services that could have been started after iptables or firewalld being disabled , terminate all such suspicious network process by the user in scrutiny.
+- Terminate active sessions on the hosts to prevent attackers from manipulating network traffic flow.
+- Isolate the affected host to prevent further post-compromise behavior.
+- Check process and services that could have been started after iptables or firewalld were turned off, and terminate suspicious network processes ran by the suspicious user.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """

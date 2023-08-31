@@ -22,17 +22,17 @@ note = """## Triage and analysis
 ### Investigating Attempt to Disable Syslog Service
 
 Syslog is the general standard for logging system and program messages in the Linux environment.
-This service constitutes the system log service daemon, where any program can utilise its functionality for logging
-debug, security, normal operation activities in addition to the Linux kernel messages. This rule identifies the
+This service constitutes the system log service daemon, where any program can utilize its functionality for logging,
+debugging, security, normal operation activities, and Linux kernel messages. This rule identifies the
 execution of commands to disable the syslog service. Attackers may attempt to disrupt event logging to evade security
-controls for process that use this service daemon for logs.
+controls for processes that use this service daemon for logs.
 
 #### Possible investigation steps
 
 - Identify the session entry leader and session user.
-- Examine the contents of session leading to the syslog service disable exectuions via the Session View.
-- Examine the command execution pattern in the session, which may lead to suspicious activities.
-- Examine process or services started after the syslog service has been disabled, which could indicate malicious activity intent.
+- Use [Session View](https://www.elastic.co/guide/en/security/master/session-view.html) to examine the session and locate commands that turned off the syslog service.
+- Examine the command execution pattern within the session for suspicious activities.
+- Examine processes and services that ran after the syslog service was turned off. They could be malicious activity.
 - Investigate any other alerts or malicious activities associated with the user/host during the past 48 hours.
 
 ### False positive analysis
@@ -42,9 +42,9 @@ controls for process that use this service daemon for logs.
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior.
-- Run a check across the processes and services that could have been started after syslog was disabled, terminate all discovered suspicious processes.
-- Ensure that all suspicious active sessions on the host are terminated as the malicious user could use an active session to regain control.
+- Isolate the affected host to prevent further post-compromise behavior.
+- Check process and services that could have been started after the syslog service was turned off, and terminate suspicious network processes.
+- Terminate active sessions on the hosts to prevent attackers from regaining control.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
