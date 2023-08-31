@@ -13,7 +13,7 @@ from . import common
 
 # Definitions
 CURRENT_DIR = Path(__file__).resolve().parent
-RULE_META_LIST = List[Dict[Literal["rule_id", "rule_name"], str]]
+RULE_META_KEYS = ["rule_id", "rule_name"]
 
 @dataclass
 class RtaMetadata:
@@ -21,37 +21,36 @@ class RtaMetadata:
 
     uuid: str
     platforms: List[str]
-
     path: Path = field(init=False)
     name: str = field(init=False)
-    endpoint: Optional[RULE_META_LIST] = None
-    siem: Optional[RULE_META_LIST] = None
+    endpoint: Optional[List[Dict[str, str]]] = None
+    siem: Optional[List[Dict[str, str]]] = None
     techniques: Optional[List[str]] = None
 
     def __post_init__(self):
         """Set the path and name based on the callee and check for platforms."""
 
-        # set the path of the callee
+        # Set the path of the callee
         for frame in inspect.stack():
             self.path = Path(frame.filename)
             self.name = self.path.name
             if frame.function == "<module>" and valid_rta_file(self.path):
                 break
 
-        # check for valid platforms
+        # Check for valid platforms
         if not self.platforms and (self.endpoint or self.siem):
             raise ValueError(f"RTA {self.name} has no platforms specified but has rule info provided.")
 
-        # check for valid rule metadata
-        if self.endpoint:
-            for rule in self.endpoint:
-                if sorted(list(rule.keys())) != ['rule_id', 'rule_name']:
-                    raise ValueError(f"RTA {self.name} has invalid endpoint field in metadata.")
-        if self.siem:
-            for rule in self.siem:
-                if sorted(list(rule.keys())) != ['rule_id', 'rule_name']:
-                    raise ValueError(f"RTA {self.name} has invalid siem field in metadata.")
+        # Check for valid rule metadata
+        self._validate_rule_metadata(self.endpoint, "endpoint")
+        self._validate_rule_metadata(self.siem, "siem")
 
+    def _validate_rule_metadata(self, rules: Optional[List[Dict[str, str]]], field_name: str):
+        """Check for valid rule metadata"""
+        if rules:
+            for rule in rules:
+                if sorted(rule.keys()) != RULE_META_KEYS:
+                    raise ValueError(f"RTA {self.name} has invalid {field_name} field in metadata.")
 
 def valid_rta_file(file_path: str) -> bool:
     return file_path.stem not in ["init", "common", "main"] and not file_path.name.startswith("_")
