@@ -1,0 +1,45 @@
+[metadata]
+creation_date = "2023/08/30"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/08/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for the execution of a suspicious sudo command that is leveraged in CVE-2019-14287 to escalate 
+privileges to root. Sudo does not verify the presence of the designated user ID and proceeds to execute using a user ID
+that can be chosen arbitrarily. By using the sudo privileges, the command "sudo -u#-1" translates to an ID of 0, 
+representing the root user. This exploit may work for sudo versions prior to v1.28.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Sudo Privilege Escalation via CVE-2019-14287"
+references = ["https://www.exploit-db.com/exploits/47502"]
+risk_score = 47
+rule_id = "8af5b42f-8d74-48c8-a8d0-6d14b4197288"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Elastic Defend", "Use Case: Vulnerability"]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+process.name == "sudo" and process.args == "-u#-1"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
