@@ -672,34 +672,6 @@ class TestRuleMetadata(BaseRuleTest):
                 """
             self.fail(err_msg + '\n'.join(failures))
 
-    def test_invalid_keys(self):
-        """Validate that listing all of the rules does not produce a key error"""
-        test_metadata = get_available_tests()
-
-        for test in test_metadata.values():
-            rule_list = []
-            if test["endpoint"] and test["siem"]:
-                rule_list = test["endpoint"] + test["siem"]
-            elif test["endpoint"]:
-                rule_list = test["endpoint"]
-            elif test["siem"]:
-                rule_list = test["siem"]
-            else:
-                rule_list = [{"rule_name": "", "rule_id": ""}]
-
-            if set(["name", "platforms"]).issubset(set(test.keys())) and set(["rule_id", "rule_name"]).issubset(
-                set(rule_list[0].keys())
-            ):
-                pass
-            else:
-                raise KeyError(f"Invalid key in RTA metadata: {rule_list}")
-
-            for rule in rule_list[1:]:
-                if set(["rule_id", "rule_name"]).issubset(set(rule.keys())):
-                    pass
-                else:
-                    raise KeyError(f"Invalid key in RTA metadata: {rule}")
-
     def test_invalid_queries(self):
         invalid_queries_eql = [
             """file where file.fake: (

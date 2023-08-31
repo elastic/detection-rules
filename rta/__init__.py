@@ -7,12 +7,13 @@ import importlib
 import inspect
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from . import common
 
+# Definitions
 CURRENT_DIR = Path(__file__).resolve().parent
-
+RULE_META_LIST = List[Dict[Literal["rule_id", "rule_name"], str]]
 
 @dataclass
 class RtaMetadata:
@@ -23,8 +24,8 @@ class RtaMetadata:
 
     path: Path = field(init=False)
     name: str = field(init=False)
-    endpoint: Optional[List[dict]] = None
-    siem: Optional[List[dict]] = None
+    endpoint: Optional[RULE_META_LIST] = None
+    siem: Optional[RULE_META_LIST] = None
     techniques: Optional[List[str]] = None
 
     def __post_init__(self):
@@ -40,6 +41,16 @@ class RtaMetadata:
         # check for valid platforms
         if not self.platforms and (self.endpoint or self.siem):
             raise ValueError(f"RTA {self.name} has no platforms specified but has rule info provided.")
+
+        # check for valid rule metadata
+        if self.endpoint:
+            for rule in self.endpoint:
+                if sorted(list(rule.keys())) != ['rule_id', 'rule_name']:
+                    raise ValueError(f"RTA {self.name} has invalid endpoint field in metadata.")
+        if self.siem:
+            for rule in self.siem:
+                if sorted(list(rule.keys())) != ['rule_id', 'rule_name']:
+                    raise ValueError(f"RTA {self.name} has invalid siem field in metadata.")
 
 
 def valid_rta_file(file_path: str) -> bool:
