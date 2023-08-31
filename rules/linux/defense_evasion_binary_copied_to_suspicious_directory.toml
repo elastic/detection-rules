@@ -1,0 +1,68 @@
+[metadata]
+creation_date = "2023/08/29"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/08/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for the copying or moving of a system binary to a suspicious directory. Adversaries may copy/move 
+and rename system binaries to evade detection. Copying a system binary to a different location should not occur often,
+so if it does, the activity should be investigated. 
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "System Binary Copied and/or Moved to Suspicious Directory"
+risk_score = 21
+rule_id = "fda1d332-5e08-4f27-8a9b-8c802e3292a6"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
+type = "eql"
+query = '''
+sequence by host.id, process.entity_id with maxspan=1s
+  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+   process.name in ("cp", "mv", "cat") and process.args : (
+   // Shells
+   "/bin/*sh", "/usr/bin/*sh", 
+
+   // Interpreters
+   "/bin/python*", "/usr/bin/python*", "/bin/php*", "/usr/bin/php*", "/bin/ruby*", "/usr/bin/ruby*", "/bin/perl*",
+   "/usr/bin/perl*", "/bin/lua*", "/usr/bin/lua*", "/bin/java*", "/usr/bin/java*", 
+
+   // Compilers
+   "/bin/gcc*", "/usr/bin/gcc*", "/bin/g++*", "/usr/bin/g++*", "/bin/cc", "/usr/bin/cc",
+
+   // Suspicious utilities
+   "/bin/nc", "/usr/bin/nc", "/bin/ncat", "/usr/bin/ncat", "/bin/netcat", "/usr/bin/netcat", "/bin/nc.openbsd",
+   "/usr/bin/nc.openbsd", "/bin/*awk", "/usr/bin/*awk", "/bin/socat", "/usr/bin/socat", "/bin/openssl",
+   "/usr/bin/openssl", "/bin/telnet", "/usr/bin/telnet", "/bin/mkfifo", "/usr/bin/mkfifo", "/bin/mknod",
+   "/usr/bin/mknod", "/bin/ping*", "/usr/bin/ping*", "/bin/nmap", "/usr/bin/nmap",
+
+   // System utilities
+   "/bin/ls", "/usr/bin/ls", "/bin/cat", "/usr/bin/cat", "/bin/mv", "/usr/bin/mv", "/bin/cp", "/usr/bin/cp",
+   "/bin/sudo", "/usr/bin/sudo", "/bin/curl", "/usr/bin/curl", "/bin/wget", "/usr/bin/wget", "/bin/tmux",
+   "/usr/bin/tmux", "/bin/screen", "/usr/bin/screen", "/bin/ssh", "/usr/bin/ssh", "/bin/ftp", "/usr/bin/ftp"
+  )]
+  [file where host.os.type == "linux" and event.action == "creation" and file.path : (
+    "/dev/shm/*", "/run/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/var/www/*", "/proc/*/fd/*"
+  )]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1564"
+name = "Hide Artifacts"
+reference = "https://attack.mitre.org/techniques/T1564/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
