@@ -7,7 +7,7 @@ import importlib
 import inspect
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Optional
 
 from . import common
 
