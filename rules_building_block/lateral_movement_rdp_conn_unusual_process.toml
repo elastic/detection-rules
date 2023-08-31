@@ -10,7 +10,7 @@ updated_date = "2023/08/29"
 author = ["Elastic"]
 description = """
 Adversaries may attempt to connect to a remote system over Windows Remote Desktop Protocol (RDP) to achieve lateral
-movement. Sometimes, an adversary may avoid using the Microsoft Terminal Services Client (mstsc.exe) binary to establish
+movement. Adversaries may avoid using the Microsoft Terminal Services Client (mstsc.exe) binary to establish
 an RDP connection to evade detection.
 """
 from = "now-119m"
@@ -22,16 +22,16 @@ name = "Potential Outgoing RDP Connection by Unusual Process"
 risk_score = 21
 rule_id = "8e39f54e-910b-4adb-a87e-494fbba5fb65"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 building_block_type = "default"
 type = "eql"
 
 query = '''
 network where host.os.type == "windows" and
-  event.action : "connection_attempted" and destination.port == 3389 and
+  event.action == "connection_attempted" and destination.port == 3389 and
   not process.executable : "?:\\Windows\\System32\\mstsc.exe" and
-  (destination.ip != "::1" and destination.ip != "127.0.0.1")
+  destination.ip != "::1" and destination.ip != "127.0.0.1"
 '''
 
 
