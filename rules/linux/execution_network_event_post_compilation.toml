@@ -1,0 +1,64 @@
+[metadata]
+creation_date = "2023/08/28"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/08/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors a sequence involving a program compilation event followed by its execution and a subsequent network 
+connection event. This behavior can indicate the set up of a reverse tcp connection to a command-and-control server. 
+Attackers may spawn reverse shells to establish persistence onto a target system.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Network Connection via Recently Compiled Executable"
+risk_score = 47
+rule_id = "64cfca9e-0f6f-4048-8251-9ec56a055e9e"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Defend"]
+type = "eql"
+query = '''
+sequence by host.id with maxspan=1m
+  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+   process.name in ("gcc", "g++", "cc")] by process.args
+  [file where host.os.type == "linux" and event.action == "creation" and process.name == "ld"] by file.name
+  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start"] by process.name
+  [network where host.os.type == "linux" and event.action == "connection_attempted"] by process.name
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Execution"
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Command and Control"
+id = "TA0011"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat.technique]]
+name = "Application Layer Protocol"
+id = "T1071"
+reference = "https://attack.mitre.org/techniques/T1071/"
