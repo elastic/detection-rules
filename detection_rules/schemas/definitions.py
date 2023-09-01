@@ -30,7 +30,7 @@ BRANCH_PATTERN = f'{VERSION_PATTERN}|^master$'
 ELASTICSEARCH_EQL_FEATURES = {
     "allow_runs": (Version.parse('7.16.0'), None),
     "allow_sample": (Version.parse('8.6.0'), None),
-    "validate_optional_fields": (Version.parse('7.16.0'), None)
+    "elasticsearch_validate_optional_fields": (Version.parse('7.16.0'), None)
 }
 NON_DATASET_PACKAGES = ['apm', 'endpoint', 'system', 'windows', 'cloud_defend', 'network_traffic']
 NON_PUBLIC_FIELDS = {
