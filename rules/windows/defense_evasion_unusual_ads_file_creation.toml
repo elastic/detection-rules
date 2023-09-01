@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/07/17"
 
 [transform]
 [[transform.osquery]]
@@ -114,7 +114,9 @@ query = '''
 file where host.os.type == "windows" and event.type == "creation" and
 
   file.path : "C:\\*:*" and
-  not file.path : "C:\\*:zone.identifier*" and
+  not file.path : 
+          ("C:\\*:zone.identifier*",
+           "C:\\users\\*\\appdata\\roaming\\microsoft\\teams\\old_weblogs_*:$DATA") and
 
   not process.executable :
           ("?:\\windows\\System32\\svchost.exe",
