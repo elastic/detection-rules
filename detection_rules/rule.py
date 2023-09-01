@@ -717,6 +717,11 @@ class EQLRuleData(QueryRuleData):
             return convert_time_span(lookback)
 
     @cached_property
+    def is_sample(self) -> bool:
+        """Checks if the current rule is a sample-based rule."""
+        return eql.utils.get_query_type(self.ast) == 'sample'
+
+    @cached_property
     def is_sequence(self) -> bool:
         """Checks if the current rule is a sequence-based rule."""
         return eql.utils.get_query_type(self.ast) == 'sequence'
@@ -1323,7 +1328,11 @@ def downgrade_contents_from_rule(rule: TOMLRule, target_version: str, replace_id
 
 def set_eql_config(min_stack_version: str) -> eql.parser.ParserConfig:
     """Based on the rule version set the eql functions allowed."""
-    min_stack_version = Version.parse(min_stack_version, optional_minor_and_patch=True)
+    if not min_stack_version:
+        min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+    else:
+        min_stack_version = Version.parse(min_stack_version, optional_minor_and_patch=True)
+
     config = eql.parser.ParserConfig()
 
     for feature, version_range in definitions.ELASTICSEARCH_EQL_FEATURES.items():
@@ -1341,7 +1350,7 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
     if language in ('kuery', 'eql'):
         # TODO: remove once py-eql supports ipv6 for cidrmatch
 
-        config = set_eql_config(rule.contents.metadata.min_stack_version)
+        config = set_eql_config(rule.contents.metadata.get('min_stack_version'))
         with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, config:
             parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
 

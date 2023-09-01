@@ -159,7 +159,9 @@ class EQLValidator(QueryValidator):
 
     @cached_property
     def ast(self) -> eql.ast.Expression:
-        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+        latest_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+        config = set_eql_config(str(latest_version))
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, config:
             return eql.parse_query(self.query)
 
     def text_fields(self, eql_schema: Union[ecs.KqlSchema2Eql, endgame.EndgameSchema]) -> List[str]:
@@ -301,7 +303,8 @@ class EQLValidator(QueryValidator):
         try:
             config = set_eql_config(min_stack_version)
             with config, schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
-                eql.parse_query(self.query)
+                p = eql.parse_query(self.query)
+                print(p)
         except eql.EqlParseError as exc:
             message = exc.error_msg
             trailer = err_trailer
