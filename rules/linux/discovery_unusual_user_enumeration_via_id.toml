@@ -1,0 +1,43 @@
+[metadata]
+creation_date = "2023/08/29"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/08/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for a sequence of 20 "id" command executions within 1 second by the same parent process. This
+behavior is unusual, and may be indicative of the execution of an enumeration script such as LinPEAS or LinEnum. These 
+scripts leverage the "id" command to enumerate the privileges of all users present on the system.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Unusual User Privilege Enumeration via id"
+risk_score = 21
+rule_id = "afa135c0-a365-43ab-aa35-fd86df314a47"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Data Source: Elastic Defend"]
+type = "eql"
+query = '''
+sequence by host.id, process.parent.entity_id with maxspan=1s
+  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+   process.name == "id" and process.args_count == 2] with runs=20
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1033"
+name = "System Owner/User Discovery"
+reference = "https://attack.mitre.org/techniques/T1033/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
