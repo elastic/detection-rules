@@ -265,7 +265,7 @@ class TestRuleTags(BaseRuleTest):
         """Test that expected tags are present within rules."""
 
         required_tags_map = {
-            'logs-endpoint.events.*': {'all': ['Domain: Endpoint']},
+            'logs-endpoint.events.*': {'all': ['Domain: Endpoint', 'Data Source: Elastic Defend']},
             'endgame-*': {'all': ['Data Source: Elastic Endgame']},
             'logs-aws*': {'all': ['Data Source: AWS', 'Data Source: Amazon Web Services', 'Domain: Cloud']},
             'logs-azure*': {'all': ['Data Source: Azure', 'Domain: Cloud']},
@@ -423,6 +423,18 @@ class TestRuleTags(BaseRuleTest):
              if not any(prefix in tag for prefix in expected_prefixes)]
         if invalid:
             self.fail(f'Rules with invalid tags:\n{invalid}')
+
+    def test_no_duplicate_tags(self):
+        """Ensure no rules have duplicate tags."""
+        invalid = []
+
+        for rule in self.all_rules:
+            rule_tags = rule.contents.data.tags
+            if len(rule_tags) != len(set(rule_tags)):
+                invalid.append(self.rule_str(rule))
+
+        if invalid:
+            self.fail(f'Rules with duplicate tags:\n{invalid}')
 
 
 class TestRuleTimelines(BaseRuleTest):

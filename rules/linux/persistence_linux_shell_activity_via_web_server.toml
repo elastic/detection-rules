@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/20"
+updated_date = "2023/08/24"
 
 [transform]
 [[transform.osquery]]
@@ -105,7 +105,7 @@ references = [
 risk_score = 73
 rule_id = "f16fca20-4d6c-43f9-aec1-20b6de3b0aeb"
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Initial Access", "Data Source: Elastic Endgame", "Use Case: Vulnerability", "Resources: Investigation Guide"]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Initial Access", "Data Source: Elastic Endgame", "Use Case: Vulnerability", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
@@ -122,7 +122,8 @@ event.action in ("exec", "exec_event") and process.parent.executable : (
   "*/bin/catalina.sh"
 ) and
 process.name : ("*sh", "python*", "perl", "php*", "tmux") and
-process.args : ("whoami", "id", "uname", "cat", "hostname", "ip", "curl", "wget", "pwd")
+process.args : ("whoami", "id", "uname", "cat", "hostname", "ip", "curl", "wget", "pwd") and
+not process.name == "phpquery"
 '''
 
 [[rule.threat]]
