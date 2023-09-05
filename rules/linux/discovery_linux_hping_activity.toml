@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -20,19 +20,20 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Hping Process Activity"
 references = ["https://en.wikipedia.org/wiki/Hping"]
-risk_score = 73
+risk_score = 47
 rule_id = "90169566-2260-4824-b8e4-8615c3b4ed52"
 severity = "high"
 tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and host.os.type:linux and event.type:(start or process_started) and process.name:(hping or hping2 or hping3)
+process where host.os.type == "linux" and event.type == "start"
+and process.name in ("hping", "hping2", "hping3")
 '''
 
 

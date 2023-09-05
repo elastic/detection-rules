@@ -424,6 +424,18 @@ class TestRuleTags(BaseRuleTest):
         if invalid:
             self.fail(f'Rules with invalid tags:\n{invalid}')
 
+    def test_no_duplicate_tags(self):
+        """Ensure no rules have duplicate tags."""
+        invalid = []
+
+        for rule in self.all_rules:
+            rule_tags = rule.contents.data.tags
+            if len(rule_tags) != len(set(rule_tags)):
+                invalid.append(self.rule_str(rule))
+
+        if invalid:
+            self.fail(f'Rules with duplicate tags:\n{invalid}')
+
 
 class TestRuleTimelines(BaseRuleTest):
     """Test timelines in rules are valid."""

@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/07/19"
 
 [rule]
 author = ["Elastic"]
@@ -57,7 +57,8 @@ type = "threshold"
 
 query = '''
 event.category:process and host.os.type:windows and event.type:start and process.name:(net.exe or sc.exe or taskkill.exe) and
- process.args:(stop or pause or delete or "/PID" or "/IM" or "/T" or "/F" or "/t" or "/f" or "/im" or "/pid")
+ process.args:(stop or pause or delete or "/PID" or "/IM" or "/T" or "/F" or "/t" or "/f" or "/im" or "/pid") and
+ not process.parent.name:osquerybeat.exe
 '''
 
 

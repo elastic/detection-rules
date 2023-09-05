@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/13"
+updated_date = "2023/08/16"
 
 [rule]
 author = ["Elastic"]
@@ -29,13 +29,12 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
   (
-   process.name == "reg.exe" and process.args : "query" or
-   (process.name: ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and
-    (process.args: ("*Get-ChildItem*", "*Get-Item*", "*Get-ItemProperty*") and
-     process.args : (
-      "*HKLM*", "*HKCU*", "*HKEY_LOCAL_MACHINE*", "*HKEY_CURRENT_USER*", "Registry::"
-   )))
-  )
+    process.name :("PsList.exe", "qprocess.exe") or 
+   (process.name : "powershell.exe" and process.args : ("*get-process*", "*Win32_Process*")) or 
+   (process.name : "wmic.exe" and process.args : ("process", "*Win32_Process*")) or
+   (process.name : "tasklist.exe" and not process.args : ("pid eq*")) or
+   (process.name : "query.exe" and process.args : "process")
+  ) and not user.id : "S-1-5-18"
 '''
 
 
