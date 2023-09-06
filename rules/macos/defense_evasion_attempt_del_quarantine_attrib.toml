@@ -3,8 +3,8 @@ creation_date = "2020/08/14"
 integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+min_stack_version = "8.5.0"
+updated_date = "2023/09/06"
 
 [rule]
 author = ["Elastic"]
@@ -40,9 +40,14 @@ process where host.os.type == "macos" and event.type in ("start", "process_start
     (process.args : "com.apple.quarantine" and process.args : ("-d", "-w")) or
     (process.args : "-c") or
     (process.command_line : ("/bin/bash -c xattr -c *", "/bin/zsh -c xattr -c *", "/bin/sh -c xattr -c *"))
-  ) and not process.args_count > 12
+  ) and not process.args_count > 12 and
+  not process.Ext.effective_parent.executable : ("/Users/*/Library/Google/GoogleSoftwareUpdate/GoogleSoftwareUpdate.bundle/Contents/Helpers/GoogleSoftwareUpdateAgent.app/Contents/MacOS/GoogleSoftwareUpdateAgent",
+                                                 "/Library/Google/GoogleSoftwareUpdate/GoogleSoftwareUpdate.bundle/Contents/Helpers/GoogleSoftwareUpdateDaemon",
+                                                 "/Applications/Keeper Password Manager.app/Contents/MacOS/Keeper Password Manager",
+                                                 "/Applications/1Password.app/Contents/XPCServices/OP Updater Service.xpc/Contents/Helpers/1Password Updater.app/Contents/MacOS/1Password Updater",
+                                                 "/Users/*/Library/Microsoft/EdgeUpdater/*/EdgeUpdater.app/Contents/MacOS/EdgeUpdater",
+                                                 "/Applications/Lark.app/Contents/MacOS/Lark")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
