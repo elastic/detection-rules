@@ -304,7 +304,6 @@ class EQLValidator(QueryValidator):
             config = set_eql_config(min_stack_version)
             with config, schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
                 p = eql.parse_query(self.query)
-                print(p)
         except eql.EqlParseError as exc:
             message = exc.error_msg
             trailer = err_trailer
