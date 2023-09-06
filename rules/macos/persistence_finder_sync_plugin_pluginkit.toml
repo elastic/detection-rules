@@ -30,7 +30,7 @@ type = "eql"
 
 query = '''
 process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name : "pluginkit" and
-  process.args : "-e" and process.args : "use" and process.args : "-i" and
+  process.args : "-e" and process.args : "use" and process.args : "-i" and process.parent.name : ("sh", "bash", "zsh") and
   not process.args :
   (
     "com.google.GoogleDrive.FinderSyncAPIExtension",
@@ -41,6 +41,7 @@ process where host.os.type == "macos" and event.type in ("start", "process_start
     "com.pcloud.pcloud.macos.pCloudFinderExt",
     "com.setapp.DesktopClient.SetappAgent.FinderSyncExt",
     "com.boxcryptor.osx.Rednif",
+    "com.checkpoint.eps.AMFinderExtensions.Scan-with-Check-Point-Anti-Malware",
     "com.adobe.accmac.ACCFinderSync",
     "com.microsoft.OneDrive.FinderSync",
     "com.insynchq.Insync.Insync-Finder-Integration",
