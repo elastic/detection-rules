@@ -4,15 +4,15 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/09/06"
 
 [rule]
 author = ["Elastic"]
 description = """
 The hosts file on endpoints is used to control manual IP address to hostname resolutions. The hosts file is the first
 point of lookup for DNS hostname resolution so if adversaries can modify the endpoint hosts file, they can route traffic
-to malicious infrastructure. This rule detects modifications to the hosts file on Microsoft Windows, Linux (Ubuntu or
-RHEL) and macOS systems.
+to malicious infrastructure. This rule detects modifications to the hosts file on Microsoft Windows, and Linux (Ubuntu or
+RHEL).
 """
 from = "now-9m"
 index = ["auditbeat-*", "winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
@@ -60,7 +60,7 @@ references = ["https://www.elastic.co/guide/en/beats/auditbeat/current/auditbeat
 risk_score = 47
 rule_id = "9c260313-c811-4ec8-ab89-8f6530e0246c"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "OS: Windows", "OS: macOS", "Use Case: Threat Detection", "Tactic: Impact", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint", "OS: Linux", "OS: Windows", "Use Case: Threat Detection", "Tactic: Impact", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
 timeline_id = "4d4c0b59-ea83-483f-b8c1-8c360ee53c5c"
 timeline_title = "Comprehensive File Timeline"
 timestamp_override = "event.ingested"
@@ -73,7 +73,7 @@ any where
      miss this, which is the purpose of the process + command line args logic below */
   (
    event.category == "file" and event.type in ("change", "creation") and
-     file.path : ("/private/etc/hosts", "/etc/hosts", "?:\\Windows\\System32\\drivers\\etc\\hosts")
+     file.path : ("/etc/hosts", "?:\\Windows\\System32\\drivers\\etc\\hosts")
   )
   or
 
