@@ -3,8 +3,8 @@ creation_date = "2020/12/23"
 integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+min_stack_version = "8.5.0"
+updated_date = "2023/09/06"
 
 [rule]
 author = ["Elastic"]
@@ -48,7 +48,8 @@ process where host.os.type == "macos" and event.type in ("start", "process_start
       "*GIO_LAUNCHED_DESKTOP_FILE_PID=$$*",
       "/opt/homebrew/*",
       "/usr/local/*brew*"
-    )
+    ) and
+  not process.Ext.effective_parent.name : ("Google Chrome", "Microsoft Edge", "Google Chrome Helper (Renderer)", "Safari", "Firefox")
 '''
 
 
