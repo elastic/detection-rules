@@ -3,8 +3,8 @@ creation_date = "2020/12/07"
 integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+min_stack_version = "8.5.0"
+updated_date = "2023/09/05"
 
 [rule]
 author = ["Elastic"]
@@ -28,9 +28,13 @@ tags = ["Domain: Endpoint", "OS: macOS", "Use Case: Threat Detection", "Tactic: 
 type = "eql"
 
 query = '''
-sequence by host.id with maxspan=5s
- [process where host.os.type == "macos" and event.type in ("start", "process_started", "info") and process.name == "osascript"] by process.pid
- [process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name == "sh" and process.args == "-c"] by process.parent.pid
+process where host.os.type == "macos" and event.type in ("start", "process_started") and 
+ (process.name : ("sh", "zsh", "bash") and 
+  process.args == "-c" and 
+  (process.Ext.effective_parent.name : "osascript" or process.parent.name : "osascript") or 
+ (process.name : "osascript" and 
+  process.args : "-e" and 
+  process.args : "do shell script*"))
 '''
 
 
