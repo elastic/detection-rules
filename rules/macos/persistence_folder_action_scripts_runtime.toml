@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/09/06"
 
 [rule]
 author = ["Elastic"]
@@ -26,13 +26,11 @@ tags = ["Domain: Endpoint", "OS: macOS", "Use Case: Threat Detection", "Tactic: 
 type = "eql"
 
 query = '''
-sequence by host.id with maxspan=5s
- [process where host.os.type == "macos" and event.type in ("start", "process_started", "info") and process.name == "com.apple.foundation.UserScriptService"] by process.pid
- [process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name in ("osascript", "python", "tcl", "node", "perl", "ruby", "php", "bash", "csh", "zsh", "sh") and
-  not process.args : "/Users/*/Library/Application Support/iTerm2/Scripts/AutoLaunch/*.scpt"
- ] by process.parent.pid
+process where host.os.type == "macos" and event.type in ("start", "process_started", "info") and 
+ process.parent.name == "com.apple.foundation.UserScriptService" and 
+ process.name in ("osascript", "python", "tcl", "node", "perl", "ruby", "php", "bash", "csh", "zsh", "sh") and
+ not process.args : "/Users/*/Library/Application Support/iTerm2/Scripts/AutoLaunch/*.scpt"
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
