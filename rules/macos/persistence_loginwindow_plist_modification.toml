@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/09/06"
 
 [rule]
 author = ["Elastic"]
@@ -30,11 +30,10 @@ type = "query"
 
 query = '''
 event.category:file and host.os.type:macos and not event.type:"deletion" and
- file.name:"com.apple.loginwindow.plist" and
+ file.path:(/Library/Preferences/com.apple.loginwindow.plist or /Users/*/Library/Preferences/com.apple.loginwindow.plist) and
  process.name:(* and not (systemmigrationd or DesktopServicesHelper or diskmanagementd or rsync or launchd or cfprefsd or xpcproxy or ManagedClient or MCXCompositor or backupd or "iMazing Profile Editor"
 ))
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
