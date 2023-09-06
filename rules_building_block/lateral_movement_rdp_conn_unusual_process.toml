@@ -1,0 +1,54 @@
+[metadata]
+creation_date = "2023/08/29"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/08/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Adversaries may attempt to connect to a remote system over Windows Remote Desktop Protocol (RDP) to achieve lateral
+movement. Adversaries may avoid using the Microsoft Terminal Services Client (mstsc.exe) binary to establish
+an RDP connection to evade detection.
+"""
+from = "now-119m"
+interval = "60m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Outgoing RDP Connection by Unusual Process"
+risk_score = 21
+rule_id = "8e39f54e-910b-4adb-a87e-494fbba5fb65"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+building_block_type = "default"
+type = "eql"
+
+query = '''
+network where host.os.type == "windows" and
+  event.action == "connection_attempted" and destination.port == 3389 and
+  not process.executable : "?:\\Windows\\System32\\mstsc.exe" and
+  destination.ip != "::1" and destination.ip != "127.0.0.1"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+[[rule.threat.technique.subtechnique]]
+id = "T1021.001"
+name = "Remote Desktop Protocol"
+reference = "https://attack.mitre.org/techniques/T1021/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
