@@ -1,0 +1,48 @@
+[metadata]
+creation_date = "2023/08/23"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/08/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for the execution of suspicious linux tools through ProxyChains. ProxyChains is a command-line tool
+that enables the routing of network connections through intermediary proxies, enhancing anonymity and enabling access to
+restricted resources. Attackers can exploit the ProxyChains utility to hide their true source IP address, evade detection,
+and perform malicious activities through a chain of proxy servers, potentially masking their identity and intentions.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Utility Launched via ProxyChains"
+references = ["https://blog.bitsadmin.com/living-off-the-foreign-land-windows-as-offensive-platform"]
+risk_score = 21
+rule_id = "6ace94ba-f02c-4d55-9f53-87d99b6f9af4"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Command and Control", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+process.name == "proxychains" and process.args : (
+  "ssh", "sshd", "sshuttle", "socat", "iodine", "iodined", "dnscat", "hans", "hans-ubuntu", "ptunnel-ng",
+  "ssf", "3proxy", "ngrok", "gost", "pivotnacci", "chisel*", "nmap", "ping", "python*", "php*", "perl", "ruby",
+  "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk", "java", "telnet", "ftp", "curl", "wget")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
