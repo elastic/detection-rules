@@ -33,26 +33,64 @@ authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.resu
 
 [[transform.investigate]]
 label = "Alerts associated with the user in the last 48h"
-providers = """
-[[{"field":"event.kind","excluded":false,"queryType":"phrase","value":"signal","valueType":"string"},{"field":"user.id","excluded":false,"queryType":"phrase","value":"{{user.id}}","valueType":"string"}]]
-"""
 relativeFrom = "now-48h/h"
 relativeTo = "now"
+
+[transform.investigate.providers]
+
+[[transform.investigate.providers.field_info]]
+field = "event.kind"
+excluded = false
+queryType = "phrase"
+value = "signal"
+valueType = "string"
+
+[[transform.investigate.providers.field_info]]
+field = "user.id"
+excluded = false
+queryType = "phrase"
+value = "{{user.id}}"
+valueType = "string"
 
 [[transform.investigate]]
 label = "Alerts associated with the host in the last 48h"
-providers = """
-[[{"field":"event.kind","excluded":false,"queryType":"phrase","value":"signal","valueType":"string"},{"field":"host.name","excluded":false,"queryType":"phrase","value":"{{host.name}}","valueType":"string"}]]
-"""
 relativeFrom = "now-48h/h"
 relativeTo = "now"
 
+[transform.investigate.providers]
+
+[[transform.investigate.providers.field_info]]
+field = "event.kind"
+excluded = false
+queryType = "phrase"
+value = "signal"
+valueType = "string"
+
+[[transform.investigate.providers.field_info]]
+field = "host.name"
+excluded = false
+queryType = "phrase"
+value = "{{host.name}}"
+valueType = "string"
+
 [[transform.investigate]]
 label = "Investigate the Subject Process Network Events"
-providers = """
-[[{"field":"process.entity_id","excluded":false,"queryType":"phrase","value":"{{process.entity_id}}","valueType":"string"},{"field":"event.category","excluded":false,"queryType":"phrase","value":"network","valueType":"string"}]]
-"""
 
+[transform.investigate.providers]
+
+[[transform.investigate.providers.field_info]]
+field = "process.entity_id"
+excluded = false
+queryType = "phrase"
+value = "{{process.entity_id}}"
+valueType = "string"
+
+[[transform.investigate.providers.field_info]]
+field = "event.category"
+excluded = false
+queryType = "phrase"
+value = "network"
+valueType = "string"
 
 [rule]
 author = ["Elastic"]
