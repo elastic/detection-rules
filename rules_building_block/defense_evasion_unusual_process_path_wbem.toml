@@ -1,0 +1,54 @@
+[metadata]
+creation_date = "2023/08/23"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/08/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies unusual processes running from the WBEM path, uncommon outside WMI-related Windows processes.
+"""
+from = "now-119m"
+interval = "60m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Unusual Process Execution on WBEM Path"
+risk_score = 21
+rule_id = "1f460f12-a3cf-4105-9ebb-f788cc63f365"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "Rule Type: BBR"]
+timestamp_override = "event.ingested"
+type = "eql"
+building_block_type = "default"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.executable : ("?:\\Windows\\System32\\wbem\\*", "?:\\Windows\\SysWow64\\wbem\\*") and
+  not process.name : (
+    "mofcomp.exe",
+    "scrcons.exe",
+    "unsecapp.exe",
+    "wbemtest.exe",
+    "winmgmt.exe",
+    "wmiadap.exe",
+    "wmiapsrv.exe",
+    "wmic.exe",
+    "wmiprvse.exe"
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
