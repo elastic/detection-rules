@@ -26,31 +26,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence with maxspan=3m 
-[process where host.os.type == "windows" and event.type == "start" and ( ( process.name: "dllhost.exe" and not process.args: ("/Processid:{CA8C87C1-929D-45BA-94DB-EF8E6CB346AD}") ) or ( process.name: ("lsass.exe",
-                         "csrss.exe",
-                         "epad.exe",
-                         "regsvr32.exe",
-                         "LogonUI.exe",
-                         "wermgr.exe",
-                         "spoolsv.exe",
-                         "jucheck.exe",
-                         "jusched.exe",
-                         "ctfmon.exe",
-                         "taskhostw.exe",
-                         "GoogleUpdate.exe",
-                         "sppsvc.exe",
-                         "sihost.exe",
-                         "slui.exe",
-                         "SIHClient.exe",
-                         "SearchIndexer.exe",
-                         "SearchProtocolHost.exe",
-                         "FlashPlayerUpdateService.exe",
-                         "WerFault.exe",
-                         "WUDFHost.exe",
-                         "unsecapp.exe",
-                         "wlanext.exe" ) ) )] by process.entity_id
-[process where host.os.type == "windows" and event.type == "start" and process.name : "cmd.exe" and process.parent.name : ("lsass.exe",
+process where host.os.type == "windows" and event.type == "start" and
+  process.name : "cmd.exe" and
+  process.parent.name : ("lsass.exe",
                          "csrss.exe",
                          "epad.exe",
                          "regsvr32.exe",
@@ -73,7 +51,8 @@ sequence with maxspan=3m
                          "WerFault.exe",
                          "WUDFHost.exe",
                          "unsecapp.exe",
-                         "wlanext.exe" )] by process.parent.entity_id
+                         "wlanext.exe" ) and
+  not (process.parent.name : "dllhost.exe" and process.parent.args : "/Processid:{CA8C87C1-929D-45BA-94DB-EF8E6CB346AD}")
 '''
 
 
