@@ -131,6 +131,9 @@ ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDI
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
 FilterLanguages = Literal["kuery", "lucene"]
 Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
+InvestigateProviderExcluded = Literal["is", "is not", "is one of", "is not one of", "exists", "does not exist"]
+InvestigateProviderQueryType = Literal["phrase", "range"]
+InvestigateProviderValueType = Literal["string", "boolean"]
 Markdown = NewType("MarkdownField", CodeString)
 Maturity = Literal['development', 'experimental', 'beta', 'production', 'deprecated']
 MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
@@ -151,6 +154,7 @@ TechniqueURL = NewType('TechniqueURL', str, validate=validate.Regexp(TECHNIQUE_U
 ThresholdValue = NewType("ThresholdValue", int, validate=validate.Range(min=1))
 TimelineTemplateId = NewType('TimelineTemplateId', str, validate=validate.OneOf(list(TIMELINE_TEMPLATES)))
 TimelineTemplateTitle = NewType('TimelineTemplateTitle', str, validate=validate.OneOf(TIMELINE_TEMPLATES.values()))
+TransformTypes = Literal["osquery", "investigate"]
 UUIDString = NewType('UUIDString', str, validate=validate.Regexp(UUID_PATTERN))
 BuildingBlockType = Literal['default']
 
