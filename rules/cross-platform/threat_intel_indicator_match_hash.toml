@@ -1,12 +1,37 @@
 [metadata]
 creation_date = "2023/05/22"
 maturity = "production"
-updated_date = "2023/07/24"
+updated_date = "2023/08/23"
 min_stack_comments = """
 Limiting the backport of these rules to the stack version which we are deprecating the Threat Intel Indicator Match
 general rules.
 """
 min_stack_version = "8.5.0"
+
+[transform]
+[[transform.osquery]]
+label = "Osquery - Retrieve DNS Cache"
+query = "SELECT * FROM dns_cache"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve All Services"
+query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Services Running on User Accounts"
+query = """
+SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
+NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
+user_account == null)
+"""
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
+query = """
+SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
+services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
+authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
+"""
 
 [rule]
 author = ["Elastic"]
@@ -104,7 +129,7 @@ threat_query = '''
 '''
 
 query = """
-file.hash.*:* or file.pe.imphash:* or process.hash.*:* or process.pe.imphash:* or dll.hash.*:*
+file.hash.*:* or process.hash.*:* or dll.hash.*:*
 """
 
 
@@ -167,12 +192,6 @@ value = "threat.indicator.file.hash.sha256"
 
 [[rule.threat_mapping]]
 [[rule.threat_mapping.entries]]
-field = "file.pe.imphash"
-type = "mapping"
-value = "threat.indicator.file.pe.imphash"
-
-[[rule.threat_mapping]]
-[[rule.threat_mapping.entries]]
 field = "dll.hash.md5"
 type = "mapping"
 value = "threat.indicator.file.hash.md5"
@@ -206,9 +225,3 @@ value = "threat.indicator.file.hash.sha1"
 field = "process.hash.sha256"
 type = "mapping"
 value = "threat.indicator.file.hash.sha256"
-
-[[rule.threat_mapping]]
-[[rule.threat_mapping.entries]]
-field = "process.pe.imphash"
-type = "mapping"
-value = "threat.indicator.file.pe.imphash"

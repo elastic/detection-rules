@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup, New Term"
 min_stack_version = "8.6.0"
-updated_date = "2023/06/09"
+updated_date = "2023/07/31"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +26,7 @@ references = [
 risk_score = 47
 rule_id = "17b0a495-4d9f-414c-8ad0-92f018b8e001"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Privilege Escalation", "Data Source: Elastic Endgame"]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Privilege Escalation", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -34,7 +34,8 @@ query = '''
 host.os.type : "linux" and event.action : ("creation" or "file_create_event") and
 file.path : (/etc/systemd/system/* or /usr/local/lib/systemd/system/* or /lib/systemd/system/* or 
 /usr/lib/systemd/system/* or /home/*/.config/systemd/user/*) and not 
-(process.name : ("dpkg" or "dockerd" or "rpm" or "snapd") or file.extension : "swp")
+(process.name : ("dpkg" or "dockerd" or "rpm" or "snapd" or "yum" or "exe" or "dnf" or "dnf-automatic" or python* or 
+ "elastic-agent" or "cinc-client") or file.extension : ("swp" or "swx"))
 '''
 
 [[rule.threat]]
