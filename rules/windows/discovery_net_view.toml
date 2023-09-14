@@ -2,16 +2,16 @@
 creation_date = "2020/12/04"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/14"
 
 [rule]
 author = ["Elastic"]
 description = "Identifies attempts to enumerate hosts in a network using the built-in Windows net.exe tool."
 from = "now-9m"
 index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "Windows Network Enumeration"
 note = """## Triage and analysis
@@ -49,30 +49,27 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 47
 rule_id = "7b8bfc26-81d2-435e-965c-d722ee397ef1"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  ((process.name : "net.exe" or process.pe.original_file_name == "net.exe") or
-   ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and
-       not process.parent.name : "net.exe")) and
-  (process.args : "view" or (process.args : "time" and process.args : "\\\\*"))
-
-
-  /* expand when ancestry is available
-  and not descendant of [process where event.type == "start" and process.name : "cmd.exe" and
-                           ((process.parent.name : "userinit.exe") or
-                            (process.parent.name : "gpscript.exe") or
-                            (process.parent.name : "explorer.exe" and
-                               process.args : "C:\\*\\Start Menu\\Programs\\Startup\\*.bat*"))]
-  */
+host.os.type:windows and event.category:process and event.type:start and
+  ((process.name:net.exe or process.pe.original_file_name:net.exe) or
+  ((process.name:net1.exe or process.pe.original_file_name:net1.exe) and not process.parent.name:net.exe)) and
+  (process.args:view or (process.args:time and process.args:\\\\*))
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1018"
 name = "Remote System Discovery"
@@ -83,9 +80,15 @@ id = "T1135"
 name = "Network Share Discovery"
 reference = "https://attack.mitre.org/techniques/T1135/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user.name", "process.command_line"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"

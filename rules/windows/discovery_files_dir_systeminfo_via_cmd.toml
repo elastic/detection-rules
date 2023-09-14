@@ -2,18 +2,19 @@
 creation_date = "2022/11/01"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/14"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the execution of discovery commands to enumerate system information, files, and folders using the Windows Command Shell.
+Identifies the execution of discovery commands to enumerate system information, files, and folders using the Windows 
+Command Shell.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.*", "logs-endpoint.events.*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "System Information Discovery via Windows Command Shell"
 note = """## Triage and analysis
@@ -50,19 +51,25 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 21
 rule_id = "d68e95ad-1c82-4074-a12a-125fe10ac8ba"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Tactic: Execution", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Tactic: Execution",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  process.name : "cmd.exe" and process.args : "/c" and process.args : ("set", "dir") and
-  not process.parent.executable : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*", "?:\\PROGRA~1\\*")
+host.os.type:windows and event.category:process and event.type:start and 
+process.name:cmd.exe and process.args:/c and process.args:(set or dir)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1082"
 name = "System Information Discovery"
@@ -73,26 +80,33 @@ id = "T1083"
 name = "File and Directory Discovery"
 reference = "https://attack.mitre.org/techniques/T1083/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.003"
 name = "Windows Command Shell"
 reference = "https://attack.mitre.org/techniques/T1059/003/"
-
-
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user.name", "process.command_line"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
