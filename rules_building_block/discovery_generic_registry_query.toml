@@ -34,13 +34,10 @@ type = "new_terms"
 
 query = '''
 host.os.type:windows and event.type:start and (
-  (process.name:reg.exe and process.args:query) or
-  (
-    process.name:(powershell.exe or pwsh.exe or powershell_ise.exe) and
-    (
-      process.args: (*Get-ChildItem* or *Get-Item* or *Get-ItemProperty*) and
-      process.args: (*HKLM* or *HKCU* or *HKEY_LOCAL_MACHINE* or *HKEY_CURRENT_USER* or *Registry*)
-    )
+  process.name:reg.exe and process.args:query or 
+  process.name:(powershell.exe or powershell_ise.exe or pwsh.exe) and process.args:(
+    (*Get-ChildItem* or *Get-Item* or *Get-ItemProperty*) and (*HKCU* or *HKEY_CURRENT_USER* or *HKEY_LOCAL_MACHINE* or 
+     *HKLM* or *Registry*)
   )
 )
 '''
