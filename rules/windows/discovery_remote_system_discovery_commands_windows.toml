@@ -2,16 +2,16 @@
 creation_date = "2020/12/04"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/14"
 
 [rule]
 author = ["Elastic"]
 description = "Discovery of remote system information using built-in commands, which may be used to move laterally."
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
-language = "eql"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+language = "kuery"
 license = "Elastic License v2"
 name = "Remote System Discovery Commands"
 note = """## Triage and analysis
@@ -49,26 +49,32 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 21
 rule_id = "0635c542-1b96-4335-9b47-126582d2c19a"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  ((process.name : "nbtstat.exe" and process.args : ("-n", "-s")) or
-  (process.name : "arp.exe" and process.args : "-a") or
-  (process.name : "nltest.exe" and process.args : ("/dclist", "/dsgetdc")) or
-  (process.name : "nslookup.exe" and process.args : "*_ldap._tcp.dc.*") or
-  (process.name: ("dsquery.exe", "dsget.exe") and process.args: "subnet") or
-  ((((process.name : "net.exe" or process.pe.original_file_name == "net.exe") or
-    ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and not 
-       process.parent.name : "net.exe")) and 
-       process.args : "group" and process.args : "/domain" and not process.args : "/add")))
+host.os.type:windows and event.category:process and event.type:start and
+  ((process.name:nbtstat.exe and process.args:(-n or -s)) or
+  (process.name:ARP.EXE and process.args:-a) or
+  (process.name:nltest.exe and process.args:(/dclist or /dsgetdc)) or
+  (process.name:nslookup.exe and process.args:*_ldap._tcp.dc.*) or
+  (process.name:(dsquery.exe or dsget.exe) and process.args: subnet) or
+  ((((process.name:net.exe or process.pe.original_file_name:net.exe) or
+    ((process.name:net1.exe or process.pe.original_file_name:net1.exe) and not 
+       process.parent.name:net.exe)) and 
+       process.args:group and process.args:/domain and not process.args:/add)))
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1016"
 name = "System Network Configuration Discovery"
@@ -79,9 +85,15 @@ id = "T1018"
 name = "Remote System Discovery"
 reference = "https://attack.mitre.org/techniques/T1018/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user.name", "process.command_line"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
