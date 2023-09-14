@@ -1,0 +1,54 @@
+[metadata]
+creation_date = "2023/09/14"
+integration = ["dga"]
+maturity = "production"
+min_stack_comments = "New rule"
+min_stack_version = "8.3.0"
+updated_date = "2023/09/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+A supervised machine learning model has identified a DNS question name with a high probability of sourcing from a Domain
+Generation Algorithm (DGA), which could indicate command and control network activity.
+"""
+from = "now-10m"
+index = ["logs-endpoint.events.*", "logs-network_traffic.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Machine Learning Detected a DNS Request With a High DGA Probability Score"
+risk_score = 21
+rule_id = "da7f5803-1cd4-42fd-a890-0173ae80ac69"
+severity = "low"
+tags = [
+    "Domain: Network",
+    "Use Case: Domain Generation Algorithm Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Command and Control",
+]
+type = "query"
+
+query = '''
+event.category:network and network.protocol:dns and ml_is_dga.malicious_probability > 0.98
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1568"
+name = "Dynamic Resolution"
+reference = "https://attack.mitre.org/techniques/T1568/"
+[[rule.threat.technique.subtechnique]]
+id = "T1568.002"
+name = "Domain Generation Algorithms"
+reference = "https://attack.mitre.org/techniques/T1568/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
