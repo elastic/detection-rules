@@ -60,16 +60,14 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type:windows and event.category:process and event.type:start and
-  ((process.name:nbtstat.exe and process.args:(-n or -s)) or
-  (process.name:ARP.EXE and process.args:-a) or
-  (process.name:nltest.exe and process.args:(/dclist or /dsgetdc)) or
-  (process.name:nslookup.exe and process.args:*_ldap._tcp.dc.*) or
-  (process.name:(dsquery.exe or dsget.exe) and process.args: subnet) or
-  ((((process.name:net.exe or process.pe.original_file_name:net.exe) or
-    ((process.name:net1.exe or process.pe.original_file_name:net1.exe) and not 
-       process.parent.name:net.exe)) and 
-       process.args:group and process.args:/domain and not process.args:/add)))
+host.os.type:windows and event.category:process and event.type:start and (
+process.name:nbtstat.exe and process.args:(-n or -s) or 
+process.name:ARP.EXE and process.args:-a or process.name:nltest.exe and process.args:(/dclist or /dsgetdc) or 
+process.name:nslookup.exe and process.args:*_ldap._tcp.dc.* or 
+process.name:(dsget.exe or dsquery.exe) and process.args:subnet or 
+(process.name:net.exe or process.pe.original_file_name:net.exe or 
+(process.name:net1.exe or process.pe.original_file_name:net1.exe) and 
+not process.parent.name:net.exe) and process.args:(/domain and group and not /add))
 '''
 
 [[rule.threat]]
