@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/07/25"
 
 [rule]
 author = ["Elastic"]
@@ -20,21 +20,22 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "File Permission Modification in Writable Directory"
 risk_score = 21
 rule_id = "9f9a2a82-93a8-4b1a-8778-1780895626d4"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion"]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-event.category:process and host.os.type:linux and event.type:(start or process_started) and
-  process.name:(chmod or chown or chattr or chgrp) and
-  process.working_directory:(/tmp or /var/tmp or /dev/shm) and
-  not user.name:root
+process where host.os.type == "linux" and event.type == "start"and
+  process.name in ("chmod", "chown", "chattr", "chgrp") and
+  process.working_directory in ("/tmp", "/var/tmp", "/dev/shm") and
+  not process.parent.name in ("update-motd-updates-available") and
+  not user.name == "root"
 '''
 
 

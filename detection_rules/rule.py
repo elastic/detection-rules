@@ -31,7 +31,8 @@ from .misc import load_current_package_version
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
 from .schemas import (SCHEMA_DIR, definitions, downgrade,
-                      get_min_supported_stack_version, get_stack_schemas)
+                      get_min_supported_stack_version, get_stack_schemas,
+                      strip_non_public_fields)
 from .schemas.stack_compat import get_restricted_fields
 from .utils import cached, convert_time_span, PatchedTemplate
 
@@ -644,6 +645,7 @@ class NewTermsRuleData(QueryRuleData):
         kql_validator.validate(self, meta)
         feature_min_stack = Version.parse('8.4.0')
         feature_min_stack_extended_fields = Version.parse('8.6.0')
+        current_package_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
 
         # validate history window start field exists and is correct
         assert self.new_terms.history_window_start, \
@@ -656,11 +658,9 @@ class NewTermsRuleData(QueryRuleData):
             f"{self.new_terms.field} should be 'new_terms_fields' for new_terms rule type"
 
         # ecs validation
-        min_stack_version = meta.get("min_stack_version")
-        if min_stack_version is None:
-            min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-        else:
-            min_stack_version = Version.parse(min_stack_version)
+        min_stack_version = Version.parse(meta.get("min_stack_version")) if meta.get("min_stack_version") else None
+        min_stack_version = current_package_version if min_stack_version is None or min_stack_version < \
+            current_package_version else min_stack_version
 
         assert min_stack_version >= feature_min_stack, \
             f"New Terms rule types only compatible with {feature_min_stack}+"
@@ -714,6 +714,11 @@ class EQLRuleData(QueryRuleData):
             return amount * (-1 if sign == "-" else 1)
         else:
             return convert_time_span(lookback)
+
+    @cached_property
+    def is_sample(self) -> bool:
+        """Checks if the current rule is a sample-based rule."""
+        return eql.utils.get_query_type(self.ast) == 'sample'
 
     @cached_property
     def is_sequence(self) -> bool:
@@ -1001,30 +1006,33 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             current_stack_version = load_current_package_version()
 
             if self.check_restricted_field_version(field_name):
-                if isinstance(self.data, QueryRuleData) and self.data.language != 'lucene':
-                    package_integrations = self.get_packaged_integrations(self.data, self.metadata, packages_manifest)
+                if (isinstance(self.data, QueryRuleData) or isinstance(self.data, MachineLearningRuleData)):
+                    if (self.data.get('language') is not None and self.data.get('language') != 'lucene') or \
+                            self.data.get('type') == 'machine_learning':
+                        package_integrations = self.get_packaged_integrations(self.data, self.metadata,
+                                                                              packages_manifest)
 
-                    if not package_integrations:
-                        return
+                        if not package_integrations:
+                            return
 
-                    for package in package_integrations:
-                        package["version"] = find_least_compatible_version(
-                            package=package["package"],
-                            integration=package["integration"],
-                            current_stack_version=current_stack_version,
-                            packages_manifest=packages_manifest)
+                        for package in package_integrations:
+                            package["version"] = find_least_compatible_version(
+                                package=package["package"],
+                                integration=package["integration"],
+                                current_stack_version=current_stack_version,
+                                packages_manifest=packages_manifest)
 
-                        # if integration is not a policy template remove
-                        if package["version"]:
-                            policy_templates = packages_manifest[
-                                package["package"]][package["version"].strip("^")]["policy_templates"]
-                            if package["integration"] not in policy_templates:
-                                del package["integration"]
+                            # if integration is not a policy template remove
+                            if package["version"]:
+                                policy_templates = packages_manifest[
+                                    package["package"]][package["version"].strip("^")]["policy_templates"]
+                                if package["integration"] not in policy_templates:
+                                    del package["integration"]
 
-                # remove duplicate entries
-                package_integrations = list({json.dumps(d, sort_keys=True):
-                                            d for d in package_integrations}.values())
-                obj.setdefault("related_integrations", package_integrations)
+                    # remove duplicate entries
+                    package_integrations = list({json.dumps(d, sort_keys=True):
+                                                d for d in package_integrations}.values())
+                    obj.setdefault("related_integrations", package_integrations)
 
     def _convert_add_required_fields(self, obj: dict) -> None:
         """Add restricted field required_fields to the obj, derived from the query AST."""
@@ -1123,7 +1131,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             rule_integrations = meta.get("integration", [])
             if rule_integrations:
                 for integration in rule_integrations:
-                    if integration in definitions.NON_DATASET_PACKAGES:
+                    if integration in definitions.NON_DATASET_PACKAGES or isinstance(data, MachineLearningRuleData):
                         packaged_integrations.append({"package": integration, "integration": None})
 
         for value in sorted(datasets):
@@ -1300,14 +1308,40 @@ class DeprecatedRule(dict):
         return self.contents.name
 
 
-def downgrade_contents_from_rule(rule: TOMLRule, target_version: str) -> dict:
+def downgrade_contents_from_rule(rule: TOMLRule, target_version: str, replace_id: bool = True) -> dict:
     """Generate the downgraded contents from a rule."""
-    payload = rule.contents.to_api_format()
-    meta = payload.setdefault("meta", {})
-    meta["original"] = dict(id=rule.id, **rule.contents.metadata.to_dict())
-    payload["rule_id"] = str(uuid4())
-    payload = downgrade(payload, target_version)
+    rule_dict = rule.contents.to_dict()["rule"]
+    min_stack_version = target_version or rule.contents.metadata.min_stack_version or "8.3.0"
+    min_stack_version = Version.parse(min_stack_version,
+                                      optional_minor_and_patch=True)
+    rule_dict.setdefault("meta", {}).update(rule.contents.metadata.to_dict())
+
+    if replace_id:
+        rule_dict["rule_id"] = str(uuid4())
+
+    rule_dict = downgrade(rule_dict, target_version=str(min_stack_version))
+    meta = rule_dict.pop("meta")
+    rule_contents = TOMLRuleContents.from_dict({"rule": rule_dict, "metadata": meta,
+                                                "transform": rule.contents.transform})
+    payload = rule_contents.to_api_format()
+    payload = strip_non_public_fields(min_stack_version, payload)
     return payload
+
+
+def set_eql_config(min_stack_version: str) -> eql.parser.ParserConfig:
+    """Based on the rule version set the eql functions allowed."""
+    if not min_stack_version:
+        min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+    else:
+        min_stack_version = Version.parse(min_stack_version, optional_minor_and_patch=True)
+
+    config = eql.parser.ParserConfig()
+
+    for feature, version_range in definitions.ELASTICSEARCH_EQL_FEATURES.items():
+        if version_range[0] <= min_stack_version <= (version_range[1] or min_stack_version):
+            config.context[feature] = True
+
+    return config
 
 
 def get_unique_query_fields(rule: TOMLRule) -> List[str]:
@@ -1317,7 +1351,9 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
     query = contents.get('query')
     if language in ('kuery', 'eql'):
         # TODO: remove once py-eql supports ipv6 for cidrmatch
-        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+
+        config = set_eql_config(rule.contents.metadata.get('min_stack_version'))
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, config:
             parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
 
         return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))

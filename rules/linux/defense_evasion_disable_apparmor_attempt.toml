@@ -1,0 +1,50 @@
+[metadata]
+creation_date = "2023/08/28"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/08/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for potential attempts to disable AppArmor. AppArmor is a Linux security module that enforces 
+fine-grained access control policies to restrict the actions and resources that specific applications and processes can
+access. Adversaries may disable security tools to avoid possible detection of their tools and activities.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Disabling of AppArmor"
+risk_score = 21
+rule_id = "fac52c69-2646-4e79-89c0-fd7653461010"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and (
+  (process.name == "systemctl" and process.args == "disable" and process.args == "apparmor") or
+  (process.name == "ln" and process.args : "/etc/apparmor.d/*" and process.args : "/etc/apparmor.d/disable/")
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

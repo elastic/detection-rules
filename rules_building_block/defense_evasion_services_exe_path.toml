@@ -1,0 +1,92 @@
+[metadata]
+creation_date = "2023/08/29"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/08/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies attempts to modify a service path setting using sc.exe. Attackers may attempt to modify existing services for
+persistence or privilege escalation.
+"""
+from = "now-119m"
+interval = "60m"
+index = ["logs-endpoint.events.*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Service Path Modification via sc.exe"
+risk_score = 21
+rule_id = "c5677997-f75b-4cda-b830-a75920514096"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Rule Type: BBR"
+]
+timestamp_override = "event.ingested"
+building_block_type = "default"
+type = "eql"
+
+query = '''
+process where event.type == "start" and
+  process.name : "sc.exe" and process.args : "*binPath*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+
+    [[rule.threat.technique.subtechnique]]
+    id = "T1543.003"
+    name = "Windows Service"
+    reference = "https://attack.mitre.org/techniques/T1543/003/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+[[rule.threat.technique.subtechnique]]
+id = "T1543.003"
+name = "Windows Service"
+reference = "https://attack.mitre.org/techniques/T1543/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

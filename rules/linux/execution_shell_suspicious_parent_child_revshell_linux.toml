@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/25"
+updated_date = "2023/08/10"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,7 @@ references = [
 risk_score = 47
 rule_id = "4b1a807a-4e7b-414e-8cea-24bf580f6fc5"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution"]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Defend"]
 type = "eql"
 query = '''
 sequence by host.id, process.parent.entity_id with maxspan=1s
@@ -39,7 +39,7 @@ sequence by host.id, process.parent.entity_id with maxspan=1s
   (process.name : "telnet" and process.args_count >= 3) or
   (process.name : "awk")) and 
   process.parent.name : ("python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk") ]
-[ network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and 
+[ network where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and 
   process.name : ("python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk") and
   destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1" ]
 '''

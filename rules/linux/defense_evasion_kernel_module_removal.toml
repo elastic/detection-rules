@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -25,16 +25,17 @@ language = "eql"
 license = "Elastic License v2"
 name = "Kernel Module Removal"
 references = ["http://man7.org/linux/man-pages/man8/modprobe.8.html"]
-risk_score = 73
+risk_score = 47
 rule_id = "cd66a5af-e34b-4bb0-8931-57d0a043f2ef"
-severity = "high"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame"]
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "linux" and event.action == "exec" and process.name == "rmmod" or
-(process.name == "modprobe" and process.args in ("--remove", "-r"))
+(process.name == "modprobe" and process.args in ("--remove", "-r")) and 
+process.parent.name in ("sudo", "bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
 '''
 
 
