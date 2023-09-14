@@ -4,7 +4,8 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/08/29"
+updated_date = "2023/09/14"
+bypass_bbr_timing = true
 
 [rule]
 author = ["Elastic"]
@@ -12,8 +13,7 @@ description = """
 This rule identifies the execution of commands that enumerates account or group information. Adversaries may use
 built-in applications to get a listing of local system or domain accounts and groups.
 """
-from = "now-119m"
-interval = "60m"
+from = "now-9m"
 index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
@@ -21,7 +21,14 @@ name = "Windows Account or Group Discovery"
 risk_score = 21
 rule_id = "089db1af-740d-4d84-9a5b-babd6de143b0"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Rule Type: BBR", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Rule Type: BBR",
+        "Data Source: Elastic Defend",
+        "UEBA: Discovery"
+        ]
 timestamp_override = "event.ingested"
 building_block_type = "default"
 type = "eql"
@@ -52,7 +59,8 @@ process where host.os.type == "windows" and event.type == "start" and
       process.args : "set"
     )
   )
-) and not user.id : "S-1-5-18"
+) and not process.parent.args: "C:\Program Files (x86)\Microsoft Intune Management Extension\Content\DetectionScripts\*.ps1"
+and not process.parent.name : "LTSVC.exe" and not user.id : "S-1-5-18"
 '''
 
 
