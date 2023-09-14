@@ -4,7 +4,7 @@ integration = ["windows", "endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/09/13"
 
 [rule]
 author = ["Elastic"]
@@ -18,6 +18,36 @@ index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"
 language = "eql"
 license = "Elastic License v2"
 name = "Group Policy Discovery via Microsoft GPResult Utility"
+note = """## Triage and analysis
+
+### Investigating Group Policy Discovery via Microsoft GPResult Utility
+
+Group Policy is a Windows feature that allows administrators to manage and configure settings for users and computers in an Active Directory environment. The Microsoft GPResult utility (`gpresult.exe`) is a command-line tool used to query and display Group Policy Objects (GPOs) applied to a system.
+
+This rule identifies the execution of `gpresult.exe` or renamed instances with specific arguments, which can be abused by attackers to gain insights into the active directory environment and identify potential privilege escalation or lateral movement opportunities.
+
+#### Possible investigation steps
+
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Investigate any abnormal account behavior, such as command executions, file creations or modifications, and network connections.
+- Inspect the host for suspicious or abnormal behavior in the alert timeframe.
+- Validate the activity is not related to planned patches, updates, network administrator activity, or legitimate software installations.
+- Investigate any abnormal behavior by the parent process, such as network connections, registry or file modifications, and any other spawned child processes.
+
+### False positive analysis
+
+- Discovery activities are not inherently malicious if they occur in isolation. As long as the analyst did not identify suspicious activity related to the user or host, such alerts can be dismissed.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved hosts to prevent further post-compromise behavior.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
 risk_score = 21
 rule_id = "94a401ba-4fa2-455c-b7ae-b6e037afc0b7"
 severity = "low"
