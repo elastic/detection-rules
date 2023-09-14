@@ -33,18 +33,11 @@ building_block_type = "default"
 type = "new_terms"
 
 query = '''
-host.os.type:windows and event.type:start and
-(
-  process.name:netstat.exe or
-  (
-   (
-    (process.name:net.exe or process.pe.original_file_name:net.exe) or
-    (
-     (process.name:net1.exe or process.pe.original_file_name:net1.exe) and not process.parent.name:net.exe
-    )
-   ) and process.args:(use or session or config)
-  ) or
-  (process.name:nbtstat.exe and process.args:-s*)
+host.os.type:windows and event.type:start and (
+  process.name:netstat.exe or (
+    process.name:net.exe or process.pe.original_file_name:net.exe or 
+    (process.name:net1.exe or process.pe.original_file_name:net1.exe) and not process.parent.name:net.exe
+  ) and process.args:(config or session or use) or process.name:nbtstat.exe and process.args:-s*
 )
 '''
 
