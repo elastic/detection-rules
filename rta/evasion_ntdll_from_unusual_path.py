@@ -18,7 +18,7 @@ metadata = RtaMetadata(
 
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     import win32file, win32api, os, time
     from os import path

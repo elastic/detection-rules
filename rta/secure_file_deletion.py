@@ -20,7 +20,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     temp_path = os.path.join(tempfile.gettempdir(), os.urandom(16).encode("hex"))
     sdelete_path = common.get_path("bin", "sdelete.exe")

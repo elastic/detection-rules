@@ -25,7 +25,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Running Windows processes with an unexpected parent of %s" % os.path.basename(sys.executable))
     process_names = [

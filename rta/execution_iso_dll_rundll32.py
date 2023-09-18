@@ -24,7 +24,7 @@ PROC = 'Invite.lnk'
 # ps script to mount, execute a file and unmount ISO device
 PS_SCRIPT = common.get_path("bin", "ExecFromISOFile.ps1")
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 
 def main():
     if os.path.exists(ISO) and os.path.exists(PS_SCRIPT):

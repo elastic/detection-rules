@@ -27,7 +27,7 @@ VBS = common.get_path("bin", "persistent_script.vbs")
 NAME = "rta-vbs-persistence"
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(common.PS_EXEC, VBS)
 def main():
     common.log("Persistent Scripts")

@@ -36,7 +36,7 @@ def create_exfil(path=os.path.abspath("secret_stuff.txt")):
     return path
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(MY_APP, WINRAR)
 def main(password="s0l33t"):
     # Copies of the rar.exe for various tests

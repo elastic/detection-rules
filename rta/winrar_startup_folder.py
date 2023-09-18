@@ -23,7 +23,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("WinRAR StartUp Folder Persistence")
     win_rar_path = os.path.abspath("WinRAR.exe")
