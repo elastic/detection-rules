@@ -11,12 +11,10 @@
 import os
 import random
 import time
-
+from pathlib import Path
 from string import ascii_letters
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="f24491d0-720b-4150-a2a1-45b5b07238aa",
@@ -35,7 +33,7 @@ def main():
     }
     hosts_file = hosts_files[common.CURRENT_OS]
 
-    backup = os.path.abspath(hosts_file + "_backup")
+    backup = Path(hosts_file + "_backup").resolve()
     common.log("Backing up original 'hosts' file.")
     common.copy_file(hosts_file, backup)
 
