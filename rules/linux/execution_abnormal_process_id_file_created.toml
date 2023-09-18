@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/08/24"
+updated_date = "2023/08/31"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-endpoint.events.*", "endgame-*"]
+index = ["logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Abnormal Process ID or Lock File Created"
@@ -74,19 +74,20 @@ references = [
 risk_score = 47
 rule_id = "cac91072-d165-11ec-a764-f661ea17fbce"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Threat: BPFDoor", "Resources: Investigation Guide", "Data Source: Elastic Endgame"]
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Threat: BPFDoor", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type : "linux" and event.category : "file" and event.action : ("creation" or "file_create_event") and
-user.id : "0" and file.extension : ("pid" or "lock" or "reboot") and file.path : (/var/run/* or /run/*) and not 
-file.name : ("auditd.pid" or python* or "apport.pid" or "apport.lock" or kworker* or "gdm3.pid" or "sshd.pid" or 
-"acpid.pid" or "unattended-upgrades.lock" or "unattended-upgrades.pid" or "cmd.pid" or "yum.pid" or "netconfig.pid" or 
-"docker.pid" or "atd.pid" or "lfd.pid" or "atop.pid" or "nginx.pid" or "dhclient.pid" or "smtpd.pid" or "stunnel.pid" or 
-"1_waagent.pid" or "crond.pid" or "cron.reboot" or "sssd.pid" or "tomcat8.pid" or "winbindd.pid" or "chronyd.pid") and
-not process.name : ("runc" or "ufw" or "snapd" or "snap" or "iptables" or "libvirtd" or "containerd-shim-runc-v2" or 
-"ifdown" or "snap-confine" or "ifup" or "dhclient" or "containerd")
+host.os.type:linux and event.category:file and event.action:creation and
+user.id:0 and file.extension:(pid or lock or reboot) and file.path:(/var/run/* or /run/*) and (
+  (process.name : (
+    bash or dash or sh or tcsh or csh or zsh or ksh or fish or ash or touch or nano or vim or vi or editor or mv or cp)
+  ) or (
+  process.executable : (
+    ./* or /tmp/* or /var/tmp/* or /dev/shm/* or /var/run/* or /boot/* or /srv/* or /run/*
+  ))
+) and not process.name : (go or git)
 '''
 
 [[rule.threat]]
