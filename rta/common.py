@@ -176,7 +176,7 @@ def requires_os(*os_list: str):
         @functools.wraps(f)
         def decorated(*args, **kwargs):
             if CURRENT_OS not in os_list:
-                # NOTE os.path.relpath supports Path objects and does not exist in Pathlib
+                # NOTE os.path.relpath supports Path objects and does not exist in pathlib
                 filename = os.path.relpath(inspect.getsourcefile(f))
                 func_name = f.__name__
 
@@ -210,7 +210,7 @@ def dependencies(*paths: str):
             if len(missing):
                 log("Missing dependencies for %s:%s()" % (f.func_code.co_filename, f.func_code.co_name), "!")
                 for dep in missing:
-                    # NOTE os.path.relpath supports Path objects and does not exist in Pathlib
+                    # NOTE os.path.relpath supports Path objects and does not exist in pathlib
                     print("    - %s" % os.path.relpath(dep, BASE_DIR))
                 return MISSING_DEPENDENCIES
             return f(*args, **kwargs)
@@ -557,7 +557,7 @@ def run_system(arguments=None):
         return None
 
     if arguments is None:
-        # NOTE os.path.relpath supports Path objects and does not exist in Pathlib
+        # NOTE os.path.relpath supports Path objects and does not exist in pathlib
         arguments = [sys.executable, os.path.abspath(sys.argv[0])] + sys.argv[1:]
 
     log("Attempting to elevate to SYSTEM using PsExec")
