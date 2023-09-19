@@ -8,6 +8,31 @@ general rules.
 """
 min_stack_version = "8.5.0"
 
+[transform]
+[[transform.osquery]]
+label = "Osquery - Retrieve DNS Cache"
+query = "SELECT * FROM dns_cache"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve All Services"
+query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Services Running on User Accounts"
+query = """
+SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
+NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
+user_account == null)
+"""
+
+[[transform.osquery]]
+label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
+query = """
+SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
+services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
+authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
+"""
+
 [rule]
 author = ["Elastic"]
 description = """
@@ -29,6 +54,9 @@ Threat Intel indicator match rules allow matching from a local observation, such
 Matches are based on threat intelligence data that's been ingested during the last 30 days. Some integrations don't place expiration dates on their threat indicators, so we strongly recommend validating ingested threat indicators and reviewing match results. When reviewing match results, check associated activity to determine whether the event requires additional investigation.
 
 This rule is triggered when an IP address indicator from the Threat Intel Filebeat module or a threat intelligence integration matches against a network event.
+
+> **Note**:
+> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
