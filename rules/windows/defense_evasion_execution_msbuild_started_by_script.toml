@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/09/18"
+updated_date = "2023/09/19"
 
 [rule]
 author = ["Elastic"]
@@ -33,10 +33,9 @@ type = "new_terms"
 
 query = '''
 host.os.type:windows and event.category:process and event.type:start and (
-process.name:MSBuild.exe or process.pe.original_file_name:MSBuild.exe
-) and process.parent.name:(
-cmd.exe or powershell.exe or pwsh.exe or powershell_ise.exe or cscript.exe or wscript.exe or mshta.exe
-)
+  process.name.caseless:"msbuild.exe" or process.pe.original_file_name:"MSBuild.exe") and 
+  process.parent.name.caseless:("cmd.exe" or "powershell.exe" or "pwsh.exe" or "powershell_ise.exe" or "cscript.exe" or
+    "wscript.exe" or "mshta.exe")
 '''
 
 [[rule.threat]]
