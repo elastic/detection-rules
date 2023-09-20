@@ -4,7 +4,7 @@ integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/09/14"
+updated_date = "2023/09/20"
 
 [transform]
 [[transform.osquery]]
@@ -122,8 +122,8 @@ type = "new_terms"
 
 query = '''
 host.os.type:windows and event.category:iam and event.action:user-member-enumerated and (
-  group.name:(*Admin* or RemoteDesktopUsers) or
-  winlog.event_data.TargetSid:(S-1-5-32-544 or S-1-5-32-555)
+  group.name:(*Admin* or "RemoteDesktopUsers") or
+  winlog.event_data.TargetSid:("S-1-5-32-544" or "S-1-5-32-555")
 ) and not winlog.event_data.SubjectUserName: (*$ or "LOCAL SERVICE" or "NETWORK SERVICE")
 '''
 
@@ -147,7 +147,7 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["user.name", "winlog.event_data.SubjectUserName"]
+value = ["user.id", "winlog.event_data.SubjectUserName"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"

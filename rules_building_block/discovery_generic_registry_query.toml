@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/09/14"
+updated_date = "2023/09/20"
 bypass_bbr_timing = true
 
 [rule]
@@ -34,10 +34,10 @@ type = "new_terms"
 
 query = '''
 host.os.type:windows and event.category:process and event.type:start and (
-  process.name:reg.exe and process.args:query or 
-  process.name:(powershell.exe or powershell_ise.exe or pwsh.exe) and process.args:(
+  process.name.caseless:"reg.exe" and process.args:"query" or 
+  process.name.caseless:("powershell.exe" or "powershell_ise.exe" or "pwsh.exe") and process.args:(
     (*Get-ChildItem* or *Get-Item* or *Get-ItemProperty*) and (*HKCU* or *HKEY_CURRENT_USER* or *HKEY_LOCAL_MACHINE* or 
-     *HKLM* or "*Registry::*")
+     *HKLM* or *Registry\:\:*)
   )
 )
 '''
@@ -57,7 +57,7 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["user.name", "process.command_line"]
+value = ["user.id", "process.command_line"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"

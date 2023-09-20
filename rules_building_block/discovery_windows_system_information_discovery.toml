@@ -4,7 +4,7 @@ integration = ["windows", "endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/09/14"
+updated_date = "2023/09/20"
 bypass_bbr_timing = true
 
 [rule]
@@ -33,9 +33,9 @@ building_block_type = "default"
 
 query = '''
 host.os.type:windows and event.category:process and event.type:start and (
-  process.name:cmd.exe and process.args:ver* or 
-  process.name:(hostname.exe or systeminfo.exe) or 
-  process.name:wmic.exe and process.args:(get and os)
+  process.name.caseless:"cmd.exe" and process.args:ver* or 
+  process.name.caseless:("hostname.exe" or "systeminfo.exe") or 
+  process.name.caseless:"wmic.exe" and process.args:("get" and "os")
 )
 '''
 
@@ -54,7 +54,7 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["user.name", "process.command_line"]
+value = ["user.id", "process.command_line"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"

@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/09/14"
+updated_date = "2023/09/20"
 bypass_bbr_timing = true
 
 [rule]
@@ -26,7 +26,6 @@ tags = ["Domain: Endpoint",
         "OS: Windows",
         "Use Case: Threat Detection",
         "Tactic: Discovery",
-        "Data Source: Elastic Endgame",
         "Rule Type: BBR",
         "Data Source: Elastic Defend"
         ]
@@ -36,8 +35,8 @@ building_block_type = "default"
 
 query = '''
 host.os.type:windows and event.category:process and event.type:start and 
-process.name:(ping.exe or tracert.exe or pathping.exe) and
-not process.args:(127.0.0.1 or 0.0.0.0 or localhost or 1.1.1.1 or 1.2.3.4 or "::1")
+process.name.caseless:("ping.exe" or "tracert.exe" or "pathping.exe") and
+not process.args:("127.0.0.1" or "0.0.0.0" or "localhost" or "1.1.1.1" or "1.2.3.4" or "::1")
 '''
 
 [[rule.threat]]
@@ -60,7 +59,7 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["user.name", "process.command_line"]
+value = ["user.id", "process.command_line"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"

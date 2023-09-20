@@ -4,7 +4,7 @@ integration = ["windows", "endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/09/14"
+updated_date = "2023/09/20"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ description = """
 Detects the usage of commonly used system time discovery techniques, which attackers may use during the reconnaissance phase after compromising a system. 
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "System Time Discovery"
@@ -23,7 +23,6 @@ tags = ["Domain: Endpoint",
         "OS: Windows",
         "Use Case: Threat Detection",
         "Tactic: Discovery",
-        "Data Source: Elastic Endgame",
         "Data Source: Elastic Defend"
         ]
 timestamp_override = "event.ingested"
@@ -32,9 +31,12 @@ type = "new_terms"
 query = '''
 host.os.type:windows and event.category:process and event.type:start and
 (
- ((process.name:net.exe or (process.name:net1.exe and not process.parent.name:net.exe)) and process.args:time) or 
- (process.name:w32tm.exe and process.args:/tz) or 
- (process.name:tzutil.exe and process.args:/g)
+  (
+    (process.name.caseless:"net.exe" or (process.name.caseless:"net1.exe" and not process.parent.name:"net.exe")) and 
+     process.args:"time"
+    ) or 
+  (process.name.caseless:"w32tm.exe" and process.args:"/tz") or 
+  (process.name.caseless:"tzutil.exe" and process.args:"/g")
 ) and not user.id : "S-1-5-18"
 '''
 
@@ -53,7 +55,7 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["user.name", "process.command_line"]
+value = ["user.id", "process.command_line"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"

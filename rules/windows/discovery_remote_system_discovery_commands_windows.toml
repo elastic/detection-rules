@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/09/14"
+updated_date = "2023/09/20"
 
 [rule]
 author = ["Elastic"]
@@ -61,13 +61,14 @@ type = "new_terms"
 
 query = '''
 host.os.type:windows and event.category:process and event.type:start and (
-process.name:nbtstat.exe and process.args:(-n or -s) or 
-process.name:ARP.EXE and process.args:-a or process.name:nltest.exe and process.args:(/dclist or /dsgetdc) or 
-process.name:nslookup.exe and process.args:*_ldap._tcp.dc.* or 
-process.name:(dsget.exe or dsquery.exe) and process.args:subnet or 
-(process.name:net.exe or process.pe.original_file_name:net.exe or 
-(process.name:net1.exe or process.pe.original_file_name:net1.exe) and 
-not process.parent.name:net.exe) and process.args:(/domain and group and not /add))
+process.name.caseless:"nbtstat.exe" and process.args:("-n" or "-s") or 
+process.name.caseless:"ARP.EXE" and process.args:"-a" or
+process.name.caseless:"nltest.exe" and process.args:("/dclist" or "/dsgetdc") or 
+process.name.caseless:"nslookup.exe" and process.args:*_ldap._tcp.dc.* or 
+process.name.caseless:("dsget.exe" or "dsquery.exe") and process.args:"subnet" or 
+(process.name.caseless:"net.exe" or process.pe.original_file_name:"net.exe" or 
+(process.name.caseless:"net1.exe" or process.pe.original_file_name:"net1.exe") and 
+not process.parent.name:"net.exe") and process.args:("/domain" and "group" and not "/add"))
 '''
 
 [[rule.threat]]
@@ -90,7 +91,7 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["user.name", "process.command_line"]
+value = ["user.id", "process.command_line"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
