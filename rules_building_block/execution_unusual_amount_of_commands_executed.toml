@@ -1,0 +1,59 @@
+[metadata]
+creation_date = "2023/09/20"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/09/20"
+bypass_bbr_timing = true
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for an unusual amount of command executions by a single user in a short timespan. This may indicate
+suspicious behavior, that should be investigated further. 
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual Rapid Command Execution"
+risk_score = 21
+rule_id = "26afff6f-826a-4cb5-b1b4-efa8de325cc8"
+severity = "low"
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection", 
+        "Tactic: Execution",
+        "Rule Type: BBR",
+        "Data Source: Elastic Defend"
+        ]
+timestamp_override = "event.ingested"
+building_block_type = "default"
+type = "threshold"
+query = '''
+host.os.type:windows and event.category:process and event.action:start and process.parent.name:(
+  "cmd.exe" or "powershell.exe" or "pwsh.exe" or "powershell_ise.exe" or "cscript.exe" or "wscript.exe" or "mshta.exe"  
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.threshold]
+field = ["user.id"]
+value = 1
+
+[[rule.threshold.cardinality]]
+field = "process.name"
+value = 10

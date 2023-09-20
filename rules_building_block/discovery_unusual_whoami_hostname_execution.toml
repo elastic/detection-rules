@@ -1,0 +1,60 @@
+[metadata]
+creation_date = "2023/09/20"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "The New Term rule type used in this rule was added in Elastic 8.4"
+min_stack_version = "8.4.0"
+updated_date = "2023/09/20"
+bypass_bbr_timing = true
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies unusual execution of whoami.exe which displays user, group, and privileges information for the user who is
+currently logged on to the local system, and hostname.exe which displays information about the host on which the 
+command is executed.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Unusual whoami.exe and/or hostname.exe Execution"
+risk_score = 21
+rule_id = ""
+severity = "low"
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Rule Type: BBR",
+        "Data Source: Elastic Defend"
+        ]
+timestamp_override = "event.ingested"
+building_block_type = "default"
+type = "new_terms"
+query = '''
+host.os.type:windows and event.category:process and event.action:start and process.parent.name:(
+  "cmd.exe" or "powershell.exe" or "pwsh.exe" or "powershell_ise.exe" or "cscript.exe" or "wscript.exe" or "mshta.exe"
+) and process.name.caseless:("whoami.exe" or "hostname.exe")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1033"
+name = "System Owner/User Discovery"
+reference = "https://attack.mitre.org/techniques/T1033/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"

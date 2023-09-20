@@ -1,0 +1,61 @@
+[metadata]
+creation_date = "2023/09/20"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/20"
+bypass_bbr_timing = true
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule identifies the execution of a command and script interpreter from an unusual process working directory and by 
+a user that does not launch these utilities frequently. This behavior is an outlier for this specific user, and should 
+be investigated for potential malicious intent. 
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Interpreter Executed from Unusual Directory"
+risk_score = 21
+rule_id = "af8cd255-329b-4e30-87df-5e99a682cd61"
+severity = "low"
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection", 
+        "Tactic: Execution",
+        "Rule Type: BBR",
+        "Data Source: Elastic Defend"
+        ]
+timestamp_override = "event.ingested"
+building_block_type = "default"
+type = "new_terms"
+query = '''
+host.os.type:windows and event.category:process and event.action:start and 
+process.name.caseless:(
+  "cmd.exe" or "powershell.exe" or "pwsh.exe" or "powershell_ise.exe" or "cscript.exe" or "wscript.exe" or "mshta.exe"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.working_directory", "user.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
