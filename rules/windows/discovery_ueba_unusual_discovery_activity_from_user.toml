@@ -1,0 +1,52 @@
+[metadata]
+creation_date = "2023/09/20"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/09/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule is part of the "UEBA - Discovery - Unusual Discovery Activity from User Pack", and leverages alert data to
+determine when multiple alerts within the discovery tactic phase are executed by the same user in a timespan of one 
+hour. Analysts can use this to prioritize triage and response, as these users are more likely to be compromised.
+"""
+from = "now-60m"
+index = [".alerts-security*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "UEBA - Discovery - Unusual Discovery Activity from User"
+risk_score = 21
+rule_id = "120e312c-bb49-45cb-9fd6-d8d8b75b5766"
+severity = "low"
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection", 
+        "Tactic: Discovery",
+        "Data Source: Elastic Defend",
+        "UEBA: Discovery"
+        ]
+timestamp_override = "event.ingested"
+building_block_type = "default"
+type = "threshold"
+query = '''
+signal.rule.tags:"UEBA: Discovery" and user.id:* and host.id:* and not kibana.alert.workflow_status:closed
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.threshold]
+field = ["user.id", "host.id"]
+value = 1
+
+[[rule.threshold.cardinality]]
+field = "signal.rule.name"
+value = 5
