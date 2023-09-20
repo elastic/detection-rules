@@ -27,8 +27,8 @@ EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 @common.requires_os(metadata.platforms)
 def main():
     appdata = os.getenv("LOCALAPPDATA")
-    path = Path(appdata / "\\Microsoft\\Event Viewer")
-    recentfiles = Path(path / "\\RecentViews")
+    path = Path(appdata) / "\\Microsoft\\Event Viewer"
+    recentfiles = Path(path) / "\\RecentViews"
 
     if Path(path).is_dir():
         common.copy_file(EXE_FILE, recentfiles)
