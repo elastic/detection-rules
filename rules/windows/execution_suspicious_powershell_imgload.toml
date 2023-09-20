@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/09/19"
+updated_date = "2023/09/20"
 
 [rule]
 author = ["Elastic"]
@@ -75,28 +75,20 @@ type = "new_terms"
 
 query = '''
 host.os.type:windows and event.category:library and 
-dll.name:(System.Management.Automation.ni.dll or System.Management.Automation.dll) and
-  not 
-  (
-    (
-      process.code_signature.subject_name:(
-        "Microsoft Windows" or
-        "Microsoft Dynamic Code Publisher" or
-        "Microsoft Corporation"
-      ) and process.code_signature.trusted:true and not process.name:("rundll32.exe" or "regsvr32.exe")
-    ) or
-    (
-      process.executable:(
-        ?\:\\\\Program?Files?\(x86\)\\\\*.exe or
-        ?\:\\\\Program?Files\\\\*.exe
-      ) and process.code_signature.trusted:true
-    ) or
-    (
-      process.executable:(
-        ?\:\\\\Windows\\\\Lenovo\\\\*.exe
-      ) and (process.code_signature.subject_name:"Lenovo" and process.code_signature.trusted:true) 
-    )
-  )
+dll.name:("System.Management.Automation.dll" or "System.Management.Automation.ni.dll") and 
+not (
+  process.code_signature.subject_name:(
+    "Microsoft Corporation" or 
+    "Microsoft Dynamic Code Publisher" or 
+    "Microsoft Windows"
+  ) and process.code_signature.trusted:true and not process.name.caseless:("regsvr32.exe" or "rundll32.exe") or 
+  process.executable.caseless:(
+    ?\:\\\\Program?Files?\(x86\)\\\\*.exe or
+    ?\:\\\\Program?Files\\\\*.exe
+  ) and process.code_signature.trusted:true or 
+  process.executable.caseless:?\:\\\\Windows\\\\Lenovo\\\\*.exe and process.code_signature.subject_name:"Lenovo" and 
+  process.code_signature.trusted:true
+)
 '''
 
 [[rule.threat]]
