@@ -37,7 +37,7 @@ def main():
 
     # Remove any existing profiles
     user_profile = os.environ["USERPROFILE"]
-    log_file = Path(user_profile / NAME / ".log")
+    log_file = Path(user_profile) / NAME / ".log"
 
     # Remove log file if exists
     common.remove_file(log_file)

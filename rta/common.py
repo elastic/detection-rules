@@ -240,7 +240,7 @@ def temporary_file(contents, file_name=None):
 
 def temporary_file_helper(contents, file_name=None):
     if not (file_name and Path(file_name).is_absolute()):
-        file_name = Path(tempfile.gettempdir() / file_name or f"temp{hash(contents):d}")
+        file_name = ((Path(tempfile.gettempdir()) / file_name) or f"temp{hash(contents):d}")
 
     with open(file_name, "wb" if isinstance(contents, bytes) else "w") as f:
         f.write(contents)
@@ -534,9 +534,9 @@ def get_ipv4_address(hostname):
 def find_writeable_directory(base_dir):
     for root, dirs, files in os.walk(base_dir):
         for d in dirs:
-            subdir = Path(base_dir / d)
+            subdir = Path(base_dir) / d
             try:
-                test_file = Path(subdir / "test_file")
+                test_file = Path(subdir) / "test_file"
                 f = open(test_file, "w")
                 f.close()
                 os.remove(test_file)

@@ -40,7 +40,7 @@ def main():
         common.log("No writeable directories in System Restore. Exiting...", "-")
         return common.UNSUPPORTED_RTA
 
-    target_path = Path(target_directory / "restore-process.exe")
+    target_path = Path(target_directory) / "restore-process.exe"
     common.copy_file(program_path, target_path)
     common.execute(target_path)
 

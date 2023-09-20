@@ -52,7 +52,7 @@ process_names = [
 
 
 def http_from_process(name, ip, port):
-    path = Path(common.BASE_DIR / name)
+    path = Path(common.BASE_DIR) / name
     common.log("Making HTTP GET from %s" % path)
     shutil.copy(sys.executable, path)
     common.execute(

@@ -56,7 +56,7 @@ def main():
         source_path = command[0]
         arguments = command[1:]
 
-        target_path = Path(target_dir / "recycled_process.exe")
+        target_path = Path(target_dir) / "recycled_process.exe"
         common.copy_file(source_path, target_path)
         arguments.insert(0, target_path)
         common.execute(arguments)

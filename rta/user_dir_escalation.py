@@ -37,7 +37,7 @@ def main():
     if not Path(target_directory).is_dir():
         Path(target_directory).mkdir(parents=True)
 
-    target_path = Path(target_directory / "user_file.exe")
+    target_path = Path(target_directory) / "user_file.exe"
     common.copy_file(source_path, target_path)
     common.execute([target_path])
 
