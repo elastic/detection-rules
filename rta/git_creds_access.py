@@ -24,7 +24,7 @@ def main():
     gitpath = "C:\\Users\\Public\\.config\\git"
 
     try:
-        Path(gitpath).mkdir(parents=True, exist_ok=True)
+        Path(gitpath).mkdir(parents=True)
     except Exception:
         pass
     gitcreds = gitpath + "\\credentials"
