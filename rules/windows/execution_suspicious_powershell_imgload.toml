@@ -75,20 +75,15 @@ type = "new_terms"
 
 query = '''
 host.os.type:windows and event.category:library and 
+
 dll.name:("System.Management.Automation.dll" or "System.Management.Automation.ni.dll") and 
-not (
-  process.code_signature.subject_name:(
-    "Microsoft Corporation" or 
-    "Microsoft Dynamic Code Publisher" or 
-    "Microsoft Windows"
-  ) and process.code_signature.trusted:true and not process.name.caseless:("regsvr32.exe" or "rundll32.exe") or 
-  process.executable.caseless:(
-    ?\:\\\\Program?Files?\(x86\)\\\\*.exe or
-    ?\:\\\\Program?Files\\\\*.exe
-  ) and process.code_signature.trusted:true or 
-  process.executable.caseless:?\:\\\\Windows\\\\Lenovo\\\\*.exe and process.code_signature.subject_name:"Lenovo" and 
-  process.code_signature.trusted:true
-)
+
+not (process.code_signature.subject_name:("Microsoft Corporation" or "Microsoft Dynamic Code Publisher" or "Microsoft Windows") and process.code_signature.trusted:true and not process.name.caseless:("regsvr32.exe" or "rundll32.exe")) and 
+
+not (process.executable.caseless:(?\:\\\\Program?Files?\(x86\)\\\\*.exe or ?\:\\\\Program?Files\\\\*.exe) and process.code_signature.trusted:true) and 
+
+not (process.executable.caseless:?\:\\\\Windows\\\\Lenovo\\\\*.exe and process.code_signature.subject_name:"Lenovo" and 
+  process.code_signature.trusted:true) and not process.executable.caseless : "C:\\Windows\\System32\\powershell.exe"
 '''
 
 [[rule.threat]]
