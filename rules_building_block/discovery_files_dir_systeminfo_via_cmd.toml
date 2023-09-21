@@ -2,9 +2,10 @@
 creation_date = "2022/11/01"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2023/09/20"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/09/21"
+bypass_bbr_timing = true
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +15,7 @@ Command Shell.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.*", "logs-endpoint.events.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "System Information Discovery via Windows Command Shell"
 note = """## Triage and analysis
@@ -57,14 +58,19 @@ tags = ["Domain: Endpoint",
         "Tactic: Discovery",
         "Tactic: Execution",
         "Resources: Investigation Guide",
-        "Data Source: Elastic Defend"
+        "Data Source: Elastic Defend",
+        "Rule Type: BBR"
         ]
 timestamp_override = "event.ingested"
-type = "new_terms"
+building_block_type = "default"
+type = "eql"
 
 query = '''
-host.os.type:windows and event.category:process and event.type:start and process.name.caseless:"cmd.exe" and 
-process.args:("/c" and ("dir" or "set"))
+registry where host.os.type == "windows" and event.action != "deletion" and
+  registry.path :
+       ("HKLM\\SYSTEM\\ControlSet*\\Control\\Terminal Server\\WinStations\\RDP-Tcp\\UserAuthentication", 
+        "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Control\\Terminal Server\\WinStations\\RDP-Tcp\\UserAuthentication" ) and
+  registry.data.strings : "0"
 '''
 
 [[rule.threat]]
@@ -102,11 +108,3 @@ reference = "https://attack.mitre.org/techniques/T1059/003/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["host.id", "user.id", "process.command_line"]
-
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-14d"

@@ -2,25 +2,26 @@
 creation_date = "2020/12/04"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2023/09/20"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/09/21"
+bypass_bbr_timing = true
 
 [rule]
 author = ["Elastic"]
-description = "Discovery of remote system information using built-in commands, which may be used to move laterally."
+description = "Identifies attempts to enumerate hosts in a network using the built-in Windows net.exe tool."
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
-language = "kuery"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
+language = "eql"
 license = "Elastic License v2"
-name = "Remote System Discovery Commands"
+name = "Windows Network Enumeration"
 note = """## Triage and analysis
 
-### Investigating Remote System Discovery Commands
+### Investigating Windows Network Enumeration
 
 After successfully compromising an environment, attackers may try to gain situational awareness to plan their next steps. This can happen by running commands to enumerate network resources, users, connections, files, and installed security software.
 
-This rule looks for the execution of the `arp` or `nbstat` utilities to enumerate remote systems in the environment, which is useful for attackers to identify lateral movement targets.
+This rule looks for the execution of the `net` utility to enumerate servers in the environment that hosts shared drives or printers. This information is useful to attackers as they can identify targets for lateral movements and search for valuable shared data.
 
 #### Possible investigation steps
 
@@ -46,56 +47,42 @@ This rule looks for the execution of the `arp` or `nbstat` utilities to enumerat
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
-risk_score = 21
-rule_id = "0635c542-1b96-4335-9b47-126582d2c19a"
-severity = "low"
+risk_score = 47
+rule_id = "7b8bfc26-81d2-435e-965c-d722ee397ef1"
+severity = "medium"
 tags = ["Domain: Endpoint",
         "OS: Windows",
         "Use Case: Threat Detection",
         "Tactic: Discovery",
         "Resources: Investigation Guide",
-        "Data Source: Elastic Defend"
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend",
+        "Rule Type: BBR"
         ]
 timestamp_override = "event.ingested"
-type = "new_terms"
+building_block_type = "default"
+type = "eql"
 
 query = '''
-host.os.type:windows and event.category:process and event.type:start and 
-  (
-    process.name.caseless:"nbtstat.exe" and process.args:("-n" or "-s") or 
-    process.name.caseless:"ARP.EXE" and process.args:"-a" or
-    process.name.caseless:"nltest.exe" and process.args:("/dclist" or "/dsgetdc") or 
-    process.name.caseless:"nslookup.exe" and process.args:*_ldap._tcp.dc.* or 
-    process.name.caseless:("dsget.exe" or "dsquery.exe") and process.args:"subnet" or 
-    (process.name.caseless:"net.exe" or process.pe.original_file_name:"net.exe" or 
-      (process.name.caseless:"net1.exe" or process.pe.original_file_name:"net1.exe") and 
-        not process.parent.name:"net.exe") and 
-      process.args:("/domain" and "group" and not "/add")
-  )
+process where host.os.type == "windows" and event.type == "start" and
+  process.name : "cmd.exe" and process.args : "/c" and process.args : ("set", "dir") and
+  not process.parent.executable : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*", "?:\\PROGRA~1\\*")
 '''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1016"
-name = "System Network Configuration Discovery"
-reference = "https://attack.mitre.org/techniques/T1016/"
-
-[[rule.threat.technique]]
 id = "T1018"
 name = "Remote System Discovery"
 reference = "https://attack.mitre.org/techniques/T1018/"
+
+[[rule.threat.technique]]
+id = "T1135"
+name = "Network Share Discovery"
+reference = "https://attack.mitre.org/techniques/T1135/"
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["host.id", "user.id", "process.command_line"]
-
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-14d"

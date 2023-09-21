@@ -2,9 +2,10 @@
 creation_date = "2023/01/24"
 integration = ["windows", "endpoint"]
 maturity = "production"
-min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
-min_stack_version = "8.6.0"
-updated_date = "2023/09/20"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/09/21"
+bypass_bbr_timing = true
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +15,7 @@ after compromising a system in order to gain a better understanding of the envir
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "System Service Discovery through built-in Windows Utilities"
 risk_score = 21
@@ -24,18 +25,22 @@ tags = ["Domain: Endpoint",
         "OS: Windows",
         "Use Case: Threat Detection",
         "Tactic: Discovery",
-        "Data Source: Elastic Defend"
+        "Data Source: Elastic Defend",
+        "Rule Type: BBR"
         ]
 timestamp_override = "event.ingested"
-type = "new_terms"
+building_block_type = "default"
+type = "eql"
 
 query = '''
-host.os.type:windows and event.category:process and event.type:start and 
-  ((process.name.caseless:"net.exe" or process.pe.original_file_name:"net.exe" or process.name.caseless:"net1.exe" and 
-    not process.parent.name:"net.exe") and process.args:("start" or "use") and process.args_count:2 or
-  (process.name.caseless:"sc.exe" or process.pe.original_file_name:"sc.exe") and process.args:("query" or q*) or
-  (process.name.caseless:"tasklist.exe" or process.pe.original_file_name:"tasklist.exe") and process.args:"/svc" or
-    process.name.caseless:"psservice.exe" or process.pe.original_file_name:"psservice.exe")
+process where host.os.type == "windows" and event.type == "start" and
+  (
+  ((process.name: "net.exe" or process.pe.original_file_name == "net.exe" or (process.name : "net1.exe" and 
+    not process.parent.name : "net.exe")) and process.args : ("start", "use") and process.args_count == 2) or
+  ((process.name: "sc.exe" or process.pe.original_file_name == "sc.exe") and process.args: ("query", "q*")) or
+  ((process.name: "tasklist.exe" or process.pe.original_file_name == "tasklist.exe") and process.args: "/svc") or
+  (process.name : "psservice.exe" or process.pe.original_file_name == "psservice.exe")
+  ) and not user.id : "S-1-5-18"
 '''
 
 [[rule.threat]]
@@ -50,11 +55,3 @@ reference = "https://attack.mitre.org/techniques/T1007/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["host.id", "user.id", "process.command_line"]
-
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-14d"

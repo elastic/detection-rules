@@ -1,0 +1,59 @@
+[metadata]
+creation_date = "2023/09/21"
+maturity = "production"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule leverages alert data from the building block rule "Windows System Network Connections Discovery" to alert on
+signals with unusual unique host.id, user.id and process.command_line entries. The original underlying rule identifies
+the execution of commands that can be used to enumerate network connections. Adversaries may attempt to get a listing of
+network connections to or from a compromised system to identify targets within an environment.
+"""
+from = "now-9m"
+index = [".alerts-security*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual Signal Alert - Windows System Network Connections Discovery"
+risk_score = 21
+rule_id = "17c61b9e-3521-4be9-9155-b40c2be64875"
+severity = "low"
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery"
+        ]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.kind:signal and kibana.alert.rule.rule_id:"c4e9ed3e-55a2-4309-a012-bc3c78dad10a"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1049"
+name = "System Network Connections Discovery"
+reference = "https://attack.mitre.org/techniques/T1049/"
+
+[[rule.threat.technique]]
+id = "T1082"
+name = "System Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1082/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "user.id", "process.command_line"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"

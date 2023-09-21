@@ -1,0 +1,58 @@
+[metadata]
+creation_date = "2023/09/21"
+maturity = "production"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule leverages alert data from the building block rule "Remote System Discovery Commands" to alert on signals with 
+unusual unique host.id, user.id and process.command_line entries. The original underlying rule identifies the discovery
+of remote system information using built-in commands, which may be used to move laterally.
+"""
+from = "now-9m"
+index = [".alerts-security*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual Signal Alert - Remote System Discovery Commands"
+risk_score = 21
+rule_id = "96073850-64df-46a3-8aab-75f675f273d3"
+severity = "low"
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery"
+        ]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.kind:signal and kibana.alert.rule.rule_id:"0635c542-1b96-4335-9b47-126582d2c19a"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1016"
+name = "System Network Configuration Discovery"
+reference = "https://attack.mitre.org/techniques/T1016/"
+
+[[rule.threat.technique]]
+id = "T1018"
+name = "Remote System Discovery"
+reference = "https://attack.mitre.org/techniques/T1018/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "user.id", "process.command_line"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
