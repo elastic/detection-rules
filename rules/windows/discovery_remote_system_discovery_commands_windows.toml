@@ -60,15 +60,18 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type:windows and event.category:process and event.type:start and (
-process.name.caseless:"nbtstat.exe" and process.args:("-n" or "-s") or 
-process.name.caseless:"ARP.EXE" and process.args:"-a" or
-process.name.caseless:"nltest.exe" and process.args:("/dclist" or "/dsgetdc") or 
-process.name.caseless:"nslookup.exe" and process.args:*_ldap._tcp.dc.* or 
-process.name.caseless:("dsget.exe" or "dsquery.exe") and process.args:"subnet" or 
-(process.name.caseless:"net.exe" or process.pe.original_file_name:"net.exe" or 
-(process.name.caseless:"net1.exe" or process.pe.original_file_name:"net1.exe") and 
-not process.parent.name:"net.exe") and process.args:("/domain" and "group" and not "/add"))
+host.os.type:windows and event.category:process and event.type:start and 
+  (
+    process.name.caseless:"nbtstat.exe" and process.args:("-n" or "-s") or 
+    process.name.caseless:"ARP.EXE" and process.args:"-a" or
+    process.name.caseless:"nltest.exe" and process.args:("/dclist" or "/dsgetdc") or 
+    process.name.caseless:"nslookup.exe" and process.args:*_ldap._tcp.dc.* or 
+    process.name.caseless:("dsget.exe" or "dsquery.exe") and process.args:"subnet" or 
+    (process.name.caseless:"net.exe" or process.pe.original_file_name:"net.exe" or 
+      (process.name.caseless:"net1.exe" or process.pe.original_file_name:"net1.exe") and 
+        not process.parent.name:"net.exe") and 
+      process.args:("/domain" and "group" and not "/add")
+  )
 '''
 
 [[rule.threat]]
