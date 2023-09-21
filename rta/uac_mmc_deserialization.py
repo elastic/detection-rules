@@ -28,13 +28,13 @@ EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 def main():
     appdata = os.getenv("LOCALAPPDATA")
     path = Path(appdata) / "\\Microsoft\\Event Viewer"
-    recentfiles = Path(path) / "\\RecentViews"
+    recentfiles = path / "\\RecentViews"
 
-    if Path(path).is_dir():
+    if path.is_dir():
         common.copy_file(EXE_FILE, recentfiles)
         common.remove_file(recentfiles)
     else:
-        path.mkdir(parents=True)
+        path.mkdir()
         common.copy_file(EXE_FILE, recentfiles)
         common.remove_file(recentfiles)
         path.rmdir()

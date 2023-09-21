@@ -34,7 +34,7 @@ def main():
     executable = path + "Javafake.exe"
 
     if not Path(path).is_dir():
-        os.makedirs(path)
+        Path(path).mkdir(parents=True)
     else:
         pass
     common.copy_file(EXE_FILE, cscript)
