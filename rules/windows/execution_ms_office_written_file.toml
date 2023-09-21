@@ -88,10 +88,11 @@ sequence with maxspan=2h
       process.name : "eqnedt32.exe" or
       process.name : "fltldr.exe" or
       process.name : "MSPUB.EXE" or
-      process.name : "MSACCESS.EXE") and
-    not file.name : "NewOutlookInstaller.exe"
+      process.name : "MSACCESS.EXE")
   ] by host.id, file.path
-  [process where host.os.type == "windows" and event.type == "start"] by host.id, process.executable
+  [process where host.os.type == "windows" and event.type == "start" and 
+   not (process.name : "NewOutlookInstaller.exe" and process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted == true)
+  ] by host.id, process.executable
 '''
 
 [[rule.threat]]
