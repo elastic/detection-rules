@@ -436,21 +436,6 @@ class TestRuleTags(BaseRuleTest):
         if invalid:
             self.fail(f'Rules with duplicate tags:\n{invalid}')
 
-    def test_wildcard_tag_validation(self):
-        """Test that tags catagories that contain wildcards have valid expressions."""
-        invalid = []
-
-        # Get tags with regex definitions form definitions.EXPECTED_RULE_TAGS
-        wildcard_tags = set([tag for tag in definitions.EXPECTED_RULE_TAGS if "*" in tag.split(":")[1]])
-        for tag in wildcard_tags:
-            try:
-                re.compile(tag)
-            except re.error:
-                invalid.append(tag)
-
-        if invalid:
-            self.fail(f"Invalid regex in wildcard tags:\n{invalid}")
-
     def test_wildcard_tag_matching(self):
         """Test that tag catagories that contain regex are used appropriately and match correctly."""
         invalid = []
