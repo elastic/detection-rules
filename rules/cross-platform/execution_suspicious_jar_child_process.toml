@@ -14,7 +14,7 @@ malicious JAR file or an exploitation attempt via a JAVA specific vulnerability.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "eql"
+language = "kql"
 license = "Elastic License v2"
 name = "Suspicious JAVA Child Process"
 note = """## Triage and analysis
@@ -70,12 +70,12 @@ tags = ["Domain: Endpoint",
         "Data Source: Elastic Defend"
         ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 
 query = '''
-process where event.type in ("start", "process_started") and
-  process.parent.name : "java" and
-  process.name : ("sh", "bash", "dash", "ksh", "tcsh", "zsh", "curl", "wget")
+event.category:process and event.type:("start" or "process_started") and process.parent.name:"java" and process.name:(
+  "sh" or "bash" or "dash" or "ksh" or "tcsh" or "zsh" or "curl" or "wget"
+)
 '''
 
 [[rule.threat]]
