@@ -1024,8 +1024,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
                             # if integration is not a policy template remove
                             if package["version"]:
-                                policy_templates = packages_manifest[
-                                    package["package"]][package["version"].strip("^")]["policy_templates"]
+                                version_data = packages_manifest.get(package["package"],
+                                                                     {}).get(package["version"].strip("^"), {})
+                                policy_templates = version_data.get("policy_templates", [])
+
                                 if package["integration"] not in policy_templates:
                                     del package["integration"]
 

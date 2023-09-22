@@ -11,6 +11,7 @@ from marshmallow import validate
 from marshmallow_dataclass import NewType
 from semver import Version
 
+ANALYTIC_PACKAGES = ["lmd", "dga", "ded", "problemchild", "beaconing"]
 ASSET_TYPE = "security_rule"
 SAVED_OBJECT_TYPE = "security-rule"
 
@@ -32,7 +33,7 @@ ELASTICSEARCH_EQL_FEATURES = {
     "allow_sample": (Version.parse('8.6.0'), None),
     "elasticsearch_validate_optional_fields": (Version.parse('7.16.0'), None)
 }
-NON_DATASET_PACKAGES = ['apm', 'endpoint', 'system', 'windows', 'cloud_defend', 'network_traffic']
+NON_DATASET_PACKAGES = ['apm', 'endpoint', 'system', 'windows', 'cloud_defend', 'network_traffic', 'lmd']
 NON_PUBLIC_FIELDS = {
     "related_integrations": (Version.parse('8.3.0'), None),
     "required_fields": (Version.parse('8.3.0'), None),

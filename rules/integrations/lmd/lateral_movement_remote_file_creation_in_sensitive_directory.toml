@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2023/09/13"
-integration = ["lmd"]
+integration = ["lmd","endpoint"]
 maturity = "production"
-min_stack_comments = "New rule"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/09/13"
+updated_date = "2023/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -22,16 +22,17 @@ references = ["https://www.elastic.co/es/blog/remote-desktop-protocol-connection
 risk_score = 47
 rule_id = "2377946d-0f01-4957-8812-6878985f515d"
 severity = "medium"
-tags = ["Domain: Endpoint", "Use Case: Lateral Movement Detection", "Tactic: Lateral Movement"]
+tags = ["Domain: Endpoint", "Use Case: Lateral Movement Detection", "Tactic: Lateral Movement", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 file where (event.action == "creation" or event.action == "modification") and
 process.name:("System", "scp", "sshd", "smbd", "vsftpd", "sftp-server") and not
 user.name:("SYSTEM", "root") and
-(file.path : ("C*\\Users\\*\\AppData\\Roaming*", "C*\\Program*Files\\*", 
+(file.path : ("C*\\Users\\*\\AppData\\Roaming*", "C*\\Program*Files\\*",
     "C*\\Windows\\*", "C*\\Windows\\System\\*",
-    "C*\\Windows\\System32\\*", "/etc/*", "/tmp*", 
+    "C*\\Windows\\System32\\*", "/etc/*", "/tmp*",
     "/var/tmp*", "/home/*/.*", "/home/.*", "/usr/bin/*",
     "/sbin/*", "/bin/*", "/usr/lib/*", "/usr/sbin/*",
     "/usr/share/*", "/usr/local/*", "/var/lib/dpkg/*",
