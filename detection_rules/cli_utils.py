@@ -166,7 +166,7 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
             contents[name] = schema_prompt(name, value=kwargs.pop(name))
             continue
 
-        result = schema_prompt(name, required=name in required_fields, **options.copy())
+        result = schema_prompt(name, is_required=name in required_fields, **options.copy())
 
         if result:
             if name not in required_fields and result == options.get('default', ''):
