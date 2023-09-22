@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -73,7 +73,8 @@ any where
      miss this, which is the purpose of the process + command line args logic below */
   (
    event.category == "file" and event.type in ("change", "creation") and
-     file.path : ("/private/etc/hosts", "/etc/hosts", "?:\\Windows\\System32\\drivers\\etc\\hosts")
+     file.path : ("/private/etc/hosts", "/etc/hosts", "?:\\Windows\\System32\\drivers\\etc\\hosts") and 
+     not process.name in ("dockerd", "rootlesskit", "podman", "crio")
   )
   or
 
@@ -81,26 +82,25 @@ any where
   (
    event.category == "process" and event.type in ("start") and
      process.name in ("nano", "vim", "vi", "emacs", "echo", "sed") and
-     process.args : ("/etc/hosts")
+     process.args : ("/etc/hosts") and 
+     not process.parent.name in ("dhclient-script", "google_set_hostname")
   )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1565"
 name = "Data Manipulation"
 reference = "https://attack.mitre.org/techniques/T1565/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1565.001"
 name = "Stored Data Manipulation"
 reference = "https://attack.mitre.org/techniques/T1565/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
-

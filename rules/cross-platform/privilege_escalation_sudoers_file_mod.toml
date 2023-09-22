@@ -2,9 +2,9 @@
 creation_date = "2020/04/13"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -22,28 +22,34 @@ rule_id = "931e25a5-0f5e-4ae0-ba0d-9e94eff7e3a4"
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Linux", "OS: macOS", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "new_terms"
 
 query = '''
 event.category:file and event.type:change and file.path:(/etc/sudoers* or /private/etc/sudoers*)
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1548.003"
 name = "Sudo and Sudo Caching"
 reference = "https://attack.mitre.org/techniques/T1548/003/"
-
-
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.executable", "file.path"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
