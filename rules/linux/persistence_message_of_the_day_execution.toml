@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/08/21"
+updated_date = "2023/09/25"
 
 [transform]
 [[transform.osquery]]
@@ -125,10 +125,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and 
-event.type == "start" and event.action : ("exec", "exec_event") and
+event.type == "start" and event.action in ("exec", "exec_event") and
 process.parent.executable : ("/etc/update-motd.d/*", "/usr/lib/update-notifier/*") and
-process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "python*", "perl", "php*", "nc", "ncat", 
-"netcat", "socat", "lua", "java", "openssl", "ruby", "telnet")
+process.name : ("python*", "perl", "php*", "nc", "ncat", "netcat", "socat", "lua", "java", "openssl", "ruby", "telnet")
 '''
 
 [[rule.threat]]
