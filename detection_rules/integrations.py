@@ -94,7 +94,7 @@ def build_integrations_manifest(overwrite: bool, rule_integrations: list = [], i
     print(f"final integrations manifests dumped: {MANIFEST_FILE_PATH}")
 
 
-def build_integrations_schemas(overwrite: bool, integration: str) -> None:
+def build_integrations_schemas(overwrite: bool, integration: str = None) -> None:
     """Builds a new local copy of integration-schemas.json.gz from EPR integrations."""
 
     saved_integration_schemas = {}
