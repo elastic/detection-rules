@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/07/31"
+updated_date = "2023/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -23,15 +23,24 @@ name = "Suspicious Network Activity to the Internet by Previously Unknown Execut
 risk_score = 21
 rule_id = "53617418-17b4-4e9c-8a2c-8deb8086ca4b"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Command and Control", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Command and Control",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
 host.os.type:linux and event.category:network and 
 event.action:(connection_attempted or ipv4_connection_attempt_event) and 
+
 process.executable : ( 
-    (/etc/crontab or 
+     ./* or
+     /etc/crontab or 
      /etc/rc.local or 
      /boot/* or 
      /dev/shm/* or 
@@ -44,22 +53,27 @@ process.executable : (
      /srv/* or 
      /tmp/* or 
      /usr/lib/update-notifier/* or 
-     /var/tmp/*) and 
-     not (/usr/bin/apt or 
-          /usr/bin/curl or 
-          /usr/bin/dnf or 
-          /usr/bin/dockerd or 
-          /usr/bin/dpkg or 
-          /usr/bin/rpm or 
-          /usr/bin/wget or 
-          /usr/bin/yum) 
-    ) 
-and source.ip : ( 
+     /var/tmp/*
+) and
+
+source.ip : ( 
     10.0.0.0/8 or 
     127.0.0.0/8 or 
     172.16.0.0/12 or 
-    192.168.0.0/16) and 
-    not destination.ip : ( 
+    192.168.0.0/16
+) and 
+
+not process.executable : (
+  /tmp/snap.rootfs* or
+  /tmp/newroot/*
+) and 
+
+not process.name : (
+  apt or curl or wget or dnf or dockerd or dpkg or rpm or yum or firefox-bin or terraform* or node or python* or php* or 
+  steam* or aws* or saml2aws or java or pip* or kite-update or chrome or kited or ansible* 
+) and 
+
+not destination.ip : ( 
         10.0.0.0/8 or 
         100.64.0.0/10 or 
         127.0.0.0/8 or 
@@ -85,7 +99,8 @@ and source.ip : (
         240.0.0.0/4 or 
         "::1" or 
         "FE80::/10" or 
-        "FF00::/8")
+        "FF00::/8"
+)
 '''
 
 [[rule.threat]]
@@ -103,8 +118,8 @@ reference = "https://attack.mitre.org/tactics/TA0011/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["destination.ip", "process.executable"]
+value = ["host.id", "destination.ip", "process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
+value = "now-14d"
