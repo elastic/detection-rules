@@ -31,7 +31,7 @@ def main():
     backedup = False
 
     # backup original if it exists
-    if Path(rdrcef_exe).is_file():
+    if rdrcef_exe.is_file():
         common.log("{} already exists, backing up file.".format(rdrcef_exe))
         common.copy_file(rdrcef_exe, backup)
         backedup = True

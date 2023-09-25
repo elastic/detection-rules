@@ -37,7 +37,7 @@ def main():
     common.log("Execute files from the Recycle Bin")
     target_dir = None
     for recycle_path in RECYCLE_PATHS:
-        if Path(recycle_path).is_file() or Path(recycle_path).is_dir():
+        if Path(recycle_path).exists():
             target_dir = common.find_writeable_directory(recycle_path)
             if target_dir:
                 break
