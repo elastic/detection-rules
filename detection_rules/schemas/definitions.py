@@ -66,7 +66,6 @@ TIMELINE_TEMPLATES: Final[dict] = {
 }
 
 EXPECTED_RULE_TAGS = [
-    'Asset: .*',
     'Data Source: Active Directory',
     'Data Source: Amazon Web Services',
     'Data Source: AWS',

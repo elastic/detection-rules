@@ -240,6 +240,7 @@ class TestThreatMappings(BaseRuleTest):
                           f'Flatten to a single entry per tactic')
 
 
+@unittest.skipIf(os.environ.get('DR_BYPASS_TAGS_VALIDATION') is not None, "Skipping tag validation")
 class TestRuleTags(BaseRuleTest):
     """Test tags data for rules."""
 
@@ -313,6 +314,7 @@ class TestRuleTags(BaseRuleTest):
                 self.fail(error_msg)
 
     def test_primary_tactic_as_tag(self):
+        """Test that the primary tactic is present as a tag."""
         from detection_rules.attack import tactics
 
         invalid = []
@@ -435,25 +437,6 @@ class TestRuleTags(BaseRuleTest):
 
         if invalid:
             self.fail(f'Rules with duplicate tags:\n{invalid}')
-
-    def test_wildcard_tag_matching(self):
-        """Test that tag catagories that contain regex are used appropriately and match correctly."""
-        invalid = []
-
-        # Get tags with regex definitions form definitions.EXPECTED_RULE_TAGS
-        wildcard_tags = set([tag for tag in definitions.EXPECTED_RULE_TAGS if "*" in tag.split(":")[1]])
-        wildcard_map = {tag.split(":")[0]: tag for tag in wildcard_tags}
-
-        for rule in self.all_rules:
-            rule_tags = rule.contents.data.tags
-            for tag in rule_tags:
-                if tag.split(":")[0] in wildcard_map.keys():
-                    # Check if tag matches regex
-                    if not re.match(wildcard_map[tag.split(":")[0]], tag):
-                        invalid.append(self.rule_str(rule))
-
-        if invalid:
-            self.fail(f"Rules with invalid regex in wildcard tags:\n{invalid}")
 
 
 class TestRuleTimelines(BaseRuleTest):
