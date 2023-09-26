@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/09/12"
+updated_date = "2023/09/26"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +26,7 @@ type = "eql"
 query = '''
 sequence by host.id, process.entity_id with maxspan=1s
   [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
-   process.name in ("cp", "mv", "cat") and process.args : (
+   process.name in ("cp", "mv") and process.args : (
    // Shells
    "/bin/*sh", "/usr/bin/*sh", 
 
@@ -44,10 +44,10 @@ sequence by host.id, process.entity_id with maxspan=1s
    "/usr/bin/mknod", "/bin/ping*", "/usr/bin/ping*", "/bin/nmap", "/usr/bin/nmap",
 
    // System utilities
-   "/bin/ls", "/usr/bin/ls", "/bin/cat", "/usr/bin/cat", "/bin/mv", "/usr/bin/mv", "/bin/cp", "/usr/bin/cp",
-   "/bin/sudo", "/usr/bin/sudo", "/bin/curl", "/usr/bin/curl", "/bin/wget", "/usr/bin/wget", "/bin/tmux",
-   "/usr/bin/tmux", "/bin/screen", "/usr/bin/screen", "/bin/ssh", "/usr/bin/ssh", "/bin/ftp", "/usr/bin/ftp"
-  ) and not process.parent.name in ("dracut-install", "apticron", "generate-from-dir")]
+   "/bin/ls", "/usr/bin/ls", "/bin/cat", "/usr/bin/cat", "/bin/sudo", "/usr/bin/sudo", "/bin/curl", "/usr/bin/curl",
+   "/bin/wget", "/usr/bin/wget", "/bin/tmux", "/usr/bin/tmux", "/bin/screen", "/usr/bin/screen", "/bin/ssh",
+   "/usr/bin/ssh", "/bin/ftp", "/usr/bin/ftp"
+  )]
   [file where host.os.type == "linux" and event.action == "creation" and file.path : (
     "/dev/shm/*", "/run/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/var/www/*", "/proc/*/fd/*"
   )]
