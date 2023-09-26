@@ -8,6 +8,7 @@ from functools import cached_property
 from typing import List, Optional, Tuple, Union
 
 import eql
+import esql
 from antlr4 import CommonTokenStream, InputStream
 from antlr4.tree.Trees import Trees
 from semver import Version
@@ -351,23 +352,23 @@ class EQLValidator(QueryValidator):
             # if rule type fields are not set, return an empty list and False
             return [], False
 
-class ESQLValidator(QueryValidtor):
+class ESQLValidator(QueryValidator):
     @cached_property
     def tree(self) -> esql.EsqlBaseParser.EsqlBaseParser.SingleStatementContext:
         latest_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
         # TODO: do we need to set a config for ESQL?
         # config = set_eql_config(str(latest_version))
-        query = self.rule.contents.data.query
 
-        input_stream = InputStream(q)
+        input_stream = InputStream(self.query)
         lexer = EsqlBaseLexer(input_stream)
         token_stream = CommonTokenStream(lexer)
         parser = EsqlBaseParser(token_stream)
         tree = parser.singleStatement()
 
-        print(Trees.toStringTree(tree, None, parser))
+        return Trees.toStringTree(tree, None, parser)
 
-        return esql.parse_query(self.query)
+    def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
+        print(self.tree)
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
     """Extract the field name from an EQL or KQL parse error."""

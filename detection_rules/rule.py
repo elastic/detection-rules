@@ -753,6 +753,12 @@ class EQLRuleData(QueryRuleData):
             interval = convert_time_span(self.interval or '5m')
             return interval / self.max_span
 
+@dataclass(frozen=True)
+class ESQLRuleData(QueryRuleData):
+    """ESQL rules are a special case of query rules."""
+    type: Literal["esql"]
+    language: Literal["esql"]
+
 
 @dataclass(frozen=True)
 class ThreatMatchRuleData(QueryRuleData):
@@ -801,7 +807,7 @@ class ThreatMatchRuleData(QueryRuleData):
 # All of the possible rule types
 # Sort inverse of any inheritance - see comment in TOMLRuleContents.to_dict
 AnyRuleData = Union[EQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData,
-                    MachineLearningRuleData, QueryRuleData, NewTermsRuleData]
+                    MachineLearningRuleData, QueryRuleData, NewTermsRuleData, ESQLRuleData]
 
 
 class BaseRuleContents(ABC):
@@ -985,9 +991,11 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         super()._post_dict_conversion(obj)
 
         # build time fields
-        self._convert_add_related_integrations(obj)
-        self._convert_add_required_fields(obj)
-        self._convert_add_setup(obj)
+        if not isinstance(self.data, ESQLRuleData):
+            self._convert_add_related_integrations(obj)
+            self._convert_add_required_fields(obj)
+            self._convert_add_setup(obj)
+
 
         # validate new fields against the schema
         rule_type = obj['type']
@@ -1363,4 +1371,4 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
 
 
 # avoid a circular import
-from .rule_validators import EQLValidator, KQLValidator  # noqa: E402
+from .rule_validators import EQLValidator, KQLValidator, ESQLValidator  # noqa: E402
