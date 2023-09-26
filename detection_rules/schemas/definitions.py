@@ -32,6 +32,12 @@ ELASTICSEARCH_EQL_FEATURES = {
     "allow_sample": (Version.parse('8.6.0'), None),
     "elasticsearch_validate_optional_fields": (Version.parse('7.16.0'), None)
 }
+ELASTICSEARCH_ESQL_GRAMMAR_PATHS = {
+    "EsqlBaseLexer.g4": "x-pack/plugin/esql/src/main/antlr/EsqlBaseLexer.g4",
+    "EsqlBaseParser.g4": "x-pack/plugin/esql/src/main/antlr/EsqlBaseParser.g4",
+    "EsqlBaseLexer.tokens": "x-pack/plugin/esql/src/main/antlr/EsqlBaseLexer.tokens",
+    "EsqlBaseParser.tokens": "x-pack/plugin/esql/src/main/antlr/EsqlBaseParser.tokens"
+}
 NON_DATASET_PACKAGES = ['apm', 'endpoint', 'system', 'windows', 'cloud_defend', 'network_traffic']
 NON_PUBLIC_FIELDS = {
     "related_integrations": (Version.parse('8.3.0'), None),
@@ -133,7 +139,7 @@ CardinalityFields = NewType('CardinalityFields', List[NonEmptyStr], validate=val
 CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
-FilterLanguages = Literal["kuery", "lucene"]
+FilterLanguages = Literal["kuery", "lucene", "eql", "esql"]
 Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
 Markdown = NewType("MarkdownField", CodeString)
 Maturity = Literal['development', 'experimental', 'beta', 'production', 'deprecated']

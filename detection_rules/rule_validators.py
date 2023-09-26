@@ -5,18 +5,24 @@
 
 """Validation logic for rules containing queries."""
 from functools import cached_property
-from typing import List, Optional, Union, Tuple
-from semver import Version
+from typing import List, Optional, Tuple, Union
 
 import eql
+from antlr4 import CommonTokenStream, InputStream
+from antlr4.tree.Trees import Trees
+from semver import Version
 
 import kql
+from esql.EsqlBaseLexer import EsqlBaseLexer
+from esql.EsqlBaseParser import EsqlBaseParser
 
 from . import ecs, endgame
-from .integrations import get_integration_schema_data, load_integrations_manifests
+from .integrations import (get_integration_schema_data,
+                           load_integrations_manifests)
 from .misc import load_current_package_version
+from .rule import (EQLRuleData, QueryRuleData, QueryValidator, RuleMeta,
+                   TOMLRuleContents, set_eql_config)
 from .schemas import get_stack_schemas
-from .rule import QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, EQLRuleData, set_eql_config
 
 EQL_ERROR_TYPES = Union[eql.EqlCompileError,
                         eql.EqlError,
@@ -345,6 +351,23 @@ class EQLValidator(QueryValidator):
             # if rule type fields are not set, return an empty list and False
             return [], False
 
+class ESQLValidator(QueryValidtor):
+    @cached_property
+    def tree(self) -> esql.EsqlBaseParser.EsqlBaseParser.SingleStatementContext:
+        latest_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+        # TODO: do we need to set a config for ESQL?
+        # config = set_eql_config(str(latest_version))
+        query = self.rule.contents.data.query
+
+        input_stream = InputStream(q)
+        lexer = EsqlBaseLexer(input_stream)
+        token_stream = CommonTokenStream(lexer)
+        parser = EsqlBaseParser(token_stream)
+        tree = parser.singleStatement()
+
+        print(Trees.toStringTree(tree, None, parser))
+
+        return esql.parse_query(self.query)
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
     """Extract the field name from an EQL or KQL parse error."""
