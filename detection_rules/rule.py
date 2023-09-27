@@ -1133,7 +1133,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             rule_integrations = meta.get("integration", [])
             if rule_integrations:
                 for integration in rule_integrations:
-                    ineligible_integrations = definitions.NON_DATASET_PACKAGES + definitions.ANALYTIC_PACKAGES
+                    ineligible_integrations = definitions.NON_DATASET_PACKAGES + \
+                        [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
                     if integration in ineligible_integrations or isinstance(data, MachineLearningRuleData):
                         packaged_integrations.append({"package": integration, "integration": None})
 

@@ -11,7 +11,6 @@ from marshmallow import validate
 from marshmallow_dataclass import NewType
 from semver import Version
 
-ANALYTIC_PACKAGES = ["lmd", "dga", "ded", "problemchild", "beaconing"]
 ASSET_TYPE = "security_rule"
 SAVED_OBJECT_TYPE = "security-rule"
 
@@ -126,6 +125,7 @@ EXPECTED_RULE_TAGS = [
     'Use Case: Vulnerability'
 ]
 
+MACHINE_LEARNING_PACKAGES = ['LMD', 'DGA', 'DED', 'ProblemChild', 'Beaconing']
 
 NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
 TimeUnits = Literal['s', 'm', 'h']
@@ -160,5 +160,5 @@ UUIDString = NewType('UUIDString', str, validate=validate.Regexp(UUID_PATTERN))
 BuildingBlockType = Literal['default']
 
 # experimental machine learning features and releases
-MachineLearningType = Literal['DGA', 'ProblemChild']
-MachineLearningTypeLower = Literal['dga', 'problemchild']
+MachineLearningType = Literal[*MACHINE_LEARNING_PACKAGES]
+MachineLearningTypeLower = Literal[*map(str.lower, MACHINE_LEARNING_PACKAGES)]
