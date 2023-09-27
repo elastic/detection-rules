@@ -160,5 +160,6 @@ UUIDString = NewType('UUIDString', str, validate=validate.Regexp(UUID_PATTERN))
 BuildingBlockType = Literal['default']
 
 # experimental machine learning features and releases
-MachineLearningType = Literal[*MACHINE_LEARNING_PACKAGES]  # noqa: E999
-MachineLearningTypeLower = Literal[*map(str.lower, MACHINE_LEARNING_PACKAGES)]  # noqa: E999
+MachineLearningType = getattr(Literal, '__getitem__')(tuple(MACHINE_LEARNING_PACKAGES))  # noqa: E999
+MachineLearningTypeLower = getattr(Literal, '__getitem__')(
+    tuple(map(str.lower, MACHINE_LEARNING_PACKAGES)))  # noqa: E999
