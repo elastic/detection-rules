@@ -1,0 +1,57 @@
+[metadata]
+creation_date = "2023/09/13"
+integration = ["lmd","endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/09/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Discovery of files created by a remote host on sensitive directories and folders. Remote file creation in these
+directories could indicate a malicious binary or script trying to compromise the system.
+"""
+from = "now-10m"
+index = ["logs-endpoint.events.*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Remote File Creation on a Sensitive Directory"
+references = ["https://www.elastic.co/es/blog/remote-desktop-protocol-connections-elastic-security"]
+risk_score = 47
+rule_id = "2377946d-0f01-4957-8812-6878985f515d"
+severity = "medium"
+tags = ["Domain: Endpoint", "Use Case: Lateral Movement Detection", "Tactic: Lateral Movement", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where (event.action == "creation" or event.action == "modification") and
+process.name:("System", "scp", "sshd", "smbd", "vsftpd", "sftp-server") and not
+user.name:("SYSTEM", "root") and
+(file.path : ("C*\\Users\\*\\AppData\\Roaming*", "C*\\Program*Files\\*",
+    "C*\\Windows\\*", "C*\\Windows\\System\\*",
+    "C*\\Windows\\System32\\*", "/etc/*", "/tmp*",
+    "/var/tmp*", "/home/*/.*", "/home/.*", "/usr/bin/*",
+    "/sbin/*", "/bin/*", "/usr/lib/*", "/usr/sbin/*",
+    "/usr/share/*", "/usr/local/*", "/var/lib/dpkg/*",
+    "/lib/systemd/*"
+    )
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1210"
+name = "Exploitation of Remote Services"
+reference = "https://attack.mitre.org/techniques/T1210/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
