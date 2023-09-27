@@ -632,7 +632,8 @@ class TestRuleMetadata(BaseRuleTest):
                     # checks if an index pattern exists if the package integration tag exists
                     integration_string = "|".join(indices)
                     if not re.search(rule_integration, integration_string):
-                        if rule_integration == "windows" and re.search("winlog", integration_string):
+                        if rule_integration == "windows" and re.search("winlog", integration_string) or \
+                                rule_integration in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]:
                             continue
                         err_msg = f'{self.rule_str(rule)} {rule_integration} tag, index pattern missing.'
                         failures.append(err_msg)
@@ -658,7 +659,8 @@ class TestRuleMetadata(BaseRuleTest):
                     ]
                     if any([re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
                             for i in rule.contents.data.index]):
-                        if not rule.contents.metadata.integration and rule.id not in ignore_ids:
+                        if not rule.contents.metadata.integration and rule.id not in ignore_ids and \
+                                rule.contents.data.type not in definitions.MACHINE_LEARNING:
                             err_msg = f'substrings {non_dataset_packages} found in '\
                                       f'{self.rule_str(rule)} rule index patterns are {rule.contents.data.index},' \
                                       f'but no integration tag found'
