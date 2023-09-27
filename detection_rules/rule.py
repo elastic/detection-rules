@@ -1024,8 +1024,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
                             # if integration is not a policy template remove
                             if package["version"]:
-                                policy_templates = packages_manifest[
-                                    package["package"]][package["version"].strip("^")]["policy_templates"]
+                                version_data = packages_manifest.get(package["package"],
+                                                                     {}).get(package["version"].strip("^"), {})
+                                policy_templates = version_data.get("policy_templates", [])
+
                                 if package["integration"] not in policy_templates:
                                     del package["integration"]
 
@@ -1131,7 +1133,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             rule_integrations = meta.get("integration", [])
             if rule_integrations:
                 for integration in rule_integrations:
-                    if integration in definitions.NON_DATASET_PACKAGES or isinstance(data, MachineLearningRuleData):
+                    ineligible_integrations = definitions.NON_DATASET_PACKAGES + \
+                        [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
+                    if integration in ineligible_integrations or isinstance(data, MachineLearningRuleData):
                         packaged_integrations.append({"package": integration, "integration": None})
 
         for value in sorted(datasets):
