@@ -1,0 +1,73 @@
+[metadata]
+creation_date = "2023/08/24"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/08/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the suspicious creation of SettingContents-ms files, which have been used in attacks to achieve code
+execution while evading defenses.
+"""
+from = "now-119m"
+interval = "60m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Creation of SettingContent-ms Files"
+references = [
+    "https://posts.specterops.io/the-tale-of-settingcontent-ms-files-f1ea253e4d39",
+]
+risk_score = 21
+rule_id = "1e6363a6-3af5-41d4-b7ea-d475389c0ceb"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Defend", "Rule Type: BBR"]
+timestamp_override = "event.ingested"
+building_block_type = "default"
+type = "eql"
+
+query = '''
+file where host.os.type == "windows" and event.type == "creation" and
+  file.extension : "settingcontent-ms"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+
+
+    [[rule.threat.technique.subtechnique]]
+    id = "T1204.002"
+    name = "Malicious File"
+    reference = "https://attack.mitre.org/techniques/T1204/002/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+
+    [[rule.threat.technique.subtechnique]]
+    id = "T1566.001"
+    name = "Spearphishing Attachment"
+    reference = "https://attack.mitre.org/techniques/T1566/001/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"

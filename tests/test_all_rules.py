@@ -265,7 +265,7 @@ class TestRuleTags(BaseRuleTest):
         """Test that expected tags are present within rules."""
 
         required_tags_map = {
-            'logs-endpoint.events.*': {'all': ['Domain: Endpoint']},
+            'logs-endpoint.events.*': {'all': ['Domain: Endpoint', 'Data Source: Elastic Defend']},
             'endgame-*': {'all': ['Data Source: Elastic Endgame']},
             'logs-aws*': {'all': ['Data Source: AWS', 'Data Source: Amazon Web Services', 'Domain: Cloud']},
             'logs-azure*': {'all': ['Data Source: Azure', 'Domain: Cloud']},
@@ -423,6 +423,18 @@ class TestRuleTags(BaseRuleTest):
              if not any(prefix in tag for prefix in expected_prefixes)]
         if invalid:
             self.fail(f'Rules with invalid tags:\n{invalid}')
+
+    def test_no_duplicate_tags(self):
+        """Ensure no rules have duplicate tags."""
+        invalid = []
+
+        for rule in self.all_rules:
+            rule_tags = rule.contents.data.tags
+            if len(rule_tags) != len(set(rule_tags)):
+                invalid.append(self.rule_str(rule))
+
+        if invalid:
+            self.fail(f'Rules with duplicate tags:\n{invalid}')
 
 
 class TestRuleTimelines(BaseRuleTest):
@@ -1165,20 +1177,29 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
         for rule in self.production_rules.rules:
             has_transform = rule.contents.get('transform') is not None
             has_note = rule.contents.data.get('note') is not None
+            note = rule.contents.data.note
 
-            if has_transform and not has_note:
-                self.fail(f'{self.rule_str(rule)} transformed defined with no note')
-            elif not has_transform:
-                continue
+            if has_transform:
+                if not has_note:
+                    self.fail(f'{self.rule_str(rule)} transformed defined with no note')
+            else:
+                if not has_note:
+                    continue
+
+            note_template = PatchedTemplate(note)
+            identifiers = [i for i in note_template.get_identifiers() if '_' in i]
+
+            if not has_transform:
+                if identifiers:
+                    self.fail(f'{self.rule_str(rule)} note contains plugin placeholders with no transform entries')
+                else:
+                    continue
 
             transform = rule.contents.transform
             transform_counts = {plugin: len(entries) for plugin, entries in transform.to_dict().items()}
-            note = rule.contents.data.note
-            self.assertIsNotNone(note)
-            note_template = PatchedTemplate(note)
 
             note_counts = defaultdict(int)
-            for identifier in note_template.get_identifiers():
+            for identifier in identifiers:
                 # "$" is used for other things, so this verifies the pattern of a trailing "_" followed by ints
                 if '_' not in identifier:
                     continue

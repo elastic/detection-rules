@@ -1,0 +1,49 @@
+[metadata]
+creation_date = "2023/08/24"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/08/24"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identify activity related where adversaries can include a trap command which then allows programs and shells to specify
+commands that will be executed upon receiving interrupt signals.
+"""
+from = "now-119m"
+interval = "60m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Trap Signals Execution"
+risk_score = 21
+rule_id = "cf6995ec-32a9-4b2d-9340-f8e61acf3f4e"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Linux", "OS: macOS","Use Case: Threat Detection", "Tactic: Privilege Escalation", "Rule Type: BBR", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where  event.type : ("start", "process_started") and process.name : "trap" and  process.args : "SIG*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1546.005"
+name = "Trap"
+reference = "https://attack.mitre.org/techniques/T1546/005/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
