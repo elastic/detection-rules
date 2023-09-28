@@ -11,12 +11,10 @@
 # signal.rule.name: Net command via SYSTEM account
 # ATT&CK: T1053
 
-import os
 import time
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="1a61241e-5b1b-44ec-8c9f-3ae4652550be",
@@ -40,7 +38,7 @@ def main():
     common.log("Scheduled Task Privilege Escalation")
 
     task_name = "test-task-rta"
-    file_path = os.path.abspath("task.log")
+    file_path = Path("task.log").resolve()
     command = "cmd.exe /c whoami.exe > " + file_path
 
     # Delete the task if it exists
