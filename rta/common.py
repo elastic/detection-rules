@@ -127,7 +127,7 @@ else:
     CMD_PATH = "/bin/sh"
     POWERSHELL_PATH = None
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = Path(__file__).resolve().parent
 ALL_IP = "0.0.0.0"
 IP_REGEX = r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"
 CALLBACK_REGEX = r"https?://" + IP_REGEX + r":\d+"
@@ -176,6 +176,7 @@ def requires_os(*os_list: str):
         @functools.wraps(f)
         def decorated(*args, **kwargs):
             if CURRENT_OS not in os_list:
+                # NOTE os.path.relpath supports Path objects and does not exist in pathlib
                 filename = os.path.relpath(inspect.getsourcefile(f))
                 func_name = f.__name__
 
@@ -191,7 +192,7 @@ def requires_os(*os_list: str):
 def check_dependencies(*paths: str) -> bool:
     missing = []
     for path in paths:
-        if not os.path.exists(path):
+        if not Path(path).exists():
             log("Missing dependency %s" % path, "!")
             missing.append(path)
     return len(missing) == 0
@@ -200,7 +201,7 @@ def check_dependencies(*paths: str) -> bool:
 def dependencies(*paths: str):
     missing = []
     for path in paths:
-        if not os.path.exists(path):
+        if not Path(path).exists():
             missing.append(path)
 
     def decorator(f):
@@ -209,6 +210,7 @@ def dependencies(*paths: str):
             if len(missing):
                 log("Missing dependencies for %s:%s()" % (f.func_code.co_filename, f.func_code.co_name), "!")
                 for dep in missing:
+                    # NOTE os.path.relpath supports Path objects and does not exist in pathlib
                     print("    - %s" % os.path.relpath(dep, BASE_DIR))
                 return MISSING_DEPENDENCIES
             return f(*args, **kwargs)
@@ -237,8 +239,8 @@ def temporary_file(contents, file_name=None):
 
 
 def temporary_file_helper(contents, file_name=None):
-    if not (file_name and os.path.isabs(file_name)):
-        file_name = os.path.join(tempfile.gettempdir(), file_name or f"temp{hash(contents):d}")
+    if not (file_name and Path(file_name).is_absolute()):
+        file_name = Path(tempfile.gettempdir()) / file_name or f"temp{hash(contents):d}"
 
     with open(file_name, "wb" if isinstance(contents, bytes) else "w") as f:
         f.write(contents)
@@ -373,14 +375,13 @@ def link_file(source, target):
     log("Linking %s -> %s" % (source, target))
     execute(["ln", "-s", source, target])
 
-
-def remove_file(path):
-    if os.path.exists(path):
+def remove_file(path: str):
+    if Path(path).is_file():
         log("Removing %s" % path, log_type="-")
         # Try three times to remove the file
         for _ in range(3):
             try:
-                os.remove(path)
+                Path(path).unlink()
             except OSError:
                 time.sleep(0.25)
             else:
@@ -388,12 +389,11 @@ def remove_file(path):
 
 
 def remove_directory(path):
-    if os.path.exists(path):
-        if os.path.isdir(path):
-            log(f"Removing directory {path:s}", log_type="-")
-            shutil.rmtree(path)
-        else:
-            remove_file(path)
+    if Path(path).is_dir():
+        log(f"Removing directory {path:s}", log_type="-")
+        shutil.rmtree(path)
+    else:
+        remove_file(path)
 
 
 def is_64bit():
@@ -534,9 +534,9 @@ def get_ipv4_address(hostname):
 def find_writeable_directory(base_dir):
     for root, dirs, files in os.walk(base_dir):
         for d in dirs:
-            subdir = os.path.join(base_dir, d)
+            subdir = Path(base_dir) / d
             try:
-                test_file = os.path.join(subdir, "test_file")
+                test_file = Path(subdir) / "test_file"
                 f = open(test_file, "w")
                 f.close()
                 os.remove(test_file)
@@ -557,10 +557,11 @@ def run_system(arguments=None):
         return None
 
     if arguments is None:
+        # NOTE os.path.relpath supports Path objects and does not exist in pathlib
         arguments = [sys.executable, os.path.abspath(sys.argv[0])] + sys.argv[1:]
 
     log("Attempting to elevate to SYSTEM using PsExec")
-    if not os.path.exists(PS_EXEC):
+    if not Path(PS_EXEC).is_file():
         log("PsExec not found", log_type="-")
         return MISSING_PSEXEC
 
@@ -717,7 +718,7 @@ def enable_logon_auditing(host="localhost", verbose=True, sleep=2):
 
 def print_file(path):
     print(path)
-    if not os.path.exists(path):
+    if not Path(path).is_file():
         print("--- NOT FOUND ----")
     else:
         print("-" * 16)

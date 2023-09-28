@@ -3,9 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-from . import common
-from . import RtaMetadata
-import os
+from pathlib import Path
+
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="ae4b2807-3a16-485e-bb69-5d36bbe9b7d1",
@@ -22,7 +22,7 @@ BIN = common.get_path("bin", "LoadLib-Callback64.exe")
 @common.requires_os(metadata.platforms)
 
 def main():
-    if os.path.exists(BIN) :
+    if Path(BIN).is_file():
         print(f'[+] - File {BIN} will be executed')
         common.execute(BIN)
         # cleanup
