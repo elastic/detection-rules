@@ -27,9 +27,9 @@ type = "eql"
 
 query = '''
 sequence by user.id with maxspan=5s
- [process where event.action == "start" and
+ [process where host.os.type == "windows" and event.action == "start" and
   process.name : "rundll32.exe" and process.command_line : ("*dfshim*ShOpenVerbApplication*", "*dfshim*#*")]
- [any where event.category : ("network", "dns") and process.name : "dfsvc.exe"]
+ [network where host.os.type == "windows" and process.name : "dfsvc.exe"]
 '''
 
 
