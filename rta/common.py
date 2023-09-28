@@ -192,7 +192,7 @@ def requires_os(*os_list: str):
 def check_dependencies(*paths: str) -> bool:
     missing = []
     for path in paths:
-        if not Path(path).is_file() or Path(path).is_dir():
+        if not Path(path).exists():
             log("Missing dependency %s" % path, "!")
             missing.append(path)
     return len(missing) == 0
@@ -201,7 +201,7 @@ def check_dependencies(*paths: str) -> bool:
 def dependencies(*paths: str):
     missing = []
     for path in paths:
-        if not Path(path).is_file() or Path(path).is_dir():
+        if not Path(path).exists():
             missing.append(path)
 
     def decorator(f):
