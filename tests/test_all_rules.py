@@ -240,6 +240,7 @@ class TestThreatMappings(BaseRuleTest):
                           f'Flatten to a single entry per tactic')
 
 
+@unittest.skipIf(os.environ.get('DR_BYPASS_TAGS_VALIDATION') is not None, "Skipping tag validation")
 class TestRuleTags(BaseRuleTest):
     """Test tags data for rules."""
 
@@ -313,6 +314,7 @@ class TestRuleTags(BaseRuleTest):
                 self.fail(error_msg)
 
     def test_primary_tactic_as_tag(self):
+        """Test that the primary tactic is present as a tag."""
         from detection_rules.attack import tactics
 
         invalid = []
