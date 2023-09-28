@@ -3,10 +3,10 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-from . import common
-from . import RtaMetadata
-import os
+import shutil
+from pathlib import Path
 
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="7e9a94f4-46aa-45eb-b95b-53da7c01a033",
@@ -33,14 +33,14 @@ def main():
     path = "C:\\Users\\Public\\System32"
     user32 = "C:\\Windows\\System32\\user32.dll"
     dll = path + "\\npmproxy.dll"
-    os.makedirs(path, exist_ok=True)
+    Path(path).mkdir(parents=True, exist_ok=True)
     common.copy_file(user32, dll)
     common.copy_file(EXE_FILE, taskhostw)
 
     common.log("Spawning PowerShell from fake taskhostw")
     common.execute([taskhostw, "/c", powershell], timeout=10, kill=True)
     common.remove_files(dll, taskhostw)
-    os.removedirs(path)
+    shutil.rmtree(path)
 
 
 if __name__ == "__main__":
