@@ -47,12 +47,13 @@ class IntegrationManifestSchema(Schema):
     description = fields.Str(required=True)
     download = fields.Str(required=True)
     conditions = fields.Dict(required=True)
-    policy_templates = fields.List(fields.Dict, required=True)
+    policy_templates = fields.List(fields.Dict)
     owner = fields.Dict(required=False)
 
     @post_load
     def transform_policy_template(self, data, **kwargs):
-        data["policy_templates"] = [policy["name"] for policy in data["policy_templates"]]
+        if "policy_templates" in data:
+            data["policy_templates"] = [policy["name"] for policy in data["policy_templates"]]
         return data
 
 
@@ -93,20 +94,29 @@ def build_integrations_manifest(overwrite: bool, rule_integrations: list = [], i
     print(f"final integrations manifests dumped: {MANIFEST_FILE_PATH}")
 
 
-def build_integrations_schemas(overwrite: bool) -> None:
+def build_integrations_schemas(overwrite: bool, integration: str = None) -> None:
     """Builds a new local copy of integration-schemas.json.gz from EPR integrations."""
 
-    final_integration_schemas = {}
     saved_integration_schemas = {}
 
     # Check if the file already exists and handle accordingly
     if overwrite and SCHEMA_FILE_PATH.exists():
         SCHEMA_FILE_PATH.unlink()
+        final_integration_schemas = {}
     elif SCHEMA_FILE_PATH.exists():
-        saved_integration_schemas = load_integrations_schemas()
+        final_integration_schemas = load_integrations_schemas()
+    else:
+        final_integration_schemas = {}
 
     # Load the integration manifests
     integration_manifests = load_integrations_manifests()
+
+    # if a single integration is specified, only process that integration
+    if integration:
+        if integration in integration_manifests:
+            integration_manifests = {integration: integration_manifests[integration]}
+        else:
+            raise ValueError(f"Integration {integration} not found in manifest.")
 
     # Loop through the packages and versions
     for package, versions in integration_manifests.items():

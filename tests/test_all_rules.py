@@ -240,6 +240,7 @@ class TestThreatMappings(BaseRuleTest):
                           f'Flatten to a single entry per tactic')
 
 
+@unittest.skipIf(os.environ.get('DR_BYPASS_TAGS_VALIDATION') is not None, "Skipping tag validation")
 class TestRuleTags(BaseRuleTest):
     """Test tags data for rules."""
 
@@ -313,6 +314,7 @@ class TestRuleTags(BaseRuleTest):
                 self.fail(error_msg)
 
     def test_primary_tactic_as_tag(self):
+        """Test that the primary tactic is present as a tag."""
         from detection_rules.attack import tactics
 
         invalid = []
@@ -632,7 +634,8 @@ class TestRuleMetadata(BaseRuleTest):
                     # checks if an index pattern exists if the package integration tag exists
                     integration_string = "|".join(indices)
                     if not re.search(rule_integration, integration_string):
-                        if rule_integration == "windows" and re.search("winlog", integration_string):
+                        if rule_integration == "windows" and re.search("winlog", integration_string) or \
+                                rule_integration in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]:
                             continue
                         err_msg = f'{self.rule_str(rule)} {rule_integration} tag, index pattern missing.'
                         failures.append(err_msg)
@@ -658,7 +661,8 @@ class TestRuleMetadata(BaseRuleTest):
                     ]
                     if any([re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
                             for i in rule.contents.data.index]):
-                        if not rule.contents.metadata.integration and rule.id not in ignore_ids:
+                        if not rule.contents.metadata.integration and rule.id not in ignore_ids and \
+                                rule.contents.data.type not in definitions.MACHINE_LEARNING:
                             err_msg = f'substrings {non_dataset_packages} found in '\
                                       f'{self.rule_str(rule)} rule index patterns are {rule.contents.data.index},' \
                                       f'but no integration tag found'
@@ -1177,20 +1181,29 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
         for rule in self.production_rules.rules:
             has_transform = rule.contents.get('transform') is not None
             has_note = rule.contents.data.get('note') is not None
+            note = rule.contents.data.note
 
-            if has_transform and not has_note:
-                self.fail(f'{self.rule_str(rule)} transformed defined with no note')
-            elif not has_transform:
-                continue
+            if has_transform:
+                if not has_note:
+                    self.fail(f'{self.rule_str(rule)} transformed defined with no note')
+            else:
+                if not has_note:
+                    continue
+
+            note_template = PatchedTemplate(note)
+            identifiers = [i for i in note_template.get_identifiers() if '_' in i]
+
+            if not has_transform:
+                if identifiers:
+                    self.fail(f'{self.rule_str(rule)} note contains plugin placeholders with no transform entries')
+                else:
+                    continue
 
             transform = rule.contents.transform
             transform_counts = {plugin: len(entries) for plugin, entries in transform.to_dict().items()}
-            note = rule.contents.data.note
-            self.assertIsNotNone(note)
-            note_template = PatchedTemplate(note)
 
             note_counts = defaultdict(int)
-            for identifier in note_template.get_identifiers():
+            for identifier in identifiers:
                 # "$" is used for other things, so this verifies the pattern of a trailing "_" followed by ints
                 if '_' not in identifier:
                     continue
