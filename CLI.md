@@ -39,6 +39,7 @@ Using the environment variable `DR_BYPASS_NOTE_VALIDATION_AND_PARSE` will bypass
 Using the environment variable `DR_BYPASS_BBR_LOOKBACK_VALIDATION` will bypass the Detection Rules lookback and interval validation
 on the building block rules.
 
+Using the environment variable `DR_BYPASS_TAGS_VALIDATION` will bypass the Detection Rules Unit Tests on the `tags` field in toml files.
 
 ## Importing rules into the repo
 
