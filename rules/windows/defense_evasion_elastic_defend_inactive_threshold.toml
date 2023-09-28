@@ -1,0 +1,52 @@
+[metadata]
+creation_date = "2023/09/28"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/09/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects an elevated frequency of Elastic Defend network connectivity errors originating from a single host in
+a brief time span. Such occurrences may arise due to a configuration adjustment or, conceivably, due to adversaries
+obstructing the agent's communication with the server in order to inhibit telemetry and alert transmission.
+"""
+from = "now-9m"
+index = ["logs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Elastic Defend Network Connectivity Errors"
+references = ["https://medium.com/csis-techblog/silencing-microsoft-defender-for-endpoint-using-firewall-rules-3839a8bf8d18"]
+risk_score = 73
+rule_id = "d1ffe49f-8e91-4e8d-84d2-b8dc9efbd841"
+severity = "high"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Impact", "Data Source: Elastic Defend"]
+type = "threshold"
+
+query = '''
+data_stream.dataset:elastic_agent.endpoint_security and log.level:"error" and message :"Couldn't connect to server"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.threshold]
+field = ["host.id"]
+value = 60
