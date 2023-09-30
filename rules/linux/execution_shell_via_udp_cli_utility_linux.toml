@@ -1,0 +1,92 @@
+[metadata]
+creation_date = "2023/07/04"
+integration = ["auditd_manager"]
+maturity = "production"
+min_stack_comments = "The sampling feature within EQL was introduced in 8.6.0"
+min_stack_version = "8.6.0"
+updated_date = "2023/07/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+This detection rule identifies suspicious network traffic patterns associated with UDP reverse shell activity. This 
+activity consists of a sample of an execve, socket and connect syscall executed by the same process, where the
+auditd.data.a0-1 indicate a UDP connection, ending with an egress connection event. An attacker may establish a Linux 
+UDP reverse shell to bypass traditional firewall restrictions and gain remote access to a target system covertly.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Reverse Shell via UDP"
+note = """## Setup
+This rule requires the use of the `auditd_manager` integration. `Auditd_manager` is a tool designed to simplify and enhance the management of the audit subsystem in Linux systems. It provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system. The following steps should be executed in order to install and deploy `auditd_manager` on a Linux system. 
+```
+Kibana -->
+Management -->
+Integrations -->
+Auditd Manager -->
+Add Auditd Manager
+```
+`Auditd_manager` subscribes to the kernel and receives events as they occur without any additional configuration. However, if more advanced configuration is required to detect specific behavior, audit rules can be added to the integration in either the "audit rules" configuration box or the "auditd rule files" box by specifying a file to read the audit rules from. 
+```
+For this detection rule no additional audit rules are required to be added to the integration. 
+```
+Add the newly installed `auditd manager` to an agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
+"""
+references = [
+    "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md"
+]
+risk_score = 47
+rule_id = "a5eb21b7-13cc-4b94-9fe2-29bb2914e037"
+severity = "medium"
+tags = ["OS: Linux", "Use Case: Threat Detection", "Tactic: Execution"]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+sample by host.id, process.pid, process.parent.pid
+[process where host.os.type == "linux" and event.dataset == "auditd_manager.auditd" and 
+ auditd.data.syscall == "execve" and process.name : ("bash", "dash", "sh", "tcsh",
+ "csh", "zsh", "ksh", "fish", "perl", "python*", "nc", "ncat", "netcat", "php*", "ruby",
+ "openssl", "awk", "telnet", "lua*", "socat")]
+[process where host.os.type == "linux" and event.dataset == "auditd_manager.auditd" and 
+ auditd.data.syscall == "socket" and process.name : ("bash", "dash", "sh", "tcsh", "csh",
+ "zsh", "ksh", "fish", "perl", "python*", "nc", "ncat", "netcat", "php*", "ruby", "openssl",
+ "awk", "telnet", "lua*", "socat") and auditd.data.a0 == "2" and auditd.data.a1 : ("2", "802")]
+[network where host.os.type == "linux" and event.dataset == "auditd_manager.auditd" and 
+ auditd.data.syscall == "connect" and process.name : ("bash", "dash", "sh", "tcsh", "csh",
+ "zsh", "ksh", "fish", "perl", "python*", "nc", "ncat", "netcat", "php*", "ruby", "openssl",
+ "awk", "telnet", "lua*", "socat") and network.direction == "egress" and destination.ip != null and 
+ destination.ip != "127.0.0.1" and destination.ip != "127.0.0.53" and destination.ip != "::1"]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Execution"
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Command and Control"
+id = "TA0011"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat.technique]]
+name = "Application Layer Protocol"
+id = "T1071"
+reference = "https://attack.mitre.org/techniques/T1071/"
