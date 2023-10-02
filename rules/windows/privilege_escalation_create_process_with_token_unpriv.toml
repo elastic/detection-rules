@@ -46,7 +46,10 @@ process where host.os.type == "windows" and event.action == "start" and
    not process.code_signature.status : ("trusted", "errorExpired", "errorCode_endpoint*") and
    not process.executable : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*"))
  ) and
- not (process.name : "rundll32.exe" and process.command_line : ("*davclnt.dll,DavSetCookie*", "*?:\\Program Files*")) and
+ not (process.name : "rundll32.exe" and
+      process.command_line : ("*davclnt.dll,DavSetCookie*", "*?:\\Program Files*",
+                              "*\\Windows\\System32\\winethc.dll*", "*\\Windows\\SYSTEM32\\EDGEHTML.dll*",
+                              "*shell32.dll,SHCreateLocalServerRunDll*")) and
  not startswith~(process.Ext.effective_parent.name, process.parent.name)
 '''
 
