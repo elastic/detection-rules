@@ -4,7 +4,7 @@ integration = ["network_traffic"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/08/01"
 
 [rule]
 author = ["Elastic"]
@@ -16,7 +16,7 @@ SHA256 hashing algorithms (the default is SHA1). See the References section for 
 configuration.
 """
 from = "now-9m"
-index = ["packetbeat-*", "logs-network_traffic.*"]
+index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Default Cobalt Strike Team Server Certificate"
@@ -34,14 +34,20 @@ references = [
 risk_score = 99
 rule_id = "e7075e8d-a966-458e-a183-85cd331af255"
 severity = "critical"
-tags = ["Tactic: Command and Control", "Threat: Cobalt Strike", "Use Case: Threat Detection", "Domain: Endpoint"]
+tags = [
+    "Tactic: Command and Control",
+    "Threat: Cobalt Strike",
+    "Use Case: Threat Detection",
+    "Domain: Endpoint",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: network_traffic.tls and (tls.server.hash.md5:950098276A495286EB2A2556FBAB6D83 or
-  tls.server.hash.sha1:6ECE5ECE4192683D2D84E25B0BA7E04F9CB7EB7C or
-  tls.server.hash.sha256:87F2085C32B6A2CC709B365F55873E207A9CAA10BFFECF2FD16D3CF9D94D390C)
+(event.dataset: network_traffic.tls or event.category: (network or network_traffic))
+  and (tls.server.hash.md5:950098276A495286EB2A2556FBAB6D83
+  or tls.server.hash.sha1:6ECE5ECE4192683D2D84E25B0BA7E04F9CB7EB7C
+  or tls.server.hash.sha256:87F2085C32B6A2CC709B365F55873E207A9CAA10BFFECF2FD16D3CF9D94D390C)
 '''
 
 
