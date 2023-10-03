@@ -9,12 +9,10 @@
 # ATT&CK: T1064, T1192, T1193
 # Description: Creates a javascript file that will launch powershell.
 
-import os
 import time
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="161c5972-6bfe-47b5-92bd-e0399e025dec",
@@ -25,10 +23,10 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     # Write script
-    script_file = os.path.abspath("launchpowershell.vbs")
+    script_file = Path("launchpowershell.vbs").resolve()
     script = """Set objShell = CreateObject("Wscript.shell")
     objShell.run("powershell echo 'Doing evil things...'; sleep 3")
     """

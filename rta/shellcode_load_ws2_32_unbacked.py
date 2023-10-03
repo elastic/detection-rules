@@ -17,7 +17,7 @@ metadata = RtaMetadata(
     endpoint=[
         {'rule_id': 'aa265fbd-4c57-46ff-9e89-0635101cc50d',
          'rule_name': 'Network Module Loaded from Suspicious Unbacked Memory"'},
-        {'rule.id': 'ace0bb76-290f-4f5f-a21f-c3b13ee415a9',
+        {'rule_id': 'ace0bb76-290f-4f5f-a21f-c3b13ee415a9',
          'rule_name': 'Potential Masquerading as Windows Error Manager'},
     ],
     siem=[],
@@ -25,7 +25,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 
 def main():
     # Inject shellcode into WerFault.exe to trigger <Potential Masquerading as Windows Error Manager>

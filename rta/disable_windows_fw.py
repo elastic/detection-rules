@@ -9,11 +9,9 @@
 # signal.rule.name: Disable Windows Firewall Rules via Netsh
 # Description: Uses netsh.exe to backup, disable and restore firewall rules.
 
-import os
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="75e14e5a-1188-47ea-9b96-2cf6e9443fc2",
@@ -24,12 +22,12 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("NetSH Advanced Firewall Configuration", log_type="~")
     netsh = "netsh.exe"
 
-    rules_file = os.path.abspath("fw.rules")
+    rules_file = Path("fw.rules").resolve()
 
     # Check to be sure that fw.rules does not already exist from previously running this script
     common.remove_file(rules_file)

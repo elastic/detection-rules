@@ -24,7 +24,7 @@ metadata = RtaMetadata(
 MY_DLL = common.get_path("bin", "mydll.dll")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(MY_DLL)
 def main():
     # http server will terminate on main thread exit

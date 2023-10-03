@@ -3,9 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-from . import common
-from . import RtaMetadata
-import os
+from pathlib import Path
+
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="edb804d6-85df-4dca-a521-1b6dfee9f354",
@@ -20,13 +20,13 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     proc = "C:\\Users\\Public\\proc.exe"
     path = "C:\\Users\\Public\\AppData\\Roaming\\Mozilla\\Test\\Profiles\\AdefaultA"
     file = path + "\\extensions.json"
     common.copy_file(EXE_FILE, proc)
-    os.makedirs(path, exist_ok=True)
+    Path(path).mkdir(parents=True, exist_ok=True)
 
     common.execute([proc, "/c", f"Copy-Item {EXE_FILE} {file}"], timeout=10)
     common.remove_files(proc, file)

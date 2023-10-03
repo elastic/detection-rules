@@ -16,7 +16,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     file = "C:\\Windows\\System32\\spool\\drivers\\x64\\3\\rta.dll"
     common.copy_file(EXE_FILE, file)
