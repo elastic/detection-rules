@@ -24,7 +24,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     msxsl = "C:\\Users\\Public\\msxsl.exe"
     fake_clr_path = "C:\\Users\\Administrator\\AppData\\Local\\Microsoft\\CLR_v4.0\\UsageLogs"

@@ -19,7 +19,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     path = "C:\\Users\\Public\\AppData\\Roaming\\Microsoft\\Templates\\"
     Path(path).mkdir(parents=True, exist_ok=True)

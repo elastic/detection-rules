@@ -16,7 +16,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     key = "System\\CurrentControlSet\\Services\\PortProxy\\v4tov4"
     value = "a"
