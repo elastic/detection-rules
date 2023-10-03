@@ -26,7 +26,7 @@ metadata = RtaMetadata(
     techniques=["T1555.004", "T1552.001", "T1003.003"],
 )
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 
 
 def main():

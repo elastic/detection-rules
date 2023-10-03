@@ -22,7 +22,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(common.PS_EXEC)
 def main():
     # make sure path is absolute for psexec

@@ -25,7 +25,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     server, ip, port = common.serve_web()
     url = "http://{}:{}/bad.ps1".format(ip, port)

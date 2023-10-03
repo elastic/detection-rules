@@ -30,7 +30,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(HTA_FILE)
 def main():
     # http server will terminate on main thread exit
