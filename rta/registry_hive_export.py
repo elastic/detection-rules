@@ -29,7 +29,7 @@ metadata = RtaMetadata(
 REG = "reg.exe"
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     for hive in ["sam", "security", "system"]:
         filename = Path("%s.reg" % hive).resolve()
