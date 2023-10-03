@@ -19,7 +19,7 @@ PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     path = "C:\\Users\\Public\\Temp\\7z\\"
     Path(path).mkdir(parents=True, exist_ok=True)

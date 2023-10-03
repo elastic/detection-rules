@@ -31,7 +31,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     w3wp = "C:\\Users\\Public\\w3wp.exe"
     common.copy_file(EXE_FILE, w3wp)
