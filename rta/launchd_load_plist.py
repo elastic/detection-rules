@@ -39,7 +39,7 @@ plist = """
 """
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     plist_name = "com.test.plist"
     daemon_dir = Path("/", "Library", "LaunchDaemons").expanduser()

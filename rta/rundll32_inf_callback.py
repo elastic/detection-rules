@@ -28,7 +28,7 @@ metadata = RtaMetadata(
 INF_FILE = common.get_path("bin", "script_launch.inf")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(INF_FILE)
 def main():
     # http server will terminate on main thread exit

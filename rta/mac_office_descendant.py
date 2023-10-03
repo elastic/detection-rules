@@ -20,7 +20,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Emulating Microsoft Word running enumeration commands")
     office_path = Path("Microsoft Word").resolve()
