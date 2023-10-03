@@ -26,7 +26,7 @@ def encode(command):
     return base64.b64encode(command.encode("utf-16le"))
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("PowerShell Suspicious Commands")
     temp_script = Path("tmp.ps1").resolve()

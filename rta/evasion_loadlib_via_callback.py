@@ -19,7 +19,7 @@ metadata = RtaMetadata(
 # source code - https://gist.github.com/joe-desimone/0b2bb00eca4c522ba0bd5541a6f3528b
 BIN = common.get_path("bin", "LoadLib-Callback64.exe")
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 
 def main():
     if Path(BIN).is_file():

@@ -16,7 +16,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     key = "Software\\Microsoft\\Windows Script\\Settings"
     value = "AmsiEnable"

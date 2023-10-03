@@ -22,7 +22,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("NetSH Advanced Firewall Configuration", log_type="~")
     netsh = "netsh.exe"
