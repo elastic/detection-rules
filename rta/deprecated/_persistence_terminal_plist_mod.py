@@ -36,7 +36,7 @@ plist_content = """
  """
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
 
     common.log("Executing plutil commands to modify plist file.")

@@ -22,7 +22,7 @@ metadata = RtaMetadata(
 CMD_PATH = "c:\\windows\\system32\\cmd.exe"
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     masquerades = ["svchost.exe", "lsass.exe"]
 

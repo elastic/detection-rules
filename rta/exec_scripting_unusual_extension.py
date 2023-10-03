@@ -21,7 +21,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Executing cscript against .exe")
     common.execute(["cmd.exe", "/c", "cscript.exe", "/e:Vbscript", "cmd.exe"], timeout=5, kill=True)

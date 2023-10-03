@@ -21,7 +21,7 @@ metadata = RtaMetadata(
 # source code -https://gist.github.com/Samirbous/cee44dbd0254c28d4f57709d5c723aee
 BIN = common.get_path("bin", "rta_unhook_ldrload.exe")
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 
 def main():
     if Path(BIN).is_file():
