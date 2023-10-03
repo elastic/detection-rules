@@ -20,7 +20,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["packetbeat-*", "logs-network_traffic.*"]
+index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "SMTP on Port 26/TCP"
@@ -36,7 +36,8 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: network_traffic.flow and network.transport:tcp and (destination.port:26 or (event.dataset:zeek.smtp and destination.port:26))
+(event.dataset: network_traffic.flow or (event.category: (network or network_traffic))) and
+    network.transport:tcp and (destination.port:26 or (event.dataset:zeek.smtp and destination.port:26))
 '''
 
 
