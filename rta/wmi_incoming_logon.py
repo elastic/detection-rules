@@ -23,7 +23,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main(remote_host=None):
     if not remote_host:
         common.log("A remote host is required to detonate this RTA", "!")

@@ -23,7 +23,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     # Messing with the boot configuration is probably not a great idea so create a backup:
     common.log("Exporting the boot configuration....")
