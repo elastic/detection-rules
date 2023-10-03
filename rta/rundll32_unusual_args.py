@@ -21,7 +21,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     source_dll = "C:\\Windows\\System32\\IEAdvpack.dll"
     dll = "C:\\Users\\Public\\IEAdvpack.dll"
