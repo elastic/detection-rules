@@ -21,7 +21,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     # Execute Command
     # Had a hard time trying to escape the quotes that would be needed to execute a real command using

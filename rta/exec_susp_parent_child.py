@@ -18,7 +18,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     posh = "C:\\Users\\Public\\posh.exe"
     tiworker = "C:\\Users\\Public\\TiWorker.exe"

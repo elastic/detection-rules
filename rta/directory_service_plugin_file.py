@@ -21,7 +21,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
 
     common.log("Executing file modification on test.dsplug to mimic DirectoryService plugin modification")

@@ -23,7 +23,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(common.PS_EXEC)
 def main(remote_host=None):
     remote_host = remote_host or common.get_ip()
