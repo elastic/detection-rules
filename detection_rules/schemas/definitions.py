@@ -28,6 +28,7 @@ VERSION_PATTERN = f'^{_version}$'
 MINOR_SEMVER = r'^\d+\.\d+$'
 BRANCH_PATTERN = f'{VERSION_PATTERN}|^master$'
 ELASTICSEARCH_EQL_FEATURES = {
+    "allow_negation": (Version.parse('8.9.0'), None),
     "allow_runs": (Version.parse('7.16.0'), None),
     "allow_sample": (Version.parse('8.6.0'), None),
     "elasticsearch_validate_optional_fields": (Version.parse('7.16.0'), None)

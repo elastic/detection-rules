@@ -1,0 +1,43 @@
+[metadata]
+creation_date = "2023/10/04"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "The sequence negate functionality was added in 8.9.0"
+min_stack_version = "8.9.0"
+updated_date = "2023/10/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule tests the negate functionality
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Negate Test Rule"
+risk_score = 47
+rule_id = "b2e897f7-3a25-4dad-9b40-cde04b80ff34"
+severity = "medium"
+tags = [
+	"Domain: Endpoint",
+	"OS: Linux",
+	"Use Case: Threat Detection",
+	"Tactic: Execution",
+	"Data Source: Elastic Defend"
+	]
+type = "eql"
+query = '''
+sequence by host.id, process.entity_id with maxspan=1s
+  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and process.name == "bash"]
+  ![process where host.os.type == "linux" and event.action == "end" and event.type == "end"]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Execution"
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
