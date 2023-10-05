@@ -1,0 +1,66 @@
+[metadata]
+creation_date = "2023/10/05"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "Linux environment variable capture feature via the Elastic Defend Integration was added in 8.6."
+min_stack_version = "8.6.0"
+updated_date = "2023/10/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential privilege escalation attempts through Looney Tunables (CVE-2023-4911). Looney Tunables is a
+buffer overflow vulnerability in GNU C Library's dynamic loader's processing of the GLIBC_TUNABLES environment variable.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Privilege Escalation via CVE-2023-4911"
+note = """## Setup
+Elastic Defend integration does not collect environment variable logging by default.
+In order to capture this behavior, this rule requires a specific configuration option set within the advanced settings
+of the Elastic Defend integration.
+To set up environment variable capture for an Elastic Agent policy:
+- Go to Security → Manage → Policies.
+- Select an Elastic Agent policy.
+- Click Show advanced settings.
+- Scroll down or search for linux.advanced.capture_env_vars.
+- Enter the names of env vars you want to capture, separated by commas.
+- For this rule the linux.advanced.capture_env_vars variable should be set to "GLIBC_TUNABLES".
+- Click Save.
+After saving the integration change, the Elastic Agents running this policy will be updated and
+the rule will function properly.
+For more information on capturing environment variables refer - https://www.elastic.co/guide/en/security/current/environment-variable-capture.html
+"""
+references = ["https://blog.qualys.com/vulnerabilities-threat-research/2023/10/03/cve-2023-4911-looney-tunables-local-privilege-escalation-in-the-glibcs-ld-so"]
+risk_score = 73
+rule_id = "6d8685a1-94fa-4ef7-83de-59302e7c4ca8"
+severity = "high"
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Privilege Escalation",
+        "Use Case: Vulnerability",
+        "Data Source: Elastic Defend"
+        ]
+type = "eql"
+query = '''
+sequence by host.id, process.parent.entity_id with maxspan=5s
+ [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name == "su" 
+  and process.env_vars : "GLIBC_TUNABLES=glibc.malloc.mxfast*"] with runs=5
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
