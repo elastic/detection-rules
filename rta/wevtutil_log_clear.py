@@ -24,7 +24,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Clearing Windows Event Logs")
     common.log("WARNING - About to clear logs from Windows Event Viewer", log_type="!")

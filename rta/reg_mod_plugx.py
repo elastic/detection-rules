@@ -18,7 +18,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Temporarily creating a PlugX-like reg key...")
 

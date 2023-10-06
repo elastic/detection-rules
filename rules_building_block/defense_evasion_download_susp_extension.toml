@@ -1,0 +1,80 @@
+[metadata]
+creation_date = "2023/09/27"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/09/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies unusual files downloaded from outside the local network that have the potential to be abused for code execution.
+"""
+references = [
+    "https://x.com/Laughing_Mantis/status/1518766501385318406",
+    "https://wikileaks.org/ciav7p1/cms/page_13763375.html"
+]
+from = "now-119m"
+interval = "60m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "File with Suspicious Extension Downloaded"
+risk_score = 21
+rule_id = "8d366588-cbd6-43ba-95b4-0971c3f906e5"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "Rule Type: BBR"]
+timestamp_override = "event.ingested"
+type = "eql"
+building_block_type = "default"
+
+query = '''
+file where host.os.type == "windows" and event.type == "creation" and
+  file.extension : (
+    "appinstaller", "application", "appx", "appxbundle", "cpl", "diagcab", "diagpkg", "diagcfg", "manifest",
+    "msix", "pif", "search-ms", "searchConnector-ms", "settingcontent-ms", "symlink", "theme", "themepack" 
+  ) and file.Ext.windows.zone_identifier > 1 and
+  not
+  (
+    file.extension : "msix" and file.path : "?:\\Users\\*\\AppData\\Local\\Temp\\WinGet\\Microsoft.Winget.Source*"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [[rule.threat.technique]]
+  name = "System Binary Proxy Execution"
+  id = "T1218"
+  reference = "https://attack.mitre.org/techniques/T1218/"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.001"
+name = "Spearphishing Attachment"
+reference = "https://attack.mitre.org/techniques/T1566/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

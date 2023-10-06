@@ -29,7 +29,7 @@ metadata = RtaMetadata(
 MY_APP = common.get_path("bin", "myapp_x64.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(MY_APP)
 def main():
     anomalies = ["test.txt.exe"]
