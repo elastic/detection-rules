@@ -20,7 +20,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     workfolders = "C:\\Users\\Public\\WorkFolders.exe"
     control = "C:\\Users\\Public\\control.exe"

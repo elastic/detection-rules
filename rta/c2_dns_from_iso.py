@@ -24,7 +24,7 @@ PROC = 'ping.exe'
 # ps script to mount, execute a file and unmount ISO device
 PS_SCRIPT = common.get_path("bin", "ExecFromISOFile.ps1")
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 
 def main():
     if Path(ISO).is_file() and Path(PS_SCRIPT).is_file():
