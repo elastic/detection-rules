@@ -19,11 +19,11 @@ from semver import Version
 import kql
 from detection_rules import attack
 from detection_rules.beats import parse_beats_from_index
-from detection_rules.integrations import load_integrations_schemas
+from detection_rules.integrations import (load_integrations_schemas, find_latest_compatible_version,
+                                          load_integrations_manifests)
 from detection_rules.misc import load_current_package_version
 from detection_rules.packaging import current_stack_version
-from detection_rules.rule import (QueryRuleData, TOMLRuleContents,
-                                  load_integrations_manifests, QueryValidator)
+from detection_rules.rule import (QueryRuleData, TOMLRuleContents, QueryValidator)
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_stack_schemas
@@ -894,8 +894,39 @@ class TestIntegrationRules(BaseRuleTest):
             self.fail(f'The following ({len(failures)}) rules have a `min_stack_version` defined but missing comments:'
                       f'\n{err_msg}')
 
+    def test_ml_integration_jobs_exist(self):
+        """Test that machine learning jobs exist in the integration."""
+        failures = []
 
-class TestRuleTiming(BaseRuleTest):
+        ml_integration_names = list(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES))
+        integration_schemas = load_integrations_schemas()
+        integration_manifests = load_integrations_manifests()
+
+        for rule in self.all_rules:
+            if rule.contents.data.type == "machine_learning":
+                ml_integration_name = next((i for i in rule.contents.metadata.integration
+                                            if i in ml_integration_names), None)
+                if ml_integration_name:
+                    if "machine_learning_job_id" not in dir(rule.contents.data):
+                        failures.append(f'{self.rule_str(rule)} missing `machine_learning_job_id`')
+                    else:
+                        rule_job_id = rule.contents.data.machine_learning_job_id
+                        schema = integration_schemas.get(ml_integration_name)
+                        min_version = Version.parse(rule.contents.metadata.min_stack_version or load_current_package_version(),
+                                                    optional_minor_and_patch=True)
+                        latest_compat_ver = find_latest_compatible_version(package=ml_integration_name,
+                                                                           integration="",
+                                                                           rule_stack_version=min_version,
+                                                                           packages_manifest=integration_manifests)
+                        compat_integration_schema = integration_schemas[ml_integration_name][latest_compat_ver[0]]
+                        if rule_job_id not in compat_integration_schema['jobs']:
+                            failures.append(f'{self.rule_str(rule)} machine_learning_job_id `{rule_job_id}` not \
+                                            found in version `{latest_compat_ver[0]}` of `{ml_integration_name}` integration')
+        if failures:
+            err_msg = '\n'.join(failures)
+            self.fail(f'The following ({len(failures)}) rules are missing a valid `machine_learning_job_id`:\n{err_msg}')
+
+class  TestRuleTiming(BaseRuleTest):
     """Test rule timing and timestamps."""
 
     def test_event_override(self):
