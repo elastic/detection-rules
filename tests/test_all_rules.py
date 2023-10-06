@@ -926,7 +926,7 @@ class TestIntegrationRules(BaseRuleTest):
             err_msg = '\n'.join(failures)
             self.fail(f'The following ({len(failures)}) rules are missing a valid `machine_learning_job_id`:\n{err_msg}')
 
-class  TestRuleTiming(BaseRuleTest):
+class TestRuleTiming(BaseRuleTest):
     """Test rule timing and timestamps."""
 
     def test_event_override(self):
