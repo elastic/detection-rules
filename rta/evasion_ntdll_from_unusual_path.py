@@ -4,9 +4,9 @@
 # 2.0.
 
 
-from . import common
-from . import RtaMetadata
+from pathlib import Path
 
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="e6d5315f-4c70-4788-8564-e7c23786a4d0",
@@ -18,12 +18,15 @@ metadata = RtaMetadata(
 
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
-    import win32file, win32api, os, time
+    import time
     from os import path
+
+    import win32api
+    import win32file
     win32file.CopyFile(path.expandvars("%systemroot%\\system32\\ntdll.dll"), path.expandvars("%localappdata%\\Temp\\notntdll.dll"), 0) 
-    if os.path.exists(path.expandvars("%localappdata%\\Temp\\notntdll.dll")):
+    if Path(path.expandvars("%localappdata%\\Temp\\notntdll.dll")).is_file():
        print(f"[+] - NTDLL copied")
        r = win32api.LoadLibrary(path.expandvars("%localappdata%\\Temp\\notntdll.dll")) 
        if r > 0 : 

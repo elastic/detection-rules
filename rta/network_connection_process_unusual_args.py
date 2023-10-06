@@ -24,7 +24,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "regsvr32.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
 
     common.log("Making connection using fake regsvr32.exe")

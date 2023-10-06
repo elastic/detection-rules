@@ -31,7 +31,7 @@ metadata = RtaMetadata(
 MS_BUILD = "C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\msbuild.exe"
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(MS_BUILD)
 def main():
     common.log("MsBuild Beacon")
