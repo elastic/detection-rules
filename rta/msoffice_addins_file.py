@@ -3,9 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-from . import common
-from . import RtaMetadata
-import os
+from pathlib import Path
+
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="97979b30-908d-4c57-a33a-f3b78e55a84a",
@@ -20,10 +20,10 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     path = "C:\\Users\\Public\\AppData\\Roaming\\Microsoft\\Word\\Startup"
-    os.makedirs(path, exist_ok=True)
+    Path(path).mkdir(parents=True, exist_ok=True)
     file = path + "\\file.exe"
 
     common.copy_file(EXE_FILE, file)

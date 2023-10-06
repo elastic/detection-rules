@@ -9,12 +9,10 @@
 # Description: Uses "bin\.exe" to perform encryption of archives and archive headers.
 
 import base64
-import os
 import sys
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="6cd35061-278b-45e7-a9cb-86b48bc47884",
@@ -28,27 +26,27 @@ metadata = RtaMetadata(
 SEVENZIP = common.get_path("bin", "7za.exe")
 
 
-def create_exfil(path=os.path.abspath("secret_stuff.txt")):
+def create_exfil(path=Path("secret_stuff.txt").resolve()):
     common.log("Writing dummy exfil to %s" % path)
     with open(path, "wb") as f:
         f.write(base64.b64encode(b"This is really secret stuff\n" * 100))
     return path
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(SEVENZIP)
 def main(password="s0l33t"):
     # create 7z.exe with not-7zip name, and exfil
-    svnz2 = os.path.abspath("a.exe")
+    svnz2 = Path("a.exe").resolve()
     common.copy_file(SEVENZIP, svnz2)
     exfil = create_exfil()
 
     exts = ["7z", "zip", "gzip", "tar", "bz2", "bzip2", "xz"]
-    out_jpg = os.path.abspath("out.jpg")
+    out_jpg = Path("out.jpg").resolve()
 
     for ext in exts:
         # Write archive for each type
-        out_file = os.path.abspath("out." + ext)
+        out_file = Path("out." + ext).resolve()
         common.execute([svnz2, "a", out_file, "-p" + password, exfil], mute=True)
         common.remove_file(out_file)
 

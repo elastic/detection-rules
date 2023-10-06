@@ -25,7 +25,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Searching Credential Vaults via VaultCmd")
 

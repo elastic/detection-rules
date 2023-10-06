@@ -22,7 +22,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     vslsagent = "C:\\Users\\Public\\vsls-agent.exe"
     common.copy_file(EXE_FILE, vslsagent)

@@ -21,7 +21,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     vssadmin = "C:\\Windows\\System32\\vssadmin.exe"
     powershell = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
