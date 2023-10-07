@@ -13,24 +13,40 @@ normal in administrative contexts, but in sensitive environments or from unexpec
 potential malicious activity or unauthorized network exploration.
 """
 index = [
-    "apm-*-transaction*",
     "auditbeat-*",
-    "endgame-*",
     "filebeat-*",
     "logs-*",
     "packetbeat-*",
-    "traces-apm*",
     "winlogbeat-*",
     "-*elastic-cloud-logs-*",
 ]
+from = "now-119m"
+interval = "60m"
 language = "kuery"
 name = "Network Reconnaissance Activity"
 risk_score = 47
 rule_id = "77981e7b-9ffe-45de-b08a-2d92c4c483a6"
 severity = "medium"
 type = "query"
+tags = ["OS: Linux", "OS: Windows", "Use Case: Threat Detection", "Tactic: Reconnaissance"]
 
 query = '''
 event.type: start and (process.name: (arp or arp.exe) or (process.name: (ip or ip.exe) and process.args : (neigh or neighbor or neighbour)))
 '''
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1592"
+name = "Gather Victim Host Information"
+reference = "https://attack.mitre.org/techniques/T1592/"
+
+[[rule.threat.technique]]
+id = "T1590"
+name = "Gather Victim Network Information"
+reference = "https://attack.mitre.org/techniques/T1590/"
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"
