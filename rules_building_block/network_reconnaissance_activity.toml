@@ -1,0 +1,36 @@
+[metadata]
+creation_date = "2023/10/07"
+maturity = "development"
+updated_date = "2023/10/07"
+
+[rule]
+author = ["@maof97"]
+description = """
+This rule detects when specific networking-related commands are executed on an endpoint. It triggers when either the ARP
+command (used to map IP addresses to MAC addresses within a local network) is initiated or when the IP command with
+arguments related to neighbors (providing similar functionality on Linux systems) is started. Such commands can be
+normal in administrative contexts, but in sensitive environments or from unexpected sources, they might indicate
+potential malicious activity or unauthorized network exploration.
+"""
+index = [
+    "apm-*-transaction*",
+    "auditbeat-*",
+    "endgame-*",
+    "filebeat-*",
+    "logs-*",
+    "packetbeat-*",
+    "traces-apm*",
+    "winlogbeat-*",
+    "-*elastic-cloud-logs-*",
+]
+language = "kuery"
+name = "Network Reconnaissance Activity"
+risk_score = 47
+rule_id = "77981e7b-9ffe-45de-b08a-2d92c4c483a6"
+severity = "medium"
+type = "query"
+
+query = '''
+event.type: start and (process.name: (arp or arp.exe) or (process.name: (ip or ip.exe) and process.args : (neigh or neighbor or neighbour)))
+'''
+
