@@ -8,12 +8,10 @@
 # ATT&CK: T1158
 # Description: Executes mock malware from the "C:\Recycler\" and "C:\$RECYCLE.BIN\" subdirectories.
 
-import os
 import time
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="790cbe6f-ee44-4654-9998-039236dbe0d8",
@@ -33,13 +31,13 @@ RECYCLE_PATHS = ["C:\\$Recycle.Bin", "C:\\Recycler"]
 TARGET_APP = common.get_path("bin", "myapp.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(TARGET_APP, common.CMD_PATH)
 def main():
     common.log("Execute files from the Recycle Bin")
     target_dir = None
     for recycle_path in RECYCLE_PATHS:
-        if os.path.exists(recycle_path):
+        if Path(recycle_path).exists():
             target_dir = common.find_writeable_directory(recycle_path)
             if target_dir:
                 break
@@ -58,7 +56,7 @@ def main():
         source_path = command[0]
         arguments = command[1:]
 
-        target_path = os.path.join(target_dir, "recycled_process.exe")
+        target_path = Path(target_dir) / "recycled_process.exe"
         common.copy_file(source_path, target_path)
         arguments.insert(0, target_path)
         common.execute(arguments)
