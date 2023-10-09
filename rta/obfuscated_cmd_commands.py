@@ -22,7 +22,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     # All encoded versions of the following: `start calc && ping -n 2 127.0.0.1>nul && taskkill /im calc.exe`
     commands = """

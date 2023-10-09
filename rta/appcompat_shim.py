@@ -28,7 +28,7 @@ metadata = RtaMetadata(
 SHIM_FILE = common.get_path("bin", "CVE-2013-3893.sdb")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(SHIM_FILE)
 def main():
     common.log("Application Compatibility Shims")

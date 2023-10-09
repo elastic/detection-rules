@@ -20,7 +20,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Compressing sensitive files")
     files = ["totally-legit.tar", "official-business.zip", "expense-reports.gz"]

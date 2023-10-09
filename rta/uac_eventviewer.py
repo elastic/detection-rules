@@ -29,7 +29,7 @@ metadata = RtaMetadata(
 # %SystemRoot%\system32\mmc.exe "%1" %*
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main(target_file=common.get_path("bin", "myapp.exe")):
     winreg = common.get_winreg()
     common.log("Bypass UAC with %s" % target_file)
