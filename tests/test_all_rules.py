@@ -911,20 +911,30 @@ class TestIntegrationRules(BaseRuleTest):
                         failures.append(f'{self.rule_str(rule)} missing `machine_learning_job_id`')
                     else:
                         rule_job_id = rule.contents.data.machine_learning_job_id
-                        schema = integration_schemas.get(ml_integration_name)
-                        min_version = Version.parse(rule.contents.metadata.min_stack_version or load_current_package_version(),
-                                                    optional_minor_and_patch=True)
-                        latest_compat_ver = find_latest_compatible_version(package=ml_integration_name,
-                                                                           integration="",
-                                                                           rule_stack_version=min_version,
-                                                                           packages_manifest=integration_manifests)
-                        compat_integration_schema = integration_schemas[ml_integration_name][latest_compat_ver[0]]
+                        ml_schema = integration_schemas.get(ml_integration_name)
+                        min_version = Version.parse(
+                            rule.contents.metadata.min_stack_version or load_current_package_version(),
+                            optional_minor_and_patch=True
+                        )
+                        latest_compat_ver = find_latest_compatible_version(
+                            package=ml_integration_name,
+                            integration="",
+                            rule_stack_version=min_version,
+                            packages_manifest=integration_manifests
+                        )
+                        compat_integration_schema = ml_schema[latest_compat_ver[0]]
                         if rule_job_id not in compat_integration_schema['jobs']:
-                            failures.append(f'{self.rule_str(rule)} machine_learning_job_id `{rule_job_id}` not \
-                                            found in version `{latest_compat_ver[0]}` of `{ml_integration_name}` integration')
+                            failures.append(
+                                f'{self.rule_str(rule)} machine_learning_job_id `{rule_job_id}` not found '
+                                f'in version `{latest_compat_ver[0]}` of `{ml_integration_name}` integration'
+                            )
+
         if failures:
             err_msg = '\n'.join(failures)
-            self.fail(f'The following ({len(failures)}) rules are missing a valid `machine_learning_job_id`:\n{err_msg}')
+            self.fail(
+                f'The following ({len(failures)}) rules are missing a valid `machine_learning_job_id`:\n{err_msg}'
+            )
+
 
 class TestRuleTiming(BaseRuleTest):
     """Test rule timing and timestamps."""
