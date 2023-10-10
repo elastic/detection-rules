@@ -3,9 +3,10 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-from . import common
-from . import RtaMetadata
 import os
+from pathlib import Path
+
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="a3b26c9e-6910-43f7-93b2-84cc777e54f4",
@@ -32,8 +33,8 @@ def main():
     cscript = "C:\\Users\\Public\\cscript.exe"
     executable = path + "Javafake.exe"
 
-    if not os.path.exists(path):
-        os.makedirs(path)
+    if not Path(path).is_dir():
+        Path(path).mkdir(parents=True)
     else:
         pass
     common.copy_file(EXE_FILE, cscript)

@@ -9,12 +9,11 @@
 # Description: Creates network traffic from a process which is named to match common administration and developer tools
 #              that do not typically make network traffic unless being used maliciously.
 
-import os
 import shutil
 import sys
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
+from . import RtaMetadata, common
 
 if sys.version_info > (3,):
     urlliblib = "urllib.request"
@@ -53,7 +52,7 @@ process_names = [
 
 
 def http_from_process(name, ip, port):
-    path = os.path.join(common.BASE_DIR, name)
+    path = Path(common.BASE_DIR) / name
     common.log("Making HTTP GET from %s" % path)
     shutil.copy(sys.executable, path)
     common.execute(
@@ -66,7 +65,7 @@ def http_from_process(name, ip, port):
     common.remove_file(path)
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     server, ip, port = common.serve_web()
 

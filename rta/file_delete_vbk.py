@@ -3,10 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-from . import common
-from . import RtaMetadata
-import os
+from pathlib import Path
 
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="a6c80b08-ca72-4c3e-93c7-ac3421e4235e",
@@ -20,9 +19,9 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
-    fakebkp = os.path.abspath("fake.vbk")
+    fakebkp = Path("fake.vbk").resolve()
     with open(fakebkp, 'w'):
         pass
     common.remove_file(fakebkp)

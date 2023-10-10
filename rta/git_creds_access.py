@@ -3,10 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-from . import common
-from . import RtaMetadata
-import os
+from pathlib import Path
 
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="e15ea2ec-c8a9-4203-8d01-d18d1c27fd58",
@@ -19,13 +18,13 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     powershell = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
     gitpath = "C:\\Users\\Public\\.config\\git"
 
     try:
-        os.makedirs(gitpath)
+        Path(gitpath).mkdir(parents=True)
     except Exception:
         pass
     gitcreds = gitpath + "\\credentials"

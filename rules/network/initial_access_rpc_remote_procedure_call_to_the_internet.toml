@@ -6,6 +6,7 @@ min_stack_comments = "New fields added: required_fields, related_integrations, s
 min_stack_version = "8.3.0"
 updated_date = "2023/08/17"
 
+
 [rule]
 author = ["Elastic"]
 description = """
@@ -15,7 +16,7 @@ directly exposed to the Internet, as it is frequently targeted and exploited by 
 backdoor vector.
 """
 from = "now-9m"
-index = ["packetbeat-*", "logs-network_traffic.*"]
+index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "RPC (Remote Procedure Call) to the Internet"
@@ -28,7 +29,8 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: network_traffic.flow and network.transport:tcp and (destination.port:135 or event.dataset:zeek.dce_rpc) and
+(event.dataset: network_traffic.flow or (event.category: (network or network_traffic))) and
+  network.transport:tcp and (destination.port:135 or event.dataset:zeek.dce_rpc) and
   source.ip:(
     10.0.0.0/8 or
     172.16.0.0/12 or
