@@ -100,7 +100,9 @@ def import_rules(input_file, directory, ignore_invalid_files):
 
     rule_contents = []
     for rule_file in rule_files:
-        rule_contents.extend(load_rule_contents(Path(rule_file), allow_empty_rule=ignore_invalid_files))
+        rule = load_rule_contents(Path(rule_file), allow_empty_rule=ignore_invalid_files)
+        if rule:
+            rule_contents.extend(rule)
 
     if not rule_contents:
         click.echo('Must specify at least one file!')
