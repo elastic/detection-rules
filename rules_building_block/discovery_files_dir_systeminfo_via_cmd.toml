@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/09/21"
+updated_date = "2023/10/10"
 bypass_bbr_timing = true
 
 [rule]
@@ -66,11 +66,9 @@ building_block_type = "default"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.action != "deletion" and
-  registry.path :
-       ("HKLM\\SYSTEM\\ControlSet*\\Control\\Terminal Server\\WinStations\\RDP-Tcp\\UserAuthentication", 
-        "\\REGISTRY\\MACHINE\\SYSTEM\\*ControlSet*\\Control\\Terminal Server\\WinStations\\RDP-Tcp\\UserAuthentication" ) and
-  registry.data.strings : "0"
+process where host.os.type == "windows" and event.type == "start" and
+  process.name : "cmd.exe" and process.args : "/c" and process.args : ("set", "dir") and
+  not process.parent.executable : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*", "?:\\PROGRA~1\\*")
 '''
 
 [[rule.threat]]
