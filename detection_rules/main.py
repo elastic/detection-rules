@@ -92,14 +92,15 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
 @root.command('import-rules')
 @click.argument('input-file', type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
 @click.option('--directory', '-d', type=click.Path(file_okay=False, exists=True), help='Load files from a directory')
-def import_rules(input_file, directory):
+@click.option('--ignore-invalid-files', '-i', is_flag=True, help='Ignore files with invalid rule data')
+def import_rules(input_file, directory, ignore_invalid_files):
     """Import rules from json, toml, or Kibana exported rule file(s)."""
     rule_files = glob.glob(os.path.join(directory, '**', '*.*'), recursive=True) if directory else []
     rule_files = sorted(set(rule_files + list(input_file)))
 
     rule_contents = []
     for rule_file in rule_files:
-        rule_contents.extend(load_rule_contents(Path(rule_file)))
+        rule_contents.extend(load_rule_contents(Path(rule_file), allow_empty_rule=ignore_invalid_files))
 
     if not rule_contents:
         click.echo('Must specify at least one file!')

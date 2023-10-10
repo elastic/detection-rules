@@ -308,10 +308,12 @@ def clear_caches():
     _cache.clear()
 
 
-def load_rule_contents(rule_file: Path, single_only=False) -> list:
+def load_rule_contents(rule_file: Path, allow_empty_rule=False, single_only=False) -> list:
     """Load a rule file from multiple formats."""
     _, extension = os.path.splitext(rule_file)
     raw_text = rule_file.read_text()
+
+    rule = None
 
     if extension in ('.ndjson', '.jsonl'):
         # kibana exported rule object is ndjson with the export metadata on the last line
@@ -334,6 +336,8 @@ def load_rule_contents(rule_file: Path, single_only=False) -> list:
     elif isinstance(rule, list):
         return rule
     else:
+        if allow_empty_rule:
+            return None
         raise ValueError(f"Expected a list or dictionary in {rule_file}")
 
 
