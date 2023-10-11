@@ -4,10 +4,12 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/09/21"
+bypass_bbr_timing = true
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = "Identifies attempts to enumerate hosts in a network using the built-in Windows net.exe tool."
 from = "now-9m"
 index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
@@ -49,7 +51,15 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 47
 rule_id = "7b8bfc26-81d2-435e-965c-d722ee397ef1"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend",
+        "Rule Type: BBR"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -70,9 +80,9 @@ process where host.os.type == "windows" and event.type == "start" and
   */
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1018"
 name = "Remote System Discovery"
@@ -83,9 +93,7 @@ id = "T1135"
 name = "Network Share Discovery"
 reference = "https://attack.mitre.org/techniques/T1135/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
