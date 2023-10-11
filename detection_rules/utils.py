@@ -338,8 +338,6 @@ def load_rule_contents(rule_file: Path, allow_empty_rule=False, single_only=Fals
     elif isinstance(rule, list):
         return rule
     else:
-        if allow_empty_rule:
-            return None
         raise ValueError(f"Expected a list or dictionary in {rule_file}")
 
 
