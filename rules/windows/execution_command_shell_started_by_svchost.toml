@@ -2,9 +2,9 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/19"
 
 [transform]
 [[transform.osquery]]
@@ -31,13 +31,12 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
-
 [rule]
 author = ["Elastic"]
 description = "Identifies a suspicious parent child process relationship with cmd.exe descending from svchost.exe"
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
-language = "eql"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "kuery"
 license = "Elastic License v2"
 name = "Svchost spawning Cmd"
 note = """## Triage and analysis
@@ -100,47 +99,40 @@ references = [
 risk_score = 21
 rule_id = "fd7a6052-58fa-4397-93c3-4795249ccfa2"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend"
+        ]
 timeline_id = "e70679c2-6cde-4510-9764-4823df18f7db"
 timeline_title = "Comprehensive Process Timeline"
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and
-
-  process.parent.name : "svchost.exe" and process.name : "cmd.exe" and
-
-  not process.args :
-         ("??:\\Program Files\\Npcap\\CheckStatus.bat?",
-          "?:\\Program Files\\Npcap\\CheckStatus.bat",
-          "\\system32\\cleanmgr.exe",
-          "?:\\Windows\\system32\\silcollector.cmd",
-          "\\system32\\AppHostRegistrationVerifier.exe",
-          "\\system32\\ServerManagerLauncher.exe",
-          "dir",
-          "?:\\Program Files\\*",
-          "?:\\Program Files (x86)\\*",
-          "?:\\Windows\\LSDeployment\\Lspush.exe",
-          "(x86)\\FMAuditOnsite\\watchdog.bat",
-          "?:\\ProgramData\\chocolatey\\bin\\choco-upgrade-all.bat",
-          "Files\\Npcap\\CheckStatus.bat") and
-
-   /* very noisy pattern - bat or cmd script executed via scheduled tasks */
-  not (process.parent.args : "netsvcs" and process.args : ("?:\\*.bat", "?:\\*.cmd"))
+host.os.type:windows and event.category:process and event.type:start and process.parent.name:"svchost.exe" and 
+process.name.caseless:"cmd.exe"
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.command_line", "user.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
