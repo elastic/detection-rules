@@ -2,9 +2,9 @@
 creation_date = "2020/10/15"
 integration = ["system", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/10/10"
 
 [transform]
 [[transform.osquery]]
@@ -31,7 +31,6 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
-
 [rule]
 author = ["Elastic"]
 description = """
@@ -40,7 +39,7 @@ Administrators or Remote Desktop users.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "Enumeration of Privileged Local Groups Membership"
 note = """## Triage and analysis
@@ -112,75 +111,81 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 47
 rule_id = "291a0de9-937a-4189-94c0-3e847c8b13e4"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Resources: Investigation Guide"]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Resources: Investigation Guide"
+        ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 
 query = '''
-iam where event.action == "user-member-enumerated" and
-
-  /* excluding machine account */
-  not winlog.event_data.SubjectUserName: ("*$", "LOCAL SERVICE", "NETWORK SERVICE") and
-
-  /* noisy and usual legit processes excluded */
-  not winlog.event_data.CallerProcessName:
-               ("-",
-                "?:\\Windows\\System32\\VSSVC.exe",
-                "?:\\Windows\\System32\\SearchIndexer.exe",
-                "?:\\Windows\\System32\\CompatTelRunner.exe",
-                "?:\\Windows\\System32\\oobe\\msoobe.exe",
-                "?:\\Windows\\System32\\net1.exe",
-                "?:\\Windows\\System32\\svchost.exe",
-                "?:\\Windows\\System32\\Netplwiz.exe",
-                "?:\\Windows\\System32\\msiexec.exe",
-                "?:\\Windows\\SysWOW64\\msiexec.exe",
-                "?:\\Windows\\System32\\CloudExperienceHostBroker.exe",
-                "?:\\Windows\\System32\\wbem\\WmiPrvSE.exe",
-                "?:\\Windows\\System32\\SrTasks.exe",
-                "?:\\Windows\\System32\\lsass.exe",
-                "?:\\Windows\\System32\\diskshadow.exe",
-                "?:\\Windows\\System32\\dfsrs.exe",
-                "?:\\Program Files\\*.exe",
-                "?:\\Program Files (x86)\\*.exe",
-                "?:\\WindowsAzure\\*\\WaAppAgent.exe",
-                "?:\\Windows\\System32\\vssadmin.exe",
-                "?:\\Windows\\VeeamVssSupport\\VeeamGuestHelper.exe",
-                "?:\\Windows\\System32\\dllhost.exe",
-                "?:\\Windows\\System32\\mmc.exe",
-                "?:\\Windows\\System32\\SettingSyncHost.exe",
-                "?:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe",
-                "?:\\Windows\\System32\\SystemSettingsAdminFlows.exe",
-                "?:\\Windows\\Temp\\rubrik_vmware???\\snaptool.exe",
-                "?:\\Windows\\System32\\inetsrv\\w3wp.exe",
-                "?:\\$WINDOWS.~BT\\Sources\\*.exe",
-                "?:\\Windows\\System32\\wsmprovhost.exe",
-                "?:\\Windows\\System32\\spool\\drivers\\x64\\3\\x3jobt3?.exe",
-                "?:\\Windows\\System32\\mstsc.exe",
-                "?:\\Windows\\System32\\esentutl.exe",
-                "?:\\Windows\\System32\\RecoveryDrive.exe",
-                "?:\\Windows\\System32\\SystemPropertiesComputerName.exe") and
-
-  /* privileged local groups */
-  (group.name:("*admin*","RemoteDesktopUsers") or
-   winlog.event_data.TargetSid:("S-1-5-32-544","S-1-5-32-555"))
+host.os.type:windows and event.category:iam and event.action:user-member-enumerated and 
+  (
+    group.name:(*Admin* or "RemoteDesktopUsers") or
+    winlog.event_data.TargetSid:("S-1-5-32-544" or "S-1-5-32-555")
+  ) and 
+  not (winlog.event_data.SubjectUserName: (*$ or "LOCAL SERVICE" or "NETWORK SERVICE") or 
+  winlog.event_data.CallerProcessName:("-" or 
+                                       *\:\\\\Windows\\\\System32\\\\VSSVC.exe or 
+                                       *\:\\\\Windows\\\\System32\\\\SearchIndexer.exe or 
+                                       *\:\\\\Windows\\\\System32\\\\CompatTelRunner.exe or 
+                                       *\:\\\\Windows\\\\System32\\\\oobe\\\\msoobe.exe or
+                                       *\:\\\\Windows\\\\System32\\\\net1.exe or 
+                                       *\:\\\\Windows\\\\System32\\\\svchost.exe or 
+                                       *\:\\\\Windows\\\\System32\\\\Netplwiz.exe or 
+                                       *\:\\\\Windows\\\\System32\\\\msiexec.exe or
+                                       *\:\\\\Windows\\\\System32\\\\CloudExperienceHostBroker.exe or
+                                       *\:\\\\Windows\\\\System32\\\\wbem\\\\WmiPrvSE.exe or
+                                       *\:\\\\Windows\\\\System32\\\\SrTasks.exe or
+                                       *\:\\\\Windows\\\\System32\\\\diskshadow.exe or
+                                       *\:\\\\Windows\\\\System32\\\\dfsrs.exe or
+                                       *\:\\\\Windows\\\\System32\\\\vssadmin.exe or
+                                       *\:\\\\Windows\\\\System32\\\\dllhost.exe or
+                                       *\:\\\\Windows\\\\System32\\\\mmc.exe or
+                                       *\:\\\\Windows\\\\System32\\\\SettingSyncHost.exe or
+                                       *\:\\\\Windows\\\\System32\\\\inetsrv\\\\w3wp.exe or
+                                       *\:\\\\Windows\\\\System32\\\\wsmprovhost.exe or
+                                       *\:\\\\Windows\\\\System32\\\\spool\\\\drivers\\\\x64\\\\3\\\\x3jobt3?.exe or
+                                       *\:\\\\Windows\\\\System32\\\\mstsc.exe or
+                                       *\:\\\\Windows\\\\System32\\\\esentutl.exe or
+                                       *\:\\\\Windows\\\\System32\\\\RecoveryDrive.exe or
+                                       *\:\\\\Windows\\\\System32\\\\SystemPropertiesComputerName.exe or
+                                       *\:\\\\Windows\\\\SysWOW64\\\\msiexec.exe or
+                                       *\:\\\\Windows\\\\ImmersiveControlPanel\\\\SystemSettings.exe or
+                                       *\:\\\\Windows\\\\Temp\\\\rubrik_vmware???\\\\snaptool.exe or
+                                       *\:\\\\Windows\\\\VeeamVssSupport\\\\VeeamGuestHelper.exe or
+                                       ?\:\\\\WindowsAzure\\\\*WaAppAgent.exe or
+                                       ?\:\\\\Program?Files?\(x86\)\\\\*.exe or
+                                       ?\:\\\\Program?Files\\\\*.exe or
+                                       ?\:\\\\$WINDOWS.~BT\\\\Sources\\\\*.exe
+                                      )
+  )
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1069"
 name = "Permission Groups Discovery"
 reference = "https://attack.mitre.org/techniques/T1069/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1069.001"
 name = "Local Groups"
 reference = "https://attack.mitre.org/techniques/T1069/001/"
-
-
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "winlog.event_data.SubjectUserName", "winlog.event_data.CallerProcessName"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
