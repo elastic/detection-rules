@@ -11,7 +11,9 @@ author = ["Elastic"]
 description = """
 Detects potential curl CVE-2023-38545 exploitation by monitoring for vulnerable command line arguments in conjunction 
 with an unusual command line length. A flaw in curl version <= 8.3 makes curl vulnerable to overflow a heap based buffer
-in the SOCKS5 proxy handshake. Upgrade to curl version >= 8.4 to patch this vulnerability. 
+in the SOCKS5 proxy handshake. Upgrade to curl version >= 8.4 to patch this vulnerability. This exploit can be executed 
+with and without the use of environment variables. For increased visibility, enable the collection of http_proxy, 
+HTTPS_PROXY and ALL_PROXY environment variables based on the instructions within the setup guide of this rule. 
 """
 
 from = "now-9m"
@@ -19,6 +21,22 @@ index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential curl CVE-2023-38545 Exploitation"
+note = """## Setup
+Elastic Defend integration does not collect environment variable logging by default.
+In order to capture this behavior, this rule requires a specific configuration option set within the advanced settings
+of the Elastic Defend integration.
+To set up environment variable capture for an Elastic Agent policy:
+- Go to Security → Manage → Policies.
+- Select an Elastic Agent policy.
+- Click Show advanced settings.
+- Scroll down or search for linux.advanced.capture_env_vars.
+- Enter the names of env vars you want to capture, separated by commas.
+- For this rule the linux.advanced.capture_env_vars variable should be set to "http_proxy,HTTPS_PROXY,ALL_PROXY".
+- Click Save.
+After saving the integration change, the Elastic Agents running this policy will be updated and
+the rule will function properly.
+For more information on capturing environment variables refer - https://www.elastic.co/guide/en/security/current/environment-variable-capture.html
+"""
 references = [
     "https://curl.se/docs/CVE-2023-38545.html",
     "https://daniel.haxx.se/blog/2023/10/11/curl-8-4-0/",
