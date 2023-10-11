@@ -11,14 +11,17 @@ import os
 import re
 import time
 from datetime import datetime
+
+import pytoml
 from marshmallow_dataclass import class_schema
 from pathlib import Path
 from semver import Version
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional
 from uuid import uuid4
 
 import click
 
+from .attack import build_threat_map_entry
 from .cli_utils import rule_prompt, multi_collection
 from .mappings import build_coverage_map, get_triggered_rules, print_converage_summary
 from .misc import add_client, client_error, nested_set, parse_config, load_current_package_version
@@ -383,6 +386,19 @@ def search_rules(query, columns, language, count, verbose=True, rules: Dict[str,
         click.echo_via_pager(table) if pager else click.echo(table)
 
     return filtered
+
+
+@root.command('build-threat-map-entry')
+@click.argument('tactic')
+@click.argument('technique-ids', nargs=-1)
+def build_threat_map(tactic: str, technique_ids: Iterable[str]):
+    """Build a threat map entry."""
+    entry = build_threat_map_entry(tactic, *technique_ids)
+    rendered = pytoml.dumps({'rule': {'threat': [entry]}})
+    # strip out [rule]
+    cleaned = '\n'.join(rendered.splitlines()[2:])
+    print(cleaned)
+    return entry
 
 
 @root.command("test")
