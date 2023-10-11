@@ -1,0 +1,76 @@
+[metadata]
+creation_date = "2023/10/11"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "Linux environment variable capture feature via the Elastic Defend Integration was added in 8.6."
+min_stack_version = "8.6.0"
+updated_date = "2023/10/11"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects potential exploitation of curl CVE-2023-38545 by monitoring for vulnerable command line arguments in conjunction 
+with an unusual command line length. A flaw in curl version <= 8.3 makes curl vulnerable to a heap based buffer overflow
+during the SOCKS5 proxy handshake. Upgrade to curl version >= 8.4 to patch this vulnerability. This exploit can be executed 
+with and without the use of environment variables. For increased visibility, enable the collection of http_proxy, 
+HTTPS_PROXY and ALL_PROXY environment variables based on the instructions provided in the setup guide of this rule.  
+"""
+
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential curl CVE-2023-38545 Exploitation"
+setup = """
+Elastic Defend integration does not collect environment variable logging by default.
+In order to capture this behavior, this rule requires a specific configuration option set within the advanced settings of the Elastic Defend integration.
+To set up environment variable capture for an Elastic Agent policy:
+- Go to Security → Manage → Policies.
+- Select an Elastic Agent policy.
+- Click Show advanced settings.
+- Scroll down or search for linux.advanced.capture_env_vars.
+- Enter the names of env vars you want to capture, separated by commas.
+- For this rule the linux.advanced.capture_env_vars variable should be set to "http_proxy,HTTPS_PROXY,ALL_PROXY".
+- Click Save.
+After saving the integration change, the Elastic Agents running this policy will be updated and the rule will function properly.
+For more information on capturing environment variables refer to https://www.elastic.co/guide/en/security/current/environment-variable-capture.html
+"""
+references = [
+    "https://curl.se/docs/CVE-2023-38545.html",
+    "https://daniel.haxx.se/blog/2023/10/11/curl-8-4-0/",
+    "https://twitter.com/_JohnHammond/status/1711986412554531015"
+]
+risk_score = 47
+rule_id = "f41296b4-9975-44d6-9486-514c6f635b2d"
+severity = "medium"
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Use Case: Vulnerability",
+        "Tactic: Execution",
+        "Data Source: Elastic Defend"
+        ]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and process.name == "curl" 
+and (
+  process.args : ("--socks5-hostname", "--proxy", "--preproxy", "socks5*") or 
+  process.env_vars: ("http_proxy=socks5h://*", "HTTPS_PROXY=socks5h://*", "ALL_PROXY=socks5h://*")
+) and length(process.command_line) > 255
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1203"
+name = "Exploitation for Client Execution"
+reference = "https://attack.mitre.org/techniques/T1203/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
