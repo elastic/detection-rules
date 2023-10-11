@@ -926,7 +926,8 @@ class TestIntegrationRules(BaseRuleTest):
                         if rule_job_id not in compat_integration_schema['jobs']:
                             failures.append(
                                 f'{self.rule_str(rule)} machine_learning_job_id `{rule_job_id}` not found '
-                                f'in version `{latest_compat_ver[0]}` of `{ml_integration_name}` integration'
+                                f'in version `{latest_compat_ver[0]}` of `{ml_integration_name}` integration. '
+                                f'existing jobs: {compat_integration_schema["jobs"]}'
                             )
 
         if failures:
