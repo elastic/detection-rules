@@ -330,6 +330,8 @@ def load_rule_contents(rule_file: Path, allow_empty_rule=False, single_only=Fals
         rule = pytoml.loads(raw_text)
     elif extension.lower() in ('yaml', 'yml'):
         rule = load_dump(str(rule_file))
+    else:
+        return []
 
     if isinstance(rule, dict):
         return [rule]
