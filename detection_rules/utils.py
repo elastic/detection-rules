@@ -308,7 +308,7 @@ def clear_caches():
     _cache.clear()
 
 
-def load_rule_contents(rule_file: Path, allow_empty_rule=False, single_only=False) -> list:
+def load_rule_contents(rule_file: Path, single_only=False) -> list:
     """Load a rule file from multiple formats."""
     _, extension = os.path.splitext(rule_file)
     raw_text = rule_file.read_text()
