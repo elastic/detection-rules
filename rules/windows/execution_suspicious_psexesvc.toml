@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/09/19"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,7 @@ license = "Elastic License v2"
 name = "Suspicious Process Execution via Renamed PsExec Executable"
 note = """## Triage and analysis
 
-### Investigating PsExec Network Connection
+### Investigating Suspicious Process Execution via Renamed PsExec Executable
 
 PsExec is a remote administration tool that enables the execution of commands with both regular and SYSTEM privileges on Windows systems. It operates by executing a service component `Psexecsvc` on a remote system, which then runs a specified process and returns the results to the local system. Microsoft develops PsExec as part of the Sysinternals Suite. Although commonly used by administrators, PsExec is frequently used by attackers to enable lateral movement and execute commands as SYSTEM to disable defenses and bypass security protections.
 
@@ -55,7 +55,14 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 47
 rule_id = "e2f9fdf5-8076-45ad-9427-41e0e03dc9c2"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Endgame", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Execution", 
+        "Data Source: Elastic Endgame",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -64,22 +71,20 @@ process where host.os.type == "windows" and event.type == "start" and
   process.pe.original_file_name : "psexesvc.exe" and not process.name : "PSEXESVC.exe"
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1569"
 name = "System Services"
 reference = "https://attack.mitre.org/techniques/T1569/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1569.002"
 name = "Service Execution"
 reference = "https://attack.mitre.org/techniques/T1569/002/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
