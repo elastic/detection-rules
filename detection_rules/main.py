@@ -94,7 +94,7 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
 @click.option('--directory', '-d', type=click.Path(file_okay=False, exists=True), help='Load files from a directory')
 @click.option('--ignore-invalid-files', '-i', is_flag=True, help='Ignore files with invalid rule data')
 def import_rules(input_file, directory, ignore_invalid_files):
-    """Import rules from json, toml, or Kibana exported rule file(s)."""
+    """Import rules from json, toml, yaml or Kibana exported rule file(s)."""
     rule_files = glob.glob(os.path.join(directory, '**', '*.*'), recursive=True) if directory else []
     rule_files = sorted(set(rule_files + list(input_file)))
 
