@@ -313,8 +313,6 @@ def load_rule_contents(rule_file: Path, allow_empty_rule=False, single_only=Fals
     _, extension = os.path.splitext(rule_file)
     raw_text = rule_file.read_text()
 
-    rule = None
-
     if extension in ('.ndjson', '.jsonl'):
         # kibana exported rule object is ndjson with the export metadata on the last line
         contents = [json.loads(line) for line in raw_text.splitlines()]
