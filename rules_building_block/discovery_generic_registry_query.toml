@@ -9,6 +9,7 @@ bypass_bbr_timing = true
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 This rule identifies the execution of commands that can be used to query the Windows Registry. Adversaries may query the
 registry to gain situational awareness about the host, like installed security software, programs and settings.
@@ -29,15 +30,14 @@ tags = ["Domain: Endpoint",
         "Data Source: Elastic Defend"
         ]
 timestamp_override = "event.ingested"
-building_block_type = "default"
 type = "new_terms"
 
 query = '''
 host.os.type:windows and event.category:process and event.type:start and (
   (process.name.caseless:"reg.exe" and process.args:"query") or 
   (process.name.caseless:("powershell.exe" or "powershell_ise.exe" or "pwsh.exe") and 
-   process.command_line.caseless:((*Get-ChildItem* or *Get-Item* or *Get-ItemProperty*) and (*HKCU* or *HKEY_CURRENT_USER* or *HKEY_LOCAL_MACHINE* or 
-     *HKLM* or *Registry\:\:*))))
+   process.command_line.caseless:((*Get-ChildItem* or *Get-Item* or *Get-ItemProperty*) and 
+   (*HKCU* or *HKEY_CURRENT_USER* or *HKEY_LOCAL_MACHINE* or *HKLM* or *Registry\:\:*))))
 '''
 
 [[rule.threat]]
