@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/05"
+updated_date = "2023/10/11"
 
 [rule]
 author = ["Elastic"]
@@ -70,8 +70,11 @@ type = "query"
 query = '''
 event.category:process and host.os.type:windows and
   powershell.file.script_block_text : "New-MailboxExportRequest" and
-  not (file.path : (*Microsoft* and *Exchange* and *RemotePowerShell* or *AppData* and *Local*) and
-  file.name:(*.psd1 or *.psm1))
+  not (
+    file.path : (
+      ?\:\\\\Users\\\\*\\\\AppData\\\\Roaming\\\\Microsoft\\\\Exchange\\\\RemotePowerShell\\\\*
+    ) and file.name:(*.psd1 or *.psm1)
+  )
 '''
 
 
