@@ -1,0 +1,139 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2023/10/11"
+integration = "endpoint"
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/10/11"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Detects files being compressed or archived into common formats. This is a common technique used to obfuscate files to
+evade detection or to staging data for exfiltration.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+max_signals = 1000
+name = "File Compressed or Archived into Common Format"
+references = ["https://en.wikipedia.org/wiki/List_of_file_signatures"]
+risk_score = 21
+rule_id = "79124edf-30a8-4d48-95c4-11522cad94b1"
+severity = "low"
+tags = [
+    "Data Source: Elastic Defend",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Tactic: Collection",
+    "Rule Type: BBR",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where event.type in ("creation", "change") and
+ file.Ext.header_bytes : (
+                          /* compression formats */
+                          "1F9D*",             /* tar zip, tar.z (Lempel-Ziv-Welch algorithm) */
+                          "1FA0*",             /* tar zip, tar.z (LZH algorithm) */
+                          "425A68*",           /* Bzip2 */
+                          "524E4301*",         /* Rob Northen Compression */
+                          "524E4302*",         /* Rob Northen Compression */
+                          "4C5A4950*",         /* LZIP */
+                          "504B0*",            /* ZIP */
+                          "526172211A07*",     /* RAR compressed */
+                          "44434D0150413330*", /* Windows Update Binary Delta Compression file */
+                          "50413330*",         /* Windows Update Binary Delta Compression file */
+                          "377ABCAF271C*",     /* 7-Zip */
+                          "1F8B*",             /* GZIP */
+                          "FD377A585A00*",     /* XZ, tar.xz */
+                          "7801*",	           /* zlib: No Compression (no preset dictionary) */
+                          "785E*",	           /* zlib: Best speed (no preset dictionary) */
+                          "789C*",	           /* zlib: Default Compression (no preset dictionary) */
+                          "78DA*", 	           /* zlib: Best Compression (no preset dictionary) */
+                          "7820*",	           /* zlib: No Compression (with preset dictionary) */
+                          "787D*",	           /* zlib: Best speed (with preset dictionary) */
+                          "78BB*",	           /* zlib: Default Compression (with preset dictionary) */
+                          "78F9*",	           /* zlib: Best Compression (with preset dictionary) */
+                          "62767832*",         /* LZFSE */
+                          "28B52FFD*",         /* Zstandard, zst */
+                          "5253564B44415441*", /* QuickZip rs compressed archive */
+                          "2A2A4143452A2A*",   /* ACE */
+
+                          /* archive formats */
+                          "2D686C302D*",       /* lzh */
+                          "2D686C352D*",       /* lzh */
+                          "303730373037*",     /* cpio */
+                          "78617221*",         /* xar */
+                          "4F4152*",           /* oar */
+                          "49536328*"          /* cab archive */
+ )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+    [[rule.threat.technique]]
+    id = "T1560"
+    name = "Archive Collected Data"
+    reference = "https://attack.mitre.org/techniques/T1560/"
+
+        [[rule.threat.technique.subtechnique]]
+        id = "T1560.001"
+        name = "Archive via Utility"
+        reference = "https://attack.mitre.org/techniques/T1560/001/"
+
+    [[rule.threat.technique]]
+    id = "T1074"
+    name = "Data Staged"
+    reference = "https://attack.mitre.org/techniques/T1074/"
+
+        [[rule.threat.technique.subtechnique]]
+        id = "T1074.001"
+        name = "Local Data Staging"
+        reference = "https://attack.mitre.org/techniques/T1074/001/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+    [[rule.threat.technique]]
+    id = "T1132"
+    name = "Data Encoding"
+    reference = "https://attack.mitre.org/techniques/T1132/"
+
+        [[rule.threat.technique.subtechnique]]
+        id = "T1132.001"
+        name = "Standard Encoding"
+        reference = "https://attack.mitre.org/techniques/T1132/001/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+    [[rule.threat.technique]]
+    id = "T1027"
+    name = "Obfuscated Files or Information"
+    reference = "https://attack.mitre.org/techniques/T1027/"
