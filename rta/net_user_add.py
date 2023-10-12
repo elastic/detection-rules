@@ -24,7 +24,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Creating local and domain user accounts using net.exe")
     commands = [

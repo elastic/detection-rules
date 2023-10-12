@@ -22,7 +22,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     gfx = "C:\\Users\\Public\\GfxDownloadWrapper.exe"
     common.copy_file(EXE_FILE, gfx)

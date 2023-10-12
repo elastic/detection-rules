@@ -8,7 +8,7 @@
 # ATT&CK: T1064
 # Description: Generates various children processes from emulated Office processes.
 
-import os
+from pathlib import Path
 import time
 
 from . import common
@@ -24,7 +24,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("MS Office unusual child process emulation")
     suspicious_apps = [
@@ -33,13 +33,13 @@ def main():
         "wscript.exe //b",
     ]
     cmd_path = "c:\\windows\\system32\\cmd.exe"
-    browser_path = os.path.abspath("firefox.exe")
+    browser_path = Path("firefox.exe").resolve()
     common.copy_file(cmd_path, browser_path)
 
     for office_app in ["winword.exe", "excel.exe"]:
 
         common.log("Emulating %s" % office_app)
-        office_path = os.path.abspath(office_app)
+        office_path = Path(office_app).resolve()
         common.copy_file(cmd_path, office_path)
 
         for command in suspicious_apps:

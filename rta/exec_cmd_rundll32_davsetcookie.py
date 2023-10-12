@@ -17,7 +17,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     rundll32 = "C:\\Users\\Public\\rundll32.exe"
     common.copy_file(EXE_FILE, rundll32)

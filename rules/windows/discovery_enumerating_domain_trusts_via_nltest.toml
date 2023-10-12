@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/27"
+updated_date = "2023/09/14"
 
 [rule]
 author = ["Elastic"]
@@ -62,7 +62,14 @@ references = [
 risk_score = 21
 rule_id = "84da2554-e12a-11ec-b896-f661ea17fbcd"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Data Source: Elastic Endgame", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Data Source: Elastic Endgame",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -71,16 +78,20 @@ process where host.os.type == "windows" and event.type == "start" and
     process.name : "nltest.exe" and process.args : (
         "/DCLIST:*", "/DCNAME:*", "/DSGET*",
         "/LSAQUERYFTI:*", "/PARENTDOMAIN",
-        "/DOMAIN_TRUSTS", "/BDC_QUERY:*")
+        "/DOMAIN_TRUSTS", "/BDC_QUERY:*"
+        ) and 
+not process.parent.name : "PDQInventoryScanner.exe" and 
+not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1482"
 name = "Domain Trust Discovery"
 reference = "https://attack.mitre.org/techniques/T1482/"
+
 [[rule.threat.technique]]
 id = "T1018"
 name = "Remote System Discovery"
@@ -90,4 +101,3 @@ reference = "https://attack.mitre.org/techniques/T1018/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-

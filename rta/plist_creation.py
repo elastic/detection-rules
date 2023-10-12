@@ -22,7 +22,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     launch_agents_dir = Path.home() / "Library" / "Launchagents"
     plistbuddy_bin = "/usr/libexec/PlistBuddy"

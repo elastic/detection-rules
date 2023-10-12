@@ -17,7 +17,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     fltmc = "C:\\Users\\Public\\fltmc.exe"
     common.copy_file(EXE_FILE, fltmc)
