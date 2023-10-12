@@ -10,24 +10,27 @@ import unittest
 import uuid
 import warnings
 from collections import defaultdict
-from marshmallow import ValidationError
 from pathlib import Path
 
 import eql.ast
+from marshmallow import ValidationError
 from semver import Version
 
 import kql
 from detection_rules import attack
 from detection_rules.beats import parse_beats_from_index
-from detection_rules.integrations import (load_integrations_schemas, find_latest_compatible_version,
-                                          load_integrations_manifests)
+from detection_rules.integrations import (find_latest_compatible_version,
+                                          load_integrations_manifests,
+                                          load_integrations_schemas)
 from detection_rules.misc import load_current_package_version
 from detection_rules.packaging import current_stack_version
-from detection_rules.rule import (QueryRuleData, TOMLRuleContents, QueryValidator)
+from detection_rules.rule import (QueryRuleData, QueryValidator,
+                                  TOMLRuleContents)
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_stack_schemas
-from detection_rules.utils import INTEGRATION_RULE_DIR, get_path, load_etc_dump, PatchedTemplate
+from detection_rules.utils import (INTEGRATION_RULE_DIR, PatchedTemplate,
+                                   get_path, load_etc_dump)
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
