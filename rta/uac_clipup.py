@@ -20,7 +20,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     dllhost = "C:\\Users\\Public\\dllhost.exe"
     clipup = "C:\\Users\\Public\\clipup.exe"

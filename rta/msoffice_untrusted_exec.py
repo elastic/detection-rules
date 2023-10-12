@@ -29,7 +29,7 @@ EXE_FILE = common.get_path("bin", "regsvr32.exe")
 EXE_FILE2 = common.get_path("bin", "renamed.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     binary = "winword.exe"
     common.copy_file(EXE_FILE2, binary)

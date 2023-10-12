@@ -90,6 +90,7 @@ EXPECTED_RULE_TAGS = [
     'OS: Linux',
     'OS: macOS',
     'OS: Windows',
+    'Rule Type: BBR',
     'Resources: Investigation Guide',
     'Rule Type: Higher-Order Rule',
     'Rule Type: Machine Learning',
@@ -125,6 +126,7 @@ EXPECTED_RULE_TAGS = [
     'Use Case: Vulnerability'
 ]
 
+MACHINE_LEARNING_PACKAGES = ['LMD', 'DGA', 'DED', 'ProblemChild', 'Beaconing']
 
 NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
 TimeUnits = Literal['s', 'm', 'h']
@@ -159,5 +161,6 @@ UUIDString = NewType('UUIDString', str, validate=validate.Regexp(UUID_PATTERN))
 BuildingBlockType = Literal['default']
 
 # experimental machine learning features and releases
-MachineLearningType = Literal['DGA', 'ProblemChild']
-MachineLearningTypeLower = Literal['dga', 'problemchild']
+MachineLearningType = getattr(Literal, '__getitem__')(tuple(MACHINE_LEARNING_PACKAGES))  # noqa: E999
+MachineLearningTypeLower = getattr(Literal, '__getitem__')(
+    tuple(map(str.lower, MACHINE_LEARNING_PACKAGES)))  # noqa: E999

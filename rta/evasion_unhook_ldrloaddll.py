@@ -3,9 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-from . import common
-from . import RtaMetadata
-import os
+from pathlib import Path
+
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="7fcf2f31-b510-45f8-9de4-7dc8f5ecb68b",
@@ -21,10 +21,10 @@ metadata = RtaMetadata(
 # source code -https://gist.github.com/Samirbous/cee44dbd0254c28d4f57709d5c723aee
 BIN = common.get_path("bin", "rta_unhook_ldrload.exe")
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 
 def main():
-    if os.path.exists(BIN) :
+    if Path(BIN).is_file():
         print(f'[+] - File {BIN} will be executed')
         common.execute(BIN)
         # cleanup
