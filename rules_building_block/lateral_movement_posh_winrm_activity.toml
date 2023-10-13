@@ -53,6 +53,14 @@ query = '''
 event.category:process and host.os.type:windows and
   powershell.file.script_block_text : (
     ("Invoke-WmiMethod" or "Invoke-Command" or "Enter-PSSession") and "ComputerName"
+  ) and
+  not user.id : "S-1-5-18" and
+  not file.directory : (
+    "C:\\Program Files\\LogicMonitor\\Agent\\tmp" or
+    ?\:\\\\Program?Files\\\\Microsoft\\\\Exchange?Server\\\\*\\\\bin or
+    ?\:\\\\Logicmonitor\\\\tmp* or
+    ?\:\\\\Program?Files\\\\WindowsPowerShell\\\\Modules\\\\dbatools\\\\* or
+    ?\:\\\\ExchangeServer\\\\bin*
   )
 '''
 

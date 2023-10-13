@@ -1,32 +1,33 @@
 [metadata]
-creation_date = "2022/11/01"
+creation_date = "2020/12/04"
 integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/09/21"
+bypass_bbr_timing = true
 
 [rule]
 author = ["Elastic"]
-description = """
-Identifies the execution of discovery commands to enumerate system information, files, and folders using the Windows Command Shell.
-"""
+building_block_type = "default"
+description = "Discovery of remote system information using built-in commands, which may be used to move laterally."
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.*", "logs-endpoint.events.*"]
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "System Information Discovery via Windows Command Shell"
+name = "Remote System Discovery Commands"
 note = """## Triage and analysis
 
-### Investigating System Information Discovery via Windows Command Shell
+### Investigating Remote System Discovery Commands
 
 After successfully compromising an environment, attackers may try to gain situational awareness to plan their next steps. This can happen by running commands to enumerate network resources, users, connections, files, and installed security software.
 
-This rule identifies commands to enumerate system information, files, and folders using the Windows Command Shell.
+This rule looks for the execution of the `arp` or `nbstat` utilities to enumerate remote systems in the environment, which is useful for attackers to identify lateral movement targets.
 
 #### Possible investigation steps
 
 - Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Identify the user account that performed the action and whether it should perform this kind of action.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Investigate any abnormal account behavior, such as command executions, file creations or modifications, and network connections.
 
@@ -48,51 +49,47 @@ This rule identifies commands to enumerate system information, files, and folder
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 risk_score = 21
-rule_id = "d68e95ad-1c82-4074-a12a-125fe10ac8ba"
+rule_id = "0635c542-1b96-4335-9b47-126582d2c19a"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Tactic: Execution", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame",
+        "Rule Type: BBR"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  process.name : "cmd.exe" and process.args : "/c" and process.args : ("set", "dir") and
-  not process.parent.executable : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*", "?:\\PROGRA~1\\*")
+  ((process.name : "nbtstat.exe" and process.args : ("-n", "-s")) or
+  (process.name : "arp.exe" and process.args : "-a") or
+  (process.name : "nltest.exe" and process.args : ("/dclist", "/dsgetdc")) or
+  (process.name : "nslookup.exe" and process.args : "*_ldap._tcp.dc.*") or
+  (process.name: ("dsquery.exe", "dsget.exe") and process.args: "subnet") or
+  ((((process.name : "net.exe" or process.pe.original_file_name == "net.exe") or
+    ((process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and not 
+       process.parent.name : "net.exe")) and 
+       process.args : "group" and process.args : "/domain" and not process.args : "/add")))
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1082"
-name = "System Information Discovery"
-reference = "https://attack.mitre.org/techniques/T1082/"
 
 [[rule.threat.technique]]
-id = "T1083"
-name = "File and Directory Discovery"
-reference = "https://attack.mitre.org/techniques/T1083/"
+id = "T1016"
+name = "System Network Configuration Discovery"
+reference = "https://attack.mitre.org/techniques/T1016/"
 
+[[rule.threat.technique]]
+id = "T1018"
+name = "Remote System Discovery"
+reference = "https://attack.mitre.org/techniques/T1018/"
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
-[[rule.threat.technique.subtechnique]]
-id = "T1059.003"
-name = "Windows Command Shell"
-reference = "https://attack.mitre.org/techniques/T1059/003/"
-
-
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-

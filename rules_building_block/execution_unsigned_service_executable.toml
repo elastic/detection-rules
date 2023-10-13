@@ -8,24 +8,28 @@ updated_date = "2023/10/09"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 This rule identifies the execution of unsigned executables via service control manager (SCM). Adversaries may abuse SCM
 to execute malware or escalate privileges.
 """
-from = "now-119m"
-interval = "60m"
+from = "now-9m"
 index = ["logs-endpoint.events.*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "Execution of an Unsigned Service"
 risk_score = 21
 rule_id = "56fdfcf1-ca7c-4fd9-951d-e215ee26e404"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Rule Type: BBR", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Rule Type: BBR",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
-building_block_type = "default"
 type = "eql"
-
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
 ( 
@@ -36,19 +40,18 @@ process where host.os.type == "windows" and event.type == "start" and
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1569"
 name = "System Services"
 reference = "https://attack.mitre.org/techniques/T1569/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1569.002"
 name = "Service Execution"
 reference = "https://attack.mitre.org/techniques/T1569/002/"
-
-
 
 [rule.threat.tactic]
 id = "TA0002"
