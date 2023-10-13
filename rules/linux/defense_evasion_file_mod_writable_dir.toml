@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/25"
+updated_date = "2023/10/13"
 
 [rule]
 author = ["Elastic"]
@@ -23,6 +23,43 @@ index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "File Permission Modification in Writable Directory"
+note = """## Setup
+
+This rule requires data coming in either from Elastic Defend, or Auditbeat integration.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows
+the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click Add integrations.
+- In the query bar, search for Elastic Defend and select the integration to see more details about it.
+- Click Add Elastic Defend.
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either Traditional Endpoints or Cloud Workloads.
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest to select "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in New agent policy name. If other agent policies already exist, you can click the Existing hosts tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click Save and Continue.
+- To complete the integration, select Add Elastic Agent to your hosts and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+### Auditbeat Setup
+Auditbeat is a lightweight shipper that you can install on your servers to audit the activities of users and processes on your systems. For example, you can use Auditbeat to collect and centralize audit events from the Linux Audit Framework. You can also use Auditbeat to detect changes to critical files, like binaries and configuration files, and identify potential security policy violations.
+
+#### The following steps should be executed in order to add the Auditbeat for Linux System:
+- Elastic provides repositories available for APT and YUM-based distributions. Note that we provide binary packages, but no source packages.
+- To install the APT and YUM repositories follow the setup instructions in this [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setup-repositories.html).
+- To run Auditbeat on Docker follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-docker.html).
+- To run Auditbeat on Kubernetes follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-kubernetes.html).
+- For complete Setup and Run Auditbeat information refer to the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setting-up-and-running.html).
+
+"""
 risk_score = 21
 rule_id = "9f9a2a82-93a8-4b1a-8778-1780895626d4"
 severity = "low"
