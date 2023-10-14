@@ -33,7 +33,7 @@ def schtasks(*args, **kwargs):
     return common.execute(["schtasks.exe"] + list(args), **kwargs)
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Scheduled Task Privilege Escalation")
 

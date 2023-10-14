@@ -26,7 +26,7 @@ EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     powershell = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
     taskhostw = "C:\\Users\\Public\\taskhostw.exe"

@@ -19,7 +19,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     fakebkp = Path("fake.vbk").resolve()
     with open(fakebkp, 'w'):

@@ -2,9 +2,9 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "windows"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/19"
 
 [rule]
 author = ["Elastic"]
@@ -19,8 +19,8 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
-language = "eql"
+index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+language = "kuery"
 license = "Elastic License v2"
 name = "Microsoft Build Engine Started an Unusual Process"
 note = """## Setup
@@ -31,32 +31,44 @@ references = ["https://blog.talosintelligence.com/2020/02/building-bypass-with-m
 risk_score = 21
 rule_id = "9d110cb3-5f4b-4c9a-b9f5-53f0a1707ae6"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Defense Evasion",
+        "Tactic: Execution",
+        "Data Source: Elastic Defend"
+        ]
+
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and
-  process.parent.name : "MSBuild.exe" and
-  process.name : ("csc.exe", "iexplore.exe", "powershell.exe")
+host.os.type:windows and event.category:process and event.type:start and process.parent.name:"MSBuild.exe" and
+process.name.caseless:("csc.exe" or "iexplore.exe" or "powershell.exe")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1027"
 name = "Obfuscated Files or Information"
 reference = "https://attack.mitre.org/techniques/T1027/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1027.004"
 name = "Compile After Delivery"
 reference = "https://attack.mitre.org/techniques/T1027/004/"
-
-
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "user.name", "process.parent.command_line"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"

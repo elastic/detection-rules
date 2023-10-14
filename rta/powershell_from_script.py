@@ -23,7 +23,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     # Write script
     script_file = Path("launchpowershell.vbs").resolve()

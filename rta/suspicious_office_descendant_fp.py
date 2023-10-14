@@ -24,7 +24,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("MS Office unusual child process emulation")
     suspicious_apps = [

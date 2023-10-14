@@ -33,7 +33,7 @@ def create_exfil(path=Path("secret_stuff.txt").resolve()):
     return path
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(SEVENZIP)
 def main(password="s0l33t"):
     # create 7z.exe with not-7zip name, and exfil
