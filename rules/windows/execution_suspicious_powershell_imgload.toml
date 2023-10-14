@@ -2,9 +2,9 @@
 creation_date = "2020/11/17"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/29"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/20"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ with powershell.exe, some attackers do this to operate more stealthily.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "Suspicious PowerShell Engine ImageLoad"
 note = """## Triage and analysis
@@ -63,56 +63,47 @@ Attackers can use PowerShell without having to execute `PowerShell.exe` directly
 risk_score = 47
 rule_id = "852c1f19-68e8-43a6-9dce-340771fe1be3"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 
 query = '''
-library where host.os.type == "windows" and
-  dll.name : ("System.Management.Automation.ni.dll", "System.Management.Automation.dll") and
-  not 
-  (
-    /* MS Signed Binaries */
-    (
-      process.code_signature.subject_name : (
-        "Microsoft Windows",
-        "Microsoft Dynamic Code Publisher",
-        "Microsoft Corporation"
-      ) and process.code_signature.trusted == true and not process.name : ("rundll32.exe", "regsvr32.exe")
-    ) or
-
-    /* Signed Executables from the Program Files folder */
-    (
-      process.executable : (
-        "?:\\Program Files (x86)\\*.exe",
-        "?:\\Program Files\\*.exe"
-      ) and process.code_signature.trusted == true
-    ) or
-
-    /* Lenovo */
-    (
-      process.executable : (
-        "?:\\Windows\\Lenovo\\*.exe"
-      ) and (process.code_signature.subject_name : "Lenovo" and process.code_signature.trusted == true) 
-    )
-  )
+host.os.type:windows and event.category:library and 
+  dll.name:("System.Management.Automation.dll" or "System.Management.Automation.ni.dll") and 
+  not (process.code_signature.subject_name:("Microsoft Corporation" or "Microsoft Dynamic Code Publisher" or "Microsoft Windows") and process.code_signature.trusted:true and not process.name.caseless:("regsvr32.exe" or "rundll32.exe")) and 
+  not (process.executable.caseless:(?\:\\\\Program?Files?\(x86\)\\\\*.exe or ?\:\\\\Program?Files\\\\*.exe) and process.code_signature.trusted:true) and 
+  not (process.executable.caseless:?\:\\\\Windows\\\\Lenovo\\\\*.exe and process.code_signature.subject_name:"Lenovo" and 
+  process.code_signature.trusted:true) and not process.executable.caseless : "C:\\Windows\\System32\\powershell.exe"
 '''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.001"
 name = "PowerShell"
 reference = "https://attack.mitre.org/techniques/T1059/001/"
-
-
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.executable", "user.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
