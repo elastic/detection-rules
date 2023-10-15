@@ -2,9 +2,10 @@
 creation_date = "2023/07/14"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/10/13"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/19"
+bypass_bbr_timing = true
 
 [rule]
 author = ["Elastic"]
@@ -30,15 +31,12 @@ tags = ["Domain: Endpoint",
         "Data Source: Elastic Defend"
         ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
+
 query = '''
-process where host.os.type == "windows" and event.type == "start" and
-( 
-  (
-    process.parent.executable : "C:\\Windows\\System32\\services.exe" and
-    (process.code_signature.exists == false or process.code_signature.trusted == false)
-  )
-)
+host.os.type:windows and event.category:process and event.type:start and 
+process.parent.executable:"C:\\Windows\\System32\\services.exe" and 
+(process.code_signature.exists:false or process.code_signature.trusted:false)
 '''
 
 [[rule.threat]]
@@ -76,3 +74,10 @@ id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.executable", "user.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
