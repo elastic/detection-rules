@@ -3,9 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-from . import common
-from . import RtaMetadata
-import os
+from pathlib import Path
+
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="8bd17f51-3fc0-46a8-9e1a-662723314ad4",
@@ -24,10 +24,10 @@ PROC = 'Invite.lnk'
 # ps script to mount, execute a file and unmount ISO device
 PS_SCRIPT = common.get_path("bin", "ExecFromISOFile.ps1")
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 
 def main():
-    if os.path.exists(ISO) and os.path.exists(PS_SCRIPT):
+    if Path(ISO).is_file() and Path(PS_SCRIPT).is_file():
         print(f'[+] - ISO File {ISO} will be mounted and executed via powershell')
 
         # import ExecFromISO function that takes two args -ISOFIle pointing to ISO file path and -procname pointing to the filename to execute

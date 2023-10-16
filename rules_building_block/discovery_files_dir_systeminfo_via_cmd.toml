@@ -1,34 +1,35 @@
 [metadata]
-creation_date = "2020/10/19"
+creation_date = "2022/11/01"
 integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/10/10"
+bypass_bbr_timing = true
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
-Identifies the use of Windows Management Instrumentation Command (WMIC) to discover certain System Security Settings
-such as AntiVirus or Host Firewall details.
+Identifies the execution of discovery commands to enumerate system information, files, and folders using the Windows 
+Command Shell.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
+index = ["winlogbeat-*", "logs-windows.*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Security Software Discovery using WMIC"
+name = "System Information Discovery via Windows Command Shell"
 note = """## Triage and analysis
 
-### Investigating Security Software Discovery using WMIC
+### Investigating System Information Discovery via Windows Command Shell
 
 After successfully compromising an environment, attackers may try to gain situational awareness to plan their next steps. This can happen by running commands to enumerate network resources, users, connections, files, and installed security software.
 
-This rule looks for the execution of the `wmic` utility with arguments compatible to the enumeration of the security software installed on the host. Attackers can use this information to decide whether or not to infect a system, disable protections, use bypasses, etc.
+This rule identifies commands to enumerate system information, files, and folders using the Windows Command Shell.
 
 #### Possible investigation steps
 
 - Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Identify the user account that performed the action and whether it should perform this kind of action.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Investigate any abnormal account behavior, such as command executions, file creations or modifications, and network connections.
 
@@ -49,35 +50,59 @@ This rule looks for the execution of the `wmic` utility with arguments compatibl
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
-risk_score = 47
-rule_id = "6ea55c81-e2ba-42f2-a134-bccf857ba922"
-severity = "medium"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+risk_score = 21
+rule_id = "d68e95ad-1c82-4074-a12a-125fe10ac8ba"
+severity = "low"
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Tactic: Execution",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend",
+        "Rule Type: BBR"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-   (process.name:"wmic.exe" or process.pe.original_file_name:"wmic.exe") and
-    process.args:"/namespace:\\\\root\\SecurityCenter2" and process.args:"Get"
+  process.name : "cmd.exe" and process.args : "/c" and process.args : ("set", "dir") and
+  not process.parent.executable : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*", "?:\\PROGRA~1\\*")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
-id = "T1518"
-name = "Software Discovery"
-reference = "https://attack.mitre.org/techniques/T1518/"
-[[rule.threat.technique.subtechnique]]
-id = "T1518.001"
-name = "Security Software Discovery"
-reference = "https://attack.mitre.org/techniques/T1518/001/"
+id = "T1082"
+name = "System Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1082/"
 
-
+[[rule.threat.technique]]
+id = "T1083"
+name = "File and Directory Discovery"
+reference = "https://attack.mitre.org/techniques/T1083/"
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.003"
+name = "Windows Command Shell"
+reference = "https://attack.mitre.org/techniques/T1059/003/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

@@ -21,7 +21,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     vssadmin = "C:\\Windows\\System32\\vssadmin.exe"
     cmd = "C:\\Windows\\System32\\cmd.exe"
