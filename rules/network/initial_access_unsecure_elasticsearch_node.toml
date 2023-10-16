@@ -2,9 +2,9 @@
 creation_date = "2020/08/11"
 integration = ["network_traffic"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/08/01"
+min_stack_comments = "Network integration fields updated for ECS compatibility (status -> http.response.status_phrase)"
+min_stack_version = "8.10.0"
+updated_date = "2023/10/16"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["packetbeat-*", "logs-network_traffic.*"]
-language = "lucene"
+language = "kuery"
 license = "Elastic License v2"
 name = "Inbound Connection to an Unsecure Elasticsearch Node"
 note = """## Setup
@@ -38,9 +38,10 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-(event.dataset: network_traffic.http or (event.category: network_traffic and network.protocol: http)) and
-    status:OK and destination.port:9200 and network.direction:inbound and NOT http.response.headers.content-type:"image/x-icon" and not
-    _exists_:http.request.headers.authorization
+(event.dataset:network_traffic.http or (event.category:network_traffic and network.protocol:http)) and
+    http.response.status_phrase:ok and destination.port:9200 and network.direction:inbound and
+    not http.response.headers.content-type:"image/x-icon" and
+    not http.request.headers.authorization:*
 '''
 
 
