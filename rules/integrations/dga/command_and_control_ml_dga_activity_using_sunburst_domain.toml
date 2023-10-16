@@ -2,9 +2,9 @@
 creation_date = "2023/09/14"
 integration = ["dga","endpoint","network_traffic"]
 maturity = "production"
-min_stack_comments = "New rule"
+min_stack_comments = "DGA package job ID and rule removal updates"
 min_stack_version = "8.9.0"
-updated_date = "2023/10/02"
+updated_date = "2023/10/16"
 
 [rule]
 author = ["Elastic"]
@@ -17,8 +17,13 @@ index = ["logs-endpoint.events.*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Machine Learning Detected DGA activity using a known SUNBURST DNS domain"
+note = """## Setup
+
+The Domain Generation Algorithm (DGA) integration must be enabled and related ML jobs configured for this rule to be effective. Please refer to this rule's references for more information.
+"""
 references = [
-    "https://www.elastic.co/security-labs/detect-domain-generation-algorithm-activity-with-new-kibana-integration",
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/dga"
 ]
 risk_score = 99
 rule_id = "bcaa15ce-2d41-44d7-a322-918f9db77766"
@@ -36,7 +41,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: network.dns and ml_is_dga.malicious_prediction:1 and dns.question.registered_domain:avsvmcloud.com
+event.dataset: (network.dns or endpoint.events.network) and ml_is_dga.malicious_prediction:1 and dns.question.registered_domain:avsvmcloud.com
 '''
 
 

@@ -2,9 +2,9 @@
 creation_date = "2023/09/14"
 integration = ["dga","endpoint","network_traffic"]
 maturity = "production"
-min_stack_comments = "New rule"
+min_stack_comments = "DGA package job ID and rule removal updates"
 min_stack_version = "8.9.0"
-updated_date = "2023/09/14"
+updated_date = "2023/10/16"
 
 [rule]
 author = ["Elastic"]
@@ -17,8 +17,13 @@ index = ["logs-endpoint.events.*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Machine Learning Detected a DNS Request With a High DGA Probability Score"
+note = """## Setup
+
+The Domain Generation Algorithm (DGA) integration must be enabled and related ML jobs configured for this rule to be effective. Please refer to this rule's references for more information.
+"""
 references = [
-    "https://www.elastic.co/security-labs/detect-domain-generation-algorithm-activity-with-new-kibana-integration",
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/dga"
 ]
 risk_score = 21
 rule_id = "da7f5803-1cd4-42fd-a890-0173ae80ac69"
@@ -36,7 +41,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: network.dns and ml_is_dga.malicious_probability > 0.98
+event.dataset: (network.dns or endpoint.events.network) and ml_is_dga.malicious_probability > 0.98
 '''
 
 
