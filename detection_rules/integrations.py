@@ -335,6 +335,7 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
                 if integration is None:
                     # Use all fields from each dataset
                     for dataset in integrations_schemas[package][package_version]:
+                        # ignore jobs from machine learning packages
                         if dataset != "jobs":
                             schema.update(integrations_schemas[package][package_version][dataset])
                 else:

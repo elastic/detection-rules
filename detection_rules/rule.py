@@ -1127,8 +1127,11 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
                 datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
 
-        # windows and endpoint integration do not have event.dataset fields in queries
         # integration is None to remove duplicate references upstream in Kibana
+        # chronologically, event.dataset is checked for package:integration, then rule tags
+        # if both exist, rule tags are only used if defined in definitions for non-dataset packages
+        # of machine learning analytic packages
+
         rule_integrations = meta.get("integration", [])
         if rule_integrations:
             for integration in rule_integrations:
