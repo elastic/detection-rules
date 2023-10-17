@@ -30,7 +30,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     param1 = "--remote-debugging-port=9222"
     param2 = "--user-data-dir=remote-profile"
