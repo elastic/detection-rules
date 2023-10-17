@@ -27,16 +27,16 @@ name = "Execution via MS VisualStudio Pre/Post Build Events"
 risk_score = 21
 rule_id = "fec7ccb7-6ed9-4f98-93ab-d6b366b063a0"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Rule Type: BBR", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Execution", "Rule Type: BBR", "Data Source: Elastic Defend"]
 building_block_type = "default"
 type = "eql"
 
 query = '''
 sequence with maxspan=1m
-  [process where event.action == "start" and
+  [process where host.os.type == "windows" and event.action == "start" and
    process.name : "cmd.exe" and process.parent.name : "MSBuild.exe" and
    process.args : "?:\\Users\\*\\AppData\\Local\\Temp\\tmp*.exec.cmd"] by process.entity_id
-  [process where event.action == "start" and
+  [process where host.os.type == "windows" and event.action == "start" and
     process.name : (
       "cmd.exe", "powershell.exe",
       "MSHTA.EXE", "CertUtil.exe",

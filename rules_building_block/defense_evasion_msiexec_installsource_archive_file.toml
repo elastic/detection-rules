@@ -30,7 +30,7 @@ type = "eql"
 
 query = '''
 sequence with maxspan=1m
-  [registry where process.name : "msiexec.exe" and
+  [registry where host.os.type == "windows" and process.name : "msiexec.exe" and
    (
     (registry.value : "InstallSource" and
      registry.data.strings : ("?:\\Users\\*\\Temp\\Temp?_*.zip\\*",
@@ -39,7 +39,7 @@ sequence with maxspan=1m
 
     (registry.value : ("DisplayName", "ProductName") and registry.data.strings : "SetupTest")
     )]
-  [process where event.action == "start" and
+  [process where host.os.type == "windows" and event.action == "start" and
     process.parent.name : "msiexec.exe" and
     not process.name : "msiexec.exe" and
     not (process.executable : ("?:\\Program Files (x86)\\*.exe", "?:\\Program Files\\*.exe") and process.code_signature.trusted == true)]
