@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/09/19"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,13 @@ If enabling an EQL rule on a non-elastic-agent index (such as beats) for version
 risk_score = 21
 rule_id = "770e0c4d-b998-41e5-a62e-c7901fd7f470"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -55,24 +61,30 @@ process where host.os.type == "windows" and event.type == "start" and
     "tracert.exe",
     "whoami.exe"
   ) and
-  process.parent.name:"wmiprvse.exe"
+  process.parent.name:"wmiprvse.exe" and 
+  not (
+    process.name : "sc.exe" and process.args : "RemoteRegistry" and process.args : "start=" and 
+    process.args : ("demand", "disabled")
+  ) and
+  not process.args : "tenable_mw_scan"
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1047"
 name = "Windows Management Instrumentation"
 reference = "https://attack.mitre.org/techniques/T1047/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1018"
 name = "Remote System Discovery"
@@ -92,6 +104,7 @@ reference = "https://attack.mitre.org/techniques/T1518/"
 id = "T1016"
 name = "System Network Configuration Discovery"
 reference = "https://attack.mitre.org/techniques/T1016/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1016.001"
 name = "Internet Connection Discovery"
@@ -106,4 +119,3 @@ reference = "https://attack.mitre.org/techniques/T1057/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-

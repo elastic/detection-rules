@@ -27,7 +27,7 @@ metadata = RtaMetadata(
 SMB_PORT = 445
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main(ip=None):
     ip = ip or common.get_ip()
 
