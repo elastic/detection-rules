@@ -230,6 +230,7 @@ class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
 
     group_by: List[definitions.NonEmptyStr]
     duration: Optional[AlertSuppressionDuration] = field(metadata=dict(metadata=dict(min_compat="8.7")))
+    missing_fields_strategy: Optional[definitions.AlertSuppressionMissing] = field(metadata=dict(metadata=dict(min_compat="8.8")))
 
 
 @dataclass(frozen=True)
