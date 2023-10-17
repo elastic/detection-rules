@@ -10,10 +10,9 @@
 
 import os
 import time
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="ce85674f-fb6c-44d5-b880-4ce9062e1028",
@@ -29,16 +28,16 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     cmd_path = "c:\\windows\\system32\\cmd.exe"
 
     for office_app in ["winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe"]:
         common.log("Emulating office application %s" % office_app)
-        office_path = os.path.abspath(office_app)
+        office_path = Path(office_app).resolve()
         common.copy_file(cmd_path, office_path)
 
-        bad_path = os.path.abspath("bad-{}-{}.exe".format(hash(office_app), os.getpid()))
+        bad_path = Path("bad-{}-{}.exe".format(hash(office_app), os.getpid())).resolve()
         common.execute([office_path, "/c", "copy", cmd_path, bad_path])
 
         time.sleep(1)

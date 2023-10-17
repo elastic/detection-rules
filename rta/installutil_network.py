@@ -10,12 +10,10 @@
 # Elastic detection: Unusual Network Activity from a Windows System Binary
 # Description: Uses mock .NET malware and InstallUtil to create network activity from InstallUtil.
 
-import os
 import sys
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="6dfa88c9-9fb2-4fb0-8bea-0bc45222b498",
@@ -38,7 +36,7 @@ metadata = RtaMetadata(
 MY_DOT_NET = common.get_path("bin", "mydotnet.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(MY_DOT_NET)
 def main():
     server, ip, port = common.serve_web()
@@ -56,9 +54,9 @@ def main():
     install_util86 = "C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\InstallUtil.exe"
     fallback = False
 
-    if os.path.exists(install_util64):
+    if Path(install_util64).is_file():
         install_util = install_util64
-    elif os.path.exists(install_util86):
+    elif Path(install_util86).is_file():
         install_util = install_util86
     else:
         install_util = None
@@ -70,7 +68,7 @@ def main():
 
     else:
         common.log("Unable to find InstallUtil, creating temp file")
-        install_util = os.path.abspath("InstallUtil.exe")
+        install_util = Path("InstallUtil.exe").resolve()
         common.copy_file(sys.executable, install_util)
         common.execute(
             [

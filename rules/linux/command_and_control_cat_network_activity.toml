@@ -1,0 +1,57 @@
+[metadata]
+creation_date = "2023/09/04"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/09/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for the execution of the cat command, followed by a connection attempt by the same process. Cat 
+is capable of transfering data via tcp/udp channels by redirecting its read output to a /dev/tcp or /dev/udp channel. 
+This activity is highly suspicious, and should be investigated. Attackers may leverage this capability to transfer tools
+or files to another host in the network or exfiltrate data while attempting to evade detection in the process.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Network Activity Detected via cat"
+risk_score = 47
+rule_id = "afd04601-12fc-4149-9b78-9c3f8fe45d39"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Command and Control", "Data Source: Elastic Defend"]
+type = "eql"
+query = '''
+sequence by host.id, process.entity_id with maxspan=1s
+  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+   process.name == "cat"]
+  [network where host.os.type == "linux" and event.action in ("connection_attempted", "disconnect_received") and 
+   process.name == "cat"]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"

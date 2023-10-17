@@ -29,7 +29,7 @@ PS1_FILE = common.get_path("bin", "Invoke-ImageLoad.ps1")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     cscript = "C:\\Users\\Public\\cscript.exe"
     user32 = "C:\\Windows\\System32\\user32.dll"

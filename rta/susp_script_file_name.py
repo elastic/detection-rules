@@ -27,7 +27,7 @@ EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 RENAMER = common.get_path("bin", "rcedit-x64.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     mshta = "C:\\Users\\Public\\mshta.exe"
     rcedit = "C:\\Users\\Public\\rcedit.exe"

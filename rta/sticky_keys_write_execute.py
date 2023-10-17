@@ -11,12 +11,10 @@
 # ATT&CK: T1015
 # Description: Writes different binaries into various accessibility locations.
 
-import os
 import time
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="398933ec-f8d4-4d81-93ed-e7d7adcb9d97",
@@ -36,7 +34,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     # Prep
     bins = [
@@ -48,13 +46,13 @@ def main():
         "displayswitch.exe",
         "atbroker.exe",
     ]
-    calc = os.path.abspath("\\windows\\system32\\calc.exe")
-    temp = os.path.abspath("temp.exe")
+    calc = Path("\\windows\\system32\\calc.exe").resolve()
+    temp = Path("temp.exe").resolve()
 
     # loop over bins
     for bin_name in bins:
 
-        bin_path = os.path.abspath("\\Windows\\system32\\" + bin_name)
+        bin_path = Path("\\Windows\\system32\\" + bin_name).resolve()
 
         # Back up bin
         common.copy_file(bin_path, temp)
