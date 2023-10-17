@@ -1,0 +1,96 @@
+[metadata]
+creation_date = "2023/09/26"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/09/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of a command via Microsoft Visual Studio Pre or Post build events. Adversaries may backdoor a
+trusted visual studio project to execute a malicious command during the project build process.
+"""
+references = [
+  "https://docs.microsoft.com/en-us/visualstudio/ide/reference/pre-build-event-post-build-event-command-line-dialog-box?view=vs-2022",
+  "https://www.pwc.com/gx/en/issues/cybersecurity/cyber-threat-intelligence/threat-actor-of-in-tur-est.html",
+  "https://blog.google/threat-analysis-group/new-campaign-targeting-security-researchers/",
+  "https://github.com/sbousseaden/EVTX-ATTACK-SAMPLES/blob/master/Execution/execution_evasion_visual_studio_prebuild_event.evtx"
+]
+from = "now-119m"
+interval = "60m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Execution via MS VisualStudio Pre/Post Build Events"
+risk_score = 21
+rule_id = "fec7ccb7-6ed9-4f98-93ab-d6b366b063a0"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Execution", "Rule Type: BBR", "Data Source: Elastic Defend"]
+building_block_type = "default"
+type = "eql"
+
+query = '''
+sequence with maxspan=1m
+  [process where host.os.type == "windows" and event.action == "start" and
+   process.name : "cmd.exe" and process.parent.name : "MSBuild.exe" and
+   process.args : "?:\\Users\\*\\AppData\\Local\\Temp\\tmp*.exec.cmd"] by process.entity_id
+  [process where host.os.type == "windows" and event.action == "start" and
+    process.name : (
+      "cmd.exe", "powershell.exe",
+      "MSHTA.EXE", "CertUtil.exe",
+      "CertReq.exe", "rundll32.exe",
+      "regsvr32.exe", "MSbuild.exe",
+      "cscript.exe", "wscript.exe",
+      "installutil.exe"
+    ) and
+    not 
+    (
+      process.name : ("cmd.exe", "powershell.exe") and
+      process.args : (
+        "*\\vcpkg\\scripts\\buildsystems\\msbuild\\applocal.ps1",
+        "HKLM\\SOFTWARE\\Microsoft\\VisualStudio\\SxS\\VS?",
+        "process.versions.node*",
+        "?:\\Program Files\\nodejs\\node.exe",
+        "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\MSBuild\\ToolsVersions\\*",
+        "*Get-ChildItem*Tipasplus.css*",
+        "Build\\GenerateResourceScripts.ps1",
+        "Shared\\Common\\..\\..\\BuildTools\\ConfigBuilder.ps1\"",
+        "?:\\Projets\\*\\PostBuild\\MediaCache.ps1"
+      )
+    ) and
+    not process.executable : "?:\\Program Files*\\Microsoft Visual Studio\\*\\MSBuild.exe" and
+    not (process.name : "cmd.exe" and
+         process.command_line :
+                  ("*vswhere.exe -property catalog_productSemanticVersion*",
+                   "*git log --pretty=format*", "*\\.nuget\\packages\\vswhere\\*",
+                   "*Common\\..\\..\\BuildTools\\*"))
+  ] by process.parent.entity_id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1127"
+name = "Trusted Developer Utilities Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1127/"
+[[rule.threat.technique.subtechnique]]
+id = "T1127.001"
+name = "MSBuild"
+reference = "https://attack.mitre.org/techniques/T1127/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
