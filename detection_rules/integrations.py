@@ -23,6 +23,7 @@ from . import ecs
 from .beats import flatten_ecs_schema
 from .misc import load_current_package_version
 from .utils import cached, get_etc_path, read_gzip, unzip
+from .schemas import definitions
 
 MANIFEST_FILE_PATH = Path(get_etc_path('integration-manifests.json.gz'))
 SCHEMA_FILE_PATH = Path(get_etc_path('integration-schemas.json.gz'))
@@ -137,12 +138,12 @@ def build_integrations_schemas(overwrite: bool, integration: str = None) -> None
             # Open the zip file
             with unzip(response.content) as zip_ref:
                 for file in zip_ref.namelist():
+                    file_data_bytes = zip_ref.read(file)
                     # Check if the file is a match
                     if glob.fnmatch.fnmatch(file, '*/fields/*.yml'):
                         integration_name = Path(file).parent.parent.name
                         final_integration_schemas[package][version].setdefault(integration_name, {})
-                        file_data = zip_ref.read(file)
-                        schema_fields = yaml.safe_load(file_data)
+                        schema_fields = yaml.safe_load(file_data_bytes)
 
                         # Parse the schema and add to the integration_manifests
                         data = flatten_ecs_schema(schema_fields)
@@ -150,7 +151,14 @@ def build_integrations_schemas(overwrite: bool, integration: str = None) -> None
 
                         final_integration_schemas[package][version][integration_name].update(flat_data)
 
-                        del file_data
+                    # add machine learning jobs to the schema
+                    if integration in list(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)):
+                        if glob.fnmatch.fnmatch(file, '*/ml_module/*ml.json'):
+                            ml_module = json.loads(file_data_bytes)
+                            job_ids = [job['id'] for job in ml_module['attributes']['jobs']]
+                            final_integration_schemas[package][version]['jobs'] = job_ids
+
+                    del file_data_bytes
 
     # Write the final integration schemas to disk
     with gzip.open(SCHEMA_FILE_PATH, "w") as schema_file:
@@ -327,7 +335,9 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
                 if integration is None:
                     # Use all fields from each dataset
                     for dataset in integrations_schemas[package][package_version]:
-                        schema.update(integrations_schemas[package][package_version][dataset])
+                        # ignore jobs from machine learning packages
+                        if dataset != "jobs":
+                            schema.update(integrations_schemas[package][package_version][dataset])
                 else:
                     if integration not in integrations_schemas[package][package_version]:
                         raise ValueError(f"Integration {integration} not found in package {package} "
