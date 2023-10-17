@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Linux environment variable capture feature via the Elastic Defend Integration was added in 8.6."
 min_stack_version = "8.6.0"
-updated_date = "2023/10/06"
+updated_date = "2023/10/16"
 
 [rule]
 author = ["Elastic"]
@@ -18,10 +18,34 @@ language = "eql"
 license = "Elastic License v2"
 name = "Potential Privilege Escalation via CVE-2023-4911"
 note = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows
+the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click Add integrations.
+- In the query bar, search for Elastic Defend and select the integration to see more details about it.
+- Click Add Elastic Defend.
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either Traditional Endpoints or Cloud Workloads.
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest to select "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in New agent policy name. If other agent policies already exist, you can click the Existing hosts tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click Save and Continue.
+- To complete the integration, select Add Elastic Agent to your hosts and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
 Elastic Defend integration does not collect environment variable logging by default.
-In order to capture this behavior, this rule requires a specific configuration option set within the advanced settings
-of the Elastic Defend integration.
-To set up environment variable capture for an Elastic Agent policy:
+In order to capture this behavior, this rule requires a specific configuration option set within the advanced settings of the Elastic Defend integration.
+ #### To set up environment variable capture for an Elastic Agent policy:
 - Go to Security → Manage → Policies.
 - Select an Elastic Agent policy.
 - Click Show advanced settings.
@@ -31,7 +55,8 @@ To set up environment variable capture for an Elastic Agent policy:
 - Click Save.
 After saving the integration change, the Elastic Agents running this policy will be updated and
 the rule will function properly.
-For more information on capturing environment variables refer - https://www.elastic.co/guide/en/security/current/environment-variable-capture.html
+For more information on capturing environment variables refer the [helper guide](https://www.elastic.co/guide/en/security/current/environment-variable-capture.html).
+
 """
 references = ["https://blog.qualys.com/vulnerabilities-threat-research/2023/10/03/cve-2023-4911-looney-tunables-local-privilege-escalation-in-the-glibcs-ld-so"]
 risk_score = 73
