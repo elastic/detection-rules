@@ -34,13 +34,16 @@ sequence by host.id with maxspan = 2s
 
   /* Excluding Common FPs Nessus and SCCM */
 
-  [process where host.os.type == "windows" and event.type == "start" and process.parent.name : "WmiPrvSE.exe" and
-   not process.args : ("C:\\windows\\temp\\nessus_*.txt",
-                       "*C:\\windows\\TEMP\\nessus_*.TMP*",
-                       "*C:\\Windows\\CCM\\SystemTemp\\*",
-                       "C:\\Windows\\CCM\\ccmrepair.exe",
-                       "C:\\Windows\\CCMCache\\*",
-                       "C:\\CCM\\Cache\\*")
+  [process where host.os.type == "windows" and event.type == "start" and process.parent.name : "WmiPrvSE.exe" and 
+   not process.Ext.token.integrity_level_name : "system" and not user.id : ("S-1-5-18", "S-1-5-19", "S-1-5-20") and 
+   not process.executable : 
+               ("?:\\Program Files\\HPWBEM\\Tools\\hpsum_swdiscovery.exe", 
+                "?:\\Windows\\CCM\\Ccm32BitLauncher.exe", 
+                "?:\\Windows\\System32\\wbem\\mofcomp.exe", 
+                "?:\\Windows\\Microsoft.NET\\Framework*\\csc.exe", 
+                "?:\\Windows\\System32\\powercfg.exe") and 
+   not (process.executable : "?:\\Windows\\System32\\msiexec.exe" and process.args : "REBOOT=ReallySuppress") and 
+   not (process.executable : "?:\\Windows\\System32\\inetsrv\\appcmd.exe" and process.args : "uninstall")
    ]
 '''
 
