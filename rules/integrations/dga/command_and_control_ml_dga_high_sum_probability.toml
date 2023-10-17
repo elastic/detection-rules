@@ -1,0 +1,52 @@
+[metadata]
+creation_date = "2023/09/14"
+integration = ["dga","endpoint","network_traffic"]
+maturity = "production"
+min_stack_comments = "DGA package job ID and rule removal updates"
+min_stack_version = "8.9.0"
+updated_date = "2023/10/16"
+
+[rule]
+anomaly_threshold = 70
+author = ["Elastic"]
+description = """
+A population analysis machine learning job detected potential DGA (domain generation algorithm) activity. Such activity
+is often used by malware command and control (C2) channels. This machine learning job looks for a source IP address
+making DNS requests that have an aggregate high probability of being DGA activity.
+"""
+from = "now-45m"
+interval = "15m"
+license = "Elastic License v2"
+machine_learning_job_id = "dga_high_sum_probability"
+name = "Potential DGA Activity"
+note = """## Setup
+
+The Domain Generation Algorithm (DGA) integration must be enabled and related ML jobs configured for this rule to be effective. Please refer to this rule's references for more information.
+"""
+references = [
+    "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
+    "https://docs.elastic.co/en/integrations/dga"
+]
+risk_score = 21
+rule_id = "ff0d807d-869b-4a0d-a493-52bc46d2f1b1"
+severity = "low"
+tags = [
+    "Use Case: Domain Generation Algorithm Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Tactic: Command and Control",
+]
+type = "machine_learning"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1568"
+name = "Dynamic Resolution"
+reference = "https://attack.mitre.org/techniques/T1568/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
