@@ -241,6 +241,7 @@ class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
         if language != 'kuery':
             raise ValidationError(f"{data.name} rule's 'language' must be 'kuery' when using alert suppression.")
 
+
 @dataclass(frozen=True)
 class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     @dataclass
@@ -608,16 +609,17 @@ class QueryRuleData(BaseRuleData):
             """Recursively navigate through fields and validate if the 'validate' method is present."""
 
             if is_dataclass(obj):
-                for field in fields(obj):
-                    field_value = getattr(obj, field.name)
-                    if field_value is not None:
-                        if hasattr(field_value, 'validate') and callable(getattr(field_value, 'validate')):
-                            field_value.validate(obj)
+                for attr in fields(obj):
+                    attr_value = getattr(obj, field.name)
+                    if attr_value is not None:
+                        if hasattr(attr_value, 'validate') and callable(getattr(attr_value, 'validate')):
+                            attr_value.validate(obj)
                         else:
-                            validate_recursive(field_value)
+                            validate_recursive(attr_value)
 
         # Start the recursive validation with the root object (self)
         validate_recursive(self)
+
 
 @dataclass(frozen=True)
 class MachineLearningRuleData(BaseRuleData):
