@@ -28,7 +28,7 @@ DLL = common.get_path("bin", "faultrep.dll")
 WER = "c:\\windows\\system32\\werfault.exe"
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     import os
     from os import path

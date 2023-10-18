@@ -17,7 +17,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
 
     cal_dir = Path(f"{Path.home()}/Library/Calendars/")

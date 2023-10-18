@@ -31,7 +31,7 @@ RECYCLE_PATHS = ["C:\\$Recycle.Bin", "C:\\Recycler"]
 TARGET_APP = common.get_path("bin", "myapp.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(TARGET_APP, common.CMD_PATH)
 def main():
     common.log("Execute files from the Recycle Bin")

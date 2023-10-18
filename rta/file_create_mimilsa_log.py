@@ -20,7 +20,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     lsass = "C:\\Users\\Public\\lsass.exe"
     fake_log = "C:\\Users\\Public\\mimilsa.log"

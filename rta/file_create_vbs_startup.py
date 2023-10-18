@@ -20,7 +20,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     path = "C:\\Users\\Programs\\Startup"
     Path(path).mkdir(parents=True, exist_ok=True)

@@ -31,7 +31,7 @@ metadata = RtaMetadata(
 HIGHENTROPY = common.get_path("bin", "highentropy.txt")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     key = "SYSTEM\\CurrentControlSet\\Services\\VSS"
     value = "Start"
