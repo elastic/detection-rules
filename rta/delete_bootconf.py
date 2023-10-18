@@ -10,11 +10,9 @@
 # Description: Uses bcdedit.exe to backup the current boot configuration, and then to delete the current boot
 #  configuration, finally restoring the original.
 
-import os
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="eaf71384-2e38-4970-b170-9645ccde1d2b",
@@ -25,12 +23,12 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     # Messing with the boot configuration is probably not a great idea so create a backup:
     common.log("Exporting the boot configuration....")
     bcdedit = "bcdedit.exe"
-    backup_file = os.path.abspath("boot.cfg")
+    backup_file = Path("boot.cfg").resolve()
     common.execute(["bcdedit.exe", "/export", backup_file])
 
     # WARNING: this is a destructive command which might be super bad to run
