@@ -9,12 +9,10 @@
 # Description: Runs BitsAdmin to download file via command line.
 
 
-import os
 import subprocess
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="aee48793-01ec-428f-9890-c5db9df07830",
@@ -25,13 +23,13 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Running Windows BitsAdmin to Download")
     server, ip, port = common.serve_web()
     url = "http://" + ip + ":" + str(port) + "/bin/myapp.exe"
-    dest_path = os.path.abspath("myapp-test.exe")
-    fake_word = os.path.abspath("winword.exe")
+    dest_path = Path("myapp-test.exe").resolve()
+    fake_word = Path("winword.exe").resolve()
 
     common.log("Emulating parent process: {parent}".format(parent=fake_word))
     common.copy_file("C:\\Windows\\System32\\cmd.exe", fake_word)

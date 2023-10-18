@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/08/18"
+updated_date = "2023/10/11"
 
 
 [rule]
@@ -63,7 +63,13 @@ event.category:process and host.os.type:windows and
     "ZipArchiveMode"
   ) or
   powershell.file.script_block_text : "Compress-Archive"
-) and not file.path : *ProgramData*Microsoft*Windows*Defender*Advanced*Threat*Protection*DataCollection*
+) and 
+  not file.path : (
+        ?\:\\\\ProgramData\\\\Microsoft\\\\Windows?Defender?Advanced?Threat?Protection\\\\Downloads\\\\* or
+        ?\:\\\\ProgramData\\\\Microsoft\\\\Windows?Defender?Advanced?Threat?Protection\\\\DataCollection\\\\* or
+        ?\:\\\\Program?Files\\\\Microsoft?Dependency?Agent\\\\plugins\\\\* or
+        ?\:\\\\Program?Files\\\\Azure\\\\StorageSyncAgent\\\\AFSDiag.ps1
+      )
 '''
 
 

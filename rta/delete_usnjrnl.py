@@ -24,7 +24,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     message = "Deleting the USN journal may have unintended consequences"
     common.log("WARNING: %s" % message, log_type="!")
