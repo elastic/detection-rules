@@ -326,10 +326,8 @@ def load_rule_contents(rule_file: Path, single_only=False) -> list:
         return contents or [{}]
     elif extension == '.toml':
         rule = pytoml.loads(raw_text)
-    elif extension.lower() in ('yaml', 'yml'):
-        rule = load_dump(str(rule_file))
     else:
-        return []
+        rule = load_dump(rule_file)
 
     if isinstance(rule, dict):
         return [rule]

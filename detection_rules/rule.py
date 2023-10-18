@@ -1127,18 +1127,16 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
                 datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
 
-        # integration is None to remove duplicate references upstream in Kibana
-        # chronologically, event.dataset is checked for package:integration, then rule tags
-        # if both exist, rule tags are only used if defined in definitions for non-dataset packages
-        # of machine learning analytic packages
-
-        rule_integrations = meta.get("integration", [])
-        if rule_integrations:
-            for integration in rule_integrations:
-                ineligible_integrations = definitions.NON_DATASET_PACKAGES + \
-                    [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
-                if integration in ineligible_integrations or isinstance(data, MachineLearningRuleData):
-                    packaged_integrations.append({"package": integration, "integration": None})
+        if not datasets:
+            # windows and endpoint integration do not have event.dataset fields in queries
+            # integration is None to remove duplicate references upstream in Kibana
+            rule_integrations = meta.get("integration", [])
+            if rule_integrations:
+                for integration in rule_integrations:
+                    ineligible_integrations = definitions.NON_DATASET_PACKAGES + \
+                        [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
+                    if integration in ineligible_integrations or isinstance(data, MachineLearningRuleData):
+                        packaged_integrations.append({"package": integration, "integration": None})
 
         for value in sorted(datasets):
             integration = 'Unknown'
