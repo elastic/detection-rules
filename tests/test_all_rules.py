@@ -10,24 +10,27 @@ import unittest
 import uuid
 import warnings
 from collections import defaultdict
-from marshmallow import ValidationError
 from pathlib import Path
 
 import eql.ast
+from marshmallow import ValidationError
 from semver import Version
 
 import kql
 from detection_rules import attack
 from detection_rules.beats import parse_beats_from_index
-from detection_rules.integrations import load_integrations_schemas
+from detection_rules.integrations import (find_latest_compatible_version,
+                                          load_integrations_manifests,
+                                          load_integrations_schemas)
 from detection_rules.misc import load_current_package_version
 from detection_rules.packaging import current_stack_version
-from detection_rules.rule import (QueryRuleData, TOMLRuleContents,
-                                  load_integrations_manifests, QueryValidator)
+from detection_rules.rule import (QueryRuleData, QueryValidator,
+                                  TOMLRuleContents)
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_stack_schemas
-from detection_rules.utils import INTEGRATION_RULE_DIR, get_path, load_etc_dump, PatchedTemplate
+from detection_rules.utils import (INTEGRATION_RULE_DIR, PatchedTemplate,
+                                   get_path, load_etc_dump)
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
@@ -240,6 +243,7 @@ class TestThreatMappings(BaseRuleTest):
                           f'Flatten to a single entry per tactic')
 
 
+@unittest.skipIf(os.environ.get('DR_BYPASS_TAGS_VALIDATION') is not None, "Skipping tag validation")
 class TestRuleTags(BaseRuleTest):
     """Test tags data for rules."""
 
@@ -265,7 +269,7 @@ class TestRuleTags(BaseRuleTest):
         """Test that expected tags are present within rules."""
 
         required_tags_map = {
-            'logs-endpoint.events.*': {'all': ['Domain: Endpoint']},
+            'logs-endpoint.events.*': {'all': ['Domain: Endpoint', 'Data Source: Elastic Defend']},
             'endgame-*': {'all': ['Data Source: Elastic Endgame']},
             'logs-aws*': {'all': ['Data Source: AWS', 'Data Source: Amazon Web Services', 'Domain: Cloud']},
             'logs-azure*': {'all': ['Data Source: Azure', 'Domain: Cloud']},
@@ -313,6 +317,7 @@ class TestRuleTags(BaseRuleTest):
                 self.fail(error_msg)
 
     def test_primary_tactic_as_tag(self):
+        """Test that the primary tactic is present as a tag."""
         from detection_rules.attack import tactics
 
         invalid = []
@@ -632,7 +637,8 @@ class TestRuleMetadata(BaseRuleTest):
                     # checks if an index pattern exists if the package integration tag exists
                     integration_string = "|".join(indices)
                     if not re.search(rule_integration, integration_string):
-                        if rule_integration == "windows" and re.search("winlog", integration_string):
+                        if rule_integration == "windows" and re.search("winlog", integration_string) or \
+                                rule_integration in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]:
                             continue
                         err_msg = f'{self.rule_str(rule)} {rule_integration} tag, index pattern missing.'
                         failures.append(err_msg)
@@ -658,7 +664,8 @@ class TestRuleMetadata(BaseRuleTest):
                     ]
                     if any([re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
                             for i in rule.contents.data.index]):
-                        if not rule.contents.metadata.integration and rule.id not in ignore_ids:
+                        if not rule.contents.metadata.integration and rule.id not in ignore_ids and \
+                                rule.contents.data.type not in definitions.MACHINE_LEARNING:
                             err_msg = f'substrings {non_dataset_packages} found in '\
                                       f'{self.rule_str(rule)} rule index patterns are {rule.contents.data.index},' \
                                       f'but no integration tag found'
@@ -889,6 +896,48 @@ class TestIntegrationRules(BaseRuleTest):
             err_msg = '\n'.join(failures)
             self.fail(f'The following ({len(failures)}) rules have a `min_stack_version` defined but missing comments:'
                       f'\n{err_msg}')
+
+    def test_ml_integration_jobs_exist(self):
+        """Test that machine learning jobs exist in the integration."""
+        failures = []
+
+        ml_integration_names = list(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES))
+        integration_schemas = load_integrations_schemas()
+        integration_manifests = load_integrations_manifests()
+
+        for rule in self.all_rules:
+            if rule.contents.data.type == "machine_learning":
+                ml_integration_name = next((i for i in rule.contents.metadata.integration
+                                            if i in ml_integration_names), None)
+                if ml_integration_name:
+                    if "machine_learning_job_id" not in dir(rule.contents.data):
+                        failures.append(f'{self.rule_str(rule)} missing `machine_learning_job_id`')
+                    else:
+                        rule_job_id = rule.contents.data.machine_learning_job_id
+                        ml_schema = integration_schemas.get(ml_integration_name)
+                        min_version = Version.parse(
+                            rule.contents.metadata.min_stack_version or load_current_package_version(),
+                            optional_minor_and_patch=True
+                        )
+                        latest_compat_ver = find_latest_compatible_version(
+                            package=ml_integration_name,
+                            integration="",
+                            rule_stack_version=min_version,
+                            packages_manifest=integration_manifests
+                        )
+                        compat_integration_schema = ml_schema[latest_compat_ver[0]]
+                        if rule_job_id not in compat_integration_schema['jobs']:
+                            failures.append(
+                                f'{self.rule_str(rule)} machine_learning_job_id `{rule_job_id}` not found '
+                                f'in version `{latest_compat_ver[0]}` of `{ml_integration_name}` integration. '
+                                f'existing jobs: {compat_integration_schema["jobs"]}'
+                            )
+
+        if failures:
+            err_msg = '\n'.join(failures)
+            self.fail(
+                f'The following ({len(failures)}) rules are missing a valid `machine_learning_job_id`:\n{err_msg}'
+            )
 
 
 class TestRuleTiming(BaseRuleTest):
@@ -1177,20 +1226,29 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
         for rule in self.production_rules.rules:
             has_transform = rule.contents.get('transform') is not None
             has_note = rule.contents.data.get('note') is not None
+            note = rule.contents.data.note
 
-            if has_transform and not has_note:
-                self.fail(f'{self.rule_str(rule)} transformed defined with no note')
-            elif not has_transform:
-                continue
+            if has_transform:
+                if not has_note:
+                    self.fail(f'{self.rule_str(rule)} transformed defined with no note')
+            else:
+                if not has_note:
+                    continue
+
+            note_template = PatchedTemplate(note)
+            identifiers = [i for i in note_template.get_identifiers() if '_' in i]
+
+            if not has_transform:
+                if identifiers:
+                    self.fail(f'{self.rule_str(rule)} note contains plugin placeholders with no transform entries')
+                else:
+                    continue
 
             transform = rule.contents.transform
             transform_counts = {plugin: len(entries) for plugin, entries in transform.to_dict().items()}
-            note = rule.contents.data.note
-            self.assertIsNotNone(note)
-            note_template = PatchedTemplate(note)
 
             note_counts = defaultdict(int)
-            for identifier in note_template.get_identifiers():
+            for identifier in identifiers:
                 # "$" is used for other things, so this verifies the pattern of a trailing "_" followed by ints
                 if '_' not in identifier:
                     continue

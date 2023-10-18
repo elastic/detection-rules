@@ -9,12 +9,10 @@
 # ATT&CK: T1093
 # Description: Runs several Windows core processes directly, instead of from the proper parent in Windows.
 
-import os
 import sys
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="6cf12026-f99f-4e5c-8cd4-3dbc7bce3e67",
@@ -25,9 +23,9 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
-    common.log("Running Windows processes with an unexpected parent of %s" % os.path.basename(sys.executable))
+    common.log("Running Windows processes with an unexpected parent of %s" % Path(sys.executable).name)
     process_names = [
         # "C:\\Windows\\System32\\smss.exe", BSOD (avoid this)
         # "C:\\Windows\\System32\\csrss.exe", BSOD (avoid this)
@@ -42,7 +40,7 @@ def main():
 
     for process in process_names:
         # taskhostw.exe isn't on all versions of windows
-        if os.path.exists(process):
+        if Path(process).is_file():
             common.execute([process], timeout=2, kill=True)
         else:
             common.log("Skipping %s" % process, "-")

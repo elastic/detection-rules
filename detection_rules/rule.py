@@ -716,6 +716,11 @@ class EQLRuleData(QueryRuleData):
             return convert_time_span(lookback)
 
     @cached_property
+    def is_sample(self) -> bool:
+        """Checks if the current rule is a sample-based rule."""
+        return eql.utils.get_query_type(self.ast) == 'sample'
+
+    @cached_property
     def is_sequence(self) -> bool:
         """Checks if the current rule is a sequence-based rule."""
         return eql.utils.get_query_type(self.ast) == 'sequence'
@@ -1019,8 +1024,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
                             # if integration is not a policy template remove
                             if package["version"]:
-                                policy_templates = packages_manifest[
-                                    package["package"]][package["version"].strip("^")]["policy_templates"]
+                                version_data = packages_manifest.get(package["package"],
+                                                                     {}).get(package["version"].strip("^"), {})
+                                policy_templates = version_data.get("policy_templates", [])
+
                                 if package["integration"] not in policy_templates:
                                     del package["integration"]
 
@@ -1120,14 +1127,18 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
                 datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
 
-        if not datasets:
-            # windows and endpoint integration do not have event.dataset fields in queries
-            # integration is None to remove duplicate references upstream in Kibana
-            rule_integrations = meta.get("integration", [])
-            if rule_integrations:
-                for integration in rule_integrations:
-                    if integration in definitions.NON_DATASET_PACKAGES or isinstance(data, MachineLearningRuleData):
-                        packaged_integrations.append({"package": integration, "integration": None})
+        # integration is None to remove duplicate references upstream in Kibana
+        # chronologically, event.dataset is checked for package:integration, then rule tags
+        # if both exist, rule tags are only used if defined in definitions for non-dataset packages
+        # of machine learning analytic packages
+
+        rule_integrations = meta.get("integration", [])
+        if rule_integrations:
+            for integration in rule_integrations:
+                ineligible_integrations = definitions.NON_DATASET_PACKAGES + \
+                    [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
+                if integration in ineligible_integrations or isinstance(data, MachineLearningRuleData):
+                    packaged_integrations.append({"package": integration, "integration": None})
 
         for value in sorted(datasets):
             integration = 'Unknown'
@@ -1323,6 +1334,22 @@ def downgrade_contents_from_rule(rule: TOMLRule, target_version: str, replace_id
     return payload
 
 
+def set_eql_config(min_stack_version: str) -> eql.parser.ParserConfig:
+    """Based on the rule version set the eql functions allowed."""
+    if not min_stack_version:
+        min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+    else:
+        min_stack_version = Version.parse(min_stack_version, optional_minor_and_patch=True)
+
+    config = eql.parser.ParserConfig()
+
+    for feature, version_range in definitions.ELASTICSEARCH_EQL_FEATURES.items():
+        if version_range[0] <= min_stack_version <= (version_range[1] or min_stack_version):
+            config.context[feature] = True
+
+    return config
+
+
 def get_unique_query_fields(rule: TOMLRule) -> List[str]:
     """Get a list of unique fields used in a rule query from rule contents."""
     contents = rule.contents.to_api_format()
@@ -1330,7 +1357,9 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
     query = contents.get('query')
     if language in ('kuery', 'eql'):
         # TODO: remove once py-eql supports ipv6 for cidrmatch
-        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+
+        config = set_eql_config(rule.contents.metadata.get('min_stack_version'))
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, config:
             parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
 
         return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))
