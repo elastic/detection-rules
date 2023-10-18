@@ -1,0 +1,58 @@
+[metadata]
+creation_date = "2023/09/05"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/09/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule monitors for the addition of the cap_setuid+ep or cap_setgid+ep capabilities via setcap. Setuid (Set User ID)
+and setgid (Set Group ID) are Unix-like OS features that enable processes to run with elevated privileges, based on the
+file owner or group. Threat actors can exploit these attributes to achieve persistence by creating malicious binaries,
+allowing them to maintain control over a compromised system with elevated permissions.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Setcap setuid/setgid Capability Set"
+risk_score = 47
+rule_id = "f5c005d3-4e17-48b0-9cd7-444d48857f97"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+process.name == "setcap" and process.args : "cap_set?id+ep"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.001"
+name = "Setuid and Setgid"
+reference = "https://attack.mitre.org/techniques/T1548/001/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
