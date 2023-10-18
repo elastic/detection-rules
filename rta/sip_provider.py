@@ -55,7 +55,7 @@ else:
 TARGET_APP = common.get_path("bin", "myapp.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(SIGCHECK, TRUST_PROVIDER_DLL, TARGET_APP)
 def main():
     common.log("Registering SIP provider")
