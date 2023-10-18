@@ -605,12 +605,12 @@ class QueryRuleData(BaseRuleData):
     def validate_subclasses(self) -> None:
         """Check that the query rule subclasses have validate and call method."""
 
-        def validate_recursive(obj: Any) -> None:
+        def validate_recursive(obj: dataclass) -> None:
             """Recursively navigate through fields and validate if the 'validate' method is present."""
 
             if is_dataclass(obj):
                 for attr in fields(obj):
-                    attr_value = getattr(obj, field.name)
+                    attr_value = getattr(obj, attr.name)
                     if attr_value is not None:
                         if hasattr(attr_value, 'validate') and callable(getattr(attr_value, 'validate')):
                             attr_value.validate(obj)
