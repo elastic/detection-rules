@@ -4,13 +4,14 @@ integration = ["github"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/10/11"
+updated_date = "2023/10/17"
 bypass_bbr_timing = true
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
-Detects a new repo interaction for a GitHub PAT not seen in the last 30 days.
+Detects a new private repo interaction for a GitHub PAT not seen in the last 14 days.
 """
 from = "now-9m"
 index = ["logs-github.audit-*"]
@@ -28,12 +29,12 @@ tags = ["Domain: Cloud",
         ]
 timestamp_override = "event.ingested"
 type = "new_terms"
-building_block_type = "default"
 
 query = '''
 event.dataset:"github.audit" and event.category:"configuration" and
 github.repo:* and github.hashed_token:* and
-github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token")
+github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token") and 
+github.repository_public:false
 '''
 
 [[rule.threat]]
@@ -56,4 +57,4 @@ value = ["github.repo", "github.hashed_token"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-30d"
+value = "now-14d"

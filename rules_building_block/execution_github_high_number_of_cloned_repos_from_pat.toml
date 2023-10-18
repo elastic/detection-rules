@@ -4,17 +4,18 @@ integration = ["github"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/11"
+updated_date = "2023/10/17"
 bypass_bbr_timing = true
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
-Detects a high number of repo clone events originating from a single personal access token within a 5 minute interval.
+Detects a high number of unique private repo clone events originating from a single personal access token within a short time period.
 """
-from = "now-9m"
+from = "now-6m"
 index = ["logs-github.audit-*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "High Number of Cloned GitHub Repos From PAT"
 risk_score = 21
@@ -27,13 +28,12 @@ tags = ["Domain: Cloud",
         "Data Source: Github"
         ]
 timestamp_override = "event.ingested"
-type = "eql"
-building_block_type = "default"
+type = "threshold"
 
 query = '''
-sequence by github.hashed_token with maxspan=5m
- [configuration where event.dataset == "github.audit" and event.action == "git.clone" 
- and github.programmatic_access_type in ("OAuth access token", "Fine-grained personal access token")] with runs=25
+event.dataset:"github.audit" and event.category:"configuration" and event.action:"git.clone" and 
+github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token") and 
+github.repository_public:false
 '''
 
 [[rule.threat]]
@@ -48,3 +48,11 @@ reference = "https://attack.mitre.org/techniques/T1648/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.threshold]
+field = ["github.hashed_token"]
+value = 1
+
+[[rule.threshold.cardinality]]
+field = "github.repo"
+value = 10
