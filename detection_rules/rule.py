@@ -9,7 +9,7 @@ import json
 import os
 import typing
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, is_dataclass
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
@@ -233,6 +233,13 @@ class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
     missing_fields_strategy: Optional[definitions.AlertSuppressionMissing] = field(
         metadata=dict(metadata=dict(min_compat="8.8")))
 
+    def validate(self, data: Any):
+        """Validate rule attributes with alert suppression."""
+
+        # validate language is 'kuery' if alert suppression is used
+        language = data.get('language')
+        if language != 'kuery':
+            raise ValidationError(f"{data.name} rule's 'language' must be 'kuery' when using alert suppression.")
 
 @dataclass(frozen=True)
 class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
@@ -594,6 +601,23 @@ class QueryRuleData(BaseRuleData):
         if validator is not None:
             return validator.get_required_fields(index or [])
 
+    def validate_subclasses(self) -> None:
+        """Check that the query rule subclasses have validate and call method."""
+
+        def validate_recursive(obj: Any) -> None:
+            """Recursively navigate through fields and validate if the 'validate' method is present."""
+
+            if is_dataclass(obj):
+                for field in fields(obj):
+                    field_value = getattr(obj, field.name)
+                    if field_value is not None:
+                        if hasattr(field_value, 'validate') and callable(getattr(field_value, 'validate')):
+                            field_value.validate(obj)
+                        else:
+                            validate_recursive(field_value)
+
+        # Start the recursive validation with the root object (self)
+        validate_recursive(self)
 
 @dataclass(frozen=True)
 class MachineLearningRuleData(BaseRuleData):
@@ -1164,6 +1188,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         data.data_validator.validate_note()
         data.data_validator.validate_bbr(metadata.get('bypass_bbr_timing'))
         data.validate(metadata) if hasattr(data, 'validate') else False
+        data.validate_subclasses() if hasattr(data, 'validate_subclasses') else False
 
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
