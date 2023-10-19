@@ -594,13 +594,14 @@ class QueryRuleData(BaseRuleData):
         if validator is not None:
             return validator.get_required_fields(index or [])
 
-    @post_load
-    def validate_exceptions(self, data, **kwargs):
-        """Post processing on query rule data to validate exceptions"""
+    @validates_schema
+    def validates(self, data, **kwargs):
+        """Custom validation for query rule type and subclasses."""
 
-        # alert suppression only allowed for query rules
-        if data.get('alert_suppression') and data.get('language') != 'kuery':
-            raise ValidationError(f"Alert suppression is only allowed for query rules.")
+        # alert suppression is only valid for query rule type and not any of its subclasses
+        if data.get('alert_suppression') and data['type'] != 'query':
+            raise ValidationError("Alert suppression is only valid for query rule type.")
+
 
 @dataclass(frozen=True)
 class MachineLearningRuleData(BaseRuleData):
