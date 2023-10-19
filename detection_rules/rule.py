@@ -9,7 +9,7 @@ import json
 import os
 import typing
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field, fields, is_dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
@@ -19,7 +19,7 @@ import eql
 from semver import Version
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
-from marshmallow import ValidationError, validates_schema, post_load
+from marshmallow import ValidationError, validates_schema
 
 import kql
 from kql.ast import FieldComparison
