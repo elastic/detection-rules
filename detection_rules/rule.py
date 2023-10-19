@@ -230,6 +230,8 @@ class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
 
     group_by: List[definitions.NonEmptyStr]
     duration: Optional[AlertSuppressionDuration] = field(metadata=dict(metadata=dict(min_compat="8.7")))
+    missing_fields_strategy: Optional[definitions.AlertSuppressionMissing] = field(
+        metadata=dict(metadata=dict(min_compat="8.8")))
 
 
 @dataclass(frozen=True)
@@ -247,7 +249,6 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         integration: Optional[definitions.NonEmptyStr]
 
     actions: Optional[list]
-    alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.6")))
     author: List[str]
     building_block_type: Optional[definitions.BuildingBlockType]
     description: str
@@ -561,6 +562,14 @@ class QueryRuleData(BaseRuleData):
     index: Optional[List[str]]
     query: str
     language: definitions.FilterLanguages
+    alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.6")))
+
+    @validates_schema
+    def validates(self, data, **kwargs):
+        """Custom validation for query rule type and subclasses."""
+        # alert suppression is only valid for query rule type and not any of its subclasses
+        if data['type'] != 'query':
+            raise ValidationError("Alert suppression is only valid for query rule type.")
 
     @cached_property
     def validator(self) -> Optional[QueryValidator]:
