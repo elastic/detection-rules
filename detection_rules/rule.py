@@ -568,7 +568,7 @@ class QueryRuleData(BaseRuleData):
     def validates(self, data, **kwargs):
         """Custom validation for query rule type and subclasses."""
         # alert suppression is only valid for query rule type and not any of its subclasses
-        if data['type'] != 'query':
+        if data.get('alert_suppression') is not None and data['type'] != 'query':
             raise ValidationError("Alert suppression is only valid for query rule type.")
 
     @cached_property
