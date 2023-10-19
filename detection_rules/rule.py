@@ -19,7 +19,7 @@ import eql
 from semver import Version
 from marko.block import Document as MarkoDocument
 from marko.ext.gfm import gfm
-from marshmallow import ValidationError, validates_schema
+from marshmallow import ValidationError, validates_schema, post_load
 
 import kql
 from kql.ast import FieldComparison
@@ -229,17 +229,9 @@ class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
         value: int
 
     group_by: List[definitions.NonEmptyStr]
-    duration: Optional[AlertSuppressionDuration] = field(metadata=dict(metadata=dict(min_compat="8.7")))
-    missing_fields_strategy: Optional[definitions.AlertSuppressionMissing] = field(
+    duration: Optional[AlertSuppressionDuration] = field(metadata=dict(metadata=dict(min_compat="8.8")))
+    missing_fields_strategy: definitions.AlertSuppressionMissing = field(
         metadata=dict(metadata=dict(min_compat="8.8")))
-
-    def validate(self, data: Any):
-        """Validate rule attributes with alert suppression."""
-
-        # validate language is 'kuery' if alert suppression is used
-        language = data.get('language')
-        if language != 'kuery':
-            raise ValidationError(f"{data.name} rule's 'language' must be 'kuery' when using alert suppression.")
 
 
 @dataclass(frozen=True)
@@ -257,7 +249,6 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         integration: Optional[definitions.NonEmptyStr]
 
     actions: Optional[list]
-    alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.6")))
     author: List[str]
     building_block_type: Optional[definitions.BuildingBlockType]
     description: str
@@ -571,6 +562,7 @@ class QueryRuleData(BaseRuleData):
     index: Optional[List[str]]
     query: str
     language: definitions.FilterLanguages
+    alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.8")))
 
     @cached_property
     def validator(self) -> Optional[QueryValidator]:
@@ -602,24 +594,13 @@ class QueryRuleData(BaseRuleData):
         if validator is not None:
             return validator.get_required_fields(index or [])
 
-    def validate_subclasses(self) -> None:
-        """Check that the query rule subclasses have validate and call method."""
+    @post_load
+    def validate_exceptions(self, data, **kwargs):
+        """Post processing on query rule data to validate exceptions"""
 
-        def validate_recursive(obj: dataclass) -> None:
-            """Recursively navigate through fields and validate if the 'validate' method is present."""
-
-            if is_dataclass(obj):
-                for attr in fields(obj):
-                    attr_value = getattr(obj, attr.name)
-                    if attr_value is not None:
-                        if hasattr(attr_value, 'validate') and callable(getattr(attr_value, 'validate')):
-                            attr_value.validate(obj)
-                        else:
-                            validate_recursive(attr_value)
-
-        # Start the recursive validation with the root object (self)
-        validate_recursive(self)
-
+        # alert suppression only allowed for query rules
+        if data.get('alert_suppression') and data.get('language') != 'kuery':
+            raise ValidationError(f"Alert suppression is only allowed for query rules.")
 
 @dataclass(frozen=True)
 class MachineLearningRuleData(BaseRuleData):
@@ -1190,7 +1171,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         data.data_validator.validate_note()
         data.data_validator.validate_bbr(metadata.get('bypass_bbr_timing'))
         data.validate(metadata) if hasattr(data, 'validate') else False
-        data.validate_subclasses() if hasattr(data, 'validate_subclasses') else False
 
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
