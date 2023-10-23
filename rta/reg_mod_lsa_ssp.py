@@ -26,7 +26,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     key = "SYSTEM\\ControlSet001\\Control\\Lsa\\Security Packages"
     key2 = "SYSTEM\\ControlSet001\\Control\\Lsa"
