@@ -40,10 +40,26 @@ process where host.os.type == "windows" and event.type == "start" and
       (process.code_signature.subject_name : ("Google LLC", "Google Inc") and process.code_signature.trusted == true)
      and not
       (
-        process.executable : "?:\\Program Files\\HP\\Sure Click\\servers\\chrome.exe" and
+        process.executable : (
+          "?:\\Program Files\\HP\\Sure Click\\servers\\chrome.exe",
+          "?:\\Program Files\\HP\\Sure Click\\*\\servers\\chrome.exe"
+        ) and
         process.code_signature.subject_name : ("Bromium, Inc.") and process.code_signature.trusted == true
-      )
-      and not process.hash.sha256 : "6538d54a236349f880d6793d219f558764629efc85d4d08b56b94717c01fb25a"
+      ) and
+     not (
+       process.executable : (
+         "?:\\Users\\*\\AppData\\Local\\ms-playwright\\chromium-*\\chrome-win\\chrome.exe",
+         "?:\\Users\\*\\AppData\\Local\\Programs\\synthetics-recorder\\resources\\local-browsers\\chromium-*\\chrome-win\\chrome.exe",
+         "*\\node_modules\\puppeteer\\.local-chromium\\win64-*\\chrome-win\\chrome.exe",
+         "?:\\Program Files (x86)\\Invicti Professional Edition\\chromium\\chrome.exe",
+         "?:\\Program Files\\End2End, Inc\\ARMS Html Engine\\chrome.exe",
+         "?:\\Users\\*\\AppData\\Local\\*BurpSuitePro\\burpbrowser\\*\\chrome.exe",
+         "?:\\Users\\*\\AppData\\Roaming\\*BurpSuite\\burpbrowser\\*\\chrome.exe"
+       ) and process.args: (
+               "--enable-features=NetworkService,NetworkServiceInProcess",
+               "--type=crashpad-handler", "--enable-automation", "--disable-xss-auditor"
+             )
+     )
     ) or
 
     /* MS Edge Related Processes */
@@ -54,6 +70,11 @@ process where host.os.type == "windows" and event.type == "start" and
       "MicrosoftEdgeUpdateComRegisterShell64.exe", "msedgerecovery.exe", "MicrosoftEdgeUpdateSetup.exe"
      ) and not
       (process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted == true)
+     and not
+      (
+        process.name : "msedgewebview2.exe" and
+        process.code_signature.subject_name : ("Bromium, Inc.") and process.code_signature.trusted == true
+      )
     ) or
 
     /* Brave Related Processes */
@@ -69,9 +90,14 @@ process where host.os.type == "windows" and event.type == "start" and
     (process.name : (
       "firefox.exe", "pingsender.exe", "default-browser-agent.exe", "maintenanceservice.exe",
       "plugin-container.exe", "maintenanceservice_tmp.exe", "maintenanceservice_installer.exe",
-      "minidump-analyzer.exe", "crashreporter.exe"
+      "minidump-analyzer.exe"
      ) and not
       (process.code_signature.subject_name : "Mozilla Corporation" and process.code_signature.trusted == true)
+     and not
+      (
+        process.name : "default-browser-agent.exe" and
+        process.code_signature.subject_name : ("WATERFOX LIMITED") and process.code_signature.trusted == true
+      )
     ) or
 
     /* Island Related Processes */
@@ -108,7 +134,9 @@ process where host.os.type == "windows" and event.type == "start" and
         "Google LLC",
         "Google Inc",
         "Microsoft Corporation",
-        "NAVER Corp."
+        "NAVER Corp.",
+        "AVG Technologies USA, LLC",
+        "Avast Software s.r.o."
        ) and process.code_signature.trusted == true
       )
     )
