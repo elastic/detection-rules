@@ -9,12 +9,10 @@
 # Description: Uses "bin\rar.exe" to perform encryption of archives and archive headers.
 
 import base64
-import os
 import sys
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="6d2d3c21-2d71-4395-8ab7-b1d0138d9225",
@@ -29,14 +27,14 @@ MY_APP = common.get_path("bin", "myapp.exe")
 WINRAR = common.get_path("bin", "Rar.exe")
 
 
-def create_exfil(path=os.path.abspath("secret_stuff.txt")):
+def create_exfil(path=Path("secret_stuff.txt").resolve()):
     common.log("Writing dummy exfil to %s" % path)
     with open(path, "wb") as f:
         f.write(base64.b64encode(b"This is really secret stuff" * 100))
     return path
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(MY_APP, WINRAR)
 def main(password="s0l33t"):
     # Copies of the rar.exe for various tests
@@ -44,15 +42,15 @@ def main(password="s0l33t"):
     common.patch_file(WINRAR, b"win.rar GmbH", b"bad.bad GmbH", winrar_bin_modsig)
 
     # Renamed copies of executables
-    winrar_bin_modsig_a = os.path.abspath("a.exe")
-    winrar_bin_b = os.path.abspath("b.exe")
+    winrar_bin_modsig_a = Path("a.exe").resolve()
+    winrar_bin_b = Path("b.exe").resolve()
 
     common.copy_file(winrar_bin_modsig, winrar_bin_modsig_a)
     common.copy_file(WINRAR, winrar_bin_b)
 
     # Output options for various tests
-    rar_file = os.path.abspath("out.rar")
-    rar_file_jpg = os.path.abspath("out.jpg")
+    rar_file = Path("out.rar").resolve()
+    rar_file_jpg = Path("out.jpg").resolve()
     common.remove_files(rar_file, rar_file_jpg)
 
     # use case: rar with -hp to generate new rar file w/ .rar

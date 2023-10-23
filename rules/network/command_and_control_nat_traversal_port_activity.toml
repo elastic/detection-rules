@@ -23,7 +23,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["packetbeat-*", "logs-network_traffic.*"]
+index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "IPSEC NAT Traversal Port Activity"
@@ -35,7 +35,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: network_traffic.flow and network.transport:udp and destination.port:4500
+(event.dataset: network_traffic.flow or (event.category: (network or network_traffic))) and network.transport:udp and destination.port:4500
 '''
 
 

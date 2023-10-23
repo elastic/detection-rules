@@ -21,7 +21,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     addinproc = "C:\\Users\\Public\\AddInProcess.exe"
     certoc = "C:\\Users\\Public\\CertOc.exe"

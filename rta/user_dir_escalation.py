@@ -9,10 +9,9 @@
 # Description: Spawns mock malware written to a regular user directory and executes as System.
 
 import os
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="dc734786-66bd-4be6-bd06-eb41fa7b6745",
@@ -23,7 +22,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(common.PS_EXEC)
 def main():
     # make sure path is absolute for psexec
@@ -35,10 +34,10 @@ def main():
     source_path = common.get_path("bin", "myapp.exe")
 
     target_directory = "c:\\users\\fake_user_rta-%d" % os.getpid()
-    if not os.path.exists(target_directory):
-        os.makedirs(target_directory)
+    if not Path(target_directory).is_dir():
+        Path(target_directory).mkdir(parents=True)
 
-    target_path = os.path.join(target_directory, "user_file.exe")
+    target_path = Path(target_directory) / "user_file.exe"
     common.copy_file(source_path, target_path)
     common.execute([target_path])
 
