@@ -102,7 +102,15 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Threat: BPFDoor", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Threat: BPFDoor",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
@@ -115,7 +123,7 @@ user.id:0 and file.extension:(pid or lock or reboot) and file.path:(/var/run/* o
   process.executable : (
     ./* or /tmp/* or /var/tmp/* or /dev/shm/* or /var/run/* or /boot/* or /srv/* or /run/*
   ))
-) and not process.name : (go or git)
+) and not process.name : (go or git or containerd* or snap-confine)
 '''
 
 [[rule.threat]]
@@ -133,7 +141,7 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["process.executable", "file.path"]
+value = ["host.id", "process.executable", "file.path"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"

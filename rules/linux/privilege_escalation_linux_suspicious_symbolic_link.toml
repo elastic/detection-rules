@@ -54,8 +54,8 @@ tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: 
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.action in ("exec", "exec_event") and 
-event.type == "start" and process.name == "ln" and 
+process where host.os.type == "linux" and event.action in ("exec", "exec_event") and
+event.type == "start" and process.name == "ln" and process.args in ("-s", "-sf") and 
   (
     /* suspicious files */
     (process.args in ("/etc/shadow", "/etc/shadow-", "/etc/shadow~", "/etc/gshadow", "/etc/gshadow-") or 
