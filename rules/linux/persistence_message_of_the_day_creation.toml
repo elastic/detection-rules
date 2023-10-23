@@ -115,7 +115,13 @@ This rule identifies the creation of new files within the `/etc/update-motd.d/` 
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
-## Setup
+"""
+references = [
+    "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#10-boot-or-logon-initialization-scripts-motd"
+]
+risk_score = 47
+rule_id = "96d11d31-9a79-480f-8401-da28b194608f"
+setup = """
 
 This rule requires data coming in from Elastic Defend.
 
@@ -142,19 +148,22 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 
 """
-references = [
-    "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#10-boot-or-logon-initialization-scripts-motd"
-]
-risk_score = 47
-rule_id = "96d11d31-9a79-480f-8401-da28b194608f"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Endgame", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Persistence",
+        "Data Source: Elastic Endgame",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend"
+        ]
 type = "new_terms"
 query = '''
 host.os.type :"linux" and event.action:("creation" or "file_create_event" or "rename" or "file_rename_event") and 
-file.path : (/etc/update-motd.d/* or /usr/lib/update-notifier/*) and not 
-process.executable : ("/usr/bin/dpkg" or "/usr/bin/dockerd" or "/bin/rpm" or "/kaniko/executor") and not 
-file.extension : ("swp" or "swx")
+file.path : (/etc/update-motd.d/* or /usr/lib/update-notifier/*) and not process.name : (
+  dpkg or dockerd or rpm or executor or dnf
+) and not file.extension : ("swp" or "swpx")
 '''
 
 [[rule.threat]]
@@ -172,8 +181,8 @@ reference = "https://attack.mitre.org/tactics/TA0003/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["file.path", "process.name"]
+value = ["host.id", "file.path", "process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
+value = "now-10d"
