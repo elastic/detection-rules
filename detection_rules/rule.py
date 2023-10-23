@@ -273,7 +273,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     risk_score_mapping: Optional[List[RiskScoreMapping]]
     rule_id: definitions.UUIDString
     rule_name_override: Optional[str]
-    setup: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.3")))
+    setup: Optional[definitions.Markdown] = field(metadata=dict(metadata=dict(min_compat="8.3")))
     severity_mapping: Optional[List[SeverityMapping]]
     severity: definitions.Severity
     tags: Optional[List[str]]
