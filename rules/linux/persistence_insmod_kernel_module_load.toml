@@ -3,7 +3,7 @@ creation_date = "2022/07/11"
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/16"
+updated_date = "2023/10/23"
 integration = ["endpoint"]
 
 [rule]
@@ -15,7 +15,7 @@ from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Kernel module load via insmod"
+name = "Kernel Module Load via insmod"
 references = [
     "https://decoded.avast.io/davidalvarez/linux-threat-hunting-syslogk-a-kernel-rootkit-found-under-development-in-the-wild/"
 ]
@@ -49,12 +49,21 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Threat: Rootkit", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Persistence",
+        "Threat: Rootkit",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "linux" and event.type == "start" and process.name == "insmod" and process.args : "*.ko"
+and not process.parent.name in ("cisco-amp-helper", "ksplice-apply")
 '''
 
 [[rule.threat]]

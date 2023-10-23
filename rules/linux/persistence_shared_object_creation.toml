@@ -52,29 +52,36 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend"
+    ]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
 host.os.type:linux and event.action:(creation or file_create_event or file_rename_event or rename) and 
 file.path:(/dev/shm/* or /usr/lib/*) and file.extension:so and 
-process.name: ( * and not ("5" or "dockerd" or "dpkg" or "rpm" or "snapd" or "exe" or "yum" or "vmis-launcher"))
+process.name: ( * and not ("5" or "dockerd" or "dpkg" or "rpm" or "snapd" or "exe" or "yum" or "vmis-launcher"
+  or "pacman" or "apt-get" or "dnf"))
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1574.006"
 name = "Dynamic Linker Hijacking"
 reference = "https://attack.mitre.org/techniques/T1574/006/"
-
-
 
 [rule.threat.tactic]
 id = "TA0003"
@@ -83,9 +90,8 @@ reference = "https://attack.mitre.org/tactics/TA0003/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["file.path", "process.name"]
+value = ["host.id", "file.path", "process.executable"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
-
-
+value = "now-10d"
