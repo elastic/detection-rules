@@ -2,9 +2,9 @@
 creation_date = "2023/07/26"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/10/16"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,7 @@ enable persistence onto the system every time the sudo binary is executed.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "endgame-*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "Potential Sudo Hijacking Detected"
 references = ["https://eapolsniper.github.io/2020/08/17/Sudo-Hijacking/"]
@@ -49,11 +49,20 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Tactic: Persistence", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend"
+    ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 query = '''
-file where event.type in ("creation", "file_create_event") and file.path == "/usr/bin/sudo"
+host.os.type:linux and event.category:file and event.type:("creation" or "file_create_event") and
+file.path:("/usr/bin/sudo" or "/bin/sudo") and not process.name:(docker or dockerd)
 '''
 
 [[rule.threat]]
@@ -86,3 +95,11 @@ reference = "https://attack.mitre.org/techniques/T1574/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "user.id", "process.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/07/31"
+updated_date = "2023/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -23,69 +23,35 @@ name = "Suspicious Network Activity to the Internet by Previously Unknown Execut
 risk_score = 21
 rule_id = "53617418-17b4-4e9c-8a2c-8deb8086ca4b"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Command and Control", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Command and Control",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type:linux and event.category:network and 
-event.action:(connection_attempted or ipv4_connection_attempt_event) and 
-process.executable : ( 
-    (/etc/crontab or 
-     /etc/rc.local or 
-     /boot/* or 
-     /dev/shm/* or 
-     /etc/cron.*/* or 
-     /etc/init.d/* or 
-     /etc/rc*.d/* or 
-     /etc/update-motd.d/* or 
-     /home/*/.* or 
-     /run/* or 
-     /srv/* or 
-     /tmp/* or 
-     /usr/lib/update-notifier/* or 
-     /var/tmp/*) and 
-     not (/usr/bin/apt or 
-          /usr/bin/curl or 
-          /usr/bin/dnf or 
-          /usr/bin/dockerd or 
-          /usr/bin/dpkg or 
-          /usr/bin/rpm or 
-          /usr/bin/wget or 
-          /usr/bin/yum) 
-    ) 
-and source.ip : ( 
-    10.0.0.0/8 or 
-    127.0.0.0/8 or 
-    172.16.0.0/12 or 
-    192.168.0.0/16) and 
-    not destination.ip : ( 
-        10.0.0.0/8 or 
-        100.64.0.0/10 or 
-        127.0.0.0/8 or 
-        169.254.0.0/16 or 
-        172.16.0.0/12 or 
-        192.0.0.0/24 or 
-        192.0.0.0/29 or 
-        192.0.0.10/32 or 
-        192.0.0.170/32 or 
-        192.0.0.171/32 or 
-        192.0.0.8/32 or 
-        192.0.0.9/32 or 
-        192.0.2.0/24 or 
-        192.168.0.0/16 or 
-        192.175.48.0/24 or 
-        192.31.196.0/24 or 
-        192.52.193.0/24 or 
-        192.88.99.0/24 or 
-        198.18.0.0/15 or 
-        198.51.100.0/24 or 
-        203.0.113.0/24 or 
-        224.0.0.0/4 or 
-        240.0.0.0/4 or 
-        "::1" or 
-        "FE80::/10" or 
-        "FF00::/8")
+host.os.type:linux and event.category:network and event.action:(connection_attempted or ipv4_connection_attempt_event) and 
+process.executable:(
+  (/etc/crontab or /etc/rc.local or ./* or /boot/* or /dev/shm/* or /etc/cron.*/* or /etc/init.d/* or /etc/rc*.d/* or 
+   /etc/update-motd.d/* or /home/*/.* or /run/* or /srv/* or /tmp/* or /usr/lib/update-notifier/* or /var/tmp/*
+  ) and not (/tmp/newroot/* or /tmp/snap.rootfs*)
+ ) and 
+source.ip:(10.0.0.0/8 or 127.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16) and 
+not process.name:(
+ apt or chrome or curl or dnf or dockerd or dpkg or firefox-bin or java or kite-update or kited or node or rpm or
+ saml2aws or wget or yum or ansible* or aws* or php* or pip* or python* or steam* or terraform*
+) and 
+not destination.ip:(
+   10.0.0.0/8 or 100.64.0.0/10 or 127.0.0.0/8 or 169.254.0.0/16 or 172.16.0.0/12 or 192.0.0.0/24 or 192.0.0.0/29 or 
+   192.0.0.10/32 or 192.0.0.170/32 or 192.0.0.171/32 or 192.0.0.8/32 or 192.0.0.9/32 or 192.0.2.0/24 or 
+   192.168.0.0/16 or 192.175.48.0/24 or 192.31.196.0/24 or 192.52.193.0/24 or 192.88.99.0/24 or 198.18.0.0/15 or 
+   198.51.100.0/24 or 203.0.113.0/24 or 224.0.0.0/4 or 240.0.0.0/4 or "::1" or "FE80::/10" or "FF00::/8"
+)
 '''
 
 [[rule.threat]]
@@ -103,8 +69,8 @@ reference = "https://attack.mitre.org/tactics/TA0011/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["destination.ip", "process.executable"]
+value = ["host.id", "destination.ip", "process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
+value = "now-14d"

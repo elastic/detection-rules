@@ -53,7 +53,8 @@ type = "eql"
 query = '''
 sequence by host.id, process.parent.entity_id with maxspan=1s
   [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
-   process.name == "id" and process.args_count == 2] with runs=20
+   process.name == "id" and process.args_count == 2 and 
+   not (process.parent.name == "rpm" or process.parent.args : "/var/tmp/rpm-tmp*")] with runs=20
 '''
 
 [[rule.threat]]
