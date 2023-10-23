@@ -2,9 +2,9 @@
 creation_date = "2021/01/19"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ malicious JAR file or an exploitation attempt via a JAVA specific vulnerability.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "Suspicious JAVA Child Process"
 note = """## Triage and analysis
@@ -60,32 +60,46 @@ references = [
 risk_score = 47
 rule_id = "8acb7614-1d92-4359-bfcf-478b6d9de150"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "OS: macOS", "Use Case: Threat Detection", "Tactic: Execution", "Resources: Investigation Guide", "Use Case: Vulnerability", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint",
+        "OS: Linux",
+        "OS: macOS",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Resources: Investigation Guide",
+        "Use Case: Vulnerability",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 
 query = '''
-process where event.type in ("start", "process_started") and
-  process.parent.name : "java" and
-  process.name : ("sh", "bash", "dash", "ksh", "tcsh", "zsh", "curl", "wget")
+event.category:process and event.type:("start" or "process_started") and process.parent.name:"java" and process.name:(
+  "sh" or "bash" or "dash" or "ksh" or "tcsh" or "zsh" or "curl" or "wget"
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.007"
 name = "JavaScript"
 reference = "https://attack.mitre.org/techniques/T1059/007/"
-
-
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.command_line"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

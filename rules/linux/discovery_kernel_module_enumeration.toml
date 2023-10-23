@@ -62,8 +62,7 @@ event.category:process and host.os.type:linux and event.type:start and (
  (process.name:(lsmod or modinfo)) or 
  (process.name:kmod and process.args:list) or 
  (process.name:depmod and process.args:(--all or -a))
-) and process.parent.name:(sudo or bash or dash or ash or sh or tcsh or csh or zsh or ksh or fish) and 
-not process.parent.user.id:0
+) 
 '''
 
 [[rule.threat]]
@@ -81,7 +80,7 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["process.parent.name", "host.id"]
+value = ["host.id", "process.command_line", "process.parent.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
