@@ -55,12 +55,13 @@ tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: 
 type = "eql"
 query = '''
 sequence by host.id with maxspan=1s
-[ network where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and 
-  process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat") and 
-  destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1" ] by process.entity_id
-[ process where host.os.type == "linux" and event.type == "start" and event.action : ("exec", "fork") and 
-  process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and 
-  process.parent.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat") ] by process.parent.entity_id
+  [network where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and 
+   process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat") and 
+   destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1"] by process.entity_id
+  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "fork") and 
+   process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and 
+   process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat") and not 
+   process.args : "*imunify360-agent*"] by process.parent.entity_id
 '''
 
 [[rule.threat]]

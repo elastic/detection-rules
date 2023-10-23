@@ -4,7 +4,7 @@ integration = ["endpoint", "network_traffic"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/31"
+updated_date = "2023/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -20,11 +20,16 @@ from = "now-9m"
 index = ["logs-endpoint.events.network-*", "logs-network_traffic.*", "packetbeat-*", "auditbeat-*", "filebeat-*"]
 language = "kuery"
 license = "Elastic License v2"
+max_signals = 5
 name = "Potential SYN-Based Network Scan Detected"
 risk_score = 21
 rule_id = "bbaa96b9-f36c-4898-ace2-581acb00a409"
 severity = "low"
-tags = ["Domain: Network", "Tactic: Discovery", "Tactic: Reconnaissance", "Use Case: Network Security Monitoring"]
+tags = ["Domain: Network",
+        "Tactic: Discovery",
+        "Tactic: Reconnaissance",
+        "Use Case: Network Security Monitoring"
+        ]
 type = "threshold"
 query = '''
 destination.port : * and network.packets <= 2 and source.ip : (10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)

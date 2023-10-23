@@ -63,7 +63,14 @@ For versions <8.2, you need to add a custom ingest pipeline to populate `event.i
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Defense Evasion",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -83,25 +90,23 @@ file where host.os.type == "linux" and event.type == "deletion" and
     "/var/log/boot.log",
     "/var/log/kern.log"
     ) and
-    not process.name : ("gzip")
+    not process.name in ("gzip", "executor", "dockerd")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1070"
 name = "Indicator Removal"
 reference = "https://attack.mitre.org/techniques/T1070/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1070.002"
 name = "Clear Linux or Mac System Logs"
 reference = "https://attack.mitre.org/techniques/T1070/002/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

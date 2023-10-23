@@ -134,12 +134,22 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Endgame", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Persistence",
+        "Data Source: Elastic Endgame",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend"
+        ]
 type = "new_terms"
 query = '''
 host.os.type : "linux" and event.category : "file" and 
 event.type : ("change" or "file_modify_event" or "creation" or "file_create_event") and
-file.path : "/etc/rc.local" and not process.name : ("dockerd" or "docker" or "dnf" or "yum" or "rpm" or "dpkg") and not file.extension : ("swp" or "swx")
+file.path : "/etc/rc.local" and not process.name : (
+  "dockerd" or "docker" or "dnf" or "dnf-automatic" or "yum" or "rpm" or "dpkg"
+) and not file.extension : ("swp" or "swpx")
 '''
 
 [[rule.threat]]
@@ -162,7 +172,7 @@ reference = "https://attack.mitre.org/tactics/TA0003/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "process.executable"]
+value = ["host.id", "process.executable", "user.id"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"

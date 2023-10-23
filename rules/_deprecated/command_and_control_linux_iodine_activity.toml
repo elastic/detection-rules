@@ -1,10 +1,11 @@
 [metadata]
 creation_date = "2020/02/18"
+deprecation_date = "2023/09/25"
 integration = ["endpoint"]
-maturity = "production"
+maturity = "deprecated"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/08/25"
+updated_date = "2023/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -23,27 +24,37 @@ index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Deprecated - Potential DNS Tunneling via Iodine"
-note = """This rule was deprecated due to its addition to the umbrella `Potential Linux Tunneling and/or Port Forwarding` (6ee947e9-de7e-4281-a55d-09289bdf947e) rule."""
+note = "This rule was deprecated due to its addition to the umbrella `Potential Linux Tunneling and/or Port Forwarding` (6ee947e9-de7e-4281-a55d-09289bdf947e) rule."
 references = ["https://code.kryo.se/iodine/"]
 risk_score = 73
 rule_id = "041d4d41-9589-43e2-ba13-5680af75ebc2"
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Command and Control", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "query"
+
 query = '''
 event.category:process and host.os.type:linux and event.type:(start or process_started) and process.name:(iodine or iodined)
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1572"
 name = "Protocol Tunneling"
 reference = "https://attack.mitre.org/techniques/T1572/"
 
+
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+
