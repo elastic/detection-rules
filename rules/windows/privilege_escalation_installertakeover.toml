@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2021/11/25"
-integration = ["endpoint", "windows"]
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/10/23"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +39,7 @@ Identifies a potential exploitation of InstallerTakeOver (CVE-2021-41379) defaul
 allows an unprivileged user to escalate privileges to SYSTEM.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Privilege Escalation via InstallerFileTakeOver"
@@ -111,17 +111,22 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-/* This rule is compatible with both Sysmon and Elastic Endpoint */
-
 process where host.os.type == "windows" and event.type == "start" and
-    (?process.Ext.token.integrity_level_name : "System" or
-    ?winlog.event_data.IntegrityLevel : "System") and
+    process.Ext.token.integrity_level_name : "System" and
     (
       (process.name : "elevation_service.exe" and
        not process.pe.original_file_name == "elevation_service.exe") or
+      
+      (process.name : "elevation_service.exe" and
+       not process.code_signature.trusted == true) or
 
       (process.parent.name : "elevation_service.exe" and
        process.name : ("rundll32.exe", "cmd.exe", "powershell.exe"))
+    ) and
+    not
+    (
+      process.name : "elevation_service.exe" and process.code_signature.trusted == true and
+      process.pe.original_file_name == null
     )
 '''
 
