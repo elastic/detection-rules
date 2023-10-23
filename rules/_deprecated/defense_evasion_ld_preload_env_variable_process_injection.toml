@@ -1,10 +1,11 @@
 [metadata]
 creation_date = "2023/06/26"
+deprecation_date = "2023/09/25"
 integration = ["endpoint"]
-maturity = "production"
+maturity = "deprecated"
 min_stack_comments = "The linux.advanced.capture_env_vars option for Elastic Defend has been introduced in 8.6.0"
 min_stack_version = "8.6.0"
-updated_date = "2023/10/12"
+updated_date = "2023/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -65,63 +66,72 @@ references = ["https://www.getambassador.io/resources/code-injection-on-linux-an
 risk_score = 21
 rule_id = "4973e46b-a663-41b8-a875-ced16dda2bb0"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Persistence", "Tactic: Privilege Escalation", "Data Source: Elastic Defend"]
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.action == "exec" and process.env_vars : ("LD_PRELOAD=?*", "LD_LIBRARY_PATH=?*")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1574.006"
 name = "Dynamic Linker Hijacking"
 reference = "https://attack.mitre.org/techniques/T1574/006/"
+
+
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1574.006"
 name = "Dynamic Linker Hijacking"
 reference = "https://attack.mitre.org/techniques/T1574/006/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1574.006"
 name = "Dynamic Linker Hijacking"
 reference = "https://attack.mitre.org/techniques/T1574/006/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

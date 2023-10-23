@@ -53,10 +53,10 @@ tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: 
 type = "eql"
 query = '''
 sequence by host.id, process.entity_id with maxspan=1s
-  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
-   process.name == "cat"]
-  [network where host.os.type == "linux" and event.action in ("connection_attempted", "disconnect_received") and 
-   process.name == "cat"]
+  [process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and process.name == "cat" and 
+   process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")]
+  [network where host.os.type == "linux" and event.action in ("connection_attempted", "disconnect_received") and process.name == "cat" and 
+   destination.ip != null and not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")]
 '''
 
 [[rule.threat]]
