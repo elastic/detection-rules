@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/09"
+updated_date = "2023/10/23"
 
 [rule]
 author = ["Elastic"]
@@ -59,7 +59,11 @@ This rule identifies file deletions performed by a process that does not belong 
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
-## Setup
+"""
+references = ["https://www.advintel.io/post/backup-removal-solutions-from-conti-ransomware-with-love"]
+risk_score = 47
+rule_id = "11ea6bec-ebde-4d71-a8e9-784948f8e3e9"
+setup="""
 
 If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
 events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
@@ -67,9 +71,6 @@ Hence for this rule to work effectively, users will need to add a custom ingest 
 `event.ingested` to @timestamp.
 For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
-references = ["https://www.advintel.io/post/backup-removal-solutions-from-conti-ransomware-with-love"]
-risk_score = 47
-rule_id = "11ea6bec-ebde-4d71-a8e9-784948f8e3e9"
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Impact", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
