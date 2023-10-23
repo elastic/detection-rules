@@ -54,12 +54,14 @@ tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: 
 type = "eql"
 query = '''
 sequence by host.id with maxspan=5s
-[ network where host.os.type == "linux" and event.action in ("connection_accepted", "connection_attempted") and 
-  process.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") and
-  destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1" ] by process.entity_id
-[ process where host.os.type == "linux" and event.action == "exec" and 
-  process.parent.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") and
-  process.parent.args : "-jar"  and process.executable : "*sh" ] by process.parent.entity_id
+  [network where host.os.type == "linux" and event.action in ("connection_accepted", "connection_attempted") and 
+   process.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") and
+   destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1"
+  ] by process.entity_id
+  [process where host.os.type == "linux" and event.action == "exec" and 
+   process.parent.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") and
+   process.parent.args : "-jar" and process.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
+  ] by process.parent.entity_id
 '''
 
 [[rule.threat]]
