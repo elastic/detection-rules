@@ -1,0 +1,65 @@
+[metadata]
+creation_date = "2023/08/23"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/10/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies processes running with unusual extensions that are not typically valid for Windows executables.
+"""
+from = "now-119m"
+interval = "60m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Unusual Process Extension"
+risk_score = 21
+rule_id = "800e01be-a7a4-46d0-8de9-69f3c9582b44"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "Rule Type: BBR"]
+timestamp_override = "event.ingested"
+type = "eql"
+building_block_type = "default"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.executable : "?*" and 
+  not process.name : ("*.exe", "*.com", "*.scr", "*.tmp", "*.dat") and
+  not process.executable : 
+    (
+      "MemCompression",
+      "Registry",
+      "vmmem",
+      "vmmemWSL",
+      "?:\\Program Files\\Dell\\SupportAssistAgent\\*.p5x",
+      "?:\\Program Files\\Docker\\Docker\\com.docker.service",
+      "?:\\Users\\*\\AppData\\Local\\Intel\\AGS\\Libs\\AGSRunner.bin"
+    ) and
+  not (
+    (process.name : "C9632CF058AE4321B6B0B5EA39B710FE" and process.code_signature.subject_name == "Dell Inc") or
+    (process.name : "*.upd" and process.code_signature.subject_name == "Bloomberg LP") or
+    (process.name: "FD552E21-686E-413C-931D-3B82A9D29F3B" and process.code_signature.subject_name: "Adobe Inc.") or
+    (process.name: "3B91051C-AE82-43C9-BCEF-0309CD2DD9EB" and process.code_signature.subject_name: "McAfee, LLC")
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1036.008"
+name = "Masquerade File Type"
+reference = "https://attack.mitre.org/techniques/T1036/008/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

@@ -14,7 +14,7 @@ metadata = RtaMetadata(
     techniques=["T1059", "T1071"],
 )
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 
 def main():
   common.log("Creating a fake Java executable..")

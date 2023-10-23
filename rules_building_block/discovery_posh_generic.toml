@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/08/16"
+updated_date = "2023/10/11"
 
 
 [rule]
@@ -132,16 +132,25 @@ event.category:process and host.os.type:windows and
         "CSFalcon" or "TmPfw" or "kvoop"
       )
     )
-  ) and not user.id : ("S-1-5-18" or "S-1-5-19" or "S-1-5-20")
-  and not file.path : (
-            *WindowsPowerShell*Modules*.psd1 or
-            *WindowsPowerShell*Modules*.psm1 or 
-            "C:\\Program Files\\Microsoft Azure AD Sync\\Extensions\\AADConnector.psm1"
-          )
-  and not (file.path : (
-            *Windows*TEMP*SDIAG* or
-            *WINDOWS*TEMP*SDIAG* or
-            *windows*TEMP*SDIAG*) and file.name : "CL_Utility.ps1")
+  ) and
+  not user.id : ("S-1-5-18" or "S-1-5-19" or "S-1-5-20") and
+  not file.path : (
+        ?\:\\\\Program?Files\\\\WindowsPowerShell\\\\Modules\\\\*.psd1 or
+        ?\:\\\\Program?Files\\\\WindowsPowerShell\\\\Modules\\\\*.psm1 or
+        ?\:\\\\Program?Files\\\\Microsoft?Azure?AD?Sync\\\\Extensions\\\\AADConnector.psm1* or
+        *ServiceNow?MID?Server*agent\\\\scripts\\\\PowerShell\\\\*.psm1 or
+        ?\:\\\\*\\\\IMECache\\\\HealthScripts\\\\*\\\\detect.ps1
+      ) and
+  not (
+    file.path : (
+      ?\:\\\\*\\\\TEMP\\\\SDIAG* or
+      ?\:\\\\TEMP\\\\SDIAG* or
+      ?\:\\\\Temp\\\\SDIAG* or
+      ?\:\\\\temp\\\\SDIAG* or
+      ?\:\\\\Users\\\\*\\\\AppData\\\\Local\\\\Temp\\\\SDIAG* or
+      ?\:\\\\Users\\\\*\\\\AppData\\\\Local\\\\Temp\\\\*\\\\SDIAG*
+    ) and file.name : "CL_Utility.ps1"
+  )
 '''
 
 

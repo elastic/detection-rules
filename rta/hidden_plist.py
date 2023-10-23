@@ -20,7 +20,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
 
     plist_path = f"/Library/LaunchAgents/.test.plist"
