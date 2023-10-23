@@ -2,9 +2,9 @@
 creation_date = "2020/04/21"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/10/13"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "File Permission Modification in Writable Directory"
 risk_score = 21
@@ -65,27 +65,31 @@ Auditbeat is a lightweight shipper that you can install on your servers to audit
 severity = "low"
 tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 
 query = '''
-process where host.os.type == "linux" and event.type == "start"and
-  process.name in ("chmod", "chown", "chattr", "chgrp") and
-  process.working_directory in ("/tmp", "/var/tmp", "/dev/shm") and
-  not process.parent.name in ("update-motd-updates-available") and
-  not user.name == "root"
+host.os.type:linux and event.category:process and event.type:start and
+process.name:(chmod or chown or chattr or chgrp) and 
+process.working_directory:("/tmp" or "/var/tmp" or "/dev/shm")
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1222"
 name = "File and Directory Permissions Modification"
 reference = "https://attack.mitre.org/techniques/T1222/"
-
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.parent.executable", "process.command_line"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"

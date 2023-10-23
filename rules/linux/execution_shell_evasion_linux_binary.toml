@@ -141,7 +141,7 @@ process where host.os.type == "linux" and event.type == "start" and
   (process.name == "capsh" and process.args == "--") or
   
   /* launching shells from unusual parents or parent+arg combos */
-  (process.name : "*sh" and (
+  (process.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and (
     (process.parent.name : "*awk" and process.parent.args : "BEGIN {system(*)}") or
     (process.parent.name == "git" and process.parent.args : ("*PAGER*", "!*sh", "exec *sh") or 
      process.args : ("*PAGER*", "!*sh", "exec *sh") and not process.name == "ssh" ) or

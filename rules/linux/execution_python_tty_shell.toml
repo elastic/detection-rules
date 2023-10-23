@@ -54,10 +54,10 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.action in ("exec", "exec_event") and
 (
-  (process.parent.name : "python*" and process.name : "*sh" and process.parent.args_count >= 3 and
-   process.parent.args : "*pty.spawn*" and process.parent.args : "-c") or
-  (process.parent.name : "python*" and process.name : "*sh" and process.args : "*sh" and process.args_count == 1
-   and process.parent.args_count == 1)
+  (process.parent.name : "python*" and process.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh",
+   "fish") and process.parent.args_count >= 3 and process.parent.args : "*pty.spawn*" and process.parent.args : "-c") or
+  (process.parent.name : "python*" and process.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh",
+   "fish") and process.args : "*sh" and process.args_count == 1 and process.parent.args_count == 1)
 )
 '''
 

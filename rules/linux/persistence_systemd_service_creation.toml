@@ -53,20 +53,38 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Tactic: Privilege Escalation", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Persistence",
+        "Tactic: Privilege Escalation",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type : "linux" and event.action : ("creation" or "file_create_event") and
-file.path : (/etc/systemd/system/* or /usr/local/lib/systemd/system/* or /lib/systemd/system/* or 
-/usr/lib/systemd/system/* or /home/*/.config/systemd/user/*) and not 
-(process.name : ("dpkg" or "dockerd" or "rpm" or "snapd" or "yum" or "exe" or "dnf" or "dnf-automatic" or python* or 
- "elastic-agent" or "cinc-client") or file.extension : ("swp" or "swx"))
+host.os.type:linux and event.category:file and event.action:("creation" or "file_create_event") and file.path:(
+  /etc/systemd/system/* or 
+  /usr/local/lib/systemd/system/* or 
+  /lib/systemd/system/* or 
+  /usr/lib/systemd/system/* or 
+  /home/*/.config/systemd/user/*
+) and 
+not (
+  process.name:(
+    "dpkg" or "dockerd" or "rpm" or "snapd" or "yum" or "exe" or "dnf" or "dnf-automatic" or python* or "puppetd" or
+    "elastic-agent" or "cinc-client" or "chef-client" or "pacman" or "puppet" or "cloudflared"
+  ) or 
+  file.extension:("swp" or "swpx")
+)
 '''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
@@ -102,8 +120,8 @@ reference = "https://attack.mitre.org/tactics/TA0004/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["file.path", "process.name"]
+value = ["host.id", "file.path", "process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
+value = "now-10d"
