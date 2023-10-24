@@ -34,7 +34,8 @@ type = "new_terms"
 
 query = '''
 host.os.type:linux and event.category:network and event.action:(connection_attempted or connection_accepted) and 
-process.name:kworker*
+process.name:kworker* and destination.ip != null and 
+not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")
 '''
 
 [[rule.threat]]
