@@ -1088,9 +1088,9 @@ def packages(ctx: click.Context, pre: str, post: str, table_format: str):
         for tag in dtags:
             if ":" in tag:
                 try:
-                    tag = tag.split(":")[1]
+                    tag = tag.split(": ")[1]
                 except:
-                    print(tag)
+                    tag = tag.split(":")[1]
                 if tag.lower() in tags:
                     platforms.append(tag)
             else:
