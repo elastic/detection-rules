@@ -1166,7 +1166,8 @@ class TestRiskScoreMismatch(BaseRuleTest):
             risk_score = rule.contents.data.risk_score
 
             # Check if the risk_score falls within the range for the severity level
-            if not risk_severity[severity][0] <= risk_score <= risk_severity[severity][1]:
+            min_score, max_score = risk_severity[severity]
+            if not min_score <= risk_score <= max_score:
                 invalid_list.append(f'{self.rule_str(rule)} Severity: {severity}, Risk Score: {risk_score}')
 
         if invalid_list:
