@@ -678,7 +678,7 @@ class NewTermsRuleData(QueryRuleData):
         ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
         beats_version = get_stack_schemas()[str(min_stack_version)]['beats']
 
-        # checks if new terms field(s) are in ecs, beats or non-ecs schemas
+        # checks if new terms field(s) are in ecs, beats non-ecs or integration schemas
         _, _, schema = kql_validator.get_beats_schema(self.index or [], beats_version, ecs_version)
         integration_manifests = load_integrations_manifests()
         integration_schemas = load_integrations_schemas()
@@ -686,10 +686,10 @@ class NewTermsRuleData(QueryRuleData):
         if integration_tags:
             for tag in integration_tags:
                 latest_tag_compat_ver, _ = find_latest_compatible_version(
-                                    package=tag,
-                                    integration="",
-                                    rule_stack_version=min_stack_version,
-                                    packages_manifest=integration_manifests)
+                    package=tag,
+                    integration="",
+                    rule_stack_version=min_stack_version,
+                    packages_manifest=integration_manifests)
                 if latest_tag_compat_ver:
                     integration_schema = integration_schemas[tag][latest_tag_compat_ver]
                     for policy_template in integration_schema.keys():
