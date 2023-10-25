@@ -2,9 +2,9 @@
 creation_date = "2021/01/27"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/10/16"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,12 @@ index = ["auditbeat-*", "logs-endpoint.events.*", "endgame-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Modification of Dynamic Linker Preload Shared Object"
-note = """## Setup
+references = [
+    "https://www.anomali.com/blog/rocke-evolves-its-arsenal-with-a-new-malware-family-written-in-golang",
+]
+risk_score = 47
+rule_id = "717f82c2-7741-4f9b-85b8-d06aeb853f4f"
+setup = """
 
 This rule requires data coming in either from Elastic Defend, or Auditbeat integration.
 
@@ -54,37 +59,45 @@ Auditbeat is a lightweight shipper that you can install on your servers to audit
 - For complete Setup and Run Auditbeat information refer to the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setting-up-and-running.html).
 
 """
-references = [
-    "https://www.anomali.com/blog/rocke-evolves-its-arsenal-with-a-new-malware-family-written-in-golang",
-]
-risk_score = 47
-rule_id = "717f82c2-7741-4f9b-85b8-d06aeb853f4f"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Privilege Escalation",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "new_terms"
 
 query = '''
-event.category:file and host.os.type:linux and not event.type:deletion and file.path:/etc/ld.so.preload and
-event.action:(updated or renamed or rename)
+host.os.type:linux and event.category:file and event.action:(updated or renamed or rename) and 
+not event.type:deletion and file.path:/etc/ld.so.preload
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1574.006"
 name = "Dynamic Linker Hijacking"
 reference = "https://attack.mitre.org/techniques/T1574/006/"
-
-
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "user.id", "process.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
