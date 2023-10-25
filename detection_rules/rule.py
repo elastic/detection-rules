@@ -26,7 +26,9 @@ from kql.ast import FieldComparison
 
 from . import beats, ecs, endgame, utils
 from .integrations import (find_least_compatible_version,
-                           load_integrations_manifests)
+                           find_latest_compatible_version,
+                           load_integrations_manifests,
+                           load_integrations_schemas)
 from .misc import load_current_package_version
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
@@ -678,7 +680,20 @@ class NewTermsRuleData(QueryRuleData):
 
         # checks if new terms field(s) are in ecs, beats or non-ecs schemas
         _, _, schema = kql_validator.get_beats_schema(self.index or [], beats_version, ecs_version)
-
+        integration_manifests = load_integrations_manifests()
+        integration_schemas = load_integrations_schemas()
+        integration_tags = meta.get("integration")
+        if integration_tags:
+            for tag in integration_tags:
+                latest_tag_compat_ver, _ = find_latest_compatible_version(
+                                    package=tag,
+                                    integration="",
+                                    rule_stack_version=min_stack_version,
+                                    packages_manifest=integration_manifests)
+                if latest_tag_compat_ver:
+                    integration_schema = integration_schemas[tag][latest_tag_compat_ver]
+                    for policy_template in integration_schema.keys():
+                        schema.update(**integration_schemas[tag][latest_tag_compat_ver][policy_template])
         for new_terms_field in self.new_terms.value:
             assert new_terms_field in schema.keys(), \
                 f"{new_terms_field} not found in ECS, Beats, or non-ecs schemas"
