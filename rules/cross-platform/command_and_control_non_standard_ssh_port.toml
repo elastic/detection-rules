@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -30,31 +30,36 @@ references = ["https://attack.mitre.org/techniques/T1571/"]
 risk_score = 21
 rule_id = "bc8ca7e0-92fd-4b7c-b11e-ee0266b8d9c9"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Command and Control", "OS: macOS", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Command and Control",
+        "OS: macOS",
+        "Data Source: Elastic Defend"
+        ]
 type = "eql"
 
 query = '''
 sequence by process.entity_id with maxspan=1m
-[process where event.action == "exec" and process.name:"ssh"]
-[network where process.name:"ssh"
- and event.action in ("connection_attempted", "connection_accepted")
- and destination.port != 22
- and destination.ip != "127.0.0.1"
- and network.transport: "tcp"
-]
+  [process where event.action == "exec" and process.name:"ssh" and not process.parent.name in (
+   "rsync", "pyznap", "git", "ansible-playbook", "scp", "pgbackrest", "git-lfs", "expect", "Sourcetree", "ssh-copy-id",
+   "run"
+   )
+  ]
+  [network where process.name:"ssh" and event.action in ("connection_attempted", "connection_accepted") and 
+   destination.port != 22 and destination.ip != "127.0.0.1" and network.transport: "tcp"
+  ]
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1571"
 name = "Non-Standard Port"
 reference = "https://attack.mitre.org/techniques/T1571/"
 
-
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
