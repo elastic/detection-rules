@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.4.0"
-updated_date = "2023/06/22"
+updated_date = "2023/10/16"
 
 [rule]
 author = ["Elastic"]
@@ -24,13 +24,24 @@ risk_score = 47
 rule_id = "1dee0500-4aeb-44ca-b24b-4a285d7b6ba1"
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Collection", "Data Source: Elastic Defend"]
-timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.action == "start" and process.name : "OUTLOOK.EXE"  and
- process.Ext.effective_parent.name != null and
- not process.Ext.effective_parent.executable : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*")
+sequence with maxspan=1m
+[process where host.os.type == "windows" and event.action == "start" and
+  (
+    process.name : (
+      "rundll32.exe", "mshta.exe", "powershell.exe", "pwsh.exe",
+      "cmd.exe", "regsvr32.exe", "cscript.exe", "wscript.exe"
+    ) or
+    (
+      (process.code_signature.trusted == false or process.code_signature.exists == false) and 
+      (process.Ext.relative_file_creation_time <= 500 or process.Ext.relative_file_name_modify_time <= 500)
+    )
+  )
+] by process.executable
+[process where host.os.type == "windows" and event.action == "start" and process.name : "OUTLOOK.EXE" and
+  process.Ext.effective_parent.name != null] by process.Ext.effective_parent.executable
 '''
 
 
