@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/06/22"
+updated_date = "2023/10/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -113,7 +113,15 @@ type = "eql"
 
 query = '''
 file where host.os.type == "windows" and event.type == "creation" and process.name : "TeamViewer.exe" and
-  file.extension : ("exe", "dll", "scr", "com", "bat", "ps1", "vbs", "vbe", "js", "wsh", "hta")
+  file.extension : ("exe", "dll", "scr", "com", "bat", "ps1", "vbs", "vbe", "js", "wsh", "hta") and
+  not 
+  (
+    file.path : (
+      "?:\\Users\\*\\AppData\\Local\\Microsoft\\Windows\\INetCache\\*.js",
+      "?:\\Users\\*\\AppData\\Local\\Temp\\TeamViewer\\update.exe",
+      "?:\\Users\\*\\AppData\\Local\\Temp\\?\\TeamViewer\\update.exe"
+    ) and process.code_signature.trusted == true
+  )
 '''
 
 
