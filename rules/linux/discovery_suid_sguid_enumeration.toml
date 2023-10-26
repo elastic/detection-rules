@@ -20,7 +20,9 @@ index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "SUID/SGUID Enumeration Detected"
-note = """## Setup
+risk_score = 21
+rule_id = "5b06a27f-ad72-4499-91db-0c69667bffa5"
+setup = """
 
 This rule requires data coming in from Elastic Defend.
 
@@ -47,8 +49,6 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 
 """
-risk_score = 21
-rule_id = "5b06a27f-ad72-4499-91db-0c69667bffa5"
 severity = "low"
 tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Tactic: Privilege Escalation", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
@@ -57,8 +57,10 @@ query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
 process.name == "find" and process.args : "-perm" and process.args : (
   "/6000", "-6000", "/4000", "-4000", "/2000", "-2000", "/u=s", "-u=s", "/g=s", "-g=s", "/u=s,g=s", "/g=s,u=s"
-) and 
-not user.Ext.real.id == "0" and not group.Ext.real.id == "0"
+) and not (
+  user.Ext.real.id == "0" or group.Ext.real.id == "0" or process.args_count >= 12 or 
+  (process.args : "/usr/bin/pkexec" and process.args : "-xdev" and process.args_count == 7)
+)
 '''
 
 [[rule.threat]]

@@ -24,7 +24,9 @@ index = ["logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Enumeration of Kernel Modules"
-note = """## Setup
+risk_score = 47
+rule_id = "2d8043ed-5bda-4caf-801c-c1feb7410504"
+setup = """
 
 This rule requires data coming in from Elastic Defend.
 
@@ -51,8 +53,6 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 
 """
-risk_score = 47
-rule_id = "2d8043ed-5bda-4caf-801c-c1feb7410504"
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
@@ -62,8 +62,7 @@ event.category:process and host.os.type:linux and event.type:start and (
  (process.name:(lsmod or modinfo)) or 
  (process.name:kmod and process.args:list) or 
  (process.name:depmod and process.args:(--all or -a))
-) and process.parent.name:(sudo or bash or dash or ash or sh or tcsh or csh or zsh or ksh or fish) and 
-not process.parent.user.id:0
+) 
 '''
 
 [[rule.threat]]
@@ -81,7 +80,7 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["process.parent.name", "host.id"]
+value = ["host.id", "process.command_line", "process.parent.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
