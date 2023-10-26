@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -24,26 +24,22 @@ references = ["https://www.anomali.com/blog/pulling-linux-rabbit-rabbot-malware-
 risk_score = 47
 rule_id = "e6c1a552-7776-44ad-ae0f-8746cc07773c"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: macOS", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint",
+        "OS: macOS",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Persistence",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
 event.category:file and event.type:change and
-  process.name:(* and not (sudo or
-                           vim or
-                           zsh or
-                           env or
-                           nano or
-                           bash or
-                           Terminal or
-                           xpcproxy or
-                           login or
-                           cat or
-                           cp or
-                           launchctl or
-                           java)) and
-  not process.executable:(/Applications/* or /private/var/folders/* or /usr/local/*) and
+  process.name:(* and not (sudo or vim or zsh or env or nano or bash or Terminal or xpcproxy or login or cat or cp or
+  launchctl or java or dnf or tailwatchd or ldconfig or yum or semodule or cpanellogd or dockerd or authselect or chmod or
+  dnf-automatic or git or dpkg or platform-python)) and
+  not process.executable:(/Applications/* or /private/var/folders/* or /usr/local/* or /opt/saltstack/salt/bin/*) and
   file.path:(/private/etc/rc.local or
              /etc/rc.local or
              /home/*/.profile or
@@ -55,22 +51,20 @@ event.category:file and event.type:change and
              /Users/*/.zshenv)
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1546"
 name = "Event Triggered Execution"
 reference = "https://attack.mitre.org/techniques/T1546/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1546.004"
 name = "Unix Shell Configuration Modification"
 reference = "https://attack.mitre.org/techniques/T1546/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

@@ -2,9 +2,9 @@
 creation_date = "2023/06/08"
 integration = ["auditd_manager"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/08/24"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,7 @@ system.
 from = "now-119m"
 interval = "60m"
 index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "Suspicious Modprobe File Event"
 note = """## Setup
@@ -44,17 +44,18 @@ Add the newly installed `auditd manager` to an agent policy, and deploy the agen
 risk_score = 21
 rule_id = "40ddbcc8-6561-44d9-afc8-eefdbfe0cccd"
 severity = "low"
-tags = ["OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Rule Type: BBR"]
+tags = [
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Rule Type: BBR"
+        ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 building_block_type = "default"
 query = '''
-file where host.os.type == "linux" and event.action == "opened-file" and
-file.path : ("/etc/modprobe.conf", "/etc/modprobe.d", "/etc/modprobe.d/*") and not 
-(
-  process.name in ("auditbeat", "kmod", "modprobe", "lsmod", "insmod", "modinfo", "rmmod", "dpkg", "cp", "mkinitramfs",
-  "readlink") or process.title : "*grep*" or process.parent.pid == 1
-)
+host.os.type:linux and event.category:file and event.action:"opened-file" and
+file.path : ("/etc/modprobe.conf" or "/etc/modprobe.d" or /etc/modprobe.d/*)
 '''
 
 [[rule.threat]]
@@ -69,3 +70,11 @@ reference = "https://attack.mitre.org/techniques/T1082/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.executable", "file.path"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
