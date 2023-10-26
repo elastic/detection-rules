@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/09"
+updated_date = "2023/10/26"
 
 [transform]
 [[transform.osquery]]
@@ -110,7 +110,15 @@ sequence by host.id with maxspan=5s
               "?:\\Program Files (x86)\\*.exe",
               "?:\\Windows\\System32\\svchost.exe",
               "?:\\Windows\\System32\\drvinst.exe") and
-    not file.path : ("?:\\Program Files\\*.exe", "?:\\Program Files (x86)\\*.exe")
+    not file.path : (
+          "?:\\Program Files\\*.exe",
+          "?:\\Program Files (x86)\\*.exe",
+          "?:\\Windows\\Temp\\*\\DismHost.exe",
+          "?:\\$WINDOWS.~BT\\Work\\*\\DismHost.exe",
+          "?:\\$WinREAgent\\Scratch\\*\\DismHost.exe",
+          "?:\\Windows\\tenable_mw_scan_*.exe",
+          "?:\\Users\\*\\AppData\\Local\\Temp\\LogiUI\\Pak\\uninstall.exe"
+    )
    ] by file.path
 '''
 
