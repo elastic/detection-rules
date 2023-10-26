@@ -5,7 +5,7 @@ integration = ["system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2023/10/26"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,7 @@ ensuring system security and integrity, as malicious or unauthorized modules can
 system vulnerabilities or unauthorized access.
 """
 from = "now-9m"
-index = ["logs-system.auth-*"]
+index = ["logs-system.syslog-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Tainted Kernel Module Load"
@@ -26,18 +26,7 @@ rule_id = "05cad2fb-200c-407f-b472-02ea8c9e5e4a"
 setup = """
 
 This rule requires data coming in from one of the following integrations:
-- Auditbeat
 - Filebeat
-
-### Auditbeat Setup
-Auditbeat is a lightweight shipper that you can install on your servers to audit the activities of users and processes on your systems. For example, you can use Auditbeat to collect and centralize audit events from the Linux Audit Framework. You can also use Auditbeat to detect changes to critical files, like binaries and configuration files, and identify potential security policy violations.
-
-#### The following steps should be executed in order to add the Auditbeat for Linux System:
-- Elastic provides repositories available for APT and YUM-based distributions. Note that we provide binary packages, but no source packages.
-- To install the APT and YUM repositories follow the setup instructions in this [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setup-repositories.html).
-- To run Auditbeat on Docker follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-docker.html).
-- To run Auditbeat on Kubernetes follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-kubernetes.html).
-- For complete Setup and Run Auditbeat information refer to the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setting-up-and-running.html).
 
 ### Filebeat Setup
 Filebeat is a lightweight shipper for forwarding and centralizing log data. Installed as an agent on your servers, Filebeat monitors the log files or locations that you specify, collects log events, and forwards them either to Elasticsearch or Logstash for indexing.
@@ -87,4 +76,17 @@ reference = "https://attack.mitre.org/techniques/T1547/006/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat.technique]]
+name = "Rootkit"
+id = "T1014"
+reference = "https://attack.mitre.org/techniques/T1014/"
 
