@@ -21,7 +21,7 @@ def test(masquerade, masquerade2):
     common.execute([masquerade2, "childprocess", masquerade], timeout=0.3, kill=True)
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
 
     masquerade = "/tmp/sshd-keygen-wrapper"
