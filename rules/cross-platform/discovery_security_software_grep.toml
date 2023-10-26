@@ -61,7 +61,14 @@ For more details on adding a custom ingest pipeline refer - https://www.elastic.
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: macOS", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint",
+        "OS: macOS",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -100,25 +107,32 @@ process.name : "grep" and user.id != "0" and
           "osquery*",
           "elastic-endpoint*"
           ) and
-   not (process.args : "Avast" and process.args : "Passwords")
+   not (
+     (process.args : "Avast" and process.args : "Passwords") or
+     (process.parent.args : "/opt/McAfee/agent/scripts/ma" and process.parent.args : "checkhealth") or
+     (process.command_line : (
+       "grep ESET Command-line scanner, version %s -A2",
+       "grep -i McAfee Web Gateway Core version:",
+       "grep --color=auto ESET Command-line scanner, version %s -A2"
+       )
+      )
+    )
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1518"
 name = "Software Discovery"
 reference = "https://attack.mitre.org/techniques/T1518/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1518.001"
 name = "Security Software Discovery"
 reference = "https://attack.mitre.org/techniques/T1518/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-

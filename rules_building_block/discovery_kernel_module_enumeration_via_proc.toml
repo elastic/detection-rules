@@ -2,8 +2,8 @@
 creation_date = "2020/04/12"
 integration = ["auditd_manager"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
 updated_date = "2023/10/19"
 
 [rule]
@@ -23,7 +23,7 @@ false_positives = [
 from = "now-119m"
 interval = "60m"
 index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "Enumeration of Kernel Modules via Proc"
 risk_score = 21
@@ -46,16 +46,17 @@ For this detection rule to trigger, the following additional audit rules are req
 Add the newly installed `auditd manager` to an agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
 """
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Rule Type: BBR"]
+tags = [
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Rule Type: BBR"
+        ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 building_block_type = "default"
 query = '''
-file where host.os.type == "linux" and event.action == "opened-file" and file.path == "/proc/modules" and not 
-(
-  process.name in ("auditbeat", "kmod", "modprobe", "lsmod", "insmod", "modinfo", "rmmod", "SchedulerRunner", "grep") or 
-  process.parent.pid == 1 or process.title : "*grep*"
-)
+host.os.type:linux and event.category:file and event.action:"opened-file" and file.path:"/proc/modules"
 '''
 
 [[rule.threat]]
@@ -70,3 +71,12 @@ reference = "https://attack.mitre.org/techniques/T1082/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

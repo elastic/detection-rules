@@ -43,18 +43,25 @@ For this detection rule to trigger, the following additional audit rules are req
 Add the newly installed `auditd manager` to an agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
 """
 severity = "low"
-tags = ["OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Rule Type: BBR"]
+tags = [
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery", 
+    "Rule Type: BBR"
+    ]
 timestamp_override = "event.ingested"
 type = "threshold"
 building_block_type = "default"
 query = '''
-host.os.type : "linux" and event.category : "file" and event.action : "opened-file" and 
-file.path : (/proc/*/cmdline or /proc/*/stat or /proc/*/exe) and not process.name : "pidof" and 
-not process.parent.pid : 1
+host.os.type:linux and event.category:file and event.action:"opened-file" and 
+file.path : (/proc/*/cmdline or /proc/*/stat or /proc/*/exe) and not process.name : (
+  ps or netstat or landscape-sysin or w or pgrep or pidof or needrestart or apparmor_status
+) and not process.parent.pid : 1
 '''
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1057"
 name = "Process Discovery"
@@ -73,6 +80,7 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 [rule.threshold]
 field = ["host.id", "process.pid", "process.name"]
 value = 1
+
 [[rule.threshold.cardinality]]
 field = "file.path"
 value = 100

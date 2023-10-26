@@ -64,7 +64,14 @@ For more details on adding a custom ingest pipeline refer - https://www.elastic.
 
 """
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Linux", "OS: macOS", "Use Case: Threat Detection", "Tactic: Execution", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint",
+        "OS: Linux",
+        "OS: macOS",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -75,21 +82,21 @@ process where event.type in ("start", "process_started") and
 
   /* noisy FPs */
   not (process.parent.name : "timeout" and process.executable : "/var/lib/docker/overlay*") and
-  not process.command_line : ("*/dev/tcp/sirh_db/*", "*/dev/tcp/remoteiot.com/*", "*dev/tcp/elk.stag.one/*", "*dev/tcp/kafka/*", "*/dev/tcp/$0/$1*", "*/dev/tcp/127.*", "*/dev/udp/127.*", "*/dev/tcp/localhost/*") and
+  not process.command_line : (
+    "*/dev/tcp/sirh_db/*", "*/dev/tcp/remoteiot.com/*", "*dev/tcp/elk.stag.one/*", "*dev/tcp/kafka/*",
+    "*/dev/tcp/$0/$1*", "*/dev/tcp/127.*", "*/dev/udp/127.*", "*/dev/tcp/localhost/*", "*/dev/tcp/itom-vault/*") and
   not process.parent.command_line : "runc init"
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
