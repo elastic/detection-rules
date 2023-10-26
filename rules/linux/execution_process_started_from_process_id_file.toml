@@ -33,7 +33,16 @@ Detection alerts from this rule indicate a process spawned from an executable ma
 - Examine the /var/run directory using Osquery to determine other potential PID files with unsually large file sizes, indicative of it being an executable: "SELECT f.size, f.uid, f.type, f.path from file f WHERE path like '/var/run/%%';"
 - Examine the reputation of the SHA256 hash from the PID file in a database like VirusTotal to identify additional pivots and artifacts for investigation.
 
-## Setup
+"""
+references = [
+    "https://www.sandflysecurity.com/blog/linux-file-masquerading-and-malicious-pids-sandfly-1-2-6-update/",
+    "https://twitter.com/GossiTheDog/status/1522964028284411907",
+    "https://exatrack.com/public/Tricephalic_Hellkeeper.pdf",
+    "https://www.elastic.co/security-labs/a-peek-behind-the-bpfdoor",
+]
+risk_score = 73
+rule_id = "3688577a-d196-11ec-90b0-f661ea17fbce"
+setup = """
 
 This rule requires data coming in from Elastic Defend.
 
@@ -60,14 +69,6 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 
 """
-references = [
-    "https://www.sandflysecurity.com/blog/linux-file-masquerading-and-malicious-pids-sandfly-1-2-6-update/",
-    "https://twitter.com/GossiTheDog/status/1522964028284411907",
-    "https://exatrack.com/public/Tricephalic_Hellkeeper.pdf",
-    "https://www.elastic.co/security-labs/a-peek-behind-the-bpfdoor",
-]
-risk_score = 73
-rule_id = "3688577a-d196-11ec-90b0-f661ea17fbce"
 severity = "high"
 tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Threat: BPFDoor", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
