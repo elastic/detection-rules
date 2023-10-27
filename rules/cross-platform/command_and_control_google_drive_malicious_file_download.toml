@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/20"
+updated_date = "2023/10/16"
 
 [rule]
 author = ["Elastic"]
@@ -38,27 +38,49 @@ sequence by host.id, process.entity_id with maxspan=30s
 
     /* Look for Google Drive download URL with AV flag skipping */
     (process.args : "*drive.google.com*" and process.args : "*export=download*" and process.args : "*confirm=no_antivirus*")
-]
+
+    /* ignore trusted processes */
+    and not (
+        process.code_signature.trusted == true and
+        process.code_signature.subject_name:
+            ("Mozilla Corporation",
+            "Google LLC",
+            "Google Inc",
+            "Bitdefender SRL",
+            "Microsoft Corporation",
+            "Netskope, Inc.",
+            "Avast Software s.r.o.",
+            "Microsoft Windows",
+            "AVG Technologies USA, LLC",
+            "Symantec Corporation",
+            "Trend Micro, Inc.",
+            "Palo Alto Networks (Netherlands) B.V.",
+            "Docker Inc"))
+
+    /* ignore common benign processes */
+    and not process.executable:
+        ("/bin/terraform",
+        "*/bin/dockerd",
+        "/usr/local/bin/docker-init",
+        "*/bin/go",
+        "?:\\Program Files*\\Mozilla Firefox\firefox.exe",
+        "?:\\Program Files*\\Google\\Chrome\\Application\\chrome.exe")
+
+    /* ignore shellscripts + go install from legitimate repository*/
+    and not (process.executable == "/bin/sh" and process.args : "go install google.golang.org*")]
 
 [network where
     /* Look for DNS requests for Google Drive */
     (dns.question.name : "drive.google.com" and dns.question.type : "A") or
 
     /* Look for connection attempts to address that resolves to Google */
-    (destination.as.organization.name : "GOOGLE" and event.action == "connection_attempted")
-
-    /* NOTE: Add LoLBins if tuning is required
-    process.name : (
-        "cmd.exe", "bitsadmin.exe", "certutil.exe", "esentutl.exe", "wmic.exe", "PowerShell.exe",
-        "homedrive.exe","regsvr32.exe", "mshta.exe", "rundll32.exe", "cscript.exe", "wscript.exe",
-        "curl", "wget", "scp", "ftp", "python", "perl", "ruby"))] */
-]
+    (destination.as.organization.name : "GOOGLE" and event.action == "connection_attempted")]
 
 /* Identify the creation of files following Google Drive connection with extensions commonly used for executables or libraries */
-[file where event.action == "creation" and file.extension : (
-    "exe", "dll", "scr", "jar", "pif", "app", "dmg", "pkg", "elf", "so", "bin", "deb", "rpm","sh","hta","lnk"
-    )
-]
+[file where event.action == "creation" and
+    file.extension :
+        ("exe", "dll", "scr", "jar", "pif", "app", "dmg",
+        "pkg", "elf", "so", "bin", "deb", "rpm","sh","hta","lnk")]
 '''
 
 
