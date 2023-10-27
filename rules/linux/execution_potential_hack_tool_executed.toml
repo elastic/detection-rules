@@ -1,0 +1,60 @@
+[metadata]
+creation_date = "2023/09/22"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2023/09/22"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+
+[rule]
+author = ["Elastic"]
+description = """
+Monitors for the execution of different processes that might be used by attackers for malicious intent. An alert from 
+this rule should be investigated further, as hack tools are commonly used by blue teamers and system administrators as
+well.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "endgame-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Linux Hack Tool Launched"
+risk_score = 47
+rule_id = "1df1152b-610a-4f48-9d7a-504f6ee5d9da"
+severity = "medium"
+timestamp_override = "event.ingested"
+tags = ["Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Data Source: Elastic Endgame",
+        "Data Source: Elastic Defend"
+        ]
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.action in ("exec", "exec_event") and event.type == "start" and
+process.name in (
+  // exploitation frameworks
+  "crackmapexec", "msfconsole", "msfvenom", "sliver-client", "sliver-server", "havoc",
+  // network scanners (nmap left out to reduce noise)
+  "zenmap", "nuclei", "netdiscover", "legion",
+  // web enumeration
+  "gobuster", "dirbuster", "dirb", "wfuzz", "ffuf", "whatweb", "eyewitness",
+  // web vulnerability scanning
+  "wpscan", "joomscan", "droopescan", "nikto", 
+  // exploitation tools
+  "sqlmap", "commix", "yersinia",
+  // cracking and brute forcing
+  "john", "hashcat", "hydra", "ncrack", "cewl", "fcrackzip", "rainbowcrack",
+  // host and network
+  "linenum.sh", "linpeas.sh", "pspy32", "pspy32s", "pspy64", "pspy64s", "binwalk", "evil-winrm"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
