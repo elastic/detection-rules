@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/09"
+updated_date = "2023/10/16"
 
 [transform]
 [[transform.osquery]]
@@ -140,19 +140,24 @@ network where host.os.type == "windows" and network.protocol == "dns" and
     ) and
     /* Insert noisy false positives here */
     not (
-      process.executable : (
-        "?:\\Program Files\\*.exe",
-        "?:\\Program Files (x86)\\*.exe",
-        "?:\\Windows\\System32\\WWAHost.exe",
-        "?:\\Windows\\System32\\smartscreen.exe",
-        "?:\\Windows\\System32\\MicrosoftEdgeCP.exe",
-        "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
-        "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
-        "?:\\Users\\*\\AppData\\Local\\Programs\\Fiddler\\Fiddler.exe",
-        "?:\\Users\\*\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
-        "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
-        "?:\\Windows\\system32\\mobsync.exe",
-        "?:\\Windows\\SysWOW64\\mobsync.exe"
+      (
+        process.executable : (
+          "?:\\Program Files\\*.exe",
+          "?:\\Program Files (x86)\\*.exe",
+          "?:\\Windows\\System32\\WWAHost.exe",
+          "?:\\Windows\\System32\\smartscreen.exe",
+          "?:\\Windows\\System32\\MicrosoftEdgeCP.exe",
+          "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
+          "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
+          "?:\\Users\\*\\AppData\\Local\\BraveSoftware\\*\\Application\\brave.exe",
+          "?:\\Users\\*\\AppData\\Local\\Vivaldi\\Application\\vivaldi.exe",
+          "?:\\Users\\*\\AppData\\Local\\Programs\\Opera*\\opera.exe",
+          "?:\\Users\\*\\AppData\\Local\\Programs\\Fiddler\\Fiddler.exe",
+          "?:\\Users\\*\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
+          "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
+          "?:\\Windows\\system32\\mobsync.exe",
+          "?:\\Windows\\SysWOW64\\mobsync.exe"
+        ) and process.code_signature.trusted == true
       ) or
     
       /* Discord App */
@@ -168,6 +173,21 @@ network where host.os.type == "windows" and network.protocol == "dns" and
       /* Firefox */
       (process.name : "firefox.exe" and (process.code_signature.subject_name : "Mozilla Corporation" and
        process.code_signature.trusted == true)
+      ) or 
+
+      /* Dropbox */
+      (process.name : "Dropbox.exe" and (process.code_signature.subject_name : "Dropbox, Inc" and
+       process.code_signature.trusted == true) and dns.question.name : ("api.dropboxapi.com", "*.dropboxusercontent.com")
+      ) or 
+
+      /* Obsidian - Plugins are stored on raw.githubusercontent.com */
+      (process.name : "Obsidian.exe" and (process.code_signature.subject_name : "Dynalist Inc" and
+       process.code_signature.trusted == true) and dns.question.name : "raw.githubusercontent.com"
+      ) or 
+
+      /* WebExperienceHostApp */
+      (process.name : "WebExperienceHostApp.exe" and (process.code_signature.subject_name : "Microsoft Windows" and
+       process.code_signature.trusted == true) and dns.question.name : ("onedrive.live.com", "skyapi.onedrive.live.com")
       )
     ) 
 '''
