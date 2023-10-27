@@ -23,7 +23,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "regsvr32.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     eqnedt32 = "C:\\Users\\Public\\eqnedt32.exe"
 

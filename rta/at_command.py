@@ -26,7 +26,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main(target_host=None):
     target_host = target_host or common.get_ip()
     host_str = "\\\\%s" % target_host

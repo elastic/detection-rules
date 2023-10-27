@@ -24,7 +24,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     msbuild = "C:\\Users\\Public\\msbuild.exe"
     cmd = "C:\\Users\\Public\\cmd.exe"

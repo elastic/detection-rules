@@ -1,0 +1,68 @@
+[metadata]
+creation_date = "2023/09/21"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/09/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies processes that are capable of downloading files with command line arguments containing URLs to SSH-IT's 
+autonomous SSH worm. This worm intercepts outgoing SSH connections every time a user uses ssh. 
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential SSH-IT SSH Worm Downloaded"
+references = ["https://www.thc.org/ssh-it/"]
+risk_score = 47
+rule_id = "2ddc468e-b39b-4f5b-9825-f3dcb0e998ea"
+severity = "medium"
+tags = ["Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Lateral Movement",
+        "Data Source: Elastic Defend",
+        "Data Source: Elastic Endgame"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+process.name in ("curl", "wget") and process.args : (
+  "https://thc.org/ssh-it/x", "http://nossl.segfault.net/ssh-it-deploy.sh", "https://gsocket.io/x",
+  "https://thc.org/ssh-it/bs", "http://nossl.segfault.net/bs"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1021.004"
+name = "SSH"
+reference = "https://attack.mitre.org/techniques/T1021/004/"
+
+[[rule.threat.technique]]
+id = "T1563"
+name = "Remote Service Session Hijacking"
+reference = "https://attack.mitre.org/techniques/T1563/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1563.001"
+name = "SSH Hijacking"
+reference = "https://attack.mitre.org/techniques/T1563/001/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+

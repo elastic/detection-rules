@@ -18,7 +18,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
 
     common.log("Creating suspicious zip file with special characters to mimic evasion of sanboxed office apps.")

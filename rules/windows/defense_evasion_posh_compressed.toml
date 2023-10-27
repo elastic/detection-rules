@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/05"
+updated_date = "2023/10/11"
 
 [transform]
 [[transform.osquery]]
@@ -138,10 +138,9 @@ event.category:process and host.os.type:windows and
       "IO.Compression.GzipStream"
     ) and
     FromBase64String
-  ) and not 
-  (user.id:("S-1-5-18" or "S-1-5-19") and
-   file.directory: "C:\\ProgramData\\Microsoft\\Windows Defender Advanced Threat Protection\\Downloads")
-  and not user.id : "S-1-5-18"
+  ) and
+  not file.path: ?\:\\\\ProgramData\\\\Microsoft\\\\Windows?Defender?Advanced?Threat?Protection\\\\Downloads\\\\* and
+  not user.id : "S-1-5-18"
 '''
 
 

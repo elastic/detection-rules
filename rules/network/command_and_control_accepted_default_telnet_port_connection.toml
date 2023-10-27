@@ -4,7 +4,7 @@ integration = ["network_traffic"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/08/01"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["packetbeat-*", "logs-network_traffic.*"]
+index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Accepted Default Telnet Port Connection"
@@ -33,7 +33,6 @@ rule_id = "34fde489-94b0-4500-a76f-b8a157cf9269"
 severity = "medium"
 tags = [
     "Domain: Endpoint",
-    
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
     "Tactic: Lateral Movement",
@@ -45,10 +44,11 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: network_traffic.flow and event.type: connection
-  and not event.action:(
-      flow_dropped or denied or deny or
-      flow_terminated or timeout or Reject or network_flow)
+(event.dataset:network_traffic.flow or event.category:(network or network_traffic))
+    and event.type:connection and not event.action:(
+        flow_dropped or denied or deny or
+        flow_terminated or timeout or Reject or network_flow)
+    and destination.port:23
 '''
 
 
