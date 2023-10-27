@@ -1,0 +1,62 @@
+[metadata]
+creation_date = "2023/09/22"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/09/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Monitors for the execution of a netcat listener via rlwrap. rlwrap is a 'readline wrapper', a small utility that uses
+the GNU Readline library to allow the editing of keyboard input for any command. This utility can be used in conjunction 
+with netcat to gain a more stable reverse shell.
+"""
+false_positives = [
+    """
+    Netcat is a dual-use tool that can be used for benign or malicious activity. Netcat is included in some Linux
+    distributions so its presence is not necessarily suspicious. Some normal use of this program, while uncommon, may
+    originate from scripts, automation tools, and frameworks.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Netcat Listener Established via rlwrap"
+risk_score = 21
+rule_id = "0f56369f-eb3d-459c-a00b-87c2bf7bdfc5"
+severity = "low"
+tags = ["Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Data Source: Elastic Defend"
+        ]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
+process.name == "rlwrap" and process.args in (
+  "nc", "ncat", "netcat", "nc.openbsd", "socat"
+) and process.args : "*l*" and process.args_count >= 4
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

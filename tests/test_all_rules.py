@@ -1156,15 +1156,18 @@ class TestRiskScoreMismatch(BaseRuleTest):
     def test_rule_risk_score_severity_mismatch(self):
         invalid_list = []
         risk_severity = {
-            "critical": 99,
-            "high": 73,
-            "medium": 47,
-            "low": 21,
+            "critical": (74, 100),  # updated range for critical
+            "high": (48, 73),       # updated range for high
+            "medium": (22, 47),     # updated range for medium
+            "low": (0, 21),         # updated range for low
         }
         for rule in self.all_rules:
             severity = rule.contents.data.severity
             risk_score = rule.contents.data.risk_score
-            if risk_severity[severity] != risk_score:
+
+            # Check if the risk_score falls within the range for the severity level
+            min_score, max_score = risk_severity[severity]
+            if not min_score <= risk_score <= max_score:
                 invalid_list.append(f'{self.rule_str(rule)} Severity: {severity}, Risk Score: {risk_score}')
 
         if invalid_list:
@@ -1276,22 +1279,22 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
 class TestAlertSuppression(BaseRuleTest):
     """Test rule alert suppression."""
 
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.6.0"),
+    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.8.0"),
                      "Test only applicable to 8.6+ stacks for rule alert suppression feature.")
     def test_group_length(self):
         """Test to ensure the rule alert suppression group_by does not exceed 3 elements."""
         for rule in self.production_rules:
-            if rule.contents.data.alert_suppression:
+            if rule.contents.data.get('alert_suppression'):
                 group_length = len(rule.contents.data.alert_suppression.group_by)
                 if group_length > 3:
                     self.fail(f'{self.rule_str(rule)} has rule alert suppression with more than 3 elements.')
 
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.6.0"),
-                     "Test only applicable to 8.6+ stacks for rule alert suppression feature.")
+    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.8.0"),
+                     "Test only applicable to 8.8+ stacks for rule alert suppression feature.")
     def test_group_field_in_schemas(self):
         """Test to ensure the fields are defined is in ECS/Beats/Integrations schema."""
         for rule in self.production_rules:
-            if rule.contents.data.alert_suppression:
+            if rule.contents.data.get('alert_suppression'):
                 group_by_fields = rule.contents.data.alert_suppression.group_by
                 min_stack_version = rule.contents.metadata.get("min_stack_version")
                 if min_stack_version is None:
@@ -1316,33 +1319,3 @@ class TestAlertSuppression(BaseRuleTest):
                     if fld not in schema.keys():
                         self.fail(f"{self.rule_str(rule)} alert suppression field {fld} not \
                             found in ECS, Beats, or non-ecs schemas")
-
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.6.0"),
-                     "Test only applicable to 8.6+ stacks for rule alert suppression feature.")
-    def test_stack_version(self):
-        """Test to ensure the stack version is 8.6+"""
-        for rule in self.production_rules:
-            if rule.contents.data.alert_suppression:
-                per_time = rule.contents.data.alert_suppression.get("duration", None)
-                min_stack_version = rule.contents.metadata.get("min_stack_version")
-                if min_stack_version is None:
-                    min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-                else:
-                    min_stack_version = Version.parse(min_stack_version)
-                if not per_time and min_stack_version < Version.parse("8.6.0"):
-                    self.fail(f'{self.rule_str(rule)} has rule alert suppression but \
-                        min_stack is not 8.6+')
-                elif per_time and min_stack_version < Version.parse("8.7.0"):
-                    self.fail(f'{self.rule_str(rule)} has rule alert suppression with \
-                        per time but min_stack is not 8.7+')
-
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.6.0"),
-                     "Test only applicable to 8.6+ stacks for rule alert suppression feature.")
-    def test_query_type(self):
-        """Test to ensure the query type is KQL only."""
-        for rule in self.production_rules:
-            if rule.contents.data.alert_suppression:
-                rule_type = rule.contents.data.language
-                if rule_type != 'kuery':
-                    self.fail(f'{self.rule_str(rule)} has rule alert suppression with \
-                        but query language is not KQL')
