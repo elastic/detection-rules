@@ -2,55 +2,61 @@
 creation_date = "2023/07/13"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/07/13"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/21"
+bypass_bbr_timing = true
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 This rule identifies the execution of commands that can be used to query the Windows Registry. Adversaries may query the
 registry to gain situational awareness about the host, like installed security software, programs and settings.
 """
-from = "now-119m"
-interval = "60m"
+from = "now-9m"
 index = ["logs-endpoint.events.*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "Query Registry using Built-in Tools"
 risk_score = 21
 rule_id = "ded09d02-0137-4ccc-8005-c45e617e8d4c"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Rule Type: BBR"]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Rule Type: BBR",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
-building_block_type = "default"
-type = "eql"
+type = "new_terms"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and
-(
-  (
-    process.name == "reg.exe" and process.args : "query" and
-    not process.parent.executable : ("?:\\Program Files\\*", "?:\\Program Files (x86)\\*")
-  ) or
-  (
-    process.name: ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and
-     (process.args: ("*Get-ChildItem*", "*Get-Item*", "*Get-ItemProperty*") and
-      process.args : ("*HKLM*", "*HKCU*", "*HKEY_LOCAL_MACHINE*", "*HKEY_CURRENT_USER*", "*Registry::*"))
-  )
-) and not user.id : "S-1-5-18"
+host.os.type:windows and event.category:process and event.type:start and (
+  (process.name.caseless:"reg.exe" and process.args:"query") or 
+  (process.name.caseless:("powershell.exe" or "powershell_ise.exe" or "pwsh.exe") and 
+   process.command_line.caseless:((*Get-ChildItem* or *Get-Item* or *Get-ItemProperty*) and 
+   (*HKCU* or *HKEY_CURRENT_USER* or *HKEY_LOCAL_MACHINE* or *HKLM* or *Registry\:\:*))))
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1012"
 name = "Query Registry"
 reference = "https://attack.mitre.org/techniques/T1012/"
 
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "user.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"

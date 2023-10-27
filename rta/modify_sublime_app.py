@@ -22,7 +22,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
 
     sublime_dir = Path(f"{Path.home()}/Library/Application Support/Sublime Text 4/")

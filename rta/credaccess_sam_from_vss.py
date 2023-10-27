@@ -32,7 +32,7 @@ def vss_create():
     results = wmi.ExecMethod_("Create", createparams)
     return results.Properties_[1].value
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     import win32file
     vss_list = get_vss_list()

@@ -1,0 +1,60 @@
+[metadata]
+creation_date = "2023/09/26"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/09/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the execution of the Microsoft Diagnostic Wizard to open a diagcab file from a suspicious path and with an unusual
+parent process. This may indicate an attempt to execute malicious Troubleshooting Pack Cabinet files.
+"""
+references = [
+  "https://irsl.medium.com/the-trouble-with-microsofts-troubleshooters-6e32fc80b8bd"
+]
+from = "now-119m"
+interval = "60m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Troubleshooting Pack Cabinet Execution"
+risk_score = 21
+rule_id = "808291d3-e918-4a3a-86cd-73052a0c9bdc"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Rule Type: BBR", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+building_block_type = "default"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.action == "start" and
+  (process.name : "msdt.exe" or process.pe.original_file_name == "msdt.exe") and process.args : "/cab" and
+  process.parent.name : (
+    "firefox.exe", "chrome.exe", "msedge.exe", "explorer.exe", "brave.exe", "whale.exe", "browser.exe",
+    "dragon.exe", "vivaldi.exe", "opera.exe", "iexplore", "firefox.exe", "waterfox.exe", "iexplore.exe",
+    "winrar.exe", "winrar.exe", "7zFM.exe", "outlook.exe", "winword.exe", "excel.exe"
+  ) and
+  process.args : (
+    "?:\\Users\\*",
+    "\\\\*",
+    "http*",
+    "ftp://*"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [[rule.threat.technique]]
+  name = "System Binary Proxy Execution"
+  id = "T1218"
+  reference = "https://attack.mitre.org/techniques/T1218/"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"

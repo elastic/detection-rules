@@ -1236,14 +1236,19 @@ def build_integration_manifests(overwrite: bool, integration: str):
 
 @integrations_group.command('build-schemas')
 @click.option('--overwrite', '-o', is_flag=True, help="Overwrite the entire integrations-schema.json.gz file")
-def build_integration_schemas(overwrite: bool):
+@click.option('--integration', '-i', type=str,
+              help="Adds a single integration schema to the integrations-schema.json.gz file")
+def build_integration_schemas(overwrite: bool, integration: str):
     """Builds consolidated integrations schemas file."""
     click.echo("Building integration schemas...")
 
     start_time = time.perf_counter()
-    build_integrations_schemas(overwrite)
-    end_time = time.perf_counter()
-    click.echo(f"Time taken to generate schemas: {(end_time - start_time)/60:.2f} minutes")
+    if integration:
+        build_integrations_schemas(overwrite=False, integration=integration)
+    else:
+        build_integrations_schemas(overwrite=overwrite)
+        end_time = time.perf_counter()
+        click.echo(f"Time taken to generate schemas: {(end_time - start_time)/60:.2f} minutes")
 
 
 @integrations_group.command('show-latest-compatible')

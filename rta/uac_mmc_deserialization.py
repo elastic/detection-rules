@@ -3,10 +3,10 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-from . import common
-from . import RtaMetadata
 import os
+from pathlib import Path
 
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="1d486055-38f8-4cf3-aec1-7f4f72d73fb2",
@@ -24,20 +24,20 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     appdata = os.getenv("LOCALAPPDATA")
-    path = appdata + "\\Microsoft\\Event Viewer"
-    recentfiles = path + "\\RecentViews"
+    path = Path(appdata) / "\\Microsoft\\Event Viewer"
+    recentfiles = path / "\\RecentViews"
 
-    if os.path.exists(path):
+    if path.is_dir():
         common.copy_file(EXE_FILE, recentfiles)
         common.remove_file(recentfiles)
     else:
-        os.mkdir(path)
+        path.mkdir()
         common.copy_file(EXE_FILE, recentfiles)
         common.remove_file(recentfiles)
-        os.rmdir(path)
+        path.rmdir()
 
 
 if __name__ == "__main__":
