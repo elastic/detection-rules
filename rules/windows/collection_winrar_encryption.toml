@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/09"
+updated_date = "2023/10/16"
 
 [rule]
 author = ["Elastic"]
@@ -65,17 +65,24 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
 (
-  ((process.name:"rar.exe" or process.code_signature.subject_name == "win.rar GmbH" or
-      process.pe.original_file_name == "Command line RAR") and
-    process.args == "a" and process.args : ("-hp*", "-p*", "-dw", "-tb", "-ta", "/hp*", "/p*", "/dw", "/tb", "/ta"))
-
-  or
-  (process.pe.original_file_name in ("7z.exe", "7za.exe") and
-     process.args == "a" and process.args : ("-p*", "-sdel"))
-
-  /* uncomment if noisy for backup software related FPs */
-  /* not process.parent.executable : ("C:\\Program Files\\*.exe", "C:\\Program Files (x86)\\*.exe") */
-)
+  (
+    (
+      process.name:"rar.exe" or process.code_signature.subject_name == "win.rar GmbH" or
+      process.pe.original_file_name == "Command line RAR"
+    ) and
+    process.args == "a" and process.args : ("-hp*", "-p*", "/hp*", "/p*")
+  ) or
+  (
+    process.pe.original_file_name in ("7z.exe", "7za.exe") and
+    process.args == "a" and process.args : "-p*"
+  )
+) and
+  not process.parent.executable : (
+        "C:\\Program Files\\*.exe",
+        "C:\\Program Files (x86)\\*.exe",
+        "?:\\ManageEngine\\*\\jre\\bin\\java.exe",
+        "?:\\Nox\\bin\\Nox.exe"
+      )
 '''
 
 
