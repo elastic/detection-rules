@@ -17,7 +17,8 @@ from = "now-9m"
 index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Potential Reverse Shell via Suspicious Parent Process"
+name = "Deprecated - Potential Reverse Shell via Suspicious Parent Process"
+note = "This rule was deprecated due to its addition to the umbrella `Potential Reverse Shell via Suspicious Child Process` (76e4d92b-61c1-4a95-ab61-5fd94179a1ee) rule."
 references = [
     "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md"
 ]
@@ -48,7 +49,6 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click Save and Continue.
 - To complete the integration, select Add Elastic Agent to your hosts and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Defend"]
@@ -56,13 +56,13 @@ type = "eql"
 query = '''
 sequence by host.id, process.parent.entity_id with maxspan=1s
 [ process where host.os.type == "linux" and event.type == "start" and event.action == "fork" and (
-  (process.name : "python*" and process.args : "-c") or
-  (process.name : "php*" and process.args : "-r") or
-  (process.name : "perl" and process.args : "-e") or
-  (process.name : "ruby" and process.args : ("-e", "-rsocket")) or
-  (process.name : "lua*" and process.args : "-e") or
+  (process.name : "python*" and process.args == "-c" and not process.args == "/usr/bin/supervisord") or
+  (process.name : "php*" and process.args == "-r") or
+  (process.name : "perl" and process.args == "-e") or
+  (process.name : "ruby" and process.args in ("-e", "-rsocket")) or
+  (process.name : "lua*" and process.args == "-e") or
   (process.name : "openssl" and process.args : "-connect") or
-  (process.name : ("nc", "ncat", "netcat") and process.args_count >= 3) or
+  (process.name : ("nc", "ncat", "netcat") and process.args_count >= 3 and not process.args == "-z") or
   (process.name : "telnet" and process.args_count >= 3) or
   (process.name : "awk")) and 
   process.parent.name : ("python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk") ]
