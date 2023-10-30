@@ -4,7 +4,7 @@ integration = ["system"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/20"
+updated_date = "2023/10/17"
 
 [transform]
 [[transform.osquery]]
@@ -78,9 +78,32 @@ This rule identifies the usage of `useradd` and `adduser` to create new accounts
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+
 """
 risk_score = 21
 rule_id = "edfd5ca9-9d6c-44d9-b615-1e56b920219c"
+setup = """
+
+This rule requires data coming in from one of the following integrations:
+- Filebeat
+
+### Filebeat Setup
+Filebeat is a lightweight shipper for forwarding and centralizing log data. Installed as an agent on your servers, Filebeat monitors the log files or locations that you specify, collects log events, and forwards them either to Elasticsearch or Logstash for indexing.
+
+#### The following steps should be executed in order to add the Filebeat on a Linux System:
+- Elastic provides repositories available for APT and YUM-based distributions. Note that we provide binary packages, but no source packages.
+- To install the APT and YUM repositories follow the setup instructions in this [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/setup-repositories.html).
+- To run Filebeat on Docker follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/running-on-docker.html).
+- To run Filebeat on Kubernetes follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/running-on-kubernetes.html).
+- For quick start information for Filebeat refer to the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/8.11/filebeat-installation-configuration.html).
+- For complete Setup and Run Filebeat information refer to the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/setting-up-and-running.html).
+
+#### Rule Specific Setup Note
+- This rule requires the Filebeat System Module to be enabled.
+- The system module collects and parses logs created by the system logging service of common Unix/Linux based distributions.
+- To run the system module of Filebeat on Linux follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-system.html).
+
+"""
 severity = "low"
 tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
