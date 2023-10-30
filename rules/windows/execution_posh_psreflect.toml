@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/11"
+updated_date = "2023/10/23"
 
 [transform]
 [[transform.osquery]]
@@ -110,7 +110,14 @@ Detecting the core implementation of PSReflect means detecting most of the tooli
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
-## Setup
+"""
+references = [
+    "https://github.com/mattifestation/PSReflect/blob/master/PSReflect.psm1",
+    "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0109_windows_powershell_script_block_log.md",
+]
+risk_score = 47
+rule_id = "56f2e9b5-4803-4e44-a0a4-a52dc79d57fe"
+setup="""
 
 The 'PowerShell Script Block Logging' logging policy must be configured (Enable).
 
@@ -129,12 +136,6 @@ Steps to implement the logging policy via registry:
 reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
 ```
 """
-references = [
-    "https://github.com/mattifestation/PSReflect/blob/master/PSReflect.psm1",
-    "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0109_windows_powershell_script_block_log.md",
-]
-risk_score = 47
-rule_id = "56f2e9b5-4803-4e44-a0a4-a52dc79d57fe"
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Execution", "Resources: Investigation Guide", "Data Source: PowerShell Logs"]
 timestamp_override = "event.ingested"
