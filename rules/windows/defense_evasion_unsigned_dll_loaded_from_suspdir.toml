@@ -4,7 +4,7 @@ maturity = "production"
 integration = ["endpoint"]
 min_stack_comments = "New fields added: dll.Ext.relative_file_creation_time is populated in Elastic Endpoint 8.4 and above."
 min_stack_version = "8.4.0"
-updated_date = "2023/10/09"
+updated_date = "2023/10/23"
 
 [rule]
 author = ["Elastic"]
@@ -18,12 +18,16 @@ index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Unsigned DLL Side-Loading from a Suspicious Folder"
-note = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
-"""
 risk_score = 47
 rule_id = "ca98c7cf-a56e-4057-a4e8-39603f7f0389"
+setup = """
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
