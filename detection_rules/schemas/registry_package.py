@@ -14,7 +14,7 @@ from ..mixins import MarshmallowDataclassMixin
 
 @dataclass
 class RegistryPackageManifest(MarshmallowDataclassMixin):
-    """Base class for registry packages."""
+    """Base class for registry packages using elastic-package v1."""
 
     categories: List[str]
     conditions: Dict[str, ConditionSemVer]
@@ -25,6 +25,27 @@ class RegistryPackageManifest(MarshmallowDataclassMixin):
     name: str
     owner: Dict[str, str]
     release: str
+    title: str
+    type: str
+    version: SemVer
+
+    internal: Optional[bool] = None
+    policy_templates: Optional[list] = None
+    screenshots: Optional[list] = None
+
+
+@dataclass
+class RegistryPackageManifestV3(MarshmallowDataclassMixin):
+    """Base class for registry packages using elastic-package v3."""
+
+    categories: List[str]
+    conditions: Dict[str, ConditionSemVer]
+    description: str
+    format_version: SemVer
+    icons: list
+    source: Dict[str, str]
+    name: str
+    owner: Dict[str, str]
     title: str
     type: str
     version: SemVer

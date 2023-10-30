@@ -628,7 +628,9 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
         os.chdir(target_directory)
 
         try:
-            return subprocess.check_call([os.path.join(gopath, "bin", "elastic-package")] + list(args))
+            elastic_pkg_cmd = [str(Path(gopath, "bin", "elastic-package"))]
+            elastic_pkg_cmd.extend(list(args))
+            return subprocess.check_call(elastic_pkg_cmd)
         finally:
             os.chdir(prev)
 
