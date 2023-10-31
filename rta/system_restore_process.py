@@ -24,7 +24,7 @@ metadata = RtaMetadata(
 SYSTEM_RESTORE = "c:\\System Volume Information"
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(common.PS_EXEC)
 def main():
     status = common.run_system()

@@ -21,7 +21,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Suspicious File Writes (IQY, PUB)")
     adobe_path = Path("AcroRd32.exe").resolve()

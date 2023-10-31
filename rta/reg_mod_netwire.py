@@ -16,7 +16,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Temporarily creating a Netwire RAT-like reg key...")
 

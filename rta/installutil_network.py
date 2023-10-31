@@ -36,7 +36,7 @@ metadata = RtaMetadata(
 MY_DOT_NET = common.get_path("bin", "mydotnet.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(MY_DOT_NET)
 def main():
     server, ip, port = common.serve_web()

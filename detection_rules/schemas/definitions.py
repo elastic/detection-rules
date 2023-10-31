@@ -44,7 +44,6 @@ TACTIC_URL = r'^https://attack.mitre.org/tactics/TA[0-9]+/$'
 TECHNIQUE_URL = r'^https://attack.mitre.org/techniques/T[0-9]+/$'
 SUBTECHNIQUE_URL = r'^https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/$'
 MACHINE_LEARNING = 'machine_learning'
-SAVED_QUERY = 'saved_query'
 QUERY = 'query'
 QUERY_FIELD_OP_EXCEPTIONS = ["powershell.file.script_block_text"]
 
@@ -91,6 +90,7 @@ EXPECTED_RULE_TAGS = [
     'OS: Linux',
     'OS: macOS',
     'OS: Windows',
+    'Rule Type: BBR',
     'Resources: Investigation Guide',
     'Rule Type: Higher-Order Rule',
     'Rule Type: Machine Learning',
@@ -128,6 +128,8 @@ EXPECTED_RULE_TAGS = [
 
 MACHINE_LEARNING_PACKAGES = ['LMD', 'DGA', 'DED', 'ProblemChild', 'Beaconing']
 
+AlertSuppressionMissing = NewType('AlertSuppressionMissing', str,
+                                  validate=validate.OneOf(['suppress', 'doNotSuppress']))
 NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
 TimeUnits = Literal['s', 'm', 'h']
 BranchVer = NewType('BranchVer', str, validate=validate.Regexp(BRANCH_PATTERN))
@@ -146,7 +148,7 @@ OSType = Literal['windows', 'linux', 'macos']
 PositiveInteger = NewType('PositiveInteger', int, validate=validate.Range(min=1))
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
 RuleName = NewType('RuleName', str, validate=validate.Regexp(NAME_PATTERN))
-RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'threshold', 'threat_match', 'new_terms']
+RuleType = Literal['query', 'machine_learning', 'eql', 'threshold', 'threat_match', 'new_terms']
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
 SemVerMinorOnly = NewType('SemVerFullStrict', str, validate=validate.Regexp(MINOR_SEMVER))
 Severity = Literal['low', 'medium', 'high', 'critical']

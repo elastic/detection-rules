@@ -48,7 +48,7 @@ def impersonate_trusted_installer():
             print(f'[x] - Failed TrustedInstaller Impersonation')
             pass 
         
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
    common.impersonate_system()
    startsvc_trustedinstaller()

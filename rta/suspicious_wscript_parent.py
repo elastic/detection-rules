@@ -26,7 +26,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     script_data = """
         WScript.CreateObject("wscript.shell")

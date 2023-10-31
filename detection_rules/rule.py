@@ -229,7 +229,8 @@ class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
         value: int
 
     group_by: List[definitions.NonEmptyStr]
-    duration: Optional[AlertSuppressionDuration] = field(metadata=dict(metadata=dict(min_compat="8.7")))
+    duration: Optional[AlertSuppressionDuration]
+    missing_fields_strategy: definitions.AlertSuppressionMissing
 
 
 @dataclass(frozen=True)
@@ -247,7 +248,6 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         integration: Optional[definitions.NonEmptyStr]
 
     actions: Optional[list]
-    alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.6")))
     author: List[str]
     building_block_type: Optional[definitions.BuildingBlockType]
     description: str
@@ -273,7 +273,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     risk_score_mapping: Optional[List[RiskScoreMapping]]
     rule_id: definitions.UUIDString
     rule_name_override: Optional[str]
-    setup: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.3")))
+    setup: Optional[definitions.Markdown] = field(metadata=dict(metadata=dict(min_compat="8.3")))
     severity_mapping: Optional[List[SeverityMapping]]
     severity: definitions.Severity
     tags: Optional[List[str]]
@@ -561,6 +561,7 @@ class QueryRuleData(BaseRuleData):
     index: Optional[List[str]]
     query: str
     language: definitions.FilterLanguages
+    alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.8")))
 
     @cached_property
     def validator(self) -> Optional[QueryValidator]:
@@ -591,6 +592,14 @@ class QueryRuleData(BaseRuleData):
         validator = self.validator
         if validator is not None:
             return validator.get_required_fields(index or [])
+
+    @validates_schema
+    def validate_exceptions(self, data, **kwargs):
+        """Custom validation for query rule type and subclasses."""
+
+        # alert suppression is only valid for query rule type and not any of its subclasses
+        if data.get('alert_suppression') and data['type'] != 'query':
+            raise ValidationError("Alert suppression is only valid for query rule type.")
 
 
 @dataclass(frozen=True)
@@ -1127,16 +1136,18 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
                 datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
 
-        if not datasets:
-            # windows and endpoint integration do not have event.dataset fields in queries
-            # integration is None to remove duplicate references upstream in Kibana
-            rule_integrations = meta.get("integration", [])
-            if rule_integrations:
-                for integration in rule_integrations:
-                    ineligible_integrations = definitions.NON_DATASET_PACKAGES + \
-                        [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
-                    if integration in ineligible_integrations or isinstance(data, MachineLearningRuleData):
-                        packaged_integrations.append({"package": integration, "integration": None})
+        # integration is None to remove duplicate references upstream in Kibana
+        # chronologically, event.dataset is checked for package:integration, then rule tags
+        # if both exist, rule tags are only used if defined in definitions for non-dataset packages
+        # of machine learning analytic packages
+
+        rule_integrations = meta.get("integration", [])
+        if rule_integrations:
+            for integration in rule_integrations:
+                ineligible_integrations = definitions.NON_DATASET_PACKAGES + \
+                    [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
+                if integration in ineligible_integrations or isinstance(data, MachineLearningRuleData):
+                    packaged_integrations.append({"package": integration, "integration": None})
 
         for value in sorted(datasets):
             integration = 'Unknown'
