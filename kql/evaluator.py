@@ -22,7 +22,7 @@ class FilterGenerator(Walker):
     def is_ipaddress(cls, value):
         """Check if a value is an ip address."""
         try:
-            utils.is_string(value) and eql.utils.get_ipaddress(value)
+            eql.utils.get_ipaddress(value)
             return True
         except ValueError:
             return False
