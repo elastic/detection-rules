@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/11"
+updated_date = "2023/10/23"
 
 [rule]
 author = ["Elastic"]
@@ -55,7 +55,14 @@ Attackers can abuse PowerShell capabilities to get the contents of the clipboard
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
-## Setup
+"""
+references = [
+    "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/get-clipboard",
+    "https://github.com/EmpireProject/Empire/blob/master/data/module_source/collection/Get-ClipboardContents.ps1",
+]
+risk_score = 47
+rule_id = "92984446-aefb-4d5e-ad12-598042ca80ba"
+setup="""
 
 The 'PowerShell Script Block Logging' logging policy must be enabled.
 Steps to implement the logging policy with with Advanced Audit Configuration:
@@ -73,12 +80,6 @@ Steps to implement the logging policy via registry:
 reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
 ```
 """
-references = [
-    "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/get-clipboard",
-    "https://github.com/EmpireProject/Empire/blob/master/data/module_source/collection/Get-ClipboardContents.ps1",
-]
-risk_score = 47
-rule_id = "92984446-aefb-4d5e-ad12-598042ca80ba"
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Collection", "Data Source: PowerShell Logs", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
