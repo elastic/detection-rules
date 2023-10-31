@@ -85,7 +85,9 @@ def elasticsearch_type_family(mapping_type: str) -> str:
 
 class BaseKqlParser(Interpreter):
     NON_SPACE_WS = re.compile(r"[^\S ]+")
-    ip_regex = re.compile("^" + eql.functions.CidrMatch.ip_re + "(/([0-2]?[0-9]|3[0-2]))?$")
+    octet_re = r'(?:25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])'
+    ip_re = r'\.'.join([octet_re, octet_re, octet_re, octet_re])
+    ip_regex = re.compile("^" + ip_re + "(/([0-2]?[0-9]|3[0-2]))?$")
 
     unquoted_escapes = {"\\t": "\t", "\\r": "\r", "\\n": "\n"}
 
