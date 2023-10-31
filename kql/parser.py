@@ -230,7 +230,7 @@ class BaseKqlParser(Interpreter):
                 except ValueError:
                     pass
             elif field_type_family == "ip" and value_type == "keyword":
-                if "::" in python_value or is_ipaddress(python_value):
+                if "::" in python_value or is_ipaddress(python_value) or eql.utils.is_cidr_pattern(python_value):
                     return python_value
             elif field_type_family == 'date' and value_type in STRING_FIELDS:
                 # this will not validate datemath syntax
