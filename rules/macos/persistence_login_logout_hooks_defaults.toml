@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/10/23"
 
 [rule]
 author = ["Elastic"]
@@ -17,16 +17,20 @@ index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via Login or Logout Hook"
-note = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
-"""
 references = [
     "https://www.virusbulletin.com/uploads/pdf/conference_slides/2014/Wardle-VB2014.pdf",
     "https://www.manpagez.com/man/1/defaults/",
 ]
 risk_score = 47
 rule_id = "5d0265bf-dea9-41a9-92ad-48a8dcd05080"
+setup = """
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: macOS", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
