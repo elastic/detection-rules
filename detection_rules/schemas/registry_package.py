@@ -31,43 +31,36 @@ class Icon:
 
 
 @dataclass
-class RegistryPackageManifest(MarshmallowDataclassMixin):
-    """Base class for registry packages using elastic-package v1."""
+class RegistryPackageManifestBase(MarshmallowDataclassMixin):
+    """Base class for registry packages."""
 
     categories: List[str]
-    conditions: Dict[str, ConditionSemVer]
     description: str
     format_version: SemVer
     icons: List[Icon]
-    license: str
     name: str
     owner: Dict[str, str]
-    release: str
     title: str
     type: str
     version: SemVer
 
-    internal: Optional[bool] = None
-    policy_templates: Optional[list] = None
-    screenshots: Optional[list] = None
+    internal: Optional[bool]
+    policy_templates: Optional[List[str]]
+    screenshots: Optional[List[str]]
 
 
 @dataclass
-class RegistryPackageManifestV3(MarshmallowDataclassMixin):
-    """Base class for registry packages using elastic-package v3."""
+class RegistryPackageManifestV1(RegistryPackageManifestBase):
+    """Registry packages using elastic-package v1."""
 
-    categories: List[str]
+    conditions: Dict[str, ConditionSemVer]
+    license: str
+    release: str
+
+
+@dataclass
+class RegistryPackageManifestV3(RegistryPackageManifestBase):
+    """Registry packages using elastic-package v3."""
+
     conditions: Condition
-    description: str
-    format_version: SemVer
-    icons: List[Icon]
     source: Dict[str, str]
-    name: str
-    owner: Dict[str, str]
-    title: str
-    type: str
-    version: SemVer
-
-    internal: Optional[bool] = None
-    policy_templates: Optional[List[str]] = None
-    screenshots: Optional[List[str]] = None

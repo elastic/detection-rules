@@ -10,7 +10,8 @@ from semver import Version
 from marshmallow import ValidationError
 
 from detection_rules import rule_loader
-from detection_rules.schemas.registry_package import RegistryPackageManifest
+from detection_rules.schemas.registry_package import (RegistryPackageManifestV1,
+                                                      RegistryPackageManifestV3)
 from detection_rules.packaging import PACKAGE_FILE, Package
 from detection_rules.rule_loader import RuleCollection
 
@@ -95,8 +96,6 @@ class TestRegistryPackage(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        from detection_rules.schemas.registry_package import (RegistryPackageManifest,
-                                                              RegistryPackageManifestV3)
 
         assert 'registry_data' in package_configs, f'Missing registry_data in {PACKAGE_FILE}'
         cls.registry_config = package_configs['registry_data']
@@ -105,7 +104,7 @@ class TestRegistryPackage(unittest.TestCase):
         if stack_version >= Version.parse("8.12.0"):
             RegistryPackageManifestV3.from_dict(cls.registry_config)
         else:
-            RegistryPackageManifest.from_dict(cls.registry_config)
+            RegistryPackageManifestV1.from_dict(cls.registry_config)
 
     def test_registry_package_config(self):
         """Test that the registry package is validating properly."""
@@ -113,4 +112,4 @@ class TestRegistryPackage(unittest.TestCase):
         registry_config['version'] += '7.1.1.'
 
         with self.assertRaises(ValidationError):
-            RegistryPackageManifest.from_dict(registry_config)
+            RegistryPackageManifestV1.from_dict(registry_config)

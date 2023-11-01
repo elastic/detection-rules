@@ -378,7 +378,7 @@ class Package(object):
 
     def _generate_registry_package(self, save_dir):
         """Generate the artifact for the oob package-storage."""
-        from .schemas.registry_package import (RegistryPackageManifest,
+        from .schemas.registry_package import (RegistryPackageManifestV1,
                                                RegistryPackageManifestV3)
 
         # 8.12.0+ we use elastic package v3
@@ -386,7 +386,7 @@ class Package(object):
         if stack_version >= Version.parse('8.12.0'):
             manifest = RegistryPackageManifestV3.from_dict(self.registry_data)
         else:
-            manifest = RegistryPackageManifest.from_dict(self.registry_data)
+            manifest = RegistryPackageManifestV1.from_dict(self.registry_data)
 
         package_dir = Path(save_dir) / 'fleet' / manifest.version
         docs_dir = package_dir / 'docs'
