@@ -10,22 +10,25 @@ from typing import Dict, List, Optional
 
 from .definitions import ConditionSemVer, SemVer
 from ..mixins import MarshmallowDataclassMixin
-from marshmallow_dataclass import field_for_schema
+
 
 @dataclass
 class ConditionElastic:
     subscription: str
+
 
 @dataclass
 class Condition:
     kibana_version: str = field(metadata={"data_key": "kibana.version"})
     elastic: ConditionElastic
 
+
 @dataclass
 class Icon:
     size: str
     src: str
     type: str
+
 
 @dataclass
 class RegistryPackageManifest(MarshmallowDataclassMixin):
