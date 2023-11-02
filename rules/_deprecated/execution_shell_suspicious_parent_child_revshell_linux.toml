@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2023/07/04"
+deprecation_date = "2023/11/02"
 integration = ["endpoint"]
-maturity = "production"
+maturity = "deprecated"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 updated_date = "2023/11/02"
@@ -9,22 +10,22 @@ updated_date = "2023/11/02"
 [rule]
 author = ["Elastic"]
 description = """
-This detection rule identifies suspicious network traffic patterns associated with TCP reverse shell activity. This
-activity consists of a parent-child relationship where a network event is followed by the creation of a shell process.
-An attacker may establish a Linux TCP reverse shell to gain remote access to a target system.
+This detection rule detects the creation of a shell through a suspicious parent child relationship. Any reverse shells
+spawned by the specified utilities that use a forked process to initialize the connection attempt will be captured
+through this rule. Attackers may spawn reverse shells to establish persistence onto a target system.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Potential Reverse Shell"
+name = "Deprecated - Potential Reverse Shell via Suspicious Parent Process"
+note = "This rule was deprecated due to its addition to the umbrella `Potential Reverse Shell via Suspicious Child Process` (76e4d92b-61c1-4a95-ab61-5fd94179a1ee) rule."
 references = [
-    "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md"
+    "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md",
 ]
 risk_score = 47
-rule_id = "48b3d2e3-f4e8-41e6-95e6-9b2091228db3"
+rule_id = "4b1a807a-4e7b-414e-8cea-24bf580f6fc5"
 setup = """
-
 This rule requires data coming in from Elastic Defend.
 
 ### Elastic Defend Integration Setup
@@ -48,55 +49,63 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - Click Save and Continue.
 - To complete the integration, select Add Elastic Agent to your hosts and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-
 """
 severity = "medium"
 tags = [
-        "Domain: Endpoint",
-        "OS: Linux",
-        "Use Case: Threat Detection",
-        "Tactic: Execution",
-        "Data Source: Elastic Defend"
-        ]
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+]
 type = "eql"
+
 query = '''
-sequence by host.id with maxspan=5s
-  [network where event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and 
-   process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat") and destination.ip != null and 
-   not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")] by process.entity_id
-  [process where event.type == "start" and event.action in ("exec", "fork") and 
-   process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and (
-     (process.args : ("-i", "-l")) or (process.parent.name == "socat" and process.parent.args : "*exec*")
-   )] by process.parent.entity_id
+sequence by host.id, process.parent.entity_id with maxspan=1s
+[ process where host.os.type == "linux" and event.type == "start" and event.action == "fork" and (
+  (process.name : "python*" and process.args == "-c" and not process.args == "/usr/bin/supervisord") or
+  (process.name : "php*" and process.args == "-r") or
+  (process.name : "perl" and process.args == "-e") or
+  (process.name : "ruby" and process.args in ("-e", "-rsocket")) or
+  (process.name : "lua*" and process.args == "-e") or
+  (process.name : "openssl" and process.args : "-connect") or
+  (process.name : ("nc", "ncat", "netcat") and process.args_count >= 3 and not process.args == "-z") or
+  (process.name : "telnet" and process.args_count >= 3) or
+  (process.name : "awk")) and 
+  process.parent.name : ("python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk") ]
+[ network where host.os.type == "linux" and event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and 
+  process.name : ("python*", "php*", "perl", "ruby", "lua*", "openssl", "nc", "netcat", "ncat", "telnet", "awk") and
+  destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1" ]
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-name = "Execution"
-id = "TA0002"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
+
 
 [rule.threat.tactic]
-name = "Command and Control"
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+
+[rule.threat.tactic]
 id = "TA0011"
+name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
-[[rule.threat.technique]]
-name = "Application Layer Protocol"
-id = "T1071"
-reference = "https://attack.mitre.org/techniques/T1071/"
