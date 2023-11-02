@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/10/23"
 
 [rule]
 author = ["Elastic"]
@@ -54,7 +54,11 @@ Attackers can abuse PowerShell capabilities and take screen captures of desktops
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
-## Setup
+"""
+references = ["https://docs.microsoft.com/en-us/dotnet/api/system.drawing.graphics.copyfromscreen"]
+risk_score = 47
+rule_id = "959a7353-1129-4aa7-9084-30746b256a70"
+setup="""
 
 The 'PowerShell Script Block Logging' logging policy must be enabled.
 Steps to implement the logging policy with with Advanced Audit Configuration:
@@ -72,9 +76,6 @@ Steps to implement the logging policy via registry:
 reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
 ```
 """
-references = ["https://docs.microsoft.com/en-us/dotnet/api/system.drawing.graphics.copyfromscreen"]
-risk_score = 47
-rule_id = "959a7353-1129-4aa7-9084-30746b256a70"
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Collection", "Resources: Investigation Guide", "Data Source: PowerShell Logs"]
 timestamp_override = "event.ingested"
