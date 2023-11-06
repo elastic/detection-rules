@@ -24,7 +24,7 @@ ROOT_DIR = Path(__file__).parent
 EXE_FILE = common.get_path("bin", "renamed.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
 
     fake_word = ROOT_DIR / "winword.exe"

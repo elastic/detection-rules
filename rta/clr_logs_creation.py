@@ -3,10 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-from . import common
-from . import RtaMetadata
-import os
+from pathlib import Path
 
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="9bf3622b-dd76-4156-a89c-6845dca46b1f",
@@ -25,14 +24,14 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     msxsl = "C:\\Users\\Public\\msxsl.exe"
     fake_clr_path = "C:\\Users\\Administrator\\AppData\\Local\\Microsoft\\CLR_v4.0\\UsageLogs"
     fake_clr_logs = fake_clr_path + "\\msxsl.exe.log"
     common.copy_file(EXE_FILE, msxsl)
 
-    os.makedirs(fake_clr_path, exist_ok=True)
+    Path(fake_clr_path).mkdir(parents=True, exist_ok=True)
     common.log("Creating a fake clr log file")
     common.execute([msxsl, "-c", f"echo RTA > {fake_clr_logs}"], timeout=10)
     common.remove_files(msxsl, fake_clr_logs)

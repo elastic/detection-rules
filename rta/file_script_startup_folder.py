@@ -3,9 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-from . import common
-from . import RtaMetadata
-import os
+from pathlib import Path
+
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="b8dcb997-e099-472e-8f2f-15a80c8dfe1a",
@@ -26,13 +26,13 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     proc = "C:\\Users\\Public\\proc.exe"
     path = "C:\\Users\\Public\\AppData\\Roaming\\Microsoft\\Windows\\'Start Menu'\\Programs\\Startup\\"
     file = path + "\\a.js"
     common.copy_file(EXE_FILE, proc)
-    os.makedirs(path, exist_ok=True)
+    Path(path).mkdir(parents=True, exist_ok=True)
 
     common.execute([proc, "/c", f"Copy-Item {EXE_FILE} {file}"], timeout=10)
     common.remove_files(proc, file)
