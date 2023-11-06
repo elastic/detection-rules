@@ -458,14 +458,24 @@ class ElasticsearchClientSingleton:
             if cls._instance is None:
                 cls._instance = super(ElasticsearchClientSingleton, cls).__new__(cls)
                 # Initialize the client here
-                # export DR_CLOUD_ID=""
+                # export DR_CLOUD_ID="" or export DR_ELASTICSEARCH_URL
                 # export DR_ES_PASSWORD=""
                 # export DR_ES_USER=""
                 es_client_args = {
-                    "cloud_id": getdefault('cloud_id')(),
                     "es_password": getdefault("es_password")(),
                     "es_user": getdefault("es_user")()
                 }
+
+                cloud_id = getdefault('cloud_id')()
+                elasticsearch_url = getdefault('elasticsearch_url')()
+
+                if cloud_id:
+                    es_client_args["cloud_id"] = cloud_id
+                elif not cloud_id and elasticsearch_url:
+                    es_client_args["elasticsearch_url"] = elasticsearch_url
+                else:
+                    raise ClientError("Either the cloud_id or elasticsearch_url must be set.")
+
                 cls._instance.client = get_elasticsearch_client(**es_client_args)
         return cls._instance
 
