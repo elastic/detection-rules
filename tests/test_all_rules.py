@@ -27,7 +27,7 @@ from detection_rules.packaging import current_stack_version
 from detection_rules.rule import (QueryRuleData, QueryValidator,
                                   TOMLRuleContents)
 from detection_rules.rule_loader import FILE_PATTERN
-from detection_rules.rule_validators import EQLValidator, KQLValidator
+from detection_rules.rule_validators import EQLValidator, ESQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_stack_schemas
 from detection_rules.utils import (INTEGRATION_RULE_DIR, PatchedTemplate,
                                    get_path, load_etc_dump)
@@ -816,8 +816,10 @@ class TestRuleMetadata(BaseRuleTest):
                 # Need to pick validator based on language
                 if rule.contents.data.language == "kuery":
                     test_validator = KQLValidator(rule.contents.data.query)
-                if rule.contents.data.language == "eql":
+                elif rule.contents.data.language == "eql":
                     test_validator = EQLValidator(rule.contents.data.query)
+                elif rule.contents.data.language == "esql":
+                    test_validator = ESQLValidator(rule.contents.data.query)
                 data = rule.contents.data
                 meta = rule.contents.metadata
                 if meta.query_schema_validation is not False or meta.maturity != "deprecated":

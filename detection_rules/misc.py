@@ -11,6 +11,7 @@ import uuid
 from pathlib import Path
 
 from functools import wraps
+from threading import Lock
 from typing import NoReturn
 
 import click
@@ -446,3 +447,28 @@ def add_client(*client_type, add_to_ctx=True, add_func_arg=True):
         return _wrapped
 
     return _wrapper
+
+
+class ElasticsearchClientSingleton:
+    _instance = None
+    _lock = Lock()
+
+    def __new__(cls, *args, **kwargs):
+        with cls._lock:  # ensures thread-safe singleton initialization
+            if cls._instance is None:
+                cls._instance = super(ElasticsearchClientSingleton, cls).__new__(cls)
+                # Initialize the client here
+                # export DR_CLOUD_ID=""
+                # export DR_ES_PASSWORD=""
+                # export DR_ES_USER=""
+                es_client_args = {
+                    "cloud_id": getdefault('cloud_id')(),
+                    "es_password": getdefault("es_password")(),
+                    "es_user": getdefault("es_user")()
+                }
+                cls._instance.client = get_elasticsearch_client(**es_client_args)
+        return cls._instance
+
+    @classmethod
+    def get_client(cls):
+        return cls()._instance.client
