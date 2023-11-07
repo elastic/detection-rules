@@ -4,21 +4,23 @@
 # 2.0.
 
 """Validation logic for rules containing queries."""
+import re
 from functools import cached_property
-from typing import List, Optional, Union, Tuple
-from semver import Version
+from typing import List, Optional, Tuple, Union
 
 import eql
-
 from marshmallow import ValidationError
+from semver import Version
 
 import kql
 
 from . import ecs, endgame
-from .integrations import get_integration_schema_data, load_integrations_manifests
+from .integrations import (get_integration_schema_data,
+                           load_integrations_manifests)
 from .misc import ElasticsearchClientSingleton, load_current_package_version
+from .rule import (EQLRuleData, QueryRuleData, QueryValidator, RuleMeta,
+                   TOMLRuleContents, set_eql_config)
 from .schemas import get_stack_schemas
-from .rule import QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, EQLRuleData, set_eql_config
 
 EQL_ERROR_TYPES = Union[eql.EqlCompileError,
                         eql.EqlError,
@@ -358,9 +360,14 @@ class ESQLValidator(QueryValidator):
 
         client = ElasticsearchClientSingleton.get_client()
         client.info()
+
+        # temporarily swap index to bypass unknown column data issues
+        pattern = r"from .*?\.\*"
+        replacement = r"from .alerts-security.alerts-default"
+        new_query = re.sub(pattern, replacement, self.query)
         client.perform_request("POST", "/_query", params={"pretty": True},
                                headers={"accept": "application/json", "content-type": "application/json"},
-                               body={"query": f"{self.query} | LIMIT 0"})
+                               body={"query": f"{new_query} | LIMIT 0"})
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
