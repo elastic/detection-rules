@@ -35,19 +35,18 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: "okta.system" and
-    (okta.debug_context.debug_data.request_uri: "/oauth2/v1/authorize/callback" and (
-        (not okta.authentication_context.issuer.id: "Okta" and event.action: ("user.authentication.auth_via_social"
-            or "user.authentication.auth_via_IDP"
-            or "user.authentication.auth_via_inbound_SAML"
-            or "user.authentication.auth_via_mfa"))
-        or event.action: "user.session.start"))
-    or (event.action: "user.authentication.auth_via_IDP" and okta.outcome.result: "FAILURE"
-        and okta.outcome.reason: ("Unable to match transformed username"
+event.dataset:okta.system and okta.debug_context.debug_data.request_uri:/oauth2/v1/authorize/callback and
+    (not okta.authentication_context.issuer.id:Okta and event.action:(user.authentication.auth_via_IDP
+        or user.authentication.auth_via_inbound_SAML
+        or user.authentication.auth_via_mfa
+        or user.authentication.auth_via_social)
+        or event.action:user.session.start) or
+    (event.action:user.authentication.auth_via_IDP and okta.outcome.result:FAILURE
+        and okta.outcome.reason:("A SAML assert with the same ID has already been processed by Okta for a previous request"
+            or "Unable to match transformed username"
             or "Unable to resolve IdP endpoint"
-            or "Unable to validate incoming SAML Assertion"
-            or "A SAML assert with the same ID has already been processed by Okta for a previous request"
-            or "Unable to validate SAML Response"))
+            or "Unable to validate SAML Response"
+            or "Unable to validate incoming SAML Assertion"))
 '''
 
 [[rule.threat]]
