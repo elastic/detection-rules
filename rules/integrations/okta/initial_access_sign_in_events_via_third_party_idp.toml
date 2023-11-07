@@ -1,0 +1,64 @@
+[metadata]
+created_date = "2023/11/06"
+integration = ["okta"]
+maturity = "production"
+min_stack_comments = "Breaking change in Okta integration bumping version to ^2.0.0"
+min_stack_version = "8.10.0"
+updated_date = "2023/11/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects sign-in events where authentication is carried out via a third-party Identity Provider (IdP).
+"""
+from = "now-30m"
+index = ["filebeat-*", "logs-okta*"]
+interval = "15m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Okta Sign-In Events via Third-Party IdP"
+note = """## Triage and analysis
+Monitoring sign-ins from third-party IdPs can help ensure that users are only using approved providers.
+
+Validate any such activity against approved third-party IdPs and check for subsequent activities post-authentication, especially if the third-party IdP isn't recognized."""
+references = [
+    "https://blog.cloudflare.com/cloudflare-investigation-of-the-january-2022-okta-compromise/",
+    "https://www.elastic.co/security-labs/testing-okta-visibility-and-detection-dorothy",
+    "https://sec.okta.com/articles/2023/08/cross-tenant-impersonation-prevention-and-detection",
+    "https://unit42.paloaltonetworks.com/muddled-libra/"
+]
+risk_score = 47
+rule_id = "1ceb05c4-7d25-11ee-9562-f661ea17fbcd"
+severity = "medium"
+tags = ["Use Case: Identity and Access Audit", "Tactic: Initial Access", "Data Source: Okta"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "okta.system" and
+    (okta.debug_context.debug_data.request_uri: "/oauth2/v1/authorize/callback" and (
+        (not okta.authentication_context.issuer.id: "Okta" and event.action: ("user.authentication.auth_via_social"
+            or "user.authentication.auth_via_IDP"
+            or "user.authentication.auth_via_inbound_SAML"
+            or "user.authentication.auth_via_mfa"))
+        or event.action: "user.session.start"))
+    or (event.action: "user.authentication.auth_via_IDP" and okta.outcome.result: "FAILURE"
+        and okta.outcome.reason: ("Unable to match transformed username"
+            or "Unable to resolve IdP endpoint"
+            or "Unable to validate incoming SAML Assertion"
+            or "A SAML assert with the same ID has already been processed by Okta for a previous request"
+            or "Unable to validate SAML Response"))
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1199"
+name = "Trusted Relationship"
+reference = "https://attack.mitre.org/techniques/T1199/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
