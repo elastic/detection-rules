@@ -4,7 +4,7 @@
 # 2.0.
 
 """Validation logic for rules containing queries."""
-import re
+import os
 from functools import cached_property
 from typing import List, Optional, Tuple, Union
 
@@ -355,6 +355,9 @@ class ESQLValidator(QueryValidator):
 
     def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
         """Validate an ESQL query while checking TOMLRule."""
+        if not os.environ.get("DR_VALIDATE_ESQL"):
+            return
+
         if Version.parse(meta.min_stack_version) < Version.parse("8.11.0"):
             raise ValidationError(f"Rule minstack must be greater than 8.10.0 {data.rule_id}")
 

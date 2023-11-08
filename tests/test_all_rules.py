@@ -26,7 +26,7 @@ from detection_rules.misc import load_current_package_version
 from detection_rules.packaging import current_stack_version
 from detection_rules.rule import (QueryRuleData, QueryValidator,
                                   TOMLRuleContents)
-from detection_rules.rule_loader import FILE_PATTERN
+from detection_rules.rule_loader import DEFAULT_RULES_DIR, FILE_PATTERN, RuleCollection
 from detection_rules.rule_validators import EQLValidator, ESQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_stack_schemas
 from detection_rules.utils import (INTEGRATION_RULE_DIR, PatchedTemplate,
@@ -1419,3 +1419,25 @@ class TestNewTerms(BaseRuleTest):
             if rule.contents.data.type == "new_terms":
                 assert len(set(rule.contents.data.new_terms.value)) == len(rule.contents.data.new_terms.value), \
                     f"new terms fields values are not unique - {rule.contents.data.new_terms.value}"
+
+
+class TestESQLRules:
+    """Test ESQL Rules."""
+
+    @unittest.skipIf(not os.environ.get("DR_VALIDATE_ESQL"),
+                     "Test only run when DR_VALIDATE_ESQL environment variable set.")
+    def test_environment_variables_set(self):
+        assert os.environ.get("DR_ES_USER") is not None
+        assert (os.environ.get("DR_CLOUD_ID") is not None or os.environ.get("DR_ELASTICSEARCH_URL") is not None)
+
+        # Rule loader is too slow, so loading rules by path
+        collection = RuleCollection()
+
+        # Iterate over all .toml files in the given directory recursively
+        for rule in Path(DEFAULT_RULES_DIR).rglob('*.toml'):
+            # Read file content
+            content = rule.read_text(encoding='utf-8')
+            # Search for the pattern
+            if re.search(r'language = "esql"', content):
+                print(f"Validating {str(rule)}")
+                collection.load_file(rule)

@@ -458,6 +458,7 @@ class ElasticsearchClientSingleton:
             if cls._instance is None:
                 cls._instance = super(ElasticsearchClientSingleton, cls).__new__(cls)
                 # Initialize the client here
+                # export DR_VALIDATE_ESQL=true
                 # export DR_CLOUD_ID="" or export DR_ELASTICSEARCH_URL
                 # export DR_ES_PASSWORD=""
                 # export DR_ES_USER=""
