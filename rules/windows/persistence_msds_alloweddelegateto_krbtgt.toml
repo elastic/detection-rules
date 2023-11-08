@@ -4,7 +4,7 @@ integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/10/23"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,13 @@ index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "KRBTGT Delegation Backdoor"
-note = """## Setup
+references = [
+    "https://skyblue.team/posts/delegate-krbtgt",
+    "https://github.com/atc-project/atomic-threat-coverage/blob/master/Atomic_Threat_Coverage/Logging_Policies/LP_0026_windows_audit_user_account_management.md",
+]
+risk_score = 73
+rule_id = "e052c845-48d0-4f46-8a13-7d0aba05df82"
+setup = """
 
 The 'Audit User Account Management' logging policy must be configured for (Success, Failure).
 Steps to implement the logging policy with Advanced Audit Configuration:
@@ -33,12 +39,6 @@ Account Management >
 Audit User Account Management (Success,Failure)
 ```
 """
-references = [
-    "https://skyblue.team/posts/delegate-krbtgt",
-    "https://github.com/atc-project/atomic-threat-coverage/blob/master/Atomic_Threat_Coverage/Logging_Policies/LP_0026_windows_audit_user_account_management.md",
-]
-risk_score = 73
-rule_id = "e052c845-48d0-4f46-8a13-7d0aba05df82"
 severity = "high"
 tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Use Case: Active Directory Monitoring", "Data Source: Active Directory"]
 timestamp_override = "event.ingested"
