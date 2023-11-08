@@ -360,14 +360,9 @@ class ESQLValidator(QueryValidator):
 
         client = ElasticsearchClientSingleton.get_client()
         client.info()
-
-        # temporarily swap index to bypass unknown column data issues
-        pattern = r"from .*?\.\*"
-        replacement = r"from .alerts-security.alerts-default"
-        new_query = re.sub(pattern, replacement, self.query)
         client.perform_request("POST", "/_query", params={"pretty": True},
                                headers={"accept": "application/json", "content-type": "application/json"},
-                               body={"query": f"{new_query} | LIMIT 0"})
+                               body={"query": f"{self.query} | LIMIT 0"})
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
