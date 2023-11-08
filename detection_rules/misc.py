@@ -463,7 +463,8 @@ class ElasticsearchClientSingleton:
                 # export DR_ES_USER=""
                 es_client_args = {
                     "es_password": getdefault("es_password")(),
-                    "es_user": getdefault("es_user")()
+                    "es_user": getdefault("es_user")(),
+                    "ignore_ssl_errors": True  # TODO: make optional
                 }
 
                 cloud_id = getdefault('cloud_id')()
