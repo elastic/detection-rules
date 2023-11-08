@@ -1,0 +1,40 @@
+[metadata]
+creation_date = "2023/11/08"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_version = "8.11.0"
+min_stack_comments = "ES|QL Rule"
+updated_date = "2023/11/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects processes with an unusually deep ancestry chain, which may indicate sophisticated evasion techniques where malicious processes are spawned in a deeply nested fashion to avoid detection.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "esql"
+license = "Elastic License v2"
+name = "Anomalous Process Ancestry Depth"
+risk_score = 47
+rule_id = "ab888a52-1488-40c0-a37c-d5baa5e4d541"
+severity = "medium"
+tags = ["Data Source: Elastic Endpoint", "Domain: Endpoint", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "OS: Windows"]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from .ds-logs-endpoint.events.process*
+    | where event.category == "process" and event.action == "start"
+    | eval ancestry = MV_CONCAT(TO_STRING(process.Ext.ancestry), ",")
+    | eval ancestry_depth = length(ancestry)/84
+    | where ancestry_depth > 5
+    | keep ancestry_depth, process.name, process.parent.name
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

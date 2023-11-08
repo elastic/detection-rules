@@ -1,0 +1,39 @@
+[metadata]
+creation_date = "2023/11/08"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_version = "8.11.0"
+min_stack_comments = "ES|QL Rule"
+updated_date = "2023/11/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the frequent usage of the VirtualProtect API by processes where the DLL making the call has a non-trusted signature, which may indicate an attempt to modify memory protections for executing code, commonly seen in exploitation or persistence mechanisms.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.library-*"]
+language = "esql"
+license = "Elastic License v2"
+name = "Frequent VirtualProtect API Calls by Untrusted DLLs"
+risk_score = 47
+rule_id = "2f277709-3d0f-4724-a010-9745f81dc844"
+severity = "medium"
+tags = ["Data Source: Elastic Endpoint", "Domain: Endpoint", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend", "OS: Windows"]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from .ds-logs-endpoint.events.library-*
+    | where event.action == "load" and process.code_signature.status == "trusted" and dll.code_signature.status != "trusted"
+    | ENRICH libs-policy
+    | where native == "yes" and not dll.path like "?:?Windows?assembly?NativeImages*"
+    | keep dll.name, process.executable, dll.path
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
