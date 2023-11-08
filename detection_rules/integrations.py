@@ -23,6 +23,7 @@ from . import ecs
 from .beats import flatten_ecs_schema
 from .misc import load_current_package_version
 from .utils import cached, get_etc_path, read_gzip, unzip
+from .schemas import definitions
 
 MANIFEST_FILE_PATH = Path(get_etc_path('integration-manifests.json.gz'))
 SCHEMA_FILE_PATH = Path(get_etc_path('integration-schemas.json.gz'))
@@ -47,23 +48,33 @@ class IntegrationManifestSchema(Schema):
     description = fields.Str(required=True)
     download = fields.Str(required=True)
     conditions = fields.Dict(required=True)
-    policy_templates = fields.List(fields.Dict, required=True)
+    policy_templates = fields.List(fields.Dict)
     owner = fields.Dict(required=False)
 
     @post_load
     def transform_policy_template(self, data, **kwargs):
-        data["policy_templates"] = [policy["name"] for policy in data["policy_templates"]]
+        if "policy_templates" in data:
+            data["policy_templates"] = [policy["name"] for policy in data["policy_templates"]]
         return data
 
 
-def build_integrations_manifest(overwrite: bool, rule_integrations: list) -> None:
+def build_integrations_manifest(overwrite: bool, rule_integrations: list = [], integration: str = None) -> None:
     """Builds a new local copy of manifest.yaml from integrations Github."""
+
+    def write_manifests(integrations: dict) -> None:
+        manifest_file = gzip.open(MANIFEST_FILE_PATH, "w+")
+        manifest_file_bytes = json.dumps(integrations).encode("utf-8")
+        manifest_file.write(manifest_file_bytes)
+        manifest_file.close()
+
     if overwrite:
         if MANIFEST_FILE_PATH.exists():
             MANIFEST_FILE_PATH.unlink()
 
-    final_integration_manifests = {integration: {} for integration in rule_integrations}
+    final_integration_manifests = {integration: {} for integration in rule_integrations} \
+        or {integration: {}}
 
+    rule_integrations = rule_integrations or [integration]
     for integration in rule_integrations:
         integration_manifests = get_integration_manifests(integration)
         for manifest in integration_manifests:
@@ -71,26 +82,42 @@ def build_integrations_manifest(overwrite: bool, rule_integrations: list) -> Non
             package_version = validated_manifest.pop("version")
             final_integration_manifests[integration][package_version] = validated_manifest
 
-    manifest_file = gzip.open(MANIFEST_FILE_PATH, "w+")
-    manifest_file_bytes = json.dumps(final_integration_manifests).encode("utf-8")
-    manifest_file.write(manifest_file_bytes)
+    if overwrite and rule_integrations:
+        write_manifests(final_integration_manifests)
+    elif integration and not overwrite:
+        manifest_file = gzip.open(MANIFEST_FILE_PATH, "rb")
+        manifest_file_bytes = manifest_file.read()
+        manifest_file_contents = json.loads(manifest_file_bytes.decode("utf-8"))
+        manifest_file.close()
+        manifest_file_contents[integration] = final_integration_manifests[integration]
+        write_manifests(manifest_file_contents)
+
     print(f"final integrations manifests dumped: {MANIFEST_FILE_PATH}")
 
 
-def build_integrations_schemas(overwrite: bool) -> None:
+def build_integrations_schemas(overwrite: bool, integration: str = None) -> None:
     """Builds a new local copy of integration-schemas.json.gz from EPR integrations."""
 
-    final_integration_schemas = {}
     saved_integration_schemas = {}
 
     # Check if the file already exists and handle accordingly
     if overwrite and SCHEMA_FILE_PATH.exists():
         SCHEMA_FILE_PATH.unlink()
+        final_integration_schemas = {}
     elif SCHEMA_FILE_PATH.exists():
-        saved_integration_schemas = load_integrations_schemas()
+        final_integration_schemas = load_integrations_schemas()
+    else:
+        final_integration_schemas = {}
 
     # Load the integration manifests
     integration_manifests = load_integrations_manifests()
+
+    # if a single integration is specified, only process that integration
+    if integration:
+        if integration in integration_manifests:
+            integration_manifests = {integration: integration_manifests[integration]}
+        else:
+            raise ValueError(f"Integration {integration} not found in manifest.")
 
     # Loop through the packages and versions
     for package, versions in integration_manifests.items():
@@ -111,12 +138,12 @@ def build_integrations_schemas(overwrite: bool) -> None:
             # Open the zip file
             with unzip(response.content) as zip_ref:
                 for file in zip_ref.namelist():
+                    file_data_bytes = zip_ref.read(file)
                     # Check if the file is a match
                     if glob.fnmatch.fnmatch(file, '*/fields/*.yml'):
                         integration_name = Path(file).parent.parent.name
                         final_integration_schemas[package][version].setdefault(integration_name, {})
-                        file_data = zip_ref.read(file)
-                        schema_fields = yaml.safe_load(file_data)
+                        schema_fields = yaml.safe_load(file_data_bytes)
 
                         # Parse the schema and add to the integration_manifests
                         data = flatten_ecs_schema(schema_fields)
@@ -124,7 +151,14 @@ def build_integrations_schemas(overwrite: bool) -> None:
 
                         final_integration_schemas[package][version][integration_name].update(flat_data)
 
-                        del file_data
+                    # add machine learning jobs to the schema
+                    if integration in list(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)):
+                        if glob.fnmatch.fnmatch(file, '*/ml_module/*ml.json'):
+                            ml_module = json.loads(file_data_bytes)
+                            job_ids = [job['id'] for job in ml_module['attributes']['jobs']]
+                            final_integration_schemas[package][version]['jobs'] = job_ids
+
+                    del file_data_bytes
 
     # Write the final integration schemas to disk
     with gzip.open(SCHEMA_FILE_PATH, "w") as schema_file:
@@ -301,7 +335,9 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
                 if integration is None:
                     # Use all fields from each dataset
                     for dataset in integrations_schemas[package][package_version]:
-                        schema.update(integrations_schemas[package][package_version][dataset])
+                        # ignore jobs from machine learning packages
+                        if dataset != "jobs":
+                            schema.update(integrations_schemas[package][package_version][dataset])
                 else:
                     if integration not in integrations_schemas[package][package_version]:
                         raise ValueError(f"Integration {integration} not found in package {package} "

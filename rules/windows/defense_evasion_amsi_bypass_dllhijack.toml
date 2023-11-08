@@ -4,7 +4,7 @@ integration = ["windows", "endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/03/29"
+updated_date = "2023/08/30"
 
 [transform]
 [[transform.osquery]]
@@ -96,20 +96,20 @@ risk_score = 73
 rule_id = "fa488440-04cc-41d7-9279-539387bf2a17"
 severity = "high"
 tags = [
-    "Elastic",
-    "Host",
-    "Windows",
-    "Threat Detection",
-    "Defense Evasion",
-    "Elastic Endgame",
-    "Investigation Guide",
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 file where host.os.type == "windows" and event.action != "deletion" and file.path != null and
- file.name : ("amsi.dll", "amsi") and not file.path : ("?:\\Windows\\system32\\amsi.dll", "?:\\Windows\\Syswow64\\amsi.dll", "?:\\$WINDOWS.~BT\\NewOS\\Windows\\WinSXS\\*", "?:\\Windows\\SoftwareDistribuition\\Download\\*")
+ file.name : ("amsi.dll", "amsi") and not file.path : ("?:\\Windows\\system32\\amsi.dll", "?:\\Windows\\Syswow64\\amsi.dll", "?:\\$WINDOWS.~BT\\NewOS\\Windows\\WinSXS\\*", "?:\\$WINDOWS.~BT\\NewOS\\Windows\\servicing\\LCU\\*", "?:\\$WINDOWS.~BT\\Work\\*\\*", "?:\\Windows\\SoftwareDistribution\\Download\\*")
 '''
 
 

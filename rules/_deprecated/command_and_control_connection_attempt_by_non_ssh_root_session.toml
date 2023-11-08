@@ -1,0 +1,85 @@
+[metadata]
+creation_date = "2022/05/16"
+deprecation_date = "2023/07/31"
+integration = ["endpoint"]
+maturity = "deprecated"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/07/31"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an outbound network connection attempt followed by a session id change as the root user by the same process
+entity. This particular instantiation of a network connection is abnormal and should be investigated as it may indicate
+a potential reverse shell activity via a privileged process.
+"""
+false_positives = [
+    """
+    False-Positives (FP) can appear if another remote terminal service is being used to connect to it's listener but
+    typically SSH is used in these scenarios.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Network Connection Attempt by Root"
+note = """## Triage and analysis
+### Investigating Connection Attempt by Non-SSH Root Session
+Detection alerts from this rule indicate a strange or abnormal outbound connection attempt by a privileged process.  Here are some possible avenues of investigation:
+- Examine unusual and active sessions using commands such as 'last -a', 'netstat -a', and 'w -a'.
+- Analyze processes and command line arguments to detect anomalous process execution that may be acting as a listener.
+- Analyze anomalies in the use of files that do not normally initiate connections.
+- Examine processes utilizing the network that do not normally have network communication.
+"""
+references = [
+    "https://www.sandflysecurity.com/blog/linux-file-masquerading-and-malicious-pids-sandfly-1-2-6-update/",
+    "https://twitter.com/GossiTheDog/status/1522964028284411907",
+    "https://exatrack.com/public/Tricephalic_Hellkeeper.pdf",
+]
+risk_score = 47
+rule_id = "eb6a3790-d52d-11ec-8ce9-f661ea17fbce"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Command and Control"]
+type = "eql"
+
+query = '''
+sequence by process.entity_id with maxspan=1m
+[network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and user.id == "0" and
+    not process.executable : ("/bin/ssh", "/sbin/ssh", "/usr/lib/systemd/systemd", "/usr/sbin/sshd","/usr/bin/ssh","/usr/bin/sshpass")]
+[process where host.os.type == "linux" and event.action == "session_id_change" and user.id == "0" and
+    not process.executable : ("/bin/ssh", "/sbin/ssh", "/usr/lib/systemd/systemd", "/usr/sbin/sshd","/usr/bin/ssh","/usr/bin/sshpass")]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1095"
+name = "Non-Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1095/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+[[rule.threat.technique.subtechnique]]
+id = "T1548.003"
+name = "Sudo and Sudo Caching"
+reference = "https://attack.mitre.org/techniques/T1548/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

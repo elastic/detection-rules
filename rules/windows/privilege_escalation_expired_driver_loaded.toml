@@ -1,0 +1,65 @@
+[metadata]
+creation_date = "2023/06/26"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/10/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an attempt to load a revoked or expired driver. Adversaries may bring outdated drivers with vulnerabilities
+to gain code execution in kernel mode or abuse revoked certificates to sign their drivers.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Expired or Revoked Driver Loaded"
+references = [
+  "https://docs.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653559(v=vs.85)?redirectedfrom=MSDN"
+]
+risk_score = 21
+rule_id = "d12bac54-ab2a-4159-933f-d7bcefa7b61d"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+driver where host.os.type == "windows" and process.pid == 4 and
+  dll.code_signature.status : ("errorExpired", "errorRevoked")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1036.001"
+name = "Invalid Code Signature"
+reference = "https://attack.mitre.org/techniques/T1036/001/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

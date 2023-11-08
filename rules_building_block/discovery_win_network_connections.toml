@@ -1,0 +1,68 @@
+[metadata]
+creation_date = "2023/07/14"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/09/21"
+bypass_bbr_timing = true
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+This rule identifies the execution of commands that can be used to enumerate network connections. Adversaries may
+attempt to get a listing of network connections to or from a compromised system to identify targets within an environment.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Windows System Network Connections Discovery"
+risk_score = 21
+rule_id = "c4e9ed3e-55a2-4309-a012-bc3c78dad10a"
+severity = "low"
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Rule Type: BBR",
+        "Data Source: Elastic Defend"
+        ]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and
+(
+  process.name : "netstat.exe" or
+  (
+   (
+    (process.name : "net.exe" or process.pe.original_file_name == "net.exe") or
+    (
+     (process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and
+     not process.parent.name : "net.exe"
+    )
+   ) and process.args : ("use", "user", "session", "config") and not process.args: ("/persistent:*", "/delete", "\\\\*")
+  ) or
+  (process.name : "nbtstat.exe" and process.args : "-s*")
+) and not user.id : "S-1-5-18"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1049"
+name = "System Network Connections Discovery"
+reference = "https://attack.mitre.org/techniques/T1049/"
+
+[[rule.threat.technique]]
+id = "T1082"
+name = "System Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1082/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"

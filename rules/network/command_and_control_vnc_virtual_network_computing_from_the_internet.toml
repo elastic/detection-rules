@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint"]
+integration = ["network_traffic"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/08/17"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +23,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["auditbeat-*", "filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
+index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "VNC (Virtual Network Computing) from the Internet"
@@ -31,12 +31,13 @@ references = ["https://www.iana.org/assignments/iana-ipv4-special-registry/iana-
 risk_score = 73
 rule_id = "5700cb81-df44-46aa-a5d7-337798f53eb8"
 severity = "high"
-tags = ["Elastic", "Host", "Network", "Threat Detection", "Command and Control", "Host"]
+tags = ["Tactic: Command and Control", "Domain: Endpoint", "Use Case: Threat Detection"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:(network or network_traffic) and network.transport:tcp and destination.port >= 5800 and destination.port <= 5810 and
+(event.dataset: network_traffic.flow or (event.category: (network or network_traffic))) and
+  network.transport:tcp and destination.port >= 5800 and destination.port <= 5810 and
   not source.ip:(
     10.0.0.0/8 or
     127.0.0.0/8 or

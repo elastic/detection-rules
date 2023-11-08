@@ -1,0 +1,181 @@
+[metadata]
+creation_date = "2023/08/02"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/10/13"
+bypass_bbr_timing = true
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious instances of browser processes, such as unsigned or signed with unusual certificates, that can
+indicate an attempt to conceal malicious activity, bypass security features such as allowlists, or trick users into
+executing malware.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Masquerading as Browser Process"
+risk_score = 21
+rule_id = "5b9eb30f-87d6-45f4-9289-2bf2024f0376"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Tactic: Persistence", "Rule Type: BBR", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+building_block_type = "default"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  (
+    /* Chrome Related Processes */
+    (process.name : (
+      "chrome.exe", "GoogleUpdate.exe", "GoogleCrashHandler64.exe", "GoogleCrashHandler.exe",
+      "GoogleUpdateComRegisterShell64.exe", "GoogleUpdateSetup.exe", "GoogleUpdateOnDemand.exe",
+      "chrome_proxy.exe", "remote_assistance_host.exe", "remoting_native_messaging_host.exe",
+      "GoogleUpdateBroker.exe"
+     ) and not
+      (process.code_signature.subject_name : ("Google LLC", "Google Inc") and process.code_signature.trusted == true)
+     and not
+      (
+        process.executable : (
+          "?:\\Program Files\\HP\\Sure Click\\servers\\chrome.exe",
+          "?:\\Program Files\\HP\\Sure Click\\*\\servers\\chrome.exe"
+        ) and
+        process.code_signature.subject_name : ("Bromium, Inc.") and process.code_signature.trusted == true
+      ) and
+     not (
+       process.executable : (
+         "?:\\Users\\*\\AppData\\Local\\ms-playwright\\chromium-*\\chrome-win\\chrome.exe",
+         "?:\\Users\\*\\AppData\\Local\\Programs\\synthetics-recorder\\resources\\local-browsers\\chromium-*\\chrome-win\\chrome.exe",
+         "*\\node_modules\\puppeteer\\.local-chromium\\win64-*\\chrome-win\\chrome.exe",
+         "?:\\Program Files (x86)\\Invicti Professional Edition\\chromium\\chrome.exe",
+         "?:\\Program Files\\End2End, Inc\\ARMS Html Engine\\chrome.exe",
+         "?:\\Users\\*\\AppData\\Local\\*BurpSuitePro\\burpbrowser\\*\\chrome.exe",
+         "?:\\Users\\*\\AppData\\Roaming\\*BurpSuite\\burpbrowser\\*\\chrome.exe"
+       ) and process.args: (
+               "--enable-features=NetworkService,NetworkServiceInProcess",
+               "--type=crashpad-handler", "--enable-automation", "--disable-xss-auditor"
+             )
+     )
+    ) or
+
+    /* MS Edge Related Processes */
+    (process.name : (
+      "msedge.exe", "MicrosoftEdgeUpdate.exe", "identity_helper.exe", "msedgewebview2.exe",
+      "MicrosoftEdgeWebview2Setup.exe", "MicrosoftEdge_X*.exe", "msedge_proxy.exe",
+      "MicrosoftEdgeUpdateCore.exe", "MicrosoftEdgeUpdateBroker.exe", "MicrosoftEdgeUpdateSetup_X*.exe",
+      "MicrosoftEdgeUpdateComRegisterShell64.exe", "msedgerecovery.exe", "MicrosoftEdgeUpdateSetup.exe"
+     ) and not
+      (process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted == true)
+     and not
+      (
+        process.name : "msedgewebview2.exe" and
+        process.code_signature.subject_name : ("Bromium, Inc.") and process.code_signature.trusted == true
+      )
+    ) or
+
+    /* Brave Related Processes */
+    (process.name : (
+      "brave.exe", "BraveUpdate.exe", "BraveCrashHandler64.exe", "BraveCrashHandler.exe",
+      "BraveUpdateOnDemand.exe", "brave_vpn_helper.exe", "BraveUpdateSetup*.exe",
+      "BraveUpdateComRegisterShell64.exe"
+     ) and not
+      (process.code_signature.subject_name : "Brave Software, Inc." and process.code_signature.trusted == true)
+    ) or
+
+    /* Firefox Related Processes */
+    (process.name : (
+      "firefox.exe", "pingsender.exe", "default-browser-agent.exe", "maintenanceservice.exe",
+      "plugin-container.exe", "maintenanceservice_tmp.exe", "maintenanceservice_installer.exe",
+      "minidump-analyzer.exe"
+     ) and not
+      (process.code_signature.subject_name : "Mozilla Corporation" and process.code_signature.trusted == true)
+     and not
+      (
+        process.name : "default-browser-agent.exe" and
+        process.code_signature.subject_name : ("WATERFOX LIMITED") and process.code_signature.trusted == true
+      )
+    ) or
+
+    /* Island Related Processes */
+    (process.name : (
+      "Island.exe", "IslandUpdate.exe", "IslandCrashHandler.exe", "IslandCrashHandler64.exe",
+      "IslandUpdateBroker.exe", "IslandUpdateOnDemand.exe", "IslandUpdateComRegisterShell64.exe",
+      "IslandUpdateSetup.exe"
+     ) and not
+      (process.code_signature.subject_name : "Island Technology Inc." and process.code_signature.trusted == true)
+    ) or
+
+    /* Opera Related Processes */
+    (process.name : (
+      "opera.exe", "opera_*.exe", "browser_assistant.exe"
+     ) and not
+      (process.code_signature.subject_name : "Opera Norway AS" and process.code_signature.trusted == true)
+    ) or
+
+    /* Whale Related Processes */
+    (process.name : (
+      "whale.exe", "whale_update.exe", "wusvc.exe"
+     ) and not
+      (process.code_signature.subject_name : "NAVER Corp." and process.code_signature.trusted == true)
+    ) or
+
+    /* Chromium-based Browsers processes */
+    (process.name : (
+      "chrmstp.exe", "notification_helper.exe", "elevation_service.exe"
+     ) and not
+      (process.code_signature.subject_name : (
+        "Island Technology Inc.",
+        "Citrix Systems, Inc.",
+        "Brave Software, Inc.",
+        "Google LLC",
+        "Google Inc",
+        "Microsoft Corporation",
+        "NAVER Corp.",
+        "AVG Technologies USA, LLC",
+        "Avast Software s.r.o."
+       ) and process.code_signature.trusted == true
+      )
+    )
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1036.001"
+name = "Invalid Code Signature"
+reference = "https://attack.mitre.org/techniques/T1036/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1036.005"
+name = "Match Legitimate Name or Location"
+reference = "https://attack.mitre.org/techniques/T1036/005/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1554"
+name = "Compromise Client Software Binary"
+reference = "https://attack.mitre.org/techniques/T1554/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

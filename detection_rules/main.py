@@ -11,21 +11,25 @@ import os
 import re
 import time
 from datetime import datetime
+
+import pytoml
+from marshmallow_dataclass import class_schema
 from pathlib import Path
-from typing import Dict, Optional
+from semver import Version
+from typing import Dict, Iterable, List, Optional
 from uuid import uuid4
 
 import click
 
-
+from .attack import build_threat_map_entry
 from .cli_utils import rule_prompt, multi_collection
 from .mappings import build_coverage_map, get_triggered_rules, print_converage_summary
 from .misc import add_client, client_error, nested_set, parse_config, load_current_package_version
-from .rule import TOMLRule, TOMLRuleContents
+from .rule import TOMLRule, TOMLRuleContents, QueryRuleData
 from .rule_formatter import toml_write
 from .rule_loader import RuleCollection
-from .schemas import all_versions, definitions
-from .utils import get_path, get_etc_path, clear_caches, load_dump, load_rule_contents
+from .schemas import all_versions, definitions, get_incompatible_fields, get_schema_file
+from .utils import Ndjson, get_path, get_etc_path, clear_caches, load_dump, load_rule_contents
 
 RULES_DIR = get_path('rules')
 
@@ -92,7 +96,7 @@ def generate_rules_index(ctx: click.Context, query, overwrite, save_files=True):
 @click.argument('input-file', type=click.Path(dir_okay=False, exists=True), nargs=-1, required=False)
 @click.option('--directory', '-d', type=click.Path(file_okay=False, exists=True), help='Load files from a directory')
 def import_rules(input_file, directory):
-    """Import rules from json, toml, or Kibana exported rule file(s)."""
+    """Import rules from json, toml, yaml, or Kibana exported rule file(s)."""
     rule_files = glob.glob(os.path.join(directory, '**', '*.*'), recursive=True) if directory else []
     rule_files = sorted(set(rule_files + list(input_file)))
 
@@ -111,6 +115,60 @@ def import_rules(input_file, directory):
         base_path = name_to_filename(base_path) if base_path else base_path
         rule_path = os.path.join(RULES_DIR, base_path) if base_path else None
         rule_prompt(rule_path, required_only=True, save=True, verbose=True, additional_required=['index'], **contents)
+
+
+@root.command('build-limited-rules')
+@click.option('--stack-version', type=click.Choice(all_versions()), required=True,
+              help='Version to downgrade to be compatible with the older instance of Kibana')
+@click.option('--output-file', '-o', type=click.Path(dir_okay=False, exists=False), required=True)
+def build_limited_rules(stack_version: str, output_file: str):
+    """
+    Import rules from json, toml, or Kibana exported rule file(s),
+    filter out unsupported ones, and write to output NDJSON file.
+    """
+
+    # Schema generation and incompatible fields detection
+    query_rule_data = class_schema(QueryRuleData)()
+    fields = getattr(query_rule_data, 'fields', {})
+    incompatible_fields = get_incompatible_fields(list(fields.values()),
+                                                  Version.parse(stack_version, optional_minor_and_patch=True))
+
+    # Load all rules
+    rules = RuleCollection.default()
+
+    # Define output path
+    output_path = Path(output_file)
+
+    # Define ndjson instance for output
+    ndjson_output = Ndjson()
+
+    # Get API schema for rule type
+    api_schema = get_schema_file(stack_version, "base")["properties"]["type"]["enum"]
+
+    # Function to process each rule
+    def process_rule(rule, incompatible_fields: List[str]):
+        if rule.contents.type not in api_schema:
+            click.secho(f'{rule.contents.name} - Skipping unsupported rule type: {rule.contents.get("type")}',
+                        fg='yellow')
+            return None
+
+        # Remove unsupported fields from rule
+        rule_contents = rule.contents.to_api_format()
+        for field in incompatible_fields:
+            rule_contents.pop(field, None)
+
+        return rule_contents
+
+    # Process each rule and add to ndjson_output
+    for rule in rules.rules:
+        processed_rule = process_rule(rule, incompatible_fields)
+        if processed_rule is not None:
+            ndjson_output.append(processed_rule)
+
+    # Write ndjson_output to file
+    ndjson_output.dump(output_path)
+
+    click.echo(f'Success: Rules written to {output_file}')
 
 
 @root.command('toml-lint')
@@ -328,6 +386,19 @@ def search_rules(query, columns, language, count, verbose=True, rules: Dict[str,
         click.echo_via_pager(table) if pager else click.echo(table)
 
     return filtered
+
+
+@root.command('build-threat-map-entry')
+@click.argument('tactic')
+@click.argument('technique-ids', nargs=-1)
+def build_threat_map(tactic: str, technique_ids: Iterable[str]):
+    """Build a threat map entry."""
+    entry = build_threat_map_entry(tactic, *technique_ids)
+    rendered = pytoml.dumps({'rule': {'threat': [entry]}})
+    # strip out [rule]
+    cleaned = '\n'.join(rendered.splitlines()[2:])
+    print(cleaned)
+    return entry
 
 
 @root.command("test")

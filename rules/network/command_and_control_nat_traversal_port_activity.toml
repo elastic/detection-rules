@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint"]
+integration = ["network_traffic"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/08/17"
 
 [rule]
 author = ["Elastic"]
@@ -23,19 +23,19 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["auditbeat-*", "filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
+index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "IPSEC NAT Traversal Port Activity"
 risk_score = 21
 rule_id = "a9cb3641-ff4b-4cdc-a063-b4b8d02a67c7"
 severity = "low"
-tags = ["Elastic", "Host", "Network", "Threat Detection", "Command and Control", "Host"]
+tags = ["Tactic: Command and Control", "Domain: Endpoint", "Use Case: Threat Detection"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:(network or network_traffic) and network.transport:udp and destination.port:4500
+(event.dataset: network_traffic.flow or (event.category: (network or network_traffic))) and network.transport:udp and destination.port:4500
 '''
 
 

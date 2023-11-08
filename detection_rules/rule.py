@@ -31,9 +31,10 @@ from .misc import load_current_package_version
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
 from .schemas import (SCHEMA_DIR, definitions, downgrade,
-                      get_min_supported_stack_version, get_stack_schemas)
+                      get_min_supported_stack_version, get_stack_schemas,
+                      strip_non_public_fields)
 from .schemas.stack_compat import get_restricted_fields
-from .utils import cached, PatchedTemplate
+from .utils import cached, convert_time_span, PatchedTemplate
 
 _META_SCHEMA_REQ_DEFAULTS = {}
 MIN_FLEET_PACKAGE_VERSION = '7.13.0'
@@ -53,6 +54,7 @@ class RuleMeta(MarshmallowDataclassMixin):
     deprecation_date: Optional[definitions.Date]
 
     # Optional fields
+    bypass_bbr_timing: Optional[bool]
     comments: Optional[str]
     integration: Optional[Union[str, List[str]]]
     maturity: Optional[definitions.Maturity]
@@ -227,7 +229,8 @@ class AlertSuppressionMapping(MarshmallowDataclassMixin, StackCompatMixin):
         value: int
 
     group_by: List[definitions.NonEmptyStr]
-    duration: Optional[AlertSuppressionDuration] = field(metadata=dict(metadata=dict(min_compat="8.7")))
+    duration: Optional[AlertSuppressionDuration]
+    missing_fields_strategy: definitions.AlertSuppressionMissing
 
 
 @dataclass(frozen=True)
@@ -245,9 +248,8 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         integration: Optional[definitions.NonEmptyStr]
 
     actions: Optional[list]
-    alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.6")))
     author: List[str]
-    building_block_type: Optional[str]
+    building_block_type: Optional[definitions.BuildingBlockType]
     description: str
     enabled: Optional[bool]
     exceptions_list: Optional[list]
@@ -271,7 +273,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     risk_score_mapping: Optional[List[RiskScoreMapping]]
     rule_id: definitions.UUIDString
     rule_name_override: Optional[str]
-    setup: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.3")))
+    setup: Optional[definitions.Markdown] = field(metadata=dict(metadata=dict(min_compat="8.3")))
     severity_mapping: Optional[List[SeverityMapping]]
     severity: definitions.Severity
     tags: Optional[List[str]]
@@ -369,12 +371,18 @@ class DataValidator:
                  name: definitions.RuleName,
                  is_elastic_rule: bool,
                  note: Optional[definitions.Markdown] = None,
+                 interval: Optional[definitions.Interval] = None,
+                 building_block_type: Optional[definitions.BuildingBlockType] = None,
                  setup: Optional[str] = None,
                  **extras):
         # only define fields needing additional validation
         self.name = name
         self.is_elastic_rule = is_elastic_rule
         self.note = note
+        # Need to use extras because from is a reserved word in python
+        self.from_ = extras.get('from')
+        self.interval = interval
+        self.building_block_type = building_block_type
         self.setup = setup
         self._setup_in_note = False
 
@@ -394,6 +402,58 @@ class DataValidator:
     @cached_property
     def skip_validate_note(self) -> bool:
         return os.environ.get('DR_BYPASS_NOTE_VALIDATION_AND_PARSE') is not None
+
+    @cached_property
+    def skip_validate_bbr(self) -> bool:
+        return os.environ.get('DR_BYPASS_BBR_LOOKBACK_VALIDATION') is not None
+
+    def validate_bbr(self, bypass: bool = False):
+        """Validate building block type and rule type."""
+
+        if self.skip_validate_bbr or bypass:
+            return
+
+        def validate_lookback(str_time: str) -> bool:
+            """Validate that the time is at least now-119m and at least 60m respectively."""
+            try:
+                if "now-" in str_time:
+                    str_time = str_time[4:]
+                    time = convert_time_span(str_time)
+                    # if from time is less than 119m as milliseconds
+                    if time < 119 * 60 * 1000:
+                        return False
+                else:
+                    return False
+            except Exception as e:
+                raise ValidationError(f"Invalid time format: {e}")
+            return True
+
+        def validate_interval(str_time: str) -> bool:
+            """Validate that the time is at least now-119m and at least 60m respectively."""
+            try:
+                time = convert_time_span(str_time)
+                # if interval time is less than 60m as milliseconds
+                if time < 60 * 60 * 1000:
+                    return False
+            except Exception as e:
+                raise ValidationError(f"Invalid time format: {e}")
+            return True
+
+        bypass_instructions = "To bypass, use the environment variable `DR_BYPASS_BBR_LOOKBACK_VALIDATION`"
+        if self.building_block_type:
+            if not self.from_ or not self.interval:
+                raise ValidationError(
+                    f"{self.name} is invalid."
+                    "BBR require `from` and `interval` to be defined. "
+                    "Please set or bypass." + bypass_instructions
+                )
+            elif not validate_lookback(self.from_) or not validate_interval(self.interval):
+                raise ValidationError(
+                    f"{self.name} is invalid."
+                    "Default BBR require `from` and `interval` to be at least now-119m and at least 60m respectively "
+                    "(using the now-Xm and Xm format where x is in minuets). "
+                    "Please update values or bypass. " + bypass_instructions
+                )
 
     def validate_note(self):
         if self.skip_validate_note or not self.note:
@@ -501,6 +561,7 @@ class QueryRuleData(BaseRuleData):
     index: Optional[List[str]]
     query: str
     language: definitions.FilterLanguages
+    alert_suppression: Optional[AlertSuppressionMapping] = field(metadata=dict(metadata=dict(min_compat="8.8")))
 
     @cached_property
     def validator(self) -> Optional[QueryValidator]:
@@ -531,6 +592,14 @@ class QueryRuleData(BaseRuleData):
         validator = self.validator
         if validator is not None:
             return validator.get_required_fields(index or [])
+
+    @validates_schema
+    def validate_exceptions(self, data, **kwargs):
+        """Custom validation for query rule type and subclasses."""
+
+        # alert suppression is only valid for query rule type and not any of its subclasses
+        if data.get('alert_suppression') and data['type'] != 'query':
+            raise ValidationError("Alert suppression is only valid for query rule type.")
 
 
 @dataclass(frozen=True)
@@ -578,53 +647,6 @@ class NewTermsRuleData(QueryRuleData):
     type: Literal["new_terms"]
     new_terms: NewTermsMapping
 
-    def validate(self, meta: RuleMeta) -> None:
-        """Validates terms in new_terms_fields are valid ECS schema."""
-
-        kql_validator = KQLValidator(self.query)
-        kql_validator.validate(self, meta)
-        feature_min_stack = Version.parse('8.4.0')
-        feature_min_stack_extended_fields = Version.parse('8.6.0')
-
-        # validate history window start field exists and is correct
-        assert self.new_terms.history_window_start, \
-            "new terms field found with no history_window_start field defined"
-        assert self.new_terms.history_window_start[0].field == "history_window_start", \
-            f"{self.new_terms.history_window_start} should be 'history_window_start'"
-
-        # validate new terms and history window start fields is correct
-        assert self.new_terms.field == "new_terms_fields", \
-            f"{self.new_terms.field} should be 'new_terms_fields' for new_terms rule type"
-
-        # ecs validation
-        min_stack_version = meta.get("min_stack_version")
-        if min_stack_version is None:
-            min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-        else:
-            min_stack_version = Version.parse(min_stack_version)
-
-        assert min_stack_version >= feature_min_stack, \
-            f"New Terms rule types only compatible with {feature_min_stack}+"
-        ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
-        beats_version = get_stack_schemas()[str(min_stack_version)]['beats']
-
-        # checks if new terms field(s) are in ecs, beats or non-ecs schemas
-        _, _, schema = kql_validator.get_beats_schema(self.index or [], beats_version, ecs_version)
-
-        for new_terms_field in self.new_terms.value:
-            assert new_terms_field in schema.keys(), \
-                f"{new_terms_field} not found in ECS, Beats, or non-ecs schemas"
-
-        # validates length of new_terms to stack version - https://github.com/elastic/kibana/issues/142862
-        if min_stack_version >= feature_min_stack and \
-                min_stack_version < feature_min_stack_extended_fields:
-            assert len(self.new_terms.value) == 1, \
-                f"new terms have a max limit of 1 for stack versions below {feature_min_stack_extended_fields}"
-
-        # validate fields are unique
-        assert len(set(self.new_terms.value)) == len(self.new_terms.value), \
-            f"new terms fields values are not unique - {self.new_terms.value}"
-
     def transform(self, obj: dict) -> dict:
         """Transforms new terms data to API format for Kibana."""
 
@@ -639,13 +661,9 @@ class EQLRuleData(QueryRuleData):
     """EQL rules are a special case of query rules."""
     type: Literal["eql"]
     language: Literal["eql"]
-
-    @staticmethod
-    def convert_time_span(span: str) -> int:
-        """Convert time span in datemath to value in milliseconds."""
-        amount = int("".join(char for char in span if char.isdigit()))
-        unit = eql.ast.TimeUnit("".join(char for char in span if char.isalpha()))
-        return eql.ast.TimeRange(amount, unit).as_milliseconds()
+    timestamp_field: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.0")))
+    event_category_override: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.0")))
+    tiebreaker_field: Optional[str] = field(metadata=dict(metadata=dict(min_compat="8.0")))
 
     def convert_relative_delta(self, lookback: str) -> int:
         now = len("now")
@@ -655,10 +673,15 @@ class EQLRuleData(QueryRuleData):
             lookback = lookback[len("now"):]
             sign = lookback[0]  # + or -
             span = lookback[1:]
-            amount = self.convert_time_span(span)
+            amount = convert_time_span(span)
             return amount * (-1 if sign == "-" else 1)
         else:
-            return self.convert_time_span(lookback)
+            return convert_time_span(lookback)
+
+    @cached_property
+    def is_sample(self) -> bool:
+        """Checks if the current rule is a sample-based rule."""
+        return eql.utils.get_query_type(self.ast) == 'sample'
 
     @cached_property
     def is_sequence(self) -> bool:
@@ -687,7 +710,7 @@ class EQLRuleData(QueryRuleData):
     def interval_ratio(self) -> Optional[float]:
         """Ratio of interval time window / max_span time window."""
         if self.max_span:
-            interval = self.convert_time_span(self.interval or '5m')
+            interval = convert_time_span(self.interval or '5m')
             return interval / self.max_span
 
 
@@ -946,27 +969,35 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             current_stack_version = load_current_package_version()
 
             if self.check_restricted_field_version(field_name):
-                if isinstance(self.data, QueryRuleData) and self.data.language != 'lucene':
-                    package_integrations = self.get_packaged_integrations(self.data, self.metadata, packages_manifest)
+                if (isinstance(self.data, QueryRuleData) or isinstance(self.data, MachineLearningRuleData)):
+                    if (self.data.get('language') is not None and self.data.get('language') != 'lucene') or \
+                            self.data.get('type') == 'machine_learning':
+                        package_integrations = self.get_packaged_integrations(self.data, self.metadata,
+                                                                              packages_manifest)
 
-                    if not package_integrations:
-                        return
+                        if not package_integrations:
+                            return
 
-                    for package in package_integrations:
-                        package["version"] = find_least_compatible_version(
-                            package=package["package"],
-                            integration=package["integration"],
-                            current_stack_version=current_stack_version,
-                            packages_manifest=packages_manifest)
+                        for package in package_integrations:
+                            package["version"] = find_least_compatible_version(
+                                package=package["package"],
+                                integration=package["integration"],
+                                current_stack_version=current_stack_version,
+                                packages_manifest=packages_manifest)
 
-                        # if integration is not a policy template remove
-                        if package["version"]:
-                            policy_templates = packages_manifest[
-                                package["package"]][package["version"].strip("^")]["policy_templates"]
-                            if package["integration"] not in policy_templates:
-                                del package["integration"]
+                            # if integration is not a policy template remove
+                            if package["version"]:
+                                version_data = packages_manifest.get(package["package"],
+                                                                     {}).get(package["version"].strip("^"), {})
+                                policy_templates = version_data.get("policy_templates", [])
 
-                obj.setdefault("related_integrations", package_integrations)
+                                if package["integration"] not in policy_templates:
+                                    del package["integration"]
+
+                    # remove duplicate entries
+                    package_integrations = list({json.dumps(d, sort_keys=True):
+                                                d for d in package_integrations}.values())
+                    obj.setdefault("related_integrations", package_integrations)
 
     def _convert_add_required_fields(self, obj: dict) -> None:
         """Add restricted field required_fields to the obj, derived from the query AST."""
@@ -1059,14 +1090,18 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
                 datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
 
-        if not datasets:
-            # windows and endpoint integration do not have event.dataset fields in queries
-            # integration is None to remove duplicate references upstream in Kibana
-            rule_integrations = meta.get("integration", [])
-            if rule_integrations:
-                for integration in rule_integrations:
-                    if integration in definitions.NON_DATASET_PACKAGES:
-                        packaged_integrations.append({"package": integration, "integration": None})
+        # integration is None to remove duplicate references upstream in Kibana
+        # chronologically, event.dataset is checked for package:integration, then rule tags
+        # if both exist, rule tags are only used if defined in definitions for non-dataset packages
+        # of machine learning analytic packages
+
+        rule_integrations = meta.get("integration", [])
+        if rule_integrations:
+            for integration in rule_integrations:
+                ineligible_integrations = definitions.NON_DATASET_PACKAGES + \
+                    [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
+                if integration in ineligible_integrations or isinstance(data, MachineLearningRuleData):
+                    packaged_integrations.append({"package": integration, "integration": None})
 
         for value in sorted(datasets):
             integration = 'Unknown'
@@ -1088,6 +1123,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         data.validate_query(metadata)
         data.data_validator.validate_note()
+        data.data_validator.validate_bbr(metadata.get('bypass_bbr_timing'))
         data.validate(metadata) if hasattr(data, 'validate') else False
 
     def to_dict(self, strip_none_values=True) -> dict:
@@ -1241,14 +1277,40 @@ class DeprecatedRule(dict):
         return self.contents.name
 
 
-def downgrade_contents_from_rule(rule: TOMLRule, target_version: str) -> dict:
+def downgrade_contents_from_rule(rule: TOMLRule, target_version: str, replace_id: bool = True) -> dict:
     """Generate the downgraded contents from a rule."""
-    payload = rule.contents.to_api_format()
-    meta = payload.setdefault("meta", {})
-    meta["original"] = dict(id=rule.id, **rule.contents.metadata.to_dict())
-    payload["rule_id"] = str(uuid4())
-    payload = downgrade(payload, target_version)
+    rule_dict = rule.contents.to_dict()["rule"]
+    min_stack_version = target_version or rule.contents.metadata.min_stack_version or "8.3.0"
+    min_stack_version = Version.parse(min_stack_version,
+                                      optional_minor_and_patch=True)
+    rule_dict.setdefault("meta", {}).update(rule.contents.metadata.to_dict())
+
+    if replace_id:
+        rule_dict["rule_id"] = str(uuid4())
+
+    rule_dict = downgrade(rule_dict, target_version=str(min_stack_version))
+    meta = rule_dict.pop("meta")
+    rule_contents = TOMLRuleContents.from_dict({"rule": rule_dict, "metadata": meta,
+                                                "transform": rule.contents.transform})
+    payload = rule_contents.to_api_format()
+    payload = strip_non_public_fields(min_stack_version, payload)
     return payload
+
+
+def set_eql_config(min_stack_version: str) -> eql.parser.ParserConfig:
+    """Based on the rule version set the eql functions allowed."""
+    if not min_stack_version:
+        min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+    else:
+        min_stack_version = Version.parse(min_stack_version, optional_minor_and_patch=True)
+
+    config = eql.parser.ParserConfig()
+
+    for feature, version_range in definitions.ELASTICSEARCH_EQL_FEATURES.items():
+        if version_range[0] <= min_stack_version <= (version_range[1] or min_stack_version):
+            config.context[feature] = True
+
+    return config
 
 
 def get_unique_query_fields(rule: TOMLRule) -> List[str]:
@@ -1258,7 +1320,9 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
     query = contents.get('query')
     if language in ('kuery', 'eql'):
         # TODO: remove once py-eql supports ipv6 for cidrmatch
-        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+
+        config = set_eql_config(rule.contents.metadata.get('min_stack_version'))
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, config:
             parsed = kql.parse(query) if language == 'kuery' else eql.parse_query(query)
 
         return sorted(set(str(f) for f in parsed if isinstance(f, (eql.ast.Field, kql.ast.Field))))

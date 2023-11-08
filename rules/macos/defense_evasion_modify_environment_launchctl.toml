@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/02/22"
+updated_date = "2023/06/22"
 
 [rule]
 author = ["Elastic"]
@@ -24,26 +24,25 @@ references = [
 risk_score = 47
 rule_id = "7453e19e-3dbf-4e4e-9ae0-33d6c6ed15e1"
 severity = "medium"
-tags = ["Elastic", "Host", "macOS", "Threat Detection", "Defense Evasion"]
+tags = ["Domain: Endpoint", "OS: macOS", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and host.os.type:macos and event.type:start and
-  process.name:launchctl and
-  process.args:(setenv and not (JAVA*_HOME or
-                                RUNTIME_JAVA_HOME or
-                                DBUS_LAUNCHD_SESSION_BUS_SOCKET or
-                                ANT_HOME or
-                                LG_WEBOS_TV_SDK_HOME or
-                                WEBOS_CLI_TV or
-                                EDEN_ENV)
-                ) and
-  not process.parent.executable:("/Applications/NoMachine.app/Contents/Frameworks/bin/nxserver.bin" or
-                                 "/usr/local/bin/kr" or
-                                 "/Applications/NoMachine.app/Contents/Frameworks/bin/nxserver.bin" or
-                                 "/Applications/IntelliJ IDEA CE.app/Contents/jbr/Contents/Home/lib/jspawnhelper") and
-  not process.args : "*.vmoptions"
+event.category:process and host.os.type:macos and event.type:start and 
+  process.name:launchctl and 
+  process.args:(setenv and not (ANT_HOME or 
+                                DBUS_LAUNCHD_SESSION_BUS_SOCKET or 
+                                EDEN_ENV or 
+                                LG_WEBOS_TV_SDK_HOME or 
+                                RUNTIME_JAVA_HOME or 
+                                WEBOS_CLI_TV or 
+                                JAVA*_HOME) and 
+                not *.vmoptions) and 
+  not process.parent.executable:("/Applications/IntelliJ IDEA CE.app/Contents/jbr/Contents/Home/lib/jspawnhelper" or 
+                                  /Applications/NoMachine.app/Contents/Frameworks/bin/nxserver.bin or 
+                                  /Applications/NoMachine.app/Contents/Frameworks/bin/nxserver.bin or 
+                                  /usr/local/bin/kr)
 '''
 
 
