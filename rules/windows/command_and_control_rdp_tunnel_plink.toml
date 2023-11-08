@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/13"
+updated_date = "2023/10/23"
 
 [rule]
 author = ["Elastic"]
@@ -52,13 +52,18 @@ This rule looks for command lines involving the `3389` port, which RDP uses by d
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
 
-## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 references = ["https://blog.netspi.com/how-to-access-rdp-over-a-reverse-ssh-tunnel/"]
 risk_score = 73
 rule_id = "76fd43b7-3480-4dd9-8ad7-8bd36bfad92f"
+setup="""
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
