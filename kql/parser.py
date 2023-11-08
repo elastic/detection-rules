@@ -40,6 +40,15 @@ with open(grammar_file, "rt") as f:
 lark_parser = Lark(grammar, propagate_positions=True, tree_class=KvTree, start=['query'], parser='lalr')
 
 
+def is_ipaddress(value: str) -> bool:
+    """Check if a value is an ip address."""
+    try:
+        eql.utils.get_ipaddress(value)
+        return True
+    except ValueError:
+        return False
+
+
 def wildcard2regex(wc: str) -> re.Pattern:
     parts = wc.split("*")
     return re.compile("^{regex}$".format(regex=".*?".join(re.escape(w) for w in parts)))
@@ -85,8 +94,6 @@ def elasticsearch_type_family(mapping_type: str) -> str:
 
 class BaseKqlParser(Interpreter):
     NON_SPACE_WS = re.compile(r"[^\S ]+")
-    ip_regex = re.compile("^" + eql.functions.CidrMatch.ip_re + "(/([0-2]?[0-9]|3[0-2]))?$")
-
     unquoted_escapes = {"\\t": "\t", "\\r": "\r", "\\n": "\n"}
 
     for special in "\\():<>\"*{}]":
@@ -223,7 +230,7 @@ class BaseKqlParser(Interpreter):
                 except ValueError:
                     pass
             elif field_type_family == "ip" and value_type == "keyword":
-                if "::" in python_value or self.ip_regex.match(python_value) is not None:
+                if "::" in python_value or is_ipaddress(python_value) or eql.utils.is_cidr_pattern(python_value):
                     return python_value
             elif field_type_family == 'date' and value_type in STRING_FIELDS:
                 # this will not validate datemath syntax
