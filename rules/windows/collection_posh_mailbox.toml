@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/11"
+updated_date = "2023/10/23"
 
 [rule]
 author = ["Elastic"]
@@ -56,7 +56,14 @@ This rule identifies scripts that contains methods and classes that can be abuse
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
-## Setup
+"""
+references = [
+    "https://github.com/dafthack/MailSniper/blob/master/MailSniper.ps1",
+    "https://github.com/center-for-threat-informed-defense/adversary_emulation_library/blob/master/apt29/Archive/CALDERA_DIY/evals/payloads/stepSeventeen_email.ps1",
+]
+risk_score = 47
+rule_id = "a2d04374-187c-4fd9-b513-3ad4e7fdd67a"
+setup="""
 
 The 'PowerShell Script Block Logging' logging policy must be enabled.
 Steps to implement the logging policy with with Advanced Audit Configuration:
@@ -74,12 +81,6 @@ Steps to implement the logging policy via registry:
 reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
 ```
 """
-references = [
-    "https://github.com/dafthack/MailSniper/blob/master/MailSniper.ps1",
-    "https://github.com/center-for-threat-informed-defense/adversary_emulation_library/blob/master/apt29/Archive/CALDERA_DIY/evals/payloads/stepSeventeen_email.ps1",
-]
-risk_score = 47
-rule_id = "a2d04374-187c-4fd9-b513-3ad4e7fdd67a"
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Collection", "Data Source: PowerShell Logs", "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
