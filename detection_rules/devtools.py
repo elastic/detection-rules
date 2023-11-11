@@ -206,7 +206,6 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
         pkg_data["name"] = f"{minor_bump.major}.{minor_bump.minor}"
         pkg_data["registry_data"]["conditions"]["kibana.version"] = f"^{pkg_kibana_ver.bump_minor()}"
         pkg_data["registry_data"]["version"] = str(pkg_ver.bump_minor().bump_prerelease("beta"))
-        pkg_data["registry_data"]["release"] = maturity
     if patch_release:
         latest_patch_release_ver = find_latest_integration_version("security_detection_engine",
                                                                    maturity, pkg_data["name"])
@@ -538,7 +537,7 @@ def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...
 @click.option("--token", required=True, prompt=get_github_token() is None, default=get_github_token(),
               help="GitHub token to use for the PR", hide_input=True)
 @click.option("--pkg-directory", "-d", help="Directory to save the package in cloned repository",
-              default=os.path.join("packages", "security_detection_engine"))
+              default=Path("packages", "security_detection_engine"))
 @click.option("--base-branch", "-b", help="Base branch in target repository", default="main")
 @click.option("--branch-name", "-n", help="New branch for the rules commit")
 @click.option("--github-repo", "-r", help="Repository to use for the branch", default="elastic/integrations")
@@ -557,13 +556,13 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     repo = client.get_repo(github_repo)
 
     # Use elastic-package to format and lint
-    gopath = utils.gopath()
+    gopath = utils.gopath().strip("'\"")
     assert gopath is not None, "$GOPATH isn't set"
 
     err = 'elastic-package missing, run: go install github.com/elastic/elastic-package@latest and verify go bin path'
     assert subprocess.check_output(['elastic-package'], stderr=subprocess.DEVNULL), err
 
-    local_repo = os.path.abspath(local_repo)
+    local_repo = Path(local_repo).resolve()
     stack_version = Package.load_configs()["name"]
     package_version = Package.load_configs()["registry_data"]["version"]
 
@@ -575,7 +574,7 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
         click.echo(f"Run {click.style('python -m detection_rules dev build-release', bold=True)} to populate", err=True)
         ctx.exit(1)
 
-    if not Path(local_repo).exists():
+    if not local_repo.exists():
         click.secho(f"{github_repo} is not present at {local_repo}.", fg="red", err=True)
         ctx.exit(1)
 
@@ -594,7 +593,7 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     git("checkout", "-b", branch_name)
 
     # Load the changelog in memory, before it's removed. Come back for it after the PR is created
-    target_directory = Path(local_repo) / pkg_directory
+    target_directory = local_repo / pkg_directory
     changelog_path = target_directory / "changelog.yml"
     changelog_entries: list = yaml.safe_load(changelog_path.read_text(encoding="utf-8"))
 
@@ -625,13 +624,15 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
 
     def elastic_pkg(*args):
         """Run a command with $GOPATH/bin/elastic-package in the package directory."""
-        prev = os.path.abspath(os.getcwd())
+        prev = Path.cwd()
         os.chdir(target_directory)
 
         try:
-            return subprocess.check_call([os.path.join(gopath, "bin", "elastic-package")] + list(args))
+            elastic_pkg_cmd = [str(Path(gopath, "bin", "elastic-package"))]
+            elastic_pkg_cmd.extend(list(args))
+            return subprocess.check_call(elastic_pkg_cmd)
         finally:
-            os.chdir(prev)
+            os.chdir(str(prev))
 
     elastic_pkg("format")
 
@@ -1237,14 +1238,19 @@ def build_integration_manifests(overwrite: bool, integration: str):
 
 @integrations_group.command('build-schemas')
 @click.option('--overwrite', '-o', is_flag=True, help="Overwrite the entire integrations-schema.json.gz file")
-def build_integration_schemas(overwrite: bool):
+@click.option('--integration', '-i', type=str,
+              help="Adds a single integration schema to the integrations-schema.json.gz file")
+def build_integration_schemas(overwrite: bool, integration: str):
     """Builds consolidated integrations schemas file."""
     click.echo("Building integration schemas...")
 
     start_time = time.perf_counter()
-    build_integrations_schemas(overwrite)
-    end_time = time.perf_counter()
-    click.echo(f"Time taken to generate schemas: {(end_time - start_time)/60:.2f} minutes")
+    if integration:
+        build_integrations_schemas(overwrite=False, integration=integration)
+    else:
+        build_integrations_schemas(overwrite=overwrite)
+        end_time = time.perf_counter()
+        click.echo(f"Time taken to generate schemas: {(end_time - start_time)/60:.2f} minutes")
 
 
 @integrations_group.command('show-latest-compatible')

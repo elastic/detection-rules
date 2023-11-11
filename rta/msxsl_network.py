@@ -26,7 +26,7 @@ XML_FILE = common.get_path("bin", "customers.xml")
 XSL_FILE = common.get_path("bin", "cscript.xsl")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(MS_XSL, XML_FILE, XSL_FILE)
 def main():
     common.log("MsXsl Beacon")

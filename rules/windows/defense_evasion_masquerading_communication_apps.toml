@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2023/05/05"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/10/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious instances of communications apps, both unsigned and renamed ones, that can indicate an attempt to
+conceal malicious activity, bypass security features such as allowlists, or trick users into executing malware.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Masquerading as Communication Apps"
+risk_score = 47
+rule_id = "c9482bfa-a553-4226-8ea2-4959bd4f7923"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Defense Evasion", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and
+  event.type == "start" and
+  (
+    /* Slack */
+    (process.name : "slack.exe" and not
+      (process.code_signature.subject_name in (
+        "Slack Technologies, Inc.",
+        "Slack Technologies, LLC"
+       ) and process.code_signature.trusted == true)
+    ) or
+
+    /* WebEx */
+    (process.name : "WebexHost.exe" and not
+      (process.code_signature.subject_name in ("Cisco WebEx LLC", "Cisco Systems, Inc.") and process.code_signature.trusted == true)
+    ) or
+
+    /* Teams */
+    (process.name : "Teams.exe" and not
+      (process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true)
+    ) or
+
+    /* Discord */
+    (process.name : "Discord.exe" and not
+      (process.code_signature.subject_name == "Discord Inc." and process.code_signature.trusted == true)
+    ) or
+
+    /* RocketChat */
+    (process.name : "Rocket.Chat.exe" and not
+      (process.code_signature.subject_name == "Rocket.Chat Technologies Corp." and process.code_signature.trusted == true)
+    ) or
+
+    /* Mattermost */
+    (process.name : "Mattermost.exe" and not
+      (process.code_signature.subject_name == "Mattermost, Inc." and process.code_signature.trusted == true)
+    ) or
+
+    /* WhatsApp */
+    (process.name : "WhatsApp.exe" and not
+      (process.code_signature.subject_name in (
+        "WhatsApp LLC",
+        "WhatsApp, Inc",
+        "24803D75-212C-471A-BC57-9EF86AB91435"
+       ) and process.code_signature.trusted == true)
+    ) or
+
+    /* Zoom */
+    (process.name : "Zoom.exe" and not
+      (process.code_signature.subject_name == "Zoom Video Communications, Inc." and process.code_signature.trusted == true)
+    ) or
+
+    /* Outlook */
+    (process.name : "outlook.exe" and not
+      (process.code_signature.subject_name == "Microsoft Corporation" and process.code_signature.trusted == true)
+    ) or
+
+    /* Thunderbird */
+    (process.name : "thunderbird.exe" and not
+      (process.code_signature.subject_name == "Mozilla Corporation" and process.code_signature.trusted == true)
+    )
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1036.001"
+name = "Invalid Code Signature"
+reference = "https://attack.mitre.org/techniques/T1036/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1036.005"
+name = "Match Legitimate Name or Location"
+reference = "https://attack.mitre.org/techniques/T1036/005/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1554"
+name = "Compromise Client Software Binary"
+reference = "https://attack.mitre.org/techniques/T1554/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

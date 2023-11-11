@@ -3,11 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-import os
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="672cd0e6-fa5a-468f-80c8-04f92bead469",
@@ -27,7 +25,7 @@ def main():
 
     # Messing with the boot configuration is not a great idea so create a backup:
     common.log("Exporting the boot configuration....")
-    backup_file = os.path.abspath("boot.cfg")
+    backup_file = Path("boot.cfg").resolve()
     common.execute([bcdedit, "/export", backup_file])
 
     # WARNING: this sets up computer to boot into Safe Mode upon reboot

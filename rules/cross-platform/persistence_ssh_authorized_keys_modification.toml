@@ -2,9 +2,9 @@
 creation_date = "2020/12/22"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -20,9 +20,16 @@ name = "SSH Authorized Keys File Modification"
 risk_score = 47
 rule_id = "2215b8bd-1759-4ffa-8ab8-55c8e6b32e7f"
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "OS: macOS", "Use Case: Threat Detection", "Tactic: Lateral Movement", "Tactic: Persistence", "Data Source: Elastic Defend"]
+tags = ["Domain: Endpoint",
+        "OS: Linux",
+        "OS: macOS",
+        "Use Case: Threat Detection",
+        "Tactic: Lateral Movement",
+        "Tactic: Persistence",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "new_terms"
 
 query = '''
 event.category:file and event.type:(change or creation) and
@@ -42,13 +49,14 @@ event.category:file and event.type:(change or creation) and
               /opt/jc/bin/jumpcloud-agent)
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1098.004"
 name = "SSH Authorized Keys"
@@ -59,14 +67,14 @@ id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1563"
 name = "Remote Service Session Hijacking"
 reference = "https://attack.mitre.org/techniques/T1563/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1563.001"
 name = "SSH Hijacking"
@@ -76,6 +84,7 @@ reference = "https://attack.mitre.org/techniques/T1563/001/"
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1021.004"
 name = "SSH"
@@ -85,3 +94,11 @@ reference = "https://attack.mitre.org/techniques/T1021/004/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.executable", "file.path"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
