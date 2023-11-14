@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/04/27"
+updated_date = "2023/08/15"
 
 [transform]
 [[transform.osquery]]
@@ -103,7 +103,7 @@ Adversaries may achieve persistence by referencing a program with a registry run
 risk_score = 21
 rule_id = "97fc44d3-8dae-4019-ae83-298c3015600f"
 severity = "low"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Persistence", "Investigation Guide", "Elastic Endgame"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Resources: Investigation Guide", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
 timeline_id = "3e47ef71-ebfc-4520-975c-cb27fc090799"
 timeline_title = "Comprehensive Registry Timeline"
 timestamp_override = "event.ingested"
@@ -134,7 +134,7 @@ registry where host.os.type == "windows" and registry.data.strings != null and
   not (
     /* Logitech G Hub */
     (
-      process.code_signature.trusted == true and process.code_signature.subject_name : "Logitech Inc" and
+      process.code_signature.trusted == true and process.code_signature.subject_name == "Logitech Inc" and
       process.name : "lghub_agent.exe" and registry.data.strings : (
         "\"?:\\Program Files\\LGHUB\\lghub.exe\" --background"
       )
@@ -142,7 +142,7 @@ registry where host.os.type == "windows" and registry.data.strings != null and
 
     /* Google Drive File Stream, Chrome, and Google Update */
     (
-      process.code_signature.trusted == true and process.code_signature.subject_name : "Google LLC" and
+      process.code_signature.trusted == true and process.code_signature.subject_name == "Google LLC" and
       (
         process.name : "GoogleDriveFS.exe" and registry.data.strings : (
         "\"?:\\Program Files\\Google\\Drive File Stream\\*\\GoogleDriveFS.exe\" --startup_mode"
@@ -161,7 +161,7 @@ registry where host.os.type == "windows" and registry.data.strings != null and
 
     /* MS Programs */
     (
-      process.code_signature.trusted == true and process.code_signature.subject_name : ("Microsoft Windows", "Microsoft Corporation") and
+      process.code_signature.trusted == true and process.code_signature.subject_name in ("Microsoft Windows", "Microsoft Corporation") and
       (
         process.name : "msedge.exe" and registry.data.strings : (
           "\"?:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --no-startup-window --win-session-start /prefetch:5"
@@ -190,15 +190,16 @@ registry where host.os.type == "windows" and registry.data.strings != null and
 
     /* Slack */
     (
-      process.code_signature.trusted == true and process.code_signature.subject_name : "Slack Technologies, Inc." and
-      process.name : "slack.exe" and registry.data.strings : (
+      process.code_signature.trusted == true and process.code_signature.subject_name in (
+       "Slack Technologies, Inc.", "Slack Technologies, LLC"
+      ) and process.name : "slack.exe" and registry.data.strings : (
         "\"?:\\Users\\*\\AppData\\Local\\slack\\slack.exe\" --process-start-args --startup"
       )
     ) or
 
     /* WebEx */
     (
-      process.code_signature.trusted == true and process.code_signature.subject_name : ("Cisco WebEx LLC", "Cisco Systems, Inc.") and
+      process.code_signature.trusted == true and process.code_signature.subject_name in ("Cisco WebEx LLC", "Cisco Systems, Inc.") and
       process.name : "WebexHost.exe" and registry.data.strings : (
         "\"?:\\Users\\*\\AppData\\Local\\WebEx\\WebexHost.exe\" /daemon /runFrom=autorun"
       )

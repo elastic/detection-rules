@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/10/19"
 
 [rule]
 author = ["Elastic"]
@@ -48,14 +48,27 @@ This rule looks for the execution of the `grep` utility with arguments compatibl
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
-## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 risk_score = 47
 rule_id = "870aecc0-cea4-4110-af3f-e02e9b373655"
+setup="""
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+
+"""
 severity = "medium"
-tags = ["Elastic", "Host", "macOS", "Linux", "Threat Detection", "Discovery", "Investigation Guide"]
+tags = ["Domain: Endpoint",
+        "OS: macOS",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -94,25 +107,32 @@ process.name : "grep" and user.id != "0" and
           "osquery*",
           "elastic-endpoint*"
           ) and
-   not (process.args : "Avast" and process.args : "Passwords")
+   not (
+     (process.args : "Avast" and process.args : "Passwords") or
+     (process.parent.args : "/opt/McAfee/agent/scripts/ma" and process.parent.args : "checkhealth") or
+     (process.command_line : (
+       "grep ESET Command-line scanner, version %s -A2",
+       "grep -i McAfee Web Gateway Core version:",
+       "grep --color=auto ESET Command-line scanner, version %s -A2"
+       )
+      )
+    )
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1518"
 name = "Software Discovery"
 reference = "https://attack.mitre.org/techniques/T1518/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1518.001"
 name = "Security Software Discovery"
 reference = "https://attack.mitre.org/techniques/T1518/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-

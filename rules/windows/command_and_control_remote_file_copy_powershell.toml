@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/11/30"
-integration = ["endpoint", "windows"]
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2023/02/22"
+updated_date = "2023/10/22"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -36,7 +36,7 @@ authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.resu
 author = ["Elastic"]
 description = "Identifies powershell.exe being used to download an executable file from an untrusted remote destination."
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*"]
+index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Remote File Download via PowerShell"
@@ -95,16 +95,23 @@ PowerShell is one of system administrators' main tools for automation, report ro
 risk_score = 47
 rule_id = "33f306e8-417c-411b-965c-c2812d6d3f4d"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Command and Control", "Investigation Guide"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Command and Control", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
 type = "eql"
 
 query = '''
-sequence by host.id, process.entity_id with maxspan=30s
-  [network where host.os.type == "windows" and process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and network.protocol == "dns" and
-   not dns.question.name : ("localhost", "*.microsoft.com", "*.azureedge.net", "*.powershellgallery.com", "*.windowsupdate.com", "metadata.google.internal") and
-   not user.domain : "NT AUTHORITY"]
-    [file where host.os.type == "windows" and process.name : "powershell.exe" and event.type == "creation" and file.extension : ("exe", "dll", "ps1", "bat") and
-   not file.name : "__PSScriptPolicy*.ps1"]
+sequence by process.entity_id with maxspan=30s
+
+[network where host.os.type == "windows" and
+  process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe") and network.protocol == "dns" and
+   not dns.question.name : (
+          "localhost", "*.microsoft.com", "*.azureedge.net", "*.powershellgallery.com",
+          "*.windowsupdate.com", "metadata.google.internal", "dist.nuget.org",
+          "artifacts.elastic.co", "*.digicert.com", "packages.chocolatey.org",
+          "outlook.office365.com"
+       ) and not user.id : "S-1-5-18"]
+[file where host.os.type == "windows" and event.type == "creation" and
+  process.name : "powershell.exe" and file.extension : ("exe", "dll", "ps1", "bat") and
+  not file.name : "__PSScriptPolicy*.ps1"]
 '''
 
 

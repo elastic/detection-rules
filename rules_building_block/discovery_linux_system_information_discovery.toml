@@ -1,0 +1,44 @@
+[metadata]
+creation_date = "2023/07/10"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/07/10"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = "Enrich process events with uname and other command lines that imply Linux system information discovery."
+from = "now-119m"
+interval = "60m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux System Information Discovery"
+risk_score = 21
+rule_id = "b81bd314-db5b-4d97-82e8-88e3e5fc9de5"
+severity = "low"
+tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Discovery", "Rule Type: BBR", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where event.type == "start" and
+(
+  process.name: "uname" or
+  (process.name: ("cat", "more", "less") and
+  process.args: ("*issue*", "*version*", "*profile*", "*services*", "*cpuinfo*"))
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1082"
+name = "System Information Discovery"
+reference = "https://attack.mitre.org/techniques/T1082/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"

@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint"]
+integration = ["network_traffic"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+updated_date = "2023/08/01"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["auditbeat-*", "filebeat-*", "packetbeat-*", "logs-endpoint.events.*"]
+index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Accepted Default Telnet Port Connection"
@@ -32,14 +32,11 @@ risk_score = 47
 rule_id = "34fde489-94b0-4500-a76f-b8a157cf9269"
 severity = "medium"
 tags = [
-    "Elastic",
-    "Host",
-    "Network",
-    "Threat Detection",
-    "Command and Control",
-    "Host",
-    "Lateral Movement",
-    "Initial Access",
+    "Domain: Endpoint",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Lateral Movement",
+    "Tactic: Initial Access",
 ]
 timeline_id = "300afc76-072d-4261-864d-4149714bf3f1"
 timeline_title = "Comprehensive Network Timeline"
@@ -47,11 +44,11 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:(network or network_traffic) and destination.port:23
-  and network.direction:(inbound or ingress or outbound or egress)
-  and not event.action:(
-      flow_dropped or denied or deny or
-      flow_terminated or timeout or Reject or network_flow)
+(event.dataset:network_traffic.flow or event.category:(network or network_traffic))
+    and event.type:connection and not event.action:(
+        flow_dropped or denied or deny or
+        flow_terminated or timeout or Reject or network_flow)
+    and destination.port:23
 '''
 
 

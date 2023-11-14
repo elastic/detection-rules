@@ -5,7 +5,8 @@
 
 """Validation logic for rules containing queries."""
 from functools import cached_property
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Tuple
+from semver import Version
 
 import eql
 
@@ -13,7 +14,9 @@ import kql
 
 from . import ecs, endgame
 from .integrations import get_integration_schema_data, load_integrations_manifests
-from .rule import QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents
+from .misc import load_current_package_version
+from .schemas import get_stack_schemas
+from .rule import QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, EQLRuleData, set_eql_config
 
 EQL_ERROR_TYPES = Union[eql.EqlCompileError,
                         eql.EqlError,
@@ -113,6 +116,9 @@ class KQLValidator(QueryValidator):
             # add non-ecs-schema fields for edge cases not added to the integration
             for index_name in data.index:
                 integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
+
+            # add endpoint schema fields for multi-line fields
+            integration_schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))
             combined_schema.update(**integration_schema)
 
             try:
@@ -153,7 +159,9 @@ class EQLValidator(QueryValidator):
 
     @cached_property
     def ast(self) -> eql.ast.Expression:
-        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+        latest_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+        config = set_eql_config(str(latest_version))
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, config:
             return eql.parse_query(self.query)
 
     def text_fields(self, eql_schema: Union[ecs.KqlSchema2Eql, endgame.EndgameSchema]) -> List[str]:
@@ -191,6 +199,12 @@ class EQLValidator(QueryValidator):
             if validation_checks["stack"] and validation_checks["integrations"]:
                 raise ValueError(f"Error in both stack and integrations checks: {validation_checks}")
 
+            rule_type_config_fields, rule_type_config_validation_failed = \
+                self.validate_rule_type_configurations(data, meta)
+            if rule_type_config_validation_failed:
+                raise ValueError(f"""Rule type config values are not ECS compliant, check these values:
+                                 {rule_type_config_fields}""")
+
     def validate_stack_combos(self, data: QueryRuleData, meta: RuleMeta) -> Union[EQL_ERROR_TYPES, None, ValueError]:
         """Validate the query against ECS and beats schemas across stack combinations."""
         for stack_version, mapping in meta.get_validation_stack_versions().items():
@@ -207,13 +221,14 @@ class EQLValidator(QueryValidator):
 
             # validate query against the beats and eql schema
             exc = self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer,
-                                                  beat_types=beat_types)
+                                                  beat_types=beat_types, min_stack_version=meta.min_stack_version)
             if exc:
                 return exc
 
             if endgame_schema:
                 # validate query against the endgame schema
-                exc = self.validate_query_with_schema(data=data, schema=endgame_schema, err_trailer=err_trailer)
+                exc = self.validate_query_with_schema(data=data, schema=endgame_schema, err_trailer=err_trailer,
+                                                      min_stack_version=meta.min_stack_version)
                 if exc:
                     raise exc
 
@@ -243,13 +258,17 @@ class EQLValidator(QueryValidator):
             # add non-ecs-schema fields for edge cases not added to the integration
             for index_name in data.index:
                 integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
+
+            # add endpoint schema fields for multi-line fields
+            integration_schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))
             combined_schema.update(**integration_schema)
 
             eql_schema = ecs.KqlSchema2Eql(integration_schema)
             err_trailer = f'stack: {stack_version}, integration: {integration},' \
                           f'ecs: {ecs_version}, package: {package}, package_version: {package_version}'
 
-            exc = self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer)
+            exc = self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer,
+                                                  min_stack_version=meta.min_stack_version)
 
             if isinstance(exc, eql.EqlParseError):
                 message = exc.error_msg
@@ -278,11 +297,12 @@ class EQLValidator(QueryValidator):
             return exc
 
     def validate_query_with_schema(self, data: 'QueryRuleData', schema: Union[ecs.KqlSchema2Eql, endgame.EndgameSchema],
-                                   err_trailer: str, beat_types: list = None) -> Union[
+                                   err_trailer: str, min_stack_version: str, beat_types: list = None) -> Union[
             EQL_ERROR_TYPES, ValueError, None]:
         """Validate the query against the schema."""
         try:
-            with schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+            config = set_eql_config(min_stack_version)
+            with config, schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
                 eql.parse_query(self.query)
         except eql.EqlParseError as exc:
             message = exc.error_msg
@@ -301,6 +321,29 @@ class EQLValidator(QueryValidator):
         except Exception as exc:
             print(err_trailer)
             return exc
+
+    def validate_rule_type_configurations(self, data: EQLRuleData, meta: RuleMeta) -> \
+            Tuple[List[Optional[str]], bool]:
+        """Validate EQL rule type configurations."""
+        if data.timestamp_field or data.event_category_override or data.tiebreaker_field:
+
+            # get a list of rule type configuration fields
+            # Get a list of rule type configuration fields
+            fields = ["timestamp_field", "event_category_override", "tiebreaker_field"]
+            set_fields = list(filter(None, (data.get(field) for field in fields)))
+
+            # get stack_version and ECS schema
+            min_stack_version = meta.get("min_stack_version")
+            if min_stack_version is None:
+                min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+            ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
+            schema = ecs.get_schema(ecs_version)
+
+            # return a list of rule type config field values and whether any are not in the schema
+            return (set_fields, any([f not in schema.keys() for f in set_fields]))
+        else:
+            # if rule type fields are not set, return an empty list and False
+            return [], False
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:

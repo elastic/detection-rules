@@ -14,6 +14,7 @@ import textwrap
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Optional, Tuple
+from semver import Version
 
 import click
 import yaml
@@ -21,7 +22,7 @@ import yaml
 from .misc import JS_LICENSE, cached, load_current_package_version
 from .navigator import NavigatorBuilder, Navigator
 from .rule import TOMLRule, QueryRuleData, ThreatMapping
-from .rule_loader import DeprecatedCollection, RuleCollection, DEFAULT_RULES_DIR
+from .rule_loader import DeprecatedCollection, RuleCollection, DEFAULT_RULES_DIR, DEFAULT_BBR_DIR
 from .schemas import definitions
 from .utils import Ndjson, get_path, get_etc_path, load_etc_dump
 from .version_lock import default_version_lock
@@ -377,9 +378,15 @@ class Package(object):
 
     def _generate_registry_package(self, save_dir):
         """Generate the artifact for the oob package-storage."""
-        from .schemas.registry_package import RegistryPackageManifest
+        from .schemas.registry_package import (RegistryPackageManifestV1,
+                                               RegistryPackageManifestV3)
 
-        manifest = RegistryPackageManifest.from_dict(self.registry_data)
+        # 8.12.0+ we use elastic package v3
+        stack_version = Version.parse(self.name, optional_minor_and_patch=True)
+        if stack_version >= Version.parse('8.12.0'):
+            manifest = RegistryPackageManifestV3.from_dict(self.registry_data)
+        else:
+            manifest = RegistryPackageManifestV1.from_dict(self.registry_data)
 
         package_dir = Path(save_dir) / 'fleet' / manifest.version
         docs_dir = package_dir / 'docs'
@@ -466,13 +473,19 @@ class Package(object):
                 status = 'unmodified'
 
             bulk_upload_docs.append(create)
+
+            try:
+                relative_path = str(rule.path.resolve().relative_to(DEFAULT_RULES_DIR))
+            except ValueError:
+                relative_path = str(rule.path.resolve().relative_to(DEFAULT_BBR_DIR))
+
             rule_doc = dict(hash=rule.contents.sha256(),
                             source='repo',
                             datetime_uploaded=now,
                             status=status,
                             package_version=self.name,
                             flat_mitre=ThreatMapping.flatten(rule.contents.data.threat).to_dict(),
-                            relative_path=str(rule.path.resolve().relative_to(DEFAULT_RULES_DIR)))
+                            relative_path=relative_path)
             rule_doc.update(**rule.contents.to_api_format())
             bulk_upload_docs.append(rule_doc)
             importable_rules_docs.append(rule_doc)

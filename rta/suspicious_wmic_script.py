@@ -37,7 +37,7 @@ version="1.0">
 """
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     common.log("Executing suspicious WMIC script")
 

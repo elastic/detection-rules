@@ -20,7 +20,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     binary = "ProcessDump.exe"
     common.copy_file(EXE_FILE, binary)

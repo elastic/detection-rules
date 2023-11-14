@@ -2,9 +2,9 @@
 creation_date = "2020/05/28"
 integration = ["okta"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2022/12/14"
+min_stack_comments = "Breaking change in Okta integration bumping version to ^2.0.0"
+min_stack_version = "8.10.0"
+updated_date = "2023/10/24"
 
 [rule]
 author = ["Elastic"]
@@ -23,7 +23,44 @@ index = ["filebeat-*", "logs-okta*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Attempt to Delete an Okta Policy"
-note = """## Setup
+note = """## Triage and analysis
+
+### Investigating Attempt to Delete an Okta Policy
+
+Okta policies are critical to managing user access and enforcing security controls within an organization. The deletion of an Okta policy could drastically weaken an organization's security posture by allowing unrestricted access or facilitating other malicious activities.
+
+This rule detects attempts to delete an Okta policy, which could be indicative of an adversary's attempt to weaken an organization's security controls. Adversaries may do this to bypass security barriers and enable further malicious activities.
+
+#### Possible investigation steps:
+
+- Identify the actor related to the alert by reviewing `okta.actor.id`, `okta.actor.type`, `okta.actor.alternate_id`, or `okta.actor.display_name` fields in the alert.
+- Review the `okta.client.user_agent.raw_user_agent` field to understand the device and software used by the actor.
+- Examine the `okta.outcome.reason` field for additional context around the deletion attempt.
+- Check the `okta.outcome.result` field to confirm the policy deletion attempt.
+- Check if there are multiple policy deletion attempts from the same actor or IP address (`okta.client.ip`).
+- Check for successful logins immediately following the policy deletion attempt.
+- Verify whether the actor's activity aligns with typical behavior or if any unusual activity took place around the time of the deletion attempt.
+
+### False positive analysis:
+
+- Check if there were issues with the Okta system at the time of the deletion attempt. This could indicate a system error rather than a genuine threat activity.
+- Check the geographical location (`okta.request.ip_chain.geographical_context`) and time of the deletion attempt. If these match the actor's normal behavior, it might be a false positive.
+- Verify the actor's administrative rights to ensure they are correctly configured.
+
+### Response and remediation:
+
+- If unauthorized policy deletion is confirmed, initiate the incident response process.
+- Immediately lock the affected actor account and require a password change.
+- Consider resetting MFA tokens for the actor and require re-enrollment.
+- Check if the compromised account was used to access or alter any sensitive data or systems.
+- If a specific deletion technique was used, ensure your systems are patched or configured to prevent such techniques.
+- Assess the criticality of affected services and servers.
+- Work with your IT team to minimize the impact on users and maintain business continuity.
+- If multiple accounts are affected, consider a broader reset or audit of MFA tokens.
+- Implement security best practices [outlined](https://www.okta.com/blog/2019/10/9-admin-best-practices-to-keep-your-org-secure/) by Okta.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+
+## Setup
 
 The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
 references = [
@@ -35,7 +72,7 @@ references = [
 risk_score = 47
 rule_id = "b4bb1440-0fcb-4ed1-87e5-b06d58efc5e9"
 severity = "medium"
-tags = ["Elastic", "Identity", "Okta", "Continuous Monitoring", "SecOps", "Monitoring", "Defense Evasion"]
+tags = ["Use Case: Identity and Access Audit", "Data Source: Okta", "Tactic: Defense Evasion"]
 timestamp_override = "event.ingested"
 type = "query"
 

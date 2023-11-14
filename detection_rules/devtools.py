@@ -25,7 +25,6 @@ import pytoml
 import requests.exceptions
 import pandas as pd
 from semver import Version
-
 import yaml
 from elasticsearch import Elasticsearch
 from eql.table import Table
@@ -33,8 +32,11 @@ from eql.table import Table
 from kibana.connector import Kibana
 
 from . import attack, rule_loader, utils
+from .beats import (download_beats_schema, download_latest_beats_schema,
+                    refresh_main_schema)
 from .cli_utils import single_collection
 from .docs import IntegrationSecurityDocs, IntegrationSecurityDocsMDX
+from .ecs import download_endpoint_schemas, download_schemas
 from .endgame import EndgameSchemaManager
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
@@ -50,7 +52,7 @@ from .misc import PYTHON_LICENSE, add_client, client_error
 from .packaging import (CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR,
                         Package, current_stack_version)
 from .rule import (AnyRuleData, BaseRuleData, DeprecatedRule, QueryRuleData,
-                   ThreatMapping, TOMLRule, TOMLRuleContents, RuleTransform)
+                   RuleTransform, ThreatMapping, TOMLRule, TOMLRuleContents)
 from .rule_loader import RuleCollection, production_filter
 from .schemas import definitions, get_stack_versions
 from .utils import (dict_hash, get_etc_path, get_path, load_dump,
@@ -205,7 +207,6 @@ def bump_versions(major_release: bool, minor_release: bool, patch_release: bool,
         pkg_data["name"] = f"{minor_bump.major}.{minor_bump.minor}"
         pkg_data["registry_data"]["conditions"]["kibana.version"] = f"^{pkg_kibana_ver.bump_minor()}"
         pkg_data["registry_data"]["version"] = str(pkg_ver.bump_minor().bump_prerelease("beta"))
-        pkg_data["registry_data"]["release"] = maturity
     if patch_release:
         latest_patch_release_ver = find_latest_integration_version("security_detection_engine",
                                                                    maturity, pkg_data["name"])
@@ -537,7 +538,7 @@ def kibana_pr(ctx: click.Context, label: Tuple[str, ...], assign: Tuple[str, ...
 @click.option("--token", required=True, prompt=get_github_token() is None, default=get_github_token(),
               help="GitHub token to use for the PR", hide_input=True)
 @click.option("--pkg-directory", "-d", help="Directory to save the package in cloned repository",
-              default=os.path.join("packages", "security_detection_engine"))
+              default=Path("packages", "security_detection_engine"))
 @click.option("--base-branch", "-b", help="Base branch in target repository", default="main")
 @click.option("--branch-name", "-n", help="New branch for the rules commit")
 @click.option("--github-repo", "-r", help="Repository to use for the branch", default="elastic/integrations")
@@ -556,13 +557,13 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     repo = client.get_repo(github_repo)
 
     # Use elastic-package to format and lint
-    gopath = utils.gopath()
+    gopath = utils.gopath().strip("'\"")
     assert gopath is not None, "$GOPATH isn't set"
 
     err = 'elastic-package missing, run: go install github.com/elastic/elastic-package@latest and verify go bin path'
     assert subprocess.check_output(['elastic-package'], stderr=subprocess.DEVNULL), err
 
-    local_repo = os.path.abspath(local_repo)
+    local_repo = Path(local_repo).resolve()
     stack_version = Package.load_configs()["name"]
     package_version = Package.load_configs()["registry_data"]["version"]
 
@@ -574,7 +575,7 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
         click.echo(f"Run {click.style('python -m detection_rules dev build-release', bold=True)} to populate", err=True)
         ctx.exit(1)
 
-    if not Path(local_repo).exists():
+    if not local_repo.exists():
         click.secho(f"{github_repo} is not present at {local_repo}.", fg="red", err=True)
         ctx.exit(1)
 
@@ -593,7 +594,7 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
     git("checkout", "-b", branch_name)
 
     # Load the changelog in memory, before it's removed. Come back for it after the PR is created
-    target_directory = Path(local_repo) / pkg_directory
+    target_directory = local_repo / pkg_directory
     changelog_path = target_directory / "changelog.yml"
     changelog_entries: list = yaml.safe_load(changelog_path.read_text(encoding="utf-8"))
 
@@ -624,13 +625,15 @@ def integrations_pr(ctx: click.Context, local_repo: str, token: str, draft: bool
 
     def elastic_pkg(*args):
         """Run a command with $GOPATH/bin/elastic-package in the package directory."""
-        prev = os.path.abspath(os.getcwd())
+        prev = Path.cwd()
         os.chdir(target_directory)
 
         try:
-            return subprocess.check_call([os.path.join(gopath, "bin", "elastic-package")] + list(args))
+            elastic_pkg_cmd = [str(Path(gopath, "bin", "elastic-package"))]
+            elastic_pkg_cmd.extend(list(args))
+            return subprocess.check_call(elastic_pkg_cmd)
         finally:
-            os.chdir(prev)
+            os.chdir(str(prev))
 
     elastic_pkg("format")
 
@@ -933,44 +936,44 @@ def update_navigator_gists(directory: Path, token: str, gist_id: str, print_mark
 
 
 @dev_group.command('trim-version-lock')
-@click.argument('min_version')
+@click.argument('stack_version')
 @click.option('--dry-run', is_flag=True, help='Print the changes rather than saving the file')
-def trim_version_lock(min_version: str, dry_run: bool):
+def trim_version_lock(stack_version: str, dry_run: bool):
     """Trim all previous entries within the version lock file which are lower than the min_version."""
     stack_versions = get_stack_versions()
-    assert min_version in stack_versions, f'Unknown min_version ({min_version}), expected: {", ".join(stack_versions)}'
+    assert stack_version in stack_versions, \
+        f'Unknown min_version ({stack_version}), expected: {", ".join(stack_versions)}'
 
-    min_version = Version.parse(min_version)
+    min_version = Version.parse(stack_version)
     version_lock_dict = default_version_lock.version_lock.to_dict()
     removed = {}
 
     for rule_id, lock in version_lock_dict.items():
         if 'previous' in lock:
             prev_vers = [Version.parse(v, optional_minor_and_patch=True) for v in list(lock['previous'])]
-            outdated_vers = [v for v in prev_vers if v <= min_version]
+            outdated_vers = [f"{v.major}.{v.minor}" for v in prev_vers if v < min_version]
 
             if not outdated_vers:
                 continue
 
-            # we want to remove all "old" versions, but save the latest that is <= the min version as the new
-            # min_version. Essentially collapsing the entries and bumping it to a new "true" min
-            latest_version = max(outdated_vers)
+            # we want to remove all "old" versions, but save the latest that is >= the min version supplied as the new
+            # stack_version.
 
             if dry_run:
-                outdated_minus_current = [str(v) for v in outdated_vers if v != min_version]
+                outdated_minus_current = [str(v) for v in outdated_vers if v < stack_version]
                 if outdated_minus_current:
                     removed[rule_id] = outdated_minus_current
             for outdated in outdated_vers:
                 popped = lock['previous'].pop(str(outdated))
-                if outdated == latest_version:
-                    lock['previous'][str(min_version)] = popped
+                if outdated >= stack_version:
+                    lock['previous'][str(Version(stack_version[:2]))] = popped
 
             # remove the whole previous entry if it is now blank
             if not lock['previous']:
                 lock.pop('previous')
 
     if dry_run:
-        click.echo(f'The following versions would be collapsed to {min_version}:' if removed else 'No changes')
+        click.echo(f'The following versions would be collapsed to {stack_version}:' if removed else 'No changes')
         click.echo('\n'.join(f'{k}: {", ".join(v)}' for k, v in removed.items()))
     else:
         new_lock = VersionLockFile.from_dict(dict(data=version_lock_dict))
@@ -1353,14 +1356,19 @@ def build_integration_manifests(overwrite: bool, integration: str):
 
 @integrations_group.command('build-schemas')
 @click.option('--overwrite', '-o', is_flag=True, help="Overwrite the entire integrations-schema.json.gz file")
-def build_integration_schemas(overwrite: bool):
+@click.option('--integration', '-i', type=str,
+              help="Adds a single integration schema to the integrations-schema.json.gz file")
+def build_integration_schemas(overwrite: bool, integration: str):
     """Builds consolidated integrations schemas file."""
     click.echo("Building integration schemas...")
 
     start_time = time.perf_counter()
-    build_integrations_schemas(overwrite)
-    end_time = time.perf_counter()
-    click.echo(f"Time taken to generate schemas: {(end_time - start_time)/60:.2f} minutes")
+    if integration:
+        build_integrations_schemas(overwrite=False, integration=integration)
+    else:
+        build_integrations_schemas(overwrite=overwrite)
+        end_time = time.perf_counter()
+        click.echo(f"Time taken to generate schemas: {(end_time - start_time)/60:.2f} minutes")
 
 
 @integrations_group.command('show-latest-compatible')
@@ -1399,17 +1407,57 @@ def update_rule_data_schemas():
         cls.save_schema()
 
 
-@schemas_group.command("generate-endgame")
+@schemas_group.command("generate")
 @click.option("--token", required=True, prompt=get_github_token() is None, default=get_github_token(),
               help="GitHub token to use for the PR", hide_input=True)
-@click.option("--endgame-version", "-e", required=True, help="Tagged version from TBD. e.g., 1.9.0")
+@click.option("--schema", "-s", required=True, type=click.Choice(["endgame", "ecs", "beats", "endpoint"]),
+              help="Schema to generate")
+@click.option("--schema-version", "-sv", help="Tagged version from TBD. e.g., 1.9.0")
+@click.option("--endpoint-target", "-t", type=str, default="endpoint", help="Target endpoint schema")
 @click.option("--overwrite", is_flag=True, help="Overwrite if versions exist")
-def generate_endgame_schema(token: str, endgame_version: str, overwrite: bool):
-    """Download Endgame-ECS mapping.json and generate flattend schema."""
+def generate_schema(token: str, schema: str, schema_version: str, endpoint_target: str, overwrite: bool):
+    """Download schemas and generate flattend schema."""
     github = GithubClient(token)
     client = github.authenticated_client
-    schema_manager = EndgameSchemaManager(client, endgame_version)
-    schema_manager.save_schemas(overwrite=overwrite)
+
+    if schema_version and not Version.parse(schema_version):
+        raise click.BadParameter(f"Invalid schema version: {schema_version}")
+
+    click.echo(f"Generating {schema} schema")
+    if schema == "endgame":
+        if not schema_version:
+            raise click.BadParameter("Schema version required")
+        schema_manager = EndgameSchemaManager(client, schema_version)
+        schema_manager.save_schemas(overwrite=overwrite)
+
+    # ecs, beats and endpoint schemas are refreshed during release
+    # these schemas do not require a schema version
+    if schema == "ecs":
+        download_schemas(refresh_all=True)
+    if schema == "beats":
+        if not schema_version:
+            download_latest_beats_schema()
+            refresh_main_schema()
+        else:
+            download_beats_schema(schema_version)
+
+    # endpoint package custom schemas can be downloaded
+    # this download requires a specific schema target
+    if schema == "endpoint":
+        repo = client.get_repo("elastic/endpoint-package")
+        contents = repo.get_contents("custom_schemas")
+        optional_endpoint_targets = [
+            Path(f.path).name.replace("custom_", "").replace(".yml", "")
+            for f in contents if f.name.endswith(".yml") or Path(f.path).name == endpoint_target
+        ]
+
+        if not endpoint_target:
+            raise click.BadParameter("Endpoint target required")
+        if endpoint_target not in optional_endpoint_targets:
+            raise click.BadParameter(f"""Invalid endpoint schema target: {endpoint_target}
+                                      \n Schema Options: {optional_endpoint_targets}""")
+        download_endpoint_schemas(endpoint_target)
+    click.echo(f"Done generating {schema} schema")
 
 
 @dev_group.group('attack')

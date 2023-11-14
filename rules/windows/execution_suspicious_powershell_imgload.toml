@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/11/17"
-integration = ["endpoint", "windows"]
+integration = ["endpoint"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/02/22"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/20"
 
 [rule]
 author = ["Elastic"]
@@ -13,8 +13,8 @@ Identifies the PowerShell engine being invoked by unexpected processes. Rather t
 with powershell.exe, some attackers do this to operate more stealthily.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
-language = "eql"
+index = ["logs-endpoint.events.*"]
+language = "kuery"
 license = "Elastic License v2"
 name = "Suspicious PowerShell Engine ImageLoad"
 note = """## Triage and analysis
@@ -59,109 +59,51 @@ Attackers can use PowerShell without having to execute `PowerShell.exe` directly
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-
-## Setup
-
-The 'PowerShell Script Block Logging' logging policy must be enabled.
-Steps to implement the logging policy with with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Administrative Templates >
-Windows PowerShell >
-Turn on PowerShell Script Block Logging (Enable)
-```
-
-Steps to implement the logging policy via registry:
-
-```
-reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
-```
-
-## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
 """
 risk_score = 47
 rule_id = "852c1f19-68e8-43a6-9dce-340771fe1be3"
 severity = "medium"
-tags = ["Elastic", "Host", "Windows", "Threat Detection", "Execution", "Investigation Guide", "Elastic Endgame"]
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 
 query = '''
-any where host.os.type == "windows" and (event.category : ("library", "driver") or (event.category == "process" and event.action : "Image loaded*")) and
- (dll.name : ("System.Management.Automation.ni.dll", "System.Management.Automation.dll") or
-  file.name : ("System.Management.Automation.ni.dll", "System.Management.Automation.dll")) and
-
-/* add false positives relevant to your environment here */
-not process.executable : ("C:\\Windows\\System32\\RemoteFXvGPUDisablement.exe", "C:\\Windows\\System32\\sdiagnhost.exe") and
-not process.executable regex~ """C:\\Program Files( \(x86\))?\\*\.exe""" and
-  not process.name :
-  (
-    "Altaro.SubAgent.exe",
-    "AppV_Manage.exe",
-    "azureadconnect.exe",
-    "CcmExec.exe",
-    "configsyncrun.exe",
-    "choco.exe",
-    "ctxappvservice.exe",
-    "DVLS.Console.exe",
-    "edgetransport.exe",
-    "exsetup.exe",
-    "forefrontactivedirectoryconnector.exe",
-    "InstallUtil.exe",
-    "JenkinsOnDesktop.exe",
-    "Microsoft.EnterpriseManagement.ServiceManager.UI.Console.exe",
-    "mmc.exe",
-    "mscorsvw.exe",
-    "msexchangedelivery.exe",
-    "msexchangefrontendtransport.exe",
-    "msexchangehmworker.exe",
-    "msexchangesubmission.exe",
-    "msiexec.exe",
-    "MsiExec.exe",
-    "noderunner.exe",
-    "NServiceBus.Host.exe",
-    "NServiceBus.Host32.exe",
-    "NServiceBus.Hosting.Azure.HostProcess.exe",
-    "OuiGui.WPF.exe",
-    "powershell.exe",
-    "powershell_ise.exe",
-    "pwsh.exe",
-    "SCCMCliCtrWPF.exe",
-    "ScriptEditor.exe",
-    "ScriptRunner.exe",
-    "sdiagnhost.exe",
-    "servermanager.exe",
-    "setup100.exe",
-    "ServiceHub.VSDetouredHost.exe",
-    "SPCAF.Client.exe",
-    "SPCAF.SettingsEditor.exe",
-    "SQLPS.exe",
-    "telemetryservice.exe",
-    "UMWorkerProcess.exe",
-    "w3wp.exe",
-    "wsmprovhost.exe"
-  )
+host.os.type:windows and event.category:library and 
+  dll.name:("System.Management.Automation.dll" or "System.Management.Automation.ni.dll") and 
+  not (process.code_signature.subject_name:("Microsoft Corporation" or "Microsoft Dynamic Code Publisher" or "Microsoft Windows") and process.code_signature.trusted:true and not process.name.caseless:("regsvr32.exe" or "rundll32.exe")) and 
+  not (process.executable.caseless:(?\:\\\\Program?Files?\(x86\)\\\\*.exe or ?\:\\\\Program?Files\\\\*.exe) and process.code_signature.trusted:true) and 
+  not (process.executable.caseless:?\:\\\\Windows\\\\Lenovo\\\\*.exe and process.code_signature.subject_name:"Lenovo" and 
+  process.code_signature.trusted:true) and not process.executable.caseless : "C:\\Windows\\System32\\powershell.exe"
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.001"
 name = "PowerShell"
 reference = "https://attack.mitre.org/techniques/T1059/001/"
-
-
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.executable", "user.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"

@@ -23,6 +23,11 @@ def default_rules() -> RuleCollection:
     return RuleCollection.default()
 
 
+@lru_cache
+def default_bbr() -> RuleCollection:
+    return RuleCollection.default_bbr()
+
+
 class BaseRuleTest(unittest.TestCase):
     """Base class for shared test cases which need to load rules"""
 
@@ -40,9 +45,11 @@ class BaseRuleTest(unittest.TestCase):
         if not RULE_LOADER_FAIL:
             try:
                 rc = default_rules()
+                rc_bbr = default_bbr()
                 cls.all_rules = rc.rules
                 cls.rule_lookup = rc.id_map
                 cls.production_rules = rc.filter(production_filter)
+                cls.bbr = rc_bbr.rules
                 cls.deprecated_rules: DeprecatedCollection = rc.deprecated
             except Exception as e:
                 RULE_LOADER_FAIL = True

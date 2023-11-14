@@ -9,12 +9,10 @@
 # ATT&CK: T1064, T1192, T1193
 # Description: WScript run with suspicious parent processes
 
-import os
 import time
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="a3cdd478-b817-4513-bb3d-897a5f92c836",
@@ -28,7 +26,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     script_data = """
         WScript.CreateObject("wscript.shell")
@@ -41,7 +39,7 @@ def main():
 
     for application in ["outlook.exe", "explorer.exe", "chrome.exe", "firefox.exe"]:
         common.log("Emulating %s" % application)
-        app_path = os.path.abspath(application)
+        app_path = Path(application).resolve()
         common.copy_file(cmd_path, app_path)
 
         common.execute([app_path, "/c", "wscript.exe", "script_path"], timeout=1, kill=True)

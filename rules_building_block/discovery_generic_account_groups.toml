@@ -1,0 +1,106 @@
+[metadata]
+creation_date = "2023/07/13"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/09/14"
+bypass_bbr_timing = true
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+This rule identifies the execution of commands that enumerates account or group information. Adversaries may use
+built-in applications to get a listing of local system or domain accounts and groups.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Windows Account or Group Discovery"
+risk_score = 21
+rule_id = "089db1af-740d-4d84-9a5b-babd6de143b0"
+severity = "low"
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Rule Type: BBR",
+        "Data Source: Elastic Defend"
+        ]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+(
+  (
+   (
+    (process.name : "net.exe" or process.pe.original_file_name == "net.exe") or
+    (
+     (process.name : "net1.exe" or process.pe.original_file_name == "net1.exe") and
+     not process.parent.name : "net.exe"
+    )
+   ) and process.args : ("accounts", "group", "user", "localgroup") and not process.args : "/add"
+  ) or
+  (process.name:("dsquery.exe", "dsget.exe") and process.args:("*members*", "user")) or
+  (process.name:"dsquery.exe" and process.args:"*filter*") or
+  process.name:("quser.exe", "qwinsta.exe", "PsGetSID.exe", "PsLoggedOn.exe", "LogonSessions.exe", "whoami.exe") or
+  (
+    process.name: "cmd.exe" and
+    (
+      process.args : "echo" and process.args : (
+        "%username%", "%userdomain%", "%userdnsdomain%",
+        "%userdomain_roamingprofile%", "%userprofile%",
+        "%homepath%", "%localappdata%", "%appdata%"
+      ) or
+      process.args : "set"
+    )
+  )
+) and not process.parent.args: "C:\\Program Files (x86)\\Microsoft Intune Management Extension\\Content\\DetectionScripts\\*.ps1"
+and not process.parent.name : "LTSVC.exe" and not user.id : "S-1-5-18"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1069.001"
+name = "Local Groups"
+reference = "https://attack.mitre.org/techniques/T1069/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1069.002"
+name = "Domain Groups"
+reference = "https://attack.mitre.org/techniques/T1069/002/"
+
+[[rule.threat.technique]]
+id = "T1201"
+name = "Password Policy Discovery"
+reference = "https://attack.mitre.org/techniques/T1201/"
+
+[[rule.threat.technique]]
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1087.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1087/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1087.002"
+name = "Domain Account"
+reference = "https://attack.mitre.org/techniques/T1087/002/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
