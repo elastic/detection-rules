@@ -140,9 +140,9 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
             threat_map = []
 
             while click.confirm('add mitre tactic?'):
-                tactic = schema_prompt('mitre tactic name', type='string', enum=tactics, required=True)
+                tactic = schema_prompt('mitre tactic name', type='string', enum=tactics, is_required=True)
                 technique_ids = schema_prompt(f'technique or sub-technique IDs for {tactic}', type='array',
-                                              required=False, enum=list(matrix[tactic])) or []
+                                              is_required=False, enum=list(matrix[tactic])) or []
 
                 try:
                     threat_map.append(build_threat_map_entry(tactic, *technique_ids))
@@ -158,7 +158,7 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
             continue
 
         if name == 'threshold':
-            contents[name] = {n: schema_prompt(f'threshold {n}', required=n in options['required'], **opts.copy())
+            contents[name] = {n: schema_prompt(f'threshold {n}', is_required=n in options['required'], **opts.copy())
                               for n, opts in options['properties'].items()}
             continue
 
@@ -166,7 +166,7 @@ def rule_prompt(path=None, rule_type=None, required_only=True, save=True, verbos
             contents[name] = schema_prompt(name, value=kwargs.pop(name))
             continue
 
-        result = schema_prompt(name, required=name in required_fields, **options.copy())
+        result = schema_prompt(name, is_required=name in required_fields, **options.copy())
 
         if result:
             if name not in required_fields and result == options.get('default', ''):

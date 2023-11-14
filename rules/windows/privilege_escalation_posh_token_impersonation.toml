@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/09/13"
+updated_date = "2023/11/14"
 
 [transform]
 [[transform.osquery]]
@@ -120,14 +120,6 @@ Steps to implement the logging policy via registry:
 reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
 ```
 """
-references = [
-    "https://github.com/decoder-it/psgetsystem",
-    "https://github.com/PowerShellMafia/PowerSploit/blob/master/Privesc/Get-System.ps1",
-    "https://github.com/EmpireProject/Empire/blob/master/data/module_source/privesc/Invoke-MS16032.ps1",
-    "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0109_windows_powershell_script_block_log.md",
-]
-risk_score = 47
-rule_id = "11dd9713-0ec6-4110-9707-32daae1ee68c"
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Privilege Escalation", "Data Source: PowerShell Logs"]
 timestamp_override = "event.ingested"
@@ -156,10 +148,12 @@ event.category:process and host.os.type:windows and
       "CreatePRocessAsUserW" or
       "CreateProcessAsUserA")
     ) 
-  ) and not 
-  (user.id:("S-1-5-18" or "S-1-5-19") and
-   file.directory: "C:\\ProgramData\\Microsoft\\Windows Defender Advanced Threat Protection\\Downloads")
-  and not powershell.file.script_block_text : (
+  ) and
+  not (
+    user.id:("S-1-5-18" or "S-1-5-19" or "S-1-5-20") and
+    file.directory: "C:\\ProgramData\\Microsoft\\Windows Defender Advanced Threat Protection\\Downloads"
+  ) and
+  not powershell.file.script_block_text : (
     "sentinelbreakpoints" and "Set-PSBreakpoint" and "PowerSploitIndicators"
   )
 '''

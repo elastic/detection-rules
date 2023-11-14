@@ -3,12 +3,10 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-import os
 import time
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="20b96aa7-609e-473f-ac35-5ac19d10f9a5",
@@ -27,7 +25,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     server, ip, port = common.serve_web()
     url = "http://{}:{}/bad.ps1".format(ip, port)
@@ -37,7 +35,7 @@ def main():
     # Emulate Word
     user_app = "winword.exe"
     common.log("Emulating {}".format(user_app))
-    user_app_path = os.path.abspath(user_app)
+    user_app_path = Path(user_app).resolve()
     common.copy_file(EXE_FILE, user_app_path)
 
     common.execute([user_app_path, "/c", cmd])

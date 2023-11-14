@@ -23,7 +23,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "DoublePersist.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     binary = "DoublePersist.exe"
     common.copy_file(EXE_FILE, binary)
