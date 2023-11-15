@@ -1290,8 +1290,12 @@ def downgrade_contents_from_rule(rule: TOMLRule, target_version: str, replace_id
 
     rule_dict = downgrade(rule_dict, target_version=str(min_stack_version))
     meta = rule_dict.pop("meta")
-    rule_contents = TOMLRuleContents.from_dict({"rule": rule_dict, "metadata": meta,
-                                                "transform": rule.contents.transform})
+    rule_contents_dict = {"rule": rule_dict, "metadata": meta}
+
+    if rule.contents.transform:
+        rule_contents_dict["transform"] = rule.contents.transform.to_dict()
+
+    rule_contents = TOMLRuleContents.from_dict(rule_contents_dict)
     payload = rule_contents.to_api_format()
     payload = strip_non_public_fields(min_stack_version, payload)
     return payload
