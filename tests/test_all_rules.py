@@ -1435,4 +1435,9 @@ class TestESQLRules(BaseRuleTest):
 
                 # Stub test to validate esql rules
                 assert rule.contents.data.language == "esql", \
-                    f"{self.rule_str(rule)} is not an ESQL rule type"
+                    f"{self.rule_str(rule)} is not an ES|QL rule type"
+
+                # Validate that the rule does not contain enrich
+                # until we support it
+                assert "enrich" not in rule.contents.data.query.lower(), \
+                    f"{self.rule_str(rule)} is an ES|QL rule type and contains enrich"

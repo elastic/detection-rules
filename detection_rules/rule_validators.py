@@ -363,6 +363,7 @@ class ESQLValidator(QueryValidator):
     def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
         """Validate an ESQL query while checking TOMLRule."""
         if not os.environ.get("DR_VALIDATE_ESQL"):
+            print(f"Skipping ES|QL validation for {data.name} - {data.rule_id}")
             return
 
         if Version.parse(meta.min_stack_version) < Version.parse("8.11.0"):

@@ -485,4 +485,5 @@ class ElasticsearchClientSingleton:
 
     @classmethod
     def get_client(cls):
+        """Get the Elasticsearch client instance."""
         return cls()._instance.client
