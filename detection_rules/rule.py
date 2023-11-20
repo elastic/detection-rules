@@ -1095,14 +1095,14 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         packaged_integrations = []
         datasets = set()
 
-        if data.type == "esql":
-            return packaged_integrations
+        if data.type != "esql":
+            # skip ES|QL rules until ast is available
 
-        for node in data.get('ast', []):
-            if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
-                datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
-            elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
-                datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
+            for node in data.get('ast', []):
+                if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
+                    datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
+                elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
+                    datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
 
         # integration is None to remove duplicate references upstream in Kibana
         # chronologically, event.dataset is checked for package:integration, then rule tags
