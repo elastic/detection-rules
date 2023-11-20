@@ -8,6 +8,7 @@ import os
 from functools import cached_property
 from typing import List, Optional, Tuple, Union
 
+import elasticsearch
 import eql
 from marshmallow import ValidationError
 from semver import Version
@@ -369,9 +370,17 @@ class ESQLValidator(QueryValidator):
 
         client = ElasticsearchClientSingleton.get_client()
         client.info()
-        client.perform_request("POST", "/_query", params={"pretty": True},
-                               headers={"accept": "application/json", "content-type": "application/json"},
-                               body={"query": f"{self.query} | LIMIT 0"})
+        headers = {"accept": "application/json", "content-type": "application/json"}
+        try:
+            client.perform_request("POST", "/_query", params={"pretty": True},
+                                   headers=headers,
+                                   body={"query": f"{self.query} | LIMIT 0"})
+        except elasticsearch.BadRequestError as exc:
+            raise ValidationError(f"ESQL query failed: {exc}")
+
+    def validate_integration(self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]) -> Union[
+            ValidationError, None, ValueError]:
+        return self.validate(data, meta)
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
