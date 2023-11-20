@@ -353,6 +353,12 @@ class EQLValidator(QueryValidator):
 class ESQLValidator(QueryValidator):
     """Specific fields for ESQL query event types."""
 
+    @cached_property
+    def unique_fields(self) -> List[str]:
+        """Return a list of unique fields in the query."""
+        # return empty list for ES|QL rules until ast is available
+        return []
+
     def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
         """Validate an ESQL query while checking TOMLRule."""
         if not os.environ.get("DR_VALIDATE_ESQL"):
