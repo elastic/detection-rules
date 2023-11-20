@@ -4,7 +4,7 @@ integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/09"
+updated_date = "2023/10/23"
 
 [rule]
 author = ["Elastic"]
@@ -58,7 +58,14 @@ This rule matches changes of the dsHeuristics object where the 16th bit is set t
 - The change can be reverted by setting the dwAdminSDExMask (16th bit) to 0 in dSHeuristics.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
-## Setup
+"""
+references = [
+    "https://www.cert.ssi.gouv.fr/uploads/guide-ad.html#dsheuristics_bad",
+    "https://petri.com/active-directory-security-understanding-adminsdholder-object",
+]
+risk_score = 73
+rule_id = "61d29caf-6c15-4d1e-9ccb-7ad12ccc0bc7"
+setup="""
 
 The 'Audit Directory Service Changes' logging policy must be configured for (Success).
 Steps to implement the logging policy with Advanced Audit Configuration:
@@ -74,14 +81,12 @@ DS Access >
 Audit Directory Service Changes (Success)
 ```
 
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2, events will not define `event.ingested` and default fallback for EQL rules was not added until 8.2, so you will need to add a custom pipeline to populate `event.ingested` to @timestamp for this rule to work.
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
 """
-references = [
-    "https://www.cert.ssi.gouv.fr/uploads/guide-ad.html#dsheuristics_bad",
-    "https://petri.com/active-directory-security-understanding-adminsdholder-object",
-]
-risk_score = 73
-rule_id = "61d29caf-6c15-4d1e-9ccb-7ad12ccc0bc7"
 severity = "high"
 tags = [
     "Domain: Endpoint",
