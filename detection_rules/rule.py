@@ -569,6 +569,8 @@ class QueryRuleData(BaseRuleData):
             return KQLValidator(self.query)
         elif self.language == "eql":
             return EQLValidator(self.query)
+        elif self.language == "esql":
+            return ESQLValidator(self.query)
 
     def validate_query(self, meta: RuleMeta) -> None:
         validator = self.validator
@@ -715,6 +717,13 @@ class EQLRuleData(QueryRuleData):
 
 
 @dataclass(frozen=True)
+class ESQLRuleData(QueryRuleData):
+    """ESQL rules are a special case of query rules."""
+    type: Literal["esql"]
+    language: Literal["esql"]
+
+
+@dataclass(frozen=True)
 class ThreatMatchRuleData(QueryRuleData):
     """Specific fields for indicator (threat) match rule."""
 
@@ -760,8 +769,9 @@ class ThreatMatchRuleData(QueryRuleData):
 
 # All of the possible rule types
 # Sort inverse of any inheritance - see comment in TOMLRuleContents.to_dict
-AnyRuleData = Union[EQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData,
-                    MachineLearningRuleData, QueryRuleData, NewTermsRuleData]
+AnyRuleData = Union[EQLRuleData, ESQLRuleData, ThresholdQueryRuleData,
+                    ThreatMatchRuleData, MachineLearningRuleData, QueryRuleData,
+                    NewTermsRuleData]
 
 
 class BaseRuleContents(ABC):
@@ -945,9 +955,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         super()._post_dict_conversion(obj)
 
         # build time fields
-        self._convert_add_related_integrations(obj)
-        self._convert_add_required_fields(obj)
-        self._convert_add_setup(obj)
+        if not isinstance(self.data, ESQLRuleData):
+            self._convert_add_related_integrations(obj)
+            self._convert_add_required_fields(obj)
+            self._convert_add_setup(obj)
 
         # validate new fields against the schema
         rule_type = obj['type']
@@ -1083,6 +1094,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                                   package_manifest: dict) -> Optional[List[dict]]:
         packaged_integrations = []
         datasets = set()
+
+        if data.type == "esql":
+            return packaged_integrations
 
         for node in data.get('ast', []):
             if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
@@ -1333,4 +1347,4 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
 
 
 # avoid a circular import
-from .rule_validators import EQLValidator, KQLValidator  # noqa: E402
+from .rule_validators import EQLValidator, ESQLValidator, KQLValidator  # noqa: E402

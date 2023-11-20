@@ -27,7 +27,7 @@ from detection_rules.packaging import current_stack_version
 from detection_rules.rule import (QueryRuleData, QueryValidator,
                                   TOMLRuleContents)
 from detection_rules.rule_loader import FILE_PATTERN
-from detection_rules.rule_validators import EQLValidator, KQLValidator
+from detection_rules.rule_validators import EQLValidator, ESQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_stack_schemas
 from detection_rules.utils import (INTEGRATION_RULE_DIR, PatchedTemplate,
                                    get_path, load_etc_dump)
@@ -812,12 +812,14 @@ class TestRuleMetadata(BaseRuleTest):
 
     def test_event_dataset(self):
         for rule in self.all_rules:
-            if(isinstance(rule.contents.data, QueryRuleData)):
+            if (isinstance(rule.contents.data, QueryRuleData)):
                 # Need to pick validator based on language
                 if rule.contents.data.language == "kuery":
                     test_validator = KQLValidator(rule.contents.data.query)
-                if rule.contents.data.language == "eql":
+                elif rule.contents.data.language == "eql":
                     test_validator = EQLValidator(rule.contents.data.query)
+                elif rule.contents.data.language == "esql":
+                    test_validator = ESQLValidator(rule.contents.data.query)
                 data = rule.contents.data
                 meta = rule.contents.metadata
                 if meta.query_schema_validation is not False or meta.maturity != "deprecated":
@@ -833,7 +835,7 @@ class TestRuleMetadata(BaseRuleTest):
                                                                                                 meta,
                                                                                                 pkg_integrations)
 
-                        if(validation_integrations_check and "event.dataset" in rule.contents.data.query):
+                        if (validation_integrations_check and "event.dataset" in rule.contents.data.query):
                             raise validation_integrations_check
 
 
@@ -1417,3 +1419,20 @@ class TestNewTerms(BaseRuleTest):
             if rule.contents.data.type == "new_terms":
                 assert len(set(rule.contents.data.new_terms.value)) == len(rule.contents.data.new_terms.value), \
                     f"new terms fields values are not unique - {rule.contents.data.new_terms.value}"
+
+
+class TestESQLRules(BaseRuleTest):
+    """Test ESQL Rules."""
+
+    @unittest.skipIf(not os.environ.get("DR_VALIDATE_ESQL"),
+                     "Test only run when DR_VALIDATE_ESQL environment variable set.")
+    def test_environment_variables_set(self):
+        assert os.environ.get("DR_ES_USER") is not None
+        assert (os.environ.get("DR_CLOUD_ID") is not None or os.environ.get("DR_ELASTICSEARCH_URL") is not None)
+
+        for rule in self.production_rules:
+            if rule.contents.data.type == "esql":
+
+                # Stub test to validate esql rules
+                assert rule.contents.data.language == "esql", \
+                    f"{self.rule_str(rule)} is not an ESQL rule type"

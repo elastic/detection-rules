@@ -4,19 +4,23 @@
 # 2.0.
 
 """Validation logic for rules containing queries."""
+import os
 from functools import cached_property
-from typing import List, Optional, Union, Tuple
-from semver import Version
+from typing import List, Optional, Tuple, Union
 
 import eql
+from marshmallow import ValidationError
+from semver import Version
 
 import kql
 
 from . import ecs, endgame
-from .integrations import get_integration_schema_data, load_integrations_manifests
-from .misc import load_current_package_version
+from .integrations import (get_integration_schema_data,
+                           load_integrations_manifests)
+from .misc import ElasticsearchClientSingleton, load_current_package_version
+from .rule import (EQLRuleData, QueryRuleData, QueryValidator, RuleMeta,
+                   TOMLRuleContents, set_eql_config)
 from .schemas import get_stack_schemas
-from .rule import QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, EQLRuleData, set_eql_config
 
 EQL_ERROR_TYPES = Union[eql.EqlCompileError,
                         eql.EqlError,
@@ -344,6 +348,24 @@ class EQLValidator(QueryValidator):
         else:
             # if rule type fields are not set, return an empty list and False
             return [], False
+
+
+class ESQLValidator(QueryValidator):
+    """Specific fields for ESQL query event types."""
+
+    def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
+        """Validate an ESQL query while checking TOMLRule."""
+        if not os.environ.get("DR_VALIDATE_ESQL"):
+            return
+
+        if Version.parse(meta.min_stack_version) < Version.parse("8.11.0"):
+            raise ValidationError(f"Rule minstack must be greater than 8.10.0 {data.rule_id}")
+
+        client = ElasticsearchClientSingleton.get_client()
+        client.info()
+        client.perform_request("POST", "/_query", params={"pretty": True},
+                               headers={"accept": "application/json", "content-type": "application/json"},
+                               body={"query": f"{self.query} | LIMIT 0"})
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:

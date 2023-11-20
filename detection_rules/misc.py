@@ -11,6 +11,7 @@ import uuid
 from pathlib import Path
 
 from functools import wraps
+from threading import Lock
 from typing import NoReturn
 
 import click
@@ -446,3 +447,42 @@ def add_client(*client_type, add_to_ctx=True, add_func_arg=True):
         return _wrapped
 
     return _wrapper
+
+
+class ElasticsearchClientSingleton:
+    """Singleton for Elasticsearch client."""
+    _instance = None
+    _lock = Lock()
+
+    def __new__(cls, *args, **kwargs):
+        """Create a new instance of the Elasticsearch client."""
+        with cls._lock:  # ensures thread-safe singleton initialization
+            if cls._instance is None:
+                cls._instance = super(ElasticsearchClientSingleton, cls).__new__(cls)
+                # Initialize the client here
+                # export DR_VALIDATE_ESQL=true
+                # export DR_CLOUD_ID="" or export DR_ELASTICSEARCH_URL=""
+                # export DR_ES_PASSWORD=""
+                # export DR_ES_USER=""
+                es_client_args = {
+                    "es_password": getdefault("es_password")(),
+                    "es_user": getdefault("es_user")(),
+                    "ignore_ssl_errors": True
+                }
+
+                cloud_id = getdefault('cloud_id')()
+                elasticsearch_url = getdefault('elasticsearch_url')()
+
+                if cloud_id:
+                    es_client_args["cloud_id"] = cloud_id
+                elif not cloud_id and elasticsearch_url:
+                    es_client_args["elasticsearch_url"] = elasticsearch_url
+                else:
+                    raise ClientError("Either the cloud_id or elasticsearch_url must be set.")
+
+                cls._instance.client = get_elasticsearch_client(**es_client_args)
+        return cls._instance
+
+    @classmethod
+    def get_client(cls):
+        return cls()._instance.client
