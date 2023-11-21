@@ -10,9 +10,13 @@ import unittest
 import uuid
 import warnings
 from collections import defaultdict
+from copy import deepcopy
 from pathlib import Path
 
 import eql.ast
+import marshmallow
+import pytest
+from contextlib import nullcontext as does_not_raise
 from marshmallow import ValidationError
 from semver import Version
 
@@ -26,11 +30,11 @@ from detection_rules.misc import load_current_package_version
 from detection_rules.packaging import current_stack_version
 from detection_rules.rule import (QueryRuleData, QueryValidator,
                                   TOMLRuleContents)
-from detection_rules.rule_loader import FILE_PATTERN
+from detection_rules.rule_loader import FILE_PATTERN, RuleCollection
 from detection_rules.rule_validators import EQLValidator, ESQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_stack_schemas
 from detection_rules.utils import (INTEGRATION_RULE_DIR, PatchedTemplate,
-                                   get_path, load_etc_dump)
+                                   get_path, load_etc_dump, load_rule_contents)
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
@@ -1424,12 +1428,54 @@ class TestNewTerms(BaseRuleTest):
 class TestESQLRules(BaseRuleTest):
     """Test ESQL Rules."""
 
-    @unittest.skipIf(not os.environ.get("DR_VALIDATE_ESQL"),
-                     "Test only run when DR_VALIDATE_ESQL environment variable set.")
-    def test_environment_variables_set(self):
-        assert os.environ.get("DR_ES_USER") is not None
-        assert (os.environ.get("DR_CLOUD_ID") is not None or os.environ.get("DR_ELASTICSEARCH_URL") is not None)
+    @classmethod
+    def setUpClass(cls):
+        """Set up test environment."""
 
+        cls.dr_es_user = os.environ.get("DR_ES_USER")
+        cls.dr_cloud_id = os.environ.get("DR_CLOUD_ID")
+        cls.dr_elasticsearch_url = os.environ.get("DR_ELASTICSEARCH_URL")
+        cls.dr_validate_esql = os.environ.get("DR_VALIDATE_ESQL")
+
+        if cls.dr_validate_esql is None:
+            raise unittest.SkipTest("Test only run when DR_VALIDATE_ESQL environment variable set.")
+        assert cls.dr_es_user is not None, "DR_ES_USER environment variable is not set."
+        assert cls.dr_cloud_id is not None or cls.dr_elasticsearch_url is not None, \
+            "Either DR_CLOUD_ID or DR_ELASTICSEARCH_URL must be set."
+
+        super().setUpClass()
+
+    def test_esql_queries(self):
+        test_cases = [
+            # invalid queries
+            ('from .ds-logs-endpoint.events.process-default-* | wheres process.name like "Microsoft*"',
+             pytest.raises(marshmallow.exceptions.ValidationError), r"ESQL query failed"),
+            ('from .ds-logs-endpoint.events.process-default-* | where process.names like "Microsoft*"',
+             pytest.raises(marshmallow.exceptions.ValidationError), r"ESQL query failed"),
+
+            # valid queries
+            ('from .ds-logs-endpoint.events.process-default-* | where process.name like "Microsoft*"',
+             does_not_raise(), None),
+        ]
+        for esql_query, expectation, message in test_cases:
+            self.run_esql_test(esql_query, expectation, message)
+
+    def run_esql_test(self, esql_query, expectation, message):
+        """Test that the endpoint schema query validators are working correctly."""
+        rc = RuleCollection()
+        file_path = Path(get_path("tests", "data", "command_control_dummy_production_rule.toml"))
+        original_production_rule = load_rule_contents(file_path)
+
+        # Test that a ValidationError is raised if the query doesn't match the schema
+        production_rule = deepcopy(original_production_rule)[0]
+        production_rule["rule"]["query"] = esql_query
+
+        expectation.match_expr = message
+        with expectation:
+            rc.load_dict(production_rule)
+
+    def test_esql_rules(self):
+        """Test ESQL rules."""
         for rule in self.production_rules:
             if rule.contents.data.type == "esql":
 

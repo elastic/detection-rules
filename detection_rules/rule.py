@@ -569,8 +569,6 @@ class QueryRuleData(BaseRuleData):
             return KQLValidator(self.query)
         elif self.language == "eql":
             return EQLValidator(self.query)
-        elif self.language == "esql":
-            return ESQLValidator(self.query)
 
     def validate_query(self, meta: RuleMeta) -> None:
         validator = self.validator
@@ -717,10 +715,18 @@ class EQLRuleData(QueryRuleData):
 
 
 @dataclass(frozen=True)
-class ESQLRuleData(QueryRuleData):
+class ESQLRuleData(BaseRuleData):
     """ESQL rules are a special case of query rules."""
     type: Literal["esql"]
     language: Literal["esql"]
+    query: str
+
+    @cached_property
+    def validator(self) -> Optional[QueryValidator]:
+        return ESQLValidator(self.query)
+
+    def validate_query(self, meta: RuleMeta) -> None:
+        return self.validator.validate(self, meta)
 
 
 @dataclass(frozen=True)
