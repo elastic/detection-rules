@@ -1445,6 +1445,20 @@ class TestESQLRules(BaseRuleTest):
 
         super().setUpClass()
 
+    def run_esql_test(self, esql_query, expectation, message):
+        """Test that the endpoint schema query validators are working correctly."""
+        rc = RuleCollection()
+        file_path = Path(get_path("tests", "data", "command_control_dummy_production_rule.toml"))
+        original_production_rule = load_rule_contents(file_path)
+
+        # Test that a ValidationError is raised if the query doesn't match the schema
+        production_rule = deepcopy(original_production_rule)[0]
+        production_rule["rule"]["query"] = esql_query
+
+        expectation.match_expr = message
+        with expectation:
+            rc.load_dict(production_rule)
+
     def test_esql_queries(self):
         test_cases = [
             # invalid queries
@@ -1459,20 +1473,6 @@ class TestESQLRules(BaseRuleTest):
         ]
         for esql_query, expectation, message in test_cases:
             self.run_esql_test(esql_query, expectation, message)
-
-    def run_esql_test(self, esql_query, expectation, message):
-        """Test that the endpoint schema query validators are working correctly."""
-        rc = RuleCollection()
-        file_path = Path(get_path("tests", "data", "command_control_dummy_production_rule.toml"))
-        original_production_rule = load_rule_contents(file_path)
-
-        # Test that a ValidationError is raised if the query doesn't match the schema
-        production_rule = deepcopy(original_production_rule)[0]
-        production_rule["rule"]["query"] = esql_query
-
-        expectation.match_expr = message
-        with expectation:
-            rc.load_dict(production_rule)
 
     def test_esql_rules(self):
         """Test ESQL rules."""
