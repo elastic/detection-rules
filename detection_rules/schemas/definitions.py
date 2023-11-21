@@ -123,6 +123,7 @@ EXPECTED_RULE_TAGS = [
     'Use Case: Log Auditing',
     'Use Case: Network Security Monitoring',
     'Use Case: Threat Detection',
+    'Use Case: UEBA',
     'Use Case: Vulnerability'
 ]
 
