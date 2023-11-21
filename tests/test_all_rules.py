@@ -1431,7 +1431,6 @@ class TestESQLRules(BaseRuleTest):
     @classmethod
     def setUpClass(cls):
         """Set up test environment."""
-
         cls.dr_es_user = os.environ.get("DR_ES_USER")
         cls.dr_cloud_id = os.environ.get("DR_CLOUD_ID")
         cls.dr_elasticsearch_url = os.environ.get("DR_ELASTICSEARCH_URL")
@@ -1446,7 +1445,7 @@ class TestESQLRules(BaseRuleTest):
         super().setUpClass()
 
     def run_esql_test(self, esql_query, expectation, message):
-        """Test that the endpoint schema query validators are working correctly."""
+        """Test that the query validation is working correctly."""
         rc = RuleCollection()
         file_path = Path(get_path("tests", "data", "command_control_dummy_production_rule.toml"))
         original_production_rule = load_rule_contents(file_path)
@@ -1460,6 +1459,7 @@ class TestESQLRules(BaseRuleTest):
             rc.load_dict(production_rule)
 
     def test_esql_queries(self):
+        """Test ESQL queries."""
         test_cases = [
             # invalid queries
             ('from .ds-logs-endpoint.events.process-default-* | wheres process.name like "Microsoft*"',
