@@ -4,36 +4,36 @@ integration = ["windows", "endpoint"]
 maturity = "production"
 min_stack_comments = "The New Term rule type used in this rule was added in Elastic 8.4"
 min_stack_version = "8.4.0"
-updated_date = "2023/05/31"
+updated_date = "2023/11/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Adversaries may install legitimate remote access tools (RAT) to compromised endpoints for further command-and-control
-(C2). Adversaries can rely on installed RATs for persistence, execution of native commands and more. This rule detects
-when a process is started whose name or code signature resembles commonly abused RATs. This is a New Terms rule type
-indicating the host has not seen this RAT process started before within the last 30 days.
+Adversaries may install legitimate remote monitoring and management (RMM) tools to compromised endpoints for further command-and-control
+(C2). Adversaries can rely on installed RMMs for persistence, execution of native commands and more. This rule detects
+when a process is started whose name or code signature resembles commonly abused RMMs. This is a New Terms rule type
+indicating the host has not seen this RMM process started before within the last 30 days.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "First Time Seen Commonly Abused Remote Access Tool Execution"
+name = "First Time Seen Commonly Abused Remote Monitoring and Management Tool (RMM) Execution"
 note = """
 ## Triage and analysis
 
-### Investigating First Time Seen Commonly Abused Remote Access Tool Execution
+### Investigating First Time Seen Commonly Abused RMM Execution
 
-Remote access software is a class of tools commonly used by IT departments to provide support by connecting securely to users' computers. Remote access is an ever-growing market where new companies constantly offer new ways of quickly accessing remote systems.
+RMM software is a class of tools commonly used by IT departments to provide support by connecting securely to users' computers. RMM access is an ever-growing market where new companies constantly offer new ways of quickly accessing remote systems.
 
 At the same pace as IT departments adopt these tools, the attackers also adopt them as part of their workflow to connect into an interactive session, maintain access with legitimate software as a persistence mechanism, drop malicious software, etc.
 
-This rule detects when a remote access tool is seen in the environment for the first time in the last 15 days, enabling analysts to investigate and enforce the correct usage of such tools.
+This rule detects when a RMM binary is seen in the environment for the first time in the last 15 days, enabling analysts to investigate and enforce the correct usage of such tools.
 
 #### Possible investigation steps
 
 - Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Check if the execution of the remote access tool is approved by the organization's IT department.
+- Check if the execution of the RMM is approved by the organization's IT department.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Contact the account owner and confirm whether they are aware of this activity.
   - If the tool is not approved for use in the organization, the employee could have been tricked into installing it and providing access to a malicious third party. Investigate whether this third party could be attempting to scam the end-user or gain access to the environment through social engineering.
@@ -86,9 +86,12 @@ host.os.type: "windows" and
         "ISLLightClient.exe" or "ISLLight.exe" or "AteraAgent.exe" or "SRService.exe")
 	) and
 
-	not (process.pe.original_file_name : ("G2M.exe" or "Updater.exe" or "powershell.exe") and process.code_signature.subject_name : "LogMeIn, Inc.")
+	not (process.pe.original_file_name : ("G2M.exe" or "Updater.exe" or "powershell.exe") and process.code_signature.subject_name : "LogMeIn, Inc.") and
+    not (process.code_signature.trusted: true and process.executable: (
+            "?:\\Program Files*\\AnyDesk\\AnyDesk.exe" or
+            "?:\\Program Files*\\ScreenConnect Client*\\ScreenConnect.WindowsClient.exe" or
+            "?:\\Program Files*\\TeamViewer\\TeamViewer.exe"))
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
