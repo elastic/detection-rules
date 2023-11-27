@@ -717,10 +717,18 @@ class EQLRuleData(QueryRuleData):
 
 
 @dataclass(frozen=True)
-class ESQLRuleData(QueryRuleData):
+class ESQLRuleData(BaseRuleData):
     """ESQL rules are a special case of query rules."""
     type: Literal["esql"]
     language: Literal["esql"]
+    query: str
+
+    @cached_property
+    def validator(self) -> Optional[QueryValidator]:
+        return ESQLValidator(self.query)
+
+    def validate_query(self, meta: RuleMeta) -> None:
+        return self.validator.validate(self, meta)
 
 
 @dataclass(frozen=True)
@@ -1094,11 +1102,13 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         packaged_integrations = []
         datasets = set()
 
-        for node in data.get('ast', []):
-            if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
-                datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
-            elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
-                datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
+        if data.type != "esql":
+            # skip ES|QL rules until ast is available
+            for node in data.get('ast', []):
+                if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
+                    datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
+                elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
+                    datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
 
         # integration is None to remove duplicate references upstream in Kibana
         # chronologically, event.dataset is checked for package:integration, then rule tags
