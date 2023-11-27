@@ -5,7 +5,7 @@
 
 """Definitions for packages destined for the registry."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 from .definitions import ConditionSemVer, SemVer
@@ -13,22 +13,54 @@ from ..mixins import MarshmallowDataclassMixin
 
 
 @dataclass
-class RegistryPackageManifest(MarshmallowDataclassMixin):
+class ConditionElastic:
+    subscription: str
+
+
+@dataclass
+class Condition:
+    kibana_version: str = field(metadata={"data_key": "kibana.version"})
+    elastic: ConditionElastic
+
+
+@dataclass
+class Icon:
+    size: str
+    src: str
+    type: str
+
+
+@dataclass
+class RegistryPackageManifestBase(MarshmallowDataclassMixin):
     """Base class for registry packages."""
 
     categories: List[str]
-    conditions: Dict[str, ConditionSemVer]
     description: str
     format_version: SemVer
-    icons: list
-    license: str
+    icons: List[Icon]
     name: str
     owner: Dict[str, str]
-    release: str
     title: str
     type: str
     version: SemVer
 
-    internal: Optional[bool] = None
-    policy_templates: Optional[list] = None
-    screenshots: Optional[list] = None
+    internal: Optional[bool]
+    policy_templates: Optional[List[str]]
+    screenshots: Optional[List[str]]
+
+
+@dataclass
+class RegistryPackageManifestV1(RegistryPackageManifestBase):
+    """Registry packages using elastic-package v1."""
+
+    conditions: Dict[str, ConditionSemVer]
+    license: str
+    release: str
+
+
+@dataclass
+class RegistryPackageManifestV3(RegistryPackageManifestBase):
+    """Registry packages using elastic-package v3."""
+
+    conditions: Condition
+    source: Dict[str, str]
