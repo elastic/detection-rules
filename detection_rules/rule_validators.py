@@ -359,11 +359,15 @@ class ESQLSyntaxError(Exception):
     """Exception raised for syntax/semantic errors of an ESQL query."""
 
     def __init__(self, message):
+        """Initialize the custom ESQL exception."""
         super().__init__(message)
 
 
 class ESQLValidatorListener(EsqlBaseParserListener):
+    """Validate specific fields for ESQL query event types."""
+
     def __init__(self, schema):
+        """Initialize the listener with a schema."""
         self.schema = schema
         self.field_list = []
         self.indices = []

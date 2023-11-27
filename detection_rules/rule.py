@@ -962,10 +962,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         super()._post_dict_conversion(obj)
 
         # build time fields
-        if not isinstance(self.data, ESQLRuleData):
-            self._convert_add_related_integrations(obj)
-            self._convert_add_required_fields(obj)
-            self._convert_add_setup(obj)
+        self._convert_add_related_integrations(obj)
+        self._convert_add_required_fields(obj)
+        self._convert_add_setup(obj)
 
         # validate new fields against the schema
         rule_type = obj['type']
