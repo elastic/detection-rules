@@ -34,8 +34,9 @@ tags = ["Use Case: Identity and Access Audit", "Data Source: Okta", "Tactic: Ini
 timestamp_override = "event.ingested"
 type = "threshold"
 query = '''
-event.dataset:okta.system and not okta.actor.id: okta* and okta.authentication_context.external_session_id: *
-    and okta.debug_context.debug_data.dt_hash: *
+event.dataset:okta.system
+    and okta.authentication_context.external_session_id:* and okta.debug_context.debug_data.dt_hash:*
+    and not (okta.actor.id: okta* or okta.display.name: okta*)
 '''
 
 [[rule.threat]]
