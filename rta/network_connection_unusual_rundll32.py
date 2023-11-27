@@ -21,7 +21,7 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "regsvr32.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     binary = "rundll32.exe"
     common.copy_file(EXE_FILE, binary)

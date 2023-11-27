@@ -16,7 +16,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     cmd = "C:\\Windows\\System32\\cmd.exe"
 

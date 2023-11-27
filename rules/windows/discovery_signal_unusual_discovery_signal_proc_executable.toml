@@ -1,0 +1,48 @@
+[metadata]
+creation_date = "2023/09/22"
+maturity = "production"
+min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
+min_stack_version = "8.6.0"
+updated_date = "2023/09/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule leverages alert data from various Discovery building block rules to alert on signals with unusual unique
+host.id, user.id and process.executable entries.
+"""
+from = "now-9m"
+index = [".alerts-security.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual Discovery Signal Alert with Unusual Process Executable"
+risk_score = 21
+rule_id = "72ed9140-fe9d-4a34-a026-75b50e484b17"
+severity = "low"
+tags = ["Domain: Endpoint",
+        "OS: Windows",
+        "Use Case: Threat Detection",
+        "Tactic: Discovery",
+        "Rule Type: Higher-Order Rule"
+        ]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+host.os.type:windows and event.kind:signal and kibana.alert.rule.rule_id:"1d72d014-e2ab-4707-b056-9b96abe7b511"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "user.id", "process.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
