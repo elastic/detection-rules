@@ -1,4 +1,8 @@
-# Generated from /Users/tdejesus/code/src/detection-rules/esql/grammar/EsqlBaseLexer.g4 by ANTLR 4.13.1
+# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
+
 from antlr4 import *
 from io import StringIO
 import sys
@@ -383,50 +387,50 @@ class EsqlBaseLexer(Lexer):
     modeNames = [ "DEFAULT_MODE", "EXPLAIN_MODE", "EXPRESSION", "SOURCE_IDENTIFIERS" ]
 
     literalNames = [ "<INVALID>",
-            "'dissect'", "'drop'", "'enrich'", "'eval'", "'explain'", "'from'", 
-            "'grok'", "'inlinestats'", "'keep'", "'limit'", "'mv_expand'", 
-            "'project'", "'rename'", "'row'", "'show'", "'sort'", "'stats'", 
-            "'where'", "'by'", "'and'", "'asc'", "'desc'", "'.'", "'false'", 
-            "'first'", "'last'", "'('", "'in'", "'like'", "'not'", "'null'", 
-            "'nulls'", "'or'", "'?'", "'rlike'", "')'", "'true'", "'info'", 
-            "'functions'", "'=='", "'!='", "'<'", "'<='", "'>'", "'>='", 
-            "'+'", "'-'", "'*'", "'/'", "'%'", "']'", "'as'", "'metadata'", 
+            "'dissect'", "'drop'", "'enrich'", "'eval'", "'explain'", "'from'",
+            "'grok'", "'inlinestats'", "'keep'", "'limit'", "'mv_expand'",
+            "'project'", "'rename'", "'row'", "'show'", "'sort'", "'stats'",
+            "'where'", "'by'", "'and'", "'asc'", "'desc'", "'.'", "'false'",
+            "'first'", "'last'", "'('", "'in'", "'like'", "'not'", "'null'",
+            "'nulls'", "'or'", "'?'", "'rlike'", "')'", "'true'", "'info'",
+            "'functions'", "'=='", "'!='", "'<'", "'<='", "'>'", "'>='",
+            "'+'", "'-'", "'*'", "'/'", "'%'", "']'", "'as'", "'metadata'",
             "'on'", "'with'" ]
 
     symbolicNames = [ "<INVALID>",
-            "DISSECT", "DROP", "ENRICH", "EVAL", "EXPLAIN", "FROM", "GROK", 
-            "INLINESTATS", "KEEP", "LIMIT", "MV_EXPAND", "PROJECT", "RENAME", 
-            "ROW", "SHOW", "SORT", "STATS", "WHERE", "UNKNOWN_CMD", "LINE_COMMENT", 
-            "MULTILINE_COMMENT", "WS", "EXPLAIN_WS", "EXPLAIN_LINE_COMMENT", 
-            "EXPLAIN_MULTILINE_COMMENT", "PIPE", "STRING", "INTEGER_LITERAL", 
-            "DECIMAL_LITERAL", "BY", "AND", "ASC", "ASSIGN", "COMMA", "DESC", 
-            "DOT", "FALSE", "FIRST", "LAST", "LP", "IN", "LIKE", "NOT", 
-            "NULL", "NULLS", "OR", "PARAM", "RLIKE", "RP", "TRUE", "INFO", 
-            "FUNCTIONS", "EQ", "NEQ", "LT", "LTE", "GT", "GTE", "PLUS", 
-            "MINUS", "ASTERISK", "SLASH", "PERCENT", "OPENING_BRACKET", 
-            "CLOSING_BRACKET", "UNQUOTED_IDENTIFIER", "QUOTED_IDENTIFIER", 
-            "EXPR_LINE_COMMENT", "EXPR_MULTILINE_COMMENT", "EXPR_WS", "AS", 
-            "METADATA", "ON", "WITH", "SRC_UNQUOTED_IDENTIFIER", "SRC_QUOTED_IDENTIFIER", 
+            "DISSECT", "DROP", "ENRICH", "EVAL", "EXPLAIN", "FROM", "GROK",
+            "INLINESTATS", "KEEP", "LIMIT", "MV_EXPAND", "PROJECT", "RENAME",
+            "ROW", "SHOW", "SORT", "STATS", "WHERE", "UNKNOWN_CMD", "LINE_COMMENT",
+            "MULTILINE_COMMENT", "WS", "EXPLAIN_WS", "EXPLAIN_LINE_COMMENT",
+            "EXPLAIN_MULTILINE_COMMENT", "PIPE", "STRING", "INTEGER_LITERAL",
+            "DECIMAL_LITERAL", "BY", "AND", "ASC", "ASSIGN", "COMMA", "DESC",
+            "DOT", "FALSE", "FIRST", "LAST", "LP", "IN", "LIKE", "NOT",
+            "NULL", "NULLS", "OR", "PARAM", "RLIKE", "RP", "TRUE", "INFO",
+            "FUNCTIONS", "EQ", "NEQ", "LT", "LTE", "GT", "GTE", "PLUS",
+            "MINUS", "ASTERISK", "SLASH", "PERCENT", "OPENING_BRACKET",
+            "CLOSING_BRACKET", "UNQUOTED_IDENTIFIER", "QUOTED_IDENTIFIER",
+            "EXPR_LINE_COMMENT", "EXPR_MULTILINE_COMMENT", "EXPR_WS", "AS",
+            "METADATA", "ON", "WITH", "SRC_UNQUOTED_IDENTIFIER", "SRC_QUOTED_IDENTIFIER",
             "SRC_LINE_COMMENT", "SRC_MULTILINE_COMMENT", "SRC_WS", "EXPLAIN_PIPE" ]
 
-    ruleNames = [ "DISSECT", "DROP", "ENRICH", "EVAL", "EXPLAIN", "FROM", 
-                  "GROK", "INLINESTATS", "KEEP", "LIMIT", "MV_EXPAND", "PROJECT", 
-                  "RENAME", "ROW", "SHOW", "SORT", "STATS", "WHERE", "UNKNOWN_CMD", 
-                  "LINE_COMMENT", "MULTILINE_COMMENT", "WS", "EXPLAIN_OPENING_BRACKET", 
-                  "EXPLAIN_PIPE", "EXPLAIN_WS", "EXPLAIN_LINE_COMMENT", 
-                  "EXPLAIN_MULTILINE_COMMENT", "PIPE", "DIGIT", "LETTER", 
-                  "ESCAPE_SEQUENCE", "UNESCAPED_CHARS", "EXPONENT", "STRING", 
-                  "INTEGER_LITERAL", "DECIMAL_LITERAL", "BY", "AND", "ASC", 
-                  "ASSIGN", "COMMA", "DESC", "DOT", "FALSE", "FIRST", "LAST", 
-                  "LP", "IN", "LIKE", "NOT", "NULL", "NULLS", "OR", "PARAM", 
-                  "RLIKE", "RP", "TRUE", "INFO", "FUNCTIONS", "EQ", "NEQ", 
-                  "LT", "LTE", "GT", "GTE", "PLUS", "MINUS", "ASTERISK", 
-                  "SLASH", "PERCENT", "OPENING_BRACKET", "CLOSING_BRACKET", 
-                  "UNQUOTED_IDENTIFIER", "QUOTED_IDENTIFIER", "EXPR_LINE_COMMENT", 
-                  "EXPR_MULTILINE_COMMENT", "EXPR_WS", "SRC_PIPE", "SRC_OPENING_BRACKET", 
-                  "SRC_CLOSING_BRACKET", "SRC_COMMA", "SRC_ASSIGN", "AS", 
-                  "METADATA", "ON", "WITH", "SRC_UNQUOTED_IDENTIFIER", "SRC_UNQUOTED_IDENTIFIER_PART", 
-                  "SRC_QUOTED_IDENTIFIER", "SRC_LINE_COMMENT", "SRC_MULTILINE_COMMENT", 
+    ruleNames = [ "DISSECT", "DROP", "ENRICH", "EVAL", "EXPLAIN", "FROM",
+                  "GROK", "INLINESTATS", "KEEP", "LIMIT", "MV_EXPAND", "PROJECT",
+                  "RENAME", "ROW", "SHOW", "SORT", "STATS", "WHERE", "UNKNOWN_CMD",
+                  "LINE_COMMENT", "MULTILINE_COMMENT", "WS", "EXPLAIN_OPENING_BRACKET",
+                  "EXPLAIN_PIPE", "EXPLAIN_WS", "EXPLAIN_LINE_COMMENT",
+                  "EXPLAIN_MULTILINE_COMMENT", "PIPE", "DIGIT", "LETTER",
+                  "ESCAPE_SEQUENCE", "UNESCAPED_CHARS", "EXPONENT", "STRING",
+                  "INTEGER_LITERAL", "DECIMAL_LITERAL", "BY", "AND", "ASC",
+                  "ASSIGN", "COMMA", "DESC", "DOT", "FALSE", "FIRST", "LAST",
+                  "LP", "IN", "LIKE", "NOT", "NULL", "NULLS", "OR", "PARAM",
+                  "RLIKE", "RP", "TRUE", "INFO", "FUNCTIONS", "EQ", "NEQ",
+                  "LT", "LTE", "GT", "GTE", "PLUS", "MINUS", "ASTERISK",
+                  "SLASH", "PERCENT", "OPENING_BRACKET", "CLOSING_BRACKET",
+                  "UNQUOTED_IDENTIFIER", "QUOTED_IDENTIFIER", "EXPR_LINE_COMMENT",
+                  "EXPR_MULTILINE_COMMENT", "EXPR_WS", "SRC_PIPE", "SRC_OPENING_BRACKET",
+                  "SRC_CLOSING_BRACKET", "SRC_COMMA", "SRC_ASSIGN", "AS",
+                  "METADATA", "ON", "WITH", "SRC_UNQUOTED_IDENTIFIER", "SRC_UNQUOTED_IDENTIFIER_PART",
+                  "SRC_QUOTED_IDENTIFIER", "SRC_LINE_COMMENT", "SRC_MULTILINE_COMMENT",
                   "SRC_WS" ]
 
     grammarFileName = "EsqlBaseLexer.g4"
