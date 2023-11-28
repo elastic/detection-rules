@@ -292,7 +292,7 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
 
     # lazy import to avoid circular import
     from .rule import (  # pylint: disable=import-outside-toplevel
-        QueryRuleData, RuleMeta)
+        ESQLRuleData, QueryRuleData, RuleMeta)
 
     data: QueryRuleData = data
     meta: RuleMeta = meta
@@ -301,7 +301,8 @@ def get_integration_schema_data(data, meta, package_integrations: dict) -> Gener
     integrations_schemas = load_integrations_schemas()
 
     # validate the query against related integration fields
-    if isinstance(data, QueryRuleData) and data.language != 'lucene' and meta.maturity == "production":
+    if (isinstance(data, QueryRuleData) or isinstance(data, ESQLRuleData)) \
+       and data.language != 'lucene' and meta.maturity == "production":
 
         # flag to only warn once per integration for available upgrades
         notify_update_available = True
