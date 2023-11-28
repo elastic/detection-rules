@@ -362,6 +362,7 @@ class ESQLValidator(QueryValidator):
 
     def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
         """Validate an ESQL query while checking TOMLRule."""
+        print("Warning: ESQL queries are not validated at this time.")
         return None
 
 
