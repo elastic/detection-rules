@@ -1541,7 +1541,7 @@ def build_parser(antlr_jar: str):
 
     # Use the JAR to generate parser and lexer
     cmd_common = [
-        "java", "-jar", str(antlr_file),
+        "antlr4",
         "-Dlanguage=Python3",
         "-o", str(ESQL_DIR)
     ]
