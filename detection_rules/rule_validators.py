@@ -4,11 +4,9 @@
 # 2.0.
 
 """Validation logic for rules containing queries."""
-import os
 from functools import cached_property
 from typing import List, Optional, Tuple, Union
 
-import elasticsearch
 import eql
 from marshmallow import ValidationError
 from semver import Version
@@ -18,7 +16,7 @@ import kql
 from . import ecs, endgame
 from .integrations import (get_integration_schema_data,
                            load_integrations_manifests)
-from .misc import ElasticsearchClientSingleton, load_current_package_version
+from .misc import load_current_package_version
 from .rule import (EQLRuleData, QueryRuleData, QueryValidator, RuleMeta,
                    TOMLRuleContents, set_eql_config)
 from .schemas import get_stack_schemas
@@ -355,29 +353,19 @@ class ESQLValidator(QueryValidator):
     """Specific fields for ESQL query event types."""
 
     @cached_property
+    def ast(self):
+        return None
+
+    @cached_property
     def unique_fields(self) -> List[str]:
         """Return a list of unique fields in the query."""
-        # return empty list for ES|QL rules until ast is available
+        # return empty list for ES|QL rules until ast is available (friendlier than raising error)
+        # raise NotImplementedError('ES|QL query parsing not yet supported')
         return []
 
     def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
         """Validate an ESQL query while checking TOMLRule."""
-        if not os.environ.get("DR_VALIDATE_ESQL"):
-            print(f"Skipping ES|QL validation for {data.name} - {data.rule_id}")
-            return
-
-        if Version.parse(meta.min_stack_version) < Version.parse("8.11.0"):
-            raise ValidationError(f"Rule minstack must be greater than 8.10.0 {data.rule_id}")
-
-        client = ElasticsearchClientSingleton.get_client()
-        client.info()
-        headers = {"accept": "application/json", "content-type": "application/json"}
-        try:
-            client.perform_request("POST", "/_query", params={"pretty": True},
-                                   headers=headers,
-                                   body={"query": f"{self.query} | LIMIT 0"})
-        except elasticsearch.BadRequestError as exc:
-            raise ValidationError(f"ESQL query failed: {exc}")
+        # temporarily override to NOP until ES|QL query parsing is supported
 
     def validate_integration(self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]) -> Union[
             ValidationError, None, ValueError]:

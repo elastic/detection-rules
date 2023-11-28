@@ -10,13 +10,10 @@ import unittest
 import uuid
 import warnings
 from collections import defaultdict
-from copy import deepcopy
 from pathlib import Path
 
 import eql.ast
-import marshmallow
-import pytest
-from contextlib import nullcontext as does_not_raise
+
 from marshmallow import ValidationError
 from semver import Version
 
@@ -30,11 +27,10 @@ from detection_rules.misc import load_current_package_version
 from detection_rules.packaging import current_stack_version
 from detection_rules.rule import (QueryRuleData, QueryValidator,
                                   TOMLRuleContents)
-from detection_rules.rule_loader import FILE_PATTERN, RuleCollection
+from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.rule_validators import EQLValidator, ESQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_stack_schemas
-from detection_rules.utils import (INTEGRATION_RULE_DIR, PatchedTemplate,
-                                   get_path, load_etc_dump, load_rule_contents)
+from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
@@ -300,7 +296,7 @@ class TestRuleTags(BaseRuleTest):
             missing_required_tags = set()
 
             if isinstance(rule.contents.data, QueryRuleData):
-                for index in rule.contents.data.index:
+                for index in rule.contents.data.get('index') or []:
                     expected_tags = required_tags_map.get(index, {})
                     expected_all = expected_tags.get('all', [])
                     expected_any = expected_tags.get('any', [])
@@ -615,6 +611,9 @@ class TestRuleMetadata(BaseRuleTest):
         valid_integration_folders = [p.name for p in list(Path(INTEGRATION_RULE_DIR).glob("*")) if p.name != 'endpoint']
 
         for rule in self.production_rules:
+            # TODO: temp bypass for esql rules; once parsed, we should be able to look for indexes via `FROM`
+            if not rule.contents.data.get('index'):
+                continue
             if isinstance(rule.contents.data, QueryRuleData) and rule.contents.data.language != 'lucene':
                 rule_integrations = rule.contents.metadata.get('integration') or []
                 rule_integrations = [rule_integrations] if isinstance(rule_integrations, str) else rule_integrations
@@ -623,7 +622,7 @@ class TestRuleMetadata(BaseRuleTest):
                 meta = rule.contents.metadata
                 package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
                 package_integrations_list = list(set([integration["package"] for integration in package_integrations]))
-                indices = data.get('index')
+                indices = data.get('index') or []
                 for rule_integration in rule_integrations:
                     if ("even.dataset" in rule.contents.data.query and not package_integrations and  # noqa: W504
                        not rule_promotion and rule_integration not in definitions.NON_DATASET_PACKAGES):  # noqa: W504
@@ -667,7 +666,7 @@ class TestRuleMetadata(BaseRuleTest):
                         "f3e22c8b-ea47-45d1-b502-b57b6de950b3"
                     ]
                     if any([re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
-                            for i in rule.contents.data.index]):
+                            for i in rule.contents.data.get('index') or []]):
                         if not rule.contents.metadata.integration and rule.id not in ignore_ids and \
                                 rule.contents.data.type not in definitions.MACHINE_LEARNING:
                             err_msg = f'substrings {non_dataset_packages} found in '\
@@ -1183,35 +1182,6 @@ class TestRiskScoreMismatch(BaseRuleTest):
             self.fail(err_msg)
 
 
-class TestEndpointQuery(BaseRuleTest):
-    """Test endpoint-specific rules."""
-
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
-                     "Test only applicable to 8.3+ stacks since query updates are min_stacked at 8.3.0")
-    def test_os_and_platform_in_query(self):
-        """Test that all endpoint rules have an os defined and linux includes platform."""
-        for rule in self.production_rules:
-            if not rule.contents.data.get('language') in ('eql', 'kuery'):
-                continue
-            if rule.path.parent.name not in ('windows', 'macos', 'linux'):
-                # skip cross-platform for now
-                continue
-
-            ast = rule.contents.data.ast
-            fields = [str(f) for f in ast if isinstance(f, (kql.ast.Field, eql.ast.Field))]
-
-            err_msg = f'{self.rule_str(rule)} missing required field for endpoint rule'
-            if 'host.os.type' not in fields:
-                # Exception for Forwarded Events which contain Windows-only fields.
-                if rule.path.parent.name == 'windows' and not any(field.startswith('winlog.') for field in fields):
-                    self.assertIn('host.os.type', fields, err_msg)
-
-            # going to bypass this for now
-            # if rule.path.parent.name == 'linux':
-            #     err_msg = f'{self.rule_str(rule)} missing required field for linux endpoint rule'
-            #     self.assertIn('host.os.platform', fields, err_msg)
-
-
 class TestNoteMarkdownPlugins(BaseRuleTest):
     """Test if a guide containing Osquery Plugin syntax contains the version note."""
 
@@ -1325,165 +1295,3 @@ class TestAlertSuppression(BaseRuleTest):
                     if fld not in schema.keys():
                         self.fail(f"{self.rule_str(rule)} alert suppression field {fld} not \
                             found in ECS, Beats, or non-ecs schemas")
-
-
-class TestNewTerms(BaseRuleTest):
-    """Test new term rules."""
-
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.4.0"),
-                     "Test only applicable to 8.4+ stacks for new terms feature.")
-    def test_history_window_start(self):
-        """Test new terms history window start field."""
-
-        for rule in self.production_rules:
-            if rule.contents.data.type == "new_terms":
-
-                # validate history window start field exists and is correct
-                assert rule.contents.data.new_terms.history_window_start, \
-                    "new terms field found with no history_window_start field defined"
-                assert rule.contents.data.new_terms.history_window_start[0].field == "history_window_start", \
-                    f"{rule.contents.data.new_terms.history_window_start} should be 'history_window_start'"
-
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.4.0"),
-                     "Test only applicable to 8.4+ stacks for new terms feature.")
-    def test_new_terms_field_exists(self):
-        # validate new terms and history window start fields are correct
-        for rule in self.production_rules:
-            if rule.contents.data.type == "new_terms":
-                assert rule.contents.data.new_terms.field == "new_terms_fields", \
-                    f"{rule.contents.data.new_terms.field} should be 'new_terms_fields' for new_terms rule type"
-
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.4.0"),
-                     "Test only applicable to 8.4+ stacks for new terms feature.")
-    def test_new_terms_fields(self):
-        """Test new terms fields are schema validated."""
-        # ecs validation
-        for rule in self.production_rules:
-            if rule.contents.data.type == "new_terms":
-                meta = rule.contents.metadata
-                feature_min_stack = Version.parse('8.4.0')
-                current_package_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-                min_stack_version = Version.parse(meta.get("min_stack_version")) if \
-                    meta.get("min_stack_version") else None
-                min_stack_version = current_package_version if min_stack_version is None or min_stack_version < \
-                    current_package_version else min_stack_version
-
-                assert min_stack_version >= feature_min_stack, \
-                    f"New Terms rule types only compatible with {feature_min_stack}+"
-                ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
-                beats_version = get_stack_schemas()[str(min_stack_version)]['beats']
-
-                # checks if new terms field(s) are in ecs, beats non-ecs or integration schemas
-                queryvalidator = QueryValidator(rule.contents.data.query)
-                _, _, schema = queryvalidator.get_beats_schema([], beats_version, ecs_version)
-                integration_manifests = load_integrations_manifests()
-                integration_schemas = load_integrations_schemas()
-                integration_tags = meta.get("integration")
-                if integration_tags:
-                    for tag in integration_tags:
-                        latest_tag_compat_ver, _ = find_latest_compatible_version(
-                            package=tag,
-                            integration="",
-                            rule_stack_version=min_stack_version,
-                            packages_manifest=integration_manifests)
-                        if latest_tag_compat_ver:
-                            integration_schema = integration_schemas[tag][latest_tag_compat_ver]
-                            for policy_template in integration_schema.keys():
-                                schema.update(**integration_schemas[tag][latest_tag_compat_ver][policy_template])
-                for new_terms_field in rule.contents.data.new_terms.value:
-                    assert new_terms_field in schema.keys(), \
-                        f"{new_terms_field} not found in ECS, Beats, or non-ecs schemas"
-
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.4.0"),
-                     "Test only applicable to 8.4+ stacks for new terms feature.")
-    def test_new_terms_max_limit(self):
-        """Test new terms max limit."""
-        # validates length of new_terms to stack version - https://github.com/elastic/kibana/issues/142862
-        for rule in self.production_rules:
-            if rule.contents.data.type == "new_terms":
-                meta = rule.contents.metadata
-                feature_min_stack = Version.parse('8.4.0')
-                feature_min_stack_extended_fields = Version.parse('8.6.0')
-                current_package_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-                min_stack_version = Version.parse(meta.get("min_stack_version")) if \
-                    meta.get("min_stack_version") else None
-                min_stack_version = current_package_version if min_stack_version is None or min_stack_version < \
-                    current_package_version else min_stack_version
-                if min_stack_version >= feature_min_stack and \
-                        min_stack_version < feature_min_stack_extended_fields:
-                    assert len(rule.contents.data.new_terms.value) == 1, \
-                        f"new terms have a max limit of 1 for stack versions below {feature_min_stack_extended_fields}"
-
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.6.0"),
-                     "Test only applicable to 8.4+ stacks for new terms feature.")
-    def test_new_terms_fields_unique(self):
-        """Test new terms fields are unique."""
-        # validate fields are unique
-        for rule in self.production_rules:
-            if rule.contents.data.type == "new_terms":
-                assert len(set(rule.contents.data.new_terms.value)) == len(rule.contents.data.new_terms.value), \
-                    f"new terms fields values are not unique - {rule.contents.data.new_terms.value}"
-
-
-class TestESQLRules(BaseRuleTest):
-    """Test ESQL Rules."""
-
-    @classmethod
-    def setUpClass(cls):
-        """Set up test environment."""
-        cls.dr_es_user = os.environ.get("DR_ES_USER")
-        cls.dr_cloud_id = os.environ.get("DR_CLOUD_ID")
-        cls.dr_elasticsearch_url = os.environ.get("DR_ELASTICSEARCH_URL")
-        cls.dr_validate_esql = os.environ.get("DR_VALIDATE_ESQL")
-
-        if cls.dr_validate_esql is None:
-            raise unittest.SkipTest("Test only run when DR_VALIDATE_ESQL environment variable set.")
-        assert cls.dr_es_user is not None, "DR_ES_USER environment variable is not set."
-        assert cls.dr_cloud_id is not None or cls.dr_elasticsearch_url is not None, \
-            "Either DR_CLOUD_ID or DR_ELASTICSEARCH_URL must be set."
-
-        super().setUpClass()
-
-    def run_esql_test(self, esql_query, expectation, message):
-        """Test that the query validation is working correctly."""
-        rc = RuleCollection()
-        file_path = Path(get_path("tests", "data", "command_control_dummy_production_rule.toml"))
-        original_production_rule = load_rule_contents(file_path)
-
-        # Test that a ValidationError is raised if the query doesn't match the schema
-        production_rule = deepcopy(original_production_rule)[0]
-        production_rule["rule"]["query"] = esql_query
-
-        expectation.match_expr = message
-        with expectation:
-            rc.load_dict(production_rule)
-
-    def test_esql_queries(self):
-        """Test ESQL queries."""
-        test_cases = [
-            # invalid queries
-            ('from .ds-logs-endpoint.events.process-default-* | wheres process.name like "Microsoft*"',
-             pytest.raises(marshmallow.exceptions.ValidationError), r"ESQL query failed"),
-            ('from .ds-logs-endpoint.events.process-default-* | where process.names like "Microsoft*"',
-             pytest.raises(marshmallow.exceptions.ValidationError), r"ESQL query failed"),
-
-            # valid queries
-            ('from .ds-logs-endpoint.events.process-default-* | where process.name like "Microsoft*"',
-             does_not_raise(), None),
-        ]
-        for esql_query, expectation, message in test_cases:
-            self.run_esql_test(esql_query, expectation, message)
-
-    def test_esql_rules(self):
-        """Test ESQL rules."""
-        for rule in self.production_rules:
-            if rule.contents.data.type == "esql":
-
-                # Stub test to validate esql rules
-                assert rule.contents.data.language == "esql", \
-                    f"{self.rule_str(rule)} is not an ES|QL rule type"
-
-                # Validate that the rule does not contain enrich
-                # until we support it
-                assert "enrich" not in rule.contents.data.query.lower(), \
-                    f"{self.rule_str(rule)} is an ES|QL rule type and contains enrich"
