@@ -391,9 +391,8 @@ class ESQLValidator(QueryValidator):
         # Create an instance of the listener with schema
         current_stack_version = ""
         combined_schema = {}
-        # packages_manifest = load_integrations_manifests()
-        # package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
-        package_integrations = [{"package": "endpoint", "integration": None}]
+        packages_manifest = load_integrations_manifests()
+        package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
         for integration_schema_data in get_integration_schema_data(data, meta, package_integrations):
             integration_schema = integration_schema_data['schema']
             stack_version = integration_schema_data['stack_version']
