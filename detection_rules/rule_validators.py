@@ -346,6 +346,26 @@ class EQLValidator(QueryValidator):
             return [], False
 
 
+class ESQLValidator(QueryValidator):
+    """Validate specific fields for ESQL query event types."""
+
+    @cached_property
+    def ast(self):
+        """Return an AST."""
+        return None
+
+    @cached_property
+    def unique_fields(self) -> List[str]:
+        """Return a list of unique fields in the query."""
+        # return empty list for ES|QL rules until ast is available
+        return []
+
+    def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
+        """Validate an ESQL query while checking TOMLRule."""
+        print("Warning: ESQL queries are not validated at this time.")
+        return None
+
+
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
     """Extract the field name from an EQL or KQL parse error."""
     lines = exc.source.splitlines()
