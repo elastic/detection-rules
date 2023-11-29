@@ -603,6 +603,21 @@ class QueryRuleData(BaseRuleData):
 
 
 @dataclass(frozen=True)
+class ESQLRuleData(BaseRuleData):
+    """ESQL rules are a special case of query rules."""
+    type: Literal["esql"]
+    language: Literal["esql"]
+    query: str
+
+    @cached_property
+    def validator(self) -> Optional[QueryValidator]:
+        return ESQLValidator(self.query)
+
+    def validate_query(self, meta: RuleMeta) -> None:
+        return self.validator.validate(self, meta)
+
+
+@dataclass(frozen=True)
 class MachineLearningRuleData(BaseRuleData):
     type: Literal["machine_learning"]
 
@@ -760,7 +775,7 @@ class ThreatMatchRuleData(QueryRuleData):
 
 # All of the possible rule types
 # Sort inverse of any inheritance - see comment in TOMLRuleContents.to_dict
-AnyRuleData = Union[EQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData,
+AnyRuleData = Union[EQLRuleData, ESQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData,
                     MachineLearningRuleData, QueryRuleData, NewTermsRuleData]
 
 
@@ -1084,11 +1099,12 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         packaged_integrations = []
         datasets = set()
 
-        for node in data.get('ast', []):
-            if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
-                datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
-            elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
-                datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
+        if data.type != "esql":
+            for node in data.get('ast', []):
+                if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
+                    datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
+                elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
+                    datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
 
         # integration is None to remove duplicate references upstream in Kibana
         # chronologically, event.dataset is checked for package:integration, then rule tags
@@ -1333,4 +1349,4 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
 
 
 # avoid a circular import
-from .rule_validators import EQLValidator, KQLValidator  # noqa: E402
+from .rule_validators import EQLValidator, ESQLValidator, KQLValidator  # noqa: E402
