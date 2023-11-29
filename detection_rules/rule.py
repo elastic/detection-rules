@@ -596,7 +596,7 @@ class QueryRuleData(BaseRuleData):
             return validator.get_required_fields(index or [])
 
     @validates_schema
-    def validate_exceptions(self, data, **kwargs):
+    def validates_query_data(self, data, **kwargs):
         """Custom validation for query rule type and subclasses."""
 
         # alert suppression is only valid for query rule type and not any of its subclasses

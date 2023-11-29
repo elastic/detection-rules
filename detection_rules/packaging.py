@@ -277,8 +277,9 @@ class Package(object):
             r = r.contents
             rule_str = f'{r.name:<{longest_name}} (v:{r.autobumped_version} t:{r.data.type}'
             if isinstance(rule.contents.data, QueryRuleData):
+                index = rule.contents.data.get("index") or []
                 rule_str += f'-{r.data.language}'
-                rule_str += f'(indexes:{"".join(index_map[idx] for idx in rule.contents.data.index) or "none"}'
+                rule_str += f'(indexes:{"".join(index_map[idx] for idx in index) or "none"}'
 
             return rule_str
 
