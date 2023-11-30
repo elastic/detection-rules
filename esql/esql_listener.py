@@ -26,10 +26,9 @@ class ESQLValidatorListener(EsqlBaseParserListener):
             field = ctx.getText()
             self.field_list.append(field)
 
-            if field not in self.schema:
+            if self.schema and field not in self.schema:
                 raise ESQLSyntaxError(f"Invalid field: {field}")
-
-            if field == 'event.dataset':
+            elif field == 'event.dataset':
                 self.get_event_datasets.append(ctx.parentCtx.getText())
 
     def enterSourceIdentifier(self, ctx: EsqlBaseParser.SourceIdentifierContext):  # noqa: N802
@@ -43,7 +42,7 @@ class ESQLValidatorListener(EsqlBaseParserListener):
             field = ctx.getText()
             self.field_list.append(field)
 
-            if field not in self.schema:
+            if self.schema and field not in self.schema:
                 raise ValueError(f"Invalid field: {field}")
         else:
             # check index against integrations?

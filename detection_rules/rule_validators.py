@@ -377,9 +377,12 @@ class ESQLValidator(QueryValidator):
         tree = self.ast
 
         if ctx_class:
-            ctx_obj = get_node(tree, ctx_class)
-            if ctx_obj:
-                generic_walker.enterRule(self.listener, ctx_obj)
+            ctx_objs = get_node(tree, ctx_class)
+            if not ctx_objs:
+                raise ESQLSyntaxError(f"Could not find {ctx_class} in {tree}")
+            if ctx_objs:
+                for ctx_obj in ctx_objs:
+                    generic_walker.enterRule(self.listener, ctx_obj)
         else:
             generic_walker.walk(self.listener, tree)
 
