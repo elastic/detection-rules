@@ -28,7 +28,7 @@ from detection_rules.packaging import current_stack_version
 from detection_rules.rule import (QueryRuleData, QueryValidator,
                                   TOMLRuleContents)
 from detection_rules.rule_loader import FILE_PATTERN
-from detection_rules.rule_validators import EQLValidator, ESQLValidator, KQLValidator
+from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_stack_schemas
 from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump
 from detection_rules.version_lock import default_version_lock
