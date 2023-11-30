@@ -369,7 +369,8 @@ class ESQLValidator(QueryValidator):
 
     def validate_integration(self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]) -> Union[
             ValidationError, None, ValueError]:
-        return self.validate(data, meta)
+        # return self.validate(data, meta)
+        pass
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:

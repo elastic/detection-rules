@@ -149,7 +149,7 @@ OSType = Literal['windows', 'linux', 'macos']
 PositiveInteger = NewType('PositiveInteger', int, validate=validate.Range(min=1))
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
 RuleName = NewType('RuleName', str, validate=validate.Regexp(NAME_PATTERN))
-RuleType = Literal['query', 'machine_learning', 'eql', 'esql', 'threshold', 'threat_match', 'new_terms']
+RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'esql', 'threshold', 'threat_match', 'new_terms']
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
 SemVerMinorOnly = NewType('SemVerFullStrict', str, validate=validate.Regexp(MINOR_SEMVER))
 Severity = Literal['low', 'medium', 'high', 'critical']

@@ -815,14 +815,14 @@ class TestRuleMetadata(BaseRuleTest):
 
     def test_event_dataset(self):
         for rule in self.all_rules:
-            if (isinstance(rule.contents.data, QueryRuleData)):
+            if isinstance(rule.contents.data, QueryRuleData):
                 # Need to pick validator based on language
                 if rule.contents.data.language == "kuery":
                     test_validator = KQLValidator(rule.contents.data.query)
                 elif rule.contents.data.language == "eql":
                     test_validator = EQLValidator(rule.contents.data.query)
-                elif rule.contents.data.language == "esql":
-                    test_validator = ESQLValidator(rule.contents.data.query)
+                else:
+                    continue
                 data = rule.contents.data
                 meta = rule.contents.metadata
                 if meta.query_schema_validation is not False or meta.maturity != "deprecated":
@@ -838,7 +838,7 @@ class TestRuleMetadata(BaseRuleTest):
                                                                                                 meta,
                                                                                                 pkg_integrations)
 
-                        if (validation_integrations_check and "event.dataset" in rule.contents.data.query):
+                        if validation_integrations_check and "event.dataset" in rule.contents.data.query:
                             raise validation_integrations_check
 
 

@@ -573,7 +573,7 @@ class QueryRuleData(BaseRuleData):
             return KQLValidator(self.query)
         elif self.language == "eql":
             return EQLValidator(self.query)
-        elif self.language == 'esql':
+        elif self.language == "esql":
             return ESQLValidator(self.query)
 
     def validate_query(self, meta: RuleMeta) -> None:
@@ -779,9 +779,8 @@ class ThreatMatchRuleData(QueryRuleData):
 
 # All of the possible rule types
 # Sort inverse of any inheritance - see comment in TOMLRuleContents.to_dict
-AnyRuleData = Union[EQLRuleData, ESQLRuleData, ThresholdQueryRuleData,
-                    ThreatMatchRuleData, MachineLearningRuleData, QueryRuleData,
-                    NewTermsRuleData]
+AnyRuleData = Union[EQLRuleData, ESQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData,
+                    MachineLearningRuleData, QueryRuleData, NewTermsRuleData]
 
 
 class BaseRuleContents(ABC):
