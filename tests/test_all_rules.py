@@ -296,7 +296,7 @@ class TestRuleTags(BaseRuleTest):
             missing_required_tags = set()
 
             if isinstance(rule.contents.data, QueryRuleData):
-                for index in rule.contents.data.index:
+                for index in rule.contents.data.get('index') or []:
                     expected_tags = required_tags_map.get(index, {})
                     expected_all = expected_tags.get('all', [])
                     expected_any = expected_tags.get('any', [])
@@ -611,6 +611,9 @@ class TestRuleMetadata(BaseRuleTest):
         valid_integration_folders = [p.name for p in list(Path(INTEGRATION_RULE_DIR).glob("*")) if p.name != 'endpoint']
 
         for rule in self.production_rules:
+            # TODO: temp bypass for esql rules; once parsed, we should be able to look for indexes via `FROM`
+            if not rule.contents.data.get('index'):
+                continue
             if isinstance(rule.contents.data, QueryRuleData) and rule.contents.data.language != 'lucene':
                 rule_integrations = rule.contents.metadata.get('integration') or []
                 rule_integrations = [rule_integrations] if isinstance(rule_integrations, str) else rule_integrations
@@ -619,7 +622,7 @@ class TestRuleMetadata(BaseRuleTest):
                 meta = rule.contents.metadata
                 package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
                 package_integrations_list = list(set([integration["package"] for integration in package_integrations]))
-                indices = data.get('index')
+                indices = data.get('index') or []
                 for rule_integration in rule_integrations:
                     if ("even.dataset" in rule.contents.data.query and not package_integrations and  # noqa: W504
                        not rule_promotion and rule_integration not in definitions.NON_DATASET_PACKAGES):  # noqa: W504
@@ -812,12 +815,14 @@ class TestRuleMetadata(BaseRuleTest):
 
     def test_event_dataset(self):
         for rule in self.all_rules:
-            if(isinstance(rule.contents.data, QueryRuleData)):
+            if isinstance(rule.contents.data, QueryRuleData):
                 # Need to pick validator based on language
                 if rule.contents.data.language == "kuery":
                     test_validator = KQLValidator(rule.contents.data.query)
-                if rule.contents.data.language == "eql":
+                elif rule.contents.data.language == "eql":
                     test_validator = EQLValidator(rule.contents.data.query)
+                else:
+                    continue
                 data = rule.contents.data
                 meta = rule.contents.metadata
                 if meta.query_schema_validation is not False or meta.maturity != "deprecated":
@@ -833,7 +838,7 @@ class TestRuleMetadata(BaseRuleTest):
                                                                                                 meta,
                                                                                                 pkg_integrations)
 
-                        if(validation_integrations_check and "event.dataset" in rule.contents.data.query):
+                        if validation_integrations_check and "event.dataset" in rule.contents.data.query:
                             raise validation_integrations_check
 
 
