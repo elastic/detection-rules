@@ -45,28 +45,27 @@ class RemoteConnector:
             except HTTPError:
                 self.kibana_client = None
 
-    @staticmethod
-    def auth_es(*, cloud_id: Optional[str] = None, ignore_ssl_errors: Optional[bool] = None,
+    def auth_es(self, *, cloud_id: Optional[str] = None, ignore_ssl_errors: Optional[bool] = None,
                 elasticsearch_url: Optional[str] = None, es_user: Optional[str] = None,
                 es_password: Optional[str] = None, timeout: Optional[int] = None) -> Elasticsearch:
         """Return an authenticated Elasticsearch client."""
-        client = get_elasticsearch_client(cloud_id=cloud_id, ignore_ssl_errors=ignore_ssl_errors,
-                                          elasticsearch_url=elasticsearch_url, es_user=es_user, es_password=es_password,
-                                          timeout=timeout)
-        return client
+        self.es_client = get_elasticsearch_client(cloud_id=cloud_id, ignore_ssl_errors=ignore_ssl_errors,
+                                                  elasticsearch_url=elasticsearch_url, es_user=es_user,
+                                                  es_password=es_password, timeout=timeout)
+        return self.es_client
 
-    @staticmethod
-    def auth_kibana(*, cloud_id: Optional[str] = None, ignore_ssl_errors: Optional[bool] = None,
+    def auth_kibana(self, *, cloud_id: Optional[str] = None, ignore_ssl_errors: Optional[bool] = None,
                     kibana_url: Optional[str] = None, kibana_user: Optional[str] = None,
                     kibana_password: Optional[str] = None, space: Optional[str] = None,
                     kibana_cookie: Optional[str] = None, provider_type: Optional[str] = None,
                     provider_name: Optional[str] = None) -> Kibana:
         """Return an authenticated Kibana client."""
-        client = get_kibana_client(cloud_id=cloud_id, ignore_ssl_errors=ignore_ssl_errors, kibana_url=kibana_url,
-                                   kibana_user=kibana_user, kibana_password=kibana_password, space=space,
-                                   kibana_cookie=kibana_cookie, provider_type=provider_type,
-                                   provider_name=provider_name)
-        return client
+        self.kibana_client = get_kibana_client(cloud_id=cloud_id, ignore_ssl_errors=ignore_ssl_errors,
+                                               kibana_url=kibana_url, kibana_user=kibana_user,
+                                               kibana_password=kibana_password, space=space,
+                                               kibana_cookie=kibana_cookie, provider_type=provider_type,
+                                               provider_name=provider_name)
+        return self.kibana_client
 
 
 class RemoteValidator(RemoteConnector):
