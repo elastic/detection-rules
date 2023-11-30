@@ -1490,13 +1490,15 @@ def guide_plugin_to_rule(ctx: click.Context, rule_path: Path, save: bool = True)
 
     return updated_rule
 
+
 @dev_group.group('esql')
 def esql_group():
     """Commands for managing ESQL library."""
 
+
 @esql_group.command('pull-grammar')
 @click.option('--token', required=True, prompt=get_github_token() is None,
-             default=get_github_token(), help='GitHub personal access token.')
+              default=get_github_token(), help='GitHub personal access token.')
 @click.pass_context
 def pull_grammar(ctx: click.Context, token: str, branch: str = 'esql/lang'):
     """Pull the ESQL grammar from the specified repository."""
@@ -1516,6 +1518,7 @@ def pull_grammar(ctx: click.Context, token: str, branch: str = 'esql/lang'):
 
         except Exception as e:
             click.echo(f"Failed to download {filename}. Error: {e}")
+
 
 @esql_group.command('build-parser')
 @click.pass_context
@@ -1538,7 +1541,7 @@ def build_parser(antlr_jar: str):
 
     # Use the JAR to generate parser and lexer
     cmd_common = [
-        "java", "-jar", str(antlr_file),
+        "antlr4",
         "-Dlanguage=Python3",
         "-o", str(ESQL_DIR)
     ]

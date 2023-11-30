@@ -8,14 +8,15 @@ from functools import cached_property
 from typing import List, Optional, Tuple, Union
 
 import eql
-import esql
-from antlr4 import CommonTokenStream, InputStream
-from antlr4.tree.Trees import Trees
+from antlr4 import CommonTokenStream, InputStream, ParseTreeWalker
 from semver import Version
 
 import kql
+from esql.errors import ESQLSyntaxError
+from esql.esql_listener import ESQLValidatorListener
 from esql.EsqlBaseLexer import EsqlBaseLexer
 from esql.EsqlBaseParser import EsqlBaseParser
+from esql.utils import get_node, pretty_print_tree
 
 from . import ecs, endgame
 from .integrations import (get_integration_schema_data,
@@ -352,23 +353,103 @@ class EQLValidator(QueryValidator):
             # if rule type fields are not set, return an empty list and False
             return [], False
 
-class ESQLValidator(QueryValidator):
-    @cached_property
-    def tree(self) -> esql.EsqlBaseParser.EsqlBaseParser.SingleStatementContext:
-        latest_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-        # TODO: do we need to set a config for ESQL?
-        # config = set_eql_config(str(latest_version))
 
+class ESQLValidator(QueryValidator):
+    """Validate specific fields for ESQL query event types."""
+
+    field_list = []
+    indices = []
+    event_datasets = []
+
+    @cached_property
+    def ast(self) -> eql.ast.Expression:
+        """Return an AST."""
+        return self.parser.singleStatement()
+
+    @cached_property
+    def listener(self) -> ESQLValidatorListener:
+        """Return a listener instance."""
+        return ESQLValidatorListener()
+
+    def run_walker(self, ctx_class=None):
+        """Walk the AST with the listener."""
+        generic_walker = ParseTreeWalker()
+        tree = self.ast
+
+        if ctx_class:
+            ctx_obj = get_node(tree, ctx_class)
+            if ctx_obj:
+                generic_walker.enterRule(self.listener, ctx_obj)
+        else:
+            generic_walker.walk(self.listener, tree)
+
+    @cached_property
+    def parser(self) -> EsqlBaseParser:
+        """Return a parser instance."""
         input_stream = InputStream(self.query)
         lexer = EsqlBaseLexer(input_stream)
         token_stream = CommonTokenStream(lexer)
-        parser = EsqlBaseParser(token_stream)
-        tree = parser.singleStatement()
+        return EsqlBaseParser(token_stream)
 
-        return Trees.toStringTree(tree, None, parser)
+    @cached_property
+    def unique_fields(self) -> List[str]:
+        """Return a list of unique fields in the query."""
+        # return empty list for ES|QL rules until ast is available
+        return set(self.field_list)
 
     def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
-        print(self.tree)
+        """Validate an ESQL query while checking TOMLRule."""
+
+        if Version.parse(meta.min_stack_version) < Version.parse("8.11.0"):
+            raise ESQLSyntaxError(f"Rule minstack must be greater than 8.10.0 {data.rule_id}")
+
+        tree = self.ast
+        #pretty_print_tree(tree)
+
+        self.run_walker(EsqlBaseParser.QualifiedNameContext)
+        #self.run_walker(EsqlBaseParser.StringLiteralContext)
+        self.run_walker()
+
+        # Create an instance of the listener with schema
+        current_stack_version = ""
+        combined_schema = {}
+        packages_manifest = load_integrations_manifests()
+        package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
+        for integration_schema_data in get_integration_schema_data(data, meta, package_integrations):
+            integration_schema = integration_schema_data['schema']
+            stack_version = integration_schema_data['stack_version']
+
+            if stack_version != current_stack_version:
+                # reset the combined schema for each stack version
+                current_stack_version = stack_version
+                combined_schema = {}
+
+            # setup listener
+            # index_listener = ESQLValidatorListener(combined_schema)
+
+            # # Walk the tree with the listener
+            # index_walker = ParseTreeWalker()
+            # source_command = get_node(tree, EsqlBaseParser.SourceIdentifierContext)
+            # index_walker.enterRule(index_listener, source_command)
+
+            # # add non-ecs-schema fields for edge cases not added to the integration
+            # for index_name in index_listener.indices:
+            #     integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
+
+            # # add endpoint schema fields for multi-line fields
+            # integration_schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))
+            # combined_schema.update(**integration_schema)
+
+            # # setup listener
+            # listener = ESQLValidatorListener(combined_schema)
+
+            # # Walk the tree with the listener
+            # walker = ParseTreeWalker()
+            # walker.walk(listener, tree)
+            self.field_list = self.listener.field_list
+
+            print("Validation completed successfully.")
+
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
     """Extract the field name from an EQL or KQL parse error."""

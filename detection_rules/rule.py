@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from uuid import uuid4
 
-import esql
 import eql
 from semver import Version
 from marko.block import Document as MarkoDocument
@@ -716,11 +715,20 @@ class EQLRuleData(QueryRuleData):
             interval = convert_time_span(self.interval or '5m')
             return interval / self.max_span
 
+
 @dataclass(frozen=True)
-class ESQLRuleData(QueryRuleData):
+class ESQLRuleData(BaseRuleData):
     """ESQL rules are a special case of query rules."""
     type: Literal["esql"]
     language: Literal["esql"]
+    query: str
+
+    @cached_property
+    def validator(self) -> Optional[QueryValidator]:
+        return ESQLValidator(self.query)
+
+    def validate_query(self, meta: RuleMeta) -> None:
+        return self.validator.validate(self, meta)
 
 
 @dataclass(frozen=True)
@@ -954,11 +962,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         super()._post_dict_conversion(obj)
 
         # build time fields
-        if not isinstance(self.data, ESQLRuleData):
-            self._convert_add_related_integrations(obj)
-            self._convert_add_required_fields(obj)
-            self._convert_add_setup(obj)
-
+        self._convert_add_related_integrations(obj)
+        self._convert_add_required_fields(obj)
+        self._convert_add_setup(obj)
 
         # validate new fields against the schema
         rule_type = obj['type']
@@ -1095,11 +1101,13 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         packaged_integrations = []
         datasets = set()
 
-        for node in data.get('ast', []):
-            if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
-                datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
-            elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
-                datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
+        if data.type != "esql":
+            # skip ES|QL rules until ast is available
+            for node in data.get('ast', []):
+                if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
+                    datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
+                elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
+                    datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
 
         # integration is None to remove duplicate references upstream in Kibana
         # chronologically, event.dataset is checked for package:integration, then rule tags
@@ -1301,8 +1309,12 @@ def downgrade_contents_from_rule(rule: TOMLRule, target_version: str, replace_id
 
     rule_dict = downgrade(rule_dict, target_version=str(min_stack_version))
     meta = rule_dict.pop("meta")
-    rule_contents = TOMLRuleContents.from_dict({"rule": rule_dict, "metadata": meta,
-                                                "transform": rule.contents.transform})
+    rule_contents_dict = {"rule": rule_dict, "metadata": meta}
+
+    if rule.contents.transform:
+        rule_contents_dict["transform"] = rule.contents.transform.to_dict()
+
+    rule_contents = TOMLRuleContents.from_dict(rule_contents_dict)
     payload = rule_contents.to_api_format()
     payload = strip_non_public_fields(min_stack_version, payload)
     return payload

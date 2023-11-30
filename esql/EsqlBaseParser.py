@@ -1,4 +1,8 @@
-# Generated from /Users/tdejesus/code/src/detection-rules/esql/grammar/EsqlBaseParser.g4 by ANTLR 4.13.1
+# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
+
 # encoding: utf-8
 from antlr4 import *
 from io import StringIO
@@ -198,37 +202,37 @@ class EsqlBaseParser ( Parser ):
 
     sharedContextCache = PredictionContextCache()
 
-    literalNames = [ "<INVALID>", "'dissect'", "'drop'", "'enrich'", "'eval'", 
-                     "'explain'", "'from'", "'grok'", "'inlinestats'", "'keep'", 
-                     "'limit'", "'mv_expand'", "'project'", "'rename'", 
-                     "'row'", "'show'", "'sort'", "'stats'", "'where'", 
-                     "<INVALID>", "<INVALID>", "<INVALID>", "<INVALID>", 
-                     "<INVALID>", "<INVALID>", "<INVALID>", "<INVALID>", 
-                     "<INVALID>", "<INVALID>", "<INVALID>", "'by'", "'and'", 
-                     "'asc'", "<INVALID>", "<INVALID>", "'desc'", "'.'", 
-                     "'false'", "'first'", "'last'", "'('", "'in'", "'like'", 
-                     "'not'", "'null'", "'nulls'", "'or'", "'?'", "'rlike'", 
-                     "')'", "'true'", "'info'", "'functions'", "'=='", "'!='", 
-                     "'<'", "'<='", "'>'", "'>='", "'+'", "'-'", "'*'", 
-                     "'/'", "'%'", "<INVALID>", "']'", "<INVALID>", "<INVALID>", 
-                     "<INVALID>", "<INVALID>", "<INVALID>", "'as'", "'metadata'", 
+    literalNames = [ "<INVALID>", "'dissect'", "'drop'", "'enrich'", "'eval'",
+                     "'explain'", "'from'", "'grok'", "'inlinestats'", "'keep'",
+                     "'limit'", "'mv_expand'", "'project'", "'rename'",
+                     "'row'", "'show'", "'sort'", "'stats'", "'where'",
+                     "<INVALID>", "<INVALID>", "<INVALID>", "<INVALID>",
+                     "<INVALID>", "<INVALID>", "<INVALID>", "<INVALID>",
+                     "<INVALID>", "<INVALID>", "<INVALID>", "'by'", "'and'",
+                     "'asc'", "<INVALID>", "<INVALID>", "'desc'", "'.'",
+                     "'false'", "'first'", "'last'", "'('", "'in'", "'like'",
+                     "'not'", "'null'", "'nulls'", "'or'", "'?'", "'rlike'",
+                     "')'", "'true'", "'info'", "'functions'", "'=='", "'!='",
+                     "'<'", "'<='", "'>'", "'>='", "'+'", "'-'", "'*'",
+                     "'/'", "'%'", "<INVALID>", "']'", "<INVALID>", "<INVALID>",
+                     "<INVALID>", "<INVALID>", "<INVALID>", "'as'", "'metadata'",
                      "'on'", "'with'" ]
 
-    symbolicNames = [ "<INVALID>", "DISSECT", "DROP", "ENRICH", "EVAL", 
-                      "EXPLAIN", "FROM", "GROK", "INLINESTATS", "KEEP", 
-                      "LIMIT", "MV_EXPAND", "PROJECT", "RENAME", "ROW", 
-                      "SHOW", "SORT", "STATS", "WHERE", "UNKNOWN_CMD", "LINE_COMMENT", 
-                      "MULTILINE_COMMENT", "WS", "EXPLAIN_WS", "EXPLAIN_LINE_COMMENT", 
-                      "EXPLAIN_MULTILINE_COMMENT", "PIPE", "STRING", "INTEGER_LITERAL", 
-                      "DECIMAL_LITERAL", "BY", "AND", "ASC", "ASSIGN", "COMMA", 
-                      "DESC", "DOT", "FALSE", "FIRST", "LAST", "LP", "IN", 
-                      "LIKE", "NOT", "NULL", "NULLS", "OR", "PARAM", "RLIKE", 
-                      "RP", "TRUE", "INFO", "FUNCTIONS", "EQ", "NEQ", "LT", 
-                      "LTE", "GT", "GTE", "PLUS", "MINUS", "ASTERISK", "SLASH", 
-                      "PERCENT", "OPENING_BRACKET", "CLOSING_BRACKET", "UNQUOTED_IDENTIFIER", 
-                      "QUOTED_IDENTIFIER", "EXPR_LINE_COMMENT", "EXPR_MULTILINE_COMMENT", 
-                      "EXPR_WS", "AS", "METADATA", "ON", "WITH", "SRC_UNQUOTED_IDENTIFIER", 
-                      "SRC_QUOTED_IDENTIFIER", "SRC_LINE_COMMENT", "SRC_MULTILINE_COMMENT", 
+    symbolicNames = [ "<INVALID>", "DISSECT", "DROP", "ENRICH", "EVAL",
+                      "EXPLAIN", "FROM", "GROK", "INLINESTATS", "KEEP",
+                      "LIMIT", "MV_EXPAND", "PROJECT", "RENAME", "ROW",
+                      "SHOW", "SORT", "STATS", "WHERE", "UNKNOWN_CMD", "LINE_COMMENT",
+                      "MULTILINE_COMMENT", "WS", "EXPLAIN_WS", "EXPLAIN_LINE_COMMENT",
+                      "EXPLAIN_MULTILINE_COMMENT", "PIPE", "STRING", "INTEGER_LITERAL",
+                      "DECIMAL_LITERAL", "BY", "AND", "ASC", "ASSIGN", "COMMA",
+                      "DESC", "DOT", "FALSE", "FIRST", "LAST", "LP", "IN",
+                      "LIKE", "NOT", "NULL", "NULLS", "OR", "PARAM", "RLIKE",
+                      "RP", "TRUE", "INFO", "FUNCTIONS", "EQ", "NEQ", "LT",
+                      "LTE", "GT", "GTE", "PLUS", "MINUS", "ASTERISK", "SLASH",
+                      "PERCENT", "OPENING_BRACKET", "CLOSING_BRACKET", "UNQUOTED_IDENTIFIER",
+                      "QUOTED_IDENTIFIER", "EXPR_LINE_COMMENT", "EXPR_MULTILINE_COMMENT",
+                      "EXPR_WS", "AS", "METADATA", "ON", "WITH", "SRC_UNQUOTED_IDENTIFIER",
+                      "SRC_QUOTED_IDENTIFIER", "SRC_LINE_COMMENT", "SRC_MULTILINE_COMMENT",
                       "SRC_WS", "EXPLAIN_PIPE" ]
 
     RULE_singleStatement = 0
@@ -278,18 +282,18 @@ class EsqlBaseParser ( Parser ):
     RULE_enrichCommand = 44
     RULE_enrichWithClause = 45
 
-    ruleNames =  [ "singleStatement", "query", "sourceCommand", "processingCommand", 
-                   "whereCommand", "booleanExpression", "regexBooleanExpression", 
-                   "valueExpression", "operatorExpression", "primaryExpression", 
-                   "rowCommand", "fields", "field", "fromCommand", "metadata", 
-                   "evalCommand", "statsCommand", "inlinestatsCommand", 
-                   "grouping", "sourceIdentifier", "qualifiedName", "identifier", 
-                   "constant", "limitCommand", "sortCommand", "orderExpression", 
-                   "keepCommand", "dropCommand", "renameCommand", "renameClause", 
-                   "dissectCommand", "grokCommand", "mvExpandCommand", "commandOptions", 
-                   "commandOption", "booleanValue", "numericValue", "decimalValue", 
-                   "integerValue", "string", "comparisonOperator", "explainCommand", 
-                   "subqueryExpression", "showCommand", "enrichCommand", 
+    ruleNames =  [ "singleStatement", "query", "sourceCommand", "processingCommand",
+                   "whereCommand", "booleanExpression", "regexBooleanExpression",
+                   "valueExpression", "operatorExpression", "primaryExpression",
+                   "rowCommand", "fields", "field", "fromCommand", "metadata",
+                   "evalCommand", "statsCommand", "inlinestatsCommand",
+                   "grouping", "sourceIdentifier", "qualifiedName", "identifier",
+                   "constant", "limitCommand", "sortCommand", "orderExpression",
+                   "keepCommand", "dropCommand", "renameCommand", "renameClause",
+                   "dissectCommand", "grokCommand", "mvExpandCommand", "commandOptions",
+                   "commandOption", "booleanValue", "numericValue", "decimalValue",
+                   "integerValue", "string", "comparisonOperator", "explainCommand",
+                   "subqueryExpression", "showCommand", "enrichCommand",
                    "enrichWithClause" ]
 
     EOF = Token.EOF
@@ -441,7 +445,7 @@ class EsqlBaseParser ( Parser ):
         def getRuleIndex(self):
             return EsqlBaseParser.RULE_query
 
-     
+
         def copyFrom(self, ctx:ParserRuleContext):
             super().copyFrom(ctx)
 
@@ -523,7 +527,7 @@ class EsqlBaseParser ( Parser ):
                     self.state = 99
                     self.match(EsqlBaseParser.PIPE)
                     self.state = 100
-                    self.processingCommand() 
+                    self.processingCommand()
                 self.state = 105
                 self._errHandler.sync(self)
                 _alt = self._interp.adaptivePredict(self._input,0,self._ctx)
@@ -830,7 +834,7 @@ class EsqlBaseParser ( Parser ):
         def getRuleIndex(self):
             return EsqlBaseParser.RULE_booleanExpression
 
-     
+
         def copyFrom(self, ctx:ParserRuleContext):
             super().copyFrom(ctx)
 
@@ -1076,7 +1080,7 @@ class EsqlBaseParser ( Parser ):
                         localctx.right = self.booleanExpression(3)
                         pass
 
-             
+
                 self.state = 163
                 self._errHandler.sync(self)
                 _alt = self._interp.adaptivePredict(self._input,7,self._ctx)
@@ -1196,7 +1200,7 @@ class EsqlBaseParser ( Parser ):
         def getRuleIndex(self):
             return EsqlBaseParser.RULE_valueExpression
 
-     
+
         def copyFrom(self, ctx:ParserRuleContext):
             super().copyFrom(ctx)
 
@@ -1296,7 +1300,7 @@ class EsqlBaseParser ( Parser ):
         def getRuleIndex(self):
             return EsqlBaseParser.RULE_operatorExpression
 
-     
+
         def copyFrom(self, ctx:ParserRuleContext):
             super().copyFrom(ctx)
 
@@ -1471,7 +1475,7 @@ class EsqlBaseParser ( Parser ):
                         localctx.right = self.operatorExpression(2)
                         pass
 
-             
+
                 self.state = 203
                 self._errHandler.sync(self)
                 _alt = self._interp.adaptivePredict(self._input,14,self._ctx)
@@ -1496,7 +1500,7 @@ class EsqlBaseParser ( Parser ):
         def getRuleIndex(self):
             return EsqlBaseParser.RULE_primaryExpression
 
-     
+
         def copyFrom(self, ctx:ParserRuleContext):
             super().copyFrom(ctx)
 
@@ -1770,7 +1774,7 @@ class EsqlBaseParser ( Parser ):
                     self.state = 230
                     self.match(EsqlBaseParser.COMMA)
                     self.state = 231
-                    self.field() 
+                    self.field()
                 self.state = 236
                 self._errHandler.sync(self)
                 _alt = self._interp.adaptivePredict(self._input,18,self._ctx)
@@ -1909,7 +1913,7 @@ class EsqlBaseParser ( Parser ):
                     self.state = 246
                     self.match(EsqlBaseParser.COMMA)
                     self.state = 247
-                    self.sourceIdentifier() 
+                    self.sourceIdentifier()
                 self.state = 252
                 self._errHandler.sync(self)
                 _alt = self._interp.adaptivePredict(self._input,20,self._ctx)
@@ -2241,7 +2245,7 @@ class EsqlBaseParser ( Parser ):
                     self.state = 286
                     self.match(EsqlBaseParser.COMMA)
                     self.state = 287
-                    self.qualifiedName() 
+                    self.qualifiedName()
                 self.state = 292
                 self._errHandler.sync(self)
                 _alt = self._interp.adaptivePredict(self._input,26,self._ctx)
@@ -2355,7 +2359,7 @@ class EsqlBaseParser ( Parser ):
                     self.state = 296
                     self.match(EsqlBaseParser.DOT)
                     self.state = 297
-                    self.identifier() 
+                    self.identifier()
                 self.state = 302
                 self._errHandler.sync(self)
                 _alt = self._interp.adaptivePredict(self._input,27,self._ctx)
@@ -2430,7 +2434,7 @@ class EsqlBaseParser ( Parser ):
         def getRuleIndex(self):
             return EsqlBaseParser.RULE_constant
 
-     
+
         def copyFrom(self, ctx:ParserRuleContext):
             super().copyFrom(ctx)
 
@@ -2903,7 +2907,7 @@ class EsqlBaseParser ( Parser ):
                     self.state = 354
                     self.match(EsqlBaseParser.COMMA)
                     self.state = 355
-                    self.orderExpression() 
+                    self.orderExpression()
                 self.state = 360
                 self._errHandler.sync(self)
                 _alt = self._interp.adaptivePredict(self._input,32,self._ctx)
@@ -3069,7 +3073,7 @@ class EsqlBaseParser ( Parser ):
                         self.state = 371
                         self.match(EsqlBaseParser.COMMA)
                         self.state = 372
-                        self.sourceIdentifier() 
+                        self.sourceIdentifier()
                     self.state = 377
                     self._errHandler.sync(self)
                     _alt = self._interp.adaptivePredict(self._input,35,self._ctx)
@@ -3089,7 +3093,7 @@ class EsqlBaseParser ( Parser ):
                         self.state = 380
                         self.match(EsqlBaseParser.COMMA)
                         self.state = 381
-                        self.sourceIdentifier() 
+                        self.sourceIdentifier()
                     self.state = 386
                     self._errHandler.sync(self)
                     _alt = self._interp.adaptivePredict(self._input,36,self._ctx)
@@ -3162,7 +3166,7 @@ class EsqlBaseParser ( Parser ):
                     self.state = 391
                     self.match(EsqlBaseParser.COMMA)
                     self.state = 392
-                    self.sourceIdentifier() 
+                    self.sourceIdentifier()
                 self.state = 397
                 self._errHandler.sync(self)
                 _alt = self._interp.adaptivePredict(self._input,38,self._ctx)
@@ -3231,7 +3235,7 @@ class EsqlBaseParser ( Parser ):
                     self.state = 400
                     self.match(EsqlBaseParser.COMMA)
                     self.state = 401
-                    self.renameClause() 
+                    self.renameClause()
                 self.state = 406
                 self._errHandler.sync(self)
                 _alt = self._interp.adaptivePredict(self._input,39,self._ctx)
@@ -3514,7 +3518,7 @@ class EsqlBaseParser ( Parser ):
                     self.state = 425
                     self.match(EsqlBaseParser.COMMA)
                     self.state = 426
-                    self.commandOption() 
+                    self.commandOption()
                 self.state = 431
                 self._errHandler.sync(self)
                 _alt = self._interp.adaptivePredict(self._input,41,self._ctx)
@@ -3985,7 +3989,7 @@ class EsqlBaseParser ( Parser ):
         def getRuleIndex(self):
             return EsqlBaseParser.RULE_showCommand
 
-     
+
         def copyFrom(self, ctx:ParserRuleContext):
             super().copyFrom(ctx)
 
@@ -4156,7 +4160,7 @@ class EsqlBaseParser ( Parser ):
                         self.state = 471
                         self.match(EsqlBaseParser.COMMA)
                         self.state = 472
-                        self.enrichWithClause() 
+                        self.enrichWithClause()
                     self.state = 477
                     self._errHandler.sync(self)
                     _alt = self._interp.adaptivePredict(self._input,45,self._ctx)
@@ -4248,25 +4252,25 @@ class EsqlBaseParser ( Parser ):
     def query_sempred(self, localctx:QueryContext, predIndex:int):
             if predIndex == 0:
                 return self.precpred(self._ctx, 1)
-         
+
 
     def booleanExpression_sempred(self, localctx:BooleanExpressionContext, predIndex:int):
             if predIndex == 1:
                 return self.precpred(self._ctx, 3)
-         
+
 
             if predIndex == 2:
                 return self.precpred(self._ctx, 2)
-         
+
 
     def operatorExpression_sempred(self, localctx:OperatorExpressionContext, predIndex:int):
             if predIndex == 3:
                 return self.precpred(self._ctx, 2)
-         
+
 
             if predIndex == 4:
                 return self.precpred(self._ctx, 1)
-         
+
 
 
 
