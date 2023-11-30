@@ -357,13 +357,13 @@ class ESQLValidator(QueryValidator):
     @cached_property
     def unique_fields(self) -> List[str]:
         """Return a list of unique fields in the query."""
-        # return empty list for ES|QL rules until ast is available
+        # return empty list for ES|QL rules until ast is available (friendlier than raising error)
+        # raise NotImplementedError('ES|QL query parsing not yet supported')
         return []
 
     def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
         """Validate an ESQL query while checking TOMLRule."""
-        print("Warning: ESQL queries are not validated at this time.")
-        return None
+        # temporarily override to NOP until ES|QL query parsing is supported
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
