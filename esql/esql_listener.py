@@ -12,11 +12,12 @@ from esql.EsqlBaseParserListener import EsqlBaseParserListener
 class ESQLValidatorListener(EsqlBaseParserListener):
     """Validate specific fields for ESQL query event types."""
 
-    def __init__(self, schema):
+    def __init__(self, schema: dict = {}):
         """Initialize the listener with a schema."""
-        self.schema = schema
-        self.field_list = []
-        self.indices = []
+        self.schema = schema # schema is a dictionary of field names and types
+        self.field_list = [] # list of fields used in the query
+        self.indices = [] # indices used in the query (e.g. 'logs-*')
+        self.get_event_datasets = [] # event.dataset field values used in the query
 
     def enterQualifiedName(self, ctx: EsqlBaseParser.QualifiedNameContext):  # noqa: N802
         """Extract field from context (ctx)."""
@@ -27,6 +28,9 @@ class ESQLValidatorListener(EsqlBaseParserListener):
 
             if field not in self.schema:
                 raise ESQLSyntaxError(f"Invalid field: {field}")
+
+            if field == 'event.dataset':
+                self.get_event_datasets.append(ctx.parentCtx.getText())
 
     def enterSourceIdentifier(self, ctx: EsqlBaseParser.SourceIdentifierContext):  # noqa: N802
         """Extract index and fields from context (ctx)."""
@@ -44,6 +48,7 @@ class ESQLValidatorListener(EsqlBaseParserListener):
         else:
             # check index against integrations?
             self.indices.append(ctx.getText())
+
 
     def check_literal_type(self, ctx: ParserRuleContext):
         """Check the type of a literal against the schema."""
@@ -89,6 +94,15 @@ class ESQLValidatorListener(EsqlBaseParserListener):
             # Add more conditions based on context_type and other types of literals as needed
         else:
             return 'unknown'
+
+    def get_event_dataset(self, ctx: ParserRuleContext):
+        """Get the event dataset."""
+        parent_ctx = ctx.parentCtx
+        while parent_ctx:
+            if isinstance(parent_ctx, EsqlBaseParser.WhereCommandContext):
+                return parent_ctx.sourceIdentifier().getText()
+            parent_ctx = parent_ctx.parentCtx
+        return None
 
     # Override methods to use check_literal_type
     def enterNullLiteral(self, ctx: EsqlBaseParser.NullLiteralContext):  # noqa: N802

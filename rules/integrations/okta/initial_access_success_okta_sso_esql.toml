@@ -1,0 +1,91 @@
+[metadata]
+creation_date = "2020/05/21"
+integration = ["okta"]
+maturity = "production"
+min_stack_comments = "Breaking change in Okta integration bumping version to ^2.0.0"
+min_stack_version = "8.11.0"
+updated_date = "2023/10/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a user reports suspicious activity for their Okta account. These events should be investigated, as they can
+help security teams identify when an adversary is attempting to gain access to their network.
+"""
+false_positives = ["A user may report suspicious activity on their Okta account in error."]
+language = "esql"
+license = "Elastic License v2"
+name = "Suspicious Activity Reported by Okta User"
+note = """## Setup
+
+The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = [
+    "https://developer.okta.com/docs/reference/api/system-log/",
+    "https://developer.okta.com/docs/reference/api/event-types/",
+    "https://www.elastic.co/security-labs/testing-okta-visibility-and-detection-dorothy",
+]
+risk_score = 47
+rule_id = "6af3e7d2-8fad-11ee-af79-f661ea17fbcd"
+severity = "medium"
+tags = ["Use Case: Identity and Access Audit", "Data Source: Okta", "Tactic: Initial Access"]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-okta* [metadata _id, _version, _index]
+    | where okta.outcome.result == "SUCCESS" and okta.event_type == "user.authentication.sso" and event.dataset == "okta.system"
+    | limit 10
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+
+

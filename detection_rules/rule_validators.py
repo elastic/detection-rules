@@ -359,11 +359,29 @@ class ESQLValidator(QueryValidator):
 
     field_list = []
     indices = []
+    event_datasets = []
 
     @cached_property
     def ast(self) -> eql.ast.Expression:
         """Return an AST."""
         return self.parser.singleStatement()
+
+    @cached_property
+    def listener(self) -> ESQLValidatorListener:
+        """Return a listener instance."""
+        return ESQLValidatorListener()
+
+    def run_walker(self, ctx_class=None):
+        """Walk the AST with the listener."""
+        generic_walker = ParseTreeWalker()
+        tree = self.ast
+
+        if ctx_class:
+            ctx_obj = get_node(tree, ctx_class)
+            if ctx_obj:
+                generic_walker.enterRule(self.listener, ctx_obj)
+        else:
+            generic_walker.walk(self.listener, tree)
 
     @cached_property
     def parser(self) -> EsqlBaseParser:
@@ -386,7 +404,11 @@ class ESQLValidator(QueryValidator):
             raise ESQLSyntaxError(f"Rule minstack must be greater than 8.10.0 {data.rule_id}")
 
         tree = self.ast
-        pretty_print_tree(tree)
+        #pretty_print_tree(tree)
+
+        self.run_walker(EsqlBaseParser.QualifiedNameContext)
+        #self.run_walker(EsqlBaseParser.StringLiteralContext)
+        self.run_walker()
 
         # Create an instance of the listener with schema
         current_stack_version = ""
@@ -403,28 +425,28 @@ class ESQLValidator(QueryValidator):
                 combined_schema = {}
 
             # setup listener
-            index_listener = ESQLValidatorListener(combined_schema)
+            # index_listener = ESQLValidatorListener(combined_schema)
 
-            # Walk the tree with the listener
-            index_walker = ParseTreeWalker()
-            source_command = get_node(tree, EsqlBaseParser.SourceIdentifierContext)
-            index_walker.enterRule(index_listener, source_command)
+            # # Walk the tree with the listener
+            # index_walker = ParseTreeWalker()
+            # source_command = get_node(tree, EsqlBaseParser.SourceIdentifierContext)
+            # index_walker.enterRule(index_listener, source_command)
 
-            # add non-ecs-schema fields for edge cases not added to the integration
-            for index_name in index_listener.indices:
-                integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
+            # # add non-ecs-schema fields for edge cases not added to the integration
+            # for index_name in index_listener.indices:
+            #     integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
 
-            # add endpoint schema fields for multi-line fields
-            integration_schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))
-            combined_schema.update(**integration_schema)
+            # # add endpoint schema fields for multi-line fields
+            # integration_schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))
+            # combined_schema.update(**integration_schema)
 
-            # setup listener
-            listener = ESQLValidatorListener(combined_schema)
+            # # setup listener
+            # listener = ESQLValidatorListener(combined_schema)
 
-            # Walk the tree with the listener
-            walker = ParseTreeWalker()
-            walker.walk(listener, tree)
-            self.field_list = listener.field_list
+            # # Walk the tree with the listener
+            # walker = ParseTreeWalker()
+            # walker.walk(listener, tree)
+            self.field_list = self.listener.field_list
 
             print("Validation completed successfully.")
 

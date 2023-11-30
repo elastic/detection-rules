@@ -39,11 +39,12 @@ def get_node(tree: EsqlBaseParser.SingleStatementContext, ctx: ParserRuleContext
         raise ValueError(f"Invalid context: {ctx}")
 
     for child in tree.children:
+        print(type(child))
         if isinstance(child, ctx):
             return child
         elif hasattr(child, "children"):
             return get_node(child, ctx)
         else:
-            continue
+            return
 
     raise ESQLSyntaxError("No source command found")
