@@ -326,7 +326,8 @@ def get_endpoint_schemas() -> dict:
 
 def get_combined_schemas(data, meta, package_integrations, indices=[]):
     """Get the schemas for ECS, beats and integrations"""
-    # TODO: Should we call this method in other locations?
+    # TODO: Revisit and update to account for all validator classes
+    # validate_integration methods have redundant code
     current_stack_version = ""
     combined_schema = {}
     for integration_schema_data in get_integration_schema_data(data, meta, package_integrations):

@@ -18,7 +18,7 @@ from esql.errors import ESQLSyntaxError
 from esql.esql_listener import ESQLErrorListener, ESQLValidatorListener
 from esql.EsqlBaseLexer import EsqlBaseLexer
 from esql.EsqlBaseParser import EsqlBaseParser
-from esql.utils import get_node, pretty_print_tree
+from esql.utils import get_node
 
 from . import ecs, endgame
 from .integrations import (get_integration_schema_data,
@@ -380,7 +380,7 @@ class ESQLValidator(QueryValidator):
                 # Check for additional errors (like predictive errors usually printed to stderr)
                 stderr_output = sys.stderr.getvalue()
                 error_message = "\n".join(error_listener.errors)
-                raise ESQLSyntaxError(f"{stderr_output}{error_message}")
+                raise ESQLSyntaxError(f"\n\n{stderr_output}{error_message}")
         finally:
             # Restore the original stderr
             sys.stderr = original_stderr
@@ -403,13 +403,14 @@ class ESQLValidator(QueryValidator):
             if ctx_objs:
                 for ctx_obj in ctx_objs:
                     generic_walker.enterRule(self.listener, ctx_obj)
+                    generic_walker.exitRule(self.listener, ctx_obj)
         else:
             generic_walker.walk(self.listener, tree)
 
     @cached_property
     def parser_error_listener(self) -> Tuple[EsqlBaseParser, ESQLErrorListener]:
         """Return a parser instance."""
-        input_stream = InputStream(self.query)
+        input_stream = InputStream(self.query.lower())
         lexer = EsqlBaseLexer(input_stream)
         token_stream = CommonTokenStream(lexer)
         parser = EsqlBaseParser(token_stream)
@@ -432,23 +433,22 @@ class ESQLValidator(QueryValidator):
         if Version.parse(meta.min_stack_version) < Version.parse("8.11.0"):
             raise ESQLSyntaxError(f"Rule minstack must be greater than 8.10.0 {data.rule_id}")
 
-        tree = self.ast
-        self.run_walker()  # TODO: Walk entire tree?
-        pretty_print_tree(tree)
+        self.run_walker(EsqlBaseParser.BooleanDefaultContext)  # TODO: Walk entire tree?
+        # TODO: Pass event dataset to related integrations workflow
+        # pretty_print_tree(tree)
 
         # get event datasets
         self.event_datasets = self.listener.event_datasets
         self.field_list = self.listener.field_list
+        # TODO: Pass unique field list to required fields workflow
 
         # Create an instance of the listener with schema
         packages_manifest = load_integrations_manifests()
         package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest,
                                                                           self.event_datasets)
-        # TODO: Run walker even if integrations exist?
-        if package_integrations:
-            combined_schemas = ecs.get_combined_schemas(data, meta, package_integrations)
-            self.listener.schema = combined_schemas
-            self.run_walker()
+        combined_schemas = ecs.get_combined_schemas(data, meta, package_integrations)
+        self.listener.schema = combined_schemas
+        self.run_walker()
         print("Validation completed successfully.")
 
 
