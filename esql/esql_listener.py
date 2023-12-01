@@ -62,17 +62,15 @@ class ESQLValidatorListener(EsqlBaseParserListener):
             # check index against integrations?
             self.indices.append(ctx.getText())
 
-    def enterFromCommand(self, ctx: EsqlBaseParser.FromCommandContext):  # noqa: N802
-        """Override entry method for FromCommandContext."""
+    def enterSingleStatement(self, ctx: EsqlBaseParser.SingleStatementContext):  # noqa: N802
+        """Override entry method for SingleStatementContext."""
 
-        # check if metadata is present for rule type
-        # metadata_node = get_node(ctx, EsqlBaseParser.MetadataContext)
-        # if not metadata_node:
-        #     composite_ctx = ctx.parentCtx.parentCtx.parentCtx
-        #     processing_ctx = get_node(composite_ctx, EsqlBaseParser.ProcessingCommandContext)
-        #     stats_ctx = get_node(processing_ctx[0], EsqlBaseParser.StatsCommandContext)
-        #     if not stats_ctx:
-        #         raise ESQLSemanticError(f"Missing metadata for ES|QL query with no stats command")
+        # check if metadata is present for ES|QL queries with no stats command
+        metadata_ctx = get_node(ctx, EsqlBaseParser.MetadataContext)
+        if not metadata_ctx:
+            stats_ctx = get_node(ctx, EsqlBaseParser.StatsCommandContext)
+            if not stats_ctx:
+                raise ESQLSemanticError(f"Missing metadata for ES|QL query with no stats command")
 
     def check_literal_type(self, ctx: ParserRuleContext):
         """Check the type of a literal against the schema."""
