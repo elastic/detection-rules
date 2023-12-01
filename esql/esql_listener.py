@@ -105,7 +105,25 @@ class ESQLValidatorListener(EsqlBaseParserListener):
             elif isinstance(parent_ctx, EsqlBaseParser.LogicalInContext):
                 field_ctx = parent_ctx.valueExpression(0).getChild(0)
                 return field_ctx.getText() if field_ctx else None, "LogicalIn"
-            # Add additional conditions for other contexts where constants appear
+            elif isinstance(parent_ctx, EsqlBaseParser.RegexBooleanExpressionContext):
+                field_ctx = parent_ctx.valueExpression().getChild(0)
+                return field_ctx.getText() if field_ctx else None, "RegexBoolean"
+            elif isinstance(parent_ctx, EsqlBaseParser.FunctionExpressionContext):
+                # Handling function expressions
+                field_ctx = parent_ctx.identifier()
+                field = field_ctx.getText() if field_ctx else None
+                return field, "FunctionExpression"
+            elif isinstance(parent_ctx, EsqlBaseParser.ArithmeticBinaryContext):
+                # Handling arithmetic binary operations
+                field_ctx = parent_ctx.operatorExpression(0).getChild(0)
+                field = field_ctx.getText() if field_ctx else None
+                return field, "ArithmeticBinary"
+            elif isinstance(parent_ctx, EsqlBaseParser.OrderExpressionContext):
+                # Handling order by expressions
+                field_ctx = parent_ctx.booleanExpression().getChild(0)
+                field = field_ctx.getText() if field_ctx else None
+                return field, "OrderExpression"
+            # TODO: Add more conditions for other contexts as necessary
             parent_ctx = parent_ctx.parentCtx
         return None, None
 
@@ -113,7 +131,8 @@ class ESQLValidatorListener(EsqlBaseParserListener):
         """Get the type of a literal."""
         # Determine the type of the literal based on the context type
         # https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-types.html
-        if context_type in ["Comparison", "LogicalIn"]:
+        if context_type in ["Comparison", "LogicalIn", "RegexBoolean",
+                            "FunctionExpression", "ArithmeticBinary", "OrderExpression"]:
             if isinstance(ctx, EsqlBaseParser.StringLiteralContext):
                 return "keyword"  # or 'text'?, depending on usage
             elif isinstance(ctx, EsqlBaseParser.IntegerLiteralContext):
