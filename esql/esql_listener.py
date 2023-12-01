@@ -99,8 +99,6 @@ class ESQLValidatorListener(EsqlBaseParserListener):
         parent_ctx = ctx.parentCtx
         while parent_ctx:
             if isinstance(parent_ctx, EsqlBaseParser.ComparisonContext):
-                # Adjust this logic based on your parse tree structure
-                # Example: If the field name is the text of the first child of the operator expression
                 field_ctx = parent_ctx.operatorExpression(0).getChild(0)
                 field = field_ctx.getText() if field_ctx else None
                 return field, "Comparison"
