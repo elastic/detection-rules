@@ -363,7 +363,7 @@ class ESQLValidator(QueryValidator):
     event_datasets = []
 
     @cached_property
-    def ast(self) -> eql.ast.Expression:
+    def ast(self) -> EsqlBaseParser.SingleStatementContext:
         """Return an AST."""
         # Capture stderr
         original_stderr = sys.stderr

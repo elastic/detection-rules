@@ -1527,19 +1527,13 @@ def build_parser(antlr_jar: str):
     # Define paths
     lexer_file = Path(ESQL_DIR) / 'grammar' / 'EsqlBaseLexer.g4'
     parser_file = Path(ESQL_DIR) / 'grammar' / 'EsqlBaseParser.g4'
-    antlr_file = Path(get_path('detection_rules')) / 'etc' / 'antlr-4.13.1-complete.jar'
 
     # Ensure files exist
     if not lexer_file.exists() or not parser_file.exists():
         click.echo("Error: Required grammar files are missing.")
         return
 
-    # ensure ANTLR JAR exists
-    if not antlr_file.exists():
-        click.echo("Error: ANTLR JAR file is missing.")
-        return
-
-    # Use the JAR to generate parser and lexer
+    # Use the antlr4 binary installed with the python dependencies to generate parser and lexer
     cmd_common = [
         "antlr4",
         "-Dlanguage=Python3",
