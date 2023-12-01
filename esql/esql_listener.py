@@ -16,7 +16,7 @@ class ESQLErrorListener(ErrorListener):
         super().__init__()
         self.errors = []
 
-    def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
+    def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):  # noqa: N802,N803
         self.errors.append(f"Line {line}:{column} {msg}")
 
 
@@ -35,9 +35,9 @@ class ESQLValidatorListener(EsqlBaseParserListener):
 
         # TODO: we need to check if a field can be set in any processing command and ignore these parents
         if (
-            not isinstance(ctx.parentCtx, EsqlBaseParser.EvalCommandContext)
-            and not isinstance(ctx.parentCtx, EsqlBaseParser.MetadataContext)
-            and not isinstance(
+            not isinstance(ctx.parentCtx, EsqlBaseParser.EvalCommandContext)  # noqa: W503
+            and not isinstance(ctx.parentCtx, EsqlBaseParser.MetadataContext)  # noqa: W503
+            and not isinstance(  # noqa: W503
                 ctx.parentCtx.parentCtx.parentCtx, EsqlBaseParser.StatsCommandContext
             )
         ):
@@ -52,9 +52,9 @@ class ESQLValidatorListener(EsqlBaseParserListener):
 
         # Check if the parent context is NOT 'FromCommandContext'
         if (
-            not isinstance(ctx.parentCtx, EsqlBaseParser.FromCommandContext)
-            and not isinstance(ctx.parentCtx, EsqlBaseParser.MetadataContext)
-            and not isinstance(
+            not isinstance(ctx.parentCtx, EsqlBaseParser.FromCommandContext)  # noqa: W503
+            and not isinstance(ctx.parentCtx, EsqlBaseParser.MetadataContext)  # noqa: W503
+            and not isinstance(  # noqa: W503
                 ctx.parentCtx.parentCtx.parentCtx, EsqlBaseParser.StatsCommandContext
             )
         ):
@@ -78,7 +78,7 @@ class ESQLValidatorListener(EsqlBaseParserListener):
         if not metadata_ctx:
             stats_ctx = get_node(ctx, EsqlBaseParser.StatsCommandContext)
             if not stats_ctx:
-                raise ESQLSemanticError(f"Missing metadata for ES|QL query with no stats command")
+                raise ESQLSemanticError("Missing metadata for ES|QL query with no stats command")
 
     def check_literal_type(self, ctx: ParserRuleContext):
         """Check the type of a literal against the schema."""
@@ -130,8 +130,8 @@ class ESQLValidatorListener(EsqlBaseParserListener):
                 return "null"  # 'null' type for missing or null values
             elif (
                 isinstance(ctx, EsqlBaseParser.NumericArrayLiteralContext)
-                or isinstance(ctx, EsqlBaseParser.StringArrayLiteralContext)
-                or isinstance(ctx, EsqlBaseParser.BooleanArrayLiteralContext)
+                or isinstance(ctx, EsqlBaseParser.StringArrayLiteralContext)  # noqa: W503
+                or isinstance(ctx, EsqlBaseParser.BooleanArrayLiteralContext)  # noqa: W503
             ):
                 return "nested"  # Array of integers, text, or booleans
         else:
@@ -194,7 +194,7 @@ class ESQLValidatorListener(EsqlBaseParserListener):
         """Check the type of a string array literal against the schema."""
         self.check_literal_type(ctx)
 
-    def enterBooleanDefault(self, ctx: EsqlBaseParser.BooleanDefaultContext):
+    def enterBooleanDefault(self, ctx: EsqlBaseParser.BooleanDefaultContext):  # noqa: N802
         """Check the type of a boolean default context against the schema."""
         self.check_literal_type(ctx)
 
