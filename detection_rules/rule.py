@@ -605,20 +605,6 @@ class QueryRuleData(BaseRuleData):
 
 
 @dataclass(frozen=True)
-class ESQLRuleData(QueryRuleData):
-    """ESQL rules are a special case of query rules."""
-    type: Literal["esql"]
-    language: Literal["esql"]
-    query: str
-
-    @validates_schema
-    def validate_esql_data(self, data, **kwargs):
-        """Custom validation for esql rule type."""
-        if data.get('index'):
-            raise ValidationError("Index is not valid for esql rule type.")
-
-
-@dataclass(frozen=True)
 class MachineLearningRuleData(BaseRuleData):
     type: Literal["machine_learning"]
 
@@ -1365,4 +1351,3 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
 
 # avoid a circular import
 from .rule_validators import EQLValidator, ESQLValidator, KQLValidator  # noqa: E402
-
