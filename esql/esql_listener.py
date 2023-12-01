@@ -33,8 +33,10 @@ class ESQLValidatorListener(EsqlBaseParserListener):
     def enterQualifiedName(self, ctx: EsqlBaseParser.QualifiedNameContext):  # noqa: N802
         """Extract field from context (ctx)."""
 
+        # TODO: we need to check if a field can be set in any processing command and ignore these parents
         if not isinstance(ctx.parentCtx, EsqlBaseParser.EvalCommandContext) and \
-                not isinstance(ctx.parentCtx, EsqlBaseParser.MetadataContext):
+                not isinstance(ctx.parentCtx, EsqlBaseParser.MetadataContext) and \
+                not isinstance(ctx.parentCtx.parentCtx.parentCtx, EsqlBaseParser.StatsCommandContext):
             field = ctx.getText()
             self.field_list.append(field)
 
@@ -46,7 +48,8 @@ class ESQLValidatorListener(EsqlBaseParserListener):
 
         # Check if the parent context is NOT 'FromCommandContext'
         if not isinstance(ctx.parentCtx, EsqlBaseParser.FromCommandContext) and \
-                not isinstance(ctx.parentCtx, EsqlBaseParser.MetadataContext):
+                not isinstance(ctx.parentCtx, EsqlBaseParser.MetadataContext) and \
+                not isinstance(ctx.parentCtx.parentCtx.parentCtx, EsqlBaseParser.StatsCommandContext):
             # Extract field from context (ctx)
             # The implementation depends on your parse tree structure
             # For example, if the field name is directly the text of this context:
@@ -58,6 +61,18 @@ class ESQLValidatorListener(EsqlBaseParserListener):
         else:
             # check index against integrations?
             self.indices.append(ctx.getText())
+
+    def enterFromCommand(self, ctx: EsqlBaseParser.FromCommandContext):  # noqa: N802
+        """Override entry method for FromCommandContext."""
+
+        # check if metadata is present for rule type
+        # metadata_node = get_node(ctx, EsqlBaseParser.MetadataContext)
+        # if not metadata_node:
+        #     composite_ctx = ctx.parentCtx.parentCtx.parentCtx
+        #     processing_ctx = get_node(composite_ctx, EsqlBaseParser.ProcessingCommandContext)
+        #     stats_ctx = get_node(processing_ctx[0], EsqlBaseParser.StatsCommandContext)
+        #     if not stats_ctx:
+        #         raise ESQLSemanticError(f"Missing metadata for ES|QL query with no stats command")
 
     def check_literal_type(self, ctx: ParserRuleContext):
         """Check the type of a literal against the schema."""

@@ -596,7 +596,7 @@ class QueryRuleData(BaseRuleData):
             return validator.get_required_fields(index or [])
 
     @validates_schema
-    def validate_exceptions(self, data, **kwargs):
+    def validate_query_data(self, data, **kwargs):
         """Custom validation for query rule type and subclasses."""
 
         # alert suppression is only valid for query rule type and not any of its subclasses
@@ -717,18 +717,17 @@ class EQLRuleData(QueryRuleData):
 
 
 @dataclass(frozen=True)
-class ESQLRuleData(BaseRuleData):
+class ESQLRuleData(QueryRuleData):
     """ESQL rules are a special case of query rules."""
     type: Literal["esql"]
     language: Literal["esql"]
     query: str
 
-    @cached_property
-    def validator(self) -> Optional[QueryValidator]:
-        return ESQLValidator(self.query)
-
-    def validate_query(self, meta: RuleMeta) -> None:
-        return self.validator.validate(self, meta)
+    @validates_schema
+    def validate_esql_data(self, data, **kwargs):
+        """Custom validation for esql rule type."""
+        if data.get('index'):
+            raise ValidationError("Index is not valid for esql rule type.")
 
 
 @dataclass(frozen=True)

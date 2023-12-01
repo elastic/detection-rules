@@ -18,7 +18,7 @@ from esql.errors import ESQLSyntaxError
 from esql.esql_listener import ESQLErrorListener, ESQLValidatorListener
 from esql.EsqlBaseLexer import EsqlBaseLexer
 from esql.EsqlBaseParser import EsqlBaseParser
-from esql.utils import get_node
+from esql.utils import get_node, pretty_print_tree
 
 from . import ecs, endgame
 from .integrations import (get_integration_schema_data,
@@ -435,7 +435,8 @@ class ESQLValidator(QueryValidator):
 
         self.run_walker(EsqlBaseParser.BooleanDefaultContext)  # TODO: Walk entire tree?
         # TODO: Pass event dataset to related integrations workflow
-        # pretty_print_tree(tree)
+        tree = self.ast
+        pretty_print_tree(tree)
 
         # get event datasets
         self.event_datasets = self.listener.event_datasets
