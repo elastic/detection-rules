@@ -34,9 +34,13 @@ class ESQLValidatorListener(EsqlBaseParserListener):
         """Extract field from context (ctx)."""
 
         # TODO: we need to check if a field can be set in any processing command and ignore these parents
-        if not isinstance(ctx.parentCtx, EsqlBaseParser.EvalCommandContext) and \
-                not isinstance(ctx.parentCtx, EsqlBaseParser.MetadataContext) and \
-                not isinstance(ctx.parentCtx.parentCtx.parentCtx, EsqlBaseParser.StatsCommandContext):
+        if (
+            not isinstance(ctx.parentCtx, EsqlBaseParser.EvalCommandContext)
+            and not isinstance(ctx.parentCtx, EsqlBaseParser.MetadataContext)
+            and not isinstance(
+                ctx.parentCtx.parentCtx.parentCtx, EsqlBaseParser.StatsCommandContext
+            )
+        ):
             field = ctx.getText()
             self.field_list.append(field)
 
@@ -47,9 +51,13 @@ class ESQLValidatorListener(EsqlBaseParserListener):
         """Extract index and fields from context (ctx)."""
 
         # Check if the parent context is NOT 'FromCommandContext'
-        if not isinstance(ctx.parentCtx, EsqlBaseParser.FromCommandContext) and \
-                not isinstance(ctx.parentCtx, EsqlBaseParser.MetadataContext) and \
-                not isinstance(ctx.parentCtx.parentCtx.parentCtx, EsqlBaseParser.StatsCommandContext):
+        if (
+            not isinstance(ctx.parentCtx, EsqlBaseParser.FromCommandContext)
+            and not isinstance(ctx.parentCtx, EsqlBaseParser.MetadataContext)
+            and not isinstance(
+                ctx.parentCtx.parentCtx.parentCtx, EsqlBaseParser.StatsCommandContext
+            )
+        ):
             # Extract field from context (ctx)
             # The implementation depends on your parse tree structure
             # For example, if the field name is directly the text of this context:
@@ -83,8 +91,10 @@ class ESQLValidatorListener(EsqlBaseParserListener):
             actual_type = self.get_literal_type(ctx, context_type)
 
             if expected_type != actual_type:
-                raise ESQLSemanticError(f"Field '{field}' in context '{context_type}'"
-                                        f"expects type '{expected_type}', but got '{actual_type}'")
+                raise ESQLSemanticError(
+                    f"Field '{field}' in context '{context_type}'"
+                    f"expects type '{expected_type}', but got '{actual_type}'"
+                )
 
     def find_associated_field_and_context(self, ctx: ParserRuleContext):
         """Find the field and context type associated with a literal."""
@@ -95,10 +105,10 @@ class ESQLValidatorListener(EsqlBaseParserListener):
                 # Example: If the field name is the text of the first child of the operator expression
                 field_ctx = parent_ctx.operatorExpression(0).getChild(0)
                 field = field_ctx.getText() if field_ctx else None
-                return field, 'Comparison'
+                return field, "Comparison"
             elif isinstance(parent_ctx, EsqlBaseParser.LogicalInContext):
                 field_ctx = parent_ctx.valueExpression(0).getChild(0)
-                return field_ctx.getText() if field_ctx else None, 'LogicalIn'
+                return field_ctx.getText() if field_ctx else None, "LogicalIn"
             # Add additional conditions for other contexts where constants appear
             parent_ctx = parent_ctx.parentCtx
         return None, None
@@ -106,18 +116,48 @@ class ESQLValidatorListener(EsqlBaseParserListener):
     def get_literal_type(self, ctx: ParserRuleContext, context_type: str):
         """Get the type of a literal."""
         # Determine the type of the literal based on the context type
-        if context_type == 'Comparison' or context_type == 'LogicalIn':
+        # https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-types.html
+        if context_type in ["Comparison", "LogicalIn"]:
             if isinstance(ctx, EsqlBaseParser.StringLiteralContext):
-                return 'keyword'  # currently a 'string'
-            elif isinstance(ctx, (EsqlBaseParser.IntegerLiteralContext, EsqlBaseParser.QualifiedIntegerLiteralContext)):
-                return 'integer'
+                return "keyword"  # or 'text'?, depending on usage
+            elif isinstance(ctx, EsqlBaseParser.IntegerLiteralContext):
+                return "integer"
+            elif isinstance(ctx, EsqlBaseParser.QualifiedIntegerLiteralContext):
+                return "long"  # Assuming qualified integers are longs
             elif isinstance(ctx, EsqlBaseParser.DecimalLiteralContext):
-                return 'decimal'
+                return "double"
             elif isinstance(ctx, EsqlBaseParser.BooleanLiteralContext):
-                return 'boolean'
-            # Add more conditions based on context_type and other types of literals as needed
+                return "boolean"
+            elif isinstance(ctx, EsqlBaseParser.NullLiteralContext):
+                return "null"  # 'null' type for missing or null values
+            elif (
+                isinstance(ctx, EsqlBaseParser.NumericArrayLiteralContext)
+                or isinstance(ctx, EsqlBaseParser.StringArrayLiteralContext)
+                or isinstance(ctx, EsqlBaseParser.BooleanArrayLiteralContext)
+            ):
+                return "nested"  # Array of integers, text, or booleans
         else:
-            return 'unknown'
+            # Unsupported ECS types in the grammar:
+            #     match_only_text
+            #     constant_keyword
+            #     unsigned_long
+            #     binary
+            #     histogram
+            #     scaled_float
+            #     half_float
+            #     text
+            #     alias
+            #     array
+            #     float
+            #     wildcard
+            #     short
+            #     ip
+            #     object
+            #     flattened
+            #     byte
+            #     geo_point
+            #     date
+            return "unknown"
 
     # Override methods to use check_literal_type
     def enterNullLiteral(self, ctx: EsqlBaseParser.NullLiteralContext):  # noqa: N802

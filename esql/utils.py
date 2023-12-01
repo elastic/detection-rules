@@ -4,7 +4,7 @@
 # 2.0.
 from antlr4 import ParserRuleContext
 from antlr4.tree.Trees import Trees
-from esql.errors import ESQLSyntaxError
+from esql.errors import ESQLSemanticError
 from esql.EsqlBaseParser import EsqlBaseParser
 
 
@@ -36,11 +36,10 @@ def get_node(tree: EsqlBaseParser.SingleStatementContext, ctx: ParserRuleContext
     """Return the first node of type ctx in the tree."""
     # fail if ctx is not a valid context
     if not issubclass(ctx, ParserRuleContext):
-        raise ValueError(f"Invalid context: {ctx}")
+        raise ESQLSemanticError(f"Invalid context: {ctx}")
 
     nodes = []
     for child in tree.children:
-        print(type(child))
         if isinstance(child, ctx):
             nodes.append(child)
         elif hasattr(child, "children"):
