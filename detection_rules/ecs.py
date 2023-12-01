@@ -103,7 +103,7 @@ def get_schema(version=None, name='ecs_flat'):
 
 
 @cached
-def get_eql_schema(version=None, index_patterns=None):
+def get_eql_schema(version=None, indexes=None, beat_schema=None):
     """Return schema in expected format for eql."""
     schema = get_schema(version, name='ecs_flat')
     str_types = ('text', 'ip', 'keyword', 'date', 'object', 'geo_point')
@@ -120,14 +120,17 @@ def get_eql_schema(version=None, index_patterns=None):
         add_field(converted, field, convert_type(field_type))
 
     # add non-ecs schema
-    if index_patterns:
-        for index_name in index_patterns:
+    if indexes:
+        for index_name in indexes:
             for k, v in flatten(get_index_schema(index_name)).items():
                 add_field(converted, k, convert_type(v))
 
     # add endpoint custom schema
     for k, v in flatten(get_endpoint_schemas()).items():
         add_field(converted, k, convert_type(v))
+
+    if isinstance(beat_schema, dict):
+        converted = dict(flatten_multi_fields(beat_schema), **converted)
 
     return converted
 
