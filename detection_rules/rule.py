@@ -979,6 +979,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         """Add restricted field related_integrations to the obj."""
         field_name = "related_integrations"
         package_integrations = obj.get(field_name, [])
+        event_dataset = []
 
         if not package_integrations and self.metadata.integration:
             packages_manifest = load_integrations_manifests()
@@ -988,8 +989,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                 if (isinstance(self.data, QueryRuleData) or isinstance(self.data, MachineLearningRuleData)):
                     if (self.data.get('language') is not None and self.data.get('language') != 'lucene') or \
                             self.data.get('type') == 'machine_learning':
+                        if isinstance(self.data, ESQLRuleData):
+                            event_dataset = list(set(self.data.validator.event_datasets))
                         package_integrations = self.get_packaged_integrations(self.data, self.metadata,
-                                                                              packages_manifest)
+                                                                              packages_manifest, event_dataset)
 
                         if not package_integrations:
                             return

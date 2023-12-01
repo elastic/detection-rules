@@ -359,7 +359,6 @@ class EQLValidator(QueryValidator):
 class ESQLValidator(QueryValidator):
     """Validate specific fields for ESQL query event types."""
     field_list = []
-    indices = []
     event_datasets = []
 
     @cached_property
