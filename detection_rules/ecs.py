@@ -19,6 +19,7 @@ import yaml
 
 from .utils import (DateTimeEncoder, cached, get_etc_path, gzip_compress,
                     load_etc_dump, read_gzip, unzip)
+from .integrations import get_integration_schema_data, load_integrations_manifests
 
 ECS_NAME = "ecs_schemas"
 ECS_SCHEMAS_DIR = get_etc_path(ECS_NAME)
@@ -321,3 +322,23 @@ def get_endpoint_schemas() -> dict:
     for f in existing:
         schema.update(json.loads(read_gzip(f)))
     return schema
+
+def get_combined_schemas(data, meta, package_integrations, indices=[]):
+    """Get the schemas for ECS, beats and integrations"""
+    current_stack_version = ""
+    combined_schema = {}
+    for integration_schema_data in get_integration_schema_data(data, meta, package_integrations):
+        integration_schema = integration_schema_data['schema']
+        stack_version = integration_schema_data['stack_version']
+
+        if stack_version != current_stack_version:
+            # reset the combined schema for each stack version
+            current_stack_version = stack_version
+            combined_schema = {}
+
+        if indices:
+            for index_name in indices:
+                integration_schema.update(**flatten(get_index_schema(index_name)))
+        integration_schema.update(**flatten(get_endpoint_schemas()))
+        combined_schema.update(**integration_schema)
+    return combined_schema

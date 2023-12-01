@@ -7,6 +7,7 @@ from antlr4 import ParserRuleContext
 from esql.errors import ESQLSyntaxError
 from esql.EsqlBaseParser import EsqlBaseParser
 from esql.EsqlBaseParserListener import EsqlBaseParserListener
+from esql.utils import get_node
 
 
 class ESQLValidatorListener(EsqlBaseParserListener):
@@ -17,25 +18,26 @@ class ESQLValidatorListener(EsqlBaseParserListener):
         self.schema = schema # schema is a dictionary of field names and types
         self.field_list = [] # list of fields used in the query
         self.indices = [] # indices used in the query (e.g. 'logs-*')
-        self.get_event_datasets = [] # event.dataset field values used in the query
+        self.event_datasets = [] # event.dataset field values used in the query
 
     def enterQualifiedName(self, ctx: EsqlBaseParser.QualifiedNameContext):  # noqa: N802
         """Extract field from context (ctx)."""
 
-        if not isinstance(ctx.parentCtx, EsqlBaseParser.EvalCommandContext):
+        if not isinstance(ctx.parentCtx, EsqlBaseParser.EvalCommandContext) and \
+                not isinstance(ctx.parentCtx, EsqlBaseParser.MetadataContext):
             field = ctx.getText()
             self.field_list.append(field)
 
             if self.schema and field not in self.schema:
                 raise ESQLSyntaxError(f"Invalid field: {field}")
-            elif field == 'event.dataset':
-                self.get_event_datasets.append(ctx.parentCtx.getText())
+
 
     def enterSourceIdentifier(self, ctx: EsqlBaseParser.SourceIdentifierContext):  # noqa: N802
         """Extract index and fields from context (ctx)."""
 
         # Check if the parent context is NOT 'FromCommandContext'
-        if not isinstance(ctx.parentCtx, EsqlBaseParser.FromCommandContext):
+        if not isinstance(ctx.parentCtx, EsqlBaseParser.FromCommandContext) and \
+                not isinstance(ctx.parentCtx, EsqlBaseParser.MetadataContext):
             # Extract field from context (ctx)
             # The implementation depends on your parse tree structure
             # For example, if the field name is directly the text of this context:
@@ -94,15 +96,6 @@ class ESQLValidatorListener(EsqlBaseParserListener):
         else:
             return 'unknown'
 
-    def get_event_dataset(self, ctx: ParserRuleContext):
-        """Get the event dataset."""
-        parent_ctx = ctx.parentCtx
-        while parent_ctx:
-            if isinstance(parent_ctx, EsqlBaseParser.WhereCommandContext):
-                return parent_ctx.sourceIdentifier().getText()
-            parent_ctx = parent_ctx.parentCtx
-        return None
-
     # Override methods to use check_literal_type
     def enterNullLiteral(self, ctx: EsqlBaseParser.NullLiteralContext):  # noqa: N802
         """Check the type of a null literal against the schema."""
@@ -139,3 +132,14 @@ class ESQLValidatorListener(EsqlBaseParserListener):
     def enterStringArrayLiteral(self, ctx: EsqlBaseParser.StringArrayLiteralContext):  # noqa: N802
         """Check the type of a string array literal against the schema."""
         self.check_literal_type(ctx)
+
+    def enterBooleanDefault(self, ctx: EsqlBaseParser.BooleanDefaultContext):
+        """Check the type of a boolean default context against the schema."""
+        self.check_literal_type(ctx)
+
+        # extract event datasets
+        value = ctx.getText()
+        if "event.dataset" in value:
+            string_nodes = get_node(ctx, EsqlBaseParser.StringLiteralContext)
+            for node in string_nodes:
+                self.event_datasets.append(node.getText().strip('"'))

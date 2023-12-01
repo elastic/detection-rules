@@ -1097,9 +1097,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     @classmethod
     def get_packaged_integrations(cls, data: QueryRuleData, meta: RuleMeta,
-                                  package_manifest: dict) -> Optional[List[dict]]:
+                                  package_manifest: dict, datasets: list = []) -> Optional[List[dict]]:
         packaged_integrations = []
-        datasets = set()
+        datasets = set(datasets)
 
         if data.type != "esql":
             # skip ES|QL rules until ast is available

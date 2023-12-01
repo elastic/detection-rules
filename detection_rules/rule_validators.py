@@ -407,51 +407,22 @@ class ESQLValidator(QueryValidator):
             raise ESQLSyntaxError(f"Rule minstack must be greater than 8.10.0 {data.rule_id}")
 
         tree = self.ast
+        self.run_walker()
         #pretty_print_tree(tree)
 
-        self.run_walker(EsqlBaseParser.QualifiedNameContext)
-        #self.run_walker(EsqlBaseParser.StringLiteralContext)
-        self.run_walker()
+        # get event datasets
+        self.event_datasets = self.listener.event_datasets
+        self.field_list = self.listener.field_list
 
         # Create an instance of the listener with schema
-        current_stack_version = ""
-        combined_schema = {}
         packages_manifest = load_integrations_manifests()
-        package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
-        for integration_schema_data in get_integration_schema_data(data, meta, package_integrations):
-            integration_schema = integration_schema_data['schema']
-            stack_version = integration_schema_data['stack_version']
-
-            if stack_version != current_stack_version:
-                # reset the combined schema for each stack version
-                current_stack_version = stack_version
-                combined_schema = {}
-
-            # setup listener
-            # index_listener = ESQLValidatorListener(combined_schema)
-
-            # # Walk the tree with the listener
-            # index_walker = ParseTreeWalker()
-            # source_command = get_node(tree, EsqlBaseParser.SourceIdentifierContext)
-            # index_walker.enterRule(index_listener, source_command)
-
-            # # add non-ecs-schema fields for edge cases not added to the integration
-            # for index_name in index_listener.indices:
-            #     integration_schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
-
-            # # add endpoint schema fields for multi-line fields
-            # integration_schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))
-            # combined_schema.update(**integration_schema)
-
-            # # setup listener
-            # listener = ESQLValidatorListener(combined_schema)
-
-            # # Walk the tree with the listener
-            # walker = ParseTreeWalker()
-            # walker.walk(listener, tree)
-            self.field_list = self.listener.field_list
-
-            print("Validation completed successfully.")
+        package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest,
+                                                                          self.event_datasets)
+        if package_integrations:
+            combined_schemas = ecs.get_combined_schemas(data, meta, package_integrations)
+            self.listener.schema = combined_schemas
+            self.run_walker()
+        print("Validation completed successfully.")
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
