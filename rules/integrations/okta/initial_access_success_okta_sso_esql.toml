@@ -32,8 +32,9 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-okta* [metadata _id, _version, _index]
+from logs-okta*
     | where okta.outcome.result == "SUCCESS" and okta.event_type == "user.authentication.sso" and event.dataset == "okta.system" and event.dataset == "okta.system"
+    | stats count_outcome = count(okta.outcome.result)
     | limit 10
 '''
 
