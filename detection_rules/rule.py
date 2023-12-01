@@ -596,12 +596,26 @@ class QueryRuleData(BaseRuleData):
             return validator.get_required_fields(index or [])
 
     @validates_schema
-    def validate_query_data(self, data, **kwargs):
+    def validates_query_data(self, data, **kwargs):
         """Custom validation for query rule type and subclasses."""
 
         # alert suppression is only valid for query rule type and not any of its subclasses
         if data.get('alert_suppression') and data['type'] != 'query':
             raise ValidationError("Alert suppression is only valid for query rule type.")
+
+
+@dataclass(frozen=True)
+class ESQLRuleData(QueryRuleData):
+    """ESQL rules are a special case of query rules."""
+    type: Literal["esql"]
+    language: Literal["esql"]
+    query: str
+
+    @validates_schema
+    def validate_esql_data(self, data, **kwargs):
+        """Custom validation for esql rule type."""
+        if data.get('index'):
+            raise ValidationError("Index is not valid for esql rule type.")
 
 
 @dataclass(frozen=True)
@@ -776,8 +790,8 @@ class ThreatMatchRuleData(QueryRuleData):
 
 # All of the possible rule types
 # Sort inverse of any inheritance - see comment in TOMLRuleContents.to_dict
-AnyRuleData = Union[EQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData,
-                    MachineLearningRuleData, QueryRuleData, NewTermsRuleData, ESQLRuleData]
+AnyRuleData = Union[EQLRuleData, ESQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData,
+                    MachineLearningRuleData, QueryRuleData, NewTermsRuleData]
 
 
 class BaseRuleContents(ABC):
@@ -1101,7 +1115,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         datasets = set(datasets)
 
         if data.type != "esql":
-            # skip ES|QL rules until ast is available
             for node in data.get('ast', []):
                 if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
                     datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
@@ -1351,4 +1364,5 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
 
 
 # avoid a circular import
-from .rule_validators import EQLValidator, KQLValidator, ESQLValidator  # noqa: E402
+from .rule_validators import EQLValidator, ESQLValidator, KQLValidator  # noqa: E402
+
