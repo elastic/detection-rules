@@ -4,6 +4,8 @@
 # 2.0.
 
 """Validation logic for rules containing queries."""
+import sys
+from io import StringIO
 from functools import cached_property
 from typing import List, Optional, Tuple, Union
 
@@ -13,7 +15,7 @@ from semver import Version
 
 import kql
 from esql.errors import ESQLSyntaxError
-from esql.esql_listener import ESQLValidatorListener
+from esql.esql_listener import ESQLErrorListener, ESQLValidatorListener
 from esql.EsqlBaseLexer import EsqlBaseLexer
 from esql.EsqlBaseParser import EsqlBaseParser
 from esql.utils import get_node, pretty_print_tree
@@ -364,7 +366,25 @@ class ESQLValidator(QueryValidator):
     @cached_property
     def ast(self) -> eql.ast.Expression:
         """Return an AST."""
-        return self.parser.singleStatement()
+        # Capture stderr
+        original_stderr = sys.stderr
+        sys.stderr = StringIO()
+
+        try:
+            parser, error_listener = self.parser_error_listener
+            tree = parser.singleStatement()
+
+            # Check for errors captured by the custom error listener
+            if error_listener.errors:
+
+                # Check for additional errors (like predictive errors usually printed to stderr)
+                stderr_output = sys.stderr.getvalue()
+                error_message = "\n".join(error_listener.errors)
+                raise ESQLSyntaxError(f"{stderr_output}{error_message}")
+        finally:
+            # Restore the original stderr
+            sys.stderr = original_stderr
+        return tree
 
     @cached_property
     def listener(self) -> ESQLValidatorListener:
@@ -373,7 +393,7 @@ class ESQLValidator(QueryValidator):
 
     def run_walker(self, ctx_class=None):
         """Walk the AST with the listener."""
-        generic_walker = ParseTreeWalker()
+        generic_walker = ParseTreeWalker()  # TODO: Do we need to create a new walker each time?
         tree = self.ast
 
         if ctx_class:
@@ -387,12 +407,18 @@ class ESQLValidator(QueryValidator):
             generic_walker.walk(self.listener, tree)
 
     @cached_property
-    def parser(self) -> EsqlBaseParser:
+    def parser_error_listener(self) -> Tuple[EsqlBaseParser, ESQLErrorListener]:
         """Return a parser instance."""
         input_stream = InputStream(self.query)
         lexer = EsqlBaseLexer(input_stream)
         token_stream = CommonTokenStream(lexer)
-        return EsqlBaseParser(token_stream)
+        parser = EsqlBaseParser(token_stream)
+
+        # Attach the custom error listener
+        parser.removeErrorListeners()  # TODO: Should we remove default error listeners?
+        error_listener = ESQLErrorListener()
+        parser.addErrorListener(error_listener)
+        return parser, error_listener
 
     @cached_property
     def unique_fields(self) -> List[str]:
@@ -407,8 +433,8 @@ class ESQLValidator(QueryValidator):
             raise ESQLSyntaxError(f"Rule minstack must be greater than 8.10.0 {data.rule_id}")
 
         tree = self.ast
-        self.run_walker()
-        #pretty_print_tree(tree)
+        self.run_walker()  # TODO: Walk entire tree?
+        pretty_print_tree(tree)
 
         # get event datasets
         self.event_datasets = self.listener.event_datasets
@@ -418,6 +444,7 @@ class ESQLValidator(QueryValidator):
         packages_manifest = load_integrations_manifests()
         package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest,
                                                                           self.event_datasets)
+        # TODO: Run walker even if integrations exist?
         if package_integrations:
             combined_schemas = ecs.get_combined_schemas(data, meta, package_integrations)
             self.listener.schema = combined_schemas

@@ -3,11 +3,21 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 from antlr4 import ParserRuleContext
+from antlr4.error.ErrorListener import ErrorListener
 
-from esql.errors import ESQLSyntaxError
+from esql.errors import ESQLSemanticError
 from esql.EsqlBaseParser import EsqlBaseParser
 from esql.EsqlBaseParserListener import EsqlBaseParserListener
 from esql.utils import get_node
+
+
+class ESQLErrorListener(ErrorListener):
+    def __init__(self):
+        super().__init__()
+        self.errors = []
+
+    def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
+        self.errors.append(f"Line {line}:{column} {msg}")
 
 
 class ESQLValidatorListener(EsqlBaseParserListener):
@@ -15,10 +25,10 @@ class ESQLValidatorListener(EsqlBaseParserListener):
 
     def __init__(self, schema: dict = {}):
         """Initialize the listener with a schema."""
-        self.schema = schema # schema is a dictionary of field names and types
-        self.field_list = [] # list of fields used in the query
-        self.indices = [] # indices used in the query (e.g. 'logs-*')
-        self.event_datasets = [] # event.dataset field values used in the query
+        self.schema = schema  # schema is a dictionary of field names and types
+        self.field_list = []  # list of fields used in the query
+        self.indices = []  # indices used in the query (e.g. 'logs-*')
+        self.event_datasets = []  # event.dataset field values used in the query
 
     def enterQualifiedName(self, ctx: EsqlBaseParser.QualifiedNameContext):  # noqa: N802
         """Extract field from context (ctx)."""
@@ -29,8 +39,7 @@ class ESQLValidatorListener(EsqlBaseParserListener):
             self.field_list.append(field)
 
             if self.schema and field not in self.schema:
-                raise ESQLSyntaxError(f"Invalid field: {field}")
-
+                raise ESQLSemanticError(f"Invalid field: {field}")
 
     def enterSourceIdentifier(self, ctx: EsqlBaseParser.SourceIdentifierContext):  # noqa: N802
         """Extract index and fields from context (ctx)."""
@@ -45,11 +54,10 @@ class ESQLValidatorListener(EsqlBaseParserListener):
             self.field_list.append(field)
 
             if self.schema and field not in self.schema:
-                raise ValueError(f"Invalid field: {field}")
+                raise ESQLSemanticError(f"Invalid field: {field}")
         else:
             # check index against integrations?
             self.indices.append(ctx.getText())
-
 
     def check_literal_type(self, ctx: ParserRuleContext):
         """Check the type of a literal against the schema."""
@@ -60,8 +68,8 @@ class ESQLValidatorListener(EsqlBaseParserListener):
             actual_type = self.get_literal_type(ctx, context_type)
 
             if expected_type != actual_type:
-                raise ValueError(f"Field '{field}' in context '{context_type}'"
-                                 f"expects type '{expected_type}', but got '{actual_type}'")
+                raise ESQLSemanticError(f"Field '{field}' in context '{context_type}'"
+                                        f"expects type '{expected_type}', but got '{actual_type}'")
 
     def find_associated_field_and_context(self, ctx: ParserRuleContext):
         """Find the field and context type associated with a literal."""
