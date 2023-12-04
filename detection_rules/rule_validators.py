@@ -397,7 +397,9 @@ class ESQLValidator(QueryValidator):
         if ctx_class:
             ctx_objs = get_node(tree, ctx_class)
             if not ctx_objs:
-                raise ESQLSyntaxError(f"Could not find {ctx_class} in {tree}")
+                # warning message
+                print(f"Warning: Could not find {ctx_class} in {tree}")
+                # raise ESQLSyntaxError(f"Could not find {ctx_class} in {tree}")
             if ctx_objs:
                 for ctx_obj in ctx_objs:
                     generic_walker.enterRule(self.listener, ctx_obj)
@@ -431,8 +433,10 @@ class ESQLValidator(QueryValidator):
         if Version.parse(meta.min_stack_version) < Version.parse("8.11.0"):
             raise ESQLSyntaxError(f"Rule minstack must be greater than 8.10.0 {data.rule_id}")
 
+        # Traverse the AST to extract event datasets
+        # TODO: Do we want to error if no event datasets are found?
         self.run_walker(EsqlBaseParser.BooleanDefaultContext)  # TODO: Walk entire tree?
-        # TODO: Pass event dataset to related integrations workflow
+
         tree = self.ast
         pretty_print_tree(tree)
 

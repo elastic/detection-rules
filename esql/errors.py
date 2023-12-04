@@ -7,6 +7,7 @@ class ESQLSyntaxError(Exception):
 
     def __init__(self, message):
         """Initialize the custom syntax ESQL exception."""
+        message = f"ESQL syntax error: {message}"
         super().__init__(message)
         print(message)
 
@@ -16,5 +17,6 @@ class ESQLSemanticError(Exception):
 
     def __init__(self, message):
         """Initialize the custom semantic ESQL exception."""
+        message = f"ESQL semantic error: {message}"
         super().__init__(message)
         print(message)
