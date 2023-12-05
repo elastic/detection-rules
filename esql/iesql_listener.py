@@ -2,8 +2,9 @@
 # or more contributor license agreements. Licensed under the Elastic License
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
-
 """Factory for creating ESQL listeners."""
+
+
 class IESQLListener:
     """
     Interface for ESQL listeners.
@@ -60,6 +61,8 @@ class IESQLListener:
 
 
 class ESQLListenerFactory:
+    """ Factory for creating ESQL listeners. """
+
     @staticmethod
     def getListener(version) -> IESQLListener:  # noqa: N802
         """Return the listener for the given version."""
