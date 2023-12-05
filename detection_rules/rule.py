@@ -22,7 +22,6 @@ from marko.ext.gfm import gfm
 from marshmallow import ValidationError, validates_schema
 
 import kql
-from kql.ast import FieldComparison
 
 from . import beats, ecs, endgame, utils
 from .integrations import (find_least_compatible_version,
@@ -1101,11 +1100,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         datasets = set()
 
         if data.type != "esql":
-            for node in data.get('ast', []):
-                if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
-                    datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
-                elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
-                    datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
+            datasets, _ = beats.get_datasets_and_modules(data.get('ast', []))
 
         # integration is None to remove duplicate references upstream in Kibana
         # chronologically, event.dataset is checked for package:integration, then rule tags

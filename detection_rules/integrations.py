@@ -376,6 +376,10 @@ def parse_datasets(datasets: list, package_manifest: dict) -> Optional[List[dict
     """Parses datasets into packaged integrations from rule data."""
     packaged_integrations = []
     for value in sorted(datasets):
+
+        # cleanup extra quotes pulled from ast field
+        value = value.strip('"')
+
         integration = 'Unknown'
         if '.' in value:
             package, integration = value.split('.', 1)
