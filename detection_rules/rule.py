@@ -24,8 +24,9 @@ from marshmallow import ValidationError, validates_schema
 import kql
 
 from . import beats, ecs, endgame, utils
-from .integrations import (find_least_compatible_version,
-                           load_integrations_manifests, parse_datasets)
+from .integrations import (find_least_compatible_version, get_integration_schema_fields,
+                           load_integrations_manifests, load_integrations_schemas,
+                           parse_datasets)
 from .misc import load_current_package_version
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
@@ -516,6 +517,21 @@ class QueryValidator:
         beat_types, beat_schema, schema = self.get_beats_schema(index or [], beats_version, ecs_version)
         endgame_schema = self.get_endgame_schema(index or [], endgame_version)
 
+        # construct integration schemas
+        packages_manifest = load_integrations_manifests()
+        integrations_schemas = load_integrations_schemas()
+        datasets, _ = beats.get_datasets_and_modules(self.ast)
+        package_integrations = parse_datasets(datasets, packages_manifest)
+        int_schema = {}
+        data = {"notify": False}
+
+        for pk_int in package_integrations:
+            package = pk_int["package"]
+            integration = pk_int["integration"]
+            schema, _ = get_integration_schema_fields(integrations_schemas, package, integration,
+                                                      current_version, packages_manifest, {}, data)
+            int_schema.update(schema)
+
         required = []
         unique_fields = self.unique_fields or []
 
@@ -528,6 +544,8 @@ class QueryValidator:
                     field_type = beat_schema.get(fld, {}).get('type')
                 elif endgame_schema:
                     field_type = endgame_schema.endgame_schema.get(fld, None)
+                elif int_schema:
+                    field_type = int_schema.get(fld, None)
 
             required.append(dict(name=fld, type=field_type or 'unknown', ecs=is_ecs))
 
