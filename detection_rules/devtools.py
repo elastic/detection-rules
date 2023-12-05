@@ -1499,19 +1499,24 @@ def esql_group():
 @esql_group.command('pull-grammar')
 @click.option('--token', required=True, prompt=get_github_token() is None,
               default=get_github_token(), help='GitHub personal access token.')
+@click.option('--version', required=True, help='Version of the ESQL grammar to pull (e.g., 8.11.0).')
 @click.pass_context
-def pull_grammar(ctx: click.Context, token: str, branch: str = 'esql/lang'):
+def pull_grammar(ctx: click.Context, token: str, version: str, branch: str = 'esql/lang'):
     """Pull the ESQL grammar from the specified repository."""
     github = GithubClient(token)
     client = github.authenticated_client
     repo_instance = client.get_repo('elastic/elasticsearch-internal')
+
+    formatted_version = f"v{'_'.join(version.split('.'))}"
+    grammar_dir = Path(ESQL_DIR) / "grammar" / formatted_version
+    grammar_dir.mkdir(parents=True, exist_ok=True)
 
     for filename, path in definitions.ELASTICSEARCH_ESQL_GRAMMAR_PATHS.items():
         try:
             file_content = repo_instance.get_contents(path, ref=branch).decoded_content.decode("utf-8")
 
             # Write content to file
-            with open(Path(ESQL_DIR) / "grammar" / filename, 'w') as file:
+            with open(grammar_dir / filename, 'w') as file:
                 file.write(file_content)
 
             click.echo(f"Successfully downloaded {filename}.")
@@ -1521,30 +1526,40 @@ def pull_grammar(ctx: click.Context, token: str, branch: str = 'esql/lang'):
 
 
 @esql_group.command('build-parser')
+@click.option('--version', required=True, help='Version of the ESQL grammar to build (e.g., 8.11.0).')
 @click.pass_context
-def build_parser(antlr_jar: str):
+def build_parser(antlr_jar: str, version: str):
     """Build the ESQL parser using ANTLR."""
     # Define paths
-    lexer_file = Path(ESQL_DIR) / 'grammar' / 'EsqlBaseLexer.g4'
-    parser_file = Path(ESQL_DIR) / 'grammar' / 'EsqlBaseParser.g4'
+    formatted_version = f"v{'_'.join(version.split('.'))}"
+    grammar_dir = Path(ESQL_DIR) / 'grammar' / formatted_version
+    lexer_file = grammar_dir / 'EsqlBaseLexer.g4'
+    parser_file = grammar_dir / 'EsqlBaseParser.g4'
+    output_dir = Path(ESQL_DIR) / 'generated' / formatted_version
 
     # Ensure files exist
     if not lexer_file.exists() or not parser_file.exists():
         click.echo("Error: Required grammar files are missing.")
         return
 
+    # Create the output directory if it doesn't exist
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     # Use the antlr4 binary installed with the python dependencies to generate parser and lexer
     cmd_common = [
         "antlr4",
         "-Dlanguage=Python3",
-        "-o", str(ESQL_DIR)
+        "-o", str(output_dir)
     ]
     cmd_lexer = cmd_common + [str(lexer_file)]
     cmd_parser = cmd_common + [str(parser_file)]
 
     try:
-        subprocess.run(cmd_lexer, check=True, cwd=ESQL_DIR)
-        subprocess.run(cmd_parser, check=True, cwd=ESQL_DIR)
+        subprocess.run(cmd_lexer, check=True, cwd=grammar_dir)
+        subprocess.run(cmd_parser, check=True, cwd=grammar_dir)
+
+        # Create __init__.py file in the generated directory
+        (output_dir / '__init__.py').touch()
         click.echo("ES|QL parser and lexer generated successfully.")
     except subprocess.CalledProcessError:
         click.echo("Failed to generate ES|QLparser and lexer.")
