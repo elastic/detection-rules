@@ -10,7 +10,7 @@ import json
 import re
 from collections import OrderedDict
 from pathlib import Path
-from typing import Generator, Tuple, Union, Optional
+from typing import Generator, List, Tuple, Union, Optional
 
 import requests
 from semver import Version
@@ -370,6 +370,21 @@ def collect_schema_fields(integrations_schemas: dict, package: str, package_vers
         raise ValueError(f"Integration {integration} not found in package {package} version {package_version}")
 
     return integrations_schemas[package][package_version][integration]
+
+
+def parse_datasets(datasets: list, package_manifest: dict) -> Optional[List[dict]]:
+    """Parses datasets into packaged integrations from rule data."""
+    packaged_integrations = []
+    for value in sorted(datasets):
+        integration = 'Unknown'
+        if '.' in value:
+            package, integration = value.split('.', 1)
+        else:
+            package = value
+
+        if package in list(package_manifest):
+            packaged_integrations.append({"package": package, "integration": integration})
+    return packaged_integrations
 
 
 class SecurityDetectionEngine:

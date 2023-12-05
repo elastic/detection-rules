@@ -26,7 +26,7 @@ from kql.ast import FieldComparison
 
 from . import beats, ecs, endgame, utils
 from .integrations import (find_least_compatible_version,
-                           load_integrations_manifests)
+                           load_integrations_manifests, parse_datasets)
 from .misc import load_current_package_version
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
@@ -1120,15 +1120,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                 if integration in ineligible_integrations or isinstance(data, MachineLearningRuleData):
                     packaged_integrations.append({"package": integration, "integration": None})
 
-        for value in sorted(datasets):
-            integration = 'Unknown'
-            if '.' in value:
-                package, integration = value.split('.', 1)
-            else:
-                package = value
-
-            if package in list(package_manifest):
-                packaged_integrations.append({"package": package, "integration": integration})
+        packaged_integrations.extend(parse_datasets(datasets, package_manifest))
 
         return packaged_integrations
 
