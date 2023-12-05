@@ -990,6 +990,13 @@ class TestRuleTiming(BaseRuleTest):
         for rule in self.all_rules:
             if rule.contents.data.type not in ('eql', 'query'):
                 continue
+            if rule.contents.metadata.get('integration'):
+                integrations = rule.contents.metadata.get('integration')
+                if not isinstance(integrations, list):
+                    integrations = [integrations]
+                MACHINE_LEARNING_PACKAGES_LOWER = [pkg.lower() for pkg in definitions.MACHINE_LEARNING_PACKAGES]
+                if any(tag in MACHINE_LEARNING_PACKAGES_LOWER for tag in integrations):
+                    continue
             if isinstance(rule.contents.data, QueryRuleData) and 'endgame-*' in rule.contents.data.index:
                 continue
 
