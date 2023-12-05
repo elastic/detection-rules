@@ -2,8 +2,8 @@
 creation_date = "2020/07/06"
 integration = ["network_traffic"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
+min_stack_comments = "Network integration fields updated for ECS compatibility (type -> network.protocol)"
+min_stack_version = "8.10.0"
 updated_date = "2023/10/16"
 
 [rule]
@@ -21,7 +21,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
-language = "lucene"
+language = "eql"
 license = "Elastic License v2"
 name = "Cobalt Strike Command and Control Beacon"
 note = """## Threat intel
@@ -37,12 +37,14 @@ rule_id = "cf53f532-9cc9-445a-9ae7-fced307ec53c"
 severity = "high"
 tags = ["Use Case: Threat Detection", "Tactic: Command and Control", "Domain: Endpoint"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-((event.category: (network OR network_traffic) AND type: (tls OR http))
-    OR event.dataset: (network_traffic.tls OR network_traffic.http)
-) AND destination.domain:/[a-z]{3}.stage.[0-9]{8}\..*/
+any where
+  ((event.category in ("network", "network_traffic") and network.protocol in ("tls", "http")) or
+    event.dataset in ("network_traffic.tls", "network_traffic.http")
+  ) and
+  destination.domain regex~ """[a-z]{3}.stage.[0-9]{8}\..*"""
 '''
 
 

@@ -2,9 +2,9 @@
 creation_date = "2020/07/16"
 integration = ["network_traffic"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
-updated_date = "2023/08/01"
+min_stack_comments = "Network integration fields updated for ECS compatibility (type -> network.protocol)"
+min_stack_version = "8.10.0"
+updated_date = "2023/10/16"
 
 [rule]
 author = ["Elastic"]
@@ -74,8 +74,8 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-(event.dataset: network_traffic.dns or (event.category: (network or network_traffic) and destination.port: 53)) and
-  (event.dataset:zeek.dns or type:dns or event.type:connection) and network.bytes > 60000
+(event.dataset:network_traffic.dns or (event.category:(network or network_traffic) and destination.port:53)) and
+  (event.dataset:zeek.dns or network.protocol:dns or event.type:connection) and network.bytes > 60000
 '''
 
 

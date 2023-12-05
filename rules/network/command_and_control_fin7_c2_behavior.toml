@@ -2,8 +2,8 @@
 creation_date = "2020/07/06"
 integration = ["network_traffic"]
 maturity = "production"
-min_stack_comments = "New fields added: required_fields, related_integrations, setup"
-min_stack_version = "8.3.0"
+min_stack_comments = "Network integration fields updated for ECS compatibility (type -> network.protocol)"
+min_stack_version = "8.10.0"
 updated_date = "2023/10/16"
 
 [rule]
@@ -20,7 +20,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
-language = "lucene"
+language = "eql"
 license = "Elastic License v2"
 name = "Possible FIN7 DGA Command and Control Behavior"
 note = """## Triage and analysis
@@ -34,12 +34,15 @@ rule_id = "4a4e23cf-78a2-449c-bac3-701924c269d3"
 severity = "high"
 tags = ["Use Case: Threat Detection", "Tactic: Command and Control", "Domain: Endpoint"]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-(event.dataset: (network_traffic.tls OR network_traffic.http) or
-    (event.category: (network OR network_traffic) AND type: (tls OR http) AND network.transport: tcp)) AND
-destination.domain:/[a-zA-Z]{4,5}\.(pw|us|club|info|site|top)/ AND NOT destination.domain:zoom.us
+any where
+  ((event.category in ("network", "network_traffic") and network.protocol in ("tls", "http") and network.transport == "tcp") or
+    event.dataset in ("network_traffic.tls", "network_traffic.http")
+  ) and
+  destination.domain regex~ """[a-zA-Z]{4,5}\.(pw|us|club|info|site|top)""" and
+  not destination.domain : "zoom.us"
 '''
 
 
