@@ -64,8 +64,8 @@ class ESQLListenerFactory:
     """ Factory for creating ESQL listeners. """
 
     @staticmethod
-    def getListener(version) -> IESQLListener:  # noqa: N802
-        """Return the listener for the given version."""
+    def getListener(version) -> IESQLListener:
+        """Return the listener for the given version."""  # noqa: N802
         if version == '8.11.0':
             from esql.esql_listener_v8_11_0_adapter import ESQLListenerV8_11_0Adapter  # noqa: E501
             return ESQLListenerV8_11_0Adapter()
