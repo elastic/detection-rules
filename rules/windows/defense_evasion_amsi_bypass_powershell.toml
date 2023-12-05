@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/07/05"
+updated_date = "2023/10/25"
 
 [transform]
 [[transform.osquery]]
@@ -105,26 +105,28 @@ type = "query"
 
 query = '''
 event.category:"process" and host.os.type:windows and
- (powershell.file.script_block_text :
-        ("System.Management.Automation.AmsiUtils" or
-				 amsiInitFailed or 
-				 "Invoke-AmsiBypass" or 
-				 "Bypass.AMSI" or 
-				 "amsi.dll" or 
-				 AntimalwareProvider  or 
-				 amsiSession or 
-				 amsiContext or
-				 AmsiInitialize or 
-				 unloadobfuscated or 
-				 unloadsilent or 
-				 AmsiX64 or 
-				 AmsiX32 or 
-				 FindAmsiFun) or
-  powershell.file.script_block_text:("[System.Runtime.InteropServices.Marshal]::Copy" and "VirtualProtect") or
-  powershell.file.script_block_text:("[Ref].Assembly.GetType(('System.Management.Automation" and ".SetValue(")
- )
-  and not powershell.file.script_block_text : (
-    "sentinelbreakpoints" and "Set-PSBreakpoint" and "PowerSploitIndicators"
+  (
+    powershell.file.script_block_text : (
+      "System.Management.Automation.AmsiUtils" or
+			amsiInitFailed or 
+			"Invoke-AmsiBypass" or 
+			"Bypass.AMSI" or 
+			"amsi.dll" or 
+			AntimalwareProvider  or 
+			amsiSession or 
+			amsiContext or
+			AmsiInitialize or 
+			unloadobfuscated or 
+			unloadsilent or 
+			AmsiX64 or 
+			AmsiX32 or 
+			FindAmsiFun
+    ) or
+    powershell.file.script_block_text:("[System.Runtime.InteropServices.Marshal]::Copy" and "VirtualProtect") or
+    powershell.file.script_block_text:("[Ref].Assembly.GetType(('System.Management.Automation" and ".SetValue(")
+  ) and
+  not powershell.file.script_block_text : (
+    "sentinelbreakpoints" and "Set-PSBreakpoint"
   )
 '''
 
