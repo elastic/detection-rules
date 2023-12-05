@@ -26,7 +26,7 @@ class IESQLListener:
     def find_associated_field_and_context(self, ctx):  # noqa: N802
         raise NotImplementedError
 
-    def get_literal_type(self, ctx):  # noqa: N802
+    def get_literal_type(self, ctx, context_type: str):  # noqa: N802
         raise NotImplementedError
 
     def enterNullLiteral(self, ctx):  # noqa: N802

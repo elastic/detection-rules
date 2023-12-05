@@ -26,7 +26,7 @@ class ESQLListenerV8_11_0Adapter(IESQLListener, EsqlBaseParserListener):  # noqa
     def enterQualifiedName(self, ctx: EsqlBaseParser.QualifiedNameContext):  # noqa: N802
         """Extract field from context (ctx)."""
 
-        # TODO: we need to check if a field can be set in any processing command and ignore these parents
+        # Check if a field can be set in any processing command and ignore these parents
         if (
             not isinstance(ctx.parentCtx, EsqlBaseParser.EvalCommandContext)  # noqa: W503
             and not isinstance(ctx.parentCtx, EsqlBaseParser.MetadataContext)  # noqa: W503

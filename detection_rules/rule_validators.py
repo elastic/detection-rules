@@ -394,7 +394,7 @@ class ESQLValidator(QueryValidator):
 
     def run_walker(self, ctx_class=None):
         """Walk the AST with the listener."""
-        generic_walker = ParseTreeWalker()  # TODO: Do we need to create a new walker each time?
+        generic_walker = ParseTreeWalker()
         tree = self.ast
 
         if ctx_class:
@@ -402,7 +402,6 @@ class ESQLValidator(QueryValidator):
             if not ctx_objs:
                 # warning message
                 print(f"Warning: Could not find {ctx_class} in {tree}")
-                # raise ESQLSyntaxError(f"Could not find {ctx_class} in {tree}")
             if ctx_objs:
                 for ctx_obj in ctx_objs:
                     generic_walker.enterRule(self.listener, ctx_obj)
@@ -420,7 +419,7 @@ class ESQLValidator(QueryValidator):
         """Return an error listener instance."""
 
         # Attach the custom error listener
-        self.parser.removeErrorListeners()  # TODO: Should we remove default error listeners?
+        self.parser.removeErrorListeners()
         error_listener = ESQLErrorListener()
         self.parser.addErrorListener(error_listener)
         return error_listener
@@ -439,8 +438,7 @@ class ESQLValidator(QueryValidator):
             raise ESQLSyntaxError(f"Rule minstack must be greater than 8.10.0 {data.rule_id}")
 
         # Traverse the AST to extract event datasets
-        # TODO: Do we want to error if no event datasets are found?
-        self.run_walker(self.parser.BooleanDefaultContext)  # TODO: Walk entire tree?
+        self.run_walker(self.parser.BooleanDefaultContext)
 
         tree = self.ast
         pretty_print_tree(tree)
@@ -448,7 +446,6 @@ class ESQLValidator(QueryValidator):
         # get event datasets
         self.event_datasets = self.listener.event_datasets
         self.field_list = self.listener.field_list
-        # TODO: Pass unique field list to required fields workflow
 
         # Create an instance of the listener with schema
         packages_manifest = load_integrations_manifests()
