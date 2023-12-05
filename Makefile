@@ -40,7 +40,7 @@ license-check: $(VENV) deps
 .PHONY: lint
 lint: $(VENV) deps
 	@echo "LINTING"
-	$(PYTHON) -m flake8 tests detection_rules esql --ignore D203 --max-line-length 120 --exclude="esql/EsqlBase*.py"
+	$(PYTHON) -m flake8 tests detection_rules esql --ignore D203 --max-line-length 120 --exclude="esql/generated/*.py"
 
 .PHONY: test
 test: $(VENV) lint pytest

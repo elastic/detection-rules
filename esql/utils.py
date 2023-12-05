@@ -5,15 +5,17 @@
 from antlr4 import ParserRuleContext
 from antlr4.tree.Trees import Trees
 from esql.errors import ESQLSemanticError
-from esql.EsqlBaseParser import EsqlBaseParser
+# from esql.EsqlBaseParser import EsqlBaseParser
 
 
-def print_tree(parser: EsqlBaseParser, ctx: ParserRuleContext):
+# def print_tree(parser: EsqlBaseParser, ctx: ParserRuleContext):
+def print_tree(parser, ctx: ParserRuleContext):
     """Print the parse tree."""
     print(Trees.toStringTree(ctx, None, parser))
 
 
-def pretty_print_tree(ctx: EsqlBaseParser.SingleStatementContext, indent: int = 0, is_last: bool = True):
+# def pretty_print_tree(ctx: EsqlBaseParser.SingleStatementContext, indent: int = 0, is_last: bool = True):
+def pretty_print_tree(ctx, indent: int = 0, is_last: bool = True):
     """Pretty print the parse tree."""
     if ctx is None:
         return
@@ -32,7 +34,8 @@ def pretty_print_tree(ctx: EsqlBaseParser.SingleStatementContext, indent: int = 
         pretty_print_tree(child, indent + 1, i == len(children) - 1)
 
 
-def get_node(tree: EsqlBaseParser.SingleStatementContext, ctx: ParserRuleContext):
+# def get_node(tree: EsqlBaseParser.SingleStatementContext, ctx: ParserRuleContext):
+def get_node(tree, ctx: ParserRuleContext):
     """Return the first node of type ctx in the tree."""
     # fail if ctx is not a valid context
     if not issubclass(ctx, ParserRuleContext):

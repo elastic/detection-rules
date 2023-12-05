@@ -2,25 +2,18 @@
 # or more contributor license agreements. Licensed under the Elastic License
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
+
+"""Adapter for 8.11.0 ESQL listener."""
 from antlr4 import ParserRuleContext
-from antlr4.error.ErrorListener import ErrorListener
 
 from esql.errors import ESQLSemanticError
-from esql.EsqlBaseParser import EsqlBaseParser
-from esql.EsqlBaseParserListener import EsqlBaseParserListener
+from esql.generated.v8_11_0.EsqlBaseParser import EsqlBaseParser
+from esql.generated.v8_11_0.EsqlBaseParserListener import EsqlBaseParserListener
+from esql.iesql_listener import IESQLListener
 from esql.utils import get_node
 
 
-class ESQLErrorListener(ErrorListener):
-    def __init__(self):
-        super().__init__()
-        self.errors = []
-
-    def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):  # noqa: N802,N803
-        self.errors.append(f"Line {line}:{column} {msg}")
-
-
-class ESQLValidatorListener(EsqlBaseParserListener):
+class ESQLListenerV8_11_0Adapter(IESQLListener, EsqlBaseParserListener):  # noqa: N801
     """Validate specific fields for ESQL query event types."""
 
     def __init__(self, schema: dict = {}):
