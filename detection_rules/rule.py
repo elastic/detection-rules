@@ -505,10 +505,6 @@ class QueryValidator:
     def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
         raise NotImplementedError()
 
-    @staticmethod
-    def validate_remote(remote_validator: 'RemoteValidator', data: 'QueryRuleData'):
-        remote_validator.validate_rule(data)
-
     @cached
     def get_required_fields(self, index: str) -> List[dict]:
         """Retrieves fields needed for the query along with type information from the schema."""
@@ -1144,6 +1140,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         data.data_validator.validate_note()
         data.data_validator.validate_bbr(metadata.get('bypass_bbr_timing'))
         data.validate(metadata) if hasattr(data, 'validate') else False
+
+    @staticmethod
+    def validate_remote(remote_validator: 'RemoteValidator', contents: 'TOMLRuleContents'):
+        remote_validator.validate_rule(contents)
 
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
