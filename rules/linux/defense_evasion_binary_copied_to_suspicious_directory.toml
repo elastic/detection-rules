@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2023/11/22"
 
 [rule]
 author = ["Elastic"]
@@ -76,7 +76,7 @@ sequence by host.id, process.entity_id with maxspan=1s
   ) and not process.parent.name in ("dracut-install", "apticron", "generate-from-dir", "platform-python")]
   [file where host.os.type == "linux" and event.action == "creation" and file.path : (
     "/dev/shm/*", "/run/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/var/www/*", "/proc/*/fd/*"
-  )]
+  ) and not file.path : "/tmp/rear*"]
 '''
 
 [[rule.threat]]
