@@ -16,7 +16,7 @@ from . import ecs, endgame
 from .integrations import get_integration_schema_data, load_integrations_manifests
 from .misc import load_current_package_version
 from .schemas import get_stack_schemas
-from .rule import QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, EQLRuleData
+from .rule import QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, EQLRuleData, set_eql_config
 
 EQL_ERROR_TYPES = Union[eql.EqlCompileError,
                         eql.EqlError,
@@ -159,7 +159,9 @@ class EQLValidator(QueryValidator):
 
     @cached_property
     def ast(self) -> eql.ast.Expression:
-        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+        latest_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+        config = set_eql_config(str(latest_version))
+        with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, config:
             return eql.parse_query(self.query)
 
     def text_fields(self, eql_schema: Union[ecs.KqlSchema2Eql, endgame.EndgameSchema]) -> List[str]:
@@ -219,13 +221,14 @@ class EQLValidator(QueryValidator):
 
             # validate query against the beats and eql schema
             exc = self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer,
-                                                  beat_types=beat_types)
+                                                  beat_types=beat_types, min_stack_version=meta.min_stack_version)
             if exc:
                 return exc
 
             if endgame_schema:
                 # validate query against the endgame schema
-                exc = self.validate_query_with_schema(data=data, schema=endgame_schema, err_trailer=err_trailer)
+                exc = self.validate_query_with_schema(data=data, schema=endgame_schema, err_trailer=err_trailer,
+                                                      min_stack_version=meta.min_stack_version)
                 if exc:
                     raise exc
 
@@ -264,7 +267,8 @@ class EQLValidator(QueryValidator):
             err_trailer = f'stack: {stack_version}, integration: {integration},' \
                           f'ecs: {ecs_version}, package: {package}, package_version: {package_version}'
 
-            exc = self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer)
+            exc = self.validate_query_with_schema(data=data, schema=eql_schema, err_trailer=err_trailer,
+                                                  min_stack_version=meta.min_stack_version)
 
             if isinstance(exc, eql.EqlParseError):
                 message = exc.error_msg
@@ -293,11 +297,12 @@ class EQLValidator(QueryValidator):
             return exc
 
     def validate_query_with_schema(self, data: 'QueryRuleData', schema: Union[ecs.KqlSchema2Eql, endgame.EndgameSchema],
-                                   err_trailer: str, beat_types: list = None) -> Union[
+                                   err_trailer: str, min_stack_version: str, beat_types: list = None) -> Union[
             EQL_ERROR_TYPES, ValueError, None]:
         """Validate the query against the schema."""
         try:
-            with schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+            config = set_eql_config(min_stack_version)
+            with config, schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
                 eql.parse_query(self.query)
         except eql.EqlParseError as exc:
             message = exc.error_msg
@@ -339,6 +344,26 @@ class EQLValidator(QueryValidator):
         else:
             # if rule type fields are not set, return an empty list and False
             return [], False
+
+
+class ESQLValidator(QueryValidator):
+    """Validate specific fields for ESQL query event types."""
+
+    @cached_property
+    def ast(self):
+        """Return an AST."""
+        return None
+
+    @cached_property
+    def unique_fields(self) -> List[str]:
+        """Return a list of unique fields in the query."""
+        # return empty list for ES|QL rules until ast is available (friendlier than raising error)
+        # raise NotImplementedError('ES|QL query parsing not yet supported')
+        return []
+
+    def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
+        """Validate an ESQL query while checking TOMLRule."""
+        # temporarily override to NOP until ES|QL query parsing is supported
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:

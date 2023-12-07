@@ -27,7 +27,12 @@ CONDITION_VERSION_PATTERN = rf'^\^{_version}$'
 VERSION_PATTERN = f'^{_version}$'
 MINOR_SEMVER = r'^\d+\.\d+$'
 BRANCH_PATTERN = f'{VERSION_PATTERN}|^master$'
-
+ELASTICSEARCH_EQL_FEATURES = {
+    "allow_negation": (Version.parse('8.9.0'), None),
+    "allow_runs": (Version.parse('7.16.0'), None),
+    "allow_sample": (Version.parse('8.6.0'), None),
+    "elasticsearch_validate_optional_fields": (Version.parse('7.16.0'), None)
+}
 NON_DATASET_PACKAGES = ['apm', 'endpoint', 'system', 'windows', 'cloud_defend', 'network_traffic']
 NON_PUBLIC_FIELDS = {
     "related_integrations": (Version.parse('8.3.0'), None),
@@ -39,7 +44,6 @@ TACTIC_URL = r'^https://attack.mitre.org/tactics/TA[0-9]+/$'
 TECHNIQUE_URL = r'^https://attack.mitre.org/techniques/T[0-9]+/$'
 SUBTECHNIQUE_URL = r'^https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/$'
 MACHINE_LEARNING = 'machine_learning'
-SAVED_QUERY = 'saved_query'
 QUERY = 'query'
 QUERY_FIELD_OP_EXCEPTIONS = ["powershell.file.script_block_text"]
 
@@ -86,6 +90,7 @@ EXPECTED_RULE_TAGS = [
     'OS: Linux',
     'OS: macOS',
     'OS: Windows',
+    'Rule Type: BBR',
     'Resources: Investigation Guide',
     'Rule Type: Higher-Order Rule',
     'Rule Type: Machine Learning',
@@ -118,10 +123,14 @@ EXPECTED_RULE_TAGS = [
     'Use Case: Log Auditing',
     'Use Case: Network Security Monitoring',
     'Use Case: Threat Detection',
+    'Use Case: UEBA',
     'Use Case: Vulnerability'
 ]
 
+MACHINE_LEARNING_PACKAGES = ['LMD', 'DGA', 'DED', 'ProblemChild', 'Beaconing']
 
+AlertSuppressionMissing = NewType('AlertSuppressionMissing', str,
+                                  validate=validate.OneOf(['suppress', 'doNotSuppress']))
 NonEmptyStr = NewType('NonEmptyStr', str, validate=validate.Length(min=1))
 TimeUnits = Literal['s', 'm', 'h']
 BranchVer = NewType('BranchVer', str, validate=validate.Regexp(BRANCH_PATTERN))
@@ -129,7 +138,7 @@ CardinalityFields = NewType('CardinalityFields', List[NonEmptyStr], validate=val
 CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
-FilterLanguages = Literal["kuery", "lucene"]
+FilterLanguages = Literal["kuery", "lucene", "eql", "esql"]
 Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
 InvestigateProviderExcluded = Literal["is", "is not", "is one of", "is not one of", "exists", "does not exist"]
 InvestigateProviderQueryType = Literal["phrase", "range"]
@@ -143,7 +152,7 @@ OSType = Literal['windows', 'linux', 'macos']
 PositiveInteger = NewType('PositiveInteger', int, validate=validate.Range(min=1))
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
 RuleName = NewType('RuleName', str, validate=validate.Regexp(NAME_PATTERN))
-RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'threshold', 'threat_match', 'new_terms']
+RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'esql', 'threshold', 'threat_match', 'new_terms']
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
 SemVerMinorOnly = NewType('SemVerFullStrict', str, validate=validate.Regexp(MINOR_SEMVER))
 Severity = Literal['low', 'medium', 'high', 'critical']
@@ -159,5 +168,6 @@ UUIDString = NewType('UUIDString', str, validate=validate.Regexp(UUID_PATTERN))
 BuildingBlockType = Literal['default']
 
 # experimental machine learning features and releases
-MachineLearningType = Literal['DGA', 'ProblemChild']
-MachineLearningTypeLower = Literal['dga', 'problemchild']
+MachineLearningType = getattr(Literal, '__getitem__')(tuple(MACHINE_LEARNING_PACKAGES))  # noqa: E999
+MachineLearningTypeLower = getattr(Literal, '__getitem__')(
+    tuple(map(str.lower, MACHINE_LEARNING_PACKAGES)))  # noqa: E999

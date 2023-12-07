@@ -23,7 +23,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["packetbeat-*", "logs-network_traffic.*"]
+index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "VNC (Virtual Network Computing) to the Internet"
@@ -36,7 +36,8 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: network_traffic.flow and network.transport:tcp and destination.port >= 5800 and destination.port <= 5810 and
+(event.dataset: network_traffic.flow  or (event.category: (network or network_traffic))) and
+  network.transport:tcp and destination.port >= 5800 and destination.port <= 5810 and
   source.ip:(
     10.0.0.0/8 or
     172.16.0.0/12 or

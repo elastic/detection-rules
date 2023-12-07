@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/08/21"
+updated_date = "2023/11/02"
 
 [transform]
 [[transform.osquery]]
@@ -113,22 +113,75 @@ This rule identifies the execution of potentially malicious processes from a MOT
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Leverage the incident response data and logging to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+
 """
 references = [
     "https://pberba.github.io/security/2022/02/06/linux-threat-hunting-for-persistence-initialization-scripts-and-shell-configuration/#10-boot-or-logon-initialization-scripts-motd"
 ]
 risk_score = 73
 rule_id = "4ec47004-b34a-42e6-8003-376a123ea447"
+setup = """
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+"""
 severity = "high"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Endgame", "Resources: Investigation Guide"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Persistence",
+        "Data Source: Elastic Endgame",
+        "Resources: Investigation Guide",
+        "Data Source: Elastic Defend"
+        ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and 
-event.type == "start" and event.action : ("exec", "exec_event") and
-process.parent.executable : ("/etc/update-motd.d/*", "/usr/lib/update-notifier/*") and
-process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "python*", "perl", "php*", "nc", "ncat", 
-"netcat", "socat", "lua", "java", "openssl", "ruby", "telnet")
+process where event.type == "start" and event.action : ("exec", "exec_event") and
+process.parent.executable : ("/etc/update-motd.d/*", "/usr/lib/update-notifier/*") and (
+  (process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and (
+    (process.args : ("-i", "-l")) or (process.parent.name == "socat" and process.parent.args : "*exec*"))) or
+  (process.name : ("nc", "ncat", "netcat", "nc.openbsd") and process.args_count >= 3 and 
+    not process.args : ("-*z*", "-*l*")) or
+  (process.name : "python*" and process.args : "-c" and process.args : (
+     "*import*pty*spawn*", "*import*subprocess*call*"
+  )) or
+  (process.name : "perl*" and process.args : "-e" and process.args : "*socket*" and process.args : (
+     "*exec*", "*system*"
+  )) or
+  (process.name : "ruby*" and process.args : ("-e", "-rsocket") and process.args : (
+     "*TCPSocket.new*", "*TCPSocket.open*"
+  )) or
+  (process.name : "lua*" and process.args : "-e" and process.args : "*socket.tcp*" and process.args : (
+     "*io.popen*", "*os.execute*"
+  )) or
+  (process.name : "php*" and process.args : "-r" and process.args : "*fsockopen*" and process.args : "*/bin/*sh*") or 
+  (process.name : ("awk", "gawk", "mawk", "nawk") and process.args : "*/inet/tcp/*") or 
+  (process.name in ("openssl", "telnet"))
+) and 
+not (process.parent.args : "--force" or process.args : ("/usr/games/lolcat", "/usr/bin/screenfetch"))
 '''
 
 [[rule.threat]]

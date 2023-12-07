@@ -3,9 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-from . import common
-from . import RtaMetadata
+from pathlib import Path
 
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="ec52377c-b2a8-4c44-8eb4-465376f2189a",
@@ -28,18 +28,20 @@ DLL = common.get_path("bin", "faultrep.dll")
 WER = "c:\\windows\\system32\\werfault.exe"
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
-    import os, win32file
+    import os
     from os import path
-    if os.path.exists(DLL) :
+
+    import win32file
+    if Path(DLL).is_file():
         tempc = path.expandvars("%localappdata%\\Temp\\oversized.dll")
         rta_dll = path.expandvars("%localappdata%\\Temp\\faultrep.dll")
         rta_pe = path.expandvars("%localappdata%\\Temp\\wer.exe")
         # copy files to temp
         win32file.CopyFile(DLL,tempc, 0)
         win32file.CopyFile(WER, rta_pe, 0)
-        if os.path.exists(tempc):
+        if Path(tempc).is_file():
             print(f"[+] - {DLL} copied to {tempc}")
         print(f"[+] - File {tempc} will be appended with null bytes to reach 90MB in size.")
         # append null bytes to makde the DLL oversized 90+MB in size
@@ -49,7 +51,7 @@ def main():
 
         # copied via cmd to trigger the rule - python is signed and won't trigger the file mod part of the rule
         common.execute(["cmd.exe", "/c", "copy", tempc, rta_dll])
-        if os.path.exists(rta_dll) and os.path.exists(rta_pe):
+        if Path(rta_dll).is_file() and Path(rta_pe).is_file():
             # should trigger rundll32 rules
             common.execute(["rundll32.exe", rta_dll, "DllMain"])
             # should trigger dll sideload from current dir

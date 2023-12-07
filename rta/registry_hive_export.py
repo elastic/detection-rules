@@ -8,11 +8,9 @@
 # ATT&CK: TBD
 # Description: Exports the SAM, SECURITY and SYSTEM hives - useful in credential harvesting and discovery attacks.
 
-import os
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="dfdcc4f4-5aca-486a-8115-b15b653b9b4f",
@@ -31,10 +29,10 @@ metadata = RtaMetadata(
 REG = "reg.exe"
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     for hive in ["sam", "security", "system"]:
-        filename = os.path.abspath("%s.reg" % hive)
+        filename = Path("%s.reg" % hive).resolve()
         common.log("Exporting %s hive to %s" % (hive, filename))
         common.execute([REG, "save", "hkey_local_machine\\%s" % hive, filename])
         common.remove_file(filename)

@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/09/06"
+updated_date = "2023/12/07"
 
 [transform]
 [[transform.osquery]]
@@ -162,7 +162,7 @@ This rule looks for processes outside known legitimate program locations communi
 risk_score = 21
 rule_id = "66883649-f908-4a5b-a1e0-54090a1d3a32"
 severity = "low"
-tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Command and Control", "Resources: Investigation Guide"]
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Command and Control", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
 timestamp_override = "event.ingested"
 type = "eql"
 
@@ -204,19 +204,24 @@ network where host.os.type == "windows" and network.protocol == "dns" and
     ) and
     /* Insert noisy false positives here */
     not (
-      process.executable : (
-        "?:\\Program Files\\*.exe",
-        "?:\\Program Files (x86)\\*.exe",
-        "?:\\Windows\\System32\\WWAHost.exe",
-        "?:\\Windows\\System32\\smartscreen.exe",
-        "?:\\Windows\\System32\\MicrosoftEdgeCP.exe",
-        "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
-        "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
-        "?:\\Users\\*\\AppData\\Local\\Programs\\Fiddler\\Fiddler.exe",
-        "?:\\Users\\*\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
-        "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
-        "?:\\Windows\\system32\\mobsync.exe",
-        "?:\\Windows\\SysWOW64\\mobsync.exe"
+      (
+        process.executable : (
+          "?:\\Program Files\\*.exe",
+          "?:\\Program Files (x86)\\*.exe",
+          "?:\\Windows\\System32\\WWAHost.exe",
+          "?:\\Windows\\System32\\smartscreen.exe",
+          "?:\\Windows\\System32\\MicrosoftEdgeCP.exe",
+          "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
+          "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
+          "?:\\Users\\*\\AppData\\Local\\BraveSoftware\\*\\Application\\brave.exe",
+          "?:\\Users\\*\\AppData\\Local\\Vivaldi\\Application\\vivaldi.exe",
+          "?:\\Users\\*\\AppData\\Local\\Programs\\Opera*\\opera.exe",
+          "?:\\Users\\*\\AppData\\Local\\Programs\\Fiddler\\Fiddler.exe",
+          "?:\\Users\\*\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
+          "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
+          "?:\\Windows\\system32\\mobsync.exe",
+          "?:\\Windows\\SysWOW64\\mobsync.exe"
+        ) and process.code_signature.trusted == true
       ) or
     
       /* Discord App */
@@ -232,6 +237,21 @@ network where host.os.type == "windows" and network.protocol == "dns" and
       /* Firefox */
       (process.name : "firefox.exe" and (process.code_signature.subject_name : "Mozilla Corporation" and
        process.code_signature.trusted == true)
+      ) or 
+
+      /* Dropbox */
+      (process.name : "Dropbox.exe" and (process.code_signature.subject_name : "Dropbox, Inc" and
+       process.code_signature.trusted == true) and dns.question.name : ("api.dropboxapi.com", "*.dropboxusercontent.com")
+      ) or 
+
+      /* Obsidian - Plugins are stored on raw.githubusercontent.com */
+      (process.name : "Obsidian.exe" and (process.code_signature.subject_name : "Dynalist Inc" and
+       process.code_signature.trusted == true) and dns.question.name : "raw.githubusercontent.com"
+      ) or 
+
+      /* WebExperienceHostApp */
+      (process.name : "WebExperienceHostApp.exe" and (process.code_signature.subject_name : "Microsoft Windows" and
+       process.code_signature.trusted == true) and dns.question.name : ("onedrive.live.com", "skyapi.onedrive.live.com")
       )
     ) 
 '''
@@ -244,6 +264,15 @@ id = "T1102"
 name = "Web Service"
 reference = "https://attack.mitre.org/techniques/T1102/"
 
+[[rule.threat.technique]]
+id = "T1568"
+name = "Dynamic Resolution"
+reference = "https://attack.mitre.org/techniques/T1568/"
+
+  [[rule.threat.technique.subtechnique]]
+  id = "T1568.002"
+  name = "Domain Generation Algorithms"
+  reference = "https://attack.mitre.org/techniques/T1568/002/"
 
 [rule.threat.tactic]
 id = "TA0011"
