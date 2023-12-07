@@ -1,0 +1,89 @@
+[metadata]
+creation_date = "2023/12/04"
+integration = ["endpoint", "windows"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/12/04"
+
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects rare internet network connections via the SMB protocol. SMB is commonly used to leak NTLM credentials via rogue UNC path injection.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*", "endgame-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Rare SMB Connection to the Internet"
+references = ["https://www.securify.nl/en/blog/living-off-the-land-stealing-netntlm-hashes/"]
+risk_score = 47
+rule_id = "f580bf0a-2d23-43bb-b8e1-17548bb947ec"
+severity = "medium"
+tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Exfiltration", "Data Source: Elastic Endgame", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.category:network and host.os.type:windows and process.pid:4 and 
+  network.transport:tcp and destination.port:(139 or 445) and 
+  source.ip:(
+    10.0.0.0/8 or
+    172.16.0.0/12 or
+    192.168.0.0/16
+  ) and
+  not destination.ip:(
+    10.0.0.0/8 or
+    127.0.0.0/8 or
+    169.254.0.0/16 or
+    172.16.0.0/12 or
+    192.0.0.0/24 or
+    192.0.0.0/29 or
+    192.0.0.8/32 or
+    192.0.0.9/32 or
+    192.0.0.10/32 or
+    192.0.0.170/32 or
+    192.0.0.171/32 or
+    192.0.2.0/24 or
+    192.31.196.0/24 or
+    192.52.193.0/24 or
+    192.168.0.0/16 or
+    192.88.99.0/24 or
+    224.0.0.0/4 or
+    100.64.0.0/10 or
+    192.175.48.0/24 or
+    198.18.0.0/15 or
+    198.51.100.0/24 or
+    203.0.113.0/24 or
+    240.0.0.0/4 or
+    "::1" or
+    "FE80::/10" or
+    "FF00::/8"
+  )
+'''
+
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1048"
+name = "Exfiltration Over Alternative Protocol"
+reference = "https://attack.mitre.org/techniques/T1048/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+
+
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["destination.ip"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
