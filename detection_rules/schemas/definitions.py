@@ -123,6 +123,7 @@ EXPECTED_RULE_TAGS = [
     'Use Case: Log Auditing',
     'Use Case: Network Security Monitoring',
     'Use Case: Threat Detection',
+    'Use Case: UEBA',
     'Use Case: Vulnerability'
 ]
 
@@ -137,7 +138,7 @@ CardinalityFields = NewType('CardinalityFields', List[NonEmptyStr], validate=val
 CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
-FilterLanguages = Literal["kuery", "lucene"]
+FilterLanguages = Literal["kuery", "lucene", "eql", "esql"]
 Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
 Markdown = NewType("MarkdownField", CodeString)
 Maturity = Literal['development', 'experimental', 'beta', 'production', 'deprecated']
@@ -148,7 +149,7 @@ OSType = Literal['windows', 'linux', 'macos']
 PositiveInteger = NewType('PositiveInteger', int, validate=validate.Range(min=1))
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
 RuleName = NewType('RuleName', str, validate=validate.Regexp(NAME_PATTERN))
-RuleType = Literal['query', 'machine_learning', 'eql', 'threshold', 'threat_match', 'new_terms']
+RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'esql', 'threshold', 'threat_match', 'new_terms']
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
 SemVerMinorOnly = NewType('SemVerFullStrict', str, validate=validate.Regexp(MINOR_SEMVER))
 Severity = Literal['low', 'medium', 'high', 'critical']
