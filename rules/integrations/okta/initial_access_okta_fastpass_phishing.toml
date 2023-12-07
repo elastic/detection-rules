@@ -1,0 +1,57 @@
+[metadata]
+creation_date = "2023/05/07"
+integration = ["okta"]
+maturity = "production"
+min_stack_comments = "New fields added: required_fields, related_integrations, setup"
+min_stack_version = "8.3.0"
+updated_date = "2023/11/07"
+
+[rule]
+author = ["Austin Songer"]
+description = """
+Detects when Okta FastPass prevents a user from authenticating to a phishing website.
+"""
+
+index = ["filebeat-*", "logs-okta*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Okta FastPass Phishing Detection"
+note = """## Setup
+
+The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
+
+This rule requires Okta to have the following turned on:
+
+Okta Identity Engine - select 'Phishing Resistance for FastPass' under Settings > Features in the Admin Console.
+"""
+references = [
+    "https://developer.okta.com/docs/reference/api/system-log/",
+    "https://developer.okta.com/docs/reference/api/event-types/",
+    "https://sec.okta.com/fastpassphishingdetection",
+    "https://sec.okta.com/articles/2023/08/cross-tenant-impersonation-prevention-and-detection"
+]
+risk_score = 47
+rule_id = "ee39a9f7-5a79-4b0a-9815-d36b3cf28d3e"
+severity = "medium"
+tags = ["Tactic: Initial Access", "Use Case: Identity and Access Audit", "Data Source: Okta"]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:okta.system and event.category:authentication and 
+  okta.event_type:user.authentication.auth_via_mfa and event.outcome:failure and okta.outcome.reason:"FastPass declined phishing attempt"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
