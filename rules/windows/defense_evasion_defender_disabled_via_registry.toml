@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2020/12/23"
-integration = ["endpoint", "windows"]
+integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/23"
+updated_date = "2023/12/05"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Identifies modifications to the Windows Defender registry settings to disable th
 started manually.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-endpoint.events.*", "logs-windows.*", "endgame-*"]
+index = ["logs-endpoint.events.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Windows Defender Disabled via Registry Modification"
@@ -98,10 +98,14 @@ registry where host.os.type == "windows" and event.type in ("creation", "change"
    )
   ) and
 
-  not process.executable :
-           ("?:\\WINDOWS\\system32\\services.exe",
-            "?:\\Windows\\System32\\svchost.exe",
-            "?:\\Program Files (x86)\\Trend Micro\\Security Agent\\NTRmv.exe")
+  not
+    (
+      process.executable : (
+          "?:\\WINDOWS\\system32\\services.exe",
+          "?:\\Windows\\System32\\svchost.exe",
+          "?:\\Program Files (x86)\\Trend Micro\\Security Agent\\NTRmv.exe"
+      ) and user.id : "S-1-5-18"
+    )
 '''
 
 
