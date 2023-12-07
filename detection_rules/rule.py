@@ -605,20 +605,6 @@ class QueryRuleData(BaseRuleData):
 
 
 @dataclass(frozen=True)
-class ESQLRuleData(QueryRuleData):
-    """ESQL rules are a special case of query rules."""
-    type: Literal["esql"]
-    language: Literal["esql"]
-    query: str
-
-    @validates_schema
-    def validate_esql_data(self, data, **kwargs):
-        """Custom validation for esql rule type."""
-        if data.get('index'):
-            raise ValidationError("Index is not valid for esql rule type.")
-
-
-@dataclass(frozen=True)
 class MachineLearningRuleData(BaseRuleData):
     type: Literal["machine_learning"]
 
@@ -728,6 +714,20 @@ class EQLRuleData(QueryRuleData):
         if self.max_span:
             interval = convert_time_span(self.interval or '5m')
             return interval / self.max_span
+
+
+@dataclass(frozen=True)
+class ESQLRuleData(QueryRuleData):
+    """ESQL rules are a special case of query rules."""
+    type: Literal["esql"]
+    language: Literal["esql"]
+    query: str
+
+    @validates_schema
+    def validate_esql_data(self, data, **kwargs):
+        """Custom validation for esql rule type."""
+        if data.get('index'):
+            raise ValidationError("Index is not valid for esql rule type.")
 
 
 @dataclass(frozen=True)
@@ -979,6 +979,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         """Add restricted field related_integrations to the obj."""
         field_name = "related_integrations"
         package_integrations = obj.get(field_name, [])
+        event_dataset = []
 
         if not package_integrations and self.metadata.integration:
             packages_manifest = load_integrations_manifests()
@@ -988,8 +989,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                 if (isinstance(self.data, QueryRuleData) or isinstance(self.data, MachineLearningRuleData)):
                     if (self.data.get('language') is not None and self.data.get('language') != 'lucene') or \
                             self.data.get('type') == 'machine_learning':
+                        if isinstance(self.data, ESQLRuleData):
+                            event_dataset = list(set(self.data.validator.event_datasets))
                         package_integrations = self.get_packaged_integrations(self.data, self.metadata,
-                                                                              packages_manifest)
+                                                                              packages_manifest, event_dataset)
 
                         if not package_integrations:
                             return
@@ -1096,9 +1099,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
     @classmethod
     def get_packaged_integrations(cls, data: QueryRuleData, meta: RuleMeta,
-                                  package_manifest: dict) -> Optional[List[dict]]:
+                                  package_manifest: dict, datasets: list = []) -> Optional[List[dict]]:
         packaged_integrations = []
-        datasets = set()
+        datasets = set(datasets)
 
         if data.type != "esql":
             for node in data.get('ast', []):

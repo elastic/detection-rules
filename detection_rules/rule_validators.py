@@ -4,19 +4,28 @@
 # 2.0.
 
 """Validation logic for rules containing queries."""
+import sys
 from functools import cached_property
-from typing import List, Optional, Union, Tuple
-from semver import Version
+from io import StringIO
+from typing import List, Optional, Tuple, Union
 
 import eql
+from antlr4 import Parser, ParserRuleContext, ParseTreeWalker
+from semver import Version
 
 import kql
+from esql.errors import ESQLErrorListener, ESQLSyntaxError
+from esql.iesql_listener import ESQLListenerFactory, IESQLListener
+from esql.iesql_parser import ESQLParserFactory
+from esql.utils import get_node, pretty_print_tree
 
 from . import ecs, endgame
-from .integrations import get_integration_schema_data, load_integrations_manifests
+from .integrations import (get_integration_schema_data,
+                           load_integrations_manifests)
 from .misc import load_current_package_version
+from .rule import (EQLRuleData, QueryRuleData, QueryValidator, RuleMeta,
+                   TOMLRuleContents, set_eql_config)
 from .schemas import get_stack_schemas
-from .rule import QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, EQLRuleData, set_eql_config
 
 EQL_ERROR_TYPES = Union[eql.EqlCompileError,
                         eql.EqlError,
@@ -348,22 +357,104 @@ class EQLValidator(QueryValidator):
 
 class ESQLValidator(QueryValidator):
     """Validate specific fields for ESQL query event types."""
+    field_list = []
+    event_datasets = []
+    min_stack_version = None
 
     @cached_property
-    def ast(self):
+    def ast(self) -> ParserRuleContext:
         """Return an AST."""
-        return None
+        # Capture stderr
+        original_stderr = sys.stderr
+        sys.stderr = StringIO()
+
+        try:
+            tree = self.parser.singleStatement()
+
+            # Check for errors captured by the custom error listener
+            if self.error_listener.errors:
+
+                # Check for additional errors (like predictive errors usually printed to stderr)
+                stderr_output = sys.stderr.getvalue()
+                error_message = "\n".join(self.error_listener.errors)
+                raise ESQLSyntaxError(f"\n\n{stderr_output}{error_message}")
+        finally:
+            # Restore the original stderr
+            sys.stderr = original_stderr
+        return tree
+
+    @cached_property
+    def listener(self) -> IESQLListener:
+        """Return a listener instance."""
+        if Version.parse(self.min_stack_version) >= Version.parse("8.11.0"):
+            version = self.min_stack_version
+            return ESQLListenerFactory.getListener(version)
+        else:
+            raise ValueError(f"Unsupported ES|QL grammar version {self.min_stack_version}")
+
+    def run_walker(self, ctx_class=None):
+        """Walk the AST with the listener."""
+        generic_walker = ParseTreeWalker()
+        tree = self.ast
+
+        if ctx_class:
+            ctx_objs = get_node(tree, ctx_class)
+            if not ctx_objs:
+                # warning message
+                print(f"Warning: Could not find {ctx_class} in {tree}")
+            if ctx_objs:
+                for ctx_obj in ctx_objs:
+                    generic_walker.enterRule(self.listener, ctx_obj)
+                    generic_walker.exitRule(self.listener, ctx_obj)
+        else:
+            generic_walker.walk(self.listener, tree)
+
+    @cached_property
+    def parser(self) -> Parser:
+        """Return a parser instance."""
+        return ESQLParserFactory.createParser(self.query, self.min_stack_version)
+
+    @cached_property
+    def error_listener(self) -> ESQLErrorListener:
+        """Return an error listener instance."""
+
+        # Attach the custom error listener
+        self.parser.removeErrorListeners()
+        error_listener = ESQLErrorListener()
+        self.parser.addErrorListener(error_listener)
+        return error_listener
 
     @cached_property
     def unique_fields(self) -> List[str]:
         """Return a list of unique fields in the query."""
-        # return empty list for ES|QL rules until ast is available (friendlier than raising error)
-        # raise NotImplementedError('ES|QL query parsing not yet supported')
-        return []
+        # return empty list for ES|QL rules until ast is available
+        return set(self.field_list)
 
     def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
         """Validate an ESQL query while checking TOMLRule."""
-        # temporarily override to NOP until ES|QL query parsing is supported
+
+        self.min_stack_version = meta.min_stack_version
+        if Version.parse(meta.min_stack_version) < Version.parse("8.11.0"):
+            raise ESQLSyntaxError(f"Rule minstack must be greater than 8.10.0 {data.rule_id}")
+
+        # Traverse the AST to extract event datasets
+        self.run_walker(self.parser.BooleanDefaultContext)
+
+        tree = self.ast
+        pretty_print_tree(tree)
+
+        # get event datasets
+        self.event_datasets = self.listener.event_datasets
+        self.field_list = self.listener.field_list
+
+        # Create an instance of the listener with schema
+        packages_manifest = load_integrations_manifests()
+        package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest,
+                                                                          self.event_datasets)
+        combined_schemas = ecs.get_combined_schemas(data, meta, package_integrations)
+        self.listener.schema = combined_schemas
+        self.run_walker()
+        print("Validation completed successfully.")
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
