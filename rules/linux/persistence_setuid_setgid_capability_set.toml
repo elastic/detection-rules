@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/02"
+updated_date = "2023/11/22"
 
 [rule]
 author = ["Elastic"]
@@ -53,7 +53,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.action == "exec" and event.type == "start" and 
-process.name == "setcap" and process.args : "cap_set?id+ep"
+process.name == "setcap" and process.args : "cap_set?id+ep" and not process.parent.name : "jem"
 '''
 
 [[rule.threat]]
