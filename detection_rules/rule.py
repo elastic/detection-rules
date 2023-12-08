@@ -94,14 +94,14 @@ class RuleTransform(MarshmallowDataclassMixin):
     class Investigate:
         @dataclass(frozen=True)
         class Provider:
-            excluded: definitions.InvestigateProviderExcluded
+            excluded: bool
             field: str
             queryType: definitions.InvestigateProviderQueryType
             value: str
-            ValueType: definitions.InvestigateProviderValueType
+            valueType: definitions.InvestigateProviderValueType
 
         label: str
-        description: str
+        description: Optional[str]
         providers: List[List[Provider]]
         relativeFrom: Optional[str]
         relativeTo: Optional[str]

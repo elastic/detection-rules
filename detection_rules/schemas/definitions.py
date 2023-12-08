@@ -140,7 +140,6 @@ ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDI
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
 FilterLanguages = Literal["kuery", "lucene", "eql", "esql"]
 Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
-InvestigateProviderExcluded = Literal["is", "is not", "is one of", "is not one of", "exists", "does not exist"]
 InvestigateProviderQueryType = Literal["phrase", "range"]
 InvestigateProviderValueType = Literal["string", "boolean"]
 Markdown = NewType("MarkdownField", CodeString)
