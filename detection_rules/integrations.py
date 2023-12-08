@@ -335,7 +335,6 @@ def get_integration_schema_fields(integrations_schemas: dict, package: str, inte
                                   min_stack: Version, packages_manifest: dict,
                                   ecs_schema: dict, data: dict) -> dict:
     """Extracts the integration fields to schema based on package integrations."""
-
     package_version, notice = find_latest_compatible_version(package, integration, min_stack, packages_manifest)
     notify_user_if_update_available(data, notice, integration)
 
@@ -356,12 +355,11 @@ def notify_user_if_update_available(data: dict, notice: list, integration: str) 
         NOTIFIED_INTEGRATIONS.add(integration)
 
         print(f"\n{data.get('name')}")
-        for line in notice:
-            print(line)
+        print('\n'.join(notice))
 
 
-def collect_schema_fields(integrations_schemas: dict, package: str, package_version: str, integration: str) -> dict:
-    """ Collects the schema fields for a given integration."""
+def collect_schema_fields(integrations_schemas: dict, package: str, package_version: str, integration: Optional[str] = None) -> dict:
+    """Collects the schema fields for a given integration."""
     if integration is None:
         return {field: value for dataset in integrations_schemas[package][package_version] if dataset != "jobs"
                 for field, value in integrations_schemas[package][package_version][dataset].items()}
@@ -372,7 +370,7 @@ def collect_schema_fields(integrations_schemas: dict, package: str, package_vers
     return integrations_schemas[package][package_version][integration]
 
 
-def parse_datasets(datasets: list, package_manifest: dict) -> Optional[List[dict]]:
+def parse_datasets(datasets: list, package_manifest: dict) -> List[Optional[dict]]:
     """Parses datasets into packaged integrations from rule data."""
     packaged_integrations = []
     for value in sorted(datasets):

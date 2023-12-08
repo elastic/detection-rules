@@ -1118,7 +1118,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         datasets = set()
 
         if data.type != "esql":
-            datasets, _ = beats.get_datasets_and_modules(data.get('ast', []))
+            datasets, _ = beats.get_datasets_and_modules(data.get('ast') or [])
 
         # integration is None to remove duplicate references upstream in Kibana
         # chronologically, event.dataset is checked for package:integration, then rule tags

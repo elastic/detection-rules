@@ -247,7 +247,7 @@ def get_schema_from_datasets(beats, modules, datasets, version=None):
 
 
 def get_datasets_and_modules(tree: Union[eql.ast.BaseNode, kql.ast.BaseNode]) -> tuple:
-    """Get datasets and modules from an EQL AST."""
+    """Get datasets and modules from an EQL or KQL AST."""
     modules = set()
     datasets = set()
 
@@ -273,13 +273,13 @@ def get_datasets_and_modules(tree: Union[eql.ast.BaseNode, kql.ast.BaseNode]) ->
 
 
 def get_schema_from_eql(tree: eql.ast.BaseNode, beats: list, version: str = None) -> dict:
-    """Get a schema based on datasets modules in an EQL AST."""
+    """Get a schema based on datasets and modules in an EQL AST."""
     datasets, modules = get_datasets_and_modules(tree)
     return get_schema_from_datasets(beats, modules, datasets, version=version)
 
 
 def get_schema_from_kql(tree: kql.ast.BaseNode, beats: list, version: str = None) -> dict:
-    """Get a schema based on datasets modules in an KQL AST."""
+    """Get a schema based on datasets and modules in an KQL AST."""
     datasets, modules = get_datasets_and_modules(tree)
     return get_schema_from_datasets(beats, modules, datasets, version=version)
 
