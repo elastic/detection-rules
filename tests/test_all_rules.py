@@ -1191,14 +1191,24 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
                                 '(https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) '
                                 'introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display '
                                 'unrendered Markdown in this guide.')
+        invest_note_pattern = ('> This investigation guide uses the [Investigate Markdown Plugin]'
+                               '(https://www.elastic.co/guide/en/security/master/interactive-investigation-guides.html)'
+                               ' introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display '
+                               'unrendered Markdown in this guide.')
 
         for rule in self.production_rules.rules:
             if not rule.contents.get('transform'):
                 continue
+
             osquery = rule.contents.transform.get('osquery')
             if osquery and osquery_note_pattern not in rule.contents.data.note:
                 self.fail(f'{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain '
                           f'the following note:\n{osquery_note_pattern}')
+
+            investigate = rule.contents.transform.get('investigate')
+            if investigate and invest_note_pattern not in rule.contents.data.note:
+                self.fail(f'{self.rule_str(rule)} Investigation guides using the Investigate Markdown must contain '
+                          f'the following note:\n{invest_note_pattern}')
 
     def test_plugin_placeholders_match_entries(self):
         """Test that the number of plugin entries match their respective placeholders in note."""
@@ -1247,7 +1257,7 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
         for rule in self.production_rules.rules:
             note = rule.contents.data.get('note')
             if note is not None:
-                results = re.search(r'(!{osquery|!{insight)', note, re.I | re.M)
+                results = re.search(r'(!{osquery|!{investigate)', note, re.I | re.M)
                 err_msg = f'{self.rule_str(rule)} investigation guide plugin pattern detected! Use Transform'
                 self.assertIsNone(results, err_msg)
 
