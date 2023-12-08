@@ -350,7 +350,7 @@ class EQLValidator(QueryValidator):
 
 
 class ESQLValidator(QueryValidator):
-    """Specific fields for ESQL query event types."""
+    """Validate specific fields for ESQL query event types."""
 
     @cached_property
     def ast(self):

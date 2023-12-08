@@ -16,7 +16,7 @@ from requests import HTTPError
 
 from kibana import Kibana
 
-from .misc import ClientError, getdefault, get_elasticsearch_client, get_kibana_client
+from .misc import ClientError, getdefault, get_elasticsearch_client, get_kibana_client, load_current_package_version
 from .rule import TOMLRule, TOMLRuleContents
 from .schemas import definitions
 
@@ -27,6 +27,8 @@ class RemoteValidationResult:
     rule_id: definitions.UUIDString
     rule_name: str
     contents: dict
+    rule_version: int
+    stack_version: str
     query_results: Optional[dict]
     engine_results: Optional[dict]
 
@@ -120,8 +122,10 @@ class RemoteValidator(RemoteConnector):
         method = self.get_validate_method(f'validate_{contents.data.type}')
         query_results = method(contents)
         engine_results = self.engine_preview(contents)
+        rule_version = contents.autobumped_version
+        stack_version = load_current_package_version()
         return RemoteValidationResult(contents.data.rule_id, contents.data.name, contents.to_api_format(),
-                                      query_results, engine_results)
+                                      rule_version, stack_version, query_results, engine_results)
 
     def validate_rules(self, rules: List[TOMLRule], threads: int = 5) -> Dict[str, RemoteValidationResult]:
         """Validate a collection of rules via threads."""
