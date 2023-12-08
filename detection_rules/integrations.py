@@ -358,7 +358,8 @@ def notify_user_if_update_available(data: dict, notice: list, integration: str) 
         print('\n'.join(notice))
 
 
-def collect_schema_fields(integrations_schemas: dict, package: str, package_version: str, integration: Optional[str] = None) -> dict:
+def collect_schema_fields(integrations_schemas: dict, package: str, package_version: str,
+                          integration: Optional[str] = None) -> dict:
     """Collects the schema fields for a given integration."""
     if integration is None:
         return {field: value for dataset in integrations_schemas[package][package_version] if dataset != "jobs"
