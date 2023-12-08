@@ -26,8 +26,8 @@ from .utils import cached, get_etc_path, read_gzip, unzip
 from .schemas import definitions
 
 MANIFEST_FILE_PATH = Path(get_etc_path('integration-manifests.json.gz'))
-NOTIFIED_INTEGRATIONS = set()
 SCHEMA_FILE_PATH = Path(get_etc_path('integration-schemas.json.gz'))
+_notified_integrations = set()
 
 
 @cached
@@ -348,11 +348,11 @@ def get_integration_schema_fields(integrations_schemas: dict, package: str, inte
 def notify_user_if_update_available(data: dict, notice: list, integration: str) -> None:
     """Notifies the user if an update is available, only once per integration."""
 
-    global NOTIFIED_INTEGRATIONS
-    if notice and data.get("notify", False) and integration not in NOTIFIED_INTEGRATIONS:
+    global _notified_integrations
+    if notice and data.get("notify", False) and integration not in _notified_integrations:
 
         # flag to only warn once per integration for available upgrades
-        NOTIFIED_INTEGRATIONS.add(integration)
+        _notified_integrations.add(integration)
 
         print(f"\n{data.get('name')}")
         print('\n'.join(notice))
