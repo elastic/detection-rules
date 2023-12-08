@@ -569,6 +569,8 @@ class QueryRuleData(BaseRuleData):
             return KQLValidator(self.query)
         elif self.language == "eql":
             return EQLValidator(self.query)
+        elif self.language == "esql":
+            return ESQLValidator(self.query)
 
     def validate_query(self, meta: RuleMeta) -> None:
         validator = self.validator
@@ -594,12 +596,26 @@ class QueryRuleData(BaseRuleData):
             return validator.get_required_fields(index or [])
 
     @validates_schema
-    def validate_exceptions(self, data, **kwargs):
+    def validates_query_data(self, data, **kwargs):
         """Custom validation for query rule type and subclasses."""
 
         # alert suppression is only valid for query rule type and not any of its subclasses
         if data.get('alert_suppression') and data['type'] != 'query':
             raise ValidationError("Alert suppression is only valid for query rule type.")
+
+
+@dataclass(frozen=True)
+class ESQLRuleData(QueryRuleData):
+    """ESQL rules are a special case of query rules."""
+    type: Literal["esql"]
+    language: Literal["esql"]
+    query: str
+
+    @validates_schema
+    def validate_esql_data(self, data, **kwargs):
+        """Custom validation for esql rule type."""
+        if data.get('index'):
+            raise ValidationError("Index is not valid for esql rule type.")
 
 
 @dataclass(frozen=True)
@@ -646,52 +662,6 @@ class NewTermsRuleData(QueryRuleData):
 
     type: Literal["new_terms"]
     new_terms: NewTermsMapping
-
-    def validate(self, meta: RuleMeta) -> None:
-        """Validates terms in new_terms_fields are valid ECS schema."""
-
-        kql_validator = KQLValidator(self.query)
-        kql_validator.validate(self, meta)
-        feature_min_stack = Version.parse('8.4.0')
-        feature_min_stack_extended_fields = Version.parse('8.6.0')
-        current_package_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-
-        # validate history window start field exists and is correct
-        assert self.new_terms.history_window_start, \
-            "new terms field found with no history_window_start field defined"
-        assert self.new_terms.history_window_start[0].field == "history_window_start", \
-            f"{self.new_terms.history_window_start} should be 'history_window_start'"
-
-        # validate new terms and history window start fields is correct
-        assert self.new_terms.field == "new_terms_fields", \
-            f"{self.new_terms.field} should be 'new_terms_fields' for new_terms rule type"
-
-        # ecs validation
-        min_stack_version = Version.parse(meta.get("min_stack_version")) if meta.get("min_stack_version") else None
-        min_stack_version = current_package_version if min_stack_version is None or min_stack_version < \
-            current_package_version else min_stack_version
-
-        assert min_stack_version >= feature_min_stack, \
-            f"New Terms rule types only compatible with {feature_min_stack}+"
-        ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
-        beats_version = get_stack_schemas()[str(min_stack_version)]['beats']
-
-        # checks if new terms field(s) are in ecs, beats or non-ecs schemas
-        _, _, schema = kql_validator.get_beats_schema(self.index or [], beats_version, ecs_version)
-
-        for new_terms_field in self.new_terms.value:
-            assert new_terms_field in schema.keys(), \
-                f"{new_terms_field} not found in ECS, Beats, or non-ecs schemas"
-
-        # validates length of new_terms to stack version - https://github.com/elastic/kibana/issues/142862
-        if min_stack_version >= feature_min_stack and \
-                min_stack_version < feature_min_stack_extended_fields:
-            assert len(self.new_terms.value) == 1, \
-                f"new terms have a max limit of 1 for stack versions below {feature_min_stack_extended_fields}"
-
-        # validate fields are unique
-        assert len(set(self.new_terms.value)) == len(self.new_terms.value), \
-            f"new terms fields values are not unique - {self.new_terms.value}"
 
     def transform(self, obj: dict) -> dict:
         """Transforms new terms data to API format for Kibana."""
@@ -806,7 +776,7 @@ class ThreatMatchRuleData(QueryRuleData):
 
 # All of the possible rule types
 # Sort inverse of any inheritance - see comment in TOMLRuleContents.to_dict
-AnyRuleData = Union[EQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData,
+AnyRuleData = Union[EQLRuleData, ESQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData,
                     MachineLearningRuleData, QueryRuleData, NewTermsRuleData]
 
 
@@ -1130,11 +1100,12 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         packaged_integrations = []
         datasets = set()
 
-        for node in data.get('ast', []):
-            if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
-                datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
-            elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
-                datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
+        if data.type != "esql":
+            for node in data.get('ast', []):
+                if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
+                    datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
+                elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
+                    datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
 
         # integration is None to remove duplicate references upstream in Kibana
         # chronologically, event.dataset is checked for package:integration, then rule tags
@@ -1336,8 +1307,12 @@ def downgrade_contents_from_rule(rule: TOMLRule, target_version: str, replace_id
 
     rule_dict = downgrade(rule_dict, target_version=str(min_stack_version))
     meta = rule_dict.pop("meta")
-    rule_contents = TOMLRuleContents.from_dict({"rule": rule_dict, "metadata": meta,
-                                                "transform": rule.contents.transform})
+    rule_contents_dict = {"rule": rule_dict, "metadata": meta}
+
+    if rule.contents.transform:
+        rule_contents_dict["transform"] = rule.contents.transform.to_dict()
+
+    rule_contents = TOMLRuleContents.from_dict(rule_contents_dict)
     payload = rule_contents.to_api_format()
     payload = strip_non_public_fields(min_stack_version, payload)
     return payload
@@ -1375,4 +1350,4 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
 
 
 # avoid a circular import
-from .rule_validators import EQLValidator, KQLValidator  # noqa: E402
+from .rule_validators import EQLValidator, ESQLValidator, KQLValidator  # noqa: E402
