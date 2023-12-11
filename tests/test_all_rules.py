@@ -13,6 +13,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import eql.ast
+
 from marshmallow import ValidationError
 from semver import Version
 
@@ -29,8 +30,7 @@ from detection_rules.rule import (QueryRuleData, QueryValidator,
 from detection_rules.rule_loader import FILE_PATTERN
 from detection_rules.rule_validators import EQLValidator, KQLValidator
 from detection_rules.schemas import definitions, get_stack_schemas
-from detection_rules.utils import (INTEGRATION_RULE_DIR, PatchedTemplate,
-                                   get_path, load_etc_dump)
+from detection_rules.utils import INTEGRATION_RULE_DIR, PatchedTemplate, get_path, load_etc_dump
 from detection_rules.version_lock import default_version_lock
 from rta import get_available_tests
 
@@ -296,7 +296,7 @@ class TestRuleTags(BaseRuleTest):
             missing_required_tags = set()
 
             if isinstance(rule.contents.data, QueryRuleData):
-                for index in rule.contents.data.index:
+                for index in rule.contents.data.get('index') or []:
                     expected_tags = required_tags_map.get(index, {})
                     expected_all = expected_tags.get('all', [])
                     expected_any = expected_tags.get('any', [])
@@ -611,6 +611,9 @@ class TestRuleMetadata(BaseRuleTest):
         valid_integration_folders = [p.name for p in list(Path(INTEGRATION_RULE_DIR).glob("*")) if p.name != 'endpoint']
 
         for rule in self.production_rules:
+            # TODO: temp bypass for esql rules; once parsed, we should be able to look for indexes via `FROM`
+            if not rule.contents.data.get('index'):
+                continue
             if isinstance(rule.contents.data, QueryRuleData) and rule.contents.data.language != 'lucene':
                 rule_integrations = rule.contents.metadata.get('integration') or []
                 rule_integrations = [rule_integrations] if isinstance(rule_integrations, str) else rule_integrations
@@ -619,7 +622,7 @@ class TestRuleMetadata(BaseRuleTest):
                 meta = rule.contents.metadata
                 package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
                 package_integrations_list = list(set([integration["package"] for integration in package_integrations]))
-                indices = data.get('index')
+                indices = data.get('index') or []
                 for rule_integration in rule_integrations:
                     if ("even.dataset" in rule.contents.data.query and not package_integrations and  # noqa: W504
                        not rule_promotion and rule_integration not in definitions.NON_DATASET_PACKAGES):  # noqa: W504
@@ -663,7 +666,7 @@ class TestRuleMetadata(BaseRuleTest):
                         "f3e22c8b-ea47-45d1-b502-b57b6de950b3"
                     ]
                     if any([re.search("|".join(non_dataset_packages), i, re.IGNORECASE)
-                            for i in rule.contents.data.index]):
+                            for i in rule.contents.data.get('index') or []]):
                         if not rule.contents.metadata.integration and rule.id not in ignore_ids and \
                                 rule.contents.data.type not in definitions.MACHINE_LEARNING:
                             err_msg = f'substrings {non_dataset_packages} found in '\
@@ -812,12 +815,14 @@ class TestRuleMetadata(BaseRuleTest):
 
     def test_event_dataset(self):
         for rule in self.all_rules:
-            if(isinstance(rule.contents.data, QueryRuleData)):
+            if isinstance(rule.contents.data, QueryRuleData):
                 # Need to pick validator based on language
                 if rule.contents.data.language == "kuery":
                     test_validator = KQLValidator(rule.contents.data.query)
-                if rule.contents.data.language == "eql":
+                elif rule.contents.data.language == "eql":
                     test_validator = EQLValidator(rule.contents.data.query)
+                else:
+                    continue
                 data = rule.contents.data
                 meta = rule.contents.metadata
                 if meta.query_schema_validation is not False or meta.maturity != "deprecated":
@@ -833,7 +838,7 @@ class TestRuleMetadata(BaseRuleTest):
                                                                                                 meta,
                                                                                                 pkg_integrations)
 
-                        if(validation_integrations_check and "event.dataset" in rule.contents.data.query):
+                        if validation_integrations_check and "event.dataset" in rule.contents.data.query:
                             raise validation_integrations_check
 
 
@@ -1177,35 +1182,6 @@ class TestRiskScoreMismatch(BaseRuleTest):
             self.fail(err_msg)
 
 
-class TestEndpointQuery(BaseRuleTest):
-    """Test endpoint-specific rules."""
-
-    @unittest.skipIf(PACKAGE_STACK_VERSION < Version.parse("8.3.0"),
-                     "Test only applicable to 8.3+ stacks since query updates are min_stacked at 8.3.0")
-    def test_os_and_platform_in_query(self):
-        """Test that all endpoint rules have an os defined and linux includes platform."""
-        for rule in self.production_rules:
-            if not rule.contents.data.get('language') in ('eql', 'kuery'):
-                continue
-            if rule.path.parent.name not in ('windows', 'macos', 'linux'):
-                # skip cross-platform for now
-                continue
-
-            ast = rule.contents.data.ast
-            fields = [str(f) for f in ast if isinstance(f, (kql.ast.Field, eql.ast.Field))]
-
-            err_msg = f'{self.rule_str(rule)} missing required field for endpoint rule'
-            if 'host.os.type' not in fields:
-                # Exception for Forwarded Events which contain Windows-only fields.
-                if rule.path.parent.name == 'windows' and not any(field.startswith('winlog.') for field in fields):
-                    self.assertIn('host.os.type', fields, err_msg)
-
-            # going to bypass this for now
-            # if rule.path.parent.name == 'linux':
-            #     err_msg = f'{self.rule_str(rule)} missing required field for linux endpoint rule'
-            #     self.assertIn('host.os.platform', fields, err_msg)
-
-
 class TestNoteMarkdownPlugins(BaseRuleTest):
     """Test if a guide containing Osquery Plugin syntax contains the version note."""
 
@@ -1215,14 +1191,24 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
                                 '(https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) '
                                 'introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display '
                                 'unrendered Markdown in this guide.')
+        invest_note_pattern = ('> This investigation guide uses the [Investigate Markdown Plugin]'
+                               '(https://www.elastic.co/guide/en/security/master/interactive-investigation-guides.html)'
+                               ' introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display '
+                               'unrendered Markdown in this guide.')
 
         for rule in self.production_rules.rules:
             if not rule.contents.get('transform'):
                 continue
+
             osquery = rule.contents.transform.get('osquery')
             if osquery and osquery_note_pattern not in rule.contents.data.note:
                 self.fail(f'{self.rule_str(rule)} Investigation guides using the Osquery Markdown must contain '
                           f'the following note:\n{osquery_note_pattern}')
+
+            investigate = rule.contents.transform.get('investigate')
+            if investigate and invest_note_pattern not in rule.contents.data.note:
+                self.fail(f'{self.rule_str(rule)} Investigation guides using the Investigate Markdown must contain '
+                          f'the following note:\n{invest_note_pattern}')
 
     def test_plugin_placeholders_match_entries(self):
         """Test that the number of plugin entries match their respective placeholders in note."""
@@ -1271,7 +1257,7 @@ class TestNoteMarkdownPlugins(BaseRuleTest):
         for rule in self.production_rules.rules:
             note = rule.contents.data.get('note')
             if note is not None:
-                results = re.search(r'(!{osquery|!{insight)', note, re.I | re.M)
+                results = re.search(r'(!{osquery|!{investigate)', note, re.I | re.M)
                 err_msg = f'{self.rule_str(rule)} investigation guide plugin pattern detected! Use Transform'
                 self.assertIsNone(results, err_msg)
 

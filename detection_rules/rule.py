@@ -22,11 +22,11 @@ from marko.ext.gfm import gfm
 from marshmallow import ValidationError, validates_schema
 
 import kql
-from kql.ast import FieldComparison
 
 from . import beats, ecs, endgame, utils
-from .integrations import (find_least_compatible_version,
-                           load_integrations_manifests)
+from .integrations import (find_least_compatible_version, get_integration_schema_fields,
+                           load_integrations_manifests, load_integrations_schemas,
+                           parse_datasets)
 from .misc import load_current_package_version
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
@@ -91,34 +91,30 @@ class RuleTransform(MarshmallowDataclassMixin):
         ecs_mapping: Optional[Dict[str, Dict[Literal['field', 'value'], str]]]
 
     @dataclass(frozen=True)
-    class Insight:
+    class Investigate:
         @dataclass(frozen=True)
         class Provider:
+            excluded: bool
             field: str
+            queryType: definitions.InvestigateProviderQueryType
             value: str
-            type: str
+            valueType: definitions.InvestigateProviderValueType
 
         label: str
+        description: Optional[str]
         providers: List[List[Provider]]
+        relativeFrom: Optional[str]
+        relativeTo: Optional[str]
 
     # these must be lists in order to have more than one. Their index in the list is how they will be referenced in the
     # note string templates
     osquery: Optional[List[OsQuery]]
-    insight: Optional[List[Insight]]
+    investigate: Optional[List[Investigate]]
 
-    @validates_schema
-    def validate_transforms(self, value: dict, **kwargs):
-        """Validate transform fields."""
-        # temporarily invalidate insights until schema stabilizes
-        insight = value.get('insight')
-        if insight is not None:
-            raise NotImplementedError('Insights are not stable yet.')
-        return
-
-    def render_insight_osquery_to_string(self) -> Dict[Literal['osquery', 'insight'], List[str]]:
+    def render_investigate_osquery_to_string(self) -> Dict[definitions.TransformTypes, List[str]]:
         obj = self.to_dict()
 
-        rendered: Dict[Literal['osquery', 'insight'], List[str]] = {'osquery': [], 'insight': []}
+        rendered: Dict[definitions.TransformTypes, List[str]] = {'osquery': [], 'investigate': []}
         for plugin, entries in obj.items():
             for entry in entries:
                 rendered[plugin].append(f'!{{{plugin}{json.dumps(entry, sort_keys=True, separators=(",", ":"))}}}')
@@ -343,12 +339,12 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         # only create functions that CAREFULLY mutate the obj dict
 
         def process_note_plugins():
-            """Format the note field with osquery and insight plugin strings."""
+            """Format the note field with osquery and investigate plugin strings."""
             note = obj.get('note')
             if not note:
                 return
 
-            rendered = transform.render_insight_osquery_to_string()
+            rendered = transform.render_investigate_osquery_to_string()
             rendered_patterns = {}
             for plugin, entries in rendered.items():
                 rendered_patterns.update(**{f'{plugin}_{i}': e for i, e in enumerate(entries)})
@@ -517,6 +513,21 @@ class QueryValidator:
         beat_types, beat_schema, schema = self.get_beats_schema(index or [], beats_version, ecs_version)
         endgame_schema = self.get_endgame_schema(index or [], endgame_version)
 
+        # construct integration schemas
+        packages_manifest = load_integrations_manifests()
+        integrations_schemas = load_integrations_schemas()
+        datasets, _ = beats.get_datasets_and_modules(self.ast)
+        package_integrations = parse_datasets(datasets, packages_manifest)
+        int_schema = {}
+        data = {"notify": False}
+
+        for pk_int in package_integrations:
+            package = pk_int["package"]
+            integration = pk_int["integration"]
+            schema, _ = get_integration_schema_fields(integrations_schemas, package, integration,
+                                                      current_version, packages_manifest, {}, data)
+            int_schema.update(schema)
+
         required = []
         unique_fields = self.unique_fields or []
 
@@ -525,7 +536,9 @@ class QueryValidator:
             is_ecs = field_type is not None
 
             if not is_ecs:
-                if beat_schema:
+                if int_schema:
+                    field_type = int_schema.get(fld, None)
+                elif beat_schema:
                     field_type = beat_schema.get(fld, {}).get('type')
                 elif endgame_schema:
                     field_type = endgame_schema.endgame_schema.get(fld, None)
@@ -569,6 +582,8 @@ class QueryRuleData(BaseRuleData):
             return KQLValidator(self.query)
         elif self.language == "eql":
             return EQLValidator(self.query)
+        elif self.language == "esql":
+            return ESQLValidator(self.query)
 
     def validate_query(self, meta: RuleMeta) -> None:
         validator = self.validator
@@ -594,9 +609,8 @@ class QueryRuleData(BaseRuleData):
             return validator.get_required_fields(index or [])
 
     @validates_schema
-    def validate_exceptions(self, data, **kwargs):
+    def validates_query_data(self, data, **kwargs):
         """Custom validation for query rule type and subclasses."""
-
         # alert suppression is only valid for query rule type and not any of its subclasses
         if data.get('alert_suppression') and data['type'] != 'query':
             raise ValidationError("Alert suppression is only valid for query rule type.")
@@ -646,52 +660,6 @@ class NewTermsRuleData(QueryRuleData):
 
     type: Literal["new_terms"]
     new_terms: NewTermsMapping
-
-    def validate(self, meta: RuleMeta) -> None:
-        """Validates terms in new_terms_fields are valid ECS schema."""
-
-        kql_validator = KQLValidator(self.query)
-        kql_validator.validate(self, meta)
-        feature_min_stack = Version.parse('8.4.0')
-        feature_min_stack_extended_fields = Version.parse('8.6.0')
-        current_package_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-
-        # validate history window start field exists and is correct
-        assert self.new_terms.history_window_start, \
-            "new terms field found with no history_window_start field defined"
-        assert self.new_terms.history_window_start[0].field == "history_window_start", \
-            f"{self.new_terms.history_window_start} should be 'history_window_start'"
-
-        # validate new terms and history window start fields is correct
-        assert self.new_terms.field == "new_terms_fields", \
-            f"{self.new_terms.field} should be 'new_terms_fields' for new_terms rule type"
-
-        # ecs validation
-        min_stack_version = Version.parse(meta.get("min_stack_version")) if meta.get("min_stack_version") else None
-        min_stack_version = current_package_version if min_stack_version is None or min_stack_version < \
-            current_package_version else min_stack_version
-
-        assert min_stack_version >= feature_min_stack, \
-            f"New Terms rule types only compatible with {feature_min_stack}+"
-        ecs_version = get_stack_schemas()[str(min_stack_version)]['ecs']
-        beats_version = get_stack_schemas()[str(min_stack_version)]['beats']
-
-        # checks if new terms field(s) are in ecs, beats or non-ecs schemas
-        _, _, schema = kql_validator.get_beats_schema(self.index or [], beats_version, ecs_version)
-
-        for new_terms_field in self.new_terms.value:
-            assert new_terms_field in schema.keys(), \
-                f"{new_terms_field} not found in ECS, Beats, or non-ecs schemas"
-
-        # validates length of new_terms to stack version - https://github.com/elastic/kibana/issues/142862
-        if min_stack_version >= feature_min_stack and \
-                min_stack_version < feature_min_stack_extended_fields:
-            assert len(self.new_terms.value) == 1, \
-                f"new terms have a max limit of 1 for stack versions below {feature_min_stack_extended_fields}"
-
-        # validate fields are unique
-        assert len(set(self.new_terms.value)) == len(self.new_terms.value), \
-            f"new terms fields values are not unique - {self.new_terms.value}"
 
     def transform(self, obj: dict) -> dict:
         """Transforms new terms data to API format for Kibana."""
@@ -761,6 +729,20 @@ class EQLRuleData(QueryRuleData):
 
 
 @dataclass(frozen=True)
+class ESQLRuleData(QueryRuleData):
+    """ESQL rules are a special case of query rules."""
+    type: Literal["esql"]
+    language: Literal["esql"]
+    query: str
+
+    @validates_schema
+    def validates_esql_data(self, data, **kwargs):
+        """Custom validation for query rule type and subclasses."""
+        if data.get('index'):
+            raise ValidationError("Index is not a valid field for ES|QL rule type.")
+
+
+@dataclass(frozen=True)
 class ThreatMatchRuleData(QueryRuleData):
     """Specific fields for indicator (threat) match rule."""
 
@@ -806,7 +788,7 @@ class ThreatMatchRuleData(QueryRuleData):
 
 # All of the possible rule types
 # Sort inverse of any inheritance - see comment in TOMLRuleContents.to_dict
-AnyRuleData = Union[EQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData,
+AnyRuleData = Union[EQLRuleData, ESQLRuleData, ThresholdQueryRuleData, ThreatMatchRuleData,
                     MachineLearningRuleData, QueryRuleData, NewTermsRuleData]
 
 
@@ -1128,13 +1110,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def get_packaged_integrations(cls, data: QueryRuleData, meta: RuleMeta,
                                   package_manifest: dict) -> Optional[List[dict]]:
         packaged_integrations = []
-        datasets = set()
-
-        for node in data.get('ast', []):
-            if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
-                datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
-            elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
-                datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
+        datasets, _ = beats.get_datasets_and_modules(data.get('ast') or [])
 
         # integration is None to remove duplicate references upstream in Kibana
         # chronologically, event.dataset is checked for package:integration, then rule tags
@@ -1149,15 +1125,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                 if integration in ineligible_integrations or isinstance(data, MachineLearningRuleData):
                     packaged_integrations.append({"package": integration, "integration": None})
 
-        for value in sorted(datasets):
-            integration = 'Unknown'
-            if '.' in value:
-                package, integration = value.split('.', 1)
-            else:
-                package = value
-
-            if package in list(package_manifest):
-                packaged_integrations.append({"package": package, "integration": integration})
+        packaged_integrations.extend(parse_datasets(datasets, package_manifest))
 
         return packaged_integrations
 
@@ -1171,6 +1139,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         data.data_validator.validate_note()
         data.data_validator.validate_bbr(metadata.get('bypass_bbr_timing'))
         data.validate(metadata) if hasattr(data, 'validate') else False
+
+    @staticmethod
+    def validate_remote(remote_validator: 'RemoteValidator', contents: 'TOMLRuleContents'):
+        remote_validator.validate_rule(contents)
 
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
@@ -1336,8 +1308,12 @@ def downgrade_contents_from_rule(rule: TOMLRule, target_version: str, replace_id
 
     rule_dict = downgrade(rule_dict, target_version=str(min_stack_version))
     meta = rule_dict.pop("meta")
-    rule_contents = TOMLRuleContents.from_dict({"rule": rule_dict, "metadata": meta,
-                                                "transform": rule.contents.transform})
+    rule_contents_dict = {"rule": rule_dict, "metadata": meta}
+
+    if rule.contents.transform:
+        rule_contents_dict["transform"] = rule.contents.transform.to_dict()
+
+    rule_contents = TOMLRuleContents.from_dict(rule_contents_dict)
     payload = rule_contents.to_api_format()
     payload = strip_non_public_fields(min_stack_version, payload)
     return payload
@@ -1375,4 +1351,5 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
 
 
 # avoid a circular import
-from .rule_validators import EQLValidator, KQLValidator  # noqa: E402
+from .rule_validators import EQLValidator, ESQLValidator, KQLValidator  # noqa: E402
+from .remote_validation import RemoteValidator  # noqa: E402
