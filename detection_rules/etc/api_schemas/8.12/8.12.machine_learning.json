@@ -47,22 +47,16 @@
             "type": "string"
           },
           "type": "array"
-        },
-        "missing_fields_strategy": {
-          "description": "AlertSuppressionMissing",
-          "enum": [
-            "suppress",
-            "doNotSuppress"
-          ],
-          "enumNames": [],
-          "type": "string"
         }
       },
       "required": [
-        "group_by",
-        "missing_fields_strategy"
+        "group_by"
       ],
       "type": "object"
+    },
+    "anomaly_threshold": {
+      "format": "integer",
+      "type": "number"
     },
     "author": {
       "items": {
@@ -118,29 +112,26 @@
     "from": {
       "type": "string"
     },
-    "index": {
-      "items": {
-        "type": "string"
-      },
-      "type": "array"
-    },
     "interval": {
       "description": "Interval",
       "pattern": "^\\d+[mshd]$",
       "type": "string"
     },
-    "language": {
-      "enum": [
-        "eql",
-        "esql",
-        "kuery",
-        "lucene"
-      ],
-      "enumNames": [],
-      "type": "string"
-    },
     "license": {
       "type": "string"
+    },
+    "machine_learning_job_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ]
     },
     "max_signals": {
       "description": "MaxSignals",
@@ -165,61 +156,8 @@
       "pattern": "^[a-zA-Z0-9].+?[a-zA-Z0-9()]$",
       "type": "string"
     },
-    "new_terms": {
-      "additionalProperties": false,
-      "properties": {
-        "field": {
-          "description": "NonEmptyStr",
-          "minLength": 1,
-          "type": "string"
-        },
-        "history_window_start": {
-          "items": {
-            "additionalProperties": false,
-            "properties": {
-              "field": {
-                "description": "NonEmptyStr",
-                "minLength": 1,
-                "type": "string"
-              },
-              "value": {
-                "description": "NonEmptyStr",
-                "minLength": 1,
-                "type": "string"
-              }
-            },
-            "required": [
-              "field",
-              "value"
-            ],
-            "type": "object"
-          },
-          "type": "array"
-        },
-        "value": {
-          "description": "NewTermsFields",
-          "items": {
-            "description": "NonEmptyStr",
-            "minLength": 1,
-            "type": "string"
-          },
-          "maxItems": 3,
-          "minItems": 1,
-          "type": "array"
-        }
-      },
-      "required": [
-        "field",
-        "history_window_start",
-        "value"
-      ],
-      "type": "object"
-    },
     "note": {
       "description": "MarkdownField",
-      "type": "string"
-    },
-    "query": {
       "type": "string"
     },
     "references": {
@@ -325,7 +263,6 @@
       "type": "string"
     },
     "setup": {
-      "description": "MarkdownField",
       "min_compat": "8.3",
       "type": "string"
     },
@@ -508,18 +445,17 @@
     },
     "type": {
       "enum": [
-        "new_terms"
+        "machine_learning"
       ],
       "type": "string"
     }
   },
   "required": [
+    "anomaly_threshold",
     "author",
     "description",
-    "language",
+    "machine_learning_job_id",
     "name",
-    "new_terms",
-    "query",
     "risk_score",
     "rule_id",
     "severity",
