@@ -5,18 +5,21 @@
 
 """Validation logic for rules containing queries."""
 from functools import cached_property
-from typing import List, Optional, Union, Tuple
-from semver import Version
+from typing import List, Optional, Tuple, Union
 
 import eql
+from marshmallow import ValidationError
+from semver import Version
 
 import kql
 
 from . import ecs, endgame
-from .integrations import get_integration_schema_data, load_integrations_manifests
+from .integrations import (get_integration_schema_data,
+                           load_integrations_manifests)
 from .misc import load_current_package_version
+from .rule import (EQLRuleData, QueryRuleData, QueryValidator, RuleMeta,
+                   TOMLRuleContents, set_eql_config)
 from .schemas import get_stack_schemas
-from .rule import QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, EQLRuleData, set_eql_config
 
 EQL_ERROR_TYPES = Union[eql.EqlCompileError,
                         eql.EqlError,
@@ -351,7 +354,6 @@ class ESQLValidator(QueryValidator):
 
     @cached_property
     def ast(self):
-        """Return an AST."""
         return None
 
     @cached_property
@@ -364,6 +366,11 @@ class ESQLValidator(QueryValidator):
     def validate(self, data: 'QueryRuleData', meta: RuleMeta) -> None:
         """Validate an ESQL query while checking TOMLRule."""
         # temporarily override to NOP until ES|QL query parsing is supported
+
+    def validate_integration(self, data: QueryRuleData, meta: RuleMeta, package_integrations: List[dict]) -> Union[
+            ValidationError, None, ValueError]:
+        # return self.validate(data, meta)
+        pass
 
 
 def extract_error_field(exc: Union[eql.EqlParseError, kql.KqlParseError]) -> Optional[str]:
