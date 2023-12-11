@@ -47,20 +47,10 @@
             "type": "string"
           },
           "type": "array"
-        },
-        "missing_fields_strategy": {
-          "description": "AlertSuppressionMissing",
-          "enum": [
-            "suppress",
-            "doNotSuppress"
-          ],
-          "enumNames": [],
-          "type": "string"
         }
       },
       "required": [
-        "group_by",
-        "missing_fields_strategy"
+        "group_by"
       ],
       "type": "object"
     },
@@ -75,6 +65,12 @@
         "default"
       ],
       "type": "string"
+    },
+    "concurrent_searches": {
+      "description": "PositiveInteger",
+      "format": "integer",
+      "minimum": 1,
+      "type": "number"
     },
     "description": {
       "type": "string"
@@ -129,10 +125,14 @@
       "pattern": "^\\d+[mshd]$",
       "type": "string"
     },
+    "items_per_search": {
+      "description": "PositiveInteger",
+      "format": "integer",
+      "minimum": 1,
+      "type": "number"
+    },
     "language": {
       "enum": [
-        "eql",
-        "esql",
         "kuery",
         "lucene"
       ],
@@ -164,56 +164,6 @@
       "description": "RuleName",
       "pattern": "^[a-zA-Z0-9].+?[a-zA-Z0-9()]$",
       "type": "string"
-    },
-    "new_terms": {
-      "additionalProperties": false,
-      "properties": {
-        "field": {
-          "description": "NonEmptyStr",
-          "minLength": 1,
-          "type": "string"
-        },
-        "history_window_start": {
-          "items": {
-            "additionalProperties": false,
-            "properties": {
-              "field": {
-                "description": "NonEmptyStr",
-                "minLength": 1,
-                "type": "string"
-              },
-              "value": {
-                "description": "NonEmptyStr",
-                "minLength": 1,
-                "type": "string"
-              }
-            },
-            "required": [
-              "field",
-              "value"
-            ],
-            "type": "object"
-          },
-          "type": "array"
-        },
-        "value": {
-          "description": "NewTermsFields",
-          "items": {
-            "description": "NonEmptyStr",
-            "minLength": 1,
-            "type": "string"
-          },
-          "maxItems": 3,
-          "minItems": 1,
-          "type": "array"
-        }
-      },
-      "required": [
-        "field",
-        "history_window_start",
-        "value"
-      ],
-      "type": "object"
     },
     "note": {
       "description": "MarkdownField",
@@ -325,7 +275,6 @@
       "type": "string"
     },
     "setup": {
-      "description": "MarkdownField",
       "min_compat": "8.3",
       "type": "string"
     },
@@ -463,6 +412,83 @@
       },
       "type": "array"
     },
+    "threat_filters": {
+      "items": {
+        "additionalProperties": {
+          "type": [
+            "string",
+            "number",
+            "object",
+            "array",
+            "boolean"
+          ]
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "threat_index": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "threat_indicator_path": {
+      "type": "string"
+    },
+    "threat_language": {
+      "enum": [
+        "kuery",
+        "lucene"
+      ],
+      "enumNames": [],
+      "type": "string"
+    },
+    "threat_mapping": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "field": {
+                  "description": "NonEmptyStr",
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": {
+                  "enum": [
+                    "mapping"
+                  ],
+                  "type": "string"
+                },
+                "value": {
+                  "description": "NonEmptyStr",
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field",
+                "type",
+                "value"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "threat_query": {
+      "type": "string"
+    },
     "throttle": {
       "type": "string"
     },
@@ -508,7 +534,7 @@
     },
     "type": {
       "enum": [
-        "new_terms"
+        "threat_match"
       ],
       "type": "string"
     }
@@ -518,11 +544,12 @@
     "description",
     "language",
     "name",
-    "new_terms",
     "query",
     "risk_score",
     "rule_id",
     "severity",
+    "threat_index",
+    "threat_mapping",
     "type"
   ],
   "type": "object"
