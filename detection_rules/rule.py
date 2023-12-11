@@ -91,34 +91,30 @@ class RuleTransform(MarshmallowDataclassMixin):
         ecs_mapping: Optional[Dict[str, Dict[Literal['field', 'value'], str]]]
 
     @dataclass(frozen=True)
-    class Insight:
+    class Investigate:
         @dataclass(frozen=True)
         class Provider:
+            excluded: bool
             field: str
+            queryType: definitions.InvestigateProviderQueryType
             value: str
-            type: str
+            valueType: definitions.InvestigateProviderValueType
 
         label: str
+        description: Optional[str]
         providers: List[List[Provider]]
+        relativeFrom: Optional[str]
+        relativeTo: Optional[str]
 
     # these must be lists in order to have more than one. Their index in the list is how they will be referenced in the
     # note string templates
     osquery: Optional[List[OsQuery]]
-    insight: Optional[List[Insight]]
+    investigate: Optional[List[Investigate]]
 
-    @validates_schema
-    def validate_transforms(self, value: dict, **kwargs):
-        """Validate transform fields."""
-        # temporarily invalidate insights until schema stabilizes
-        insight = value.get('insight')
-        if insight is not None:
-            raise NotImplementedError('Insights are not stable yet.')
-        return
-
-    def render_insight_osquery_to_string(self) -> Dict[Literal['osquery', 'insight'], List[str]]:
+    def render_investigate_osquery_to_string(self) -> Dict[definitions.TransformTypes, List[str]]:
         obj = self.to_dict()
 
-        rendered: Dict[Literal['osquery', 'insight'], List[str]] = {'osquery': [], 'insight': []}
+        rendered: Dict[definitions.TransformTypes, List[str]] = {'osquery': [], 'investigate': []}
         for plugin, entries in obj.items():
             for entry in entries:
                 rendered[plugin].append(f'!{{{plugin}{json.dumps(entry, sort_keys=True, separators=(",", ":"))}}}')
@@ -343,12 +339,12 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         # only create functions that CAREFULLY mutate the obj dict
 
         def process_note_plugins():
-            """Format the note field with osquery and insight plugin strings."""
+            """Format the note field with osquery and investigate plugin strings."""
             note = obj.get('note')
             if not note:
                 return
 
-            rendered = transform.render_insight_osquery_to_string()
+            rendered = transform.render_investigate_osquery_to_string()
             rendered_patterns = {}
             for plugin, entries in rendered.items():
                 rendered_patterns.update(**{f'{plugin}_{i}': e for i, e in enumerate(entries)})
@@ -598,24 +594,9 @@ class QueryRuleData(BaseRuleData):
     @validates_schema
     def validates_query_data(self, data, **kwargs):
         """Custom validation for query rule type and subclasses."""
-
         # alert suppression is only valid for query rule type and not any of its subclasses
         if data.get('alert_suppression') and data['type'] != 'query':
             raise ValidationError("Alert suppression is only valid for query rule type.")
-
-
-@dataclass(frozen=True)
-class ESQLRuleData(QueryRuleData):
-    """ESQL rules are a special case of query rules."""
-    type: Literal["esql"]
-    language: Literal["esql"]
-    query: str
-
-    @validates_schema
-    def validate_esql_data(self, data, **kwargs):
-        """Custom validation for esql rule type."""
-        if data.get('index'):
-            raise ValidationError("Index is not valid for esql rule type.")
 
 
 @dataclass(frozen=True)
@@ -728,6 +709,20 @@ class EQLRuleData(QueryRuleData):
         if self.max_span:
             interval = convert_time_span(self.interval or '5m')
             return interval / self.max_span
+
+
+@dataclass(frozen=True)
+class ESQLRuleData(QueryRuleData):
+    """ESQL rules are a special case of query rules."""
+    type: Literal["esql"]
+    language: Literal["esql"]
+    query: str
+
+    @validates_schema
+    def validates_esql_data(self, data, **kwargs):
+        """Custom validation for query rule type and subclasses."""
+        if data.get('index'):
+            raise ValidationError("Index is not a valid field for ES|QL rule type.")
 
 
 @dataclass(frozen=True)
@@ -1100,12 +1095,11 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         packaged_integrations = []
         datasets = set()
 
-        if data.type != "esql":
-            for node in data.get('ast', []):
-                if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
-                    datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
-                elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
-                    datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
+        for node in data.get('ast') or []:
+            if isinstance(node, eql.ast.Comparison) and str(node.left) == 'event.dataset':
+                datasets.update(set(n.value for n in node if isinstance(n, eql.ast.Literal)))
+            elif isinstance(node, FieldComparison) and str(node.field) == 'event.dataset':
+                datasets.update(set(str(n) for n in node if isinstance(n, kql.ast.Value)))
 
         # integration is None to remove duplicate references upstream in Kibana
         # chronologically, event.dataset is checked for package:integration, then rule tags
@@ -1142,6 +1136,10 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         data.data_validator.validate_note()
         data.data_validator.validate_bbr(metadata.get('bypass_bbr_timing'))
         data.validate(metadata) if hasattr(data, 'validate') else False
+
+    @staticmethod
+    def validate_remote(remote_validator: 'RemoteValidator', contents: 'TOMLRuleContents'):
+        remote_validator.validate_rule(contents)
 
     def to_dict(self, strip_none_values=True) -> dict:
         # Load schemas directly from the data and metadata classes to avoid schema ambiguity which can
@@ -1351,3 +1349,4 @@ def get_unique_query_fields(rule: TOMLRule) -> List[str]:
 
 # avoid a circular import
 from .rule_validators import EQLValidator, ESQLValidator, KQLValidator  # noqa: E402
+from .remote_validation import RemoteValidator  # noqa: E402
