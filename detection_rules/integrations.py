@@ -153,7 +153,7 @@ def build_integrations_schemas(overwrite: bool, integration: str = None) -> None
                         final_integration_schemas[package][version][integration_name].update(flat_data)
 
                     # add machine learning jobs to the schema
-                    if integration in list(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)):
+                    if package in list(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)):
                         if glob.fnmatch.fnmatch(file, '*/ml_module/*ml.json'):
                             ml_module = json.loads(file_data_bytes)
                             job_ids = [job['id'] for job in ml_module['attributes']['jobs']]
