@@ -7,7 +7,7 @@
 import json
 import os
 import re
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import eql
 import requests
@@ -246,7 +246,8 @@ def get_schema_from_datasets(beats, modules, datasets, version=None):
     return filtered
 
 
-def get_schema_from_eql(tree: eql.ast.BaseNode, beats: list, version: str = None) -> dict:
+def get_datasets_and_modules(tree: Union[eql.ast.BaseNode, kql.ast.BaseNode]) -> tuple:
+    """Get datasets and modules from an EQL or KQL AST."""
     modules = set()
     datasets = set()
 
@@ -263,22 +264,23 @@ def get_schema_from_eql(tree: eql.ast.BaseNode, beats: list, version: str = None
                 modules.add(node.get_literals())
             elif node.expression == eql.ast.Field("event", ["dataset"]):
                 datasets.add(node.get_literals())
+        elif isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.module"):
+            modules.update(child.value for child in node.value if isinstance(child, kql.ast.String))
+        elif isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.dataset"):
+            datasets.update(child.value for child in node.value if isinstance(child, kql.ast.String))
 
+    return datasets, modules
+
+
+def get_schema_from_eql(tree: eql.ast.BaseNode, beats: list, version: str = None) -> dict:
+    """Get a schema based on datasets and modules in an EQL AST."""
+    datasets, modules = get_datasets_and_modules(tree)
     return get_schema_from_datasets(beats, modules, datasets, version=version)
 
 
 def get_schema_from_kql(tree: kql.ast.BaseNode, beats: list, version: str = None) -> dict:
-    modules = set()
-    datasets = set()
-
-    # extract out event.module and event.dataset from the query's AST
-    for node in tree:
-        if isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.module"):
-            modules.update(child.value for child in node.value if isinstance(child, kql.ast.String))
-
-        if isinstance(node, kql.ast.FieldComparison) and node.field == kql.ast.Field("event.dataset"):
-            datasets.update(child.value for child in node.value if isinstance(child, kql.ast.String))
-
+    """Get a schema based on datasets and modules in an KQL AST."""
+    datasets, modules = get_datasets_and_modules(tree)
     return get_schema_from_datasets(beats, modules, datasets, version=version)
 
 
