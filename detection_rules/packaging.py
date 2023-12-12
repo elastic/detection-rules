@@ -14,6 +14,7 @@ import textwrap
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Optional, Tuple
+from semver import Version
 
 import click
 import yaml
@@ -276,8 +277,9 @@ class Package(object):
             r = r.contents
             rule_str = f'{r.name:<{longest_name}} (v:{r.autobumped_version} t:{r.data.type}'
             if isinstance(rule.contents.data, QueryRuleData):
+                index = rule.contents.data.get("index") or []
                 rule_str += f'-{r.data.language}'
-                rule_str += f'(indexes:{"".join(index_map[idx] for idx in rule.contents.data.index) or "none"}'
+                rule_str += f'(indexes:{"".join(index_map[idx] for idx in index) or "none"}'
 
             return rule_str
 
@@ -377,9 +379,15 @@ class Package(object):
 
     def _generate_registry_package(self, save_dir):
         """Generate the artifact for the oob package-storage."""
-        from .schemas.registry_package import RegistryPackageManifest
+        from .schemas.registry_package import (RegistryPackageManifestV1,
+                                               RegistryPackageManifestV3)
 
-        manifest = RegistryPackageManifest.from_dict(self.registry_data)
+        # 8.12.0+ we use elastic package v3
+        stack_version = Version.parse(self.name, optional_minor_and_patch=True)
+        if stack_version >= Version.parse('8.12.0'):
+            manifest = RegistryPackageManifestV3.from_dict(self.registry_data)
+        else:
+            manifest = RegistryPackageManifestV1.from_dict(self.registry_data)
 
         package_dir = Path(save_dir) / 'fleet' / manifest.version
         docs_dir = package_dir / 'docs'
