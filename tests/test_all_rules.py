@@ -641,7 +641,7 @@ class TestRuleMetadata(BaseRuleTest):
                     integration_string = "|".join(indices)
                     if not re.search(rule_integration, integration_string):
                         if rule_integration == "windows" and re.search("winlog", integration_string) or \
-                                any(ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)] \
+                                any(ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
                                     for ri in rule_integrations):
                             continue
                         err_msg = f'{self.rule_str(rule)} {rule_integration} tag, index pattern missing.'
