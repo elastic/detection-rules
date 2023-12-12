@@ -17,7 +17,6 @@ metadata = RtaMetadata(
 
 @common.requires_os(*metadata.platforms)
 def main():
-
     masquerade = "/tmp/bash"
     if common.CURRENT_OS in ["linux", "macos"]:
         if common.CURRENT_OS == "linux":
@@ -33,7 +32,6 @@ def main():
         # cleanup
         common.remove_file(masquerade)
     else:
-
         cmd = "C:\\Windows\\System32\\cmd.exe"
 
         # Execute command
