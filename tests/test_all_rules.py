@@ -606,7 +606,6 @@ class TestRuleMetadata(BaseRuleTest):
         """Test integration rules defined by metadata tag."""
         failures = []
         non_dataset_packages = definitions.NON_DATASET_PACKAGES + ["winlog"]
-        analytic_packages = [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
 
         packages_manifest = load_integrations_manifests()
         valid_integration_folders = [p.name for p in list(Path(INTEGRATION_RULE_DIR).glob("*")) if p.name != 'endpoint']
