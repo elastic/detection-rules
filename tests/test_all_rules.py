@@ -606,6 +606,7 @@ class TestRuleMetadata(BaseRuleTest):
         """Test integration rules defined by metadata tag."""
         failures = []
         non_dataset_packages = definitions.NON_DATASET_PACKAGES + ["winlog"]
+        analytic_packages = [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
 
         packages_manifest = load_integrations_manifests()
         valid_integration_folders = [p.name for p in list(Path(INTEGRATION_RULE_DIR).glob("*")) if p.name != 'endpoint']
@@ -641,7 +642,8 @@ class TestRuleMetadata(BaseRuleTest):
                     integration_string = "|".join(indices)
                     if not re.search(rule_integration, integration_string):
                         if rule_integration == "windows" and re.search("winlog", integration_string) or \
-                                rule_integration in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]:
+                                any(ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)] \
+                                    for ri in rule_integrations):
                             continue
                         err_msg = f'{self.rule_str(rule)} {rule_integration} tag, index pattern missing.'
                         failures.append(err_msg)
