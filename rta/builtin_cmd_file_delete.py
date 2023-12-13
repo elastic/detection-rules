@@ -24,13 +24,13 @@ metadata = RtaMetadata(
 
 @common.requires_os(*metadata.platforms)
 def main():
-
     masquerade = "/tmp/xargs"
     masquerade2 = "/tmp/rm"
     # used only for linux at 2 places to enumerate xargs as parent process.
     working_dir = "/tmp/fake_folder/xargs"
     if common.CURRENT_OS == "linux":
-        source = common.get_path("bin", "linux.ditto_and_spawn")
+        # Using the Linux binary that simulates parent-> child process in Linux
+        source = common.get_path("bin", "linux_ditto_and_spawn_parent_child")
         common.copy_file(source, masquerade)
         common.copy_file(source, masquerade2)
         # As opposed to macos, where the masquerade is being projected as parent process,

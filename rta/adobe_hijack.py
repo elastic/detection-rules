@@ -8,10 +8,11 @@
 # ATT&CK: T1044
 # Description: Replaces PE file that will run on Adobe Reader start.
 
-import os
 from pathlib import Path
 
-from . import RtaMetadata, common
+from . import common
+from . import RtaMetadata
+
 
 metadata = RtaMetadata(
     uuid="2df08481-31db-44a8-b01d-1c0df827bddb",
