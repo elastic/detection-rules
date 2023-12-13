@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2023/09/22"
-integration = ["beaconing"]
+integration = ["beaconing", "endpoint", "network_traffic"]
 maturity = "production"
 min_stack_comments = "Beaconing package updates and support"
 min_stack_version = "8.10.1"
-updated_date = "2023/10/26"
+updated_date = "2023/12/12"
 
 [rule]
 author = ["Elastic"]
@@ -18,20 +18,33 @@ index = ["ml_beaconing.all"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Statistical Model Detected C2 Beaconing Activity with High Confidence"
-note = """## Setup
+setup = """
+The rule requires the Network Beaconing Identification integration assets to be installed, as well as network logs collected by the Elastic Defend or Network Packet Capture integrations.   
 
-The Beaconing integration must be enabled and related ML jobs configured for this rule to be effective. Please refer to this rule's references for more information.
+### Network Beaconing Identification Setup
+The Network Beaconing Identification integration consists of a statistical framework to identify C2 beaconing activity in network logs.
+
+#### Prerequisite Requirements:
+- Fleet is required for Network Beaconing Identification.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Network events collected by the [Elastic Defend](https://docs.elastic.co/en/integrations/endpoint) or [Network Packet Capture](https://docs.elastic.co/integrations/network_traffic) integration.
+- To install Elastic Defend, refer to the [documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+- To add the Network Packet Capture integration to an Elastic Agent policy, refer to [this](https://www.elastic.co/guide/en/fleet/current/add-integration-to-policy.html) guide.
+
+#### The following steps should be executed to install assets associated with the Network Beaconing Identification integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Network Beaconing Identification and select the integration to see more details about it.
+- Under Settings, click "Install Network Beaconing Identification assets" and follow the prompts to install the assets.
 """
 references = [
     "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
     "https://docs.elastic.co/en/integrations/beaconing",
-    "https://www.elastic.co/security-labs/identifying-beaconing-malware-using-elastic"
+    "https://www.elastic.co/security-labs/identifying-beaconing-malware-using-elastic",
 ]
 risk_score = 21
 rule_id = "0ab319ef-92b8-4c7f-989b-5de93c852e93"
 severity = "low"
 tags = ["Domain: Network", "Use Case: C2 Beaconing Detection", "Tactic: Command and Control"]
-timestamp_override = "event.ingested"
 type = "query"
 
 query = '''

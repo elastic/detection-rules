@@ -641,7 +641,8 @@ class TestRuleMetadata(BaseRuleTest):
                     integration_string = "|".join(indices)
                     if not re.search(rule_integration, integration_string):
                         if rule_integration == "windows" and re.search("winlog", integration_string) or \
-                                rule_integration in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]:
+                                any(ri in [*map(str.lower, definitions.MACHINE_LEARNING_PACKAGES)]
+                                    for ri in rule_integrations):
                             continue
                         err_msg = f'{self.rule_str(rule)} {rule_integration} tag, index pattern missing.'
                         failures.append(err_msg)
@@ -990,6 +991,13 @@ class TestRuleTiming(BaseRuleTest):
         for rule in self.all_rules:
             if rule.contents.data.type not in ('eql', 'query'):
                 continue
+            if rule.contents.metadata.get('integration'):
+                integrations = rule.contents.metadata.get('integration')
+                if not isinstance(integrations, list):
+                    integrations = [integrations]
+                machine_learning_packages_lower = [pkg.lower() for pkg in definitions.MACHINE_LEARNING_PACKAGES]
+                if any(tag in machine_learning_packages_lower for tag in integrations):
+                    continue
             if isinstance(rule.contents.data, QueryRuleData) and 'endgame-*' in rule.contents.data.index:
                 continue
 
