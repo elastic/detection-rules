@@ -18,7 +18,6 @@ metadata = RtaMetadata(
 
 @common.requires_os(*metadata.platforms)
 def main():
-
     masquerade = "/tmp/bash"
     if common.CURRENT_OS == "linux":
         source = common.get_path("bin", "linux.ditto_and_spawn")
