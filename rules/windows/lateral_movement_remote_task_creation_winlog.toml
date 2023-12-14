@@ -4,19 +4,18 @@ integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/12/14"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a remote logon followed by a scheduled task creation on the target host. This could be indicative of
-adversary lateral movement.
+Identifies scheduled task creation from a remote source. This could be indicative of adversary lateral movement.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-system.*", "logs-windows.*"]
+index = ["winlogbeat-*", "logs-system.security*", "logs-windows.forwarded*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Remote Logon followed by Scheduled Task Creation"
+name = "Remote Scheduled Task Creation via RPC"
 note = """## Triage and analysis
 
 ### Investigating Remote Scheduled Task Creation
@@ -51,17 +50,10 @@ rule_id = "9c865691-5599-447a-bac9-b3f2df5f9a9d"
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Lateral Movement"]
 type = "eql"
+timestamp_override = "event.ingested"
 
 query = '''
-/* Network Logon followed by Scheduled Task creation  */
-
-sequence by winlog.computer_name with maxspan=1m
-  [authentication where event.action == "logged-in" and
-   winlog.logon.type == "Network" and event.outcome == "success" and
-   not user.name == "ANONYMOUS LOGON" and not winlog.event_data.SubjectUserName : "*$" and
-   not user.domain == "NT AUTHORITY" and source.ip != "127.0.0.1" and source.ip !="::1"] by winlog.event_data.TargetLogonId
-
-  [iam where event.action == "scheduled-task-created"] by winlog.event_data.SubjectLogonId
+iam where event.action == "scheduled-task-created" and winlog.event_data.RpcCallClientLocality : "0"
 '''
 
 
