@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/12/13"
 
 [rule]
 author = ["Elastic"]
@@ -24,11 +24,9 @@ tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic
 type = "eql"
 
 query = '''
-sequence by process.entity_id with maxspan = 5m
-  [process where host.os.type == "windows" and event.type == "start" and
-    not (process.name : "sdbinst.exe" and process.parent.name : "msiexec.exe")]
-  [registry where host.os.type == "windows" and event.type in ("creation", "change") and
-    registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb"]
+registry where host.os.type == "windows" and event.type in ("creation", "change") and
+    registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb" and
+    not (process.name : "sdbinst.exe" and process.parent.name : "msiexec.exe")
 '''
 
 
