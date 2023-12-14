@@ -21,12 +21,18 @@ risk_score = 47
 rule_id = "c5ce48a6-7f57-4ee8-9313-3d0024caee10"
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 registry where host.os.type == "windows" and event.type in ("creation", "change") and
-    registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb" and
-    not (process.name : "sdbinst.exe" and process.parent.name : "msiexec.exe")
+    registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb" and 
+    not process.executable : 
+                       ("?:\\Program Files (x86)\\DesktopCentral_Agent\\swrepository\\1\\swuploads\\SAP-SLC\\SAPSetupSLC02_14-80001954\\Setup\\NwSapSetup.exe", 
+                        "?:\\$WINDOWS.~BT\\Sources\\SetupPlatform.exe", 
+                         "?:\\Program Files (x86)\\SAP\\SAPsetup\\setup\\NwSapSetup.exe", 
+                         "?:\\Program Files (x86)\\SAP\\SapSetup\\OnRebootSvc\\NWSAPSetupOnRebootInstSvc.exe", 
+                         "?:\\Program Files (x86)\\Kaspersky Lab\\Kaspersky Security for Windows Server\\kavfs.exe")
 '''
 
 
