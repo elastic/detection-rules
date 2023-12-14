@@ -159,7 +159,8 @@ class RuleCollection(BaseCollection):
     __default = None
     __default_bbr = None
 
-    def __init__(self, rules: Optional[List[TOMLRule]] = None):
+    def __init__(self, rules: Optional[List[TOMLRule]] = None, max_workers: int = 50):
+        from concurrent.futures import ThreadPoolExecutor
         from .version_lock import VersionLock
 
         self.id_map: Dict[definitions.UUIDString, TOMLRule] = {}
@@ -173,8 +174,8 @@ class RuleCollection(BaseCollection):
         self._toml_load_cache: Dict[Path, dict] = {}
         self._version_lock: Optional[VersionLock] = None
 
-        for rule in (rules or []):
-            self.add_rule(rule)
+        with ThreadPoolExecutor(max_workers) as executor:
+            executor.map(self.add_rule, rules or [])
 
     def __contains__(self, rule: TOMLRule):
         """Check if a rule is in the map by comparing IDs."""
