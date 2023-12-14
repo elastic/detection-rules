@@ -6,6 +6,7 @@
 """Load rule metadata transform between rule and api formats."""
 import io
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from subprocess import CalledProcessError
@@ -160,7 +161,6 @@ class RuleCollection(BaseCollection):
     __default_bbr = None
 
     def __init__(self, rules: Optional[List[TOMLRule]] = None, max_workers: int = 50):
-        from concurrent.futures import ThreadPoolExecutor
         from .version_lock import VersionLock
 
         self.id_map: Dict[definitions.UUIDString, TOMLRule] = {}
@@ -323,10 +323,10 @@ class RuleCollection(BaseCollection):
                 self.errors[path] = e
                 continue
 
-    def load_files(self, paths: Iterable[Path]):
+    def load_files(self, paths: Iterable[Path], max_workers: int = 50):
         """Load multiple files into the collection."""
-        for path in paths:
-            self.load_file(path)
+        with ThreadPoolExecutor(max_workers) as executor:
+            executor.map(self.load_file, paths)
 
     def load_directory(self, directory: Path, recursive=True, toml_filter: Optional[Callable[[dict], bool]] = None):
         paths = self._get_paths(directory, recursive=recursive)
