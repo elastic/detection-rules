@@ -160,7 +160,7 @@ class RuleCollection(BaseCollection):
     __default = None
     __default_bbr = None
 
-    def __init__(self, rules: Optional[List[TOMLRule]] = None, max_workers: int = 50):
+    def __init__(self, rules: Optional[List[TOMLRule]] = None, max_workers: int = 10):
         from .version_lock import VersionLock
 
         self.id_map: Dict[definitions.UUIDString, TOMLRule] = {}
@@ -323,7 +323,7 @@ class RuleCollection(BaseCollection):
                 self.errors[path] = e
                 continue
 
-    def load_files(self, paths: Iterable[Path], max_workers: int = 50):
+    def load_files(self, paths: Iterable[Path], max_workers: int = 1):
         """Load multiple files into the collection."""
         with ThreadPoolExecutor(max_workers) as executor:
             executor.map(self.load_file, paths)
