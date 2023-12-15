@@ -34,11 +34,20 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type:windows and event.category:process and event.type:start and (
-  (process.name.caseless:"reg.exe" and process.args:"query") or 
-  (process.name.caseless:("powershell.exe" or "powershell_ise.exe" or "pwsh.exe") and 
-   process.command_line.caseless:((*get-childItem* or *get-item* or *get-itemproperty*) and
-   (*hkcu* or *hkey_current_user* or *hkey_local_machine* or *hklm* or *registry\:\:*))))
+host.os.type:windows and event.category:process and event.type:start and
+  (
+    (process.name.caseless:"reg.exe" and process.args:"query") or
+    (process.name.caseless:("powershell.exe" or "powershell_ise.exe" or "pwsh.exe") and
+     process.args:(
+       ("get-childitem" or "Get-ChildItem" or "gci" or "dir" or "ls" or
+        "get-item" or "Get-Item" or "gi" or
+        "get-itemproperty" or "Get-ItemProperty" or "gp") and
+       ("hkcu" or "HKCU" or "hkey_current_user" or "HKEY_CURRENT_USER" or
+        "hkey_local_machine" or "HKEY_LOCAL_MACHINE" or
+        "hklm" or "HKLM" or registry\:\:*)
+      )
+    )
+  )
 '''
 
 [[rule.threat]]
