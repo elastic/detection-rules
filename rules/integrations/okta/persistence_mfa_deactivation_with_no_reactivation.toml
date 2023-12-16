@@ -9,8 +9,9 @@ updated_date = "2023/12/16"
 [rule]
 author = ["Elastic"]
 description = """
-Detects multi-factor authentication (MFA) deactivation with no subsequent re-activation for an Okta user account. An adversary may deactivate MFA for
-an Okta user account in order to weaken the authentication requirements for the account.
+Detects multi-factor authentication (MFA) deactivation with no subsequent re-activation for an Okta user account. An
+adversary may deactivate MFA for an Okta user account in order to weaken the authentication requirements for the
+account.
 """
 false_positives = [
     """
@@ -24,9 +25,6 @@ interval = "6h"
 language = "eql"
 license = "Elastic License v2"
 name = "MFA Deactivation with no Re-Activation for Okta User Account"
-setup = """
-The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
-"""
 note = """## Triage and analysis
 
 ### Investigating MFA Deactivation with no Re-Activation for Okta User Account
@@ -57,7 +55,6 @@ This rule fires when an Okta user account has MFA deactivated and no subsequent 
 - Encourage users to use complex, unique passwords and consider implementing multi-factor authentication.
 - Check if the compromised account was used to access or alter any sensitive data, applications or systems.
 """
-
 references = [
     "https://developer.okta.com/docs/reference/api/system-log/",
     "https://developer.okta.com/docs/reference/api/event-types/",
@@ -65,6 +62,7 @@ references = [
 ]
 risk_score = 21
 rule_id = "cd89602e-9db0-48e3-9391-ae3bf241acd8"
+setup = "The Okta Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.\n"
 severity = "low"
 tags = ["Tactic: Persistence", "Use Case: Identity and Access Audit", "Data Source: Okta", "Domain: Cloud"]
 type = "eql"
@@ -72,7 +70,7 @@ type = "eql"
 query = '''
 sequence by okta.actor.id with maxspan=12h
     [any where event.dataset == "okta.system" and okta.event_type == "user.mfa.factor.deactivate"
-        and okta.outcome.result == "SUCCESS"]
+        and okta.outcome.result == "SUCCESS" and not okta.client.user_agent.raw_user_agent like "SFDC-Callout*"]
     ![any where event.dataset == "okta.system" and okta.event_type == "user.mfa.factor.activate"]
 '''
 
@@ -89,7 +87,9 @@ name = "Multi-Factor Authentication"
 reference = "https://attack.mitre.org/techniques/T1556/006/"
 
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
