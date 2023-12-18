@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "New Integration: Cloud Defend"
 min_stack_version = "8.8.0"
-updated_date = "2023/10/26"
+updated_date = "2023/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,7 @@ index = ["logs-cloud_defend*"]
 interval = "5m"
 language = "eql"
 license = "Elastic License v2"
-name = "File System Debugger �debugfs� Launched Inside a Privileged Container"
+name = "File System Debugger Launched Inside a Privileged Container"
 references = [
     "https://cyberark.wistia.com/medias/ygbzkzx93q?wvideo=ygbzkzx93q",
     "https://book.hacktricks.xyz/linux-hardening/privilege-escalation/docker-security/docker-breakout-privilege-escalation#privileged",
@@ -41,6 +41,7 @@ type = "eql"
 query = '''
 process where event.module == "cloud_defend" and     
   event.type== "start" and process.name== "debugfs" and 
+  process.args : "/dev/sd*" and not process.args == "-R" and
   container.security_context.privileged == true
 '''
 
