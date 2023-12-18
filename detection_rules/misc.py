@@ -11,7 +11,7 @@ import uuid
 from pathlib import Path
 
 from functools import wraps
-from typing import NoReturn
+from typing import NoReturn, Optional
 
 import click
 import requests
@@ -270,12 +270,16 @@ def load_current_package_version() -> str:
     return load_etc_dump('packages.yml')['package']['name']
 
 
+def get_default_config() -> Optional[Path]:
+    return next(Path(get_path()).glob('.detection-rules-cfg.*'), None)
+
+
 @cached
 def parse_config():
     """Parse a default config file."""
     import eql
 
-    config_file = next(Path(get_path()).glob('.detection-rules-cfg.*'), None)
+    config_file = get_default_config()
     config = {}
 
     if config_file and config_file.exists():
