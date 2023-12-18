@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/12/13"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ Identifies the installation of custom Application Compatibility Shim databases. 
 abused by attackers to stealthily gain persistence and arbitrary code execution in legitimate Windows processes.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.*", "winlogbeat-*", "logs-windows.*"]
+index = ["logs-endpoint.events.registry*", "winlogbeat-*", "logs-windows.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Installation of Custom Shim Databases"
@@ -21,14 +21,18 @@ risk_score = 47
 rule_id = "c5ce48a6-7f57-4ee8-9313-3d0024caee10"
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Persistence", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by process.entity_id with maxspan = 5m
-  [process where host.os.type == "windows" and event.type == "start" and
-    not (process.name : "sdbinst.exe" and process.parent.name : "msiexec.exe")]
-  [registry where host.os.type == "windows" and event.type in ("creation", "change") and
-    registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb"]
+registry where host.os.type == "windows" and event.type in ("creation", "change") and
+    registry.path : "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Custom\\*.sdb" and 
+    not process.executable : 
+                       ("?:\\Program Files (x86)\\DesktopCentral_Agent\\swrepository\\1\\swuploads\\SAP-SLC\\SAPSetupSLC02_14-80001954\\Setup\\NwSapSetup.exe", 
+                        "?:\\$WINDOWS.~BT\\Sources\\SetupPlatform.exe", 
+                         "?:\\Program Files (x86)\\SAP\\SAPsetup\\setup\\NwSapSetup.exe", 
+                         "?:\\Program Files (x86)\\SAP\\SapSetup\\OnRebootSvc\\NWSAPSetupOnRebootInstSvc.exe", 
+                         "?:\\Program Files (x86)\\Kaspersky Lab\\Kaspersky Security for Windows Server\\kavfs.exe")
 '''
 
 

@@ -1,5 +1,5 @@
 [metadata]
-creation_date = "2023/07/04"
+creation_date = "2023/11/02"
 integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
@@ -9,42 +9,44 @@ updated_date = "2023/11/02"
 [rule]
 author = ["Elastic"]
 description = """
-This detection rule identifies the execution of a Linux shell process from a Java JAR application post an incoming
-network connection. This behavior may indicate reverse shell activity via a Java application.
+This detection rule identifies suspicious network traffic patterns associated with TCP reverse shell activity. This
+activity consists of a network event that is followed by the creation of a shell process with suspicious command line
+arguments. An attacker may establish a Linux TCP reverse shell to gain remote access to a target system.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Potential Reverse Shell via Java"
+name = "Potential Reverse Shell via Child"
 references = [
     "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md"
 ]
 risk_score = 47
-rule_id = "5a3d5447-31c9-409a-aed1-72f9921594fd"
+rule_id = "2138bb70-5a5e-42fd-be5e-b38edf6a6777"
 setup = """
 
 This rule requires data coming in from Elastic Defend.
 
 ### Elastic Defend Integration Setup
-Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows
+the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
 
 #### Prerequisite Requirements:
 - Fleet is required for Elastic Defend.
 - To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
 
 #### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
-- Go to the Kibana home page and click "Add integrations".
-- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
-- Click "Add Elastic Defend".
+- Go to the Kibana home page and click Add integrations.
+- In the query bar, search for Elastic Defend and select the integration to see more details about it.
+- Click Add Elastic Defend.
 - Configure the integration name and optionally add a description.
-- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select the type of environment you want to protect, either Traditional Endpoints or Cloud Workloads.
 - Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
-- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
-- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+- We suggest to select "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in New agent policy name. If other agent policies already exist, you can click the Existing hosts tab and select an existing policy instead.
 For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
-- Click "Save and Continue".
-- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+- Click Save and Continue.
+- To complete the integration, select Add Elastic Agent to your hosts and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 
 """
@@ -58,20 +60,14 @@ tags = [
         ]
 type = "eql"
 query = '''
-sequence by host.id with maxspan=5s
-  [network where host.os.type == "linux" and event.action in ("connection_accepted", "connection_attempted") and 
-   process.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") and
-   destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1"
-  ] by process.entity_id
-  [process where host.os.type == "linux" and event.action == "exec" and process.parent.executable : (
-    "/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*"
-  ) and process.parent.args : "-jar" and process.name in (
-    "bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish"
-  ) and not process.args : (
-    "-xe", "/tmp/jenkins*.sh", "*/var/lib/jenkins/workspace/*", "vmstat*", "asterisk*", "mpstat*", "/usr/bin/ps*", "umask", "*yum*", "uptime -s",
-    "df -h . | awk '{print $2}'", "free | awk \"/Mem:/\" | awk '{print $2}'"
-  )
-  ] by process.parent.entity_id
+sequence by host.id, process.entity_id with maxspan=5s
+  [network where event.type == "start" and event.action in ("connection_attempted", "connection_accepted") and 
+   process.name : ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "socat") and destination.ip != null and 
+   not cidrmatch(destination.ip, "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "::1")]
+  [process where event.type == "start" and event.action == "exec" and 
+   process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and (
+     (process.args : ("-i", "-l")) or (process.parent.name == "socat" and process.parent.args : "*exec*")
+   )]
 '''
 
 [[rule.threat]]
