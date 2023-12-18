@@ -28,6 +28,7 @@ VERSION_PATTERN = f'^{_version}$'
 MINOR_SEMVER = r'^\d+\.\d+$'
 BRANCH_PATTERN = f'{VERSION_PATTERN}|^master$'
 ELASTICSEARCH_EQL_FEATURES = {
+    "allow_negation": (Version.parse('8.9.0'), None),
     "allow_runs": (Version.parse('7.16.0'), None),
     "allow_sample": (Version.parse('8.6.0'), None),
     "elasticsearch_validate_optional_fields": (Version.parse('7.16.0'), None)
@@ -43,7 +44,6 @@ TACTIC_URL = r'^https://attack.mitre.org/tactics/TA[0-9]+/$'
 TECHNIQUE_URL = r'^https://attack.mitre.org/techniques/T[0-9]+/$'
 SUBTECHNIQUE_URL = r'^https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/$'
 MACHINE_LEARNING = 'machine_learning'
-SAVED_QUERY = 'saved_query'
 QUERY = 'query'
 QUERY_FIELD_OP_EXCEPTIONS = ["powershell.file.script_block_text"]
 
@@ -123,6 +123,7 @@ EXPECTED_RULE_TAGS = [
     'Use Case: Log Auditing',
     'Use Case: Network Security Monitoring',
     'Use Case: Threat Detection',
+    'Use Case: UEBA',
     'Use Case: Vulnerability'
 ]
 
@@ -137,8 +138,10 @@ CardinalityFields = NewType('CardinalityFields', List[NonEmptyStr], validate=val
 CodeString = NewType("CodeString", str)
 ConditionSemVer = NewType('ConditionSemVer', str, validate=validate.Regexp(CONDITION_VERSION_PATTERN))
 Date = NewType('Date', str, validate=validate.Regexp(DATE_PATTERN))
-FilterLanguages = Literal["kuery", "lucene"]
+FilterLanguages = Literal["eql", "esql", "kuery", "lucene"]
 Interval = NewType('Interval', str, validate=validate.Regexp(INTERVAL_PATTERN))
+InvestigateProviderQueryType = Literal["phrase", "range"]
+InvestigateProviderValueType = Literal["string", "boolean"]
 Markdown = NewType("MarkdownField", CodeString)
 Maturity = Literal['development', 'experimental', 'beta', 'production', 'deprecated']
 MaxSignals = NewType("MaxSignals", int, validate=validate.Range(min=1))
@@ -148,7 +151,7 @@ OSType = Literal['windows', 'linux', 'macos']
 PositiveInteger = NewType('PositiveInteger', int, validate=validate.Range(min=1))
 RiskScore = NewType("MaxSignals", int, validate=validate.Range(min=1, max=100))
 RuleName = NewType('RuleName', str, validate=validate.Regexp(NAME_PATTERN))
-RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'threshold', 'threat_match', 'new_terms']
+RuleType = Literal['query', 'saved_query', 'machine_learning', 'eql', 'esql', 'threshold', 'threat_match', 'new_terms']
 SemVer = NewType('SemVer', str, validate=validate.Regexp(VERSION_PATTERN))
 SemVerMinorOnly = NewType('SemVerFullStrict', str, validate=validate.Regexp(MINOR_SEMVER))
 Severity = Literal['low', 'medium', 'high', 'critical']
@@ -159,6 +162,7 @@ TechniqueURL = NewType('TechniqueURL', str, validate=validate.Regexp(TECHNIQUE_U
 ThresholdValue = NewType("ThresholdValue", int, validate=validate.Range(min=1))
 TimelineTemplateId = NewType('TimelineTemplateId', str, validate=validate.OneOf(list(TIMELINE_TEMPLATES)))
 TimelineTemplateTitle = NewType('TimelineTemplateTitle', str, validate=validate.OneOf(TIMELINE_TEMPLATES.values()))
+TransformTypes = Literal["osquery", "investigate"]
 UUIDString = NewType('UUIDString', str, validate=validate.Regexp(UUID_PATTERN))
 BuildingBlockType = Literal['default']
 

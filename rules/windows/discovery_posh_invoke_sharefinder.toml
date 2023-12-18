@@ -4,7 +4,7 @@ integration = ["windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/13"
+updated_date = "2023/10/23"
 
 [rule]
 author = ["Elastic"]
@@ -50,7 +50,15 @@ Attackers can use PowerShell to enumerate shares to search for sensitive data li
 - Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 
-## Setup
+"""
+references = [
+    "https://www.advintel.io/post/hunting-for-corporate-insurance-policies-indicators-of-ransom-exfiltrations",
+    "https://thedfirreport.com/2022/04/04/stolen-images-campaign-ends-in-conti-ransomware/",
+    "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0109_windows_powershell_script_block_log.md",
+]
+risk_score = 47
+rule_id = "4c59cff1-b78a-41b8-a9f1-4231984d1fb6"
+setup="""
 
 The 'PowerShell Script Block Logging' logging policy must be configured (Enable).
 
@@ -69,13 +77,6 @@ Steps to implement the logging policy via registry:
 reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
 ```
 """
-references = [
-    "https://www.advintel.io/post/hunting-for-corporate-insurance-policies-indicators-of-ransom-exfiltrations",
-    "https://thedfirreport.com/2022/04/04/stolen-images-campaign-ends-in-conti-ransomware/",
-    "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0109_windows_powershell_script_block_log.md",
-]
-risk_score = 47
-rule_id = "4c59cff1-b78a-41b8-a9f1-4231984d1fb6"
 severity = "medium"
 tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic: Discovery", "Tactic: Collection", "Tactic: Execution", "Resources: Investigation Guide", "Data Source: PowerShell Logs"]
 timestamp_override = "event.ingested"
