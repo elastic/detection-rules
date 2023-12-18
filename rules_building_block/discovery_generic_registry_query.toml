@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/09/21"
+updated_date = "2023/12/13"
 bypass_bbr_timing = true
 
 [rule]
@@ -14,8 +14,9 @@ description = """
 This rule identifies the execution of commands that can be used to query the Windows Registry. Adversaries may query the
 registry to gain situational awareness about the host, like installed security software, programs and settings.
 """
-from = "now-9m"
-index = ["logs-endpoint.events.*"]
+from = "now-24h"
+index = ["logs-endpoint.events.process*"]
+interval = "24h"
 language = "kuery"
 license = "Elastic License v2"
 name = "Query Registry using Built-in Tools"
@@ -33,11 +34,20 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type:windows and event.category:process and event.type:start and (
-  (process.name.caseless:"reg.exe" and process.args:"query") or 
-  (process.name.caseless:("powershell.exe" or "powershell_ise.exe" or "pwsh.exe") and 
-   process.command_line.caseless:((*Get-ChildItem* or *Get-Item* or *Get-ItemProperty*) and 
-   (*HKCU* or *HKEY_CURRENT_USER* or *HKEY_LOCAL_MACHINE* or *HKLM* or *Registry\:\:*))))
+host.os.type:windows and event.category:process and event.type:start and
+  (
+    (process.name.caseless:"reg.exe" and process.args:"query") or
+    (process.name.caseless:("powershell.exe" or "powershell_ise.exe" or "pwsh.exe") and
+     process.args:(
+       ("get-childitem" or "Get-ChildItem" or "gci" or "dir" or "ls" or
+        "get-item" or "Get-Item" or "gi" or
+        "get-itemproperty" or "Get-ItemProperty" or "gp") and
+       ("hkcu" or "HKCU" or "hkey_current_user" or "HKEY_CURRENT_USER" or
+        "hkey_local_machine" or "HKEY_LOCAL_MACHINE" or
+        "hklm" or "HKLM" or registry\:\:*)
+      )
+    )
+  )
 '''
 
 [[rule.threat]]
@@ -59,4 +69,4 @@ value = ["host.id", "user.id"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-7d"
