@@ -46,7 +46,7 @@ note = """## Triage and analysis
 
 ### Investigating Ingress Transfer via Windows BITS
 
-Windows Background Intelligent Transfer Service (BITS) is a technology that allows the transfer of files between a client and a server, which make it a dual-use mechanism, being used by both legitimate apps and attackers. When malicious applications create BITS jobs, files are downloaded or uploaded in the context of the service host process, which can bypass security protections, and it helps to obscure which application requested the transfer.
+Windows Background Intelligent Transfer Service (BITS) is a technology that allows the transfer of files between a client and a server, which makes it a dual-use mechanism, being used by both legitimate apps and attackers. When malicious applications create BITS jobs, files are downloaded or uploaded in the context of the service host process, which can bypass security protections, and it helps to obscure which application requested the transfer.
 
 This rule identifies such abuse by monitoring for file renaming events involving "svchost.exe" and "BIT*.tmp" on Windows systems.
 
@@ -58,7 +58,7 @@ This rule identifies such abuse by monitoring for file renaming events involving
 - Gain context into the BITS transfer.
   - Try to determine the process that initiated the BITS transfer.
     - Search `bitsadmin.exe` processes and examine their command lines.
-    - Look for unusual processes loading `Bitsproxy.dll` and other BITS-related DLLs
+    - Look for unusual processes loading `Bitsproxy.dll` and other BITS-related DLLs.
   - Try to determine the origin of the file.
     - Inspect network connections initiated by `svchost.exe`.
     - Inspect `Microsoft-Windows-Bits-Client/Operational` Windows logs, specifically the event ID 59, for unusual events.
@@ -73,7 +73,7 @@ This rule identifies such abuse by monitoring for file renaming events involving
   - Analyze the involved executables using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
-      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
+      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process's `process.entity_id`.
       - Examine the DNS cache for suspicious or anomalous entries.
         - $osquery_0
     - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
