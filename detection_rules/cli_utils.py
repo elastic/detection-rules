@@ -49,9 +49,8 @@ def single_collection(f):
         rules.load_directories(Path(d) for d in directories)
 
         if rule_id:
-            rules.load_directory(DEFAULT_RULES_DIR, toml_filter=dict_filter(rule__rule_id=rule_id)) or \
-                rules.load_directory(DEFAULT_BBR_DIR, toml_filter=dict_filter(rule__rule_id=rule_id))
-
+            rules.load_directories((DEFAULT_RULES_DIR, DEFAULT_BBR_DIR),
+                                   toml_filter=dict_filter(rule__rule_id=rule_id))
             if len(rules) != 1:
                 client_error(f"Could not find rule with ID {rule_id}")
 
@@ -84,8 +83,8 @@ def multi_collection(f):
         rules.load_directories(Path(d) for d in directories)
 
         if rule_id:
-            rules.load_directory(DEFAULT_RULES_DIR, toml_filter=dict_filter(rule__rule_id=rule_id)) or \
-                rules.load_directory(DEFAULT_BBR_DIR, toml_filter=dict_filter(rule__rule_id=rule_id))
+            rules.load_directories((DEFAULT_RULES_DIR, DEFAULT_BBR_DIR),
+                                   toml_filter=dict_filter(rule__rule_id=rule_id))
             found_ids = {rule.id for rule in rules}
             missing = set(rule_id).difference(found_ids)
 
