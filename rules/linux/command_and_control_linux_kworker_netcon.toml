@@ -58,10 +58,9 @@ tags = [
         ]
 timestamp_override = "event.ingested"
 type = "new_terms"
-
 query = '''
 host.os.type:linux and event.category:network and event.action:(connection_attempted or connection_accepted) and 
-process.name:kworker* and not destination.ip:(192.168* or 172* or 10* or 127* or 169.254*)
+process.name:kworker* and not destination.ip:(192.168.* or 172.* or 10.* or 127.* or 169.254.*)
 '''
 
 [[rule.threat]]
@@ -105,7 +104,7 @@ framework = "MITRE ATT&CK"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["destination.ip", "process.name", "host.id"]
+value = ["host.id", "process.name", "destination.ip"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
