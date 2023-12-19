@@ -4,7 +4,7 @@ integration = ["auditd_manager"]
 maturity = "production"
 min_stack_comments = "Multiple field support in the New Terms rule type was added in Elastic 8.6"
 min_stack_version = "8.6.0"
-updated_date = "2023/10/19"
+updated_date = "2023/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -56,7 +56,8 @@ type = "new_terms"
 building_block_type = "default"
 query = '''
 host.os.type:linux and event.category:file and event.action:("opened-file" or "read-file" or "wrote-to-file") and
-file.path : ("/etc/sysctl.conf" or "/etc/sysctl.d" or /etc/sysctl.d/*)
+file.path : ("/etc/sysctl.conf" or "/etc/sysctl.d" or /etc/sysctl.d/*) and
+not process.name:(dpkg or dockerd or unattended-upg)
 '''
 
 [[rule.threat]]
