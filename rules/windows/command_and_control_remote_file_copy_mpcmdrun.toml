@@ -2,7 +2,7 @@
 creation_date = "2020/09/03"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2023/10/23"
+updated_date = "2023/12/07"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
 
@@ -31,6 +31,37 @@ services.path FROM services JOIN authenticode ON services.path = authenticode.pa
 authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
 """
 
+[[transform.investigate]]
+label = "Alerts associated with the user in the last 48h"
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+providers = [
+    [
+        {field = "event.kind", excluded = false, queryType = "phrase", value = "signal", valueType = "string"},
+        {field = "user.id", excluded = false, queryType = "phrase", value = "{{user.id}}", valueType = "string"}
+    ]
+]
+
+[[transform.investigate]]
+label = "Alerts associated with the host in the last 48h"
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+providers = [
+    [
+        {field = "event.kind", excluded = false, queryType = "phrase", value = "signal", valueType = "string"},
+        {field = "host.name", excluded = false, queryType = "phrase", value = "{{host.name}}", valueType = "string"}
+    ]
+]
+
+[[transform.investigate]]
+label = "Investigate the Subject Process Network Events"
+providers = [
+    [
+        {field = "process.entity_id", excluded = false, queryType = "phrase", value = "{{process.entity_id}}", valueType = "string"},
+        {field = "event.category", excluded = false, queryType = "phrase", value = "network", valueType = "string"}
+    ]
+]
+
 
 [rule]
 author = ["Elastic"]
@@ -50,6 +81,7 @@ The `MpCmdRun.exe` is a command-line tool part of Windows Defender and is used t
 
 > **Note**:
 > This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/master/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
+> This investigation guide uses the [Investigate Markdown Plugin](https://www.elastic.co/guide/en/security/master/interactive-investigation-guides.html) introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
 
 #### Possible investigation steps
 
@@ -57,12 +89,15 @@ The `MpCmdRun.exe` is a command-line tool part of Windows Defender and is used t
 - Identify the user account that performed the action and whether it should perform this kind of action.
 - Contact the account owner and confirm whether they are aware of this activity.
 - Investigate other alerts associated with the user/host during the past 48 hours.
+  - $investigate_0
+  - $investigate_1
 - Check the reputation of the domain or IP address used to host the downloaded file.
 - Examine the host for derived artifacts that indicate suspicious activities:
   - Analyze the file using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
       - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
+        - $investigate_2
       - Examine the DNS cache for suspicious or anomalous entries.
         - $osquery_0
     - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.

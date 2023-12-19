@@ -4,7 +4,8 @@ integration = ["windows", "endpoint"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/11/03"
+updated_date = "2023/12/19"
+
 
 [rule]
 author = ["Elastic"]
@@ -26,21 +27,22 @@ Group Policy is a Windows feature that allows administrators to manage and confi
 
 The detection rule 'Group Policy Discovery via Microsoft GPResult Utility' is designed to identify the usage of gpresult.exe with specific arguments ("/z", "/v", "/r", "/x") that are commonly used by adversaries during the reconnaissance phase to perform group policy discovery.
 
-### Possible investigation steps
+#### Possible investigation steps
 
 - Review the alert details to understand the context of the gpresult.exe usage, such as the user account, system, and time of execution.
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Identify the user account that performed the action and whether it should perform this kind of action.
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
 - Investigate other alerts associated with the user/host during the past 48 hours.
 - Investigate any abnormal account behavior, such as command executions, file creations or modifications, and network connections.
+- Inspect the host for suspicious or abnormal behavior in the alert timeframe.
+- Validate the activity is not related to planned patches, updates, network administrator activity, or legitimate software installations.
+- Investigate any abnormal behavior by the parent process, such as network connections, registry or file modifications, and any other spawned child processes.
 
 ### False positive analysis
 
-- This rule may generate false positives when legitimate administrators or automated scripts use gpresult.exe with the specified arguments ("/z", "/v", "/r", "/x") for routine management and troubleshooting tasks in the Active Directory environment.
-- If this activity is expected or noisy in your environment, consider adding exceptions - preferably with a combination of known benign parent processes and users.
-- Discovery activities are not inherently malicious if they occur in isolation and are done within the user's business context (e.g., an administrator in this context). As long as the analyst did not identify suspicious activity related to the user or host, such alerts can be dismissed.
+- Discovery activities are not inherently malicious if they occur in isolation. As long as the analyst did not identify suspicious activity related to the user or host, such alerts can be dismissed.
 
-### Response and Remediation
+### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
 - Isolate the involved hosts to prevent further post-compromise behavior.

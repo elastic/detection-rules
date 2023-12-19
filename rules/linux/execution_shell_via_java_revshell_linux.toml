@@ -49,7 +49,13 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 
 """
 severity = "medium"
-tags = ["Domain: Endpoint", "OS: Linux", "Use Case: Threat Detection", "Tactic: Execution", "Data Source: Elastic Defend"]
+tags = [
+        "Domain: Endpoint",
+        "OS: Linux",
+        "Use Case: Threat Detection",
+        "Tactic: Execution",
+        "Data Source: Elastic Defend"
+        ]
 type = "eql"
 query = '''
 sequence by host.id with maxspan=5s
@@ -57,9 +63,14 @@ sequence by host.id with maxspan=5s
    process.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") and
    destination.ip != null and destination.ip != "127.0.0.1" and destination.ip != "::1"
   ] by process.entity_id
-  [process where host.os.type == "linux" and event.action == "exec" and 
-   process.parent.executable : ("/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*") and
-   process.parent.args : "-jar" and process.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")
+  [process where host.os.type == "linux" and event.action == "exec" and process.parent.executable : (
+    "/usr/bin/java", "/bin/java", "/usr/lib/jvm/*", "/usr/java/*"
+  ) and process.parent.args : "-jar" and process.name in (
+    "bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish"
+  ) and not process.args : (
+    "-xe", "/tmp/jenkins*.sh", "*/var/lib/jenkins/workspace/*", "vmstat*", "asterisk*", "mpstat*", "/usr/bin/ps*", "umask", "*yum*", "uptime -s",
+    "df -h . | awk '{print $2}'", "free | awk \"/Mem:/\" | awk '{print $2}'"
+  )
   ] by process.parent.entity_id
 '''
 
