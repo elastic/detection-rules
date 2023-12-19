@@ -1,10 +1,10 @@
 [metadata]
 creation_date = "2023/10/12"
-integration = ["lmd"]
+integration = ["lmd", "endpoint"]
 maturity = "production"
 min_stack_comments = "LMD package job ID and rule removal updates"
 min_stack_version = "8.9.0"
-updated_date = "2023/10/12"
+updated_date = "2023/12/12"
 
 [rule]
 anomaly_threshold = 70
@@ -19,13 +19,36 @@ interval = "15m"
 license = "Elastic License v2"
 machine_learning_job_id = "lmd_high_mean_rdp_process_args"
 name = "High Mean of Process Arguments in an RDP Session"
-note = """## Setup
+setup = """
+The rule requires the Lateral Movement Detection integration assets to be installed, as well as file and Windows RDP process events collected by the Elastic Defend integration.  
 
-The Lateral Movement Detection integration must be enabled and related ML jobs configured for this rule to be effective. Please refer to this rule's references for more information.
+### Lateral Movement Detection Setup
+The Lateral Movement Detection integration detects lateral movement activity by identifying abnormalities in file and Windows RDP events. Anomalies are detected using Elastic's Anomaly Detection feature.
+
+#### Prerequisite Requirements:
+- Fleet is required for Lateral Movement Detection.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Windows RDP process events collected by the [Elastic Defend](https://docs.elastic.co/en/integrations/endpoint) integration.
+- To install Elastic Defend, refer to the [documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+#### The following steps should be executed to install assets associated with the Lateral Movement Detection integration:
+- Go to the Kibana homepage. Under Management, click Integrations.
+- In the query bar, search for Lateral Movement Detection and select the integration to see more details about it.
+- Under Settings, click Install Lateral Movement Detection assets and follow the prompts to install the assets.
+
+#### Anomaly Detection Setup
+Before you can enable rules for Lateral Movement Detection, you'll need to enable the corresponding Anomaly Detection jobs.
+- Before enabling the Anomaly Detection jobs, confirm that the Pivot Transform asset is installed and actively gathering data in the destination index `ml-rdp-lmd`.
+- Go to the Kibana homepage. Under Analytics, click Machine Learning.
+- Under Anomaly Detection, click Jobs, and then click "Create job". Select the Data View containing your transformed RDP process data i.e.`ml-rdp-lmd`.
+- If the selected Data View contains events that match the query in [this](https://github.com/elastic/integrations/blob/main/packages/lmd/kibana/ml_module/lmd-ml.json) configuration file, you will see a card for Lateral Movement Detection under "Use preconfigured jobs".
+- Keep the default settings and click "Create jobs" to start the anomaly detection jobs and datafeeds.
 """
 references = [
     "https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html",
     "https://docs.elastic.co/en/integrations/lmd",
+    "https://www.elastic.co/blog/detecting-lateral-movement-activity-a-new-kibana-integration",
+    "https://www.elastic.co/blog/remote-desktop-protocol-connections-elastic-security",
 ]
 risk_score = 21
 rule_id = "36c48a0c-c63a-4cbc-aee1-8cac87db31a9"
