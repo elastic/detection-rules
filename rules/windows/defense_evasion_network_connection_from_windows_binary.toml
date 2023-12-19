@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/10/09"
+updated_date = "2023/12/11"
 
 [transform]
 [[transform.osquery]]
@@ -140,15 +140,21 @@ sequence by process.entity_id with maxspan=5m
       process.name : "iexpress.exe" or
       process.name : "installutil.exe" or
       process.name : "Microsoft.Workflow.Compiler.exe" or
-      process.name : "MSBuild.exe" or
+      (
+        process.name : "msbuild.exe" and
+          destination.ip != "127.0.0.1"
+      ) or
       process.name : "msdt.exe" or
       process.name : "mshta.exe" or
       (
-         process.name : "msiexec.exe" and not
-         dns.question.name : (
-            "ocsp.digicert.com", "ocsp.verisign.com", "ocsp.comodoca.com", "ocsp.entrust.net", "ocsp.usertrust.com",
-            "ocsp.godaddy.com", "ocsp.camerfirma.com", "ocsp.globalsign.com", "ocsp.sectigo.com", "*.local"
-         )
+        process.name : "msiexec.exe" and not
+        dns.question.name : (
+           "ocsp.digicert.com", "ocsp.verisign.com", "ocsp.comodoca.com", "ocsp.entrust.net", "ocsp.usertrust.com",
+           "ocsp.godaddy.com", "ocsp.camerfirma.com", "ocsp.globalsign.com", "ocsp.sectigo.com", "*.local"
+        ) and
+        /* Localhost, DigiCert and Comodo CA IP addresses */
+        not cidrmatch(destination.ip, "127.0.0.1", "192.229.211.108/32", "192.229.221.95/32",
+                      "152.195.38.76/32", "104.18.14.101/32")
       ) or
       process.name : "msxsl.exe" or
       process.name : "odbcconf.exe" or

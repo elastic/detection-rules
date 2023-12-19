@@ -4,7 +4,7 @@ integration = ["endpoint", "windows"]
 maturity = "production"
 min_stack_comments = "New fields added: required_fields, related_integrations, setup"
 min_stack_version = "8.3.0"
-updated_date = "2023/06/22"
+updated_date = "2023/12/13"
 
 [transform]
 [[transform.osquery]]
@@ -101,13 +101,17 @@ tags = ["Domain: Endpoint", "OS: Windows", "Use Case: Threat Detection", "Tactic
 type = "eql"
 
 query = '''
-sequence by process.entity_id
-  [process where host.os.type == "windows" and event.type == "start" and process.pid != 4 and
-   not (process.executable : "D:\\EnterpriseCare\\tools\\jre.1\\bin\\java.exe" and process.args : "com.emeraldcube.prism.launcher.Invoker") and
-   not (process.executable : "C:\\Docusnap 11\\Tools\\nmap\\nmap.exe" and process.args : "smb-os-discovery.nse") and
+sequence by process.entity_id with maxspan=2m
+  [process where host.os.type == "windows" and event.type == "start" and process.pid != 4 and 
+   not user.id : ("S-1-5-19", "S-1-5-20") and 
+   not (process.code_signature.trusted == true and not process.code_signature.subject_name : ("Microsoft*", "Famatech Corp.", "Insecure.Com LLC")) and 
+   not (process.name : "powershell.exe" and process.args : "?:\\ProgramData\\Microsoft\\Windows Defender Advanced Threat Protection\\Downloads\\PSScript_*.ps1") and 
+   not (process.executable : "?:\\EnterpriseCare\\tools\\*\\bin\\java.exe" and process.args : "com.*.launcher.Invoker") and
+   not (process.executable : "?:\\Docusnap*\\Tools\\*\\nmap.exe" and process.args : "smb-os-discovery.nse") and
    not process.executable :
-              ("?:\\Program Files\\SentinelOne\\Sentinel Agent *\\Ranger\\SentinelRanger.exe",
-               "?:\\Program Files\\Ivanti\\Security Controls\\ST.EngineHost.exe",
+              ("?:\\Program Files\\*.exe",
+               "?:\\Program Files (x86)\\*.exe", 
+               "?:\\Windows\\ProPatches\\Installation\\InstallationSandbox*\\stdeploy.exe",
                "?:\\Program Files (x86)\\Fortinet\\FSAE\\collectoragent.exe",
                "?:\\Program Files (x86)\\Nmap\\nmap.exe",
                "?:\\Program Files\\Azure Advanced Threat Protection Sensor\\*\\Microsoft.Tri.Sensor.exe",
@@ -117,6 +121,7 @@ sequence by process.entity_id
                "?:\\Program Files\\Rumble\\rumble-agent-*.exe")]
   [network where host.os.type == "windows" and destination.port == 445 and process.pid != 4 and
      not cidrmatch(destination.ip, "127.0.0.1", "::1")]
+until [process where host.os.type == "windows" and event.type == "end"]
 '''
 
 
