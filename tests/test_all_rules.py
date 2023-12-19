@@ -632,7 +632,8 @@ class TestRuleMetadata(BaseRuleTest):
 
                     # checks if the rule path matches the intended integration
                     # excludes BBR rules
-                    if rule_integration in valid_integration_folders:
+                    if rule_integration in valid_integration_folders and \
+                            not hasattr(rule.contents.data, 'building_block_type'):
                         if rule.path.parent.name not in rule_integrations and rule.path.parent.name != "bbr":
                             err_msg = f'{self.rule_str(rule)} {rule_integration} tag, path is {rule.path.parent.name}'
                             failures.append(err_msg)
