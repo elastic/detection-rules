@@ -39,6 +39,7 @@ Using the environment variable `DR_BYPASS_NOTE_VALIDATION_AND_PARSE` will bypass
 Using the environment variable `DR_BYPASS_BBR_LOOKBACK_VALIDATION` will bypass the Detection Rules lookback and interval validation
 on the building block rules.
 
+Using the environment variable `DR_BYPASS_TAGS_VALIDATION` will bypass the Detection Rules Unit Tests on the `tags` field in toml files.
 
 ## Importing rules into the repo
 
@@ -63,7 +64,7 @@ Usage: detection_rules create-rule [OPTIONS] PATH
 Options:
   -c, --config FILE               Rule or config file
   --required-only                 Only prompt for required fields
-  -t, --rule-type [machine_learning|saved_query|query|threshold]
+  -t, --rule-type [machine_learning|query|threshold]
                                   Type of rule to create
   -h, --help                      Show this message and exit.
 ```
@@ -324,7 +325,7 @@ Precedence goes to the flag over the config file, so if debug is enabled in your
 
 ## Using `transform` in rule toml
 
-A transform is any data that will be incorporated into _existing_ rule fields at build time, from within the 
+A transform is any data that will be incorporated into _existing_ rule fields at build time, from within the
 `TOMLRuleContents.to_dict` method. _How_ to process each transform should be defined within the `Transform` class as a
 method specific to the transform type.
 

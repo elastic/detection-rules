@@ -3,9 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-from . import common
-from . import RtaMetadata
-import os
+from pathlib import Path
+
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="3c40b5fd-afd0-4794-8af3-f7af249edf84",
@@ -17,10 +17,10 @@ metadata = RtaMetadata(
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     path = "C:\\Users\\Public\\AppData\\Roaming\\Microsoft\\Outlook"
-    os.makedirs(path, exist_ok=True)
+    Path(path).mkdir(parents=True, exist_ok=True)
     file = path + "\\VbaProject.OTM"
     common.copy_file(EXE_FILE, file)
 

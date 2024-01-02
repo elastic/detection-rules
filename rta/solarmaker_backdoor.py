@@ -18,7 +18,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     reg = "C:\\Windows\\System32\\reg.exe"
 

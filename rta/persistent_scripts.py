@@ -9,10 +9,9 @@
 
 import os
 import time
+from pathlib import Path
 
-from . import common
-from . import RtaMetadata
-
+from . import RtaMetadata, common
 
 metadata = RtaMetadata(
     uuid="2ab62c28-1abb-4ac5-a16d-2f4f75d01d02",
@@ -27,7 +26,7 @@ VBS = common.get_path("bin", "persistent_script.vbs")
 NAME = "rta-vbs-persistence"
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 @common.dependencies(common.PS_EXEC, VBS)
 def main():
     common.log("Persistent Scripts")
@@ -38,7 +37,7 @@ def main():
 
     # Remove any existing profiles
     user_profile = os.environ["USERPROFILE"]
-    log_file = os.path.join(user_profile, NAME + ".log")
+    log_file = Path(user_profile) / NAME / ".log"
 
     # Remove log file if exists
     common.remove_file(log_file)

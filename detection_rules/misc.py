@@ -11,7 +11,7 @@ import uuid
 from pathlib import Path
 
 from functools import wraps
-from typing import NoReturn
+from typing import NoReturn, Optional
 
 import click
 import requests
@@ -115,7 +115,7 @@ def nest_from_dot(dots, value):
     return nested
 
 
-def schema_prompt(name, value=None, required=False, **options):
+def schema_prompt(name, value=None, is_required=False, **options):
     """Interactively prompt based on schema requirements."""
     name = str(name)
     field_type = options.get('type')
@@ -136,7 +136,7 @@ def schema_prompt(name, value=None, required=False, **options):
     if name == 'rule_id':
         default = str(uuid.uuid4())
 
-    if len(enum) == 1 and required and field_type != "array":
+    if len(enum) == 1 and is_required and field_type != "array":
         return enum[0]
 
     def _check_type(_val):
@@ -168,7 +168,7 @@ def schema_prompt(name, value=None, required=False, **options):
     prompt = '{name}{default}{required}{multi}'.format(
         name=name,
         default=' [{}] ("n/a" to leave blank) '.format(default) if default else '',
-        required=' (required) ' if required else '',
+        required=' (required) ' if is_required else '',
         multi=' (multi, comma separated) ' if field_type == 'array' else '').strip() + ': '
 
     while True:
@@ -177,7 +177,7 @@ def schema_prompt(name, value=None, required=False, **options):
             result = None
 
         if not result:
-            if required:
+            if is_required:
                 value = None
                 continue
             else:
@@ -187,7 +187,7 @@ def schema_prompt(name, value=None, required=False, **options):
             result_list = result.split(',')
 
             if not (min_item < len(result_list) < max_items):
-                if required:
+                if is_required:
                     value = None
                     break
                 else:
@@ -195,19 +195,19 @@ def schema_prompt(name, value=None, required=False, **options):
 
             for value in result_list:
                 if not _check_type(value):
-                    if required:
+                    if is_required:
                         value = None
                         break
                     else:
                         return []
-            if required and value is None:
+            if is_required and value is None:
                 continue
             else:
                 return [_convert_type(r) for r in result_list]
         else:
             if _check_type(result):
                 return _convert_type(result)
-            elif required:
+            elif is_required:
                 value = None
                 continue
             return
@@ -270,12 +270,16 @@ def load_current_package_version() -> str:
     return load_etc_dump('packages.yml')['package']['name']
 
 
+def get_default_config() -> Optional[Path]:
+    return next(Path(get_path()).glob('.detection-rules-cfg.*'), None)
+
+
 @cached
 def parse_config():
     """Parse a default config file."""
     import eql
 
-    config_file = next(Path(get_path()).glob('.detection-rules-cfg.*'), None)
+    config_file = get_default_config()
     config = {}
 
     if config_file and config_file.exists():

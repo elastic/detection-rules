@@ -22,7 +22,7 @@ RENAMER = common.get_path("bin", "rcedit-x64.exe")
 EXE_FILE = common.get_path("bin", "renamed_posh.exe")
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     dll = "C:\\Users\\Public\\sqlite3.dll"
     posh = "C:\\Users\\Public\\posh.exe"

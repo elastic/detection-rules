@@ -10,7 +10,7 @@ import eql.ast
 from eql import Walker, EqlCompileError, utils
 from eql.functions import CidrMatch
 from .errors import KqlRuntimeError, KqlCompileError
-
+from .parser import is_ipaddress
 
 class FilterGenerator(Walker):
     __cidr_cache = {}
@@ -20,8 +20,9 @@ class FilterGenerator(Walker):
 
     @classmethod
     def equals(cls, term, value):
+        """Check if a term is equal to a value."""
         if utils.is_string(term) and utils.is_string(value):
-            if CidrMatch.ip_compiled.match(term) and CidrMatch.cidr_compiled.match(value):
+            if is_ipaddress(term) and eql.utils.is_cidr_pattern(value):
                 # check for an ipv4 cidr
                 if value not in cls.__cidr_cache:
                     cls.__cidr_cache[value] = CidrMatch.get_callback(None, eql.ast.String(value))

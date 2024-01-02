@@ -23,7 +23,7 @@ metadata = RtaMetadata(
 )
 
 
-@common.requires_os(metadata.platforms)
+@common.requires_os(*metadata.platforms)
 def main():
     warning = "Deleting the backup catalog may have unexpected consequences. Operational issues are unknown."
     common.log("WARNING: %s" % warning, log_type="!")
